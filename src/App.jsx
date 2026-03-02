@@ -37,9 +37,6 @@ const T = {
 // ─── STATIC SEED DATA (used as fallback until API loads) ─────────────────────
 const SEED_LEADS = []; // populated from DB on load
 const SEED_CLIENTS = [
-  {id:1, company:"Nova Tech",      contact:"Liam Park",      email:"liam@novatech.io",     industry:"Commercial", location:"Sydney",    revenue:22000, since:"2024-06"},
-  {id:2, company:"Pulse Fitness",  contact:"Ben Carter",     email:"ben@pulsefitness.com", industry:"Sports",     location:"Sydney",    revenue:9400,  since:"2025-01"},
-  {id:3, company:"Meridian Group", contact:"Clara Jennings", email:"clara@meridian.com",   industry:"Finance",    location:"Melbourne", revenue:31000, since:"2023-11"},
 ];
 const SEED_PROJECTS = [
   {id:1, client:"Columbia / IMA", name:"Ramadan Activation 2026", revenue:196507, cost:160000, status:"Active",    year:2026},
@@ -455,6 +452,8 @@ export default function OnnaDashboard() {
   const [outreachLoading,setOutreachLoading]             = useState(false);
   const [leadMsg,setLeadMsg]                             = useState("");
   const [leadAiLoading,setLeadAiLoading]                 = useState(false);
+  const [clientMsg,setClientMsg]                         = useState("");
+  const [clientAiLoading,setClientAiLoading]             = useState(false);
   const [outreachCatFilter,setOutreachCatFilter]         = useState("All");
   const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
@@ -630,6 +629,38 @@ export default function OnnaDashboard() {
       setLeadMsg("");
     } catch {}
     setLeadAiLoading(false);
+  };
+
+  // Promote a lead/outreach entry to a client record when status → "client"
+  const promoteToClient = async (entity) => {
+    const company = (entity.company||"").trim();
+    if (!company) return;
+    if (localClients.some(c=>(c.company||"").toLowerCase()===company.toLowerCase())) return;
+    const newClient = {
+      company,
+      name: entity.contact||entity.clientName||"",
+      email: entity.email||"",
+      phone: entity.phone||"",
+      country: entity.location||"",
+      notes: entity.notes||"",
+    };
+    const saved = await api.post("/api/clients", newClient);
+    if (saved.id) setLocalClients(prev=>[...prev,saved]);
+  };
+
+  const processClientAI = async () => {
+    if (!clientMsg.trim()) return;
+    setClientAiLoading(true);
+    try {
+      const sys = `Extract client info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","name":"","email":"","phone":"","country":"","notes":""}. country = location like "Dubai, UAE".`;
+      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:clientMsg}]});
+      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
+      const entries = Array.isArray(parsed)?parsed:[parsed];
+      const saved = await Promise.all(entries.map(e=>api.post("/api/clients",e)));
+      saved.filter(e=>e.id).forEach(e=>setLocalClients(prev=>[...prev,e]));
+      setClientMsg("");
+    } catch {}
+    setClientAiLoading(false);
   };
 
   const processProjectAI = async p => {
@@ -1411,7 +1442,7 @@ export default function OnnaDashboard() {
                             <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role||""}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${l.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{l.email}</a></td>
                             <TD muted>{l.category}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];if(l._fromOutreach){await api.put(`/api/outreach/${l.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}else{await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}}}/></td>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];if(l._fromOutreach){await api.put(`/api/outreach/${l.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}else{await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}if(next==="client")promoteToClient(l);}}/></td>
                             <TD muted>{formatDate(l.date)}</TD>
                           </tr>
                         ))}
@@ -1424,23 +1455,38 @@ export default function OnnaDashboard() {
 
               {leadsView==="clients"&&(
                 <div>
-                  <div style={{marginBottom:20}}><SearchBar value={getSearch("Clients")} onChange={v=>setSearch("Clients",v)} placeholder="Search clients…"/></div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
-                    {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>(
-                      <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
-                          <div>
-                            <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em"}}>{c.company}</div>
-                            <div style={{fontSize:12,color:T.muted,marginTop:2}}>{c.industry} · {c.location}</div>
-                          </div>
-                          <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#edfaf3",color:"#147d50",fontWeight:500}}>Active</span>
-                        </div>
-                        <div style={{fontSize:30,fontWeight:700,color:T.text,letterSpacing:"-0.03em",marginBottom:3}}>AED ${c.revenue.toLocaleString()}</div>
-                        <div style={{fontSize:12,color:T.muted,marginBottom:12}}>Total revenue · since {c.since}</div>
-                        <div style={{fontSize:12,color:T.sub}}>{c.contact} · {c.email}</div>
-                      </div>
-                    ))}
+                  <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Client via AI</div>
+                    <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <textarea value={clientMsg} onChange={e=>setClientMsg(e.target.value)} rows={2} placeholder={`e.g. "Nike - Sarah Johnson | Brand Director sarah@nike.com +971501234567, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
+                      <BtnPrimary onClick={processClientAI} disabled={clientAiLoading||!clientMsg.trim()}>{clientAiLoading?"Adding…":"Add"}</BtnPrimary>
+                    </div>
                   </div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+                    <SearchBar value={getSearch("Clients")} onChange={v=>setSearch("Clients",v)} placeholder="Search clients…"/>
+                    <span style={{fontSize:12,color:T.muted}}>{localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length} clients</span>
+                  </div>
+                  {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length===0
+                    ? <div style={{borderRadius:16,padding:44,textAlign:"center",background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:13}}>No clients yet. Leads marked as "Client" will appear here automatically.</div>
+                    : <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+                        {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>(
+                          <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                              <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
+                              <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0,marginLeft:8}}>Client</span>
+                            </div>
+                            {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:4,fontWeight:500}}>{c.name}</div>}
+                            {c.country&&<div style={{fontSize:12,color:T.muted,marginBottom:10}}>{c.country}</div>}
+                            <div style={{borderTop:`1px solid ${T.borderSub}`,paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
+                              {c.email&&<a href={`mailto:${c.email}`} style={{fontSize:12,color:T.link,textDecoration:"none"}}>{c.email}</a>}
+                              {c.phone&&<div style={{fontSize:12,color:T.muted}}>{c.phone}</div>}
+                              {c.notes&&<div style={{fontSize:11.5,color:T.muted,marginTop:4,fontStyle:"italic"}}>{c.notes}</div>}
+                            </div>
+                            {c.created_at&&<div style={{fontSize:11,color:T.muted,marginTop:10}}>Added {formatDate(c.created_at)}</div>}
+                          </div>
+                        ))}
+                      </div>
+                  }
                 </div>
               )}
 
@@ -1480,7 +1526,7 @@ export default function OnnaDashboard() {
                             <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${o.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{o.email}</a></td>
                             <TD muted>{o.category}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));}}/></td>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));if(next==="client")promoteToClient({...o,contact:o.clientName});}}/></td>
                             <TD muted>{formatDate(o.date)}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><button onClick={async()=>{archiveItem('outreach',o);await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
                           </tr>
@@ -1665,7 +1711,7 @@ export default function OnnaDashboard() {
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-                  <OutreachBadge status={selectedLead.status} onClick={()=>setSelectedLead(p=>({...p,status:OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(p.status)+1)%OUTREACH_STATUSES.length]}))}/>
+                  <OutreachBadge status={selectedLead.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedLead.status)+1)%OUTREACH_STATUSES.length];setSelectedLead(p=>({...p,status:next}));if(next==="client")promoteToClient(selectedLead);}}/>
                   <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
                 </div>
               </div>
@@ -1705,6 +1751,7 @@ export default function OnnaDashboard() {
                   await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
                   setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
                   setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
+                  if(selectedLead.status==="client") promoteToClient(selectedLead);
                   setSelectedLead(null);
                 }}>Save Changes</BtnPrimary>
               </div>
@@ -1747,7 +1794,7 @@ export default function OnnaDashboard() {
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-                  <OutreachBadge status={selectedOutreach.status} onClick={()=>setSelectedOutreach(p=>({...p,status:OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(p.status)+1)%OUTREACH_STATUSES.length]}))}/>
+                  <OutreachBadge status={selectedOutreach.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedOutreach.status)+1)%OUTREACH_STATUSES.length];setSelectedOutreach(p=>({...p,status:next}));if(next==="client")promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});}}/>
                   <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
                 </div>
               </div>
@@ -1776,6 +1823,7 @@ export default function OnnaDashboard() {
                   const {id,...fields}=selectedOutreach;
                   await api.put(`/api/outreach/${id}`,{...fields,value:Number(fields.value)||0});
                   setOutreach(prev=>prev.map(x=>x.id===id?{...selectedOutreach,value:Number(fields.value)||0}:x));
+                  if(selectedOutreach.status==="client") promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});
                   setSelectedOutreach(null);
                 }}>Save Changes</BtnPrimary>
               </div>
