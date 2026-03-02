@@ -265,17 +265,27 @@ const OutreachBadge = ({status,onClick}) => {
   return <span onClick={onClick} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:s.bg,color:s.c,fontSize:11,fontWeight:500,cursor:onClick?"pointer":"default"}}><span style={{width:5,height:5,borderRadius:"50%",background:s.c,flexShrink:0}}/>{s.label}</span>;
 };
 
+const _parseDate = (str) => {
+  if (!str) return null;
+  // Strip ordinal suffixes: "2nd February" → "2 February 2026"
+  const clean = str.replace(/(\d+)(st|nd|rd|th)\b/i, "$1");
+  // If no year present, append 2026
+  const withYear = /\d{4}/.test(clean) ? clean : `${clean} 2026`;
+  const d = new Date(withYear);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 const formatDate = (str) => {
   if (!str) return "";
-  const d = new Date(str);
-  if (isNaN(d.getTime())) return str;
+  const d = _parseDate(str);
+  if (!d) return str;
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getFullYear()).slice(2)}`;
 };
 
 const getMonthLabel = (str) => {
   if (!str) return "";
-  const d = new Date(str);
-  if (isNaN(d.getTime())) return "";
+  const d = _parseDate(str);
+  if (!d) return "";
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 };
 
@@ -541,11 +551,16 @@ export default function OnnaDashboard() {
   const projMargin    = projRev>0?Math.round((projProfit/projRev)*100):0;
 
   const allLeadsMerged = localLeads.map(l=>leadStatusOverrides[l.id]?{...l,status:leadStatusOverrides[l.id]}:l);
-  const leadMonths = ["All",...Array.from(new Set(allLeadsMerged.map(l=>getMonthLabel(l.date)).filter(Boolean)))];
+  // Merge outreach into leads, deduplicating by company name so nothing appears twice
+  const _outreachKeys = new Set(outreach.map(o=>o.company.trim().toLowerCase()));
+  const _pureLeads    = allLeadsMerged.filter(l=>!_outreachKeys.has(l.company.trim().toLowerCase()));
+  const _outreachAsLeads = outreach.map(o=>({id:o.id,_fromOutreach:true,company:o.company,contact:o.clientName,role:o.role,email:o.email,category:o.category,status:o.status,date:o.date,value:o.value,location:o.location,notes:o.notes,phone:o.phone}));
+  const allLeadsCombined = [..._pureLeads,..._outreachAsLeads];
+  const leadMonths = ["All",...Array.from(new Set(allLeadsCombined.map(l=>getMonthLabel(l.date)).filter(Boolean)))];
   const filteredLeads = useMemo(()=>{
     const q=getSearch("Leads").toLowerCase();
-    return allLeadsMerged.filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth));
-  },[searches,leadCat,leadStatus,leadMonth,localLeads]);
+    return allLeadsCombined.filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth));
+  },[searches,leadCat,leadStatus,leadMonth,localLeads,outreach]);
 
   const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
 
@@ -593,15 +608,6 @@ export default function OnnaDashboard() {
       const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
       const newOutreach = saved.filter(e=>e.id);
       setOutreach(prev=>[...prev,...newOutreach]);
-      // Auto-create a lead for each new outreach entry
-      const leadPromises = newOutreach.map(o=>api.post("/api/leads",{
-        company:o.company, contact:o.clientName||"", email:o.email||"", phone:"",
-        role:o.role||"", date:o.date||"", source:"Cold Outreach",
-        status:"not_contacted", value:o.value||0,
-        category:o.category||"", location:o.location||"", notes:o.notes||"",
-      }));
-      const newLeads = (await Promise.all(leadPromises)).filter(l=>l.id);
-      if (newLeads.length>0) setLocalLeads(prev=>[...prev,...newLeads]);
       setOutreachMsg("");
     } catch {}
     setOutreachLoading(false);
@@ -1230,10 +1236,10 @@ export default function OnnaDashboard() {
                 const STATUSES = ["not_contacted","cold","warm","open","client"];
                 const COLORS   = {not_contacted:"#c0392b",cold:"#6e6e73",warm:"#1a56db",open:"#147d50",client:"#7c3aed"};
                 const STATUS_LABELS = OUTREACH_STATUS_LABELS;
-                const counts   = STATUSES.map(s=>allLeadsMerged.filter(l=>l.status===s).length);
-                const values   = STATUSES.map(s=>allLeadsMerged.filter(l=>l.status===s).reduce((a,b)=>a+b.value,0));
+                const counts   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).length);
+                const values   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).reduce((a,b)=>a+(b.value||0),0));
                 const total    = counts.reduce((a,b)=>a+b,0)||1;
-                const totalVal = allLeadsMerged.reduce((a,b)=>a+b.value,0);
+                const totalVal = allLeadsCombined.reduce((a,b)=>a+(b.value||0),0);
                 // Donut segments
                 const R=70, CIR=2*Math.PI*R; let off=0;
                 const segs=STATUSES.map((s,i)=>{
@@ -1341,11 +1347,11 @@ export default function OnnaDashboard() {
                       </tr></thead>
                       <tbody>
                         {filteredLeads.map(l=>(
-                          <tr key={l.id} className="row" onClick={()=>setSelectedLead(l)}>
+                          <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" onClick={()=>l._fromOutreach?setSelectedOutreach(outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact}):setSelectedLead(l)}>
                             <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role||""}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${l.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{l.email}</a></td>
                             <TD muted>{l.category}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}}/></td>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];if(l._fromOutreach){await api.put(`/api/outreach/${l.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}else{await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}}}/></td>
                             <TD muted>{formatDate(l.date)}</TD>
                           </tr>
                         ))}
