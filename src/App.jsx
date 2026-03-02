@@ -524,13 +524,27 @@ export default function OnnaDashboard() {
       api.get("/api/clients"),
       api.get("/api/vendors"),
       api.get("/api/outreach"),
-    ]).then(([projects, leads, clients, vendors, outreach])=>{
+    ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
       if (Array.isArray(projects) && projects.length > 0) setLocalProjects(projects);
       if (Array.isArray(leads)    && leads.length > 0)    setLocalLeads(leads);
-      if (Array.isArray(clients)  && clients.length > 0)  setLocalClients(clients);
       if (Array.isArray(vendors)  && vendors.length > 0)  setVendors(vendors);
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
+
+      // Retroactive sync: find any leads/outreach with status="client" that have no client record yet
+      const existingClients = Array.isArray(clients) ? clients : [];
+      const knownCompanies  = new Set(existingClients.map(c=>(c.company||"").trim().toLowerCase()));
+      const allEntities     = [
+        ...(Array.isArray(outreach)?outreach:[]).map(o=>({company:o.company,name:o.clientName||"",email:o.email||"",phone:o.phone||"",country:o.location||"",notes:o.notes||"",status:o.status})),
+        ...(Array.isArray(leads)?leads:[]).map(l=>({company:l.company,name:l.contact||"",email:l.email||"",phone:l.phone||"",country:l.location||"",notes:l.notes||"",status:l.status})),
+      ];
+      const toCreate = allEntities.filter(e=>e.status==="client"&&e.company&&!knownCompanies.has(e.company.trim().toLowerCase()));
+      // Dedupe by company within toCreate
+      const seen = new Set();
+      const unique = toCreate.filter(e=>{const k=e.company.trim().toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
+      const newlyCreated = (await Promise.all(unique.map(e=>api.post("/api/clients",{company:e.company,name:e.name,email:e.email,phone:e.phone,country:e.country,notes:e.notes})))).filter(r=>r.id);
+      setLocalClients([...existingClients,...newlyCreated]);
+
       setApiLoading(false);
     }).catch(()=>setApiLoading(false));
     return ()=>{ cancelled=true; };
@@ -1469,22 +1483,36 @@ export default function OnnaDashboard() {
                   {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length===0
                     ? <div style={{borderRadius:16,padding:44,textAlign:"center",background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:13}}>No clients yet. Leads marked as "Client" will appear here automatically.</div>
                     : <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
-                        {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>(
-                          <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                              <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
-                              <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0,marginLeft:8}}>Client</span>
+                        {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>{
+                          const cKey = (c.company||"").trim().toLowerCase();
+                          const cProjects = localProjects.filter(p=>(p.client||"").trim().toLowerCase()===cKey);
+                          const cRevenue  = cProjects.reduce((a,p)=>a+(p.revenue||0),0);
+                          return (
+                            <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                                <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
+                                <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0,marginLeft:8}}>Client</span>
+                              </div>
+                              {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:2,fontWeight:500}}>{c.name}</div>}
+                              {c.country&&<div style={{fontSize:12,color:T.muted,marginBottom:12}}>{c.country}</div>}
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12,padding:"10px 12px",background:"#fafafa",borderRadius:10}}>
+                                <div>
+                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:3}}>Revenue</div>
+                                  <div style={{fontSize:17,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {cRevenue.toLocaleString()}</div>
+                                </div>
+                                <div>
+                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:3}}>Projects</div>
+                                  <div style={{fontSize:17,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>{cProjects.length}</div>
+                                </div>
+                              </div>
+                              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                                {c.email&&<a href={`mailto:${c.email}`} style={{fontSize:12,color:T.link,textDecoration:"none"}}>{c.email}</a>}
+                                {c.phone&&<div style={{fontSize:12,color:T.muted}}>{c.phone}</div>}
+                                {c.notes&&<div style={{fontSize:11.5,color:T.muted,marginTop:4,fontStyle:"italic"}}>{c.notes}</div>}
+                              </div>
                             </div>
-                            {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:4,fontWeight:500}}>{c.name}</div>}
-                            {c.country&&<div style={{fontSize:12,color:T.muted,marginBottom:10}}>{c.country}</div>}
-                            <div style={{borderTop:`1px solid ${T.borderSub}`,paddingTop:10,display:"flex",flexDirection:"column",gap:4}}>
-                              {c.email&&<a href={`mailto:${c.email}`} style={{fontSize:12,color:T.link,textDecoration:"none"}}>{c.email}</a>}
-                              {c.phone&&<div style={{fontSize:12,color:T.muted}}>{c.phone}</div>}
-                              {c.notes&&<div style={{fontSize:11.5,color:T.muted,marginTop:4,fontStyle:"italic"}}>{c.notes}</div>}
-                            </div>
-                            {c.created_at&&<div style={{fontSize:11,color:T.muted,marginTop:10}}>Added {formatDate(c.created_at)}</div>}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                   }
                 </div>
