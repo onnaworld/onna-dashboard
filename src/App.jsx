@@ -1,5 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 
+// ─── API ──────────────────────────────────────────────────────────────────────
+const API = "https://onna-backend-v2.vercel.app";
+const api = {
+  get:    (path)       => fetch(`${API}${path}`).then(r=>r.json()),
+  post:   (path, body) => fetch(`${API}${path}`, {method:"POST",  headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r=>r.json()),
+  put:    (path, body) => fetch(`${API}${path}`, {method:"PUT",   headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r=>r.json()),
+  delete: (path)       => fetch(`${API}${path}`, {method:"DELETE"}).then(r=>r.json()),
+};
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Commercial"];
 const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
@@ -459,10 +468,24 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
 
-  // ── API sync disabled until backend is ready ────────────────────────────
+  // ── Load all data from backend ───────────────────────────────────────────
   useEffect(()=>{
-    // Backend not yet connected — seed data is used directly
-    setApiLoading(false);
+    let cancelled = false;
+    Promise.all([
+      api.get("/api/projects"),
+      api.get("/api/leads"),
+      api.get("/api/clients"),
+      api.get("/api/vendors"),
+      api.get("/api/outreach"),
+    ]).then(([projects, leads, clients, vendors, outreach])=>{
+      if (cancelled) return;
+      if (Array.isArray(projects) && projects.length > 0) setLocalProjects(projects);
+      if (Array.isArray(leads)    && leads.length > 0)    setLocalLeads(leads);
+      if (Array.isArray(clients)  && clients.length > 0)  setLocalClients(clients);
+      if (Array.isArray(vendors)  && vendors.length > 0)  setVendors(vendors);
+      if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
+      setApiLoading(false);
+    }).catch(()=>setApiLoading(false));
     return ()=>{ cancelled=true; };
   },[]);
 
@@ -531,7 +554,9 @@ export default function OnnaDashboard() {
       const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:`Extract outreach contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","date":"YYYY-MM-DD","category":"","location":"","notes":""}. Use location format like "Dubai, UAE" or "London, UK".`,messages:[{role:"user",content:outreachMsg}]})});
       const data = await res.json();
       const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
-      setOutreach(prev=>[...prev,...(Array.isArray(parsed)?parsed:[parsed]).map((e,i)=>({...e,id:Date.now()+i,status:"cold"}))]);
+      const entries = (Array.isArray(parsed)?parsed:[parsed]).map(e=>({...e,status:"cold"}));
+      const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
+      setOutreach(prev=>[...prev,...saved.filter(e=>e.id)]);
       setOutreachMsg("");
     } catch {}
     setOutreachLoading(false);
@@ -1264,9 +1289,9 @@ export default function OnnaDashboard() {
                             <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${o.email}`} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{o.email}</a></td>
                             <TD muted>{o.date}</TD><TD muted>{o.category}</TD><TD muted>{o.location}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><OutreachBadge status={o.status} onClick={()=>setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(x.status)+1)%3]}:x))}/></td>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%3];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));}}/></td>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,maxWidth:180}}><span style={{fontSize:12.5,color:T.muted,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.notes||"—"}</span></td>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>setOutreach(prev=>prev.filter(x=>x.id!==o.id))} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={async()=>{await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
                           </tr>
                         ))}
                         {filteredOutreach.length===0&&<tr><td colSpan={10} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No outreach contacts found.</td></tr>}
@@ -1515,7 +1540,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddProject(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={()=>{if(!newProject.client||!newProject.name)return;setLocalProjects(prev=>[...prev,{...newProject,id:Date.now(),revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0}]);setNewProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});setShowAddProject(false);}}>Save Project</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newProject.client||!newProject.name)return;const saved=await api.post("/api/projects",{...newProject,revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0});if(saved.id)setLocalProjects(prev=>[...prev,saved]);setNewProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});setShowAddProject(false);}}>Save Project</BtnPrimary>
             </div>
           </div>
         </div>
@@ -1551,7 +1576,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddLead(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={()=>{if(!newLead.company)return;setLocalLeads(prev=>[...prev,{...newLead,id:Date.now(),value:Number(newLead.value)||0}]);setNewLead({company:"",contact:"",email:"",phone:"",source:"Referral",status:"New",value:"",category:"Production Companies",location:"Dubai, UAE",followUp:""});setShowAddLead(false);}}>Save Lead</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newLead.company)return;const saved=await api.post("/api/leads",{...newLead,value:Number(newLead.value)||0});if(saved.id)setLocalLeads(prev=>[...prev,saved]);setNewLead({company:"",contact:"",email:"",phone:"",source:"Referral",status:"New Lead",value:"",category:"Production Companies",location:"Dubai, UAE",followUp:""});setShowAddLead(false);}}>Save Lead</BtnPrimary>
             </div>
           </div>
         </div>
@@ -1579,7 +1604,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={()=>{if(!newVendor.name)return;setBlackbook(prev=>[...prev,{...newVendor,id:Date.now()}]);setNewVendor({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;const saved=await api.post("/api/vendors",newVendor);if(saved.id)setVendors(prev=>[...prev,saved]);setNewVendor({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
             </div>
           </div>
         </div>
@@ -1597,7 +1622,7 @@ export default function OnnaDashboard() {
             <input type="text" placeholder="e.g. AED 1,500/day" value={rateInput} onChange={e=>setRateInput(e.target.value)} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",marginBottom:16}}/>
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
               <BtnSecondary onClick={()=>setShowRateModal(null)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={()=>{setVendors(prev=>prev.map(b=>b.id===showRateModal.id?{...b,rateCard:rateInput}:b));setShowRateModal(null);}}>Save</BtnPrimary>
+              <BtnPrimary onClick={async()=>{await api.put(`/api/vendors/${showRateModal.id}`,{rateCard:rateInput});setVendors(prev=>prev.map(b=>b.id===showRateModal.id?{...b,rateCard:rateInput}:b));setShowRateModal(null);}}>Save</BtnPrimary>
             </div>
           </div>
         </div>
