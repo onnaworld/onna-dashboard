@@ -685,6 +685,7 @@ export default function OnnaDashboard() {
 
   // ── Load all data from backend ───────────────────────────────────────────
   useEffect(()=>{
+    if (!authed) return;
     let cancelled = false;
     Promise.all([
       api.get("/api/projects"),
@@ -716,7 +717,7 @@ export default function OnnaDashboard() {
       setApiLoading(false);
     }).catch(()=>setApiLoading(false));
     return ()=>{ cancelled=true; };
-  },[]);
+  },[authed]);
 
   const projStatusColor = {Active:"#147d50","In Review":"#92680a",Completed:T.muted};
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
