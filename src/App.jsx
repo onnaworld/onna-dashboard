@@ -494,7 +494,6 @@ export default function OnnaDashboard() {
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
-  const [showArchive,setShowArchive]         = useState(false);
   const [todoDropdownOpen,setTodoDropdownOpen] = useState(false);
   const [todoDropdownProject,setTodoDropdownProject] = useState(null);
 
