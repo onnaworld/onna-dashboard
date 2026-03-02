@@ -2,11 +2,15 @@ import { useState, useMemo, useEffect } from "react";
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
+const API_SECRET = import.meta.env.VITE_API_SECRET || "";
+const getToken = () => localStorage.getItem("onna_token") || "";
+const _h = (extra={}) => ({"X-API-Secret":API_SECRET,"Authorization":`Bearer ${getToken()}`,...extra});
+const _guard = r => { if(r.status===401){localStorage.removeItem("onna_token");window.location.reload();} return r.json(); };
 const api = {
-  get:    (path)       => fetch(`${API}${path}`).then(r=>r.json()),
-  post:   (path, body) => fetch(`${API}${path}`, {method:"POST",  headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r=>r.json()),
-  put:    (path, body) => fetch(`${API}${path}`, {method:"PUT",   headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r=>r.json()),
-  delete: (path)       => fetch(`${API}${path}`, {method:"DELETE"}).then(r=>r.json()),
+  get:    (path)       => fetch(`${API}${path}`,{headers:_h()}).then(_guard),
+  post:   (path, body) => fetch(`${API}${path}`,{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
+  put:    (path, body) => fetch(`${API}${path}`,{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
+  delete: (path)       => fetch(`${API}${path}`,{method:"DELETE",headers:_h()}).then(_guard),
 };
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -436,30 +440,114 @@ const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,s
 };
 
 export default function OnnaDashboard() {
-  const [authed,setAuthed]   = useState(()=>localStorage.getItem('onna_auth')==='1');
-  const [lgUser,setLgUser]   = useState('');
-  const [lgPass,setLgPass]   = useState('');
-  const [lgErr,setLgErr]     = useState(false);
+  const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
+
+  const [authed,setAuthed]         = useState(()=>!!localStorage.getItem("onna_token") && !_urlReset);
+  const [lgUser,setLgUser]         = useState("");
+  const [lgPass,setLgPass]         = useState("");
+  const [lgErr,setLgErr]           = useState("");
+  const [lgLoading,setLgLoading]   = useState(false);
+  const [lgStep,setLgStep]         = useState(_urlReset ? "reset" : "login");
+  const [lgEmail,setLgEmail]       = useState("");
+  const [lgNewPass,setLgNewPass]   = useState("");
+  const [lgNewPass2,setLgNewPass2] = useState("");
+
+  const doLogin = async () => {
+    if (!lgUser.trim()||!lgPass.trim()) return;
+    setLgLoading(true); setLgErr("");
+    try {
+      const data = await fetch(`${API}/api/auth/login`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
+      if (data.token) { localStorage.setItem("onna_token",data.token); setAuthed(true); }
+      else setLgErr("Incorrect username or password");
+    } catch { setLgErr("Could not connect. Please try again."); }
+    setLgLoading(false);
+  };
+
+  const doResetRequest = async () => {
+    setLgLoading(true);
+    try {
+      const data = await fetch(`${API}/api/auth/reset-request`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({email:lgEmail})}).then(r=>r.json());
+      if (data.reset_url) { window.location.href=data.reset_url; return; } // SMTP not configured
+    } catch {}
+    setLgStep("forgot-sent"); setLgLoading(false);
+  };
+
+  const doResetConfirm = async () => {
+    if (!lgNewPass||lgNewPass.length<8){setLgErr("Password must be at least 8 characters");return;}
+    if (lgNewPass!==lgNewPass2){setLgErr("Passwords do not match");return;}
+    setLgLoading(true); setLgErr("");
+    try {
+      const data = await fetch(`${API}/api/auth/reset-confirm`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({token:_urlReset,password:lgNewPass})}).then(r=>r.json());
+      if (data.ok) setLgStep("reset-done");
+      else setLgErr(data.error||"Reset failed. Link may have expired.");
+    } catch { setLgErr("Could not connect. Please try again."); }
+    setLgLoading(false);
+  };
+
+  const LG_CARD = {width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"};
+  const LG_WRAP = {minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"};
+  const LG_LOGO = (<div style={{marginBottom:28,textAlign:"center"}}><div style={{fontSize:28,fontWeight:700,letterSpacing:"-0.03em",color:"#1d1d1f",marginBottom:6}}>onna</div></div>);
+  const LG_IN   = ({label,id,type="text",value,onChange,onEnter,placeholder,autoFocus}) => (
+    <div>
+      <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
+      <input id={id} type={type} value={value} onChange={e=>{onChange(e.target.value);setLgErr("");}} onKeyDown={e=>{if(e.key==="Enter"&&onEnter)onEnter();}} placeholder={placeholder} autoFocus={autoFocus} style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${lgErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
+    </div>
+  );
+  const LG_BTN  = ({onClick,disabled,children}) => (
+    <button onClick={onClick} disabled={disabled} style={{marginTop:4,padding:"13px",borderRadius:11,background:disabled?"#d2d2d7":"#1d1d1f",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>{children}</button>
+  );
+  const LG_LINK = ({onClick,children}) => (
+    <button onClick={onClick} style={{background:"none",border:"none",color:"#6e6e73",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:2}}>{children}</button>
+  );
 
   if (!authed) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"}}>
-      <div style={{width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"}}>
-        <div style={{marginBottom:32,textAlign:"center"}}>
-          <div style={{fontSize:28,fontWeight:700,letterSpacing:"-0.03em",color:"#1d1d1f",marginBottom:6}}>onna</div>
-          <div style={{fontSize:13,color:"#6e6e73"}}>Sign in to your dashboard</div>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-          <div>
-            <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Username</div>
-            <input value={lgUser} onChange={e=>{setLgUser(e.target.value);setLgErr(false);}} onKeyDown={e=>{if(e.key==="Enter")document.getElementById("lg-pass").focus();}} placeholder="onnaworld" autoFocus style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${lgErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
+    <div style={LG_WRAP}>
+      <div style={LG_CARD}>
+        {lgStep==="login"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {LG_LOGO}
+            <LG_IN label="Username" autoFocus value={lgUser} onChange={setLgUser} onEnter={()=>document.getElementById("lg-p").focus()} placeholder="Username"/>
+            <LG_IN label="Password" id="lg-p" type="password" value={lgPass} onChange={setLgPass} onEnter={doLogin} placeholder="••••••••••"/>
+            {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>{lgErr}</div>}
+            <LG_BTN onClick={doLogin} disabled={lgLoading||!lgUser.trim()||!lgPass.trim()}>{lgLoading?"Signing in…":"Sign In"}</LG_BTN>
+            <LG_LINK onClick={()=>{setLgStep("forgot");setLgErr("");}}>Forgot password?</LG_LINK>
           </div>
-          <div>
-            <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Password</div>
-            <input id="lg-pass" type="password" value={lgPass} onChange={e=>{setLgPass(e.target.value);setLgErr(false);}} onKeyDown={e=>{if(e.key==="Enter"){if(lgUser==="onnaworld"&&lgPass==="January2026!"){localStorage.setItem('onna_auth','1');setAuthed(true);}else setLgErr(true);}}} placeholder="••••••••••" style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${lgErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
+        )}
+        {lgStep==="forgot"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {LG_LOGO}
+            <div style={{fontSize:13,color:"#6e6e73",textAlign:"center",marginTop:-14,marginBottom:6}}>Enter your email to receive a reset link</div>
+            <LG_IN label="Email Address" type="email" autoFocus value={lgEmail} onChange={setLgEmail} onEnter={doResetRequest} placeholder="hello@onnaproduction.com"/>
+            <LG_BTN onClick={doResetRequest} disabled={lgLoading||!lgEmail.trim()}>{lgLoading?"Sending…":"Send Reset Link"}</LG_BTN>
+            <LG_LINK onClick={()=>{setLgStep("login");setLgErr("");}}>‹ Back to sign in</LG_LINK>
           </div>
-          {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>Incorrect username or password</div>}
-          <button onClick={()=>{if(lgUser==="onnaworld"&&lgPass==="January2026!"){localStorage.setItem('onna_auth','1');setAuthed(true);}else setLgErr(true);}} style={{marginTop:4,padding:"13px",borderRadius:11,background:"#1d1d1f",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>Sign In</button>
-        </div>
+        )}
+        {lgStep==="forgot-sent"&&(
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:16}}>📧</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#1d1d1f",marginBottom:8}}>Check your email</div>
+            <div style={{fontSize:13,color:"#6e6e73",lineHeight:1.7,marginBottom:24}}>A reset link has been sent to <strong>{lgEmail}</strong>.<br/>It expires in 1 hour.</div>
+            <button onClick={()=>{setLgStep("login");setLgEmail("");}} style={{padding:"11px 28px",borderRadius:11,background:"#1d1d1f",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Back to sign in</button>
+          </div>
+        )}
+        {lgStep==="reset"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {LG_LOGO}
+            <div style={{fontSize:13,color:"#6e6e73",textAlign:"center",marginTop:-14,marginBottom:6}}>Choose a new password</div>
+            <LG_IN label="New Password" type="password" autoFocus value={lgNewPass} onChange={setLgNewPass} onEnter={()=>document.getElementById("lg-p2").focus()} placeholder="At least 8 characters"/>
+            <LG_IN label="Confirm Password" id="lg-p2" type="password" value={lgNewPass2} onChange={setLgNewPass2} onEnter={doResetConfirm} placeholder="Repeat password"/>
+            {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>{lgErr}</div>}
+            <LG_BTN onClick={doResetConfirm} disabled={lgLoading||!lgNewPass||!lgNewPass2}>{lgLoading?"Saving…":"Set New Password"}</LG_BTN>
+          </div>
+        )}
+        {lgStep==="reset-done"&&(
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:16}}>✓</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#1d1d1f",marginBottom:8}}>Password updated</div>
+            <div style={{fontSize:13,color:"#6e6e73",marginBottom:24}}>Sign in with your new password.</div>
+            <button onClick={()=>{setLgStep("login");setLgNewPass("");setLgNewPass2("");window.history.replaceState({},"","/");}} style={{padding:"11px 28px",borderRadius:11,background:"#1d1d1f",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Sign In</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1161,7 +1249,7 @@ export default function OnnaDashboard() {
         <div style={{margin:10,padding:"12px 14px",borderRadius:12,background:"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
             <div style={{width:28,height:28,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>E</div>
-            <button onClick={()=>{localStorage.removeItem('onna_auth');setAuthed(false);}} title="Sign out" style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"3px 6px",borderRadius:6,fontFamily:"inherit",fontWeight:500,lineHeight:1}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Sign out</button>
+            <button onClick={()=>{localStorage.removeItem("onna_token");setAuthed(false);}} title="Sign out" style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"3px 6px",borderRadius:6,fontFamily:"inherit",fontWeight:500,lineHeight:1}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Sign out</button>
           </div>
           <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
           <div style={{fontSize:11,color:T.muted}}>Admin · onna</div>
