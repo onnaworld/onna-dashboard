@@ -439,6 +439,23 @@ const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,s
   );
 };
 
+// ─── LOGIN PAGE PRIMITIVES — must live at module level so React never remounts them ──
+const _LG_CARD = {width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"};
+const _LG_WRAP = {minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"};
+const LgLogo = () => <div style={{marginBottom:32,textAlign:"center"}}><img src="/logo.png" alt="ONNA" style={{height:36,width:"auto"}}/></div>;
+const LgIn = ({label,id,type="text",value,onChange,onEnter,placeholder,autoFocus,hasErr}) => (
+  <div>
+    <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
+    <input id={id} type={type} value={value} onChange={e=>onChange(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&onEnter)onEnter();}} placeholder={placeholder} autoFocus={autoFocus} style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${hasErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
+  </div>
+);
+const LgBtn = ({onClick,disabled,children}) => (
+  <button onClick={onClick} disabled={disabled} style={{marginTop:4,padding:"13px",borderRadius:11,background:disabled?"#d2d2d7":"#1d1d1f",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>{children}</button>
+);
+const LgLink = ({onClick,children}) => (
+  <button onClick={onClick} style={{background:"none",border:"none",color:"#6e6e73",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:2}}>{children}</button>
+);
+
 export default function OnnaDashboard() {
   const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
 
@@ -484,60 +501,44 @@ export default function OnnaDashboard() {
     setLgLoading(false);
   };
 
-  const LG_CARD = {width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"};
-  const LG_WRAP = {minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"};
-  const LG_LOGO = (<div style={{marginBottom:28,textAlign:"center"}}><div style={{fontSize:28,fontWeight:700,letterSpacing:"-0.03em",color:"#1d1d1f",marginBottom:6}}>onna</div></div>);
-  const LG_IN   = ({label,id,type="text",value,onChange,onEnter,placeholder,autoFocus}) => (
-    <div>
-      <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
-      <input id={id} type={type} value={value} onChange={e=>{onChange(e.target.value);setLgErr("");}} onKeyDown={e=>{if(e.key==="Enter"&&onEnter)onEnter();}} placeholder={placeholder} autoFocus={autoFocus} style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${lgErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
-    </div>
-  );
-  const LG_BTN  = ({onClick,disabled,children}) => (
-    <button onClick={onClick} disabled={disabled} style={{marginTop:4,padding:"13px",borderRadius:11,background:disabled?"#d2d2d7":"#1d1d1f",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>{children}</button>
-  );
-  const LG_LINK = ({onClick,children}) => (
-    <button onClick={onClick} style={{background:"none",border:"none",color:"#6e6e73",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:2}}>{children}</button>
-  );
-
   if (!authed) return (
-    <div style={LG_WRAP}>
-      <div style={LG_CARD}>
+    <div style={_LG_WRAP}>
+      <div style={_LG_CARD}>
         {lgStep==="login"&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            {LG_LOGO}
-            <LG_IN label="Username" autoFocus value={lgUser} onChange={setLgUser} onEnter={()=>document.getElementById("lg-p").focus()} placeholder="Username"/>
-            <LG_IN label="Password" id="lg-p" type="password" value={lgPass} onChange={setLgPass} onEnter={doLogin} placeholder="••••••••••"/>
+            <LgLogo/>
+            <LgIn label="Username" autoFocus value={lgUser} onChange={v=>{setLgUser(v);setLgErr("");}} onEnter={()=>document.getElementById("lg-p").focus()} placeholder="Username" hasErr={!!lgErr}/>
+            <LgIn label="Password" id="lg-p" type="password" value={lgPass} onChange={v=>{setLgPass(v);setLgErr("");}} onEnter={doLogin} placeholder="••••••••••" hasErr={!!lgErr}/>
             {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>{lgErr}</div>}
-            <LG_BTN onClick={doLogin} disabled={lgLoading||!lgUser.trim()||!lgPass.trim()}>{lgLoading?"Signing in…":"Sign In"}</LG_BTN>
-            <LG_LINK onClick={()=>{setLgStep("forgot");setLgErr("");}}>Forgot password?</LG_LINK>
+            <LgBtn onClick={doLogin} disabled={lgLoading||!lgUser.trim()||!lgPass.trim()}>{lgLoading?"Signing in…":"Sign In"}</LgBtn>
+            <LgLink onClick={()=>{setLgStep("forgot");setLgErr("");}}>Forgot password?</LgLink>
           </div>
         )}
         {lgStep==="forgot"&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            {LG_LOGO}
+            <LgLogo/>
             <div style={{fontSize:13,color:"#6e6e73",textAlign:"center",marginTop:-14,marginBottom:6}}>Enter your email to receive a reset link</div>
-            <LG_IN label="Email Address" type="email" autoFocus value={lgEmail} onChange={setLgEmail} onEnter={doResetRequest} placeholder="hello@onnaproduction.com"/>
-            <LG_BTN onClick={doResetRequest} disabled={lgLoading||!lgEmail.trim()}>{lgLoading?"Sending…":"Send Reset Link"}</LG_BTN>
-            <LG_LINK onClick={()=>{setLgStep("login");setLgErr("");}}>‹ Back to sign in</LG_LINK>
+            <LgIn label="Email Address" type="email" autoFocus value={lgEmail} onChange={v=>{setLgEmail(v);setLgErr("");}} onEnter={doResetRequest} placeholder="Your email address" hasErr={!!lgErr}/>
+            <LgBtn onClick={doResetRequest} disabled={lgLoading||!lgEmail.trim()}>{lgLoading?"Sending…":"Send Reset Link"}</LgBtn>
+            <LgLink onClick={()=>{setLgStep("login");setLgErr("");}}>‹ Back to sign in</LgLink>
           </div>
         )}
         {lgStep==="forgot-sent"&&(
           <div style={{textAlign:"center"}}>
             <div style={{fontSize:40,marginBottom:16}}>📧</div>
-            <div style={{fontSize:18,fontWeight:700,color:"#1d1d1f",marginBottom:8}}>Check your email</div>
-            <div style={{fontSize:13,color:"#6e6e73",lineHeight:1.7,marginBottom:24}}>A reset link has been sent to <strong>{lgEmail}</strong>.<br/>It expires in 1 hour.</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#1d1d1f",marginBottom:8}}>Check your inbox</div>
+            <div style={{fontSize:13,color:"#6e6e73",lineHeight:1.7,marginBottom:24}}>If that email is registered, a reset link has been sent.<br/>It expires in 1 hour.</div>
             <button onClick={()=>{setLgStep("login");setLgEmail("");}} style={{padding:"11px 28px",borderRadius:11,background:"#1d1d1f",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Back to sign in</button>
           </div>
         )}
         {lgStep==="reset"&&(
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            {LG_LOGO}
+            <LgLogo/>
             <div style={{fontSize:13,color:"#6e6e73",textAlign:"center",marginTop:-14,marginBottom:6}}>Choose a new password</div>
-            <LG_IN label="New Password" type="password" autoFocus value={lgNewPass} onChange={setLgNewPass} onEnter={()=>document.getElementById("lg-p2").focus()} placeholder="At least 8 characters"/>
-            <LG_IN label="Confirm Password" id="lg-p2" type="password" value={lgNewPass2} onChange={setLgNewPass2} onEnter={doResetConfirm} placeholder="Repeat password"/>
+            <LgIn label="New Password" type="password" autoFocus value={lgNewPass} onChange={v=>{setLgNewPass(v);setLgErr("");}} onEnter={()=>document.getElementById("lg-p2").focus()} placeholder="At least 8 characters" hasErr={!!lgErr}/>
+            <LgIn label="Confirm Password" id="lg-p2" type="password" value={lgNewPass2} onChange={v=>{setLgNewPass2(v);setLgErr("");}} onEnter={doResetConfirm} placeholder="Repeat password" hasErr={!!lgErr}/>
             {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>{lgErr}</div>}
-            <LG_BTN onClick={doResetConfirm} disabled={lgLoading||!lgNewPass||!lgNewPass2}>{lgLoading?"Saving…":"Set New Password"}</LG_BTN>
+            <LgBtn onClick={doResetConfirm} disabled={lgLoading||!lgNewPass||!lgNewPass2}>{lgLoading?"Saving…":"Set New Password"}</LgBtn>
           </div>
         )}
         {lgStep==="reset-done"&&(
