@@ -576,6 +576,9 @@ export default function OnnaDashboard() {
     </div>
   );
 
+  const [isMobile,setIsMobile] = useState(()=>window.innerWidth<768);
+  useEffect(()=>{const fn=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn);},[]);
+
   const [activeTab,setActiveTab]                         = useState("Dashboard");
   const [searches,setSearches]                           = useState({});
   const setSearch = (tab,val) => setSearches(p=>({...p,[tab]:val}));
@@ -1075,7 +1078,7 @@ export default function OnnaDashboard() {
 
     if (projectSection==="Home") return (
       <div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:28}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:28}}>
           {[["Total Revenue",`AED ${totalIn.toLocaleString()}`,"income"],["Total Expenses",`AED ${totalOut.toLocaleString()}`,"outgoings"],["Net Profit",`AED ${profit.toLocaleString()}`,"revenue − expenses"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
             <div key={l} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
               <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8,fontWeight:500}}>{l}</div>
@@ -1092,7 +1095,7 @@ export default function OnnaDashboard() {
           </div>
           <ProjectTodoList projectId={p.id} projectTodos={projectTodos} setProjectTodos={setProjectTodos} archivedTodos={archivedTodos} setArchivedTodos={setArchivedTodos}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:10}}>
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
@@ -1112,7 +1115,7 @@ export default function OnnaDashboard() {
 
     if (projectSection==="Finances") return (
       <div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?14:20}}>
           <MiniStat label="Total Revenue"   value={`AED ${totalIn.toLocaleString()}`}/>
           <MiniStat label="Total Expenses"  value={`AED ${totalOut.toLocaleString()}`}/>
           <MiniStat label="Net Profit"      value={`AED ${profit.toLocaleString()}`}/>
@@ -1358,6 +1361,8 @@ export default function OnnaDashboard() {
   // ─── RENDER ─────────────────────────────────────────────────────────────────
   const currentTab = TABS.find(t=>t.id===activeTab)||TABS[0];
 
+  const P = isMobile ? 16 : 28; // main padding
+
   return (
     <div style={{minHeight:"100vh",background:T.bg,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif",color:T.text,display:"flex"}}>
       <style>{`
@@ -1372,14 +1377,16 @@ export default function OnnaDashboard() {
         .nav-btn.active{background:rgba(0,0,0,0.08);color:#1d1d1f;}
         .row:hover{background:#f5f5f7!important;cursor:pointer;}
         .proj-card:hover{border-color:#c7c7cc!important;box-shadow:0 6px 20px rgba(0,0,0,0.08)!important;transform:translateY(-1px);}
-        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:center;justify-content:center;}
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:${isMobile?"flex-end":"center"};justify-content:center;}
         input:focus,textarea:focus,select:focus{outline:none;border-color:#6e6e73!important;box-shadow:0 0 0 3px rgba(0,0,0,0.06)!important;}
         .todo-item:hover .todo-del{opacity:1;} .todo-del{opacity:0;transition:opacity 0.12s;}
         .todo-item:hover{background:#f5f5f7;border-radius:8px;}
+        .mob-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+        .bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border:none;background:transparent;cursor:pointer;font-family:inherit;transition:color 0.12s;}
       `}</style>
 
-      {/* ── SIDEBAR ── */}
-      <div style={{width:220,flexShrink:0,background:"rgba(255,255,255,0.82)",borderRight:`1px solid ${T.border}`,display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
+      {/* ── SIDEBAR (desktop only) ── */}
+      <div style={{width:220,flexShrink:0,background:"rgba(255,255,255,0.82)",borderRight:`1px solid ${T.border}`,display:isMobile?"none":"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
         <div style={{padding:"20px 18px 16px",display:"flex",alignItems:"center"}}>
           <img src="data:image/png;base64,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" alt="ONNA" style={{height:24,width:"auto",display:"block"}}/>
         </div>
@@ -1409,33 +1416,34 @@ export default function OnnaDashboard() {
       {/* ── MAIN ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Topbar */}
-        <div style={{padding:"0 28px",height:58,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.border}`,flexShrink:0,background:"rgba(255,255,255,0.8)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{currentTab.label}</span>
-            {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300}}>›</span><span style={{fontSize:14,color:T.sub,fontWeight:500}}>{selectedProject.name}</span>{projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}</span></>}</>}
+        <div style={{padding:`0 ${P}px`,height:isMobile?50:58,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.border}`,flexShrink:0,background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
+            {isMobile&&<img src="/logo.png" alt="ONNA" style={{height:18,width:"auto",marginRight:6,flexShrink:0}}/>}
+            <span style={{fontSize:isMobile?14:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentTab.label}</span>
+            {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300,flexShrink:0}}>›</span><span style={{fontSize:isMobile?12:14,color:T.sub,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedProject.name}</span>{!isMobile&&projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}</span></>}</>}
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            {apiLoading&&<span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}><span style={{width:6,height:6,borderRadius:"50%",background:"#92680a",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}/>Syncing…</span>}
-            {apiError&&!apiLoading&&<span title={`API: ${apiError}`} style={{fontSize:11,color:"#c0392b",cursor:"default"}}>● Offline</span>}
-            {!apiLoading&&!apiError&&<span style={{fontSize:11,color:"#147d50",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"#147d50",display:"inline-block"}}/>Live</span>}
-            {activeTab==="Projects"&&!selectedProject&&<BtnPrimary onClick={()=>setShowAddProject(true)}>+ New Project</BtnPrimary>}
-            {activeTab==="Vendors"&&<BtnPrimary onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>}
+          <div style={{display:"flex",alignItems:"center",gap:isMobile?6:10,flexShrink:0}}>
+            {!isMobile&&apiLoading&&<span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}><span style={{width:6,height:6,borderRadius:"50%",background:"#92680a",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}/>Syncing…</span>}
+            {!isMobile&&apiError&&!apiLoading&&<span title={`API: ${apiError}`} style={{fontSize:11,color:"#c0392b",cursor:"default"}}>● Offline</span>}
+            {!isMobile&&!apiLoading&&!apiError&&<span style={{fontSize:11,color:"#147d50",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"#147d50",display:"inline-block"}}/>Live</span>}
+            {activeTab==="Projects"&&!selectedProject&&<BtnPrimary small={isMobile} onClick={()=>setShowAddProject(true)}>+ New Project</BtnPrimary>}
+            {activeTab==="Vendors"&&<BtnPrimary small={isMobile} onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>}
           </div>
         </div>
 
         {/* Scroll area */}
-        <div style={{flex:1,overflowY:"auto",padding:"28px 28px 44px"}}>
+        <div style={{flex:1,overflowY:"auto",padding:`${P}px ${P}px ${isMobile?80:44}px`}}>
 
           {/* ══ DASHBOARD ══ */}
           {activeTab==="Dashboard"&&(
             <div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:24}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:24}}>
                 <StatCard label="Projects 2026"  value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>
                 <StatCard label="Revenue 2026"   value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
                 <StatCard label="Profit 2026"    value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${Math.round((profit2026/rev2026)*100)}% margin`}/>
                 <StatCard label="Pipeline"       value={`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
                 <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                   <div style={{padding:"14px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
@@ -1534,8 +1542,8 @@ export default function OnnaDashboard() {
                 <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                 <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
               </div>
-              <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
                   <thead><tr><TH>Name</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
                   <tbody>
                     {filteredBB.map(b=>(
@@ -1658,13 +1666,13 @@ export default function OnnaDashboard() {
                       ))}
                     </div>
 
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18,marginBottom:22}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
                       <Donut title="Conversion" groups={stageGroups}/>
                       <Donut title="By Category" groups={catGroups}/>
                       <Donut title="By Location" groups={locGroups}/>
                     </div>
 
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                       <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
                           <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
@@ -1711,8 +1719,8 @@ export default function OnnaDashboard() {
                     ))}
                     <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
                   </div>
-                  <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?620:"auto"}}>
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                         <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES,...customLeadCats]}/>
@@ -1751,7 +1759,7 @@ export default function OnnaDashboard() {
                   </div>
                   {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length===0
                     ? <div style={{borderRadius:16,padding:44,textAlign:"center",background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:13}}>No clients yet. Leads marked as "Client" will appear here automatically.</div>
-                    : <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+                    : <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
                         {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>{
                           const cKey = (c.company||"").trim().toLowerCase();
                           const cProjects = localProjects.filter(p=>(p.client||"").trim().toLowerCase()===cKey);
@@ -1811,8 +1819,8 @@ export default function OnnaDashboard() {
                     ))}
                     <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
                   </div>
-                  <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?660:"auto"}}>
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                         <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories}/>
@@ -1867,7 +1875,7 @@ export default function OnnaDashboard() {
                   <div style={{display:"flex",gap:6}}>{[2024,2025,2026].map(y=><Pill key={y} label={String(y)} active={projectYear===y} onClick={()=>setProjectYear(y)}/>)}</div>
                   <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>{projects.length} projects</span>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14,marginBottom:20}}>
                   <StatCard label="Total Revenue" value={`AED ${(projRev/1000).toFixed(0)}k`}/>
                   <StatCard label="Total Profit"  value={`AED ${(projProfit/1000).toFixed(0)}k`}/>
                   <StatCard label="Avg Margin"    value={`${projMargin}%`}/>
@@ -1921,7 +1929,7 @@ export default function OnnaDashboard() {
                   </div>
                 )}
 
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
                   {projects.filter(p=>!getSearch("Projects")||`${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p=>{
                     const profit=p.revenue-p.cost; const margin=Math.round((profit/p.revenue)*100);
                     return (
@@ -2018,8 +2026,8 @@ export default function OnnaDashboard() {
                       <div style={{marginBottom:12}}>
                         <input value={vaultPwSearch} onChange={e=>setVaultPwSearch(e.target.value)} placeholder="Search passwords…" style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:T.surface,boxSizing:"border-box"}}/>
                       </div>
-                      <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
-                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?580:"auto"}}>
                           <thead><tr>
                             <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH><TH>Notes</TH><TH/>
                           </tr></thead>
@@ -2056,7 +2064,7 @@ export default function OnnaDashboard() {
                         ? <button onClick={()=>{setVaultEditId(null);setVaultAddPwOpen(true);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>+ Add Password</button>
                         : <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:"20px 22px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                             <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>{vaultEditId?"Edit Password Entry":"New Password Entry"}</div>
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
                               {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"],["notes","Notes"]].map(([k,lbl])=>(
                                 <div key={k} style={k==="notes"?{gridColumn:"span 2"}:{}}>
                                   <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
@@ -2076,7 +2084,7 @@ export default function OnnaDashboard() {
                   {/* ── FILES VIEW ── */}
                   {vaultView==="files"&&(
                     <div>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:14}}>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:14,marginBottom:14}}>
                         {vaultResources.filter(r=>r.type==="file").map(e=>(
                           <div key={e.id} style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:10}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -2163,7 +2171,7 @@ export default function OnnaDashboard() {
             ) : notes.length===0 ? (
               <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>No notes yet. Hit + New Note to start.</div>
             ) : (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
                 {notes.map(n=>(
                   <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:8}}>
                     {n.title&&<div style={{fontSize:14,fontWeight:700,color:T.text,letterSpacing:"-0.01em"}}>{n.title}</div>}
@@ -2185,10 +2193,30 @@ export default function OnnaDashboard() {
         </div>
       </div>
 
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {isMobile&&(
+        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(255,255,255,0.95)",borderTop:`1px solid ${T.border}`,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>changeTab(t.id)} className="bottom-nav-btn" style={{color:activeTab===t.id?"#1d1d1f":"#aeaeb2"}}>
+              <StarIcon size={activeTab===t.id?13:11} color="currentColor"/>
+              <span style={{fontSize:9,fontWeight:activeTab===t.id?700:500,letterSpacing:"0.04em"}}>{t.label}</span>
+            </button>
+          ))}
+          <button onClick={()=>setShowArchive(true)} className="bottom-nav-btn" style={{color:"#aeaeb2"}}>
+            <svg width={11} height={11} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.3"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+            <span style={{fontSize:9,fontWeight:500,letterSpacing:"0.04em"}}>ARCHIVE</span>
+          </button>
+          <button onClick={()=>{localStorage.removeItem("onna_token");setAuthed(false);}} className="bottom-nav-btn" style={{color:"#aeaeb2"}}>
+            <svg width={11} height={11} viewBox="0 0 12 12" fill="none"><path d="M4.5 2H2a1 1 0 00-1 1v6a1 1 0 001 1h2.5M8 9l3-3-3-3M11 6H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <span style={{fontSize:9,fontWeight:500,letterSpacing:"0.04em"}}>SIGN OUT</span>
+          </button>
+        </div>
+      )}
+
       {/* ── LEAD MODAL ── */}
       {selectedLead&&(
         <div className="modal-bg" onClick={()=>setSelectedLead(null)}>
-          <div style={{borderRadius:20,padding:28,width:520,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
               <div>
                 <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedLead.company}</div>
@@ -2196,7 +2224,7 @@ export default function OnnaDashboard() {
               </div>
               <button onClick={()=>setSelectedLead(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
               {[["company","Company"],["contact","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value"]].map(([field,label])=>(
                 <div key={field}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{label}</div>
@@ -2205,7 +2233,7 @@ export default function OnnaDashboard() {
                 </div>
               ))}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
                 <Sel value={selectedLead.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedLead(p=>({...p,category:n}));}else setSelectedLead(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
@@ -2271,7 +2299,7 @@ export default function OnnaDashboard() {
       {/* ── OUTREACH MODAL ── */}
       {selectedOutreach&&(
         <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
-          <div style={{borderRadius:20,padding:28,width:520,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
               <div>
                 <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedOutreach.company}</div>
@@ -2279,7 +2307,7 @@ export default function OnnaDashboard() {
               </div>
               <button onClick={()=>setSelectedOutreach(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
               {[["company","Company"],["clientName","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value (AED)"]].map(([field,label])=>(
                 <div key={field}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{label}</div>
@@ -2288,7 +2316,7 @@ export default function OnnaDashboard() {
                 </div>
               ))}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
                 <Sel value={selectedOutreach.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedOutreach(p=>({...p,category:n}));}else setSelectedOutreach(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
@@ -2352,7 +2380,7 @@ export default function OnnaDashboard() {
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Task</div>
               <input value={selectedTodo.text} onChange={e=>{const u={...selectedTodo,text:e.target.value};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:14,fontFamily:"inherit"}}/>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Type</div>
                 <Sel value={selectedTodo.type||"general"} onChange={v=>{const u={...selectedTodo,type:v};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} options={["general","project"]}/>
@@ -2382,7 +2410,7 @@ export default function OnnaDashboard() {
               <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Project</div>
               <button onClick={()=>setShowAddProject(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
               {[["Client","client"],["Project Name","name"],["Revenue (AED)","revenue"],["Cost (AED)","cost"]].map(([label,key])=>(
                 <div key={key}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
@@ -2409,12 +2437,12 @@ export default function OnnaDashboard() {
       {/* ── ADD LEAD MODAL ── */}
       {showAddLead&&(
         <div className="modal-bg" onClick={()=>setShowAddLead(false)}>
-          <div style={{borderRadius:20,padding:28,width:520,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
               <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Lead</div>
               <button onClick={()=>setShowAddLead(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
               {[["Company","company"],["Contact Name","contact"],["Role","role"],["Email","email"],["Phone","phone"],["Date Contacted","date"],["Value (AED)","value"]].map(([label,key])=>(
                 <div key={key}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
@@ -2449,12 +2477,12 @@ export default function OnnaDashboard() {
       {/* ── ADD VENDOR MODAL ── */}
       {showAddVendor&&(
         <div className="modal-bg" onClick={()=>setShowAddVendor(false)}>
-          <div style={{borderRadius:20,padding:28,width:520,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
               <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Vendor</div>
               <button onClick={()=>setShowAddVendor(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
               {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"],["Rate Card","rateCard"],["Notes","notes"]].map(([label,key])=>(
                 <div key={key} style={{gridColumn:key==="notes"?"span 2":"auto"}}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
@@ -2509,7 +2537,7 @@ export default function OnnaDashboard() {
             </div>
 
             {/* Contact details */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
                 <div key={key}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
