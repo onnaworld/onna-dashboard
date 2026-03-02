@@ -93,6 +93,7 @@ const TABS = [
   {id:"Sales",     label:"SALES"},
   {id:"Projects",  label:"PROJECTS"},
   {id:"Resources", label:"RESOURCES"},
+  {id:"Notes",     label:"NOTES"},
 ];
 
 const StarIcon = ({size=11,color="currentColor"}) => (
@@ -652,6 +653,17 @@ export default function OnnaDashboard() {
   const [vaultNewPw,setVaultNewPw]           = useState({name:"",url:"",username:"",password:"",notes:""});
   const [vaultFileRef,setVaultFileRef]       = useState(null);
   const [vaultFileName,setVaultFileName]     = useState("");
+  const [vaultFileErr,setVaultFileErr]       = useState("");
+  const [vaultPwSearch,setVaultPwSearch]     = useState("");
+
+  // ── Notes state ───────────────────────────────────────────────────────────────
+  const [notes,setNotes]                     = useState([]);
+  const [notesLoading,setNotesLoading]       = useState(false);
+  const [noteAddOpen,setNoteAddOpen]         = useState(false);
+  const [noteEditId,setNoteEditId]           = useState(null);
+  const [noteDraft,setNoteDraft]             = useState({title:"",content:""});
+  const [noteSaving,setNoteSaving]           = useState(false);
+
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
   const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
   const [customLeadCats,setCustomLeadCats]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_cats')||'[]')}catch{return []}});
@@ -879,14 +891,19 @@ export default function OnnaDashboard() {
 
   const addVaultFile = async (file) => {
     if (!file) return;
-    setVaultSaving(true);
+    setVaultSaving(true); setVaultFileErr("");
     try {
       const raw  = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(",")[1]);fr.readAsDataURL(file);});
       const payload = {type:"file", name:vaultFileName||file.name, filename:file.name, mimetype:file.type, size:file.size, data:raw};
       const blob    = await vaultEncrypt(vaultKey, payload);
       const saved   = await api.post("/api/resources", {type:"file", blob});
-      if (saved.id) { setVaultResources(prev=>[...prev,{id:saved.id,...payload}]); setVaultFileName(""); setVaultFileRef(null); }
-    } catch {}
+      if (saved.id) {
+        setVaultResources(prev=>[...prev,{id:saved.id,...payload}]);
+        setVaultFileName(""); setVaultFileRef(null); setVaultFileErr("");
+      } else {
+        setVaultFileErr(saved.error || "Upload failed. Try a smaller file.");
+      }
+    } catch(e) { setVaultFileErr(e.message||"Upload failed. Try a smaller file."); }
     setVaultSaving(false);
   };
 
@@ -940,7 +957,11 @@ export default function OnnaDashboard() {
 
   const changeTab = tab => {
     setActiveTab(tab); setSelectedProject(null); setProjectSection("Home");
-    if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); }
+    if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
+    if (tab==="Notes") {
+      setNotesLoading(true);
+      api.get("/api/notes").then(data=>{ setNotes(Array.isArray(data)?data:[]); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
+    }
   };
 
   // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
@@ -1979,13 +2000,16 @@ export default function OnnaDashboard() {
                   {/* ── PASSWORD VIEW ── */}
                   {vaultView==="passwords"&&(
                     <div>
+                      <div style={{marginBottom:12}}>
+                        <input value={vaultPwSearch} onChange={e=>setVaultPwSearch(e.target.value)} placeholder="Search passwords…" style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:T.surface,boxSizing:"border-box"}}/>
+                      </div>
                       <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead><tr>
                             <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH><TH>Notes</TH><TH/>
                           </tr></thead>
                           <tbody>
-                            {vaultResources.filter(r=>r.type==="password").map(e=>(
+                            {vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).map(e=>(
                               <tr key={e.id} className="row">
                                 <TD bold>{e.name}</TD>
                                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{e.url?<a href={e.url.startsWith("http")?e.url:`https://${e.url}`} target="_blank" rel="noreferrer" onClick={ev=>ev.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{e.url}</a>:null}</td>
@@ -2004,6 +2028,7 @@ export default function OnnaDashboard() {
                               </tr>
                             ))}
                             {vaultResources.filter(r=>r.type==="password").length===0&&<tr><td colSpan={6} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No passwords saved yet.</td></tr>}
+                            {vaultResources.filter(r=>r.type==="password").length>0&&vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).length===0&&<tr><td colSpan={6} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No results for "{vaultPwSearch}"</td></tr>}
                           </tbody>
                         </table>
                       </div>
@@ -2060,10 +2085,13 @@ export default function OnnaDashboard() {
                       </div>
 
                       {vaultFileRef&&(
-                        <div style={{display:"flex",gap:10,alignItems:"center",padding:"14px 18px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,marginBottom:14}}>
-                          <input value={vaultFileName} onChange={e=>setVaultFileName(e.target.value)} placeholder="Display name (optional)" style={{flex:1,padding:"8px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa"}}/>
-                          <BtnPrimary onClick={()=>addVaultFile(vaultFileRef)} disabled={vaultSaving}>{vaultSaving?"Encrypting…":"Encrypt & Save"}</BtnPrimary>
-                          <BtnSecondary onClick={()=>{setVaultFileRef(null);setVaultFileName("");}}>Cancel</BtnSecondary>
+                        <div style={{marginBottom:14}}>
+                          <div style={{display:"flex",gap:10,alignItems:"center",padding:"14px 18px",borderRadius:12,background:T.surface,border:`1px solid ${vaultFileErr?"#c0392b":T.border}`}}>
+                            <input value={vaultFileName} onChange={e=>setVaultFileName(e.target.value)} placeholder="Display name (optional)" style={{flex:1,padding:"8px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa"}}/>
+                            <BtnPrimary onClick={()=>addVaultFile(vaultFileRef)} disabled={vaultSaving}>{vaultSaving?"Encrypting…":"Encrypt & Save"}</BtnPrimary>
+                            <BtnSecondary onClick={()=>{setVaultFileRef(null);setVaultFileName("");setVaultFileErr("");}}>Cancel</BtnSecondary>
+                          </div>
+                          {vaultFileErr&&<div style={{fontSize:12,color:"#c0392b",marginTop:6,paddingLeft:4,fontWeight:500}}>{vaultFileErr}</div>}
                         </div>
                       )}
 
@@ -2076,6 +2104,60 @@ export default function OnnaDashboard() {
               )}
             </div>
           )}
+
+        {/* ── NOTES TAB ── */}
+        {activeTab==="Notes"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <div style={{fontSize:22,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Notes</div>
+              <button onClick={()=>{setNoteAddOpen(true);setNoteEditId(null);setNoteDraft({title:"",content:""});}} style={{padding:"9px 18px",borderRadius:10,background:"#1d1d1f",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Note</button>
+            </div>
+
+            {/* Add / Edit form */}
+            {noteAddOpen&&(
+              <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,padding:"22px 24px",marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
+                <input value={noteDraft.title} onChange={e=>setNoteDraft(p=>({...p,title:e.target.value}))} placeholder="Title" autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:15,fontWeight:600,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",marginBottom:10}}/>
+                <textarea value={noteDraft.content} onChange={e=>setNoteDraft(p=>({...p,content:e.target.value}))} placeholder="Write your note…" rows={6} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",resize:"vertical",lineHeight:1.6}}/>
+                <div style={{display:"flex",gap:8,marginTop:12}}>
+                  <BtnPrimary disabled={noteSaving||!noteDraft.content.trim()} onClick={async()=>{
+                    setNoteSaving(true);
+                    if (noteEditId) {
+                      const updated = await api.put(`/api/notes/${noteEditId}`,{title:noteDraft.title,content:noteDraft.content,updated_at:new Date().toISOString()});
+                      if (updated.id) setNotes(prev=>prev.map(n=>n.id===noteEditId?updated:n));
+                    } else {
+                      const saved = await api.post("/api/notes",{title:noteDraft.title,content:noteDraft.content});
+                      if (saved.id) setNotes(prev=>[saved,...prev]);
+                    }
+                    setNoteSaving(false); setNoteAddOpen(false); setNoteEditId(null); setNoteDraft({title:"",content:""});
+                  }}>{noteSaving?"Saving…":noteEditId?"Save Changes":"Save Note"}</BtnPrimary>
+                  <BtnSecondary onClick={()=>{setNoteAddOpen(false);setNoteEditId(null);setNoteDraft({title:"",content:""});}}>Cancel</BtnSecondary>
+                </div>
+              </div>
+            )}
+
+            {notesLoading ? (
+              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>Loading…</div>
+            ) : notes.length===0 ? (
+              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>No notes yet. Hit + New Note to start.</div>
+            ) : (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+                {notes.map(n=>(
+                  <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:8}}>
+                    {n.title&&<div style={{fontSize:14,fontWeight:700,color:T.text,letterSpacing:"-0.01em"}}>{n.title}</div>}
+                    <div style={{fontSize:13,color:T.sub,lineHeight:1.65,whiteSpace:"pre-wrap",flexGrow:1}}>{n.content}</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:10,borderTop:`1px solid ${T.borderSub}`}}>
+                      <span style={{fontSize:11,color:T.muted}}>{n.updated_at?new Date(n.updated_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</span>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>{setNoteEditId(n.id);setNoteDraft({title:n.title||"",content:n.content||""});setNoteAddOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
+                        <button onClick={async()=>{if(!confirm("Delete this note?"))return;await api.delete(`/api/notes/${n.id}`);setNotes(prev=>prev.filter(x=>x.id!==n.id));}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         </div>
       </div>
