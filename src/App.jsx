@@ -455,6 +455,10 @@ export default function OnnaDashboard() {
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
+  const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
+  const [customLeadCats,setCustomLeadCats]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_cats')||'[]')}catch{return []}});
+  const [customVendorCats,setCustomVendorCats] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_cats')||'[]')}catch{return []}});
+  const [customVendorLocs,setCustomVendorLocs] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
@@ -597,6 +601,23 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => { setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); };
+
+  // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
+  const addNewOption = (currentList, setter, storageKey, prompt_label) => {
+    const val = window.prompt(prompt_label);
+    if (!val || !val.trim()) return null;
+    const trimmed = val.trim();
+    if (currentList.includes(trimmed)) return trimmed;
+    const updated = [...currentList, trimmed];
+    setter(updated);
+    try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
+    return trimmed;
+  };
+
+  const allLeadLocs  = ["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA",...customLeadLocs,"＋ Add location"];
+  const allLeadCats  = [...LEAD_CATEGORIES,...customLeadCats,"＋ Add category"];
+  const allVendorCats = ["All",...VENDORS_CATEGORIES,...customVendorCats,"＋ Add category"];
+  const allVendorLocs = [...BB_LOCATIONS,...customVendorLocs,"＋ Add location"];
 
   // ─── PROJECT SECTION RENDERER ──────────────────────────────────────────────
   const renderProjectSection = p => {
@@ -1080,8 +1101,8 @@ export default function OnnaDashboard() {
             <div>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                 <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
-                <Sel value={bbCat} onChange={v=>{setBbCat(v);setBbLocation("All");}} options={["All",...VENDORS_CATEGORIES]} minWidth={170}/>
-                <Sel value={bbLocation} onChange={setBbLocation} options={BB_LOCATIONS} minWidth={170}/>
+                <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n){setBbCat(n);setBbLocation("All");}}else{setBbCat(v);setBbLocation("All");}}} options={allVendorCats} minWidth={170}/>
+                <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setBbLocation(n);}else setBbLocation(v);}} options={["All",...allVendorLocs]} minWidth={170}/>
                 <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
               </div>
               <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
@@ -1208,9 +1229,9 @@ export default function OnnaDashboard() {
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Leads")} onChange={v=>setSearch("Leads",v)} placeholder="Search company or contact…"/>
-                    <Sel value={leadCat} onChange={setLeadCat} options={LEAD_CATEGORIES} minWidth={190}/>
+                    <Sel value={leadCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setLeadCat(n);}else setLeadCat(v);}} options={allLeadCats} minWidth={190}/>
                     <Sel value={leadStatus} onChange={setLeadStatus} options={["All","New Lead","Responded","Meeting Arranged","Converted to Client"]} minWidth={155}/>
-                    <Sel value={leadLoc} onChange={setLeadLoc} options={["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA"]} minWidth={155}/>
+                    <Sel value={leadLoc} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setLeadLoc(n);}else setLeadLoc(v);}} options={allLeadLocs} minWidth={155}/>
                     <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>{filteredLeads.length} leads</span>
                   </div>
                   <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
@@ -1459,7 +1480,7 @@ export default function OnnaDashboard() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
-                <Sel value={selectedLead.category||""} onChange={v=>setSelectedLead(p=>({...p,category:v}))} options={LEAD_CATEGORIES.filter(c=>c!=="All")} minWidth="100%"/>
+                <Sel value={selectedLead.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedLead(p=>({...p,category:n}));}else setSelectedLead(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Source</div>
@@ -1473,7 +1494,7 @@ export default function OnnaDashboard() {
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-                <Sel value={selectedLead.location||""} onChange={v=>setSelectedLead(p=>({...p,location:v}))} options={["London, UK","Dubai, UAE","New York, USA","Los Angeles, USA","Other"]} minWidth="100%"/>
+                <Sel value={selectedLead.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedLead(p=>({...p,location:n}));}else setSelectedLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
               </div>
             </div>
             <div style={{marginBottom:18}}>
@@ -1579,7 +1600,7 @@ export default function OnnaDashboard() {
               <button onClick={()=>setShowAddLead(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Company","company"],["Contact Name","contact"],["Email","email"],["Phone","phone"],["Value (AED)","value"],["Location","location"],["Follow Up Date","followUp"]].map(([label,key])=>(
+              {[["Company","company"],["Contact Name","contact"],["Email","email"],["Phone","phone"],["Value (AED)","value"],["Follow Up Date","followUp"]].map(([label,key])=>(
                 <div key={key}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
                   <input value={newLead[key]} onChange={e=>setNewLead(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
@@ -1587,7 +1608,11 @@ export default function OnnaDashboard() {
               ))}
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={newLead.category} onChange={v=>setNewLead(p=>({...p,category:v}))} options={LEAD_CATEGORIES.filter(c=>c!=="All")} minWidth={200}/>
+                <Sel value={newLead.category} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setNewLead(p=>({...p,category:n}));}else setNewLead(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth={200}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
+                <Sel value={newLead.location} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewLead(p=>({...p,location:n}));}else setNewLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Source</div>
@@ -1615,7 +1640,7 @@ export default function OnnaDashboard() {
               <button onClick={()=>setShowAddVendor(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"],["Location","location"],["Rate Card","rateCard"],["Notes","notes"]].map(([label,key])=>(
+              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"],["Rate Card","rateCard"],["Notes","notes"]].map(([label,key])=>(
                 <div key={key} style={{gridColumn:key==="notes"?"span 2":"auto"}}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
                   <input value={newVendor[key]} onChange={e=>setNewVendor(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
@@ -1623,7 +1648,11 @@ export default function OnnaDashboard() {
               ))}
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={newVendor.category} onChange={v=>setNewVendor(p=>({...p,category:v}))} options={VENDORS_CATEGORIES} minWidth={200}/>
+                <Sel value={newVendor.category} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setNewVendor(p=>({...p,category:n}));}else setNewVendor(p=>({...p,category:v}));}} options={allVendorCats.filter(c=>c!=="All")} minWidth={200}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
+                <Sel value={newVendor.location} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setNewVendor(p=>({...p,location:n}));}else setNewVendor(p=>({...p,location:v}));}} options={allVendorLocs} minWidth={200}/>
               </div>
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
@@ -1666,7 +1695,7 @@ export default function OnnaDashboard() {
 
             {/* Contact details */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"],["Location","location"]].map(([label,key])=>(
+              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
                 <div key={key}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
                   <input value={editVendor[key]||""} onChange={e=>setEditVendor(p=>({...p,[key]:e.target.value}))}
@@ -1675,7 +1704,11 @@ export default function OnnaDashboard() {
               ))}
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
-                <Sel value={editVendor.category||""} onChange={v=>setEditVendor(p=>({...p,category:v}))} options={VENDORS_CATEGORIES} minWidth="100%"/>
+                <Sel value={editVendor.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setEditVendor(p=>({...p,category:n}));}else setEditVendor(p=>({...p,category:v}));}} options={allVendorCats.filter(c=>c!=="All")} minWidth="100%"/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
+                <Sel value={editVendor.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setEditVendor(p=>({...p,location:n}));}else setEditVendor(p=>({...p,location:v}));}} options={allVendorLocs} minWidth="100%"/>
               </div>
             </div>
 
