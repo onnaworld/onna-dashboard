@@ -417,7 +417,7 @@ export default function OnnaDashboard() {
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
 
   const [vendors,setVendors]                         = useState(initVendors);
-  const [bbCat,setBbCat]                                 = useState("Locations");
+  const [bbCat,setBbCat]                                 = useState("All");
   const [bbLocation,setBbLocation]                       = useState("All");
   const [showRateModal,setShowRateModal]                 = useState(null);
   const [rateInput,setRateInput]                         = useState("");
@@ -510,7 +510,7 @@ export default function OnnaDashboard() {
     return allLeadsMerged.filter(l=>(!q||l.company.toLowerCase().includes(q)||l.contact.toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus));
   },[searches,leadCat,leadStatus,localLeads]);
 
-  const filteredBB = vendors.filter(b=>b.category===bbCat&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
+  const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
 
   const outreachLocations  = ["All",...Array.from(new Set(outreach.map(o=>o.location)))];
   const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category)))];
@@ -1079,7 +1079,7 @@ export default function OnnaDashboard() {
             <div>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                 <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
-                <Sel value={bbCat} onChange={v=>{setBbCat(v);setBbLocation("All");}} options={VENDORS_CATEGORIES} minWidth={170}/>
+                <Sel value={bbCat} onChange={v=>{setBbCat(v);setBbLocation("All");}} options={["All",...VENDORS_CATEGORIES]} minWidth={170}/>
                 <Sel value={bbLocation} onChange={setBbLocation} options={BB_LOCATIONS} minWidth={170}/>
                 <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
               </div>
@@ -1479,15 +1479,23 @@ export default function OnnaDashboard() {
                 })}
               </div>
             </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-              <BtnSecondary onClick={()=>setSelectedLead(null)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{
-                const {id,...fields} = selectedLead;
-                await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
-                setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
-                setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <button onClick={async()=>{
+                if(!window.confirm(`Delete ${selectedLead.company}?`)) return;
+                await api.delete(`/api/leads/${selectedLead.id}`);
+                setLocalLeads(prev=>prev.filter(l=>l.id!==selectedLead.id));
                 setSelectedLead(null);
-              }}>Save Changes</BtnPrimary>
+              }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete lead</button>
+              <div style={{display:"flex",gap:8}}>
+                <BtnSecondary onClick={()=>setSelectedLead(null)}>Cancel</BtnSecondary>
+                <BtnPrimary onClick={async()=>{
+                  const {id,...fields} = selectedLead;
+                  await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
+                  setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
+                  setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
+                  setSelectedLead(null);
+                }}>Save Changes</BtnPrimary>
+              </div>
             </div>
           </div>
         </div>
