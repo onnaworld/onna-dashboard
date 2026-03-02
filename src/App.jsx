@@ -650,6 +650,7 @@ export default function OnnaDashboard() {
   const [vaultCopied,setVaultCopied]         = useState(null);
   const [vaultSaving,setVaultSaving]         = useState(false);
   const [vaultAddPwOpen,setVaultAddPwOpen]   = useState(false);
+  const [vaultEditId,setVaultEditId]         = useState(null);
   const [vaultNewPw,setVaultNewPw]           = useState({name:"",url:"",username:"",password:"",notes:""});
   const [vaultFileRef,setVaultFileRef]       = useState(null);
   const [vaultFileName,setVaultFileName]     = useState("");
@@ -887,6 +888,18 @@ export default function OnnaDashboard() {
       setVaultResources(prev=>[...prev,{id:saved.id,type:"password",...vaultNewPw}]);
       setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});
       setVaultAddPwOpen(false);
+    }
+    setVaultSaving(false);
+  };
+
+  const updateVaultPassword = async () => {
+    if (!vaultNewPw.name.trim()||!vaultNewPw.password.trim()) return;
+    setVaultSaving(true);
+    const blob    = await vaultEncrypt(vaultKey, {type:"password",...vaultNewPw});
+    const updated = await api.put(`/api/resources/${vaultEditId}`, {type:"password", blob});
+    if (updated.id) {
+      setVaultResources(prev=>prev.map(r=>r.id===vaultEditId?{...r,...vaultNewPw}:r));
+      setVaultEditId(null); setVaultAddPwOpen(false); setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});
     }
     setVaultSaving(false);
   };
@@ -2025,7 +2038,10 @@ export default function OnnaDashboard() {
                                 </td>
                                 <TD muted>{e.notes}</TD>
                                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
-                                  <button onClick={()=>deleteVaultEntry(e.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>×</button>
+                                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                    <button onClick={()=>{setVaultEditId(e.id);setVaultNewPw({name:e.name||"",url:e.url||"",username:e.username||"",password:e.password||"",notes:e.notes||""});setVaultAddPwOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 4px",borderRadius:5}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
+                                    <button onClick={()=>deleteVaultEntry(e.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>×</button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -2035,11 +2051,11 @@ export default function OnnaDashboard() {
                         </table>
                       </div>
 
-                      {/* Add password form */}
+                      {/* Add / Edit password form */}
                       {!vaultAddPwOpen
-                        ? <button onClick={()=>setVaultAddPwOpen(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>+ Add Password</button>
+                        ? <button onClick={()=>{setVaultEditId(null);setVaultAddPwOpen(true);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>+ Add Password</button>
                         : <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:"20px 22px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                            <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>New Password Entry</div>
+                            <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>{vaultEditId?"Edit Password Entry":"New Password Entry"}</div>
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
                               {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"],["notes","Notes"]].map(([k,lbl])=>(
                                 <div key={k} style={k==="notes"?{gridColumn:"span 2"}:{}}>
@@ -2049,8 +2065,8 @@ export default function OnnaDashboard() {
                               ))}
                             </div>
                             <div style={{display:"flex",gap:8}}>
-                              <BtnPrimary onClick={addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":"Save"}</BtnPrimary>
-                              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
+                              <BtnPrimary onClick={vaultEditId?updateVaultPassword:addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":vaultEditId?"Save Changes":"Save"}</BtnPrimary>
+                              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
                             </div>
                           </div>
                       }
