@@ -407,6 +407,7 @@ export default function OnnaDashboard() {
 
   const [leadCat,setLeadCat]                             = useState("All");
   const [leadStatus,setLeadStatus]                       = useState("All");
+  const [leadLoc,setLeadLoc]                             = useState("All");
   const [selectedLead,setSelectedLead]                   = useState(null);
   const [leadsView,setLeadsView]                         = useState("dashboard");
   const [outreach,setOutreach]                           = useState(initOutreach);
@@ -507,8 +508,8 @@ export default function OnnaDashboard() {
   const allLeadsMerged = localLeads.map(l=>leadStatusOverrides[l.id]?{...l,status:leadStatusOverrides[l.id]}:l);
   const filteredLeads = useMemo(()=>{
     const q=getSearch("Leads").toLowerCase();
-    return allLeadsMerged.filter(l=>(!q||l.company.toLowerCase().includes(q)||l.contact.toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus));
-  },[searches,leadCat,leadStatus,localLeads]);
+    return allLeadsMerged.filter(l=>(!q||l.company.toLowerCase().includes(q)||l.contact.toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadLoc==="All"||l.location===leadLoc));
+  },[searches,leadCat,leadStatus,leadLoc,localLeads]);
 
   const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
 
@@ -1209,6 +1210,7 @@ export default function OnnaDashboard() {
                     <SearchBar value={getSearch("Leads")} onChange={v=>setSearch("Leads",v)} placeholder="Search company or contact…"/>
                     <Sel value={leadCat} onChange={setLeadCat} options={LEAD_CATEGORIES} minWidth={190}/>
                     <Sel value={leadStatus} onChange={setLeadStatus} options={["All","New Lead","Responded","Meeting Arranged","Converted to Client"]} minWidth={155}/>
+                    <Sel value={leadLoc} onChange={setLeadLoc} options={["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA"]} minWidth={155}/>
                     <span style={{marginLeft:"auto",fontSize:12,color:T.muted}}>{filteredLeads.length} leads</span>
                   </div>
                   <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
@@ -1464,20 +1466,21 @@ export default function OnnaDashboard() {
                 <Sel value={selectedLead.source||""} onChange={v=>setSelectedLead(p=>({...p,source:v}))} options={["Referral","LinkedIn","Website","Cold Outreach","Event","Other"]} minWidth="100%"/>
               </div>
             </div>
-            <div style={{marginBottom:18}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {["New Lead","Responded","Meeting Arranged","Converted to Client"].map(s=>{
-                  const active = selectedLead.status===s;
-                  const bmap = {"New Lead":["#f0f0f5",T.sub],"Responded":["#e8f0ff","#1a56db"],"Meeting Arranged":["#fff8e8","#92680a"],"Converted to Client":["#edfaf3","#147d50"]};
-                  const [bg,col] = bmap[s]||["#f5f5f7",T.muted];
-                  return (
-                    <button key={s} onClick={()=>setSelectedLead(p=>({...p,status:s}))}
-                      style={{padding:"6px 13px",borderRadius:999,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s",
-                        background:active?bg:"transparent",color:active?col:T.muted,border:`1.5px solid ${active?col:T.borderSub}`}}>{s}</button>
-                  );
-                })}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
+                <Sel value={selectedLead.status||"New Lead"} onChange={v=>setSelectedLead(p=>({...p,status:v}))} options={["New Lead","Responded","Meeting Arranged","Converted to Client"]} minWidth="100%"/>
               </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
+                <Sel value={selectedLead.location||""} onChange={v=>setSelectedLead(p=>({...p,location:v}))} options={["London, UK","Dubai, UAE","New York, USA","Los Angeles, USA","Other"]} minWidth="100%"/>
+              </div>
+            </div>
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
+              <textarea value={selectedLead.notes||""} onChange={e=>setSelectedLead(p=>({...p,notes:e.target.value}))} rows={3}
+                placeholder="Comments, next steps, context…"
+                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <button onClick={async()=>{
