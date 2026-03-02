@@ -89,9 +89,10 @@ const initColumbiaEstimate = {
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD"},
-  {id:"Vendors",  label:"VENDORS"},
-  {id:"Sales",      label:"SALES"},
-  {id:"Projects",   label:"PROJECTS"},
+  {id:"Vendors",   label:"VENDORS"},
+  {id:"Sales",     label:"SALES"},
+  {id:"Projects",  label:"PROJECTS"},
+  {id:"Resources", label:"RESOURCES"},
 ];
 
 const StarIcon = ({size=11,color="currentColor"}) => (
@@ -439,6 +440,27 @@ const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,s
   );
 };
 
+// ─── VAULT CRYPTO (AES-256-GCM + PBKDF2) ─────────────────────────────────────
+const VAULT_SALT  = "onna-vault-salt-2026";
+const VAULT_CHECK = "onna-vault-verified";
+const vaultDeriveKey = async (pass) => {
+  const enc = new TextEncoder();
+  const mat = await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:enc.encode(VAULT_SALT),iterations:100000,hash:"SHA-256"},mat,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+};
+const vaultEncrypt = async (key, data) => {
+  const iv  = crypto.getRandomValues(new Uint8Array(12));
+  const ct  = await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(typeof data==="string"?data:JSON.stringify(data)));
+  const out = new Uint8Array(12+ct.byteLength); out.set(iv); out.set(new Uint8Array(ct),12);
+  return btoa(String.fromCharCode(...out));
+};
+const vaultDecrypt = async (key, blob) => {
+  const bytes = Uint8Array.from(atob(blob),c=>c.charCodeAt(0));
+  const plain = await crypto.subtle.decrypt({name:"AES-GCM",iv:bytes.slice(0,12)},key,bytes.slice(12));
+  const text  = new TextDecoder().decode(plain);
+  try { return JSON.parse(text); } catch { return text; }
+};
+
 // ─── LOGIN PAGE PRIMITIVES — must live at module level so React never remounts them ──
 const _LG_CARD = {width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"};
 const _LG_WRAP = {minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"};
@@ -614,6 +636,22 @@ export default function OnnaDashboard() {
   const [localClients,setLocalClients]       = useState(SEED_CLIENTS);
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
+
+  // ── Vault state ──────────────────────────────────────────────────────────────
+  const [vaultLocked,setVaultLocked]         = useState(true);
+  const [vaultKey,setVaultKey]               = useState(null);
+  const [vaultPass,setVaultPass]             = useState("");
+  const [vaultErr,setVaultErr]               = useState("");
+  const [vaultLoading,setVaultLoading]       = useState(false);
+  const [vaultResources,setVaultResources]   = useState([]);
+  const [vaultView,setVaultView]             = useState("passwords");
+  const [vaultShowPw,setVaultShowPw]         = useState({});
+  const [vaultCopied,setVaultCopied]         = useState(null);
+  const [vaultSaving,setVaultSaving]         = useState(false);
+  const [vaultAddPwOpen,setVaultAddPwOpen]   = useState(false);
+  const [vaultNewPw,setVaultNewPw]           = useState({name:"",url:"",username:"",password:"",notes:""});
+  const [vaultFileRef,setVaultFileRef]       = useState(null);
+  const [vaultFileName,setVaultFileName]     = useState("");
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
   const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
   const [customLeadCats,setCustomLeadCats]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_cats')||'[]')}catch{return []}});
@@ -794,6 +832,78 @@ export default function OnnaDashboard() {
     setClientAiLoading(false);
   };
 
+  // ── Vault functions ───────────────────────────────────────────────────────────
+  const unlockVault = async () => {
+    if (!vaultPass.trim()) return;
+    setVaultLoading(true); setVaultErr("");
+    try {
+      const key     = await vaultDeriveKey(vaultPass);
+      const entries = await api.get("/api/resources");
+      const meta    = Array.isArray(entries) ? entries.find(e=>e.type==="meta") : null;
+      if (!meta) {
+        // First-time setup — store verification blob
+        const blob = await vaultEncrypt(key, VAULT_CHECK);
+        await api.post("/api/resources", {type:"meta", blob});
+        setVaultKey(key); setVaultResources([]); setVaultLocked(false);
+      } else {
+        const check = await vaultDecrypt(key, meta.blob);
+        if (check !== VAULT_CHECK) { setVaultErr("Incorrect vault password"); setVaultLoading(false); return; }
+        const decrypted = [];
+        for (const e of (Array.isArray(entries)?entries:[]).filter(e=>e.type!=="meta")) {
+          try { decrypted.push({...e,...(await vaultDecrypt(key,e.blob))}); } catch {}
+        }
+        setVaultKey(key); setVaultResources(decrypted); setVaultLocked(false);
+      }
+    } catch { setVaultErr("Incorrect vault password"); }
+    setVaultLoading(false);
+  };
+
+  const vaultCopyPw = (id, password) => {
+    navigator.clipboard.writeText(password);
+    setVaultCopied(id);
+    setTimeout(()=>setVaultCopied(null), 1800);
+  };
+
+  const addVaultPassword = async () => {
+    if (!vaultNewPw.name.trim()||!vaultNewPw.password.trim()) return;
+    setVaultSaving(true);
+    const blob  = await vaultEncrypt(vaultKey, {type:"password",...vaultNewPw});
+    const saved = await api.post("/api/resources", {type:"password", blob});
+    if (saved.id) {
+      setVaultResources(prev=>[...prev,{id:saved.id,type:"password",...vaultNewPw}]);
+      setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});
+      setVaultAddPwOpen(false);
+    }
+    setVaultSaving(false);
+  };
+
+  const addVaultFile = async (file) => {
+    if (!file) return;
+    setVaultSaving(true);
+    try {
+      const raw  = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(",")[1]);fr.readAsDataURL(file);});
+      const payload = {type:"file", name:vaultFileName||file.name, filename:file.name, mimetype:file.type, size:file.size, data:raw};
+      const blob    = await vaultEncrypt(vaultKey, payload);
+      const saved   = await api.post("/api/resources", {type:"file", blob});
+      if (saved.id) { setVaultResources(prev=>[...prev,{id:saved.id,...payload}]); setVaultFileName(""); setVaultFileRef(null); }
+    } catch {}
+    setVaultSaving(false);
+  };
+
+  const downloadVaultFile = (entry) => {
+    const bytes = Uint8Array.from(atob(entry.data),c=>c.charCodeAt(0));
+    const blob  = new Blob([bytes],{type:entry.mimetype||"application/octet-stream"});
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement("a"); a.href=url; a.download=entry.filename||entry.name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  };
+
+  const deleteVaultEntry = async (id) => {
+    if (!confirm("Delete this entry? This cannot be undone.")) return;
+    await api.delete(`/api/resources/${id}`);
+    setVaultResources(prev=>prev.filter(r=>r.id!==id));
+  };
+
   const processProjectAI = async p => {
     if (!aiMsg.trim()&&!attachedFile) return;
     setAiLoading(true);
@@ -828,7 +938,10 @@ export default function OnnaDashboard() {
 
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
-  const changeTab = tab => { setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); };
+  const changeTab = tab => {
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home");
+    if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); }
+  };
 
   // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
   const addNewOption = (currentList, setter, storageKey, prompt_label) => {
@@ -1833,6 +1946,136 @@ export default function OnnaDashboard() {
               </div>
             );
           })()}
+
+          {/* ══ RESOURCES ══ */}
+          {activeTab==="Resources"&&(
+            <div>
+              {vaultLocked ? (
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"60vh"}}>
+                  <div style={{width:380,background:T.surface,borderRadius:20,padding:"44px 40px",border:`1px solid ${T.border}`,boxShadow:"0 8px 40px rgba(0,0,0,0.07)",textAlign:"center"}}>
+                    <div style={{width:56,height:56,borderRadius:"50%",background:"#1d1d1f",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:24}}>🔒</div>
+                    <div style={{fontSize:20,fontWeight:700,color:T.text,marginBottom:6,letterSpacing:"-0.02em"}}>Vault</div>
+                    <div style={{fontSize:12,color:T.muted,lineHeight:1.7,marginBottom:28}}>Protected with AES-256-GCM encryption.<br/>Your data is never stored unencrypted.</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:12,textAlign:"left"}}>
+                      <div>
+                        <div style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:5}}>Vault Password</div>
+                        <input type="password" value={vaultPass} onChange={e=>{setVaultPass(e.target.value);setVaultErr("");}} onKeyDown={e=>{if(e.key==="Enter")unlockVault();}} placeholder="••••••••••" autoFocus style={{width:"100%",padding:"11px 14px",borderRadius:10,border:`1.5px solid ${vaultErr?"#c0392b":T.border}`,fontSize:14,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box"}}/>
+                      </div>
+                      {vaultErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>{vaultErr}</div>}
+                      <button onClick={unlockVault} disabled={vaultLoading||!vaultPass.trim()} style={{padding:"12px",borderRadius:10,background:vaultLoading?"#d2d2d7":"#1d1d1f",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:vaultLoading?"not-allowed":"pointer",fontFamily:"inherit"}}>{vaultLoading?"Unlocking…":"Unlock Vault"}</button>
+                    </div>
+                    <div style={{marginTop:22,fontSize:11,color:T.muted,lineHeight:1.8}}>First time? Set a strong vault password.<br/>It cannot be recovered if forgotten.</div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {/* ── Vault header ── */}
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
+                    <Pill label="Passwords" active={vaultView==="passwords"} onClick={()=>setVaultView("passwords")}/>
+                    <Pill label="Documents"  active={vaultView==="files"}     onClick={()=>setVaultView("files")}/>
+                    <button onClick={()=>{setVaultLocked(true);setVaultKey(null);setVaultPass("");setVaultResources([]);}} style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:9,background:"transparent",border:`1px solid ${T.border}`,color:T.sub,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>🔒 Lock vault</button>
+                  </div>
+
+                  {/* ── PASSWORD VIEW ── */}
+                  {vaultView==="passwords"&&(
+                    <div>
+                      <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead><tr>
+                            <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH><TH>Notes</TH><TH/>
+                          </tr></thead>
+                          <tbody>
+                            {vaultResources.filter(r=>r.type==="password").map(e=>(
+                              <tr key={e.id} className="row">
+                                <TD bold>{e.name}</TD>
+                                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{e.url?<a href={e.url.startsWith("http")?e.url:`https://${e.url}`} target="_blank" rel="noreferrer" onClick={ev=>ev.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{e.url}</a>:null}</td>
+                                <TD muted>{e.username}</TD>
+                                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <span style={{fontSize:12.5,color:T.sub,fontFamily:"monospace",letterSpacing:"0.04em"}}>{vaultShowPw[e.id]?e.password:"••••••••"}</span>
+                                    <button onClick={()=>setVaultShowPw(p=>({...p,[e.id]:!p[e.id]}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:"2px 4px",color:T.muted,borderRadius:4}} title={vaultShowPw[e.id]?"Hide":"Show"}>{vaultShowPw[e.id]?"🙈":"👁"}</button>
+                                    <button onClick={()=>vaultCopyPw(e.id,e.password)} style={{background:vaultCopied===e.id?"#edfaf3":"none",border:"none",cursor:"pointer",fontSize:11,padding:"3px 8px",color:vaultCopied===e.id?"#147d50":T.muted,borderRadius:5,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}}>{vaultCopied===e.id?"Copied!":"Copy"}</button>
+                                  </div>
+                                </td>
+                                <TD muted>{e.notes}</TD>
+                                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
+                                  <button onClick={()=>deleteVaultEntry(e.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>×</button>
+                                </td>
+                              </tr>
+                            ))}
+                            {vaultResources.filter(r=>r.type==="password").length===0&&<tr><td colSpan={6} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No passwords saved yet.</td></tr>}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Add password form */}
+                      {!vaultAddPwOpen
+                        ? <button onClick={()=>setVaultAddPwOpen(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>+ Add Password</button>
+                        : <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:"20px 22px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                            <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>New Password Entry</div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"],["notes","Notes"]].map(([k,lbl])=>(
+                                <div key={k} style={k==="notes"?{gridColumn:"span 2"}:{}}>
+                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
+                                  <input type={k==="password"?"password":"text"} value={vaultNewPw[k]} onChange={e=>setVaultNewPw(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box"}}/>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              <BtnPrimary onClick={addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":"Save"}</BtnPrimary>
+                              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
+                            </div>
+                          </div>
+                      }
+                    </div>
+                  )}
+
+                  {/* ── FILES VIEW ── */}
+                  {vaultView==="files"&&(
+                    <div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:14}}>
+                        {vaultResources.filter(r=>r.type==="file").map(e=>(
+                          <div key={e.id} style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:10}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                              <div style={{fontSize:28,lineHeight:1}}>📄</div>
+                              <button onClick={()=>deleteVaultEntry(e.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>×</button>
+                            </div>
+                            <div>
+                              <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{e.name}</div>
+                              <div style={{fontSize:11,color:T.muted}}>{e.filename} · {e.size?(e.size/1024).toFixed(0)+" KB":""}</div>
+                            </div>
+                            <button onClick={()=>downloadVaultFile(e)} style={{marginTop:"auto",padding:"8px 14px",borderRadius:9,background:"#1d1d1f",color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>⬇ Download</button>
+                          </div>
+                        ))}
+
+                        {/* Upload card */}
+                        <label style={{borderRadius:16,padding:20,background:"#fafafa",border:`2px dashed ${T.border}`,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,minHeight:140,transition:"border-color 0.15s"}} onMouseOver={e=>e.currentTarget.style.borderColor="#1d1d1f"} onMouseOut={e=>e.currentTarget.style.borderColor=T.border}>
+                          <div style={{fontSize:28,opacity:0.3}}>⬆</div>
+                          <div style={{fontSize:13,fontWeight:500,color:T.sub,textAlign:"center"}}>
+                            {vaultFileRef ? <span style={{color:"#1d1d1f",fontWeight:600}}>{vaultFileRef.name}</span> : "Click to upload"}
+                          </div>
+                          {vaultFileRef&&<div style={{fontSize:11,color:T.muted}}>{(vaultFileRef.size/1024).toFixed(0)} KB</div>}
+                          <input type="file" style={{display:"none"}} onChange={e=>{if(e.target.files[0]){if(e.target.files[0].size>5*1024*1024){alert("Max file size is 5MB");return;}setVaultFileRef(e.target.files[0]);setVaultFileName(e.target.files[0].name);}}}/>
+                        </label>
+                      </div>
+
+                      {vaultFileRef&&(
+                        <div style={{display:"flex",gap:10,alignItems:"center",padding:"14px 18px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,marginBottom:14}}>
+                          <input value={vaultFileName} onChange={e=>setVaultFileName(e.target.value)} placeholder="Display name (optional)" style={{flex:1,padding:"8px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa"}}/>
+                          <BtnPrimary onClick={()=>addVaultFile(vaultFileRef)} disabled={vaultSaving}>{vaultSaving?"Encrypting…":"Encrypt & Save"}</BtnPrimary>
+                          <BtnSecondary onClick={()=>{setVaultFileRef(null);setVaultFileName("");}}>Cancel</BtnSecondary>
+                        </div>
+                      )}
+
+                      {vaultResources.filter(r=>r.type==="file").length===0&&!vaultFileRef&&(
+                        <div style={{borderRadius:16,padding:44,textAlign:"center",background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:13}}>No documents yet. Upload trade license, contracts, and other sensitive files above.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>
