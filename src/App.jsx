@@ -463,6 +463,8 @@ export default function OnnaDashboard() {
   const [showAddProject,setShowAddProject]   = useState(false);
   const [showAddLead,setShowAddLead]         = useState(false);
   const [showAddVendor,setShowAddVendor]     = useState(false);
+  const [showArchive,setShowArchive]         = useState(false);
+  const [archive,setArchive]                 = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archive')||'[]')}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"New Lead",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
@@ -649,6 +651,40 @@ export default function OnnaDashboard() {
       setter(pruned);
       try { localStorage.setItem(storageKey, JSON.stringify(pruned)); } catch {}
     }
+  };
+
+  // ── Archive helpers ──────────────────────────────────────────────────────────
+  const archiveItem = (table, item) => {
+    const entry = {id:Date.now(), table, item, deletedAt:new Date().toISOString()};
+    setArchive(prev=>{
+      const updated=[entry,...prev];
+      try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
+      return updated;
+    });
+  };
+
+  const restoreItem = async (entry) => {
+    const {id:archiveId, table, item} = entry;
+    const {id:_origId, ...fields} = item;
+    const saved = await api.post(`/api/${table}`, fields);
+    if (saved.id) {
+      if (table==='leads') setLocalLeads(prev=>[...prev,saved]);
+      else if (table==='vendors') setVendors(prev=>[...prev,saved]);
+      else if (table==='outreach') setOutreach(prev=>[...prev,saved]);
+    }
+    setArchive(prev=>{
+      const updated=prev.filter(e=>e.id!==archiveId);
+      try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
+      return updated;
+    });
+  };
+
+  const permanentlyDelete = (archiveId) => {
+    setArchive(prev=>{
+      const updated=prev.filter(e=>e.id!==archiveId);
+      try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
+      return updated;
+    });
   };
 
   const allLeadLocs  = ["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA",...customLeadLocs,"＋ Add location"];
@@ -1008,6 +1044,10 @@ export default function OnnaDashboard() {
             </button>
           ))}
         </nav>
+        <button onClick={()=>setShowArchive(true)} style={{margin:"4px 10px 2px",padding:"9px 14px",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:7,textAlign:"left"}}>
+          <svg width={12} height={12} viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+          Archive{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
+        </button>
         <div style={{margin:10,padding:"12px 14px",borderRadius:12,background:"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`}}>
           <div style={{width:28,height:28,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",marginBottom:8}}>E</div>
           <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
@@ -1352,7 +1392,7 @@ export default function OnnaDashboard() {
                             <TD muted>{o.category}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));}}/></td>
                             <TD muted>{o.date}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><button onClick={async()=>{await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><button onClick={async()=>{archiveItem('outreach',o);await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
                           </tr>
                         ))}
                         {filteredOutreach.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No outreach contacts found.</td></tr>}
@@ -1550,13 +1590,12 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <button onClick={async()=>{
                 if(!window.confirm(`Delete ${selectedLead.company}?`)) return;
+                archiveItem('leads', selectedLead);
                 await api.delete(`/api/leads/${selectedLead.id}`);
-                setLocalLeads(prev=>{
-                  const updated=prev.filter(l=>l.id!==selectedLead.id);
-                  pruneCustom(updated,'category',customLeadCats,setCustomLeadCats,'onna_lead_cats');
-                  pruneCustom(updated,'location',customLeadLocs,setCustomLeadLocs,'onna_lead_locs');
-                  return updated;
-                });
+                const updatedLeads = localLeads.filter(l=>l.id!==selectedLead.id);
+                setLocalLeads(updatedLeads);
+                pruneCustom(updatedLeads,'category',customLeadCats,setCustomLeadCats,'onna_lead_cats');
+                pruneCustom(updatedLeads,'location',customLeadLocs,setCustomLeadLocs,'onna_lead_locs');
                 setSelectedLead(null);
               }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete lead</button>
               <div style={{display:"flex",gap:8}}>
@@ -1616,6 +1655,7 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <button onClick={async()=>{
                 if(!window.confirm(`Delete ${selectedOutreach.company}?`)) return;
+                archiveItem('outreach', selectedOutreach);
                 await api.delete(`/api/outreach/${selectedOutreach.id}`);
                 setOutreach(prev=>prev.filter(x=>x.id!==selectedOutreach.id));
                 setSelectedOutreach(null);
@@ -1840,13 +1880,12 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <button onClick={async()=>{
                 if(!window.confirm(`Delete ${editVendor.name}?`)) return;
+                archiveItem('vendors', editVendor);
                 await api.delete(`/api/vendors/${editVendor.id}`);
-                setVendors(prev=>{
-                  const updated=prev.filter(v=>v.id!==editVendor.id);
-                  pruneCustom(updated,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
-                  pruneCustom(updated,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
-                  return updated;
-                });
+                const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
+                setVendors(updatedVendors);
+                pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
+                pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
                 setEditVendor(null);
               }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
               <div style={{display:"flex",gap:8}}>
@@ -1858,6 +1897,59 @@ export default function OnnaDashboard() {
                   setEditVendor(null);
                 }}>Save Changes</BtnPrimary>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ARCHIVE MODAL ── */}
+      {showArchive&&(
+        <div className="modal-bg" onClick={()=>setShowArchive(false)}>
+          <div style={{borderRadius:20,padding:28,width:680,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Archive</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Deleted items — restore or remove permanently</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                {archive.length>0&&<button onClick={()=>{if(window.confirm("Clear entire archive permanently?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Clear all</button>}
+                <button onClick={()=>setShowArchive(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+              </div>
+            </div>
+            <div style={{overflowY:"auto",flex:1}}>
+              {archive.length===0?(
+                <div style={{padding:"48px 0",textAlign:"center",color:T.muted,fontSize:13}}>Archive is empty.</div>
+              ):(
+                ["leads","vendors","outreach"].map(table=>{
+                  const entries = archive.filter(e=>e.table===table);
+                  if (!entries.length) return null;
+                  const label = table.charAt(0).toUpperCase()+table.slice(1);
+                  return (
+                    <div key={table} style={{marginBottom:24}}>
+                      <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {entries.map(entry=>{
+                          const it = entry.item;
+                          const name = it.company||it.name||"—";
+                          const sub = it.contact||it.clientName||it.category||"";
+                          const deleted = new Date(entry.deletedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+                          return (
+                            <div key={entry.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.borderSub}`}}>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
+                                {sub&&<div style={{fontSize:11.5,color:T.muted,marginTop:1}}>{sub}</div>}
+                              </div>
+                              <div style={{fontSize:11,color:T.muted,flexShrink:0}}>Deleted {deleted}</div>
+                              <button onClick={()=>restoreItem(entry)} style={{background:"#edfaf3",border:"none",color:"#147d50",padding:"5px 12px",borderRadius:7,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Restore</button>
+                              <button onClick={()=>{if(window.confirm(`Permanently delete ${name}?`))permanentlyDelete(entry.id);}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0,flexShrink:0}}>×</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
