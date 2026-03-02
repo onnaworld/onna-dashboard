@@ -445,72 +445,24 @@ export default function OnnaDashboard() {
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
-  const [projectTodos,setProjectTodos]       = useState({});
+  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
   const [showArchive,setShowArchive]         = useState(false);
   const [todoDropdownOpen,setTodoDropdownOpen] = useState(false);
   const [todoDropdownProject,setTodoDropdownProject] = useState(null);
 
-  const [todos,setTodos] = useState([
-    {id:1,text:"Send proposal to Maison Lumière",               done:false,type:"general",project:"",details:""},
-    {id:2,text:"Follow up with Vogue Arabia re: editorial brief",done:false,type:"general",project:"",details:""},
-    {id:3,text:"Invoice Columbia / IMA — Ramadan Activation",   done:true, type:"project",project:"Columbia / IMA — Ramadan Activation 2026",details:""},
-    {id:4,text:"Confirm crew for Pulse Fitness shoot",          done:false,type:"project",project:"Pulse Fitness — Social Media Campaign",details:""},
-    {id:5,text:"Update risk assessment — GreenPath",            done:false,type:"general",project:"",details:""},
-  ]);
+  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');return s?JSON.parse(s):[]}catch(e){return []}});
   const [newTodo,setNewTodo]         = useState("");
   const [todoFilter,setTodoFilter]   = useState("all");
   const [selectedTodo,setSelectedTodo] = useState(null);
+  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
+  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
 
-  // ── API sync ─────────────────────────────────────────────────────────────
+  // ── API sync disabled until backend is ready ────────────────────────────
   useEffect(()=>{
-    let cancelled = false;
-    const BASE = "https://onna-backend-v2.vercel.app/onna";
-    const statusMap = {
-      pre_production:"Active", production:"Active", post_production:"In Review",
-      delivered:"Completed", archived:"Completed"
-    };
-    const leadStatusMap = {
-      new:"New Lead", contacted:"Responded", pitched:"Meeting Arranged",
-      negotiating:"Meeting Arranged", won:"Converted to Client",
-      lost:"Lost", on_hold:"New Lead"
-    };
-    Promise.all([
-      fetch(`${BASE}/clients`).then(r=>r.json()),
-      fetch(`${BASE}/projects`).then(r=>r.json()),
-      fetch(`${BASE}/leads`).then(r=>r.json()),
-    ]).then(([apiClients, apiProjects, apiLeads])=>{
-      if (cancelled) return;
-      if (Array.isArray(apiProjects) && apiProjects.length > 0) {
-        const mapped = apiProjects.map(p=>({
-          id: p.id, client: p.client_name||"", name: p.title,
-          revenue: p.budget||0, cost: 0,
-          status: statusMap[p.status]||"Active",
-          year: p.start_date ? parseInt(p.start_date.slice(0,4)) : new Date().getFullYear()
-        }));
-        setLocalProjects(prev=>{
-          const ids = new Set(mapped.map(p=>p.id));
-          return [...mapped, ...prev.filter(p=>!ids.has(p.id))];
-        });
-      }
-      if (Array.isArray(apiLeads) && apiLeads.length > 0) {
-        const mapped = apiLeads.map(l=>({
-          id: l.id, company: l.title, contact: l.client_name||"",
-          email:"", phone:"", source: l.source||"Referral",
-          status: leadStatusMap[l.status]||"New Lead",
-          value: l.estimated_value||0, category:"Production Companies",
-          location:"", followUp: l.follow_up_date||""
-        }));
-        setLocalLeads(prev=>{
-          const ids = new Set(mapped.map(l=>l.id));
-          return [...mapped, ...prev.filter(l=>!ids.has(l.id))];
-        });
-      }
-      setApiLoading(false);
-    }).catch(err=>{
-      if (!cancelled){ setApiError(err.message); setApiLoading(false); }
-    });
+    // Backend not yet connected — seed data is used directly
+    setApiLoading(false);
     return ()=>{ cancelled=true; };
   },[]);
 
@@ -556,8 +508,9 @@ export default function OnnaDashboard() {
   const filteredTodos = allTodos.filter(t=>{
     if (todoFilter==="all") return true;
     if (todoFilter==="general") return t.type!=="project";
-    if (todoFilter==="general-personal") return t.type!=="project" && t.subType==="personal";
-    if (todoFilter==="general-work") return t.type!=="project" && (t.subType==="work"||!t.subType);
+    if (todoFilter==="general-now") return t.type!=="project" && t.subType==="now";
+    if (todoFilter==="general-later") return t.type!=="project" && t.subType==="later";
+    if (todoFilter==="general-longterm") return t.type!=="project" && t.subType==="longterm";
     if (todoFilter==="project") return t.type==="project";
     if (todoFilter.startsWith("project-")) return t.projectId===Number(todoFilter.replace("project-",""));
     return true;
@@ -1024,7 +977,7 @@ export default function OnnaDashboard() {
                         <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
                       </div>
                       <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED ${p.revenue.toLocaleString()}</div>
+                        <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {p.revenue.toLocaleString()}</div>
                         <div style={{fontSize:10,color:T.muted,marginTop:2}}>{p.year}</div>
                       </div>
                     </div>
@@ -1047,7 +1000,7 @@ export default function OnnaDashboard() {
                     {/* Sub-filter row */}
                     {todoTopFilter==="general"&&(
                       <div style={{display:"flex",gap:5,paddingBottom:10}}>
-                        {[["general","All"],["general-personal","Personal"],["general-work","Work"]].map(([val,label])=>(
+                        {[["general","All"],["general-now","Now"],["general-later","Later"],["general-longterm","Long Term"]].map(([val,label])=>(
                           <button key={val} onClick={()=>setTodoFilter(val)} style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
                         ))}
                       </div>
@@ -1246,7 +1199,7 @@ export default function OnnaDashboard() {
                         {filteredLeads.map(l=>(
                           <tr key={l.id} className="row" onClick={()=>setSelectedLead(l)}>
                             <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.category}</TD><TD muted>{l.location}</TD><TD muted>{l.source}</TD>
-                            <TD>AED ${l.value.toLocaleString()}</TD>
+                            <TD>AED {l.value.toLocaleString()}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><Badge status={l.status}/></td>
                             <TD muted>{l.followUp}</TD>
                           </tr>
