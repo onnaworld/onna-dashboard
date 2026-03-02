@@ -453,6 +453,8 @@ export default function OnnaDashboard() {
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
+  const [leadMsg,setLeadMsg]                             = useState("");
+  const [leadAiLoading,setLeadAiLoading]                 = useState(false);
   const [outreachCatFilter,setOutreachCatFilter]         = useState("All");
   const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
@@ -598,11 +600,13 @@ export default function OnnaDashboard() {
   const updateCastingRow   = (id,rowId,field,val) => setProjectCasting(prev=>({...prev,[id]:(prev[id]||[]).map(r=>r.id===rowId?{...r,[field]:val}:r)}));
   const removeCastingRow   = (id,rowId) => setProjectCasting(prev=>({...prev,[id]:(prev[id]||[]).filter(r=>r.id!==rowId)}));
 
+  const _aiSystem = `Extract contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","phone":"","date":"YYYY-MM-DD","category":"","location":"","source":"Cold Outreach","notes":""}. Use location format like "Dubai, UAE" or "London, UK". If no date, use today's date.`;
+
   const processOutreach = async () => {
     if (!outreachMsg.trim()) return;
     setOutreachLoading(true);
     try {
-      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:800,system:`Extract outreach contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","date":"YYYY-MM-DD","category":"","location":"","notes":""}. Use location format like "Dubai, UAE" or "London, UK".`,messages:[{role:"user",content:outreachMsg}]});
+      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:800,system:_aiSystem,messages:[{role:"user",content:outreachMsg}]});
       const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
       const entries = (Array.isArray(parsed)?parsed:[parsed]).map(e=>({...e,status:"not_contacted",value:0}));
       const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
@@ -611,6 +615,21 @@ export default function OnnaDashboard() {
       setOutreachMsg("");
     } catch {}
     setOutreachLoading(false);
+  };
+
+  const processLeadAI = async () => {
+    if (!leadMsg.trim()) return;
+    setLeadAiLoading(true);
+    try {
+      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:800,system:_aiSystem,messages:[{role:"user",content:leadMsg}]});
+      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
+      const entries = (Array.isArray(parsed)?parsed:[parsed]).map(e=>({...e,status:"not_contacted",value:0}));
+      const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
+      const newOutreach = saved.filter(e=>e.id);
+      setOutreach(prev=>[...prev,...newOutreach]);
+      setLeadMsg("");
+    } catch {}
+    setLeadAiLoading(false);
   };
 
   const processProjectAI = async p => {
@@ -1086,7 +1105,6 @@ export default function OnnaDashboard() {
             {apiError&&!apiLoading&&<span title={`API: ${apiError}`} style={{fontSize:11,color:"#c0392b",cursor:"default"}}>● Offline</span>}
             {!apiLoading&&!apiError&&<span style={{fontSize:11,color:"#147d50",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"#147d50",display:"inline-block"}}/>Live</span>}
             {activeTab==="Projects"&&!selectedProject&&<BtnPrimary onClick={()=>setShowAddProject(true)}>+ New Project</BtnPrimary>}
-            {activeTab==="Sales"&&leadsView==="leads"&&<BtnPrimary onClick={()=>setShowAddLead(true)}>+ New Lead</BtnPrimary>}
             {activeTab==="Vendors"&&<BtnPrimary onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>}
           </div>
         </div>
@@ -1325,6 +1343,13 @@ export default function OnnaDashboard() {
 
               {leadsView==="leads"&&(
                 <div>
+                  <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Lead via AI</div>
+                    <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <textarea value={leadMsg} onChange={e=>setLeadMsg(e.target.value)} rows={2} placeholder={`e.g. "Nike - Sarah Johnson | Brand Director sarah@nike.com, 1 Mar 2026, Sports, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
+                      <BtnPrimary onClick={processLeadAI} disabled={leadAiLoading||!leadMsg.trim()}>{leadAiLoading?"Adding…":"Add"}</BtnPrimary>
+                    </div>
+                  </div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Leads")} onChange={v=>setSearch("Leads",v)} placeholder="Search company or contact…"/>
                     <span style={{fontSize:12,color:T.muted}}>{filteredLeads.length} leads</span>
@@ -1604,7 +1629,10 @@ export default function OnnaDashboard() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
-                <Sel value={selectedLead.status||"not_contacted"} onChange={v=>setSelectedLead(p=>({...p,status:v}))} options={OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth="100%"/>
+                <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
+                  <OutreachBadge status={selectedLead.status} onClick={()=>setSelectedLead(p=>({...p,status:OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(p.status)+1)%OUTREACH_STATUSES.length]}))}/>
+                  <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
+                </div>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
@@ -1653,7 +1681,7 @@ export default function OnnaDashboard() {
       {/* ── OUTREACH MODAL ── */}
       {selectedOutreach&&(
         <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
-          <div style={{borderRadius:20,padding:28,width:540,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+          <div style={{borderRadius:20,padding:28,width:520,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
               <div>
                 <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedOutreach.company}</div>
@@ -1661,14 +1689,24 @@ export default function OnnaDashboard() {
               </div>
               <button onClick={()=>setSelectedOutreach(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              {[["company","Company"],["clientName","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Value (AED)"]].map(([field,label])=>(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              {[["company","Company"],["clientName","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value (AED)"]].map(([field,label])=>(
                 <div key={field}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{label}</div>
                   <input value={selectedOutreach[field]||""} onChange={e=>setSelectedOutreach(p=>({...p,[field]:e.target.value}))}
                     style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
                 </div>
               ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
+                <Sel value={selectedOutreach.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedOutreach(p=>({...p,category:n}));}else setSelectedOutreach(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Source</div>
+                <Sel value={selectedOutreach.source||"Cold Outreach"} onChange={v=>setSelectedOutreach(p=>({...p,source:v}))} options={["Referral","LinkedIn","Website","Cold Outreach","Event","Other"]} minWidth="100%"/>
+              </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
@@ -1680,7 +1718,7 @@ export default function OnnaDashboard() {
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-                <Sel value={selectedOutreach.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setSelectedOutreach(p=>({...p,location:n}));}else setSelectedOutreach(p=>({...p,location:v}));}} options={["All",...allVendorLocs]} minWidth="100%"/>
+                <Sel value={selectedOutreach.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedOutreach(p=>({...p,location:n}));}else setSelectedOutreach(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
               </div>
             </div>
             <div style={{marginBottom:18}}>
