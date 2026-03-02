@@ -1257,14 +1257,75 @@ export default function OnnaDashboard() {
                 const counts   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).length);
                 const values   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).reduce((a,b)=>a+(b.value||0),0));
                 const total    = counts.reduce((a,b)=>a+b,0)||1;
-                const totalVal = allLeadsCombined.reduce((a,b)=>a+(b.value||0),0);
-                // Donut segments
-                const R=70, CIR=2*Math.PI*R; let off=0;
-                const segs=STATUSES.map((s,i)=>{
-                  const pct=counts[i]/total, dash=pct*CIR, gap=CIR-dash;
-                  const seg={s,dash,gap,off,color:COLORS[s],count:counts[i]};
-                  off+=dash; return seg;
-                });
+
+                // Palette for category / location charts
+                const PAL = ["#6366f1","#f59e0b","#10b981","#3b82f6","#f43f5e","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#a78bfa"];
+
+                const stageGroups = STATUSES.map((s,i)=>({label:STATUS_LABELS[s],count:counts[i],color:COLORS[s]})).filter(g=>g.count>0);
+
+                const _catMap={};allLeadsCombined.forEach(l=>{if(l.category)_catMap[l.category]=(_catMap[l.category]||0)+1;});
+                const catGroups = Object.entries(_catMap).sort((a,b)=>b[1]-a[1]).map(([label,count],i)=>({label,count,color:PAL[i%PAL.length]}));
+
+                const _locMap={};allLeadsCombined.forEach(l=>{if(l.location){const k=l.location.split(",")[0].trim();_locMap[k]=(_locMap[k]||0)+1;}});
+                const locGroups = Object.entries(_locMap).sort((a,b)=>b[1]-a[1]).map(([label,count],i)=>({label,count,color:PAL[i%PAL.length]}));
+
+                // Reusable donut renderer
+                const Donut = ({title,groups})=>{
+                  const R=58,CIR=2*Math.PI*R,gt=groups.reduce((a,g)=>a+g.count,0)||1;
+                  let o=0;
+                  const sg=groups.map(g=>{const d=(g.count/gt)*CIR,s={...g,d,o};o+=d;return s;});
+                  return (
+                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                      <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>{title}</div>
+                      <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
+                        <svg width={156} height={156} viewBox="0 0 156 156">
+                          <circle cx={78} cy={78} r={R} fill="none" stroke={T.borderSub} strokeWidth={22}/>
+                          {sg.filter(g=>g.count>0).map((g,i)=>(
+                            <circle key={i} cx={78} cy={78} r={R} fill="none" stroke={g.color} strokeWidth={22}
+                              strokeDasharray={`${g.d} ${CIR-g.d}`} strokeDashoffset={-(g.o-(CIR/4))}/>
+                          ))}
+                          <text x={78} y={74} textAnchor="middle" style={{fontSize:22,fontWeight:700,fill:T.text,fontFamily:"inherit"}}>{gt}</text>
+                          <text x={78} y={89} textAnchor="middle" style={{fontSize:10,fill:T.muted,fontFamily:"inherit"}}>total</text>
+                        </svg>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        {sg.map((g,i)=>(
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:7}}>
+                            <span style={{width:8,height:8,borderRadius:2,background:g.color,flexShrink:0}}/>
+                            <span style={{fontSize:11.5,color:T.sub,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.label}</span>
+                            <span style={{fontSize:12,fontWeight:600,color:T.text}}>{g.count}</span>
+                            <span style={{fontSize:11,color:T.muted,minWidth:28,textAlign:"right"}}>{Math.round((g.count/gt)*100)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                };
+
+                // Daily reminders logic
+                const today = new Date();
+                const oneMonthAgo = new Date(today); oneMonthAgo.setMonth(oneMonthAgo.getMonth()-1);
+                const openLead = l => l._fromOutreach ? setSelectedOutreach(outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact}) : setSelectedLead(l);
+                const toContact = allLeadsCombined.filter(l=>l.status==="not_contacted").slice(0,5);
+                const toFollowUp = allLeadsCombined.filter(l=>{
+                  if(l.status==="not_contacted"||l.status==="client") return false;
+                  const d=_parseDate(l.date); return d&&d<oneMonthAgo;
+                }).slice(0,5);
+
+                const ReminderCard = ({lead,showDate})=>(
+                  <div onClick={()=>openLead(lead)} className="row" style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,border:`1px solid ${T.border}`,background:T.surface,cursor:"pointer",marginBottom:8}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lead.company}</div>
+                      <div style={{fontSize:11.5,color:T.muted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lead.contact||"—"}{lead.category?` · ${lead.category}`:""}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                      <OutreachBadge status={lead.status}/>
+                      {showDate&&lead.date&&<span style={{fontSize:10.5,color:T.muted}}>{formatDate(lead.date)}</span>}
+                    </div>
+                    {lead.email&&<a href={`mailto:${lead.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:11,color:T.link,textDecoration:"none",background:"#f0f4ff",padding:"4px 9px",borderRadius:7,whiteSpace:"nowrap",flexShrink:0}}>Email</a>}
+                  </div>
+                );
+
                 return (
                   <div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:22}}>
@@ -1282,59 +1343,33 @@ export default function OnnaDashboard() {
                         </div>
                       ))}
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:18}}>
-                      {/* Donut */}
-                      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"24px 28px"}}>
-                        <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:20}}>By Stage</div>
-                        <div style={{display:"flex",justifyContent:"center",marginBottom:22,position:"relative"}}>
-                          <svg width={200} height={200} viewBox="0 0 200 200">
-                            <circle cx={100} cy={100} r={R} fill="none" stroke={T.borderSub} strokeWidth={28}/>
-                            {segs.filter(g=>g.count>0).map((g,i)=>(
-                              <circle key={i} cx={100} cy={100} r={R} fill="none"
-                                stroke={g.color} strokeWidth={28}
-                                strokeDasharray={`${g.dash} ${g.gap}`}
-                                strokeDashoffset={-(g.off-(CIR/4))}
-                              />
-                            ))}
-                            <text x={100} y={96} textAnchor="middle" style={{fontSize:24,fontWeight:700,fill:T.text,fontFamily:"inherit"}}>{total}</text>
-                            <text x={100} y={113} textAnchor="middle" style={{fontSize:11,fill:T.muted,fontFamily:"inherit"}}>total leads</text>
-                          </svg>
+
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18,marginBottom:22}}>
+                      <Donut title="Conversion" groups={stageGroups}/>
+                      <Donut title="By Category" groups={catGroups}/>
+                      <Donut title="By Location" groups={locGroups}/>
+                    </div>
+
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+                      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
+                          <span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span>
                         </div>
-                        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                          {STATUSES.map((s,i)=>(counts[i]>0&&(
-                            <div key={s} style={{display:"flex",alignItems:"center",gap:8}}>
-                              <span style={{width:10,height:10,borderRadius:3,background:COLORS[s],flexShrink:0}}/>
-                              <span style={{fontSize:12.5,color:T.sub,flex:1}}>{STATUS_LABELS[s]}</span>
-                              <span style={{fontSize:12.5,fontWeight:600,color:T.text}}>{counts[i]}</span>
-                              <span style={{fontSize:11.5,color:T.muted,minWidth:32,textAlign:"right"}}>{Math.round((counts[i]/total)*100)}%</span>
-                            </div>
-                          )))}
-                        </div>
+                        {toContact.length===0
+                          ? <div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>
+                          : toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)
+                        }
                       </div>
-                      {/* Value by stage */}
-                      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"24px 28px"}}>
-                        <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:20}}>Pipeline Value by Stage</div>
-                        <div style={{display:"flex",flexDirection:"column",gap:18}}>
-                          {STATUSES.map((s,i)=>(
-                            <div key={s}>
-                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                                <div style={{display:"flex",alignItems:"center",gap:7}}>
-                                  <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[s],flexShrink:0}}/>
-                                  <span style={{fontSize:13,color:T.text,fontWeight:500}}>{STATUS_LABELS[s]}</span>
-                                </div>
-                                <span style={{fontSize:13,fontWeight:700,color:T.text}}>AED {values[i].toLocaleString()}</span>
-                              </div>
-                              <div style={{height:6,borderRadius:999,background:T.borderSub}}>
-                                <div style={{width:`${totalVal>0?Math.round((values[i]/totalVal)*100):0}%`,height:"100%",borderRadius:999,background:COLORS[s]}}/>
-                              </div>
-                              <div style={{fontSize:11,color:T.muted,marginTop:4}}>{counts[i]} leads · {totalVal>0?Math.round((values[i]/totalVal)*100):0}% of pipeline</div>
-                            </div>
-                          ))}
+                      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div>
+                          <span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span>
                         </div>
-                        <div style={{marginTop:20,paddingTop:16,borderTop:`1px solid ${T.borderSub}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <span style={{fontSize:12,color:T.muted,fontWeight:500}}>Total pipeline value</span>
-                          <span style={{fontSize:18,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {totalVal.toLocaleString()}</span>
-                        </div>
+                        {toFollowUp.length===0
+                          ? <div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>
+                          : toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)
+                        }
                       </div>
                     </div>
                   </div>
