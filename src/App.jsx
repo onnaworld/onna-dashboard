@@ -436,6 +436,34 @@ const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,s
 };
 
 export default function OnnaDashboard() {
+  const [authed,setAuthed]   = useState(()=>localStorage.getItem('onna_auth')==='1');
+  const [lgUser,setLgUser]   = useState('');
+  const [lgPass,setLgPass]   = useState('');
+  const [lgErr,setLgErr]     = useState(false);
+
+  if (!authed) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"}}>
+      <div style={{width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"}}>
+        <div style={{marginBottom:32,textAlign:"center"}}>
+          <div style={{fontSize:28,fontWeight:700,letterSpacing:"-0.03em",color:"#1d1d1f",marginBottom:6}}>onna</div>
+          <div style={{fontSize:13,color:"#6e6e73"}}>Sign in to your dashboard</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Username</div>
+            <input value={lgUser} onChange={e=>{setLgUser(e.target.value);setLgErr(false);}} onKeyDown={e=>{if(e.key==="Enter")document.getElementById("lg-pass").focus();}} placeholder="onnaworld" autoFocus style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${lgErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Password</div>
+            <input id="lg-pass" type="password" value={lgPass} onChange={e=>{setLgPass(e.target.value);setLgErr(false);}} onKeyDown={e=>{if(e.key==="Enter"){if(lgUser==="onnaworld"&&lgPass==="January2026!"){localStorage.setItem('onna_auth','1');setAuthed(true);}else setLgErr(true);}}} placeholder="••••••••••" style={{width:"100%",padding:"11px 14px",borderRadius:11,border:`1.5px solid ${lgErr?"#c0392b":"#d2d2d7"}`,fontSize:14,fontFamily:"inherit",color:"#1d1d1f",background:"#fafafa",boxSizing:"border-box"}}/>
+          </div>
+          {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>Incorrect username or password</div>}
+          <button onClick={()=>{if(lgUser==="onnaworld"&&lgPass==="January2026!"){localStorage.setItem('onna_auth','1');setAuthed(true);}else setLgErr(true);}} style={{marginTop:4,padding:"13px",borderRadius:11,background:"#1d1d1f",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.01em"}}>Sign In</button>
+        </div>
+      </div>
+    </div>
+  );
+
   const [activeTab,setActiveTab]                         = useState("Dashboard");
   const [searches,setSearches]                           = useState({});
   const setSearch = (tab,val) => setSearches(p=>({...p,[tab]:val}));
@@ -1131,7 +1159,10 @@ export default function OnnaDashboard() {
           Archive{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
         </button>
         <div style={{margin:10,padding:"12px 14px",borderRadius:12,background:"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`}}>
-          <div style={{width:28,height:28,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",marginBottom:8}}>E</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+            <div style={{width:28,height:28,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>E</div>
+            <button onClick={()=>{localStorage.removeItem('onna_auth');setAuthed(false);}} title="Sign out" style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"3px 6px",borderRadius:6,fontFamily:"inherit",fontWeight:500,lineHeight:1}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Sign out</button>
+          </div>
           <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
           <div style={{fontSize:11,color:T.muted}}>Admin · onna</div>
         </div>
@@ -1491,7 +1522,10 @@ export default function OnnaDashboard() {
                             <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                                 <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
-                                <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0,marginLeft:8}}>Client</span>
+                                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                  <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0}}>Client</span>
+                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}?`))return;await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                                </div>
                               </div>
                               {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:2,fontWeight:500}}>{c.name}</div>}
                               {c.country&&<div style={{fontSize:12,color:T.muted,marginBottom:12}}>{c.country}</div>}
@@ -1685,14 +1719,23 @@ export default function OnnaDashboard() {
                             <div style={{height:3,borderRadius:999,background:T.borderSub}}><div style={{width:`${margin}%`,height:"100%",borderRadius:999,background:T.accent}}/></div>
                           </div>
                         </div>
-                        <button
-                          onClick={e=>{e.stopPropagation();setArchivedProjects(prev=>[...prev,p]);}}
-                          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"7px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:500,transition:"all 0.12s",marginTop:-4}}
-                          onMouseOver={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.color=T.sub;}}
-                          onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.muted;}}
-                        >
-                          <span style={{fontSize:13}}>⊘</span> Archive project
-                        </button>
+                        <div style={{display:"flex",gap:8,marginTop:-4}}>
+                          <button
+                            onClick={e=>{e.stopPropagation();setArchivedProjects(prev=>[...prev,p]);}}
+                            style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"7px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:500,transition:"all 0.12s"}}
+                            onMouseOver={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.color=T.sub;}}
+                            onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.muted;}}
+                          >
+                            <span style={{fontSize:13}}>⊘</span> Archive
+                          </button>
+                          <button
+                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This cannot be undone.`))return;await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
+                            style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"7px 11px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:13,cursor:"pointer",transition:"all 0.12s"}}
+                            onMouseOver={e=>{e.currentTarget.style.background="#fff0f0";e.currentTarget.style.borderColor="#fdc5c5";e.currentTarget.style.color="#c0392b";}}
+                            onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.borderSub;e.currentTarget.style.color=T.muted;}}
+                            title="Delete project"
+                          >×</button>
+                        </div>
                       </div>
                     );
                   })}
