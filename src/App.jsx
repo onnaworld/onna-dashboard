@@ -445,7 +445,7 @@ export default function OnnaDashboard() {
   const [showAddLead,setShowAddLead]         = useState(false);
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
-  const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",source:"Referral",status:"New",value:"",category:"Production Companies",location:"Dubai, UAE",followUp:""});
+  const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",source:"Referral",status:"New Lead",value:"",category:"Production Companies",location:"Dubai, UAE",followUp:""});
   const [newVendor,setNewVendor]             = useState({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
   const [localProjects,setLocalProjects]     = useState(SEED_PROJECTS);
   const [localLeads,setLocalLeads]           = useState(SEED_LEADS);
@@ -1090,7 +1090,7 @@ export default function OnnaDashboard() {
                       <tr key={b.id} className="row">
                         <TD bold>{b.name}</TD>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email}</a></td>
-                        <TD>{b.phone}</TD>
+                        <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,whiteSpace:"nowrap",fontSize:12.5,color:T.sub}}>{b.phone||"—"}</td>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{b.website?<a href={`https://${b.website}`} target="_blank" rel="noreferrer" style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.website}</a>:<span style={{color:T.muted,fontSize:12.5}}>—</span>}</td>
                         <TD muted>{b.location}</TD>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,maxWidth:200}}><span style={{fontSize:12.5,color:T.sub,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.notes||"—"}</span></td>
@@ -1440,7 +1440,7 @@ export default function OnnaDashboard() {
       {/* ── LEAD MODAL ── */}
       {selectedLead&&(
         <div className="modal-bg" onClick={()=>setSelectedLead(null)}>
-          <div style={{borderRadius:20,padding:28,width:480,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+          <div style={{borderRadius:20,padding:28,width:520,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
               <div>
                 <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedLead.company}</div>
@@ -1448,30 +1448,49 @@ export default function OnnaDashboard() {
               </div>
               <button onClick={()=>setSelectedLead(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
-              {[["Contact",selectedLead.contact],["Email",selectedLead.email],["Phone",selectedLead.phone],["Source",selectedLead.source],["Deal Value",`AED ${selectedLead.value.toLocaleString()}`],["Follow Up",selectedLead.followUp]].map(([k,v])=>(
-                <div key={k} style={{padding:"12px 14px",borderRadius:12,background:"#f5f5f7",border:`1px solid ${T.borderSub}`}}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{k}</div>
-                  <div style={{fontSize:13,fontWeight:500,color:T.text}}>{v}</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              {[["company","Company"],["contact","Contact"],["email","Email"],["phone","Phone"],["value","Deal Value"],["followUp","Follow Up Date"]].map(([field,label])=>(
+                <div key={field}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{label}</div>
+                  <input value={selectedLead[field]||""} onChange={e=>setSelectedLead(p=>({...p,[field]:e.target.value}))}
+                    style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
                 </div>
               ))}
             </div>
-            <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
+                <Sel value={selectedLead.category||""} onChange={v=>setSelectedLead(p=>({...p,category:v}))} options={LEAD_CATEGORIES.filter(c=>c!=="All")} minWidth="100%"/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Source</div>
+                <Sel value={selectedLead.source||""} onChange={v=>setSelectedLead(p=>({...p,source:v}))} options={["Referral","LinkedIn","Website","Cold Outreach","Event","Other"]} minWidth="100%"/>
+              </div>
+            </div>
+            <div style={{marginBottom:18}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {["New Lead","Responded","Meeting Arranged","Converted to Client"].map(s=>{
-                  const cur = leadStatusOverrides[selectedLead.id]||selectedLead.status;
-                  const active = cur===s;
+                  const active = selectedLead.status===s;
                   const bmap = {"New Lead":["#f0f0f5",T.sub],"Responded":["#e8f0ff","#1a56db"],"Meeting Arranged":["#fff8e8","#92680a"],"Converted to Client":["#edfaf3","#147d50"]};
                   const [bg,col] = bmap[s]||["#f5f5f7",T.muted];
                   return (
-                    <button key={s} onClick={()=>setLeadStatusOverrides(prev=>({...prev,[selectedLead.id]:s}))}
+                    <button key={s} onClick={()=>setSelectedLead(p=>({...p,status:s}))}
                       style={{padding:"6px 13px",borderRadius:999,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s",
-                        background:active?bg:"transparent", color:active?col:T.muted,
-                        border:`1.5px solid ${active?col:T.borderSub}`}}>{s}</button>
+                        background:active?bg:"transparent",color:active?col:T.muted,border:`1.5px solid ${active?col:T.borderSub}`}}>{s}</button>
                   );
                 })}
               </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+              <BtnSecondary onClick={()=>setSelectedLead(null)}>Cancel</BtnSecondary>
+              <BtnPrimary onClick={async()=>{
+                const {id,...fields} = selectedLead;
+                await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
+                setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
+                setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
+                setSelectedLead(null);
+              }}>Save Changes</BtnPrimary>
             </div>
           </div>
         </div>
