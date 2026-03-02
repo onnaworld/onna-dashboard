@@ -312,8 +312,7 @@ const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
     if (!prompt.trim()) return;
     setLoading(true); setOutput("");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:systemPrompt,messages:[{role:"user",content:`Project: ${project.client} — ${project.name}\n\n${prompt}`}]})});
-      const data = await res.json();
+      const data = await api.post("/api/ai",{model:"claude-sonnet-4-20250514",max_tokens:1500,system:systemPrompt,messages:[{role:"user",content:`Project: ${project.client} — ${project.name}\n\n${prompt}`}]});
       setOutput(data?.content?.[0]?.text||"");
     } catch {}
     setLoading(false);
@@ -551,8 +550,7 @@ export default function OnnaDashboard() {
     if (!outreachMsg.trim()) return;
     setOutreachLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:`Extract outreach contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","date":"YYYY-MM-DD","category":"","location":"","notes":""}. Use location format like "Dubai, UAE" or "London, UK".`,messages:[{role:"user",content:outreachMsg}]})});
-      const data = await res.json();
+      const data = await api.post("/api/ai",{model:"claude-sonnet-4-20250514",max_tokens:800,system:`Extract outreach contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","date":"YYYY-MM-DD","category":"","location":"","notes":""}. Use location format like "Dubai, UAE" or "London, UK".`,messages:[{role:"user",content:outreachMsg}]});
       const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
       const entries = (Array.isArray(parsed)?parsed:[parsed]).map(e=>({...e,status:"cold"}));
       const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
@@ -569,8 +567,7 @@ export default function OnnaDashboard() {
     if (attachedFile) fileData = await new Promise(resolve=>{const r=new FileReader();r.onload=e=>resolve(e.target.result.split(",")[1]);r.readAsDataURL(attachedFile);});
     const messages=[{role:"user",content:attachedFile?[{type:"image",source:{type:"base64",media_type:attachedFile.type,data:fileData}},{type:"text",text:`${aiMsg}\n\nExtract all financial info and return ONLY a JSON array, no markdown.`}]:aiMsg}];
     try {
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,system:"Extract expense/income entries for ONNA. Return ONLY a raw JSON array. Each entry: supplier, category, subCategory, invoiceNumber, receiptLink, datePaid, amount (number only), direction (in/out), notes.",messages})});
-      const data=await res.json();
+      const data=await api.post("/api/ai",{model:"claude-sonnet-4-20250514",max_tokens:1200,system:"Extract expense/income entries for ONNA. Return ONLY a raw JSON array. Each entry: supplier, category, subCategory, invoiceNumber, receiptLink, datePaid, amount (number only), direction (in/out), notes.",messages});
       const parsed=JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
       setProjectEntries(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),...(Array.isArray(parsed)?parsed:[parsed]).map((e,i)=>({...e,id:Date.now()+i}))]}));
       setAiMsg(""); setAttachedFile(null);
@@ -587,8 +584,8 @@ export default function OnnaDashboard() {
       "Talent Agreement – Via PSC":`Generate a TALENT AGREEMENT VIA PSC for ONNA. Structure:\n\nONNA\nTALENT AGREEMENT VIA PSC – COMMERCIAL TERMS\n\nCommencement Date: [date]\nAgency: ONNA FILM TV RADIO PRODUCTION SERVICES LLC\nClient/Brand: [project client]\nPSC Name: [commissionee]\nTalent Name: [individual]\nRole/Services: [role]\nShoot Date: [shoot date]\nFee: [fee]\nDeliverables/Usage: [usage rights]\n\nSIGNATURE\nSigned for ONNA: _______________  Date: ______\nSigned by PSC: _______________  Date: ______\n\nGENERAL TERMS\n[Include PSC-specific terms: PSC procures talent compliance, joint IP assignment, image waiver, indemnity, payment via PSC, governing law — Dubai/UK]`,
     };
     try {
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,system:templates[contractType]||templates["Commissioning Agreement – Self Employed"],messages:[{role:"user",content:`Generate the contract with these details:\nProject: ${p.client} — ${p.name}\nCommissionee: ${contractFields.commissionee}\nIndividual: ${contractFields.individual}\nRole: ${contractFields.role}\nFee: ${contractFields.fee}\nShoot Date: ${contractFields.shootDate}\nDeliverables: ${contractFields.deliverables}\nUsage Rights: ${contractFields.usageRights}\nPayment Terms: ${contractFields.paymentTerms}\nDeadline: ${contractFields.deadline}\nProject Ref: ${contractFields.projectRef}`}]})});
-      const data=await res.json(); setGeneratedContract(data?.content?.[0]?.text||"");
+      const data=await api.post("/api/ai",{model:"claude-sonnet-4-20250514",max_tokens:2000,system:templates[contractType]||templates["Commissioning Agreement – Self Employed"],messages:[{role:"user",content:`Generate the contract with these details:\nProject: ${p.client} — ${p.name}\nCommissionee: ${contractFields.commissionee}\nIndividual: ${contractFields.individual}\nRole: ${contractFields.role}\nFee: ${contractFields.fee}\nShoot Date: ${contractFields.shootDate}\nDeliverables: ${contractFields.deliverables}\nUsage Rights: ${contractFields.usageRights}\nPayment Terms: ${contractFields.paymentTerms}\nDeadline: ${contractFields.deadline}\nProject Ref: ${contractFields.projectRef}`}]});
+      setGeneratedContract(data?.content?.[0]?.text||"");
     } catch {}
     setContractLoading(false);
   };
