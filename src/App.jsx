@@ -13,7 +13,8 @@ const api = {
 const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
 const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
 const BB_LOCATIONS = ["All","Dubai, UAE","London, UK","New York, US","Los Angeles, US"];
-const OUTREACH_STATUSES = ["not_contacted","cold","warm","open"];
+const OUTREACH_STATUSES = ["not_contacted","cold","warm","open","client"];
+const OUTREACH_STATUS_LABELS = {not_contacted:"Not Contacted",cold:"Cold",warm:"Warm",open:"Open",client:"Client"};
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const PROJECT_SECTIONS = ["Home","Finances","Creative Brief","Estimates","Contracts","Quotes","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
@@ -260,9 +261,34 @@ const Sel = ({value,onChange,options,minWidth}) => (
 );
 
 const OutreachBadge = ({status,onClick}) => {
-  const s = {not_contacted:{bg:"#fff3e0",c:"#c0392b",label:"Not Contacted"},cold:{bg:"#f5f5f7",c:T.sub,label:"Cold"},warm:{bg:"#eef4ff",c:"#1a56db",label:"Warm"},open:{bg:"#edfaf3",c:"#147d50",label:"Open"}}[status]||{bg:"#fff3e0",c:"#c0392b",label:"Not Contacted"};
+  const s = {not_contacted:{bg:"#fff3e0",c:"#c0392b",label:"Not Contacted"},cold:{bg:"#f5f5f7",c:T.sub,label:"Cold"},warm:{bg:"#eef4ff",c:"#1a56db",label:"Warm"},open:{bg:"#edfaf3",c:"#147d50",label:"Open"},client:{bg:"#f3e8ff",c:"#7c3aed",label:"Client"}}[status]||{bg:"#fff3e0",c:"#c0392b",label:"Not Contacted"};
   return <span onClick={onClick} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:999,background:s.bg,color:s.c,fontSize:11,fontWeight:500,cursor:onClick?"pointer":"default"}}><span style={{width:5,height:5,borderRadius:"50%",background:s.c,flexShrink:0}}/>{s.label}</span>;
 };
+
+const formatDate = (str) => {
+  if (!str) return "";
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return str;
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getFullYear()).slice(2)}`;
+};
+
+const getMonthLabel = (str) => {
+  if (!str) return "";
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return "";
+  return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+const THFilter = ({label,value,onChange,options}) => (
+  <th style={{padding:"10px 14px",textAlign:"left",fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
+    <div style={{display:"flex",flexDirection:"column",gap:3}}>
+      <span>{label}</span>
+      <select value={value} onChange={e=>onChange(e.target.value)} onClick={e=>e.stopPropagation()} style={{fontSize:10,color:value==="All"?T.muted:"#1a56db",background:"transparent",border:"none",outline:"none",cursor:"pointer",padding:0,fontFamily:"inherit",fontWeight:600,appearance:"none",maxWidth:140,letterSpacing:"0.04em"}}>
+        {options.map(o=>{const val=o.value!==undefined?o.value:o;const lbl=o.label||o;return <option key={val} value={val}>{lbl}</option>;})}
+      </select>
+    </div>
+  </th>
+);
 
 const SectionBtn = ({label,active,onClick}) => (
   <button onClick={onClick} style={{padding:"6px 13px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${active?T.accent:T.border}`,fontFamily:"inherit",transition:"all 0.12s",background:active?T.accent:"transparent",color:active?"#fff":T.sub,whiteSpace:"nowrap"}}>{label}</button>
@@ -410,15 +436,15 @@ export default function OnnaDashboard() {
 
   const [leadCat,setLeadCat]                             = useState("All");
   const [leadStatus,setLeadStatus]                       = useState("All");
-  const [leadLoc,setLeadLoc]                             = useState("All");
+  const [leadMonth,setLeadMonth]                         = useState("All");
   const [selectedLead,setSelectedLead]                   = useState(null);
   const [selectedOutreach,setSelectedOutreach]           = useState(null);
   const [leadsView,setLeadsView]                         = useState("dashboard");
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
-  const [outreachLocFilter,setOutreachLocFilter]         = useState("All");
   const [outreachCatFilter,setOutreachCatFilter]         = useState("All");
+  const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
 
   const [vendors,setVendors]                         = useState(initVendors);
@@ -453,7 +479,7 @@ export default function OnnaDashboard() {
   const [showArchive,setShowArchive]         = useState(false);
   const [archive,setArchive]                 = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archive')||'[]')}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
-  const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"New Lead",value:"",category:"Production Companies",location:"Dubai, UAE"});
+  const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
   const [localProjects,setLocalProjects]     = useState(SEED_PROJECTS);
   const [localLeads,setLocalLeads]           = useState(SEED_LEADS);
@@ -508,7 +534,7 @@ export default function OnnaDashboard() {
   const rev2026       = projects2026.reduce((a,b)=>a+b.revenue,0);
   const profit2026    = projects2026.reduce((a,b)=>a+(b.revenue-b.cost),0);
   const totalPipeline = localLeads.reduce((a,b)=>a+b.value,0);
-  const newCount      = localLeads.filter(l=>l.status==="New Lead").length;
+  const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active");
   const projects      = allProjectsMerged.filter(p=>p.year===projectYear);
   const projRev       = projects.reduce((a,b)=>a+b.revenue,0);
@@ -516,19 +542,19 @@ export default function OnnaDashboard() {
   const projMargin    = projRev>0?Math.round((projProfit/projRev)*100):0;
 
   const allLeadsMerged = localLeads.map(l=>leadStatusOverrides[l.id]?{...l,status:leadStatusOverrides[l.id]}:l);
+  const leadMonths = ["All",...Array.from(new Set(allLeadsMerged.map(l=>getMonthLabel(l.date)).filter(Boolean)))];
   const filteredLeads = useMemo(()=>{
     const q=getSearch("Leads").toLowerCase();
-    return allLeadsMerged.filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadLoc==="All"||l.location===leadLoc));
-  },[searches,leadCat,leadStatus,leadLoc,localLeads]);
+    return allLeadsMerged.filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth));
+  },[searches,leadCat,leadStatus,leadMonth,localLeads]);
 
   const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
 
-  const outreachLocations  = ["All",...Array.from(new Set(outreach.map(o=>o.location)))];
-  const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category)))];
-  const outreachMonths     = ["All",...Array.from(new Set(outreach.map(o=>{const d=new Date(o.date);return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;  })))];
+  const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category).filter(Boolean)))];
+  const outreachMonths     = ["All",...Array.from(new Set(outreach.map(o=>getMonthLabel(o.date)).filter(Boolean)))];
   const filteredOutreach   = outreach.filter(o=>{
     const q=getSearch("Outreach").toLowerCase();
-    return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachLocFilter==="All"||o.location===outreachLocFilter)&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachMonthFilter==="All"||`${MONTHS[new Date(o.date).getMonth()]} ${new Date(o.date).getFullYear()}`===outreachMonthFilter);
+    return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter);
   });
 
   // Merge all project todos into a flat list for master view
@@ -572,7 +598,7 @@ export default function OnnaDashboard() {
       const leadPromises = newOutreach.map(o=>api.post("/api/leads",{
         company:o.company, contact:o.clientName||"", email:o.email||"", phone:"",
         role:o.role||"", date:o.date||"", source:"Cold Outreach",
-        status:"Not Contacted", value:o.value||0,
+        status:"not_contacted", value:o.value||0,
         category:o.category||"", location:o.location||"", notes:o.notes||"",
       }));
       const newLeads = (await Promise.all(leadPromises)).filter(l=>l.id);
@@ -1202,8 +1228,9 @@ export default function OnnaDashboard() {
               </div>
 
               {leadsView==="dashboard"&&(()=>{
-                const STATUSES = ["New Lead","Responded","Meeting Arranged","Converted to Client"];
-                const COLORS   = {"New Lead":"#6e6e73","Responded":"#1a56db","Meeting Arranged":"#92680a","Converted to Client":"#147d50"};
+                const STATUSES = ["not_contacted","cold","warm","open","client"];
+                const COLORS   = {not_contacted:"#c0392b",cold:"#6e6e73",warm:"#1a56db",open:"#147d50",client:"#7c3aed"};
+                const STATUS_LABELS = OUTREACH_STATUS_LABELS;
                 const counts   = STATUSES.map(s=>allLeadsMerged.filter(l=>l.status===s).length);
                 const values   = STATUSES.map(s=>allLeadsMerged.filter(l=>l.status===s).reduce((a,b)=>a+b.value,0));
                 const total    = counts.reduce((a,b)=>a+b,0)||1;
@@ -1217,12 +1244,12 @@ export default function OnnaDashboard() {
                 });
                 return (
                   <div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22}}>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:22}}>
                       {STATUSES.map((s,i)=>(
                         <div key={s} style={{borderRadius:16,padding:"18px 20px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
                             <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[s],flexShrink:0}}/>
-                            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:600,lineHeight:1.3}}>{s}</span>
+                            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:600,lineHeight:1.3}}>{STATUS_LABELS[s]}</span>
                           </div>
                           <div style={{fontSize:30,fontWeight:700,color:T.text,letterSpacing:"-0.03em",lineHeight:1,marginBottom:4}}>{counts[i]}</div>
                           <div style={{fontSize:12,color:T.muted,marginBottom:10}}>AED {values[i].toLocaleString()}</div>
@@ -1254,7 +1281,7 @@ export default function OnnaDashboard() {
                           {STATUSES.map((s,i)=>(counts[i]>0&&(
                             <div key={s} style={{display:"flex",alignItems:"center",gap:8}}>
                               <span style={{width:10,height:10,borderRadius:3,background:COLORS[s],flexShrink:0}}/>
-                              <span style={{fontSize:12.5,color:T.sub,flex:1}}>{s}</span>
+                              <span style={{fontSize:12.5,color:T.sub,flex:1}}>{STATUS_LABELS[s]}</span>
                               <span style={{fontSize:12.5,fontWeight:600,color:T.text}}>{counts[i]}</span>
                               <span style={{fontSize:11.5,color:T.muted,minWidth:32,textAlign:"right"}}>{Math.round((counts[i]/total)*100)}%</span>
                             </div>
@@ -1270,7 +1297,7 @@ export default function OnnaDashboard() {
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
                                 <div style={{display:"flex",alignItems:"center",gap:7}}>
                                   <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[s],flexShrink:0}}/>
-                                  <span style={{fontSize:13,color:T.text,fontWeight:500}}>{s}</span>
+                                  <span style={{fontSize:13,color:T.text,fontWeight:500}}>{STATUS_LABELS[s]}</span>
                                 </div>
                                 <span style={{fontSize:13,fontWeight:700,color:T.text}}>AED {values[i].toLocaleString()}</span>
                               </div>
@@ -1295,24 +1322,32 @@ export default function OnnaDashboard() {
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Leads")} onChange={v=>setSearch("Leads",v)} placeholder="Search company or contact…"/>
-                    <Sel value={leadCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setLeadCat(n);}else setLeadCat(v);}} options={allLeadCats} minWidth={190}/>
-                    <Sel value={leadStatus} onChange={setLeadStatus} options={["All","Not Contacted","New Lead","Responded","Meeting Arranged","Converted to Client"]} minWidth={155}/>
-                    <Sel value={leadLoc} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setLeadLoc(n);}else setLeadLoc(v);}} options={allLeadLocs} minWidth={155}/>
                     <span style={{fontSize:12,color:T.muted}}>{filteredLeads.length} leads</span>
                     <button onClick={()=>downloadCSV(filteredLeads,[{key:"company",label:"Company"},{key:"contact",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"},{key:"value",label:"Value (AED)"},{key:"location",label:"Location"},{key:"notes",label:"Notes"}],"leads.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                     <button onClick={()=>exportTablePDF(filteredLeads,[{key:"company",label:"Company"},{key:"contact",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Leads Pipeline")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
                   </div>
+                  <div style={{display:"flex",gap:16,marginBottom:12,flexWrap:"wrap"}}>
+                    {[["not_contacted","Not yet reached out","#c0392b","#fff3e0"],["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
+                      <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5}}><span style={{width:7,height:7,borderRadius:"50%",background:bg,border:`1.5px solid ${c}`}}/><span style={{color:c,fontWeight:600}}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{color:T.muted}}>— {l}</span></div>
+                    ))}
+                    <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
+                  </div>
                   <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
-                      <thead><tr><TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH><TH>Category</TH><TH>Status</TH><TH>Date Contacted</TH></tr></thead>
+                      <thead><tr>
+                        <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
+                        <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES,...customLeadCats]}/>
+                        <THFilter label="Status" value={leadStatus} onChange={setLeadStatus} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
+                        <THFilter label="Date Contacted" value={leadMonth} onChange={setLeadMonth} options={leadMonths}/>
+                      </tr></thead>
                       <tbody>
                         {filteredLeads.map(l=>(
                           <tr key={l.id} className="row" onClick={()=>setSelectedLead(l)}>
                             <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role||""}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${l.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{l.email}</a></td>
                             <TD muted>{l.category}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><Badge status={l.status}/></td>
-                            <TD muted>{l.date||""}</TD>
+                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}}/></td>
+                            <TD muted>{formatDate(l.date)}</TD>
                           </tr>
                         ))}
                         {filteredLeads.length===0&&<tr><td colSpan={7} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No leads found.</td></tr>}
@@ -1355,22 +1390,25 @@ export default function OnnaDashboard() {
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Outreach")} onChange={v=>setSearch("Outreach",v)} placeholder="Search outreach…"/>
-                    <Sel value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} minWidth={155}/>
-                    <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} minWidth={170}/>
-                    <Sel value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths} minWidth={125}/>
                     <span style={{fontSize:12,color:T.muted}}>{filteredOutreach.length} contacts</span>
                     <button onClick={()=>downloadCSV(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"},{key:"value",label:"Value (AED)"},{key:"location",label:"Location"},{key:"notes",label:"Notes"}],"outreach.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                     <button onClick={()=>exportTablePDF(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Outreach Tracker")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
                   </div>
                   <div style={{display:"flex",gap:16,marginBottom:12,flexWrap:"wrap"}}>
-                    {[["not_contacted","Not yet reached out","#c0392b","#fff3e0"],["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"]].map(([s,l,c,bg])=>(
-                      <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5}}><span style={{width:7,height:7,borderRadius:"50%",background:bg,border:`1.5px solid ${c}`}}/><span style={{color:c,fontWeight:600}}>{s==="not_contacted"?"Not Contacted":s.charAt(0).toUpperCase()+s.slice(1)}</span><span style={{color:T.muted}}>— {l}</span></div>
+                    {[["not_contacted","Not yet reached out","#c0392b","#fff3e0"],["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
+                      <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5}}><span style={{width:7,height:7,borderRadius:"50%",background:bg,border:`1.5px solid ${c}`}}/><span style={{color:c,fontWeight:600}}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{color:T.muted}}>— {l}</span></div>
                     ))}
                     <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
                   </div>
                   <div style={{borderRadius:16,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
-                      <thead><tr><TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH><TH>Category</TH><TH>Status</TH><TH>Date Contacted</TH><TH/></tr></thead>
+                      <thead><tr>
+                        <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
+                        <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories}/>
+                        <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
+                        <THFilter label="Date Contacted" value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths}/>
+                        <TH/>
+                      </tr></thead>
                       <tbody>
                         {filteredOutreach.map(o=>(
                           <tr key={o.id} className="row" onClick={()=>setSelectedOutreach({...o})}>
@@ -1378,7 +1416,7 @@ export default function OnnaDashboard() {
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${o.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{o.email}</a></td>
                             <TD muted>{o.category}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));}}/></td>
-                            <TD muted>{o.date}</TD>
+                            <TD muted>{formatDate(o.date)}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><button onClick={async()=>{archiveItem('outreach',o);await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
                           </tr>
                         ))}
@@ -1561,7 +1599,7 @@ export default function OnnaDashboard() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
-                <Sel value={selectedLead.status||"New Lead"} onChange={v=>setSelectedLead(p=>({...p,status:v}))} options={["Not Contacted","New Lead","Responded","Meeting Arranged","Converted to Client"]} minWidth="100%"/>
+                <Sel value={selectedLead.status||"not_contacted"} onChange={v=>setSelectedLead(p=>({...p,status:v}))} options={OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth="100%"/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
@@ -1763,12 +1801,12 @@ export default function OnnaDashboard() {
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-                <Sel value={newLead.status} onChange={v=>setNewLead(p=>({...p,status:v}))} options={["Not Contacted","New Lead","Responded","Meeting Arranged","Converted to Client"]} minWidth={200}/>
+                <Sel value={newLead.status} onChange={v=>setNewLead(p=>({...p,status:v}))} options={OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth={200}/>
               </div>
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddLead(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newLead.company)return;const saved=await api.post("/api/leads",{...newLead,value:Number(newLead.value)||0});if(saved.id)setLocalLeads(prev=>[...prev,saved]);setNewLead({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"New Lead",value:"",category:"Production Companies",location:"Dubai, UAE"});setShowAddLead(false);}}>Save Lead</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newLead.company)return;const saved=await api.post("/api/leads",{...newLead,value:Number(newLead.value)||0});if(saved.id)setLocalLeads(prev=>[...prev,saved]);setNewLead({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});setShowAddLead(false);}}>Save Lead</BtnPrimary>
             </div>
           </div>
         </div>
