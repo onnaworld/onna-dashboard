@@ -421,6 +421,7 @@ export default function OnnaDashboard() {
   const [bbLocation,setBbLocation]                       = useState("All");
   const [showRateModal,setShowRateModal]                 = useState(null);
   const [rateInput,setRateInput]                         = useState("");
+  const [editVendor,setEditVendor]                       = useState(null);
 
   const [projectYear,setProjectYear]                     = useState(2026);
   const [selectedProject,setSelectedProject]             = useState(null);
@@ -1087,7 +1088,7 @@ export default function OnnaDashboard() {
                   <thead><tr><TH>Name</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH><TH>Notes</TH><TH>Rate Card</TH></tr></thead>
                   <tbody>
                     {filteredBB.map(b=>(
-                      <tr key={b.id} className="row">
+                      <tr key={b.id} className="row" onClick={()=>setEditVendor({...b})} style={{cursor:"pointer"}}>
                         <TD bold>{b.name}</TD>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email}</a></td>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,whiteSpace:"nowrap",fontSize:12.5,color:T.sub}}>{b.phone||"—"}</td>
@@ -1639,6 +1640,45 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
               <BtnSecondary onClick={()=>setShowRateModal(null)}>Cancel</BtnSecondary>
               <BtnPrimary onClick={async()=>{await api.put(`/api/vendors/${showRateModal.id}`,{rateCard:rateInput});setVendors(prev=>prev.map(b=>b.id===showRateModal.id?{...b,rateCard:rateInput}:b));setShowRateModal(null);}}>Save</BtnPrimary>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT VENDOR MODAL ── */}
+      {editVendor&&(
+        <div className="modal-bg" onClick={()=>setEditVendor(null)}>
+          <div style={{borderRadius:20,padding:28,width:540,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Edit Vendor</div>
+              <button onClick={()=>setEditVendor(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"],["Location","location"],["Rate Card","rateCard"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
+                  <input value={editVendor[key]||""} onChange={e=>setEditVendor(p=>({...p,[key]:e.target.value}))}
+                    style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                </div>
+              ))}
+              <div style={{gridColumn:"span 2"}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
+                <input value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))}
+                  style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              </div>
+            </div>
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
+              <Sel value={editVendor.category||""} onChange={v=>setEditVendor(p=>({...p,category:v}))} options={VENDORS_CATEGORIES} minWidth={200}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+              <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
+              <BtnPrimary onClick={async()=>{
+                const {id,...fields}=editVendor;
+                await api.put(`/api/vendors/${id}`,fields);
+                setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
+                setEditVendor(null);
+              }}>Save Changes</BtnPrimary>
             </div>
           </div>
         </div>
