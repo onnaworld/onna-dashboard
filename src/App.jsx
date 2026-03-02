@@ -663,6 +663,7 @@ export default function OnnaDashboard() {
   const [noteEditId,setNoteEditId]           = useState(null);
   const [noteDraft,setNoteDraft]             = useState({title:"",content:""});
   const [noteSaving,setNoteSaving]           = useState(false);
+  const [notesErr,setNotesErr]               = useState("");
 
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
   const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
@@ -2118,19 +2119,24 @@ export default function OnnaDashboard() {
               <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,padding:"22px 24px",marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
                 <input value={noteDraft.title} onChange={e=>setNoteDraft(p=>({...p,title:e.target.value}))} placeholder="Title" autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:15,fontWeight:600,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",marginBottom:10}}/>
                 <textarea value={noteDraft.content} onChange={e=>setNoteDraft(p=>({...p,content:e.target.value}))} placeholder="Write your note…" rows={6} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",resize:"vertical",lineHeight:1.6}}/>
+                {notesErr&&<div style={{fontSize:12,color:"#c0392b",marginTop:8,fontWeight:500}}>{notesErr}</div>}
                 <div style={{display:"flex",gap:8,marginTop:12}}>
                   <BtnPrimary disabled={noteSaving||!noteDraft.content.trim()} onClick={async()=>{
-                    setNoteSaving(true);
-                    if (noteEditId) {
-                      const updated = await api.put(`/api/notes/${noteEditId}`,{title:noteDraft.title,content:noteDraft.content,updated_at:new Date().toISOString()});
-                      if (updated.id) setNotes(prev=>prev.map(n=>n.id===noteEditId?updated:n));
-                    } else {
-                      const saved = await api.post("/api/notes",{title:noteDraft.title,content:noteDraft.content});
-                      if (saved.id) setNotes(prev=>[saved,...prev]);
-                    }
-                    setNoteSaving(false); setNoteAddOpen(false); setNoteEditId(null); setNoteDraft({title:"",content:""});
+                    setNoteSaving(true); setNotesErr("");
+                    try {
+                      if (noteEditId) {
+                        const updated = await api.put(`/api/notes/${noteEditId}`,{title:noteDraft.title,content:noteDraft.content,updated_at:new Date().toISOString()});
+                        if (updated.error) { setNotesErr(updated.error); setNoteSaving(false); return; }
+                        setNotes(prev=>prev.map(n=>n.id===noteEditId?updated:n));
+                      } else {
+                        const saved = await api.post("/api/notes",{title:noteDraft.title,content:noteDraft.content});
+                        if (saved.error) { setNotesErr(saved.error); setNoteSaving(false); return; }
+                        setNotes(prev=>[saved,...prev]);
+                      }
+                      setNoteSaving(false); setNoteAddOpen(false); setNoteEditId(null); setNoteDraft({title:"",content:""});
+                    } catch(e) { setNotesErr(e.message||"Failed to save. Please try again."); setNoteSaving(false); }
                   }}>{noteSaving?"Saving…":noteEditId?"Save Changes":"Save Note"}</BtnPrimary>
-                  <BtnSecondary onClick={()=>{setNoteAddOpen(false);setNoteEditId(null);setNoteDraft({title:"",content:""});}}>Cancel</BtnSecondary>
+                  <BtnSecondary onClick={()=>{setNoteAddOpen(false);setNoteEditId(null);setNoteDraft({title:"",content:""});setNotesErr("");}}>Cancel</BtnSecondary>
                 </div>
               </div>
             )}
