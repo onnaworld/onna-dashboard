@@ -829,6 +829,7 @@ export default function OnnaDashboard() {
   const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category).filter(Boolean)))];
   const outreachMonths     = ["All",...Array.from(new Set(outreach.map(o=>getMonthLabel(o.date)).filter(Boolean)))];
   const filteredOutreach   = outreach.filter(o=>{
+    if (o.status==="not_contacted") return false; // not_contacted items live in Leads
     const q=getSearch("Outreach").toLowerCase();
     return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter);
   });
@@ -1988,7 +1989,7 @@ export default function OnnaDashboard() {
                     <button onClick={()=>exportTablePDF(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Outreach Tracker")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
                   </div>
                   <div style={{display:"flex",gap:16,marginBottom:12,flexWrap:"wrap"}}>
-                    {[["not_contacted","Not yet reached out","#c0392b","#fff3e0"],["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
+                    {[["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
                       <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5}}><span style={{width:7,height:7,borderRadius:"50%",background:bg,border:`1.5px solid ${c}`}}/><span style={{color:c,fontWeight:600}}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{color:T.muted}}>— {l}</span></div>
                     ))}
                     <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
@@ -1998,7 +1999,7 @@ export default function OnnaDashboard() {
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                         <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories}/>
-                        <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
+                        <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.filter(s=>s!=="not_contacted").map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
                         <THFilter label="Date Contacted" value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths}/>
                         <TH/>
                       </tr></thead>
