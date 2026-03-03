@@ -1105,6 +1105,28 @@ ${content}
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 };
 
+// ─── CALL SHEET PDF EXPORT ────────────────────────────────────────────────────
+const buildCallSheetHTML = (cs) => {
+  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const venueHTML = cs.venueRows.map(r=>`<tr><td style="font-weight:700;width:120px;font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:1.5px;padding:3px 4px">${esc(r.label)}</td><td style="font-size:11pt;padding:3px 4px">${esc(r.value)}</td></tr>`).join("");
+  const schedHTML = cs.schedule.map(r=>`<tr><td style="font-weight:600;padding:4px">${esc(r.time)}</td><td style="font-weight:600;padding:4px">${esc(r.activity)}</td><td style="padding:4px">${esc(r.notes)}</td></tr>`).join("");
+  const deptHTML = cs.departments.map(dept => {
+    const crewRows = dept.crew.map(c=>`<tr style="border-bottom:1px solid #f0f0f0"><td style="font-size:8pt;color:#666;padding:3px 4px">${esc(c.role)}</td><td style="font-weight:600;padding:3px 4px">${esc(c.name)}</td><td style="padding:3px 4px">${esc(c.mobile)}</td><td style="padding:3px 4px;color:#1565C0">${esc(c.email)}</td><td style="text-align:right;font-weight:600;padding:3px 8px">${esc(c.callTime)}</td></tr>`).join("");
+    return `<tr><td colspan="5" style="padding:0"><div style="background:#1a1a1a;color:#fff;padding:3px 8px;font-size:9pt;font-weight:800;letter-spacing:1.5px">${esc(dept.name)}</div></td></tr>${crewRows}`;
+  }).join("");
+  const emergNums = cs.emergencyNumbers.map(en=>`<span style="color:#C62828;font-weight:800;font-size:12pt">${esc(en.number)}</span> FOR <strong>${esc(en.label)}</strong>`).join(" | ");
+  return `<div style="text-align:center;font-size:12pt;font-weight:800;letter-spacing:1.5px;margin-bottom:8px">CALL SHEET</div>
+<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div><div style="font-size:22pt;font-weight:800;letter-spacing:1.5px">${esc(cs.shootName||"SHOOT NAME")}</div><div style="font-size:10pt;font-weight:600;margin-top:4px">${esc(cs.date)}</div></div><div style="font-size:12pt;font-weight:700;letter-spacing:1.5px">SHOOT DAY ${esc(cs.dayNumber||"#")}</div></div>
+${cs.passportNote?`<div style="text-align:center;color:#C62828;font-size:10pt;font-weight:700;letter-spacing:1.5px;margin-bottom:8px">${esc(cs.passportNote)}</div>`:""}
+<div style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:10px;font-size:11pt"><strong style="font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:1.5px">Production On Set:</strong> ${esc(cs.productionContacts)}</div>
+<div class="sec">SHOOT</div><table style="margin-bottom:14px">${venueHTML}</table>
+<div class="sec">SCHEDULE</div><table><thead><tr><th style="width:10%">TIME</th><th style="width:18%">ACTIVITY</th><th>NOTES</th></tr></thead><tbody>${schedHTML}</tbody></table>
+<div class="sec">CONTACTS</div><table style="font-size:10pt"><thead><tr><th>ROLE</th><th>NAME</th><th>MOBILE</th><th>EMAIL</th><th style="text-align:right">CALL TIME</th></tr></thead><tbody>${deptHTML}</tbody></table>
+<div class="sec">INVOICING</div><p>Payment terms: <strong>${esc(cs.invoicing.terms)}</strong>. Send invoices to: ${esc(cs.invoicing.email)}</p><p style="white-space:pre-line">${esc(cs.invoicing.address)}</p><p><strong>TRN:</strong> ${esc(cs.invoicing.trn)}</p>
+<div class="sec">PROTOCOL ON SET</div><p style="font-size:9pt;color:#555">${esc(cs.protocol)}</p>
+<div class="sec">NEAREST EMERGENCY SERVICES</div><p><strong>${esc(cs.emergencyDialPrefix)}</strong> ${emergNums}</p><p><strong>NEAREST HOSPITAL:</strong> ${esc(cs.emergency.hospital)}</p><p><strong>NEAREST POLICE STATION:</strong> ${esc(cs.emergency.police)}</p>`;
+};
+
 // ─── TABLE EXPORT HELPERS ──────────────────────────────────────────────────────
 const downloadCSV = (rows, columns, filename) => {
   const header = columns.map(c=>`"${c.label}"`).join(",");
@@ -1710,7 +1732,8 @@ export default function OnnaDashboard() {
   const [projectLocLinks,setProjectLocLinks]             = useState({});
   const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectContracts,setProjectContracts]           = useState({});
-  const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');return s?JSON.parse(s):{}}catch{return {}}});
+  const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
+  const [activeCSVersion,setActiveCSVersion]             = useState(0);
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
@@ -2297,7 +2320,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
@@ -2485,7 +2508,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -2544,7 +2567,7 @@ export default function OnnaDashboard() {
         const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
         return (
           <div>
-            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
+            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
             <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
             <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or link a Dropbox / Drive folder.</p>
             <div style={{marginBottom:18}}>
@@ -2742,24 +2765,52 @@ export default function OnnaDashboard() {
       const docBack = <button onClick={()=>setDocumentsSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
 
       if (documentsSubSection==="callsheet") {
-        const csData = callSheetStore[p.id] || JSON.parse(JSON.stringify(CALLSHEET_INIT));
+        // Versioned call sheets — array of {id, label, ...CALLSHEET_INIT}
+        const csVersions = callSheetStore[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const csIdx = Math.min(activeCSVersion, csVersions.length - 1);
+        const csData = csVersions[csIdx] || csVersions[0];
+
         const csU = (path, val) => {
           setCallSheetStore(prev => {
             const store = JSON.parse(JSON.stringify(prev));
-            const d = store[p.id] || JSON.parse(JSON.stringify(CALLSHEET_INIT));
+            const arr = store[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+            const idx = Math.min(csIdx, arr.length - 1);
+            const d = arr[idx];
             const k = path.split("."); let o = d;
             for (let i = 0; i < k.length - 1; i++) o = o[k[i]];
             o[k[k.length - 1]] = val;
-            store[p.id] = d; return store;
+            arr[idx] = d; store[p.id] = arr; return store;
           });
         };
         const csSet = (fn) => {
           setCallSheetStore(prev => {
             const store = JSON.parse(JSON.stringify(prev));
-            store[p.id] = fn(store[p.id] || JSON.parse(JSON.stringify(CALLSHEET_INIT)));
-            return store;
+            const arr = store[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+            const idx = Math.min(csIdx, arr.length - 1);
+            arr[idx] = fn(arr[idx]);
+            store[p.id] = arr; return store;
           });
         };
+        const addCSVersion = () => {
+          setCallSheetStore(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            const arr = store[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+            arr.push({id:Date.now(),label:`Day ${arr.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))});
+            store[p.id] = arr; return store;
+          });
+          setActiveCSVersion(csVersions.length);
+        };
+        const deleteCSVersion = (idx) => {
+          setCallSheetStore(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            const arr = store[p.id] || [];
+            if (arr.length <= 1) return store;
+            arr.splice(idx, 1);
+            store[p.id] = arr; return store;
+          });
+          setActiveCSVersion(v => Math.min(v, csVersions.length - 2));
+        };
+
         const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
         const rmScheduleRow = i => csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)}));
         const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
@@ -2779,6 +2830,23 @@ export default function OnnaDashboard() {
         return (
           <div>
             {docBack}
+            {/* Version tabs + Export */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                {csVersions.map((v,i) => (
+                  <div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}>
+                    <button onClick={()=>setActiveCSVersion(i)} style={{padding:"6px 14px",borderRadius:9,fontSize:12,fontWeight:csIdx===i?600:500,cursor:"pointer",border:`1px solid ${csIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:csIdx===i?T.accent:"transparent",color:csIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||`Day ${i+1}`}</button>
+                    {csVersions.length>1&&<button onClick={()=>deleteCSVersion(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete this version">×</button>}
+                  </div>
+                ))}
+                <button onClick={addCSVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted,transition:"all 0.12s"}}>+ Add Day</button>
+              </div>
+              <BtnExport onClick={()=>exportToPDF(buildCallSheetHTML(csData),`Call Sheet ${csData.label||"Day "+(csIdx+1)} — ${p.name}`)}>Export PDF</BtnExport>
+            </div>
+            {/* Editable label */}
+            <div style={{marginBottom:10,fontSize:11,color:T.muted}}>
+              Label: <input value={csData.label||""} onChange={e=>csU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:140}} placeholder={`Day ${csIdx+1}`}/>
+            </div>
             <div style={{background:"#EDEDED",padding:"24px 12px",fontFamily:CS_FONT,borderRadius:14}}>
               <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
 
@@ -3802,12 +3870,12 @@ export default function OnnaDashboard() {
             if (selectedProject) return (
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
-                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
-                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
+                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
