@@ -1073,6 +1073,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
 
   // ── Split-pane: detect if agent has active project context ──
@@ -1418,6 +1419,50 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setMood("idle");return;
     }
 
+    // ── "update vendor/lead [Name]" — find existing or create new ─────────────
+    if(agent.id==="logistical"){
+      const upM=input.match(/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact))\s+(.+?)(?:\s+(?:record|entry|details?|info))?[.!?]?\s*$/i);
+      if(upM){
+        const upType=/vendor|supplier/i.test(upM[1])?"vendor":"lead";
+        const upName=upM[2].trim();
+        setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+        // Look up existing record
+        const found=findVendorOrLead(upName,allVendors,allLeads);
+        // Merge with last search result if available and recent (<5 min) and name matches
+        const lastS=lastSearchRef.current;
+        const hasRecent=lastS&&(Date.now()-lastS._ts<300000)&&(lastS.contact||lastS.name||"").toLowerCase().includes(upName.split(" ")[0].toLowerCase());
+        if(found){
+          const {record,type}=found;
+          const displayName=type==="vendor"?record.name:(record.contact||record.company);
+          // Merge scraped data into existing record (only fill blanks)
+          const merged={...record};
+          if(hasRecent){
+            const scrape=lastS;
+            if(type==="vendor"){
+              if(!merged.email&&scrape.email)merged.email=scrape.email;
+              if(!merged.phone&&scrape.phone)merged.phone=scrape.phone;
+              if(!merged.website&&scrape.website)merged.website=scrape.website;
+              if(!merged.notes&&scrape.role)merged.notes=scrape.role;
+            }else{
+              if(!merged.email&&scrape.email)merged.email=scrape.email;
+              if(!merged.phone&&scrape.phone)merged.phone=scrape.phone;
+              if(!merged.company&&scrape.company)merged.company=scrape.company;
+              if(!merged.role&&scrape.role)merged.role=scrape.role;
+            }
+          }
+          const fq=startConv(merged,type,false,record.id);
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (existing ${type}). ${hasRecent?"Merged Outlook data. ":""}${fq?fq+" (or 'x' to skip)":"Review and update below."}`}]);
+        }else{
+          // No existing record — create new
+          const newEntry=hasRecent?{...lastS,_type:upType}:{_type:upType,...(upType==="vendor"?{name:upName,category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
+          if(hasRecent&&upType==="vendor"&&!newEntry.name)newEntry.name=newEntry.contact||upName;
+          const fq=startConv(newEntry,upType,false,null);
+          setMsgs([...history,{role:"assistant",content:`No existing ${upType} "${upName}" found — creating new. ${hasRecent?"Using Outlook data. ":""}${fq?"\n\n"+fq+" (or 'x' to skip)":"\nReview and save below."}`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
+    }
+
     // ── Intent detection (Vinnie only) ────────────────────────────────────────
     let findQuery=null;
     if(agent.id==="logistical"){
@@ -1435,6 +1480,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(result.ok&&result.lead){
         const l=result.lead;
         if(wantsVendor&&!l.name)l.name=l.contact||findQuery;
+        lastSearchRef.current={...l,_type:findType,_query:findQuery,_ts:Date.now()};
         const sim=findSimilar(l.contact||l.name||l.company||"",allVendors,allLeads);
         if(sim&&!sim.exact){
           const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
@@ -5616,9 +5662,9 @@ export default function OnnaDashboard() {
 
         {/* ── AGENTS TAB ── */}
         {activeTab==="Agents"&&(
-          <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
-            {/* Left half — agent avatars (hidden when full-width doc preview active) */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:{flex:"0 0 50%",overflowY:"auto",display:agentWantsFullWidth?"none":"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+          <div style={{display:"flex",flexDirection:isMobile?"column":agentWantsFullWidth?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
+            {/* Agent avatars — top strip when full-width, left column otherwise */}
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:agentWantsFullWidth?{display:"flex",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:10,padding:"10px 20px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {AGENT_DEFS.map((a,i)=>{
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -5627,20 +5673,20 @@ export default function OnnaDashboard() {
                   onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={isMobile?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)",flexShrink:0}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.55)":"scale(1)",transformOrigin:"center"}}>
+                  style={isMobile?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)",flexShrink:0}:agentWantsFullWidth?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 10px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)",flexShrink:0}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
+                  <div style={{transform:isMobile?"scale(0.55)":agentWantsFullWidth?"scale(0.45)":"scale(1)",transformOrigin:"center"}}>
                     <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
-                  <span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
+                  <span style={{fontSize:isMobile?9:agentWantsFullWidth?8:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
                 </button>
               );})}
             </div>
-            {/* Right half — chat panel (expands full-width when doc preview active) */}
-            <div style={{flex:isMobile?"1":agentWantsFullWidth?"1 1 100%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,padding:isMobile?"0":"8px 8px 8px 0"}}>
+            {/* Chat panel — centered wide card when full-width, right 50% otherwise */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:agentWantsFullWidth&&!isMobile?"center":"stretch",minHeight:0,padding:isMobile?"0":agentWantsFullWidth?"8px 16px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
-                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",maxWidth:agentWantsFullWidth?1400:undefined,width:agentWantsFullWidth?"100%":undefined}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":"100%"}}>
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":"100%",maxWidth:agentWantsFullWidth?1400:undefined,width:agentWantsFullWidth?"100%":undefined}}>
                   {/* Bubble header */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
