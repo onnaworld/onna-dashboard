@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
@@ -6,6 +6,75 @@ const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
 const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,IDB_VER);r.onupgradeneeded=e=>{e.target.result.createObjectStore(IDB_STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const idbGet=async(key)=>{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readonly").objectStore(IDB_STORE).get(key);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)})};
 const idbSet=async(key,val)=>{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).put(val,key);t.onsuccess=()=>res();t.onerror=()=>rej(t.error)})};
+
+// ─── CALL SHEET TEMPLATE ─────────────────────────────────────────────────────
+const CS_FONT = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+const CS_LS = 1.5;
+const CS_YELLOW = "#FFF9C4";
+
+const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = false, isPlaceholder = false }) => {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value);
+  const commit = () => { setEditing(false); onChange(temp); };
+  const showYellow = isPlaceholder && !value;
+  if (editing) return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a"}} placeholder={placeholder}/>;
+  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?CS_YELLOW:"transparent",borderRadius:showYellow?2:0,padding:showYellow?"0 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+};
+
+const CSEditTextarea = ({ value, onChange, style = {} }) => {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value);
+  const commit = () => { setEditing(false); onChange(temp); };
+  if (editing) return <textarea autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} rows={4} style={{...style,fontFamily:CS_FONT,fontSize:11,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"4px 6px",width:"100%",boxSizing:"border-box",resize:"vertical"}}/>;
+  return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,cursor:"text",whiteSpace:"pre-wrap",fontFamily:CS_FONT,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:10}}>Click to edit</span>}</div>;
+};
+
+const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
+  const ref = useRef();
+  const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:38,maxWidth:120,objectFit:"contain"}}/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>×</button></div>:<div onClick={()=>ref.current.click()} style={{width:100,height:36,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+};
+
+const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
+  const ref = useRef();
+  const [height, setHeight] = useState(defaultHeight);
+  const dragRef = useRef({ dragging: false, startY: 0, startH: 0 });
+  const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  const onMouseDown = useCallback(e => {
+    e.preventDefault(); dragRef.current = { dragging:true, startY:e.clientY, startH:height };
+    const onMove = ev => { if(!dragRef.current.dragging)return; setHeight(Math.max(80,dragRef.current.startH+(ev.clientY-dragRef.current.startY))); };
+    const onUp = () => { dragRef.current.dragging=false; window.removeEventListener("mousemove",onMove); window.removeEventListener("mouseup",onUp); };
+    window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
+  }, [height]);
+  return <div>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{width:"100%",height,objectFit:"cover",borderRadius:4,display:"block"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div onClick={()=>ref.current.click()} style={{width:"100%",height,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+};
+
+const CSXbtn = ({ onClick, size = 16 }) => <button onClick={onClick} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:size,padding:"0 3px",lineHeight:1,transition:"color 0.15s"}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>×</button>;
+const CSAddBtn = ({ onClick, label }) => <button onClick={onClick} style={{background:"none",border:"1px dashed #ddd",borderRadius:3,padding:"3px 12px",fontSize:9,color:"#aaa",cursor:"pointer",fontFamily:CS_FONT,letterSpacing:0.5,marginTop:4}} onMouseEnter={e=>{e.target.style.borderColor="#999";e.target.style.color="#666";}} onMouseLeave={e=>{e.target.style.borderColor="#ddd";e.target.style.color="#aaa";}}>+ {label}</button>;
+
+const CALLSHEET_INIT = {
+  shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"",
+  agencyLogo:null,clientLogo:null,mapImage:null,weatherImage:null,
+  venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""}],
+  schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],
+  departments:[
+    {name:"CLIENT",crew:[{role:"MARKETING MANAGER",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"BRAND",crew:[{role:"BRAND DIRECTOR",name:"",mobile:"",email:"",callTime:""},{role:"MARKETING DIRECTOR",name:"",mobile:"",email:"",callTime:""},{role:"MARKETING EXECUTIVE",name:"",mobile:"",email:"",callTime:""},{role:"SNR. PRODUCER",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"CREATIVE",crew:[{role:"ART DIRECTOR / DIRECTOR",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"MOTION",crew:[{role:"DIRECTOR OF PHOTOGRAPHY",name:"",mobile:"",email:"",callTime:""},{role:"1ST ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"2ND ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"KEY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"BEST BOY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"GAFFER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK/DRIVER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"VTO",name:"",mobile:"",email:"",callTime:""},{role:"DIT",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"PHOTOGRAPHY",crew:[{role:"PHOTOGRAPHER",name:"",mobile:"",email:"",callTime:""},{role:"LIGHTING ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"DIGI TECH",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"STYLING",crew:[{role:"STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"STYLIST ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"PROPS",crew:[{role:"PROP STYLIST",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"BEAUTY TEAM",crew:[{role:"HAIR STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"HAIR ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ARTIST",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"MODEL",crew:[{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"WAITER",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"PRODUCTION & LOCATION",crew:[{role:"LOCAL PRODUCER",name:"",mobile:"",email:"",callTime:""},{role:"ASSISTANT DIRECTOR",name:"",mobile:"",email:"",callTime:""},{role:"LOCATION MANAGER",name:"",mobile:"",email:"",callTime:""},{role:"LOCATION ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"UNIT",name:"",mobile:"",email:"",callTime:""},{role:"UNIT",name:"",mobile:"",email:"",callTime:""},{role:"UNIT",name:"",mobile:"",email:"",callTime:""}]},
+  ],
+  emergencyNumbers:[{label:"POLICE",number:"999"},{label:"AMBULANCE",number:"998"},{label:"FIRE DEPARTMENT (CIVIL DEFENCE)",number:"997"}],
+  emergencyDialPrefix:"UAE DIAL:",
+  emergency:{hospital:"American Hospital Nad Al Sheba Clinic, Avenue Mall - Nad Al Sheba - Nadd Al Shiba Second - Dubai, +971 800 24392",police:"Nad Al Sheba Police Administration Office, Road - Nad Al Sheba - Nad Al Sheba 1 - Dubai, +971 4 336 3535"},
+  invoicing:{terms:"NET 30 days",email:"accounts@onnaproduction.com",address:"ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC.\nOFFICE NO. F1-022,\nPROPERTY INVESTMENT OFFICE 4-F1\nDUBAI, UNITED ARAB EMIRATES",trn:"105161036600003"},
+  protocol:"WE KINDLY ASK ALL CAST AND CREW TO BE SENSITIVE TO THE BRANDS, LOGOS, PEOPLE AND PRODUCTS BEING CAPTURED ON THIS SHOOT AND REMIND YOU THAT IN WORKING ON THIS PRODUCTION YOU AGREE TO TREAT ALL CLIENT INFORMATION, PHOTOGRAPHY AND FILMING AS CONFIDENTIAL. YOU AGREE NOT TO COMMUNICATE ANY COMMENTS OR IMAGERY OF THE SHOOT AT ANY TIME BY ANY MEANS, INCLUDING VIA SOCIAL MEDIA WITHOUT EXPRESS PERMISSION FROM PRODUCTION.",
+};
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
@@ -1641,6 +1710,7 @@ export default function OnnaDashboard() {
   const [projectLocLinks,setProjectLocLinks]             = useState({});
   const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectContracts,setProjectContracts]           = useState({});
+  const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
@@ -1719,6 +1789,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{idbGet("projectFileStore").then(d=>{if(d)setProjectFileStore(d);setFileStoreReady(true);}).catch(()=>setFileStoreReady(true));},[]);
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
   useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
+  useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
@@ -2670,9 +2741,256 @@ export default function OnnaDashboard() {
       // Back button for all document sub-sections
       const docBack = <button onClick={()=>setDocumentsSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
 
-      if (documentsSubSection==="callsheet") return (
-        <div>{docBack}<AIDocPanel project={p} docType="Call Sheet" systemPrompt={callSheetSystemPrompt} savedDocs={savedCallSheets}/></div>
-      );
+      if (documentsSubSection==="callsheet") {
+        const csData = callSheetStore[p.id] || JSON.parse(JSON.stringify(CALLSHEET_INIT));
+        const csU = (path, val) => {
+          setCallSheetStore(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            const d = store[p.id] || JSON.parse(JSON.stringify(CALLSHEET_INIT));
+            const k = path.split("."); let o = d;
+            for (let i = 0; i < k.length - 1; i++) o = o[k[i]];
+            o[k[k.length - 1]] = val;
+            store[p.id] = d; return store;
+          });
+        };
+        const csSet = (fn) => {
+          setCallSheetStore(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            store[p.id] = fn(store[p.id] || JSON.parse(JSON.stringify(CALLSHEET_INIT)));
+            return store;
+          });
+        };
+        const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
+        const rmScheduleRow = i => csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)}));
+        const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
+        const rmVenueRow = i => csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)}));
+        const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
+        const rmCrew = (di,ci) => csSet(d => {d.departments[di].crew.splice(ci,1); return d;});
+        const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
+        const rmDept = i => csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)}));
+        const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
+        const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
+
+        const csLbl = {fontSize:9,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:CS_LS};
+        const csDeptBg = "#F4F4F4";
+        const csSecTitle = {fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase",borderBottom:"2px solid #000",paddingBottom:5,marginBottom:10};
+        const csTh = {padding:"5px 4px",fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#555",background:"#fff",textTransform:"uppercase",whiteSpace:"nowrap"};
+
+        return (
+          <div>
+            {docBack}
+            <div style={{background:"#EDEDED",padding:"24px 12px",fontFamily:CS_FONT,borderRadius:14}}>
+              <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
+
+                {/* TOP BAR */}
+                <div style={{padding:"22px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:30,fontWeight:400,letterSpacing:1,color:"#000",fontFamily:"'Didot', serif"}}>onna</span>
+                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                    <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
+                    <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
+                  </div>
+                </div>
+                <div style={{height:3,background:"#000",margin:"0 32px"}}/>
+
+                <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
+                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div>
+                </div>
+
+                <div style={{padding:"8px 32px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{fontSize:24,fontWeight:800,letterSpacing:CS_LS,lineHeight:1.1}}>
+                      <CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:24,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/>
+                    </div>
+                    <div style={{marginTop:6}}>
+                      <CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:10,color:"#000",fontWeight:600,letterSpacing:CS_LS}} placeholder="DAY & DATE"/>
+                    </div>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:700,letterSpacing:CS_LS,color:"#000",paddingTop:4,whiteSpace:"nowrap"}}>
+                    SHOOT DAY <CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/>
+                  </div>
+                </div>
+
+                <div style={{padding:"0 32px 10px",textAlign:"center"}}>
+                  <CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} isPlaceholder style={{color:"#C62828",fontSize:10,fontWeight:700,letterSpacing:CS_LS}} placeholder="E.G. ALL CREW MUST BRING VALID PASSPORT/ID TO SET"/>
+                </div>
+                <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
+
+                <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11}}>
+                  <span style={csLbl}>Production On Set: </span>
+                  <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/>
+                </div>
+
+                {/* SHOOT */}
+                <div style={{padding:"14px 32px 8px"}}>
+                  <div style={csSecTitle}>SHOOT</div>
+                  {csData.venueRows.map((row,i) => (
+                    <div key={i} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8}}>
+                      <div style={{minWidth:95}}>
+                        <CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/>
+                      </div>
+                      <div style={{flex:1,fontSize:11}}>
+                        <CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/>
+                      </div>
+                      <CSXbtn onClick={()=>rmVenueRow(i)}/>
+                    </div>
+                  ))}
+                  <CSAddBtn onClick={addVenueRow} label="Add Row"/>
+                </div>
+
+                {/* SCHEDULE */}
+                <div style={{padding:"10px 32px"}}>
+                  <div style={csSecTitle}>SCHEDULE</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+                    <thead><tr style={{background:csDeptBg}}>
+                      <td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td>
+                      <td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td>
+                      <td style={{...csTh,background:csDeptBg}}>NOTES</td>
+                      <td style={{width:24,background:csDeptBg}}></td>
+                    </tr></thead>
+                    <tbody>
+                      {csData.schedule.map((row,i) => (
+                        <tr key={i} style={{borderBottom:"1px solid #f0f0f0",background:"#fff"}}>
+                          <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}>
+                            <CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder placeholder="00:00" style={{fontSize:11,fontWeight:600}}/>
+                          </td>
+                          <td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}>
+                            <CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder placeholder="Activity" style={{fontSize:11,fontWeight:600}}/>
+                          </td>
+                          <td style={{padding:"4px 4px",fontSize:11}}>
+                            <CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/>
+                          </td>
+                          <td><CSXbtn onClick={()=>rmScheduleRow(i)}/></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <CSAddBtn onClick={addScheduleRow} label="Add Row"/>
+                </div>
+
+                {/* CONTACTS */}
+                <div style={{padding:"10px 32px"}}>
+                  <div style={csSecTitle}>CONTACTS</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+                    <thead><tr>
+                      <td style={{...csTh,width:"17%"}}>ROLE</td>
+                      <td style={{...csTh,width:"15%"}}>NAME</td>
+                      <td style={{...csTh,width:"16%"}}>MOBILE</td>
+                      <td style={{...csTh,width:"30%"}}>EMAIL</td>
+                      <td style={{...csTh,width:"8%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
+                      <td style={{...csTh,width:22}}></td>
+                    </tr></thead>
+                    <tbody>
+                      {csData.departments.map((dept,di) => (
+                        <React.Fragment key={di}>
+                          <tr><td colSpan={6} style={{padding:0}}>
+                            <div style={{background:"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/>
+                              <button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>
+                            </div>
+                          </td></tr>
+                          {dept.crew.map((cr,ci) => (
+                            <tr key={ci} style={{background:"#fff",borderBottom:"1px solid #f5f5f5"}}>
+                              <td style={{padding:"3px 4px",fontSize:9,color:"#666"}}>
+                                <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/>
+                              </td>
+                              <td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}>
+                                <CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder="Name"/>
+                              </td>
+                              <td style={{padding:"3px 4px",fontSize:10}}>
+                                <CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder="Phone"/>
+                              </td>
+                              <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}>
+                                <CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder="Email"/>
+                              </td>
+                              <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}>
+                                <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600}} placeholder="Time"/>
+                              </td>
+                              <td><CSXbtn onClick={()=>rmCrew(di,ci)}/></td>
+                            </tr>
+                          ))}
+                          <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr>
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                  <CSAddBtn onClick={addDept} label="Add Department"/>
+                </div>
+
+                {/* MAP */}
+                <div style={{padding:"14px 32px 10px"}}>
+                  <div style={csSecTitle}>MAP</div>
+                  <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
+                </div>
+
+                {/* WEATHER */}
+                <div style={{padding:"10px 32px 14px"}}>
+                  <div style={csSecTitle}>WEATHER</div>
+                  <CSResizableImage label="Weather Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/>
+                </div>
+
+                {/* INVOICING */}
+                <div style={{padding:"14px 32px"}}>
+                  <div style={csSecTitle}>INVOICING</div>
+                  <div style={{fontSize:11,marginBottom:8}}>
+                    Please note that payment terms are <strong><CSEditField value={csData.invoicing.terms} onChange={v=>csU("invoicing.terms",v)} bold style={{fontSize:11}}/></strong> from the date of invoice.
+                  </div>
+                  <div style={{fontSize:11}}>
+                    <div style={{fontWeight:700,marginBottom:2}}>FOR DUBAI CREW:</div>
+                    <div>PLEASE SEND INVOICES TO: <CSEditField value={csData.invoicing.email} onChange={v=>csU("invoicing.email",v)} style={{fontSize:11,color:"#1565C0"}}/></div>
+                    <div style={{fontWeight:700,marginTop:6}}>BILLING ADDRESS:</div>
+                    <CSEditTextarea value={csData.invoicing.address} onChange={v=>csU("invoicing.address",v)} style={{fontSize:11,lineHeight:1.6}}/>
+                    <div style={{marginTop:4}}><strong>TRN:</strong> <CSEditField value={csData.invoicing.trn} onChange={v=>csU("invoicing.trn",v)} style={{fontSize:11}}/></div>
+                  </div>
+                </div>
+
+                {/* PROTOCOL */}
+                <div style={{padding:"10px 32px"}}>
+                  <div style={csSecTitle}>PROTOCOL ON SET</div>
+                  <CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/>
+                </div>
+
+                {/* EMERGENCY */}
+                <div style={{padding:"10px 32px"}}>
+                  <div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div>
+                  <div style={{fontSize:11,marginBottom:8,display:"flex",flexWrap:"wrap",alignItems:"center",gap:4}}>
+                    <CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:CS_LS}}/>
+                    {csData.emergencyNumbers.map((en,i) => (
+                      <span key={i} style={{display:"inline-flex",alignItems:"center",gap:2}}>
+                        <span style={{color:"#C62828",fontWeight:800,fontSize:12}}>
+                          <CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:12}}/>
+                        </span>
+                        <span style={{fontWeight:600,fontSize:10,letterSpacing:CS_LS}}> FOR </span>
+                        <CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS}}/>
+                        <CSXbtn onClick={()=>rmEmergencyNum(i)} size={13}/>
+                        {i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 4px"}}>|</span>}
+                      </span>
+                    ))}
+                    <CSAddBtn onClick={addEmergencyNum} label="Add"/>
+                  </div>
+                  <div style={{fontSize:11,marginBottom:4}}>
+                    <strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/>
+                  </div>
+                  <div style={{fontSize:11}}>
+                    <strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/>
+                  </div>
+                </div>
+
+                {/* FOOTER */}
+                <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div>
+                    <div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div>
+                    <div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
 
       if (documentsSubSection==="risk") return (
         <div>{docBack}<AIDocPanel project={p} docType="Risk Assessment" systemPrompt={riskSystemPrompt} savedDocs={savedRiskAssessments}/></div>
