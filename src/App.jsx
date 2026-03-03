@@ -587,11 +587,9 @@ Be warm, brief and direct.`,
    placeholder:"Add gaffer Elie Kolko, what's missing, update call time...",
    intro:"Hi! I'm Call Sheet Connie. I'm connected to your live call sheets — tell me to add crew, update details, or ask what's missing. 📋"},
   {id:"researcher",name:"Risk Assessment Ronnie",title:"Risk Assessment",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
-   system:`You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments.
-
-Be thorough and formal. Cover: location risks, equipment hazards, talent welfare, UAE permits (Media Regulatory Authority, Dubai Film Permit), weather, emergency protocols. Reference actual UAE laws and regulations. Structure output clearly with numbered sections and risk ratings.`,
-   placeholder:"Describe your project and location for a risk assessment...",
-   intro:"I'm Risk Assessment Ronnie. I do not take safety lightly. Describe your project and I will conduct a thorough risk assessment against UAE and international production safety regulations. 🔬"},
+   system:`You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. You are connected to live risk assessment data and can read and update it directly.`,
+   placeholder:"Add a new risk, update mitigation, review what's missing...",
+   intro:"I'm Risk Assessment Ronnie. I'm connected to your live risk assessments — tell me to add risks, update mitigations, or ask what's missing. I do not take safety lightly. 🔬"},
   {id:"minnie",name:"Meeting Minnie",title:"Scheduling",emoji:"📅",color:_PURPLE,border:"#a07cc0",accent:"#4a1a80",bg:"#faf5ff",textColor:"#2d0a50",tagBg:"#ede0f8",Blob:_Minnie,
    system:`You are Meeting Minnie, ONNA's scheduling assistant for a film/TV production company in Dubai. You help manage meeting requests from emails.
 
@@ -1059,19 +1057,22 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     setMsgs(history);setInput("");setLoading(true);setMood("thinking");
 
     if(findQuery){
+      const wantsVendor=/\b(vendor|supplier)\b/i.test(input);
+      const findType=wantsVendor?"vendor":"lead";
       setMsgs([...history,{role:"assistant",content:`Searching your emails for "${findQuery}"…`}]);
       const result=await searchViaExt(findQuery);
       if(result.ok&&result.lead){
         const l=result.lead;
-        const sim=findSimilar(l.contact||l.company||"",allVendors,allLeads);
+        if(wantsVendor&&!l.name)l.name=l.contact||findQuery;
+        const sim=findSimilar(l.contact||l.name||l.company||"",allVendors,allLeads);
         if(sim&&!sim.exact){
           const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
-          setPendingDuplicate({entry:{...l,_type:"lead"},similar:sim,saveAsOutreach:false});
-          setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||findQuery}. I also noticed a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
+          setPendingDuplicate({entry:{...l,_type:findType},similar:sim,saveAsOutreach:false});
+          setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||l.name||findQuery}. I also noticed a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
         }else{
-          const foundEntry={...l,_type:"lead"};
-          const fqf=startConv(foundEntry,"lead",false,null);
-          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
+          const foundEntry={...l,_type:findType};
+          const fqf=startConv(foundEntry,findType,false,null);
+          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||l.name||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
         }
       }else{
         setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the extension is installed.`}]);
@@ -1190,7 +1191,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setConnieCtx({projectId:project.id,vIdx:0});
           const vLabel=csVersions[0].label||"Day 1";
           addConnieTab(project.id,0,`${project.name} · ${vLabel}`);
-          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
+          const _v=csVersions[0];const _hasData=_v.shootName||_v.schedule?.some(s=>s.activity)||_v.departments?.some(d=>d.crew?.some(c=>c.name));
+          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the call sheet data from before. What would you like to do?`:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         // Multiple versions — try to match day in same message
@@ -1208,7 +1210,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setConnieCtx({projectId:project.id,vIdx});
           const vLabel=csVersions[vIdx].label||`Day ${vIdx+1}`;
           addConnieTab(project.id,vIdx,`${project.name} · ${vLabel}`);
-          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
+          const _v2=csVersions[vIdx];const _hasData2=_v2.shootName||_v2.schedule?.some(s=>s.activity)||_v2.departments?.some(d=>d.crew?.some(c=>c.name));
+          setMsgs([...history,{role:"assistant",content:_hasData2?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the call sheet data from before. What would you like to do?`:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         // Couldn't determine version — ask
@@ -1235,7 +1238,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setConnieCtx({projectId:switchProject.id,vIdx:0});
           const vl=swVersions[0].label||"Day 1";
           addConnieTab(switchProject.id,0,`${switchProject.name} · ${vl}`);
-          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${vl}). What would you like to do?`}]);
+          const _sw=swVersions[0];const _swHas=_sw.shootName||_sw.schedule?.some(s=>s.activity)||_sw.departments?.some(d=>d.crew?.some(c=>c.name));
+          setMsgs([...history,{role:"assistant",content:_swHas?`Switched to **${switchProject.name}** (${vl}). All your existing call sheet data is still here. What would you like to do?`:`Switched to **${switchProject.name}** (${vl}). What would you like to do?`}]);
         } else {
           const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
           setConnieCtx(null);
@@ -3552,9 +3556,100 @@ export default function OnnaDashboard() {
         );
       }
 
-      if (documentsSubSection==="risk") return (
-        <div>{docBack}<AIDocPanel project={p} docType="Risk Assessment" systemPrompt={riskSystemPrompt} savedDocs={savedRiskAssessments}/></div>
-      );
+      if (documentsSubSection==="risk") {
+        const raVersions = riskAssessmentStore[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        const raIdx = Math.min(activeRAVersion, raVersions.length - 1);
+        const raData = raVersions[raIdx] || raVersions[0];
+        const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
+        const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
+        const addRAVersion = () => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; arr.push({id:Date.now(),label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); };
+        const deleteRAVersion = (idx) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
+        const RA_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+        const RA_LS = 0.5; const RA_LS_HDR = 1.5; const RA_GREY = "#F4F4F4";
+        const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
+
+        return (
+          <div>
+            {docBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                {raVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveRAVersion(i)} style={{padding:"6px 14px",borderRadius:9,fontSize:12,fontWeight:raIdx===i?600:500,cursor:"pointer",border:`1px solid ${raIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:raIdx===i?T.accent:"transparent",color:raIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||`Version ${i+1}`}</button>{raVersions.length>1&&<button onClick={()=>deleteRAVersion(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete version">×</button>}</div>))}
+                <button onClick={addRAVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Add Version</button>
+              </div>
+              <BtnExport onClick={()=>{const el=document.getElementById("onna-ra-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:6mm 0;size:A4;}}</style></head><body></body></html>');doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
+            </div>
+            <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${raIdx+1}`}/></div>
+
+            <div id="onna-ra-print" style={{background:"#fff",padding:"32px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
+                <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                  <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
+                  <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
+                </div>
+              </div>
+              <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
+              <div style={{textAlign:"center",fontFamily:RA_FONT,fontSize:12,fontWeight:700,letterSpacing:RA_LS_HDR,textTransform:"uppercase",marginBottom:16}}>RISK ASSESSMENT</div>
+
+              <div style={{marginBottom:20}}>
+                {[{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>(
+                  <div key={k} style={{display:"flex",gap:6,marginBottom:2}}>
+                    <span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,minWidth:100}}>{l}</span>
+                    <CSEditField value={raData[k]||""} onChange={v=>raU(k,v)} isPlaceholder={!raData[k]} placeholder={`Enter ${l.toLowerCase().replace(":","")}` } style={{fontSize:10,letterSpacing:RA_LS}}/>
+                  </div>
+                ))}
+              </div>
+
+              {(raData.sections||[]).map((sec,si) => (
+                <div key={sec.id||si}>
+                  <div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 8px",textTransform:"uppercase",marginTop:24,marginBottom:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                    <span style={{marginRight:4}}>{si+1}.</span>
+                    <CSEditField value={sec.title} onChange={v=>{raSet(d=>{d.sections[si].title=v;return d;});}} placeholder="Section Title" style={{fontSize:10,color:"#fff",letterSpacing:RA_LS_HDR}} bold/>
+                    <div onClick={()=>raSet(d=>({...d,sections:d.sections.filter((_,j)=>j!==si)}))} style={{position:"absolute",right:8,cursor:"pointer",fontSize:13,color:"#666",opacity:0.6}} onMouseEnter={e=>(e.target.style.opacity=1)} onMouseLeave={e=>(e.target.style.opacity=0.6)}>×</div>
+                  </div>
+                  <div style={{display:"flex",background:RA_GREY,borderBottom:"1px solid #ddd",padding:"5px 0"}}>
+                    {(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"]).map((c,ci)=>(<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,fontFamily:RA_FONT,fontSize:9,fontWeight:700,letterSpacing:RA_LS_HDR,padding:"0 6px",color:"#000"}}>{c}</div>))}
+                    <div style={{width:24}}/>
+                  </div>
+                  {(sec.rows||[]).map((row,ri) => (
+                    <div key={ri} style={{display:"flex",borderBottom:"1px solid #eee",padding:"4px 0",alignItems:"flex-start"}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}>
+                      {row.map((cell,ci) => (<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,padding:"0 6px"}}><CSEditField value={cell} onChange={v=>{raSet(d=>{d.sections[si].rows[ri][ci]=v;return d;});}} isPlaceholder={!cell} placeholder={(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation"])[ci]} style={{fontSize:10,letterSpacing:RA_LS}} bold={ci===0}/></div>))}
+                      <div className="ra-rm" onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}))} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>
+                    </div>
+                  ))}
+                  <div onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:[...s.rows,(s.cols||["","","",""]).map(()=>"")]}:s)}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 6px",letterSpacing:RA_LS,marginTop:2}}>+ Add Row</div>
+                </div>
+              ))}
+              <div onClick={()=>raSet(d=>({...d,sections:[...d.sections,{id:Date.now(),title:"NEW SECTION",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],rows:[["","","",""]]}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS,textAlign:"center",marginTop:12,padding:6}}>+ Add Risk Section</div>
+
+              {raSectionHdr("PROFESSIONAL CODE OF CONDUCT")}
+              <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
+              <div style={{padding:"8px 12px"}}>
+                {(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+                <div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
+              </div>
+
+              {raSectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
+              <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
+              <div style={{padding:"8px 12px"}}>
+                {(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+                <div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
+              </div>
+
+              {raSectionHdr("EMERGENCY RESPONSE PLAN")}
+              <div style={{padding:"8px 12px"}}>
+                {(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+                <div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
+              </div>
+
+              <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:RA_FONT,fontSize:9,letterSpacing:RA_LS_HDR,color:"#000"}}>
+                <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+              </div>
+            </div>
+          </div>
+        );
+      }
 
       if (documentsSubSection==="contracts") return (
         <div>
