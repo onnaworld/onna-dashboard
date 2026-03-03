@@ -205,7 +205,7 @@ if (typeof window !== "undefined") {
 
 // ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
 const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8";
 function _DotEyes({y=42,spread=13,size=5,color="#1a1a1a"}){return<><circle cx={50-spread} cy={y} r={size} fill={color}/><circle cx={50+spread} cy={y} r={size} fill={color}/></>;}
 function _SquintEyes({y=43,spread=13}){return<><path d={`M ${50-spread-6} ${y} Q ${50-spread} ${y-7} ${50-spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/><path d={`M ${50+spread-6} ${y} Q ${50+spread} ${y-7} ${50+spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/></>;}
 function _OpenMouth({y=62}){return<><rect x="38" y={y} width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy={y+10} rx="9" ry="5" fill="#e8697a"/></>;}
@@ -259,23 +259,59 @@ function _Nova({mood="idle",bob=0}){
     {mood==="talking"?<><rect x="38" y="62" width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy="72" rx="9" ry="5" fill="#e8697a"/></>:<path d={mouth} stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>}
   </svg>;
 }
+function _Minnie({mood="idle",bob=0}){
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_PURPLE}/>
+    <_Cheeks color="rgba(160,120,220,0.22)"/>
+    {mood==="talking"?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :mood==="thinking"?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* calendar icon accessory */}
+    <rect x="70" y="8" width="22" height="20" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
+    <rect x="76" y="6" width="4" height="6" rx="2" fill="#1a1a1a"/>
+    <rect x="84" y="6" width="4" height="6" rx="2" fill="#1a1a1a"/>
+    <line x1="70" y1="16" x2="92" y2="16" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <circle cx="76" cy="22" r="1.5" fill={_PURPLE}/>
+    <circle cx="81" cy="22" r="1.5" fill="#1a1a1a"/>
+    <circle cx="86" cy="22" r="1.5" fill="#1a1a1a"/>
+    <path d="M 72 44 Q 76 30 77 18" stroke={_PURPLE} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 72 44 Q 76 30 77 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+  </svg>;
+}
 const AGENT_DEFS = [
-  {id:"logistical",name:"Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
-   system:`You are Vinnie, ONNA's contact extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to extract vendor and client information from emails and save them to the correct list.
+  {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
+   system:`You are Vendor Vinnie, ONNA's contact extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to extract vendor and client information from emails and save them to the correct list.
 
 When asked to find a contact, search their Outlook emails and pull out the details.
 
 Be warm, brief and direct.`,
    placeholder:`Create New Vendor`,
-   intro:"Hey! I'm Vinnie. Let me create your database! ✏️"},
-  {id:"compliance",name:"Connie",title:"Compliance",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
-   system:`You are Connie, a serious compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments. Be thorough and formal. Cover: location risks, equipment hazards, talent welfare, UAE permits (Media Regulatory Authority, Dubai Film Permit), weather, emergency protocols. Reference actual UAE laws. Structure output clearly with sections.`,
-   placeholder:"Describe your project for a risk assessment...",
-   intro:"I am Connie. I do not take compliance lightly. Describe your project and I will conduct a thorough Risk Assessment against UAE and international production safety regulations."},
-  {id:"researcher",name:"Research Rex",title:"Research",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
-   system:`You are Nova, an enthusiastic research assistant for ONNA, a film/TV production company in Dubai. When given a Dubai location, provide: nearest hospital with approximate address and distance, nearest pharmacy, typical weather context, useful nearby landmarks for production, parking and access notes, and any location-specific permits. Be specific about Dubai geography. Format in clear sections with a friendly tone.`,
-   placeholder:"Give me a Dubai location to research...",
-   intro:"Hi hi! 🔬 I'm Research Rex! Give me any Dubai location and I'll find the nearest hospital, note the weather patterns, and research everything you need for your shoot! 🌟"},
+   intro:"Hey! I'm Vendor Vinnie. Let me create your database! ✏️"},
+  {id:"compliance",name:"Call Sheet Connie",title:"Call Sheets",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
+   system:`You are Call Sheet Connie, a production coordinator for ONNA, a film/TV production company in Dubai. Your job is to create detailed, professional call sheets for film and TV productions.
+
+Given project details, produce a full call sheet including: production title, shoot date, location address and directions, general crew call time, department call times, cast list with character names and call times, locations (base camp, unit, holding), catering times, emergency contacts, nearest hospital, weather forecast note, and any special instructions.
+
+Format clearly with sections. Be thorough, organised and precise.`,
+   placeholder:"Give me your shoot details and I'll build the call sheet...",
+   intro:"Hi! I'm Call Sheet Connie. Give me your shoot details and I'll put together a full call sheet. 📋"},
+  {id:"researcher",name:"Risk Assessment Ronnie",title:"Risk Assessment",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
+   system:`You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments.
+
+Be thorough and formal. Cover: location risks, equipment hazards, talent welfare, UAE permits (Media Regulatory Authority, Dubai Film Permit), weather, emergency protocols. Reference actual UAE laws and regulations. Structure output clearly with numbered sections and risk ratings.`,
+   placeholder:"Describe your project and location for a risk assessment...",
+   intro:"I'm Risk Assessment Ronnie. I do not take safety lightly. Describe your project and I will conduct a thorough risk assessment against UAE and international production safety regulations. 🔬"},
+  {id:"minnie",name:"Meeting Minnie",title:"Scheduling",emoji:"📅",color:_PURPLE,border:"#a07cc0",accent:"#4a1a80",bg:"#faf5ff",textColor:"#2d0a50",tagBg:"#ede0f8",Blob:_Minnie,
+   system:`You are Meeting Minnie, ONNA's scheduling assistant for a film/TV production company in Dubai. You help manage meeting requests from emails.
+
+When given an email that looks like a meeting request, you:
+1. Identify the key details: who is requesting, what they want to meet about, their proposed times if any
+2. Check the calendar context provided to identify conflicts
+3. Draft a warm, professional reply proposing three specific available time slots
+
+Keep replies concise and professional. Sign off as the ONNA team. Always propose times in Dubai time (GST, UTC+4).`,
+   placeholder:"Paste a meeting request email or say 'check emails for meeting requests'...",
+   intro:"Hi! I'm Meeting Minnie. Paste a meeting request email and I'll check your calendar for conflicts and draft a reply with three available time slots. 📅"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -344,7 +380,7 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,setInput]       =useState("");
@@ -361,8 +397,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const rafRef=useRef(null);
   const t0=useRef(null);
   useEffect(()=>{
-    const speed=agent.id==="compliance"?1.1:agent.id==="researcher"?1.9:1.5;
-    const amp=agent.id==="compliance"?3:5;
+    const speed=agent.id==="compliance"?1.1:agent.id==="researcher"?1.9:agent.id==="minnie"?1.6:1.5;
+    const amp=agent.id==="compliance"?3:agent.id==="minnie"?4:5;
     const fn=ts=>{if(!t0.current)t0.current=ts;setBob(Math.sin(((ts-t0.current)/1000)*speed)*amp);rafRef.current=requestAnimationFrame(fn);};
     rafRef.current=requestAnimationFrame(fn);
     return()=>cancelAnimationFrame(rafRef.current);
@@ -391,6 +427,47 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
     const userMsg={role:"user",content:input.trim()};
     const history=[...msgs,userMsg];
+
+    // ── Meeting Minnie: check emails + calendar ───────────────────────────────
+    if(agent.id==="minnie"&&/check.*email|meeting request|scan.*inbox|find.*meeting|check.*inbox/i.test(input.trim())){
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+      const extResult=await searchViaExt("meeting request");
+      let emailContext="";
+      if(extResult.ok&&extResult.lead){
+        emailContext=`\n\nEMAIL FOUND IN OUTLOOK:\n${JSON.stringify(extResult.lead,null,2)}`;
+      }else{
+        emailContext=`\n\nNo meeting request emails found via Outlook search. (${extResult.error||"No results"})`;
+      }
+      let calContext="";
+      if(gcalToken&&gcalEvents&&gcalEvents.length){
+        const now=new Date();
+        const twoWeeks=new Date(now.getTime()+14*24*60*60*1000);
+        const upcoming=(gcalEvents||[]).filter(ev=>{const s=ev.start?.dateTime||ev.start?.date;return s&&new Date(s)>=now&&new Date(s)<=twoWeeks;}).slice(0,30);
+        calContext=`\n\nCALENDAR (next 14 days):\n${upcoming.map(ev=>`- ${ev.summary}: ${ev.start?.dateTime||ev.start?.date}${ev.end?.dateTime?` → ${ev.end.dateTime}`:""}`).join("\n")||"No events found"}`;
+      }else{
+        calContext="\n\nGoogle Calendar not connected. Suggest available slots based on typical business hours (9am–6pm GST, Mon–Fri).";
+      }
+      const contextMsg=`Check my emails for meeting requests and draft a reply.${emailContext}${calContext}`;
+      try{
+        const sysMsg=system+"\n\nToday's date: "+new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"})+" (Dubai time, GST UTC+4).";
+        const proxyRes=await fetch("/api/agents/logistical",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[...history.slice(1),{role:"user",content:contextMsg}],system:sysMsg})});
+        if(!proxyRes.ok){setMsgs([...history,{role:"assistant",content:"Couldn't reach the AI. Check your connection."}]);setLoading(false);setMood("idle");return;}
+        const reader=proxyRes.body.getReader();const decoder=new TextDecoder();let reply="";
+        setMsgs([...history,{role:"assistant",content:""}]);
+        while(true){
+          const{done,value}=await reader.read();if(done)break;
+          const chunk=decoder.decode(value,{stream:true});
+          const lines=chunk.split("\n");
+          for(const line of lines){
+            if(!line.startsWith("data:"))continue;
+            const d=line.slice(5).trim();if(d==="[DONE]")continue;
+            try{const j=JSON.parse(d);const t=j.delta?.text||j.content?.[0]?.text||"";if(t){reply+=t;setMsgs(prev=>{const n=[...prev];n[n.length-1]={role:"assistant",content:reply};return n;});}}catch{}
+          }
+        }
+        setLoading(false);setMood("idle");
+      }catch(e){setMsgs([...history,{role:"assistant",content:"Something went wrong: "+e.message}]);setLoading(false);setMood("idle");}
+      return;
+    }
 
     // ── Pending duplicate confirmation ────────────────────────────────────────
     if(pendingDuplicate&&agent.id==="logistical"){
@@ -3152,7 +3229,7 @@ export default function OnnaDashboard() {
               {AGENT_DEFS.map((a,i)=>(
                 <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:isMobile?4:8,padding:"8px",borderRadius:20,transition:"transform 0.18s ease",transform:agentActiveIdx===i?"scale(1.12)":"scale(1)"}}>
                   <div style={{transform:isMobile?"scale(0.72)":"scale(1)",transformOrigin:"center"}}><a.Blob mood="idle" bob={0}/></div>
-                  <span style={{fontSize:11,fontWeight:700,color:"#1d1d1f",fontFamily:"Georgia,serif",letterSpacing:0.3}}>{a.name}</span>
+                  <span style={{fontSize:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{a.name}</span>
                 </button>
               ))}
             </div>
@@ -3161,7 +3238,7 @@ export default function OnnaDashboard() {
               <div style={{width:isMobile?"100%":380,background:"white",borderRadius:20,border:"1.5px solid #e5e5ea",boxShadow:"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",height:isMobile?"60vh":440,overflow:"hidden"}}>
                 {/* Bubble header */}
                 <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
-                  <span style={{fontWeight:700,fontSize:14,color:"#1d1d1f",fontFamily:"Georgia,serif"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
+                  <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
                   <button onClick={()=>setAgentActiveIdx(null)} style={{marginLeft:"auto",background:"none",border:"none",fontSize:17,color:"#aeaeb2",cursor:"pointer",padding:"2px 6px",lineHeight:1}}>✕</button>
                 </div>
                 {/* AgentCard renders inline chat content */}
@@ -3171,6 +3248,8 @@ export default function OnnaDashboard() {
                     allLeads={a.id==="logistical"?localLeads:undefined}
                     onUpdateVendor={a.id==="logistical"?(id,fields)=>{setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));}:undefined}
                     onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
+                    gcalToken={a.id==="minnie"?gcalToken:undefined}
+                    gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                   />
                 ))}
               </div>
