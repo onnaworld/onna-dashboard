@@ -382,6 +382,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
   const send=async()=>{
     if(!input.trim()||loading)return;
+    // ── Clear chat intent ─────────────────────────────────────────────────────
+    if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
+      const fresh=[{role:"assistant",content:intro}];
+      setMsgs(fresh);setInput("");
+      try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
+      return;
+    }
     const userMsg={role:"user",content:input.trim()};
     const history=[...msgs,userMsg];
 
@@ -587,7 +594,6 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
-      {msgs.length>1&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}><button onClick={()=>{const fresh=[{role:"assistant",content:intro}];setMsgs(fresh);try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}}} style={{background:"none",border:"none",fontSize:11,color:"#aeaeb2",cursor:"pointer",padding:"2px 6px",fontFamily:"inherit",letterSpacing:0.2}}>Clear chat</button></div>}
       {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
     </div>
