@@ -21,7 +21,32 @@ const BB_LOCATIONS = ["All","Dubai, UAE","London, UK","New York, US","Los Angele
 const OUTREACH_STATUSES = ["not_contacted","cold","warm","open","client"];
 const OUTREACH_STATUS_LABELS = {not_contacted:"Not Contacted",cold:"Cold",warm:"Warm",open:"Open",client:"Client"};
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+// Google Calendar event colorId → hex (from Google Calendar API /colors)
 const GCAL_COLORS = {"1":"#d50000","2":"#e67c73","3":"#f4511e","4":"#f6bf26","5":"#33b679","6":"#0b8043","7":"#039be5","8":"#3f51b5","9":"#7986cb","10":"#8e24aa","11":"#616161"};
+// Outlook / Office 365 ICS feed (public shared calendar)
+const OUTLOOK_CAL_ICS = "https://outlook.office365.com/owa/calendar/2b3ad2259c4b4aaeb9ef497749cda730@onnaproduction.com/03e7e6c4750845fcb9ec9bb1040863bb2959111588689312764/calendar.ics";
+const parseICS = (text) => {
+  const events = [];
+  const unfolded = text.replace(/\r\n[ \t]/g,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  const vevents = unfolded.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g)||[];
+  for (const ve of vevents) {
+    const get = k => { const m=ve.match(new RegExp(`^${k}(?:;[^:]*)?:(.+)$`,"m")); return m?m[1].trim():""; };
+    const summary = get("SUMMARY")||"(No title)";
+    const uid = get("UID")||String(Math.random());
+    const rawStart=get("DTSTART"), rawEnd=get("DTEND")||rawStart;
+    const toField = s => {
+      const c=s.replace(/^.*T/,""); // strip date prefix if somehow left
+      const pure=s.replace(/[^0-9T]/g,""); // keep digits and T
+      if(pure.length===8) return {date:`${pure.slice(0,4)}-${pure.slice(4,6)}-${pure.slice(6,8)}`};
+      if(pure.length>=15){const u=s.endsWith("Z")?"Z":"";return {dateTime:`${pure.slice(0,4)}-${pure.slice(4,6)}-${pure.slice(6,8)}T${pure.slice(9,11)}:${pure.slice(11,13)}:${pure.slice(13,15)}${u}`};}
+      return {date:`${pure.slice(0,4)}-${pure.slice(4,6)}-${pure.slice(6,8)}`};
+    };
+    const start=toField(rawStart), end=toField(rawEnd);
+    if(!rawStart) continue;
+    events.push({id:uid,summary,start,end,calendarColor:"#0078d4",_outlook:true});
+  }
+  return events;
+};
 const PROJECT_SECTIONS = ["Home","Finances","Creative Brief","Estimates","Contracts","Quotes","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
@@ -829,7 +854,10 @@ export default function OnnaDashboard() {
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=sessionStorage.getItem('onna_gcal_token'),e=sessionStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
   const [gcalEvents,setGcalEvents]   = useState([]);
   const [gcalLoading,setGcalLoading] = useState(false);
+  const [gcalEventColors,setGcalEventColors] = useState({});
   const [calMonth,setCalMonth]       = useState(new Date());
+  const [outlookEvents,setOutlookEvents] = useState(()=>{try{const c=sessionStorage.getItem('onna_outlook_evs');return c?JSON.parse(c):[]}catch{return []}});
+  const [outlookLoading,setOutlookLoading] = useState(false);
 
   // Load Google Identity Services script once
   useEffect(()=>{
@@ -849,20 +877,43 @@ export default function OnnaDashboard() {
     const timeMax = new Date(yr, mo+1, 0, 23, 59, 59).toISOString();
     try {
       const params = new URLSearchParams({timeMin, timeMax, singleEvents:"true", orderBy:"startTime", maxResults:"250"});
-      const calListRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true",{headers:{Authorization:`Bearer ${token}`}});
+      const [calListRes, colorsRes] = await Promise.all([
+        fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true",{headers:{Authorization:`Bearer ${token}`}}),
+        fetch("https://www.googleapis.com/calendar/v3/colors",{headers:{Authorization:`Bearer ${token}`}})
+      ]);
       const calList = await calListRes.json();
-      const calIds = (calList.items||[]).map(c=>c.id);
-      const allEvents = await Promise.all(calIds.map(id=>
-        fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events?${params}`,{headers:{Authorization:`Bearer ${token}`}})
-          .then(r=>r.json()).then(d=>Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:(calList.items.find(c=>c.id===id)||{}).backgroundColor})):[]).catch(()=>[])
+      const colorsData = await colorsRes.json().catch(()=>({}));
+      if (colorsData.event) setGcalEventColors(colorsData.event);
+      const calItems = calList.items||[];
+      const allEvents = await Promise.all(calItems.map(cal=>
+        fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,{headers:{Authorization:`Bearer ${token}`}})
+          .then(r=>r.json()).then(d=>Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:cal.backgroundColor,calendarFg:cal.foregroundColor})):[]).catch(()=>[])
       ));
       setGcalEvents(allEvents.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date)));
     } catch {}
     setGcalLoading(false);
   };
 
+  const fetchOutlookCal = async () => {
+    setOutlookLoading(true);
+    try {
+      const res = await fetch(OUTLOOK_CAL_ICS);
+      if (!res.ok) throw new Error("fetch failed");
+      const text = await res.text();
+      const evs = parseICS(text);
+      setOutlookEvents(evs);
+      try{sessionStorage.setItem('onna_outlook_evs',JSON.stringify(evs));}catch{}
+    } catch {
+      // CORS may block direct fetch — load from sessionStorage cache if available
+      try{const c=sessionStorage.getItem('onna_outlook_evs');if(c)setOutlookEvents(JSON.parse(c));}catch{}
+    }
+    setOutlookLoading(false);
+  };
+
   // Re-fetch when month changes while connected, and on mount if token restored from session
   useEffect(()=>{ if (gcalToken) fetchGCalEvents(gcalToken, calMonth); },[calMonth,gcalToken]); // eslint-disable-line
+  // Auto-fetch Outlook ICS on mount (public feed, no auth needed)
+  useEffect(()=>{ if (authed) fetchOutlookCal(); },[authed]); // eslint-disable-line
 
   const connectGCal = () => {
     if (!window.google?.accounts?.oauth2) {
@@ -1771,8 +1822,9 @@ export default function OnnaDashboard() {
                   const d = i - startOffset + 1;
                   return (d < 1 || d > lastDay.getDate()) ? null : new Date(yr, mo, d);
                 });
+                const allCalEvents = [...gcalEvents, ...outlookEvents];
                 const eventsByDay = {};
-                gcalEvents.forEach(ev => {
+                allCalEvents.forEach(ev => {
                   const startStr = ev.start?.date || ev.start?.dateTime?.slice(0,10);
                   if (!startStr) return;
                   const endStr   = ev.end?.date   || ev.end?.dateTime?.slice(0,10)   || startStr;
@@ -1801,18 +1853,24 @@ export default function OnnaDashboard() {
                           <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>›</button>
                         </div>
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        {/* Outlook status */}
+                        <div style={{display:"flex",alignItems:"center",gap:5}}>
+                          <span style={{width:7,height:7,borderRadius:"50%",background:outlookLoading?"#f59e0b":outlookEvents.length>0?"#0078d4":"#d1d1d6",display:"inline-block",flexShrink:0}}/>
+                          <span style={{fontSize:11,color:T.muted,fontWeight:500}}>{outlookLoading?"Syncing…":outlookEvents.length>0?`Outlook (${outlookEvents.length})`:"Outlook"}</span>
+                          <button onClick={fetchOutlookCal} disabled={outlookLoading} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>↻</button>
+                        </div>
+                        <div style={{width:1,height:12,background:T.border}}/>
+                        {/* Google Calendar status */}
                         {gcalToken ? (
                           <div style={{display:"flex",alignItems:"center",gap:5}}>
                             <span style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",display:"inline-block",flexShrink:0}}/>
-                            <span style={{fontSize:11.5,color:T.muted,fontWeight:500}}>Connected</span>
-                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);}} style={{marginLeft:2,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
+                            <span style={{fontSize:11,color:T.muted,fontWeight:500}}>Google</span>
+                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);try{sessionStorage.removeItem('onna_gcal_token');sessionStorage.removeItem('onna_gcal_exp');}catch{}}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
                           </div>
                         ) : GCAL_CLIENT_ID ? (
-                          <button onClick={connectGCal} style={{padding:"5px 12px",borderRadius:8,background:T.accent,border:"none",color:"#fff",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Connect Google Calendar</button>
-                        ) : (
-                          <span style={{fontSize:11,color:T.muted,fontStyle:"italic"}}>Add VITE_GOOGLE_CLIENT_ID to enable</span>
-                        )}
+                          <button onClick={connectGCal} style={{padding:"4px 10px",borderRadius:7,background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Google Calendar</button>
+                        ) : null}
                       </div>
                     </div>
                     {/* Grid */}
@@ -1833,11 +1891,11 @@ export default function OnnaDashboard() {
                             <div key={key} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2}}>
                               <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start"}}>{date.getDate()}</span>
                               {isMobile ? (
-                                dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>
+                                dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>
                               ) : (
                                 <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden"}}>
                                   {dayEvs.slice(0,3).map((ev,ei)=>{
-                                    const col = ev.colorId ? (GCAL_COLORS[ev.colorId]||T.accent) : (ev.calendarColor||T.accent);
+                                    const col = ev.colorId ? (gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent) : (ev.calendarColor||T.accent);
                                     const title = ev.summary||"(no title)";
                                     const time  = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}) : null;
                                     return (
