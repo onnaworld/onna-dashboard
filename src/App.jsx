@@ -919,6 +919,7 @@ export default function OnnaDashboard() {
   const [gcalLoading,setGcalLoading] = useState(false);
   const [gcalEventColors,setGcalEventColors] = useState({});
   const [calMonth,setCalMonth]       = useState(new Date());
+  const [calDayView,setCalDayView]   = useState(null); // Date object for the clicked day
   const [outlookEvents,setOutlookEvents] = useState(()=>{try{const c=sessionStorage.getItem('onna_outlook_evs');return c?JSON.parse(c):[]}catch{return []}});
   const [outlookLoading,setOutlookLoading] = useState(false);
   const [outlookError,setOutlookError]     = useState("");
@@ -1966,7 +1967,7 @@ export default function OnnaDashboard() {
                           const isWeekend = date.getDay()===0||date.getDay()===6;
                           const dayEvs = eventsByDay[key]||[];
                           return (
-                            <div key={key} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2,overflow:"hidden",minWidth:0}}>
+                            <div key={key} onClick={()=>setCalDayView(date)} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2,overflow:"hidden",minWidth:0,cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=isToday?T.accent+"25":"#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=isToday?T.accent+"15":"transparent"}>
                               <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start",flexShrink:0}}>{date.getDate()}</span>
                               {isMobile ? (
                                 dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>
@@ -1995,6 +1996,56 @@ export default function OnnaDashboard() {
               })()}
             </div>
           )}
+
+          {/* ══ CAL DAY VIEW MODAL ══ */}
+          {calDayView&&(()=>{
+            const dayKey = calDayView.toISOString().slice(0,10);
+            // Rebuild eventsByDay for the day modal (reuse same dedup logic)
+            const seen2=new Set();
+            const allEvs2=[...gcalEvents,...outlookEvents].filter(ev=>{const d2=ev.start?.date||ev.start?.dateTime?.slice(0,10);const k2=(ev.summary||"").trim().toLowerCase()+"|"+d2;if(seen2.has(k2))return false;seen2.add(k2);return true;});
+            const dayEvsFull=allEvs2.filter(ev=>{const s=ev.start?.date||ev.start?.dateTime?.slice(0,10);if(!s)return false;const cursor=new Date(s+"T00:00:00");const startKey=cursor.toISOString().slice(0,10);// check if dayKey falls within this event's span
+              const endS=ev.end?.date||ev.end?.dateTime?.slice(0,10)||s;const endD2=new Date(endS+"T00:00:00");const cellD=new Date(dayKey+"T00:00:00");return cellD>=cursor&&cellD<endD2||startKey===dayKey;}).sort((a,b)=>{const ta=a.start?.dateTime?new Date(a.start.dateTime):new Date(a.start.date+"T00:00:00");const tb=b.start?.dateTime?new Date(b.start.dateTime):new Date(b.start.date+"T00:00:00");return ta-tb;});
+            const label=calDayView.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+            return(
+              <div onClick={()=>setCalDayView(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+                <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:18,boxShadow:"0 8px 40px rgba(0,0,0,0.18)",width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+                  {/* Header */}
+                  <div style={{padding:"16px 20px 12px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+                    <div>
+                      <div style={{fontSize:17,fontWeight:700,color:T.text}}>{calDayView.toLocaleDateString("en-US",{weekday:"long"})}</div>
+                      <div style={{fontSize:13,color:T.muted,marginTop:1}}>{calDayView.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+                    </div>
+                    <button onClick={()=>setCalDayView(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:T.muted,padding:"4px 8px",borderRadius:8,fontFamily:"inherit",lineHeight:1}}>✕</button>
+                  </div>
+                  {/* Event list */}
+                  <div style={{overflowY:"auto",padding:"12px 20px 20px",flex:1}}>
+                    {dayEvsFull.length===0?(
+                      <div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>No events</div>
+                    ):dayEvsFull.map((ev,i)=>{
+                      const col=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);
+                      const isAllDay=!ev.start?.dateTime;
+                      const startDT=ev.start?.dateTime?new Date(ev.start.dateTime):null;
+                      const endDT=ev.end?.dateTime?new Date(ev.end.dateTime):null;
+                      const timeStr=startDT?startDT.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true})+(endDT?" – "+endDT.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}):""):"All day";
+                      const source=ev._outlook?"Outlook":"Google";
+                      return(
+                        <div key={i} style={{display:"flex",gap:12,padding:"10px 0",borderBottom:i<dayEvsFull.length-1?`1px solid ${T.borderSub}`:"none",alignItems:"flex-start"}}>
+                          <div style={{width:4,borderRadius:4,alignSelf:"stretch",background:col,flexShrink:0,minHeight:36}}/>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:14,fontWeight:600,color:T.text,lineHeight:1.3}}>{ev.summary||"(No title)"}</div>
+                            <div style={{fontSize:12,color:T.muted,marginTop:3}}>{timeStr}</div>
+                            {ev.location&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>📍 {ev.location}</div>}
+                            {ev.description&&<div style={{fontSize:11,color:T.sub,marginTop:4,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{ev.description.replace(/<[^>]+>/g,"").slice(0,300)}</div>}
+                            <div style={{fontSize:10,color:T.muted,marginTop:4,opacity:0.6}}>{source}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ══ VENDORS ══ */}
           {activeTab==="Vendors"&&(
