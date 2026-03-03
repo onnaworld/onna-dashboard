@@ -678,6 +678,7 @@ export default function OnnaDashboard() {
   const [vaultFileName,setVaultFileName]     = useState("");
   const [vaultFileErr,setVaultFileErr]       = useState("");
   const [vaultPwSearch,setVaultPwSearch]     = useState("");
+  const [vaultViewEntry,setVaultViewEntry]   = useState(null);
 
   // ── Notes state ───────────────────────────────────────────────────────────────
   const [notes,setNotes]                     = useState([]);
@@ -2231,57 +2232,32 @@ export default function OnnaDashboard() {
                   {/* ── PASSWORD VIEW ── */}
                   {vaultView==="passwords"&&(
                     <div>
-                      {/* Add / Edit password form */}
-                      {!vaultAddPwOpen
-                        ? <button onClick={()=>{setVaultEditId(null);setVaultAddPwOpen(true);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",marginBottom:14}}>+ Add Password</button>
-                        : <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:"20px 22px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
-                            <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>{vaultEditId?"Edit Password Entry":"New Password Entry"}</div>
-                            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
-                              {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"],["notes","Notes"]].map(([k,lbl])=>(
-                                <div key={k} style={k==="notes"?{gridColumn:"span 2"}:{}}>
-                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
-                                  <input type={k==="password"?"password":"text"} value={vaultNewPw[k]} onChange={e=>setVaultNewPw(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box"}}/>
-                                </div>
-                              ))}
-                            </div>
-                            <div style={{display:"flex",gap:8}}>
-                              <BtnPrimary onClick={vaultEditId?updateVaultPassword:addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":vaultEditId?"Save Changes":"Save"}</BtnPrimary>
-                              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
-                            </div>
-                          </div>
-                      }
+                      <button onClick={()=>{setVaultEditId(null);setVaultAddPwOpen(true);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",marginBottom:14}}>+ Add Password</button>
                       <div style={{marginBottom:12}}>
                         <input value={vaultPwSearch} onChange={e=>setVaultPwSearch(e.target.value)} placeholder="Search passwords…" style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:T.surface,boxSizing:"border-box"}}/>
                       </div>
                       <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
-                        <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?580:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?480:"auto"}}>
                           <thead><tr>
-                            <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH><TH>Notes</TH><TH/>
+                            <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH>
                           </tr></thead>
                           <tbody>
                             {vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).sort((a,b)=>(a.name||"").toLowerCase().localeCompare((b.name||"").toLowerCase())).map(e=>(
-                              <tr key={e.id} className="row">
+                              <tr key={e.id} className="row" onClick={()=>setVaultViewEntry(e)} style={{cursor:"pointer"}}>
                                 <TD bold>{e.name}</TD>
                                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{e.url?<a href={e.url.startsWith("http")?e.url:`https://${e.url}`} target="_blank" rel="noreferrer" onClick={ev=>ev.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{e.url}</a>:null}</td>
                                 <TD muted>{e.username}</TD>
                                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
                                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                                     <span style={{fontSize:12.5,color:T.sub,fontFamily:"monospace",letterSpacing:"0.04em"}}>{vaultShowPw[e.id]?e.password:"••••••••"}</span>
-                                    <button onClick={()=>setVaultShowPw(p=>({...p,[e.id]:!p[e.id]}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:"2px 4px",color:T.muted,borderRadius:4}} title={vaultShowPw[e.id]?"Hide":"Show"}>{vaultShowPw[e.id]?"🙈":"👁"}</button>
-                                    <button onClick={()=>vaultCopyPw(e.id,e.password)} style={{background:vaultCopied===e.id?"#edfaf3":"none",border:"none",cursor:"pointer",fontSize:11,padding:"3px 8px",color:vaultCopied===e.id?"#147d50":T.muted,borderRadius:5,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}}>{vaultCopied===e.id?"Copied!":"Copy"}</button>
-                                  </div>
-                                </td>
-                                <TD muted>{e.notes}</TD>
-                                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
-                                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                                    <button onClick={()=>{setVaultEditId(e.id);setVaultNewPw({name:e.name||"",url:e.url||"",username:e.username||"",password:e.password||"",notes:e.notes||""});setVaultAddPwOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 4px",borderRadius:5}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
-                                    <button onClick={()=>deleteVaultEntry(e.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>×</button>
+                                    <button onClick={ev=>{ev.stopPropagation();setVaultShowPw(p=>({...p,[e.id]:!p[e.id]}));}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:"2px 4px",color:T.muted,borderRadius:4}}>{vaultShowPw[e.id]?"🙈":"👁"}</button>
+                                    <button onClick={ev=>{ev.stopPropagation();vaultCopyPw(e.id,e.password);}} style={{background:vaultCopied===e.id?"#edfaf3":"none",border:"none",cursor:"pointer",fontSize:11,padding:"3px 8px",color:vaultCopied===e.id?"#147d50":T.muted,borderRadius:5,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}}>{vaultCopied===e.id?"Copied!":"Copy"}</button>
                                   </div>
                                 </td>
                               </tr>
                             ))}
-                            {vaultResources.filter(r=>r.type==="password").length===0&&<tr><td colSpan={6} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No passwords saved yet.</td></tr>}
-                            {vaultResources.filter(r=>r.type==="password").length>0&&vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).length===0&&<tr><td colSpan={6} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No results for "{vaultPwSearch}"</td></tr>}
+                            {vaultResources.filter(r=>r.type==="password").length===0&&<tr><td colSpan={4} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No passwords saved yet.</td></tr>}
+                            {vaultResources.filter(r=>r.type==="password").length>0&&vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).length===0&&<tr><td colSpan={4} style={{padding:36,textAlign:"center",color:T.muted,fontSize:13}}>No results for "{vaultPwSearch}"</td></tr>}
                           </tbody>
                         </table>
                       </div>
@@ -2798,6 +2774,66 @@ export default function OnnaDashboard() {
                   setEditVendor(null);
                 }}>Save Changes</BtnPrimary>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VAULT VIEW PASSWORD MODAL ── */}
+      {vaultViewEntry&&(
+        <div className="modal-bg" onClick={()=>setVaultViewEntry(null)}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":480,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{vaultViewEntry.name}</div>
+              <button onClick={()=>setVaultViewEntry(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {vaultViewEntry.url&&<div><div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>URL</div><a href={vaultViewEntry.url.startsWith("http")?vaultViewEntry.url:`https://${vaultViewEntry.url}`} target="_blank" rel="noreferrer" style={{fontSize:13,color:T.link,textDecoration:"none"}}>{vaultViewEntry.url}</a></div>}
+              {vaultViewEntry.username&&<div><div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>Username / Email</div><span style={{fontSize:13,color:T.text}}>{vaultViewEntry.username}</span></div>}
+              <div>
+                <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>Password</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:13,color:T.sub,fontFamily:"monospace",letterSpacing:"0.04em"}}>{vaultShowPw[vaultViewEntry.id]?vaultViewEntry.password:"••••••••••••"}</span>
+                  <button onClick={()=>setVaultShowPw(p=>({...p,[vaultViewEntry.id]:!p[vaultViewEntry.id]}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:"2px 4px",color:T.muted,borderRadius:4}}>{vaultShowPw[vaultViewEntry.id]?"🙈":"👁"}</button>
+                  <button onClick={()=>vaultCopyPw(vaultViewEntry.id,vaultViewEntry.password)} style={{background:vaultCopied===vaultViewEntry.id?"#edfaf3":"#f5f5f7",border:"none",cursor:"pointer",fontSize:11,padding:"4px 10px",color:vaultCopied===vaultViewEntry.id?"#147d50":T.sub,borderRadius:6,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}}>{vaultCopied===vaultViewEntry.id?"Copied!":"Copy"}</button>
+                </div>
+              </div>
+              {vaultViewEntry.notes&&<div><div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>Notes</div><div style={{fontSize:13,color:T.text,whiteSpace:"pre-wrap",lineHeight:1.6,background:"#fafafa",borderRadius:9,padding:"10px 12px",border:`1px solid ${T.border}`}}>{vaultViewEntry.notes}</div></div>}
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:24}}>
+              <button onClick={async()=>{if(!window.confirm(`Delete ${vaultViewEntry.name}?`))return;await deleteVaultEntry(vaultViewEntry.id);setVaultViewEntry(null);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete</button>
+              <div style={{display:"flex",gap:8}}>
+                <BtnSecondary onClick={()=>setVaultViewEntry(null)}>Close</BtnSecondary>
+                <BtnPrimary onClick={()=>{setVaultEditId(vaultViewEntry.id);setVaultNewPw({name:vaultViewEntry.name||"",url:vaultViewEntry.url||"",username:vaultViewEntry.username||"",password:vaultViewEntry.password||"",notes:vaultViewEntry.notes||""});setVaultAddPwOpen(true);setVaultViewEntry(null);}}>Edit</BtnPrimary>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VAULT ADD / EDIT PASSWORD MODAL ── */}
+      {vaultAddPwOpen&&(
+        <div className="modal-bg" onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:16,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{vaultEditId?"Edit Password":"New Password"}</div>
+              <button onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""}); }} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:16}}>
+              {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"]].map(([k,lbl])=>(
+                <div key={k}>
+                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
+                  <input type={k==="password"?"password":"text"} value={vaultNewPw[k]} onChange={e=>setVaultNewPw(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>Notes</div>
+              <textarea value={vaultNewPw.notes} onChange={e=>setVaultNewPw(p=>({...p,notes:e.target.value}))} rows={4} placeholder="Add any notes here…" style={{width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",resize:"vertical",lineHeight:1.5}}/>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <BtnPrimary onClick={vaultEditId?updateVaultPassword:addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":vaultEditId?"Save Changes":"Save"}</BtnPrimary>
+              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
             </div>
           </div>
         </div>
