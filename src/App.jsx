@@ -3328,59 +3328,21 @@ export default function OnnaDashboard() {
         {/* ── AGENTS TAB ── */}
         {activeTab==="Agents"&&(
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",paddingTop:isMobile?36:56,paddingBottom:40,paddingLeft:16,paddingRight:16}}>
-            {/* Stars — circular constellation */}
-            {(()=>{
-              // Pentagon positions: 5 stars evenly spaced on a circle
-              // Origin at (cx,cy), radius r. Angles start from top (-90°) going clockwise.
-              const S=isMobile?0.62:1; // scale factor for mobile
-              const r=isMobile?82:108; // orbit radius
-              const cx=isMobile?130:170; // centre x of container
-              const cy=isMobile?120:155; // centre y
-              const cW=isMobile?260:340; const cH=isMobile?240:310; // container size
-              const n=AGENT_DEFS.length;
-              const positions=AGENT_DEFS.map((_,i)=>{
-                const angle=(-Math.PI/2)+(i*(2*Math.PI/n));
-                return{x:cx+r*Math.cos(angle), y:cy+r*Math.sin(angle)};
-              });
-              const handleMouseMove=e=>{
-                const rect=agentConstellationRef.current?.getBoundingClientRect();
-                if(!rect)return;
-                const mx=e.clientX-rect.left, my=e.clientY-rect.top;
-                let closest=null, minD=Infinity;
-                positions.forEach((p,i)=>{
-                  const d=Math.hypot(mx-p.x,my-p.y);
-                  if(d<minD){minD=d;closest=i;}
-                });
-                // Only flicker if mouse is within a reasonable range of the constellation
-                setAgentHoverIdx(minD<(isMobile?90:120)?closest:null);
-              };
-              return(
-                <div ref={agentConstellationRef} onMouseMove={handleMouseMove} onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={{position:"relative",width:cW,height:cH,marginBottom:agentActiveIdx!==null?20:0,transition:"margin 0.2s ease",flexShrink:0}}>
-                  {AGENT_DEFS.map((a,i)=>{
-                    const p=positions[i];
-                    const isActive=agentActiveIdx===i;
-                    const isHover=agentHoverIdx===i;
-                    const scale=S*(isActive?1.18:isHover?1.08:agentHoverIdx!==null?0.88:1);
-                    const labelOpacity=isActive||isHover?1:agentHoverIdx!==null?0.35:0.7;
-                    const glowColor=a.color;
-                    return(
-                      <button key={a.id}
-                        onClick={()=>{setAgentActiveIdx(agentActiveIdx===i?null:i);setAgentHoverIdx(null);}}
-                        style={{position:"absolute",left:p.x,top:p.y,transform:`translate(-50%,-50%) scale(${scale})`,transformOrigin:"center",background:"none",border:"none",cursor:"pointer",
-                          display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:8,borderRadius:20,
-                          transition:"transform 0.12s ease, opacity 0.1s ease",
-                          filter:isActive?`drop-shadow(0 0 14px ${glowColor}) drop-shadow(0 0 6px ${glowColor})`:isHover?`drop-shadow(0 0 10px ${glowColor})`:"none",
-                          zIndex:isActive||isHover?2:1}}>
-                        <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
-                        <span style={{fontSize:9.5,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.1,textTransform:"uppercase",
-                          opacity:labelOpacity,transition:"opacity 0.1s ease",whiteSpace:"nowrap"}}>{a.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+            {/* Stars row */}
+            <div style={{display:"flex",gap:isMobile?28:60,justifyContent:"center",marginBottom:agentActiveIdx!==null?24:0,transition:"margin 0.2s ease"}}>
+              {AGENT_DEFS.map((a,i)=>(
+                <button key={a.id}
+                  onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
+                  onMouseEnter={()=>setAgentHoverIdx(i)}
+                  onMouseLeave={()=>setAgentHoverIdx(null)}
+                  style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:isMobile?4:8,padding:"8px",borderRadius:20,transition:"transform 0.18s ease",transform:agentActiveIdx===i?"scale(1.12)":"scale(1)"}}>
+                  <div style={{transform:isMobile?"scale(0.72)":"scale(1)",transformOrigin:"center"}}>
+                    <a.Blob mood={agentActiveIdx===i?"excited":agentHoverIdx===i?"talking":"idle"} bob={0}/>
+                  </div>
+                  <span style={{fontSize:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{a.name}</span>
+                </button>
+              ))}
+            </div>
             {/* Chat bubble — appears below stars when a star is active */}
             {agentActiveIdx!==null&&(
               <div style={{width:isMobile?"100%":380,background:"white",borderRadius:20,border:"1.5px solid #e5e5ea",boxShadow:"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",height:isMobile?"60vh":440,overflow:"hidden"}}>
