@@ -474,7 +474,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
 
     // ── Vinnie: add to outreach tracker ──────────────────────────────────────
-    if(agent.id==="logistical"&&/outreach|just contacted|add.*lead|add.*pipeline|pipeline|i contacted|i spoke|i met/i.test(input.trim())){
+    if(agent.id==="logistical"&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
       try{
@@ -580,9 +580,14 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
 
     // Email paste — non-streaming extraction
+    // Default to "lead" unless message explicitly says vendor/supplier
     if(agent.id==="logistical"&&/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(input)){
+      const isVendorMsg=/\b(vendor|supplier|equipment|studio|hire|rental|crew|freelancer|photographer|videographer)\b/i.test(input);
+      const today=new Date().toISOString().slice(0,10);
       try{
-        const extractSys=`You are Vinnie, contact extraction assistant for ONNA (Dubai film/TV production). Extract from the text and return ONLY raw JSON, no markdown.Type: "vendor"=supplier/service provider/equipment rental/studio. "lead"=potential client/brand/agency hiring ONNA.Vendor JSON: {"_type":"vendor","name":"","category":"","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}Lead JSON: {"_type":"lead","company":"","contact":"","email":"","phone":"","role":"","value":"integer AED or empty","category":"Production Companies/Creative Agencies/Beauty & Fragrance/Jewellery & Watches/Fashion/Editorial/Sports/Hospitality/Market Research/Commercial","location":"City, Country","date":"YYYY-MM-DD","status":"not_contacted or cold or warm or open","notes":"one sentence"}If nothing extractable return {"_type":"none"}.`;
+        const extractSys=isVendorMsg
+          ?`Extract vendor/supplier info and return ONLY raw JSON object (no markdown): {"_type":"vendor","name":"","category":"","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}. If nothing extractable return {"_type":"none"}.`
+          :`Extract contact info for outreach and return ONLY raw JSON object (no markdown): {"_type":"lead","company":"","contact":"","email":"","phone":"","role":"","value":"","category":"","location":"Dubai, UAE","date":"${today}","status":"not_contacted","notes":""}. For category pick from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial. If nothing extractable return {"_type":"none"}.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:500,system:extractSys,messages:[{role:"user",content:input.trim().substring(0,4000)}]});
         const raw=(data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
         const parsed=JSON.parse(raw);
