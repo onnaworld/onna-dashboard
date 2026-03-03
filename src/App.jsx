@@ -11,14 +11,35 @@ const idbSet=async(key,val)=>{const db=await idbOpen();return new Promise((res,r
 const CS_FONT = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const CS_LS = 1.5;
 const CS_YELLOW = "#FFF9C4";
+const RA_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+const RA_LS = 0.5; const RA_LS_HDR = 1.5; const RA_GREY = "#F4F4F4";
+const CT_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+const CT_LS = 0.5; const CT_LS_HDR = 1.5;
 
 const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = false, isPlaceholder = false }) => {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
   const commit = () => { setEditing(false); onChange(temp); };
-  const showYellow = isPlaceholder && !value;
+  const showYellow = isPlaceholder;
   if (editing) return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a"}} placeholder={placeholder}/>;
-  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?CS_YELLOW:"transparent",borderRadius:showYellow?2:0,padding:showYellow?"0 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+};
+
+const SignaturePad = ({ value, onChange, height = 60 }) => {
+  const canvasRef = useRef(null);
+  const drawing = useRef(false);
+  const clear = () => { const c=canvasRef.current; if(!c)return; c.getContext("2d").clearRect(0,0,c.width,c.height); onChange(""); };
+  const getPos = (e) => { const r=canvasRef.current.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; };
+  const startDraw = (e) => { e.preventDefault(); drawing.current=true; const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  const moveDraw = (e) => { if(!drawing.current)return; e.preventDefault(); const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.lineWidth=1.5; ctx.lineCap="round"; ctx.strokeStyle="#1a1a1a"; ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  const endDraw = (e) => { if(!drawing.current)return; e&&e.preventDefault(); drawing.current=false; const c=canvasRef.current; if(c) onChange(c.toDataURL("image/png")); };
+  useEffect(()=>{
+    const c=canvasRef.current; if(!c)return;
+    const ctx=c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height);
+    if(value){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0);img.src=value;}
+  },[]);
+  if(value) return <div style={{position:"relative",height,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid #ddd",borderRadius:2,background:"#fafafa"}}><img src={value} alt="" style={{maxHeight:height-4,maxWidth:"100%"}}/><button onClick={clear} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",borderRadius:3,fontSize:8,padding:"1px 5px",cursor:"pointer",lineHeight:"14px"}}>Clear</button></div>;
+  return <div style={{position:"relative"}}><canvas ref={canvasRef} width={300} height={height} onMouseDown={startDraw} onMouseMove={moveDraw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={moveDraw} onTouchEnd={endDraw} style={{width:"100%",height,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",cursor:"crosshair",display:"block",touchAction:"none"}}/><button onClick={clear} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,0.4)",color:"#fff",border:"none",borderRadius:3,fontSize:8,padding:"1px 5px",cursor:"pointer",lineHeight:"14px"}}>Clear</button></div>;
 };
 
 const CSEditTextarea = ({ value, onChange, style = {} }) => {
@@ -144,6 +165,33 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
 
   versions[versionIdx] = ver;
   setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
+}
+
+// ─── Generic doc updater factory ──────────────────────────────────────────────
+function makeDocUpdater(projectId, vIdx, setStore, initTemplate, initLabel) {
+  const getArr = (store) => store[projectId] || [{id:Date.now(),label:initLabel,...JSON.parse(JSON.stringify(initTemplate))}];
+  const update = (path, val) => {
+    setStore(prev => {
+      const store = JSON.parse(JSON.stringify(prev));
+      const arr = getArr(store);
+      const idx = Math.min(vIdx, arr.length - 1);
+      const d = arr[idx];
+      const k = path.split("."); let o = d;
+      for (let i = 0; i < k.length - 1; i++) o = o[k[i]];
+      o[k[k.length - 1]] = val;
+      arr[idx] = d; store[projectId] = arr; return store;
+    });
+  };
+  const set = (fn) => {
+    setStore(prev => {
+      const store = JSON.parse(JSON.stringify(prev));
+      const arr = getArr(store);
+      const idx = Math.min(vIdx, arr.length - 1);
+      arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx])));
+      store[projectId] = arr; return store;
+    });
+  };
+  return { update, set };
 }
 
 // ─── RONNIE (RISK ASSESSMENT) HELPERS ─────────────────────────────────────────
@@ -836,7 +884,173 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,contractDocStore,setContractDocStore,activeContractVersion}){
+// ─── AgentDocPreview — live editable document preview for split-pane ────────
+function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion}) {
+  if (!projectId) return null;
+
+  // ── CONNIE (Call Sheet) ──
+  if (agentId === "compliance" && callSheetStore && setCallSheetStore) {
+    const csVersions = callSheetStore[projectId] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+    const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
+    const csData = csVersions[csIdx] || csVersions[0];
+    const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
+
+    const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
+    const rmScheduleRow = i => csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)}));
+    const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
+    const rmVenueRow = i => csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)}));
+    const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
+    const rmCrew = (di,ci) => csSet(d => {d.departments[di].crew.splice(ci,1); return d;});
+    const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
+    const rmDept = i => csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)}));
+    const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
+    const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
+
+    const csLbl = {fontSize:9,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:CS_LS};
+    const csDeptBg = "#F4F4F4";
+    const csSecTitle = {fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase",borderBottom:"2px solid #000",paddingBottom:5,marginBottom:10};
+    const csTh = {padding:"5px 4px",fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#555",background:"#fff",textTransform:"uppercase",whiteSpace:"nowrap"};
+
+    return (
+      <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Call Sheet — {csData.label||`Day ${csIdx+1}`}</div>
+        <div style={{padding:0,fontFamily:CS_FONT}}>
+          <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
+            <div style={{padding:"22px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
+              <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
+                <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
+              </div>
+            </div>
+            <div style={{height:5,background:"#000",margin:"0 32px"}}/>
+            <div style={{textAlign:"center",padding:"20px 32px 4px"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div></div>
+            <div style={{padding:"8px 32px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{fontSize:24,fontWeight:800,letterSpacing:CS_LS,lineHeight:1.1}}><CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:24,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/></div>
+                <div style={{marginTop:6}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:10,color:"#000",fontWeight:600,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></div>
+              </div>
+              <div style={{fontSize:12,fontWeight:700,letterSpacing:CS_LS,color:"#000",paddingTop:4,whiteSpace:"nowrap"}}>SHOOT DAY <CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></div>
+            </div>
+            <div style={{padding:"0 32px 10px",textAlign:"center"}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} isPlaceholder style={{color:"#C62828",fontSize:10,fontWeight:700,letterSpacing:CS_LS}} placeholder="E.G. ALL CREW MUST BRING VALID PASSPORT/ID TO SET"/></div>
+            <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
+            <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11}}><span style={csLbl}>Production On Set: </span><CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
+            {/* SHOOT */}
+            <div style={{padding:"14px 32px 8px"}}>
+              <div style={csSecTitle}>SHOOT</div>
+              {csData.venueRows.map((row,i) => (<div key={i} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8}}><div style={{minWidth:95}}><CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/></div><div style={{flex:1,fontSize:11}}><CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/></div><CSXbtn onClick={()=>rmVenueRow(i)}/></div>))}
+              <CSAddBtn onClick={addVenueRow} label="Add Row"/>
+            </div>
+            {/* SCHEDULE */}
+            <div style={{padding:"10px 32px"}}>
+              <div style={csSecTitle}>SCHEDULE</div>
+              <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+                <thead><tr style={{background:csDeptBg}}><td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td><td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td><td style={{...csTh,background:csDeptBg}}>NOTES</td><td style={{width:24,background:csDeptBg}}></td></tr></thead>
+                <tbody>{csData.schedule.map((row,i) => (<tr key={i} style={{borderBottom:"1px solid #f0f0f0",background:"#fff"}}><td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}><CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder placeholder="00:00" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}><CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder placeholder="Activity" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11}}><CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/></td><td><CSXbtn onClick={()=>rmScheduleRow(i)}/></td></tr>))}</tbody>
+              </table>
+              <CSAddBtn onClick={addScheduleRow} label="Add Row"/>
+            </div>
+            {/* CONTACTS */}
+            <div style={{padding:"10px 32px"}}>
+              <div style={csSecTitle}>CONTACTS</div>
+              <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+                <thead><tr><td style={{...csTh,width:"17%"}}>ROLE</td><td style={{...csTh,width:"15%"}}>NAME</td><td style={{...csTh,width:"16%"}}>MOBILE</td><td style={{...csTh,width:"30%"}}>EMAIL</td><td style={{...csTh,width:"8%",textAlign:"right",paddingRight:8}}>CALL TIME</td><td style={{...csTh,width:22}}></td></tr></thead>
+                <tbody>{csData.departments.map((dept,di) => (<Fragment key={di}><tr><td colSpan={6} style={{padding:0}}><div style={{background:"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button></div></td></tr>{dept.crew.map((cr,ci) => (<tr key={ci} style={{background:"#fff",borderBottom:"1px solid #f5f5f5"}}><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder="Name"/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder="Phone"/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder="Email"/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600}} placeholder="Time"/></td><td><CSXbtn onClick={()=>rmCrew(di,ci)}/></td></tr>))}<tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>))}</tbody>
+              </table>
+              <CSAddBtn onClick={addDept} label="Add Department"/>
+            </div>
+            {/* MAP */}
+            <div style={{padding:"14px 32px 10px"}}><div style={csSecTitle}>MAP</div><CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
+            {/* WEATHER */}
+            <div style={{padding:"10px 32px 14px"}}><div style={csSecTitle}>WEATHER</div><CSResizableImage label="Weather Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/></div>
+            {/* INVOICING */}
+            <div style={{padding:"14px 32px"}}><div style={csSecTitle}>INVOICING</div><div style={{fontSize:11,marginBottom:8}}>Please note that payment terms are <strong><CSEditField value={csData.invoicing.terms} onChange={v=>csU("invoicing.terms",v)} bold style={{fontSize:11}}/></strong> from the date of invoice.</div><div style={{fontSize:11}}><div style={{fontWeight:700,marginBottom:2}}>FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <CSEditField value={csData.invoicing.email} onChange={v=>csU("invoicing.email",v)} style={{fontSize:11,color:"#1565C0"}}/></div><div style={{fontWeight:700,marginTop:6}}>BILLING ADDRESS:</div><CSEditTextarea value={csData.invoicing.address} onChange={v=>csU("invoicing.address",v)} style={{fontSize:11,lineHeight:1.6}}/><div style={{marginTop:4}}><strong>TRN:</strong> <CSEditField value={csData.invoicing.trn} onChange={v=>csU("invoicing.trn",v)} style={{fontSize:11}}/></div></div></div>
+            {/* PROTOCOL */}
+            <div style={{padding:"10px 32px"}}><div style={csSecTitle}>PROTOCOL ON SET</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
+            {/* EMERGENCY */}
+            <div style={{padding:"10px 32px"}}><div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div><div style={{fontSize:11,marginBottom:8,display:"flex",flexWrap:"wrap",alignItems:"center",gap:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:CS_LS}}/>{csData.emergencyNumbers.map((en,i) => (<span key={i} style={{display:"inline-flex",alignItems:"center",gap:2}}><span style={{color:"#C62828",fontWeight:800,fontSize:12}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:12}}/></span><span style={{fontWeight:600,fontSize:10,letterSpacing:CS_LS}}> FOR </span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={13}/>{i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 4px"}}>|</span>}</span>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></div><div style={{fontSize:11}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></div></div>
+            {/* FOOTER */}
+            <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── RONNIE (Risk Assessment) ──
+  if (agentId === "researcher" && riskAssessmentStore && setRiskAssessmentStore) {
+    const raVersions = riskAssessmentStore[projectId] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+    const raIdx = Math.min(activeRAVersion||0, raVersions.length - 1);
+    const raData = raVersions[raIdx] || raVersions[0];
+    const {update:raU, set:raSet} = makeDocUpdater(projectId, raIdx, setRiskAssessmentStore, RISK_ASSESSMENT_INIT, "Version 1");
+    const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
+
+    return (
+      <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Risk Assessment — {raData.label||`Version ${raIdx+1}`}</div>
+        <div style={{padding:"32px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+            <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
+            <div style={{display:"flex",gap:16,alignItems:"center"}}><CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/><CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/></div>
+          </div>
+          <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
+          <div style={{textAlign:"center",fontFamily:RA_FONT,fontSize:12,fontWeight:700,letterSpacing:RA_LS_HDR,textTransform:"uppercase",marginBottom:16}}>RISK ASSESSMENT</div>
+          <div style={{marginBottom:20}}>
+            {[{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>(<div key={k} style={{display:"flex",gap:6,marginBottom:2}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,minWidth:100}}>{l}</span><CSEditField value={raData[k]||""} onChange={v=>raU(k,v)} isPlaceholder={!raData[k]} placeholder={`Enter ${l.toLowerCase().replace(":","")}` } style={{fontSize:10,letterSpacing:RA_LS}}/></div>))}
+          </div>
+          {(raData.sections||[]).map((sec,si) => (<div key={sec.id||si}><div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 8px",textTransform:"uppercase",marginTop:24,marginBottom:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}><span style={{marginRight:4}}>{si+1}.</span><CSEditField value={sec.title} onChange={v=>{raSet(d=>{d.sections[si].title=v;return d;});}} placeholder="Section Title" style={{fontSize:10,color:"#fff",letterSpacing:RA_LS_HDR}} bold/><div onClick={()=>raSet(d=>({...d,sections:d.sections.filter((_,j)=>j!==si)}))} style={{position:"absolute",right:8,cursor:"pointer",fontSize:13,color:"#666",opacity:0.6}} onMouseEnter={e=>(e.target.style.opacity=1)} onMouseLeave={e=>(e.target.style.opacity=0.6)}>×</div></div><div style={{display:"flex",background:RA_GREY,borderBottom:"1px solid #ddd",padding:"5px 0"}}>{(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"]).map((c,ci)=>(<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,fontFamily:RA_FONT,fontSize:9,fontWeight:700,letterSpacing:RA_LS_HDR,padding:"0 6px",color:"#000"}}>{c}</div>))}<div style={{width:24}}/></div>{(sec.rows||[]).map((row,ri) => (<div key={ri} style={{display:"flex",borderBottom:"1px solid #eee",padding:"4px 0",alignItems:"flex-start"}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}>{row.map((cell,ci) => (<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,padding:"0 6px"}}><CSEditField value={cell} onChange={v=>{raSet(d=>{d.sections[si].rows[ri][ci]=v;return d;});}} isPlaceholder={!cell} placeholder={(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation"])[ci]} style={{fontSize:10,letterSpacing:RA_LS}} bold={ci===0}/></div>))}<div className="ra-rm" onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}))} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:[...s.rows,(s.cols||["","","",""]).map(()=>"")]}:s)}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 6px",letterSpacing:RA_LS,marginTop:2}}>+ Add Row</div></div>))}
+          <div onClick={()=>raSet(d=>({...d,sections:[...d.sections,{id:Date.now(),title:"NEW SECTION",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],rows:[["","","",""]]}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS,textAlign:"center",marginTop:12,padding:6}}>+ Add Risk Section</div>
+          {raSectionHdr("PROFESSIONAL CODE OF CONDUCT")}
+          <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
+          <div style={{padding:"8px 12px"}}>{(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          {raSectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
+          <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
+          <div style={{padding:"8px 12px"}}>{(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          {raSectionHdr("EMERGENCY RESPONSE PLAN")}
+          <div style={{padding:"8px 12px"}}>{(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:RA_FONT,fontSize:9,letterSpacing:RA_LS_HDR,color:"#000"}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CODY (Contracts) ──
+  if (agentId === "contracts" && contractDocStore && setContractDocStore) {
+    const ctVersions = contractDocStore[projectId] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+    const ctIdx = Math.min(activeContractVersion||0, ctVersions.length - 1);
+    const ctData = ctVersions[ctIdx] || ctVersions[0];
+    const {update:ctU, set:ctSet} = makeDocUpdater(projectId, ctIdx, setContractDocStore, CONTRACT_INIT, "Version 1");
+    const activeContractType = ctData.activeType || "commission_se";
+    const ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===activeContractType) || CONTRACT_DOC_TYPES[0];
+    const ctGetVal = (key) => (ctData.fieldValues||{})[`${activeContractType}_${key}`] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
+    const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [`${activeContractType}_${key}`]:val}}));
+    const ctGeneralTerms = (ctData.generalTermsEdits||{})[activeContractType] || GENERAL_TERMS_DOC[activeContractType] || "";
+    const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{...(d.generalTermsEdits||{}), [activeContractType]:val}}));
+
+    return (
+      <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Contract — {ctData.label||`Version ${ctIdx+1}`}</div>
+        {/* Contract type switcher */}
+        <div style={{display:"flex",gap:0,borderBottom:"2px solid #000",marginBottom:0,overflowX:"auto"}}>
+          {CONTRACT_DOC_TYPES.map(c=>(<div key={c.id} onClick={()=>ctSet(d=>({...d,activeType:c.id}))} style={{fontFamily:CT_FONT,fontSize:9,fontWeight:activeContractType===c.id?700:400,letterSpacing:CT_LS_HDR,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:activeContractType===c.id?"#000":"#f5f5f5",color:activeContractType===c.id?"#fff":"#666",transition:"all 0.15s",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{c.short}</div>))}
+        </div>
+        <div style={{padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}><CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/></div>
+          <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+          <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
+          {ctContract.headTermsLabel && (<><div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span></div>{ctContract.fields.map((field) => (<div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}><div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span></div><div style={{flex:1,padding:"8px 12px"}}><CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!ctGetVal(field.key) || ctGetVal(field.key)===field.defaultValue} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/></div></div>))}</>)}
+          {ctContract.sigLeft && (<><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div><div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>{[{side:"left",label:ctContract.sigLeft},{side:"right",label:ctContract.sigRight}].map(({side,label})=>(<div key={side} style={{flex:1,padding:"12px",borderRight:side==="left"?"1px solid #eee":"none"}}><div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div><div style={{marginBottom:8}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span><SignaturePad value={(ctData.signatures||{})[`${activeContractType}_${side}`]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [`${activeContractType}_${side}`]:v}}))} height={60}/></div>{["name","date"].map(f=>(<div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span><div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}><CSEditField value={(ctData.sigNames||{})[`${activeContractType}_${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${activeContractType}_${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/></div></div>))}</div>))}</div></>)}
+          <div style={{marginTop:32}}><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div><textarea value={ctGeneralTerms} onChange={e=>ctSetGeneralTerms(e.target.value)} style={{width:"100%",boxSizing:"border-box",fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",border:"1px solid #eee",borderTop:"none",padding:"12px",minHeight:600,resize:"vertical",outline:"none",background:"#fff",whiteSpace:"pre-wrap"}} onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7";}} onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff";}}/></div>
+          <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:CT_FONT,fontSize:9,letterSpacing:CT_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,contractDocStore,setContractDocStore,activeContractVersion,onFullWidthChange,isMobile}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -860,6 +1074,14 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const attachRef=useRef(null);
+
+  // ── Split-pane: detect if agent has active project context ──
+  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx);
+  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : null;
+  useEffect(()=>{
+    if (onFullWidthChange) onFullWidthChange(active && hasDocCtx && !isMobile);
+  },[active, hasDocCtx, isMobile]);
+
   const chatRef=useRef(null);
   const rafRef=useRef(null);
   const t0=useRef(null);
@@ -1091,7 +1313,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
 
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
-    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(input.trim())&&!/outreach|tracker|pipeline/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,40}\b(?:outlook|inbox|emails?)\b/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\s+(?:me\s+)?(?:the\s+)?(?:for\s+)?(?:\w+\s+(?:for\s+)?)?[A-Z][a-z]+\s+[A-Z][a-z]+\b.{0,30}\b(?:and\s+(?:create|add|make|save|start))\b/i.test(input.trim());
+    const _vinInput=input.trim().replace(/\s+/g," ");
+    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|inbox|emails?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
@@ -1404,14 +1627,69 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
-      // Export / PDF intent — generate directly from callSheetStore data
+      // Export / PDF intent — check for missing data first
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(call\s*sheet|pdf|export|download|print|document|doc)\b/i.test(input)){
         const csVersions_ex=callSheetStore?.[project.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
         const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
         const csData_ex=csVersions_ex[vIdx_ex];
+
+        // Check if user is confirming after a missing-data warning
+        const isConfirm=/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input);
+        const lastMsg=history.length?history[history.length-1]:null;
+        const wasWarned=lastMsg&&lastMsg.role==="assistant"&&/missing information/i.test(lastMsg.content||"");
+
+        if(!isConfirm||!wasWarned){
+          // Gather missing fields
+          const missing=[];
+          if(!csData_ex.shootName) missing.push("Shoot Name");
+          if(!csData_ex.date) missing.push("Date");
+          if(!csData_ex.dayNumber) missing.push("Day Number");
+          if(!csData_ex.productionContacts) missing.push("Production Contacts");
+          const emptyVenues=(csData_ex.venueRows||[]).filter(v=>!v.value).map(v=>v.label);
+          if(emptyVenues.length) missing.push(...emptyVenues.map(v=>`Venue: ${v}`));
+          const emptySchedule=(csData_ex.schedule||[]).filter(s=>!s.time&&!s.activity).length;
+          if(emptySchedule===(csData_ex.schedule||[]).length&&emptySchedule>0) missing.push("Schedule (all rows empty)");
+          const emptyCrew=[];
+          (csData_ex.departments||[]).forEach(d=>{
+            const unfilled=d.crew.filter(c=>!c.name);
+            if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`);
+          });
+          if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
+
+          if(missing.length>0){
+            setMsgs([...history,{role:"assistant",content:`⚠️ **Are you sure you want to export?** You're missing information on this call sheet.\n\nSay **"yes"** to export anyway, or ask me **"what's missing"** for a full breakdown.`}]);
+            setLoading(false);setMood("idle");return;
+          }
+        }
+
         printCallSheetPDF(csData_ex);
         setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there! 📋"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      // "What's missing" breakdown for call sheet
+      if(/\b(what('?s| is) missing|breakdown|what do i need|what('?s| is) empty|missing (fields|info|data|information))\b/i.test(input)){
+        const csVersions_m=callSheetStore?.[project.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const vIdx_m=Math.min(vIdx,csVersions_m.length-1);
+        const csData_m=csVersions_m[vIdx_m];
+        const missing=[];
+        if(!csData_m.shootName) missing.push("**Shoot Name** — not set");
+        if(!csData_m.date) missing.push("**Date** — not set");
+        if(!csData_m.dayNumber) missing.push("**Day Number** — not set");
+        if(!csData_m.productionContacts) missing.push("**Production Contacts** — empty");
+        (csData_m.venueRows||[]).forEach(v=>{if(!v.value) missing.push(`**${v.label}** — empty`);});
+        const emptyScheduleRows=(csData_m.schedule||[]).filter(s=>!s.time&&!s.activity);
+        if(emptyScheduleRows.length) missing.push(`**Schedule** — ${emptyScheduleRows.length} empty row${emptyScheduleRows.length>1?"s":""}`);
+        (csData_m.departments||[]).forEach(d=>{
+          const unfilled=d.crew.filter(c=>!c.name);
+          if(unfilled.length) missing.push(`**${d.name}** — ${unfilled.map(c=>c.role).join(", ")}`);
+        });
+        if(missing.length===0){
+          setMsgs([...history,{role:"assistant",content:"Everything looks filled in! You're good to export. 🎉"}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:`Here's what's still missing on this call sheet:\n\n${missing.map(m=>`• ${m}`).join("\n")}\n\nWant me to help fill any of these in, or say **"export"** to go ahead anyway?`}]);
+        }
+        setLoading(false);setMood("idle");return;
       }
 
       const csVersions = callSheetStore?.[project.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
@@ -1763,6 +2041,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       </div>
     ,document.body)}
 
+    {/* Split-pane: doc preview + chat, or just chat */}
+    {hasDocCtx && !isMobile ? (
+      <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
+          <AgentDocPreview agentId={agent.id} projectId={docProjectId}
+            callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion}
+            riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion}
+            contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}/>
+        </div>
+        <div style={{flex:"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+          {_renderAgentChat()}
+        </div>
+      </div>
+    ) : _renderAgentChat()}
+  </>);
+
+  function _renderAgentChat() { return (<>
     {/* Connie tab bar */}
     {agent.id==="compliance"&&connieTabs.length>0&&(
       <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
@@ -1829,7 +2124,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} style={{background:loading||(!input.trim()&&!attachments.length)?"#e5e5ea":"#1d1d1f",border:"none",color:loading||(!input.trim()&&!attachments.length)?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||(!input.trim()&&!attachments.length)?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
-  </>);
+  </>); }
 }
 
 // ─── PDF EXPORT via Blob URL ──────────────────────────────────────────────────
@@ -2488,6 +2783,153 @@ export default function OnnaDashboard() {
     return ()=>{ clearTimeout(timer); events.forEach(e=>window.removeEventListener(e, reset)); };
   },[authed]);
 
+  // ── Public signing page (bypasses login) ────────────────────────────────────
+  const _signToken = new URLSearchParams(window.location.search).get("sign") || "";
+  const [signData, setSignData] = useState(null);
+  const [signLoading, setSignLoading] = useState(false);
+  const [signError, setSignError] = useState("");
+  const [signSubmitted, setSignSubmitted] = useState(false);
+  const [signVendorName, setSignVendorName] = useState("");
+  const [signVendorDate, setSignVendorDate] = useState("");
+  const [signVendorSig, setSignVendorSig] = useState("");
+  const [signSubmitting, setSignSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!_signToken) return;
+    setSignLoading(true);
+    fetch(`/api/sign?token=${encodeURIComponent(_signToken)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) setSignError(data.error);
+        else setSignData(data);
+      })
+      .catch(err => setSignError(err.message))
+      .finally(() => setSignLoading(false));
+  }, [_signToken]);
+
+  if (_signToken) {
+    // CT_FONT, CT_LS, CT_LS_HDR hoisted to top level
+    const submitVendorSig = async () => {
+      if (!signVendorSig) { alert("Please draw your signature"); return; }
+      setSignSubmitting(true);
+      try {
+        const resp = await fetch("/api/sign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: _signToken, sigName: signVendorName, sigDate: signVendorDate, signature: signVendorSig }) });
+        const data = await resp.json();
+        if (data.ok) setSignSubmitted(true);
+        else alert(data.error || "Submission failed");
+      } catch (err) { alert("Error: " + err.message); }
+      setSignSubmitting(false);
+    };
+
+    return (
+      <div style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
+        <div style={{background:"#1d1d1f",padding:"14px 28px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
+          <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
+        </div>
+        <div style={{maxWidth:860,margin:"28px auto",padding:"0 20px"}}>
+          {signLoading && <div style={{textAlign:"center",padding:60,color:"#888"}}>Loading contract...</div>}
+          {signError && <div style={{textAlign:"center",padding:60,color:"#c0392b"}}>{signError}</div>}
+          {signData && signData.status === "signed" && !signSubmitted && (
+            <div style={{background:"#fff",borderRadius:14,padding:"48px 40px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+              <div style={{fontSize:28,marginBottom:12}}>✓</div>
+              <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>This contract has been signed</div>
+              <div style={{fontSize:13,color:"#888"}}>Signed on {signData.signedAt ? new Date(signData.signedAt).toLocaleDateString() : "N/A"}</div>
+            </div>
+          )}
+          {signSubmitted && (
+            <div style={{background:"#fff",borderRadius:14,padding:"48px 40px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+              <div style={{fontSize:28,marginBottom:12}}>✓</div>
+              <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>Signature submitted successfully</div>
+              <div style={{fontSize:13,color:"#888"}}>Thank you. You may now close this page.</div>
+            </div>
+          )}
+          {signData && signData.status !== "signed" && !signSubmitted && (() => {
+            const snap = signData.contractSnapshot || {};
+            const ctType = signData.contractType || snap.activeType || "commission_se";
+            const ctDef = CONTRACT_DOC_TYPES.find(c=>c.id===ctType) || CONTRACT_DOC_TYPES[0];
+            const getVal = (key) => (snap.fieldValues||{})[`${ctType}_${key}`] || ctDef.fields.find(f=>f.key===key)?.defaultValue || "";
+            const generalTerms = (snap.generalTermsEdits||{})[ctType] || GENERAL_TERMS_DOC[ctType] || "";
+            return (
+              <div style={{background:"#fff",borderRadius:14,padding:"32px 40px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+                {signData.projectName && <div style={{fontSize:11,color:"#888",marginBottom:8,letterSpacing:0.5}}>Project: {signData.projectName}</div>}
+                {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:38,maxWidth:120,objectFit:"contain",marginBottom:8}}/>}
+                <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+                <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctDef.title}</div>
+
+                {/* Head Terms (read-only) */}
+                {ctDef.headTermsLabel && (<>
+                  <div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}>
+                    <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctDef.headTermsLabel}</span>
+                  </div>
+                  {ctDef.fields.map(field => (
+                    <div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}>
+                      <div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span>
+                      </div>
+                      <div style={{flex:1,padding:"8px 12px"}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,whiteSpace:"pre-wrap"}}>{getVal(field.key)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </>)}
+
+                {/* General Terms (read-only) */}
+                <div style={{marginTop:32}}>
+                  <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div>
+                  <div style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",padding:"12px",whiteSpace:"pre-wrap",border:"1px solid #eee",borderTop:"none"}}>{generalTerms}</div>
+                </div>
+
+                {/* Vendor Signature Block */}
+                <div style={{marginTop:32}}>
+                  <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>SIGNATURE</div>
+                  <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
+                    {/* Left side (ONNA) - read only */}
+                    <div style={{flex:1,padding:"12px",borderRight:"1px solid #eee"}}>
+                      <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigLeft}</div>
+                      <div style={{marginBottom:8}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
+                        <div style={{height:60,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {(snap.signatures||{})[`${ctType}_left`] ? <img src={(snap.signatures||{})[`${ctType}_left`]} alt="" style={{maxHeight:56,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
+                        </div>
+                      </div>
+                      {["name","date"].map(f=>(
+                        <div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{(snap.sigNames||{})[`${ctType}_left_${f}`]||"—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Right side (Vendor) - editable */}
+                    <div style={{flex:1,padding:"12px"}}>
+                      <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigRight}</div>
+                      <div style={{marginBottom:8}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
+                        <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={60}/>
+                      </div>
+                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>Print Name:</span>
+                        <input value={signVendorName} onChange={e=>setSignVendorName(e.target.value)} placeholder="Print name..." style={{flex:1,fontFamily:CT_FONT,fontSize:10,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"2px 4px",background:"transparent"}}/>
+                      </div>
+                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>Date:</span>
+                        <input value={signVendorDate} onChange={e=>setSignVendorDate(e.target.value)} placeholder="Date..." style={{flex:1,fontFamily:CT_FONT,fontSize:10,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"2px 4px",background:"transparent"}}/>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{textAlign:"center",marginTop:24}}>
+                  <button onClick={submitVendorSig} disabled={signSubmitting} style={{padding:"10px 32px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:signSubmitting?0.6:1}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    );
+  }
+
   if (!authed) return (
     <div style={_LG_WRAP}>
       <div style={_LG_CARD}>
@@ -2593,6 +3035,8 @@ export default function OnnaDashboard() {
   const [activeRAVersion,setActiveRAVersion]             = useState(0);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeContractVersion,setActiveContractVersion] = useState(0);
+  const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
+  const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
@@ -2689,6 +3133,7 @@ export default function OnnaDashboard() {
   // ── Agents state ──────────────────────────────────────────────────────────────
   const [agentActiveIdx,setAgentActiveIdx] = useState(null);
   const [agentHoverIdx,setAgentHoverIdx]   = useState(null);
+  const [agentWantsFullWidth,setAgentWantsFullWidth] = useState(false);
   const agentConstellationRef              = useRef(null);
 
   // Load Google Identity Services script once
@@ -3929,8 +4374,7 @@ export default function OnnaDashboard() {
         const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
         const addRAVersion = () => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; arr.push({id:Date.now(),label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); };
         const deleteRAVersion = (idx) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
-        const RA_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
-        const RA_LS = 0.5; const RA_LS_HDR = 1.5; const RA_GREY = "#F4F4F4";
+        // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
         const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
         return (
@@ -4016,52 +4460,148 @@ export default function OnnaDashboard() {
         );
       }
 
-      if (documentsSubSection==="contracts") return (
-        <div>
-          {docBack}
-          <div style={{marginBottom:20}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Agreement Type</div>
-            <Sel value={contractType} onChange={setContractType} options={CONTRACT_TYPES} minWidth={320}/>
-          </div>
-          <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:20,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:16,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Supplier Details</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {[["Commissionee / Supplier Name","commissionee"],["Individual (for PSC agreements)","individual"],["Role / Services","role"],["Fee (incl. currency)","fee"],["Shoot / Service Date","shootDate"],["Payment Terms","paymentTerms"],["Deliverables","deliverables"],["Usage Rights","usageRights"],["Deadline","deadline"],["Project Reference","projectRef"]].map(([label,key])=>(
-                <div key={key}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5,fontWeight:500}}>{label}</div>
-                  <input value={contractFields[key]||""} onChange={e=>setContractFields(prev=>({...prev,[key]:e.target.value}))} style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
+      if (documentsSubSection==="contracts") {
+        const ctVersions = contractDocStore[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+        const ctIdx = Math.min(activeContractVersion, ctVersions.length - 1);
+        const ctData = ctVersions[ctIdx] || ctVersions[0];
+        const ctU = (path, val) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}]; const idx = Math.min(ctIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
+        const ctSet = (fn) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}]; const idx = Math.min(ctIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
+        const addCTVersion = () => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}]; arr.push({id:Date.now(),label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(CONTRACT_INIT))}); store[p.id] = arr; return store; }); setActiveContractVersion(ctVersions.length); };
+        const deleteCTVersion = (idx) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveContractVersion(v => Math.min(v, ctVersions.length - 2)); };
+        // CT_FONT, CT_LS, CT_LS_HDR hoisted to top level
+        const activeContractType = ctData.activeType || "commission_se";
+        const ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===activeContractType) || CONTRACT_DOC_TYPES[0];
+        const ctGetVal = (key) => (ctData.fieldValues||{})[`${activeContractType}_${key}`] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
+        const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [`${activeContractType}_${key}`]:val}}));
+        const ctGeneralTerms = (ctData.generalTermsEdits||{})[activeContractType] || GENERAL_TERMS_DOC[activeContractType] || "";
+        const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{...(d.generalTermsEdits||{}), [activeContractType]:val}}));
+
+        const sigShareUrl = ctSignShareUrl;
+        const setSigShareUrl = setCtSignShareUrl;
+        const sigShareLoading = ctSignShareLoading;
+        const setSigShareLoading = setCtSignShareLoading;
+        const sendForSignature = async () => {
+          setSigShareLoading(true);
+          try {
+            const snapshot = { fieldValues: ctData.fieldValues || {}, generalTermsEdits: ctData.generalTermsEdits || {}, sigNames: ctData.sigNames || {}, signatures: ctData.signatures || {}, prodLogo: ctData.prodLogo || null, activeType: activeContractType };
+            const resp = await fetch("/api/sign", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ contractSnapshot: snapshot, projectName: p.name, contractType: activeContractType }) });
+            const data = await resp.json();
+            if (data.url) setSigShareUrl(data.url);
+            else alert("Failed to create signing link: " + (data.error || "Unknown error"));
+          } catch (err) { alert("Error: " + err.message); }
+          setSigShareLoading(false);
+        };
+
+        const ctExportPDF = () => {
+          const el=document.getElementById("onna-ct-print");if(!el)return;
+          const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ctContract.title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
+          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        };
+
+        return (
+          <div>
+            {docBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                {ctVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveContractVersion(i)} style={{padding:"6px 14px",borderRadius:9,fontSize:12,fontWeight:ctIdx===i?600:500,cursor:"pointer",border:`1px solid ${ctIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:ctIdx===i?T.accent:"transparent",color:ctIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||`Version ${i+1}`}</button>{ctVersions.length>1&&<button onClick={()=>deleteCTVersion(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete version">×</button>}</div>))}
+                <button onClick={addCTVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Add Version</button>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <BtnExport onClick={ctExportPDF}>Export PDF</BtnExport>
+                <button onClick={sendForSignature} disabled={sigShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#1a5a30",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5,opacity:sigShareLoading?0.6:1}}>{sigShareLoading?"Generating…":"✉ Send for Signature"}</button>
+              </div>
+            </div>
+            {sigShareUrl && (
+              <div style={{background:"#f0faf4",border:"1px solid #c8efd4",borderRadius:10,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,fontWeight:500,color:"#1a5a30"}}>Signing link:</span>
+                <input readOnly value={sigShareUrl} style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #c8efd4",fontSize:11.5,fontFamily:"inherit",color:"#333",background:"#fff"}}/>
+                <button onClick={()=>{navigator.clipboard.writeText(sigShareUrl);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy Link</button>
+                <button onClick={()=>setSigShareUrl(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>
+              </div>
+            )}
+            <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={ctData.label||""} onChange={e=>ctU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${ctIdx+1}`}/></div>
+
+            {/* Contract type switcher */}
+            <div style={{display:"flex",gap:0,borderBottom:"2px solid #000",marginBottom:0,overflowX:"auto",marginTop:16}}>
+              {CONTRACT_DOC_TYPES.map(c=>(
+                <div key={c.id} onClick={()=>ctSet(d=>({...d,activeType:c.id}))}
+                  style={{fontFamily:CT_FONT,fontSize:9,fontWeight:activeContractType===c.id?700:400,letterSpacing:CT_LS_HDR,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",
+                    background:activeContractType===c.id?"#000":"#f5f5f5",color:activeContractType===c.id?"#fff":"#666",
+                    transition:"all 0.15s",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{c.short}</div>
               ))}
             </div>
-            <div style={{marginTop:16,display:"flex",justifyContent:"flex-end"}}>
-              <BtnPrimary onClick={()=>generateContract(p)} disabled={contractLoading}>{contractLoading?"Generating…":"Generate Contract"}</BtnPrimary>
-            </div>
-          </div>
-          {generatedContract&&(
-            <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-              <div style={{padding:"11px 16px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
-                <span style={{fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",fontWeight:600}}>Generated Contract — {contractType}</span>
-                <div style={{display:"flex",gap:6}}>
-                  <BtnSecondary small onClick={()=>navigator.clipboard.writeText(generatedContract)}>Copy</BtnSecondary>
-                  <BtnExport onClick={()=>exportToPDF(buildContractHTML(generatedContract),`${contractType} — ${p.name}`)}>Export PDF</BtnExport>
+
+            <div id="onna-ct-print" style={{background:"#fff",padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+              {/* Header */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                <CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/>
+              </div>
+              <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+
+              {/* Title */}
+              <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
+
+              {/* Head Terms Table */}
+              {ctContract.headTermsLabel && (<>
+                <div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}>
+                  <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span>
                 </div>
+                {ctContract.fields.map((field) => (
+                  <div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}>
+                    <div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
+                      <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span>
+                    </div>
+                    <div style={{flex:1,padding:"8px 12px"}}>
+                      <CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!ctGetVal(field.key) || ctGetVal(field.key)===field.defaultValue} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/>
+                    </div>
+                  </div>
+                ))}
+              </>)}
+
+              {/* Signature Block */}
+              {ctContract.sigLeft && (<>
+                <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div>
+                <div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>
+                  {[{side:"left",label:ctContract.sigLeft},{side:"right",label:ctContract.sigRight}].map(({side,label})=>(
+                    <div key={side} style={{flex:1,padding:"12px",borderRight:side==="left"?"1px solid #eee":"none"}}>
+                      <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div>
+                      <div style={{marginBottom:8}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
+                        <SignaturePad value={(ctData.signatures||{})[`${activeContractType}_${side}`]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [`${activeContractType}_${side}`]:v}}))} height={60}/>
+                      </div>
+                      {["name","date"].map(f=>(
+                        <div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span>
+                          <div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}>
+                            <CSEditField value={(ctData.sigNames||{})[`${activeContractType}_${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${activeContractType}_${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>)}
+
+              {/* General Terms */}
+              <div style={{marginTop:32}}>
+                <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div>
+                <textarea value={ctGeneralTerms} onChange={e=>ctSetGeneralTerms(e.target.value)}
+                  style={{width:"100%",boxSizing:"border-box",fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",border:"1px solid #eee",borderTop:"none",padding:"12px",minHeight:600,resize:"vertical",outline:"none",background:"#fff",whiteSpace:"pre-wrap"}}
+                  onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7";}}
+                  onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff";}}/>
               </div>
-              <div style={{padding:22,maxHeight:500,overflowY:"auto"}}>
-                <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:13,lineHeight:"1.8",color:T.sub,margin:0}}>{generatedContract}</pre>
+
+              {/* Footer */}
+              <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:CT_FONT,fontSize:9,letterSpacing:CT_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+                <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
               </div>
             </div>
-          )}
-          <div style={{marginTop:18}}>
-            <div style={{fontSize:11,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Saved Contracts</div>
-            {(projectContracts[p.id]||[]).length===0?<div style={{fontSize:13,color:T.muted}}>No saved contracts yet.</div>:(projectContracts[p.id]||[]).map((c,i)=>(
-              <div key={i} style={{padding:"10px 14px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:12.5,color:T.sub,flex:1}}>{c.type} — {c.name}</span>
-                <span style={{fontSize:11,color:T.muted}}>{c.date}</span>
-              </div>
-            ))}
           </div>
-        </div>
-      );
+        );
+      }
 
       if (documentsSubSection==="permits") return (
         <div>{docBack}<UploadZone label="Upload permit paperwork (PDF, images)" files={getProjectFiles(p.id,"permits")} onAdd={f=>addProjectFiles(p.id,"permits",f)}/></div>
@@ -5077,8 +5617,8 @@ export default function OnnaDashboard() {
         {/* ── AGENTS TAB ── */}
         {activeTab==="Agents"&&(
           <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
-            {/* Left half — agent avatars */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+            {/* Left half — agent avatars (hidden when full-width doc preview active) */}
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:{flex:"0 0 50%",overflowY:"auto",display:agentWantsFullWidth?"none":"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {AGENT_DEFS.map((a,i)=>{
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -5095,8 +5635,8 @@ export default function OnnaDashboard() {
                 </button>
               );})}
             </div>
-            {/* Right half — chat panel (always visible) */}
-            <div style={{flex:isMobile?"1":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,padding:isMobile?"0":"8px 8px 8px 0"}}>
+            {/* Right half — chat panel (expands full-width when doc preview active) */}
+            <div style={{flex:isMobile?"1":agentWantsFullWidth?"1 1 100%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,padding:isMobile?"0":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
@@ -5127,6 +5667,8 @@ export default function OnnaDashboard() {
                       contractDocStore={a.id==="contracts"?contractDocStore:undefined}
                       setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
                       activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
+                      onFullWidthChange={setAgentWantsFullWidth}
+                      isMobile={isMobile}
                     />
                   ))}
                 </div>
