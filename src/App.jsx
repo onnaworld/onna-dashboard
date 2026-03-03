@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
@@ -410,6 +410,120 @@ const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
   );
 };
 
+// ─── DASH NOTES COMPONENT ────────────────────────────────────────────────────
+const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
+  const editorRef = useRef(null);
+  const selectedNote = notes.find(n=>n.id===selectedId)||null;
+
+  // Sync editor HTML only when switching notes (not on every keystroke)
+  useEffect(()=>{
+    if (editorRef.current) editorRef.current.innerHTML = selectedNote?.content||"";
+  },[selectedId]); // eslint-disable-line
+
+  const updateContent = () => {
+    if (!selectedNote||!editorRef.current) return;
+    setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:editorRef.current.innerHTML,updatedAt:Date.now()}:n));
+  };
+  const createNote = () => {
+    const n={id:Date.now(),content:"",updatedAt:Date.now()};
+    setNotes(prev=>[n,...prev]); setSelectedId(n.id);
+  };
+  const deleteNote = (id) => {
+    if (!window.confirm("Delete this note?")) return;
+    setNotes(prev=>prev.filter(n=>n.id!==id));
+    if (selectedId===id) setSelectedId(null);
+  };
+  const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
+  const getPlain = (html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
+  const getTitle = (n) => getPlain(n.content).split("\n")[0].trim().slice(0,50)||"New Note";
+  const getPreview = (n) => { const p=getPlain(n.content).replace(/\n+/g," "); return p.slice(getTitle(n).length).trim().slice(0,55); };
+  const fmtDate = (ts) => { if(!ts)return""; const d=new Date(ts),now=new Date(); if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString([],{month:"short",day:"numeric"}); };
+  const sorted = [...notes].sort((a,b)=>b.updatedAt-a.updatedAt);
+  const showList = !isMobile||!selectedNote;
+  const showEditor = !isMobile||!!selectedNote;
+  const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
+  return (
+    <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",height:isMobile?520:500,background:T.surface}}>
+      {showList&&(
+        <div style={{width:isMobile?"100%":220,borderRight:isMobile?"none":`1px solid ${T.border}`,display:"flex",flexDirection:"column",background:"#fafafa",flexShrink:0}}>
+          <div style={{padding:"12px 14px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
+            <button onClick={createNote} style={{width:22,height:22,borderRadius:6,background:T.accent,border:"none",color:"#fff",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>+</button>
+          </div>
+          <div style={{flex:1,overflowY:"auto"}}>
+            {sorted.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
+            {sorted.map(n=>(
+              <div key={n.id} onClick={()=>setSelectedId(n.id)} style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s"}}>
+                <div style={{fontSize:12.5,fontWeight:600,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
+                <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
+                  <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
+                  <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {showEditor&&(
+        <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
+          {selectedNote ? (
+            <>
+              {/* Formatting toolbar */}
+              <div style={{padding:"6px 10px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",gap:3,background:"#fafafa",flexWrap:"wrap",flexShrink:0}}>
+                {isMobile&&<button onClick={()=>setSelectedId(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:"0 8px 0 0",marginRight:2}}>←</button>}
+                <button onMouseDown={e=>{e.preventDefault();fmt("bold");}} style={{...TBtnStyle,fontWeight:700}}>B</button>
+                <button onMouseDown={e=>{e.preventDefault();fmt("italic");}} style={{...TBtnStyle,fontStyle:"italic"}}>I</button>
+                <button onMouseDown={e=>{e.preventDefault();fmt("underline");}} style={{...TBtnStyle,textDecoration:"underline"}}>U</button>
+                <button onMouseDown={e=>{e.preventDefault();fmt("strikeThrough");}} style={{...TBtnStyle,textDecoration:"line-through"}}>S</button>
+                <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
+                <select onMouseDown={e=>e.stopPropagation()} onChange={e=>{fmt("fontName",e.target.value);editorRef.current?.focus();}} defaultValue="" style={{...TBtnStyle,minWidth:90,padding:"0 4px",fontSize:11}}>
+                  <option value="">Font</option>
+                  <option value="Arial, sans-serif">Sans-serif</option>
+                  <option value="Georgia, serif">Serif</option>
+                  <option value="monospace">Mono</option>
+                  <option value="'Trebuchet MS'">Trebuchet</option>
+                  <option value="'Courier New'">Courier</option>
+                </select>
+                <select onMouseDown={e=>e.stopPropagation()} onChange={e=>{fmt("fontSize",e.target.value);editorRef.current?.focus();}} defaultValue="" style={{...TBtnStyle,width:50,padding:"0 4px",fontSize:11}}>
+                  <option value="">Size</option>
+                  <option value="1">XS</option>
+                  <option value="2">S</option>
+                  <option value="3">M</option>
+                  <option value="4">L</option>
+                  <option value="5">XL</option>
+                  <option value="6">XXL</option>
+                </select>
+                <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
+                {/* Text colours */}
+                {["#1d1d1f","#c0392b","#1a56db","#147d50","#8e24aa","#e67e22"].map(c=>(
+                  <button key={c} onMouseDown={e=>{e.preventDefault();fmt("foreColor",c);}} title={c} style={{width:16,height:16,borderRadius:"50%",background:c,border:"1.5px solid rgba(0,0,0,0.18)",cursor:"pointer",padding:0,flexShrink:0}}/>
+                ))}
+                <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
+                {/* Highlight colours */}
+                {[["#fff176","Yellow"],["#b3f0d4","Green"],["#b3d4f5","Blue"],["#ffd6d6","Red"]].map(([bg,lbl])=>(
+                  <button key={bg} onMouseDown={e=>{e.preventDefault();fmt("hiliteColor",bg);}} title={`Highlight ${lbl}`} style={{width:16,height:16,borderRadius:3,background:bg,border:"1.5px solid rgba(0,0,0,0.12)",cursor:"pointer",padding:0,flexShrink:0}}/>
+                ))}
+                <button onMouseDown={e=>{e.preventDefault();fmt("hiliteColor","transparent");}} title="Clear highlight" style={{...TBtnStyle,fontSize:10,color:T.muted,minWidth:16,width:16,padding:0}}>✕</button>
+                <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+                  <span style={{fontSize:10.5,color:T.muted}}>{fmtDate(selectedNote.updatedAt)}</span>
+                  <button onClick={()=>deleteNote(selectedNote.id)} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"2px 4px",borderRadius:5,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Delete</button>
+                </div>
+              </div>
+              {/* Editable content */}
+              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={updateContent} style={{flex:1,padding:"16px 20px",outline:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.75,overflowY:"auto",boxSizing:"border-box"}}/>
+            </>
+          ) : (
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:T.muted}}>
+              <div style={{fontSize:13}}>Select a note or create a new one</div>
+              <button onClick={createNote} style={{padding:"8px 18px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>+ New Note</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 // ─── PROJECT TODO LIST COMPONENT ────────────────────────────────────────────
 const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,setArchivedTodos}) => {
@@ -735,7 +849,7 @@ export default function OnnaDashboard() {
     const timeMax = new Date(yr, mo+1, 0, 23, 59, 59).toISOString();
     try {
       const params = new URLSearchParams({timeMin, timeMax, singleEvents:"true", orderBy:"startTime", maxResults:"250"});
-      const calListRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList",{headers:{Authorization:`Bearer ${token}`}});
+      const calListRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true",{headers:{Authorization:`Bearer ${token}`}});
       const calList = await calListRes.json();
       const calIds = (calList.items||[]).map(c=>c.id);
       const allEvents = await Promise.all(calIds.map(id=>
@@ -1641,87 +1755,8 @@ export default function OnnaDashboard() {
                 </div>
               </div>
 
-              {/* ── Notes (Mac Notes style) ── */}
-              {(()=>{
-                const selectedNote = dashNotesList.find(n=>n.id===dashSelectedNoteId)||null;
-                const getNoteTitle = (n) => (n.content||"").split("\n")[0].trim()||"New Note";
-                const getNotePreview = (n) => {
-                  const lines = (n.content||"").split("\n").filter(l=>l.trim());
-                  return lines.slice(1).join(" ").slice(0,60)||(lines[0]||"").slice(0,60);
-                };
-                const fmtDate = (ts) => {
-                  if (!ts) return "";
-                  const d = new Date(ts), now = new Date();
-                  if (d.toDateString()===now.toDateString()) return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-                  return d.toLocaleDateString([],{month:"short",day:"numeric"});
-                };
-                const createNote = () => {
-                  const n = {id:Date.now(),content:"",updatedAt:Date.now()};
-                  setDashNotesList(prev=>[n,...prev]);
-                  setDashSelectedNoteId(n.id);
-                };
-                const updateNote = (content) => {
-                  setDashNotesList(prev=>prev.map(n=>n.id===dashSelectedNoteId?{...n,content,updatedAt:Date.now()}:n));
-                };
-                const deleteNote = (id) => {
-                  if (!window.confirm("Delete this note?")) return;
-                  setDashNotesList(prev=>prev.filter(n=>n.id!==id));
-                  if (dashSelectedNoteId===id) setDashSelectedNoteId(null);
-                };
-                const showList = !isMobile || !selectedNote;
-                const showEditor = !isMobile || !!selectedNote;
-                return (
-                  <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",height:isMobile?480:440,background:T.surface}}>
-                    {/* Sidebar */}
-                    {showList&&(
-                      <div style={{width:isMobile?"100%":230,borderRight:isMobile?"none":`1px solid ${T.border}`,display:"flex",flexDirection:"column",background:"#fafafa",flexShrink:0}}>
-                        <div style={{padding:"12px 14px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
-                          <button onClick={createNote} style={{width:22,height:22,borderRadius:6,background:T.accent,border:"none",color:"#fff",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>+</button>
-                        </div>
-                        <div style={{flex:1,overflowY:"auto"}}>
-                          {dashNotesList.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
-                          {dashNotesList.map(n=>(
-                            <div key={n.id} onClick={()=>setDashSelectedNoteId(n.id)} style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:dashSelectedNoteId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s"}}>
-                              <div style={{fontSize:12.5,fontWeight:600,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getNoteTitle(n)}</div>
-                              <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
-                                <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
-                                <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getNotePreview(n)}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* Editor */}
-                    {showEditor&&(
-                      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
-                        {selectedNote ? (
-                          <>
-                            <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa",flexShrink:0}}>
-                              {isMobile&&<button onClick={()=>setDashSelectedNoteId(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginRight:10}}>← Notes</button>}
-                              <span style={{fontSize:11,color:T.muted,flex:1}}>{fmtDate(selectedNote.updatedAt)}</span>
-                              <button onClick={()=>deleteNote(selectedNote.id)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"2px 4px",borderRadius:5,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Delete</button>
-                            </div>
-                            <textarea
-                              autoFocus
-                              value={selectedNote.content}
-                              onChange={e=>updateNote(e.target.value)}
-                              placeholder="Start typing…"
-                              style={{flex:1,padding:"16px 20px",border:"none",resize:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.7,background:"transparent",outline:"none",boxSizing:"border-box"}}
-                            />
-                          </>
-                        ) : (
-                          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:T.muted}}>
-                            <div style={{fontSize:13}}>Select a note or create a new one</div>
-                            <button onClick={createNote} style={{padding:"8px 18px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>+ New Note</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* ── Notes ── */}
+              <DashNotes notes={dashNotesList} setNotes={setDashNotesList} selectedId={dashSelectedNoteId} setSelectedId={setDashSelectedNoteId} isMobile={isMobile}/>
 
               {/* ── Google Calendar Widget ── */}
               {(()=>{
@@ -1798,7 +1833,7 @@ export default function OnnaDashboard() {
                             <div key={key} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2}}>
                               <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start"}}>{date.getDate()}</span>
                               {isMobile ? (
-                                dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((_,ei)=><span key={ei} style={{width:5,height:5,borderRadius:"50%",background:T.accent,display:"inline-block"}}/>)}</div>
+                                dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>
                               ) : (
                                 <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden"}}>
                                   {dayEvs.slice(0,3).map((ev,ei)=>{
