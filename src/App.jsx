@@ -1948,6 +1948,13 @@ export default function OnnaDashboard() {
                         ) : null}
                       </div>
                     </div>
+                    {/* Debug panel — remove once working */}
+                    {(outlookEvents.length>0||gcalEvents.length>0)&&<div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"6px 14px",fontSize:10,color:"#92400e",fontFamily:"monospace",lineHeight:1.6}}>
+                      <b>DEBUG (delete me once working)</b><br/>
+                      Outlook: {outlookEvents.length} events | first 3 dates: {outlookEvents.slice(0,3).map(e=>`"${e.summary}" ${e.start?.date||e.start?.dateTime?.slice(0,10)}`).join(" · ")}<br/>
+                      GCal: {gcalEvents.length} events | first 3 dates: {gcalEvents.slice(0,3).map(e=>`"${e.summary}" ${e.start?.date||e.start?.dateTime?.slice(0,10)}`).join(" · ")}<br/>
+                      Current month cells expect keys like: {new Date(calMonth.getFullYear(),calMonth.getMonth(),15).toISOString().slice(0,10)}
+                    </div>}
                     {/* Grid */}
                     <div style={{padding:isMobile?"8px 6px":"12px 14px"}}>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:3}}>
