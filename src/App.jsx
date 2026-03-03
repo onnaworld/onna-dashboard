@@ -76,6 +76,172 @@ const CALLSHEET_INIT = {
   protocol:"WE KINDLY ASK ALL CAST AND CREW TO BE SENSITIVE TO THE BRANDS, LOGOS, PEOPLE AND PRODUCTS BEING CAPTURED ON THIS SHOOT AND REMIND YOU THAT IN WORKING ON THIS PRODUCTION YOU AGREE TO TREAT ALL CLIENT INFORMATION, PHOTOGRAPHY AND FILMING AS CONFIDENTIAL. YOU AGREE NOT TO COMMUNICATE ANY COMMENTS OR IMAGERY OF THE SHOOT AT ANY TIME BY ANY MEANS, INCLUDING VIA SOCIAL MEDIA WITHOUT EXPRESS PERMISSION FROM PRODUCTION.",
 };
 
+// ─── CONNIE HELPERS ─────────────────────────────────────────────────────────
+function buildConnieSystem(project, csData, versionLabel, csSnapshot, vendorSummary) {
+  return `You are Call Sheet Connie, a production coordinator for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live call sheet database.
+
+CRITICAL: You ALREADY HAVE the full call sheet data below. NEVER ask the user to paste, share, or provide call sheet details — you can see everything. Just act on their request immediately.
+
+You are viewing: "${project.name}" — ${versionLabel}
+
+CURRENT CALL SHEET STATE:
+${csSnapshot}
+
+VENDOR DATABASE (name|category|email|phone):
+${vendorSummary || "(empty)"}
+
+INSTRUCTIONS:
+- When the user asks to ADD or UPDATE crew, schedule, venues, or any call sheet field, output a JSON patch inside a \`\`\`json code block.
+- For scalar fields: {"shootName":"...","date":"..."}
+- For departments/crew (merge by role, case-insensitive): {"departments":[{"name":"MOTION","crew":[{"role":"GAFFER","name":"Elie Kolko","mobile":"+971...","email":"elie@x.com"}]}]}
+- For schedule: {"schedule":[{time,activity,notes},...]} (full array replacement)
+- For venueRows: {"venueRows":[{label,value},...]} (full array replacement)
+- Only output JSON for write intents. For read-only questions (e.g. "what's missing?", "show me the schedule"), answer in plain text with NO JSON block.
+- When a name matches a vendor in the database above, auto-fill their email and phone, and mention: "I found [name] in the vendor database and filled in their details."
+- When asked "what's missing?" or similar, scan every department and crew slot and list which fields (name, mobile, email, callTime) are empty, grouped by department.
+- NEVER say you don't have access to data, can't see the call sheet, or need the user to share information. You have FULL access.
+- Be warm, concise and professional.`;
+}
+
+function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCallSheetStore) {
+  const versions = [...currentVersions];
+  const ver = { ...versions[versionIdx] };
+
+  // Merge scalar fields
+  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol"];
+  scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
+
+  // Merge emergency object
+  if (patch.emergency) ver.emergency = { ...(ver.emergency || {}), ...patch.emergency };
+  if (patch.invoicing) ver.invoicing = { ...(ver.invoicing || {}), ...patch.invoicing };
+
+  // Replace arrays wholesale
+  if (patch.schedule) ver.schedule = patch.schedule;
+  if (patch.venueRows) ver.venueRows = patch.venueRows;
+  if (patch.emergencyNumbers) ver.emergencyNumbers = patch.emergencyNumbers;
+
+  // Merge departments/crew by role (case-insensitive)
+  if (patch.departments && Array.isArray(patch.departments)) {
+    const existing = ver.departments ? ver.departments.map(d => ({ ...d, crew: d.crew.map(c => ({ ...c })) })) : [];
+    patch.departments.forEach(pd => {
+      const deptIdx = existing.findIndex(d => d.name.toUpperCase() === pd.name.toUpperCase());
+      if (deptIdx >= 0) {
+        const dept = existing[deptIdx];
+        (pd.crew || []).forEach(pc => {
+          const crewIdx = dept.crew.findIndex(c => c.role.toUpperCase() === pc.role.toUpperCase());
+          if (crewIdx >= 0) {
+            dept.crew[crewIdx] = { ...dept.crew[crewIdx], ...pc };
+          } else {
+            dept.crew.push(pc);
+          }
+        });
+      } else {
+        existing.push(pd);
+      }
+    });
+    ver.departments = existing;
+  }
+
+  versions[versionIdx] = ver;
+  setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
+}
+
+// ─── RONNIE (RISK ASSESSMENT) HELPERS ─────────────────────────────────────────
+const RISK_ASSESSMENT_INIT = {
+  shootName:"",shootDate:"",locations:"",crewOnSet:"",timing:"",
+  productionLogo:null,agencyLogo:null,clientLogo:null,
+  sections:[
+    {id:1,title:"ENVIRONMENTAL & WEATHER RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
+      rows:[["Extreme Heat / Sun Exposure","High","Full Crew & Talent","Shoot to be scheduled during cooler hours where possible. Shaded rest areas provided on-site. Sunscreen, cold water, and electrolyte drinks available at all times. Mandatory hydration breaks every 30 minutes in direct sun."],
+            ["Sandstorm / High Winds","Medium","Full Crew & Equipment","Monitor weather forecast 48hrs and 24hrs prior. If sandstorm warning issued, shoot will be postponed. Protective covers for all camera equipment on standby."],
+            ["UV Radiation","Medium","Full Crew & Talent","SPF50+ sunscreen in First Aid Kit. Crew advised to wear hats and UV-protective clothing. Talent to be provided shade between takes."],
+            ["Humidity / Dehydration","High","Full Crew & Talent","Cold water and isotonic drinks provided by Production. Crew to be briefed on dehydration symptoms. Medic on standby for heat-related illness."],
+            ["Low Light (Exterior Night)","Medium","Full Crew","Adequate lighting rigs for safe movement. High-vis vests mandatory for all crew after sunset. Torches provided for wrap/load-out."]]},
+    {id:2,title:"PERSONNEL & HEALTH RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
+      rows:[["Fatigue / Long Hours","High","Full Crew & Talent","Maximum 12-hour shoot day enforced. Scheduled meal breaks (minimum 30 mins every 6 hours). Production to monitor crew wellbeing throughout."],
+            ["Slips, Trips & Falls","Medium","Full Crew","Cables to be taped/ramped at all times. Clear walkways maintained. Crew to wear closed-toe shoes with grip soles."],
+            ["Food Allergies / Dietary","Low","Full Crew & Talent","Catering to confirm allergen information on all food. Crew/talent dietary requirements collected in advance."],
+            ["COVID / Illness","Low","Full Crew & Talent","Any crew displaying symptoms must not attend set. Sanitiser stations available on-site."]]},
+    {id:3,title:"TECHNICAL EQUIPMENT RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
+      rows:[["Dust / Sand Ingress","High","Camera Equipment","No lens changes in open/windy conditions. Protective rain covers used when equipment idle. Air blowers on set for sensor/lens cleaning."],
+            ["Equipment Drop / Damage","Medium","Gear & Crew Below","Tethering of all handheld gear when shooting at height. No equipment left on edges or unstable surfaces. Equipment check-in/check-out managed by AC."],
+            ["Battery Failure / Power Loss","Medium","Production Schedule","Minimum 2x spare batteries per camera body. Fully charged power banks carried. Generator on standby for extended exterior shoots."],
+            ["Data Loss / Card Failure","High","Production / Client","DIT to verify all offloads on-set. Dual card recording enabled on all cameras. No cards to be formatted until backup confirmed by DIT."]]},
+    {id:4,title:"TRANSPORT & LOGISTICS RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
+      rows:[["Road Traffic Accidents","Medium","Self-Driving Crew","Crew driving own vehicles do so at their own risk and waive ONNA of all liability for transit. Journey time and routes shared in advance."],
+            ["Loading / Unloading Equipment","Medium","Crew & Equipment","Minimum 2 persons for heavy lifts. Trolleys and ramps provided. No rushing during load-in/load-out."],
+            ["Parking / Vehicle Access","Low","Full Crew","Parking locations confirmed and communicated 24hrs prior. Designated vehicle marshalling area on-site."]]},
+    {id:5,title:"BRAND & PRIVACY",cols:["Hazard / Risk","Risk Level","Who is at Risk","Control Measures"],
+      rows:[["IP Theft / Social Media Leaks","High","Client / Agency / Production","No posting of behind-the-scenes (BTS), product shots, or talent imagery to personal social media until official assets have gone live with written permission from the Client/Agency."],
+            ["Public Filming / Bystanders","Medium","Production / Client","If filming in public spaces, ensure DTCM permit covers location. Crew to politely manage bystanders. No members of the public to be filmed without signed release forms."],
+            ["Talent Image Rights","Medium","Talent / Client","All talent to have signed appearance release forms prior to call time. Usage terms to be confirmed and documented before shoot."]]},
+  ],
+  conductIntro:"All crew members on the call sheet are representatives of ONNA. High-level professionalism is mandatory to maintain relations with the Client and Agency.",
+  conductItems:[{label:"Client Relations:",text:"Maintain a helpful, solutions-only attitude. Any issues must be funneled directly to ONNA, never discussed in front of the client."},{label:"Anti-Harassment:",text:"ONNA maintains a Zero-Tolerance Sexual Harassment Policy. Any inappropriate behavior, language, or conduct will result in immediate removal from the set and termination of the contract."},{label:"General Conduct:",text:"Crew must act with integrity, respecting local customs and the shoot environment (No littering / Leave No Trace)."}],
+  waiverIntro:"By joining this production, the crew acknowledges:",
+  waiverItems:[{label:"Transport:",text:"Crew members choosing to drive their own vehicles to/from the shoot location do so at their own risk. They acknowledge the risks of driving in the UAE and hereby waive ONNA of any liability regarding vehicle damage or transit-related incidents."},{label:"Health:",text:"Crew confirms they are fit for the physical requirements of this shoot, including working in high temperatures where applicable."},{label:"Safety Gear:",text:"High-vis vests and emergency kits are managed by Production. Activity-appropriate footwear, clothing, sun protection, and personal hydration is the responsibility of the individual."},{label:"Insurance:",text:"Crew are responsible for maintaining their own valid personal and vehicle insurance. ONNA does not provide individual health or vehicle insurance cover."}],
+  emergencyItems:[{label:"Nearest Hospital:",text:"To be confirmed based on shoot location. Production to identify closest facility and share with crew on the call sheet."},{label:"Police:",text:"999"},{label:"Ambulance:",text:"998"},{label:"Fire:",text:"997"},{label:"Production Lead (Emily):",text:"+971 585 608 616"},{label:"Muster Point:",text:"To be designated on-site by Production at the start of each shoot day and communicated at the safety briefing."},{label:"Weather Protocol:",text:"In the event of a sandstorm warning, extreme heat advisory, or site evacuation, all crew must leave equipment and report to the designated muster point for a head count by Production."},{label:"First Aid:",text:"First Aid Kit on-site at all times managed by Production. Contents checked before every shoot. Medic on standby for high-risk shoots."}],
+};
+
+function buildRonnieSystem(project, raData, versionLabel, raSnapshot) {
+  return `You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live risk assessment database.
+
+CRITICAL: You ALREADY HAVE the full risk assessment data below. NEVER ask the user to paste, share, or provide risk assessment details — you can see everything. Just act on their request immediately.
+
+You are viewing: "${project.name}" — ${versionLabel}
+
+CURRENT RISK ASSESSMENT STATE:
+${raSnapshot}
+
+INSTRUCTIONS:
+- When the user asks to ADD or UPDATE risks, sections, header fields, conduct items, waiver items, or emergency items, output a JSON patch inside a \`\`\`json code block.
+- For scalar fields: {"shootName":"...","shootDate":"...","locations":"...","crewOnSet":"...","timing":"..."}
+- For conductIntro/waiverIntro: {"conductIntro":"...","waiverIntro":"..."}
+- For sections (merge by title, case-insensitive): {"sections":[{"title":"ENVIRONMENTAL & WEATHER RISKS","rows":[["Hazard","Level","Who","Mitigation"],...]}]}
+  - To add a NEW section, include it with a new title.
+  - To add rows to an existing section, include the section title and the new rows (they will be APPENDED).
+- For conductItems/waiverItems/emergencyItems (replace array): {"conductItems":[{"label":"...","text":"..."},...],"waiverItems":[...],"emergencyItems":[...]}
+- Only output JSON for write intents. For read-only questions (e.g. "what risks are missing?", "review the assessment"), answer in plain text with NO JSON block.
+- When asked "what's missing?" or "review", scan all sections and identify gaps, missing risk levels, empty mitigations, etc.
+- Cross-reference project details with UAE and international safety laws (Media Regulatory Authority, Dubai Film Permit, DDA, DTCM).
+- NEVER say you don't have access to data. You have FULL access.
+- Be thorough, formal, and professional. Structure advice clearly.`;
+}
+
+function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRiskAssessmentStore) {
+  const versions = [...currentVersions];
+  const ver = { ...versions[versionIdx] };
+
+  // Merge scalar fields
+  const scalars = ["shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
+  scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
+
+  // Replace array fields wholesale
+  if (patch.conductItems) ver.conductItems = patch.conductItems;
+  if (patch.waiverItems) ver.waiverItems = patch.waiverItems;
+  if (patch.emergencyItems) ver.emergencyItems = patch.emergencyItems;
+
+  // Merge sections by title (case-insensitive)
+  if (patch.sections && Array.isArray(patch.sections)) {
+    const existing = ver.sections ? ver.sections.map(s => ({ ...s, rows: s.rows.map(r => [...r]) })) : [];
+    let nextId = existing.reduce((max, s) => Math.max(max, s.id || 0), 0) + 1;
+    patch.sections.forEach(ps => {
+      const sIdx = existing.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
+      if (sIdx >= 0) {
+        // Append new rows to existing section
+        if (ps.rows) existing[sIdx].rows = [...existing[sIdx].rows, ...ps.rows];
+        if (ps.cols) existing[sIdx].cols = ps.cols;
+      } else {
+        existing.push({ id: nextId++, title: ps.title, cols: ps.cols || ["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"], rows: ps.rows || [] });
+      }
+    });
+    ver.sections = existing;
+  }
+
+  versions[versionIdx] = ver;
+  setRiskAssessmentStore(prev => ({ ...prev, [projectId]: versions }));
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
 const API_SECRET = import.meta.env.VITE_API_SECRET || "";
@@ -417,13 +583,9 @@ Be warm, brief and direct.`,
    placeholder:`Create New Vendor`,
    intro:"Hey! I'm Vendor Vinnie. Let me create your database! ✏️"},
   {id:"compliance",name:"Call Sheet Connie",title:"Call Sheets",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
-   system:`You are Call Sheet Connie, a production coordinator for ONNA, a film/TV production company in Dubai. Your job is to create detailed, professional call sheets for film and TV productions.
-
-Given project details, produce a full call sheet including: production title, shoot date, location address and directions, general crew call time, department call times, cast list with character names and call times, locations (base camp, unit, holding), catering times, emergency contacts, nearest hospital, weather forecast note, and any special instructions.
-
-Format clearly with sections. Be thorough, organised and precise.`,
-   placeholder:"Give me your shoot details and I'll build the call sheet...",
-   intro:"Hi! I'm Call Sheet Connie. Give me your shoot details and I'll put together a full call sheet. 📋"},
+   system:`You are Call Sheet Connie, a production coordinator for ONNA. You are connected to live call sheet data and can read and update it directly.`,
+   placeholder:"Add gaffer Elie Kolko, what's missing, update call time...",
+   intro:"Hi! I'm Call Sheet Connie. I'm connected to your live call sheets — tell me to add crew, update details, or ask what's missing. 📋"},
   {id:"researcher",name:"Risk Assessment Ronnie",title:"Risk Assessment",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
    system:`You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments.
 
@@ -527,11 +689,12 @@ function _AgentBubble({msg}){
   const isAgent=msg.role==="assistant";
   return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
     <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
+      {msg._attachments&&msg._attachments.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:msg.content?6:0}}>{msg._attachments.map((att,ai)=><img key={ai} src={att.dataUrl} alt={att.name||"attachment"} style={{maxWidth:160,maxHeight:120,borderRadius:6,objectFit:"cover",border:"1px solid rgba(255,255,255,0.2)"}}/>)}</div>}
       {msg.content}
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -548,6 +711,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [leadEdit,setLeadEdit]     =useState({});
   const [savingLead,setSaving]     =useState(false);
   const [pendingDuplicate,setPendingDuplicate]=useState(null);
+  const [attachments,setAttachments]=useState([]);
+  const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
+  const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
+  const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
+  const attachRef=useRef(null);
   const chatRef=useRef(null);
   const rafRef=useRef(null);
   const t0=useRef(null);
@@ -560,6 +728,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   },[agent.id]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
+  useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
 
   const searchViaExt=(query)=>new Promise(resolve=>{
     if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the Logan extension, and make sure Outlook is open in another tab."});
@@ -644,16 +814,19 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   );
 
   const send=async()=>{
-    if(!_inputRef.current.trim()||loading)return;
+    if((!_inputRef.current.trim()&&!attachments.length)||loading)return;
     const input=_inputRef.current;
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
-    const userMsg={role:"user",content:input.trim()};
+    const curAttachments=[...attachments];
+    setAttachments([]);
+    const displayContent=input.trim()+(curAttachments.length?` [${curAttachments.length} image${curAttachments.length>1?"s":""}]`:"");
+    const userMsg={role:"user",content:displayContent,_attachments:curAttachments.length?curAttachments:undefined};
     const history=[...msgs,userMsg];
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
@@ -768,7 +941,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
 
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
-    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(input.trim())&&!/outreach|tracker|pipeline/i.test(input.trim());
+    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(input.trim())&&!/outreach|tracker|pipeline/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,40}\b(?:outlook|inbox|emails?)\b/i.test(input.trim());
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
@@ -875,8 +1048,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     // ── Intent detection (Vinnie only) ────────────────────────────────────────
     let findQuery=null;
     if(agent.id==="logistical"){
-      const m=input.match(/\b(?:find|search|look\s+up|get|fetch)\s+(?:me\s+)?(?:the\s+)?(?:contact\s+(?:details?\s+)?(?:for|of)\s+)?([A-Za-z][A-Za-z\s]{1,35})(?:'s\b|\s+(?:contact|details|info|email|number|lead|and)|[.!?]?\s*$)/i);
-      if(m?.[1]){findQuery=m[1].trim().replace(/\s+(contact|details|info|email|number|lead|please|and\s+save).*$/i,"").trim();if(findQuery.split(" ").length>4||/^(a|the|an|my|this)$/i.test(findQuery))findQuery=null;}
+      const m=input.match(/\b(?:find|search|look\s+up|get|fetch)\s+(?:me\s+)?(?:the\s+)?(?:for\s+)?(?:(?:my\s+)?(?:outlook|emails?|inbox)\s+(?:for\s+)?)?(?:(?:contact|email)(?:\s+(?:details?|email|info|contact))?\s+(?:for|of)\s+)?([A-Za-z][A-Za-z\s]{1,35})(?:'s\b|\s+(?:contact|details|info|email|number|lead|and)|(?:\s+in\s+(?:my\s+)?(?:outlook|emails?|inbox))|[.!?]?\s*$)/i);
+      if(m?.[1]){findQuery=m[1].trim().replace(/\s+in\s+(?:my\s+)?(?:outlook|emails?|inbox)$/i,"").replace(/\s+(?:contact|details|info|email|number|lead|please|and\s+(?:save|create|add|make|start).*)$/i,"").trim();if(findQuery.split(" ").length>4||/^(a|the|an|my|this)$/i.test(findQuery))findQuery=null;}
     }
     const quickEntry=(!findQuery&&agent.id==="logistical")?parseQuickEntry(input.trim()):null;
     setMsgs(history);setInput("");setLoading(true);setMood("thinking");
@@ -991,8 +1164,156 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }catch{}
     }
 
+    // ── Connie: live call sheet handler ──────────────────────────────────────────
+    if(agent.id==="compliance"){
+      // Step 1: If no confirmed context yet, ask for project
+      if(!connieCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        // Try to match a project name in this message
+        const lower=input.toLowerCase();
+        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        if(!project){
+          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's call sheet should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        // Project matched — now resolve version
+        const csVersions = callSheetStore?.[project.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        if(csVersions.length===1){
+          setConnieCtx({projectId:project.id,vIdx:0});
+          const vLabel=csVersions[0].label||"Day 1";
+          addConnieTab(project.id,0,`${project.name} · ${vLabel}`);
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        // Multiple versions — try to match day in same message
+        const dayMatch=lower.match(/\bday\s*(\d+)\b/i);
+        let vIdx=-1;
+        if(dayMatch){
+          const dayNum=parseInt(dayMatch[1]);
+          vIdx=csVersions.findIndex(v=>(v.label||"").toLowerCase().includes(`day ${dayNum}`) || v.dayNumber==String(dayNum));
+        }
+        if(vIdx<0){
+          const labelMatch=csVersions.findIndex(v=>v.label && lower.includes(v.label.toLowerCase()));
+          if(labelMatch>=0) vIdx=labelMatch;
+        }
+        if(vIdx>=0){
+          setConnieCtx({projectId:project.id,vIdx});
+          const vLabel=csVersions[vIdx].label||`Day ${vIdx+1}`;
+          addConnieTab(project.id,vIdx,`${project.name} · ${vLabel}`);
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        // Couldn't determine version — ask
+        const list=csVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple days:\n\n${list}\n\nWhich day should I work on?`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Step 2: Context is confirmed but user might be answering a day question
+      let {projectId,vIdx}=connieCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setConnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      // Allow switching: if user mentions a different project name, reset context
+      const lower=input.toLowerCase();
+      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      if(switchProject){
+        setConnieCtx(null);
+        // Re-run by simulating the input will go through the !connieCtx path next time
+        setMsgs([...history,{role:"assistant",content:`Switching to **${switchProject.name}**...`}]);
+        // Set new context immediately if single version
+        const swVersions=callSheetStore?.[switchProject.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        if(swVersions.length===1){
+          setConnieCtx({projectId:switchProject.id,vIdx:0});
+          const vl=swVersions[0].label||"Day 1";
+          addConnieTab(switchProject.id,0,`${switchProject.name} · ${vl}`);
+          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${vl}). What would you like to do?`}]);
+        } else {
+          const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
+          setConnieCtx(null);
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple days:\n\n${list}\n\nWhich day should I work on?`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
+
+      // If user says "switch project" / "change project"
+      if(/\b(switch|change|different|new)\s+(project|call\s*sheet)\b/i.test(input)){
+        setConnieCtx(null);
+        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's call sheet should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      const csVersions = callSheetStore?.[project.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+      vIdx = Math.min(vIdx, csVersions.length-1);
+
+      const ver = csVersions[vIdx];
+      const vLabel = ver.label || `Day ${vIdx+1}`;
+
+      // Build call sheet snapshot
+      let snap = `Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.date||"(empty)"} | Day: ${ver.dayNumber||"(empty)"}\n`;
+      snap += `Contacts: ${ver.productionContacts||"(empty)"}\n`;
+      if(ver.venueRows?.length) snap += "Venues:\n" + ver.venueRows.map(v=>`  ${v.label}: ${v.value||"(empty)"}`).join("\n") + "\n";
+      if(ver.schedule?.length) snap += "Schedule:\n" + ver.schedule.map(s=>`  ${s.time||"?"} — ${s.activity||"(empty)"} ${s.notes||""}`).join("\n") + "\n";
+      if(ver.departments?.length) snap += "Departments:\n" + ver.departments.map(d=>`  ${d.name}:\n` + d.crew.map(c=>`    ${c.role}: ${c.name||"(empty)"} | mob: ${c.mobile||"(empty)"} | email: ${c.email||"(empty)"} | call: ${c.callTime||"(empty)"}`).join("\n")).join("\n") + "\n";
+
+      // Build vendor summary
+      const vendorList = (vendorsProp||[]).map(v=>`${v.name}|${v.category||""}|${v.email||""}|${v.phone||""}`).join("\n");
+
+      const connieSystem = buildConnieSystem(project, ver, vLabel, snap, vendorList);
+
+      // Stream response
+      try{
+        const connieIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            // Replace the intro message (first assistant msg) so old cached intros don't confuse the model
+            if(mi===0) return{role:m.role,content:connieIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:connieSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        // Parse JSON patch from response
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            applyConniePatch(patch, project.id, vIdx, csVersions, setCallSheetStore);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Call sheet updated."}]);
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
     try{
-      const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system,messages:history.map(m=>({role:m.role,content:m.content}))})});
+      const apiMessages=history.map(m=>{
+        if(m.role==="assistant")return{role:m.role,content:typeof m.content==="string"?m.content:""};
+        if(m._attachments&&m._attachments.length){
+          const blocks=[];
+          m._attachments.forEach(att=>{const b64=att.dataUrl.split(",")[1];const mt=att.type||"image/jpeg";blocks.push({type:"image",source:{type:"base64",media_type:mt,data:b64}});});
+          const txt=(m.content||"").replace(/\s*\[\d+ images?\]\s*$/,"").trim();
+          if(txt)blocks.push({type:"text",text:txt});
+          return{role:"user",content:blocks};
+        }
+        return{role:m.role,content:m.content};
+      });
+      const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system,messages:apiMessages})});
       if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
       const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
       while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
@@ -1048,6 +1369,22 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       </div>
     ,document.body)}
 
+    {/* Connie tab bar */}
+    {agent.id==="compliance"&&connieTabs.length>0&&(
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
+        {connieTabs.map((tab,i)=>{
+          const isActive=connieCtx&&connieCtx.projectId===tab.projectId&&connieCtx.vIdx===tab.vIdx;
+          return(
+            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setConnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to **${tab.label}**.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #c47090":"1px solid #e0e0e0",background:isActive?"#fff5f7":"#f5f5f7",color:isActive?"#7a1a30":"#6e6e73",borderBottom:isActive?"2px solid #c47090":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+              <span>{tab.label}</span>
+              <span onClick={e=>{e.stopPropagation();setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to **${switchTo.label}**.`}]);}else{setConnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
+            </div>
+          );
+        })}
+        <div onClick={()=>{setConnieCtx(null);setMsgs(prev=>[...prev,{role:"assistant",content:"Which project's call sheet should I open?"}]);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+      </div>
+    )}
+
     {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
       {msgs.map((m,i)=>{
@@ -1085,10 +1422,18 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         )}
       </div>
     )}
+    {/* attachment previews */}
+    {attachments.length>0&&<div style={{padding:"6px 12px 0",display:"flex",gap:6,flexWrap:"wrap",background:"white"}}>
+      {attachments.map((att,ai)=><div key={ai} style={{position:"relative",width:48,height:48,borderRadius:6,overflow:"hidden",border:"1px solid #e5e5ea"}}>
+        <img src={att.dataUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+        <button onClick={()=>setAttachments(prev=>prev.filter((_,j)=>j!==ai))} style={{position:"absolute",top:-2,right:-2,background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",textAlign:"center"}}>×</button>
+      </div>)}
+    </div>}
     {/* inline input bar */}
     <div style={{padding:"10px 12px",background:"white",borderTop:pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"none":"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
+      {agent.id==="compliance"&&<Fragment><button onClick={()=>attachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={attachRef} type="file" accept="image/*" multiple onChange={e=>{const files=Array.from(e.target.files||[]);files.forEach(f=>{const reader=new FileReader();reader.onload=ev=>{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl:ev.target.result}]);};reader.readAsDataURL(f);});e.target.value="";}} style={{display:"none"}}/></Fragment>}
       <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
-      <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e5e5ea":"#1d1d1f",border:"none",color:loading||!input.trim()?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
+      <button onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} style={{background:loading||(!input.trim()&&!attachments.length)?"#e5e5ea":"#1d1d1f",border:"none",color:loading||(!input.trim()&&!attachments.length)?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||(!input.trim()&&!attachments.length)?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
   </>);
 }
@@ -1776,6 +2121,8 @@ export default function OnnaDashboard() {
   const [projectContracts,setProjectContracts]           = useState({});
   const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeCSVersion,setActiveCSVersion]             = useState(0);
+  const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
+  const [activeRAVersion,setActiveRAVersion]             = useState(0);
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
@@ -1855,6 +2202,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
   useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
@@ -2900,7 +3248,7 @@ export default function OnnaDashboard() {
                     <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                   </div>
                 </div>
-                <div style={{height:3,background:"#000",margin:"0 32px"}}/>
+                <div style={{height:5,background:"#000",margin:"0 32px"}}/>
 
                 <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
                   <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div>
@@ -4166,41 +4514,31 @@ export default function OnnaDashboard() {
 
         {/* ── AGENTS TAB ── */}
         {activeTab==="Agents"&&(
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",paddingTop:isMobile?36:56,paddingBottom:40,paddingLeft:16,paddingRight:16}}>
-            {/* Stars — top row (first 5 agents) */}
-            <div style={{display:"flex",gap:isMobile?20:60,justifyContent:"center",flexWrap:"wrap",marginBottom:isMobile?8:16}}>
-              {AGENT_DEFS.slice(0,5).map((a,i)=>(
+          <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
+            {/* Left half — agent avatars */}
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+              {AGENT_DEFS.map((a,i)=>{
+                const isActive=agentActiveIdx===i;
+                const isHover=agentHoverIdx===i;
+                return(
                 <button key={a.id}
                   onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:isMobile?4:8,padding:"8px",borderRadius:20,transition:"transform 0.18s ease",transform:agentActiveIdx===i?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.72)":"scale(1)",transformOrigin:"center"}}>
-                    <a.Blob mood={agentActiveIdx===i?"excited":agentHoverIdx===i?"talking":"idle"} bob={0}/>
+                  style={isMobile?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)",flexShrink:0}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
+                  <div style={{transform:isMobile?"scale(0.55)":"scale(1)",transformOrigin:"center"}}>
+                    <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
-                  <span style={{fontSize:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{a.name}</span>
-                </button>
-              ))}
-            </div>
-            {/* Stars — bottom row (remaining agents, e.g. Contract Cody) */}
-            <div style={{display:"flex",gap:isMobile?20:60,justifyContent:"center",flexWrap:"wrap",marginBottom:agentActiveIdx!==null?24:0,transition:"margin 0.2s ease"}}>
-              {AGENT_DEFS.slice(5).map((a,i)=>{const idx=i+5;return(
-                <button key={a.id}
-                  onClick={()=>setAgentActiveIdx(agentActiveIdx===idx?null:idx)}
-                  onMouseEnter={()=>setAgentHoverIdx(idx)}
-                  onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:isMobile?4:8,padding:"8px",borderRadius:20,transition:"transform 0.18s ease",transform:agentActiveIdx===idx?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.72)":"scale(1)",transformOrigin:"center"}}>
-                    <a.Blob mood={agentActiveIdx===idx?"excited":agentHoverIdx===idx?"talking":"idle"} bob={0}/>
-                  </div>
-                  <span style={{fontSize:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{a.name}</span>
+                  <span style={{fontSize:isMobile?9:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
                 </button>
               );})}
             </div>
-            {/* Chat bubble — right-aligned on desktop, full-width on mobile */}
-            {agentActiveIdx!==null&&(
-              <div style={{width:"100%",display:"flex",justifyContent:isMobile?"center":"flex-end"}}>
-                <div style={{width:isMobile?"100%":400,background:"white",borderRadius:20,border:"1.5px solid #e5e5ea",boxShadow:"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",height:isMobile?"60vh":440,overflow:"hidden"}}>
+            {/* Right half — chat panel (always visible) */}
+            <div style={{flex:isMobile?"1":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,padding:isMobile?"0":"8px 8px 8px 0"}}>
+              {agentActiveIdx===null?(
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
+              ):(
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":"100%"}}>
                   {/* Bubble header */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
@@ -4215,11 +4553,17 @@ export default function OnnaDashboard() {
                       onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
                       gcalToken={a.id==="minnie"?gcalToken:undefined}
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
+                      callSheetStore={a.id==="compliance"?callSheetStore:undefined}
+                      setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
+                      selectedProject={a.id==="compliance"?selectedProject:undefined}
+                      localProjects={a.id==="compliance"?allProjectsMerged:undefined}
+                      vendors={a.id==="compliance"?vendors:undefined}
+                      activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                     />
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
