@@ -391,7 +391,12 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [loading,setLoading]   =useState(false);
   const [mood,setMood]         =useState("idle");
   const [bob,setBob]           =useState(0);
-  const [pendingConv,setPendingConv]=useState(null);
+  const [pendingLead,setPending]   =useState(null);
+  const [pendingType,setPendingType]=useState("lead");
+  const [pendingId,setPendingId]   =useState(null);
+  const [saveAsOutreach,setSaveAsOutreach]=useState(false);
+  const [leadEdit,setLeadEdit]     =useState({});
+  const [savingLead,setSaving]     =useState(false);
   const [pendingDuplicate,setPendingDuplicate]=useState(null);
   const chatRef=useRef(null);
   const rafRef=useRef(null);
@@ -414,99 +419,62 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     catch(e){clearTimeout(timer);resolve({ok:false,error:e.message});}
   });
 
-  const buildQuestions=(entry,type)=>{
-    const qs=[];
-    if(type==="vendor"){
-      if(!entry.name)qs.push({key:"name",q:"Vendor name?"});
-      if(!entry.email)qs.push({key:"email",q:"Email address?"});
-      if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
-      if(!entry.category)qs.push({key:"category",q:"Category?\nLocations · Hair & Makeup · Stylists · Casting · Catering · Set Design · Equipment · Crew · Production"});
-      if(!entry.website)qs.push({key:"website",q:"Website?"});
-      if(!entry.rateCard)qs.push({key:"rateCard",q:"Rate card info?"});
-    }else{
-      if(!entry.contact)qs.push({key:"contact",q:"Contact name?"});
-      if(!entry.company)qs.push({key:"company",q:"Company?"});
-      if(!entry.role)qs.push({key:"role",q:"Their role or title?"});
-      if(!entry.email)qs.push({key:"email",q:"Email address?"});
-      if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
-      if(!entry.category)qs.push({key:"category",q:"Category?\nProduction Companies · Creative Agencies · Beauty & Fragrance · Jewellery & Watches · Fashion · Editorial · Sports · Hospitality · Market Research · Commercial"});
-      if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
-      if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Status — cold, warm, or open?"});
-    }
-    return qs;
-  };
-  const startConv=(entry,type,saveAsOutreach=false,updateId=null)=>{
-    const qs=buildQuestions(entry,type);
-    if(qs.length===0)return null;
-    setPendingConv({entry,type,saveAsOutreach,updateId,questions:qs,idx:0});
-    return qs[0].q;
-  };
-  const saveConvEntry=async(entry,type,saveAsOutreach,updateId)=>{
+  const _LEAD_CATS=["Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
+  const _VENDOR_CATS=["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
+  const _SOURCES=["Direct","Referral","LinkedIn","Website","Cold Outreach","Event","Other"];
+  const showEntry=(entry,type,id=null,asOutreach=false)=>{setPendingType(type);setPendingId(id);setLeadEdit(entry);setPending(entry);setSaveAsOutreach(asOutreach);};
+  const saveLead=async()=>{
+    setSaving(true);
     try{
-      if(type==="vendor"){
-        const fields={name:entry.name||"",category:entry.category||"",email:entry.email||"",phone:entry.phone||"",website:entry.website||"",location:entry.location||"Dubai, UAE",notes:entry.notes||"",rateCard:entry.rateCard||""};
-        if(updateId){await api.put(`/api/vendors/${updateId}`,fields);onUpdateVendor?.(updateId,fields);return`✓ ${entry.name||"Vendor"} updated in the Vendors tab.`;}
-        const saved=await api.post("/api/vendors",fields);
-        if(saved?.id||saved?.name)return`✓ ${entry.name||"Vendor"} saved! Find them in the Vendors tab.`;
-        return`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`;
+      if(pendingType==="vendor"){
+        const fields={name:leadEdit.name||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""};
+        if(pendingId){await api.put(`/api/vendors/${pendingId}`,fields);onUpdateVendor?.(pendingId,fields);setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} updated.`}]);}
+        else{const saved=await api.post("/api/vendors",fields);if(saved?.id||saved?.name)setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved to Vendors.`}]);else{setMsgs(p=>[...p,{role:"assistant",content:`⚠️ ${saved?.error||"Save failed"}`}]);setSaving(false);return;}}
       }else{
-        const fields={company:entry.company||"",contact:entry.contact||"",email:entry.email||"",phone:entry.phone||"",role:entry.role||"",value:Number(entry.value)||0,category:entry.category||"Other",location:entry.location||"Dubai, UAE",notes:entry.notes||"",source:entry.source||"Direct",date:entry.date||new Date().toISOString().split("T")[0],status:(!entry.status||entry.status==="not_contacted")?"cold":entry.status};
-        let msg;
-        if(updateId){await api.put(`/api/leads/${updateId}`,fields);onUpdateLead?.(updateId,fields);msg=`✓ ${entry.contact||"Lead"} updated in the Sales tab.`;}
-        else{const saved=await api.post("/api/leads",fields);if(!saved?.id&&!saved?.company)return`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`;msg=`✓ ${entry.contact||entry.company||"Lead"} added to your pipeline!`;}
-        if(saveAsOutreach&&!updateId){
-          const oStatus=(!entry.status||entry.status==="not_contacted")?"cold":entry.status;
-          const oFields={clientName:entry.contact||"",company:entry.company||"",role:entry.role||"",email:entry.email||"",phone:entry.phone||"",category:entry.category||"Other",date:entry.date||new Date().toISOString().split("T")[0],notes:entry.notes||"",status:oStatus,value:Number(entry.value)||0,location:entry.location||"Dubai, UAE",source:entry.source||"Direct"};
-          try{await api.post("/api/outreach",oFields);msg+="\nAlso logged to Outreach Tracker ✓";}
-          catch(e){msg+=`\n(Outreach Tracker save failed: ${e.message})`;}
+        const fields={company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:leadEdit.source||"Direct",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"};
+        if(pendingId){await api.put(`/api/leads/${pendingId}`,fields);onUpdateLead?.(pendingId,fields);setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} updated.`}]);}
+        else{
+          const saved=await api.post("/api/leads",fields);
+          if(!saved?.id&&!saved?.company){setMsgs(p=>[...p,{role:"assistant",content:`⚠️ ${saved?.error||"Save failed"}`}]);setSaving(false);return;}
+          let msg=`✓ ${leadEdit.contact||leadEdit.company||"Lead"} saved to pipeline!`;
+          if(saveAsOutreach){
+            const os=(!leadEdit.status||leadEdit.status==="not_contacted")?"cold":leadEdit.status;
+            const oF={clientName:leadEdit.contact||"",company:leadEdit.company||"",role:leadEdit.role||"",email:leadEdit.email||"",phone:leadEdit.phone||"",category:leadEdit.category||"",date:leadEdit.date||new Date().toISOString().split("T")[0],notes:leadEdit.notes||"",status:os,value:Number(leadEdit.value)||0,location:leadEdit.location||"Dubai, UAE",source:leadEdit.source||"Direct"};
+            try{await api.post("/api/outreach",oF);msg+="\nAlso logged to Outreach Tracker ✓";}catch(e){msg+=`\n(Outreach save failed: ${e.message})`;}
+          }
+          setMsgs(p=>[...p,{role:"assistant",content:msg}]);
         }
-        return msg;
       }
-    }catch(e){return`⚠️ Save failed: ${e.message}`;}
+    }catch(e){setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Save failed: ${e.message}`}]);}
+    setSaving(false);setPending(null);
   };
+  const lf=(label,key,wide=false,opts=null,inputType="text")=>(
+    <div key={key} style={{gridColumn:wide?"1/-1":"auto",display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:10.5,fontWeight:600,color:"#6e6e73",textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</label>
+      {opts?(
+        <select value={leadEdit[key]||""} onChange={e=>setLeadEdit(p=>({...p,[key]:e.target.value}))} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none"}}>
+          <option value="">—</option>
+          {opts.map(o=>typeof o==="string"?<option key={o} value={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      ):wide?(
+        <textarea value={leadEdit[key]||""} onChange={e=>setLeadEdit(p=>({...p,[key]:e.target.value}))} rows={2} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none",resize:"vertical"}}/>
+      ):(
+        <input type={inputType} value={leadEdit[key]||""} onChange={e=>setLeadEdit(p=>({...p,[key]:e.target.value}))} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none"}}/>
+      )}
+    </div>
+  );
 
   const send=async()=>{
     if(!input.trim()||loading)return;
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPendingDuplicate(null);
+      setMsgs(fresh);setInput("");setPending(null);setPendingDuplicate(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
     const userMsg={role:"user",content:input.trim()};
     const history=[...msgs,userMsg];
-
-    // ── Pending conversational Q&A ────────────────────────────────────────────
-    if(pendingConv){
-      setMsgs(history);setInput("");
-      const isSkip=/^(skip|s|no|nope|n\/a|none|-|pass|don'?t have|i don'?t|don'?t know|i don'?t have|don'?t have that|not sure|unsure|blank|leave( it)? blank)$/i.test(input.trim());
-      const conv=pendingConv;
-      const currentQ=conv.questions[conv.idx];
-      let updatedEntry={...conv.entry};
-      if(!isSkip&&currentQ){
-        if(currentQ.key==="status"){
-          if(/cold/i.test(input))updatedEntry.status="cold";
-          else if(/warm/i.test(input))updatedEntry.status="warm";
-          else if(/open/i.test(input))updatedEntry.status="open";
-          else if(/not.{0,5}contact/i.test(input))updatedEntry.status="not_contacted";
-        }else if(currentQ.key==="value"){
-          updatedEntry.value=Number(input.replace(/[^0-9.]/g,""))||0;
-        }else{updatedEntry[currentQ.key]=input.trim();}
-      }
-      const nextIdx=conv.idx+1;
-      if(nextIdx>=conv.questions.length){
-        setPendingConv(null);setLoading(true);setMood("thinking");
-        const resultMsg=await saveConvEntry(updatedEntry,conv.type,conv.saveAsOutreach,conv.updateId);
-        setMsgs([...history,{role:"assistant",content:resultMsg}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);
-      }else{
-        const nextQ=conv.questions[nextIdx];
-        setPendingConv({...conv,entry:updatedEntry,idx:nextIdx});
-        setMsgs([...history,{role:"assistant",content:nextQ.q}]);
-      }
-      return;
-    }
 
     // ── Meeting Minnie: check emails + calendar ───────────────────────────────
     if(agent.id==="minnie"&&/check.*email|meeting request|scan.*inbox|find.*meeting|check.*inbox/i.test(input.trim())){
@@ -554,19 +522,14 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
       try{
-        const sys=`Extract contact info from this message and return ONLY a raw JSON object (no markdown, no array). Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"cold"}. Use today's date (${today}) for "date" unless the message specifies otherwise. For category pick the closest match from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial. For status use: not_contacted, cold, warm, or open.`;
+        const sys=`You are an expert at parsing natural language contact descriptions. Extract contact info and return ONLY a raw JSON object (no markdown, no array). Parse sentences like "Emily Lucas at Mr Porter, Head of Production today" as contact:"Emily Lucas", company:"Mr Porter", role:"Head of Production". Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"not_contacted"}. Use today's date (${today}) for "date" unless specified. Only fill category if clearly stated — leave blank otherwise. For status leave as not_contacted unless user explicitly says warm/open/cold.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
         const entry={...parsed,_type:"lead",date:parsed.date||today,status:parsed.status||"not_contacted"};
+        const isOutreach=/outreach|tracker/i.test(input.trim());
+        showEntry(entry,"lead",null,isOutreach);
         const name=entry.contact||entry.company||"this contact";
-        const saveAsOutreach=/outreach|tracker/i.test(input.trim());
-        const firstQ=startConv(entry,"lead",saveAsOutreach,null);
-        if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Got it — ${name} logged. A few quick gaps to fill (say 'skip' for anything you don't have):\n\n${firstQ}`}]);
-        }else{
-          const msg=await saveConvEntry(entry,"lead",saveAsOutreach,null);
-          setMsgs([...history,{role:"assistant",content:msg}]);
-        }
+        setMsgs([...history,{role:"assistant",content:`Got it — pulled details for ${name}. Review and save below.`}]);
       }catch(e){
         setMsgs([...history,{role:"assistant",content:"Hmm, I had trouble parsing that. Try: 'I contacted [Name] at [Company], [email], [category].'"}]);
       }
@@ -584,27 +547,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
         const merged={...similar.record,...entry};
         setPendingDuplicate(null);
-        const firstQ=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
-        if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Updating ${existName}. (say 'skip' for anything you don't have)\n\n${firstQ}`}]);
-        }else{
-          setLoading(true);setMood("thinking");
-          const msg=await saveConvEntry(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
-          setMsgs([...history,{role:"assistant",content:msg}]);
-          setLoading(false);
-        }
+        showEntry(merged,similar.type,similar.record.id,dupSaveAsOutreach||false);
+        setMsgs([...history,{role:"assistant",content:`Updating ${existName}'s record — review and save below.`}]);
       }else if(isNo){
         const qname=entry._type==="vendor"?entry.name:entry.contact;
         setPendingDuplicate(null);
-        const firstQ=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
-        if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"}. (say 'skip' for anything you don't have)\n\n${firstQ}`}]);
-        }else{
-          setLoading(true);setMood("thinking");
-          const msg=await saveConvEntry(entry,entry._type,dupSaveAsOutreach||false,null);
-          setMsgs([...history,{role:"assistant",content:msg}]);
-          setLoading(false);
-        }
+        showEntry(entry,entry._type,null,dupSaveAsOutreach||false);
+        setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"} — review and save below.`}]);
       }else{
         const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
         setMsgs([...history,{role:"assistant",content:`Just to confirm — did you mean the existing entry "${existName}"? Reply yes or no.`}]);
@@ -633,9 +582,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||findQuery}. I also noticed a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
         }else{
           const foundEntry={...l,_type:"lead"};
-          const firstQ=startConv(foundEntry,"lead",false,null);
-          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${firstQ?"\n\n"+firstQ:""}`}]);
-          if(!firstQ){const msg=await saveConvEntry(foundEntry,"lead",false,null);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
+          showEntry(foundEntry,"lead",null,false);
+          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}\n\nReview and save below.`}]);
         }
       }else{
         setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the extension is installed.`}]);
@@ -652,13 +600,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setMsgs([...history,{role:"assistant",content:`Heads up — I found a similar existing ${sim.type}: "${existName}". Did you mean them, or is this a new contact?\n\nReply yes or no.`}]);
       }else if(sim?.exact){
         const merged={...sim.record,...quickEntry};
-        const firstQ=startConv(merged,sim.type,false,sim.record.id);
-        setMsgs([...history,{role:"assistant",content:`${qname} exists — merging.${firstQ?"\n\n"+firstQ+" (skip = leave blank)":""}`}]);
-        if(!firstQ){const msg=await saveConvEntry(merged,sim.type,false,sim.record.id);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
+        showEntry(merged,sim.type,sim.record.id,false);
+        setMsgs([...history,{role:"assistant",content:`${qname} already exists — merging your info. Review and save below.`}]);
       }else{
-        const firstQ=startConv(quickEntry,quickEntry._type,false,null);
-        setMsgs([...history,{role:"assistant",content:`Got it.${firstQ?"\n\n"+firstQ+" (skip = leave blank)":""}`}]);
-        if(!firstQ){const msg=await saveConvEntry(quickEntry,quickEntry._type,false,null);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
+        showEntry(quickEntry,quickEntry._type,null,false);
+        setMsgs([...history,{role:"assistant",content:`Got it. Review and save below.`}]);
       }
       setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
     }
@@ -674,9 +620,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           const fieldKey=detectFieldKey(fieldValue.trim());
           const displayName=type==="vendor"?record.name:(record.contact||record.company);
           const updated={...record,[fieldKey]:fieldValue.trim()};
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName}! Saving ${fieldKey}: "${fieldValue.trim()}"…`}]);
-          const msg=await saveConvEntry(updated,type,false,record.id);
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName}! ${msg}`}]);
+          showEntry(updated,type,record.id,false);
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName}! Updated ${fieldKey}. Review and save below.`}]);
         }else{
           setMsgs([...history,{role:"assistant",content:`Couldn't find "${targetName.trim()}" in your vendors or clients.`}]);
         }
@@ -705,9 +650,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             setPendingDuplicate({entry:parsed,similar:sim,saveAsOutreach:false});
             setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I also found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
           }else{
-            const firstQ=startConv(parsed,type,false,sim?.record?.id||null);
-            setMsgs([...history,{role:"assistant",content:`Found ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${firstQ?"\n\n"+firstQ+" (skip = leave blank)":""}`}]);
-            if(!firstQ){const msg=await saveConvEntry(parsed,type,false,sim?.record?.id||null);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
+            showEntry(parsed,type,sim?.record?.id||null,false);
+            setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}\n\nReview and save below.`}]);
           }
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
@@ -727,6 +671,50 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
   if(!active)return null;
   return(<>
+    {/* save modal */}
+    {pendingLead&&(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",zIndex:201,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",padding:"24px",boxShadow:"0 24px 70px rgba(0,0,0,0.18)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,paddingBottom:16,borderBottom:"1px solid #e5e5ea"}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>{pendingId?(pendingType==="vendor"?"Update Vendor":"Update Lead"):(pendingType==="vendor"?"New Vendor":"New Lead")}</div>
+              <div style={{fontSize:12,color:"#6e6e73",marginTop:2}}>Review, edit if needed, then save</div>
+            </div>
+            <button onClick={()=>setPending(null)} style={{background:"none",border:"none",fontSize:22,color:"#aeaeb2",cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 14px",marginBottom:20}}>
+            {pendingType==="vendor"?<>
+              {lf("Name","name",true)}
+              {lf("Category","category",false,_VENDOR_CATS)}
+              {lf("Email","email",false,null,"email")}
+              {lf("Phone","phone",false,null,"tel")}
+              {lf("Website","website")}
+              {lf("Rate Card","rateCard")}
+              {lf("Location","location")}
+              {lf("Notes","notes",true)}
+            </>:<>
+              {lf("Contact Name","contact")}
+              {lf("Company","company")}
+              {lf("Role / Title","role")}
+              {lf("Email","email",false,null,"email")}
+              {lf("Phone","phone",false,null,"tel")}
+              {lf("Category","category",false,_LEAD_CATS)}
+              {lf("Status","status",false,[{value:"not_contacted",label:"Not Contacted"},{value:"cold",label:"Cold"},{value:"warm",label:"Warm"},{value:"open",label:"Open"}])}
+              {lf("Est. Value (AED)","value",false,null,"number")}
+              {lf("Date","date",false,null,"date")}
+              {lf("Location","location")}
+              {lf("Source","source",false,_SOURCES)}
+              {lf("Notes","notes",true)}
+            </>}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setPending(null)} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+            <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":pendingId?"✓ Save Changes":pendingType==="vendor"?"✓ Save Vendor":"✓ Save to Pipeline"}</button>
+          </div>
+        </div>
+      </div>
+    )}
+
     {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
       {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
