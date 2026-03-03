@@ -379,7 +379,7 @@ function _AgentDots({color}){
 function _AgentBubble({msg}){
   const isAgent=msg.role==="assistant";
   return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
-    <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"}}>
+    <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
       {msg.content}
     </div>
   </div>;
@@ -675,23 +675,45 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
     }
 
-    // "add [value] to [name]"
+    // "add [value/descriptor] to [name]" — or "add this [field] to [name] [value]"
     if(agent.id==="logistical"){
-      const addM=input.match(/^add\s+(.+?)\s+to\s+([A-Za-z][\w\s]{1,40}?)\.?\s*$/i);
+      const addM=input.match(/^add\s+(.+?)\s+to\s+([A-Za-z].+?)\.?\s*$/i);
       if(addM){
-        const [,fieldValue,targetName]=addM;
-        const found=findVendorOrLead(targetName.trim(),allVendors,allLeads);
-        if(found){
-          const {record,type}=found;
-          const fieldKey=detectFieldKey(fieldValue.trim());
-          const displayName=type==="vendor"?record.name:(record.contact||record.company);
-          const updated={...record,[fieldKey]:fieldValue.trim()};
-          const fqa=startConv(updated,type,false,record.id);
-          setMsgs([...history,{role:"assistant",content:fqa?`Found ${displayName}! Updated ${fieldKey}.\n\n${fqa} (or 'skip' to leave blank)`:`Found ${displayName}! Updated ${fieldKey}. Review and save below.`}]);
-        }else{
-          setMsgs([...history,{role:"assistant",content:`Couldn't find "${targetName.trim()}" in your vendors or clients.`}]);
+        const [,rawField,rawNameAndMaybeVal]=addM;
+        // Case 1: field value comes first — "add +971xxx to Abeer Ghani"
+        const directKey=detectFieldKey(rawField.trim());
+        // Case 2: value trails after name — "add this number to Abeer Ghani +971xxx"
+        const phoneAtEnd=rawNameAndMaybeVal.match(/([\+]?\d[\d\s\-().]{5,})\s*$/);
+        const emailAtEnd=rawNameAndMaybeVal.match(/([\w.+-]+@[\w.-]+\.[a-z]{2,})\s*$/i);
+        const urlAtEnd=rawNameAndMaybeVal.match(/((?:https?:\/\/)?[\w-]+(\.[\w.-]+)+\/?\S*)\s*$/i);
+        const trailingVal=(emailAtEnd?.[1]||phoneAtEnd?.[1]||urlAtEnd?.[1]||"").trim();
+        let fieldValue=null,targetNameStr=null;
+        if(directKey!=="notes"){
+          fieldValue=rawField.trim();
+          targetNameStr=rawNameAndMaybeVal.trim().replace(/\b(vendor|lead|contact|supplier)\b\s*/gi,"").trim();
+        }else if(trailingVal){
+          fieldValue=trailingVal;
+          targetNameStr=rawNameAndMaybeVal.replace(trailingVal,"").trim().replace(/\b(vendor|lead|contact|supplier)\b\s*/gi,"").trim();
         }
-        setLoading(false);setMood("idle");return;
+        if(fieldValue&&targetNameStr){
+          const found=findVendorOrLead(targetNameStr,allVendors,allLeads);
+          if(found){
+            const {record,type}=found;
+            const fieldKey=detectFieldKey(fieldValue);
+            const displayName=type==="vendor"?record.name:(record.contact||record.company);
+            try{
+              const updated={...record,[fieldKey]:fieldValue};
+              const {id,...fields}=updated;
+              if(type==="vendor"){await api.put(`/api/vendors/${id}`,fields);onUpdateVendor?.(id,{...fields});}
+              else{await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});onUpdateLead?.(id,{...fields});}
+              setMsgs([...history,{role:"assistant",content:`✓ ${displayName}'s ${fieldKey} updated to ${fieldValue}.`}]);
+            }catch(e){setMsgs([...history,{role:"assistant",content:`⚠️ Save failed: ${e.message}`}]);}
+            setLoading(false);setMood("idle");return;
+          }else{
+            setMsgs([...history,{role:"assistant",content:`I couldn't find "${targetNameStr}" in your vendors or leads.`}]);
+            setLoading(false);setMood("idle");return;
+          }
+        }
       }
     }
 
@@ -789,7 +811,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     {/* inline input bar */}
     <div style={{padding:"10px 12px",background:"white",borderTop:"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
-      <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s"}}/>
+      <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e5e5ea":"#1d1d1f",border:"none",color:loading||!input.trim()?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
   </>);
