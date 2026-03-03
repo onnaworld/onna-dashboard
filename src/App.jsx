@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
 const API_SECRET = import.meta.env.VITE_API_SECRET || "";
+const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const getToken = () => localStorage.getItem("onna_token") || "";
 const _h = (extra={}) => ({"X-API-Secret":API_SECRET,"Authorization":`Bearer ${getToken()}`,...extra});
 const _guard = r => { if(r.status===401){localStorage.removeItem("onna_token");window.location.reload();} return r.json(); };
@@ -20,6 +21,7 @@ const BB_LOCATIONS = ["All","Dubai, UAE","London, UK","New York, US","Los Angele
 const OUTREACH_STATUSES = ["not_contacted","cold","warm","open","client"];
 const OUTREACH_STATUS_LABELS = {not_contacted:"Not Contacted",cold:"Cold",warm:"Warm",open:"Open",client:"Client"};
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const GCAL_COLORS = {"1":"#d50000","2":"#e67c73","3":"#f4511e","4":"#f6bf26","5":"#33b679","6":"#0b8043","7":"#039be5","8":"#3f51b5","9":"#7986cb","10":"#8e24aa","11":"#616161"};
 const PROJECT_SECTIONS = ["Home","Finances","Creative Brief","Estimates","Contracts","Quotes","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
@@ -579,7 +581,18 @@ export default function OnnaDashboard() {
   const [isMobile,setIsMobile] = useState(()=>window.innerWidth<768);
   useEffect(()=>{const fn=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn);},[]);
 
-  const [activeTab,setActiveTab]                         = useState("Dashboard");
+  // ── Auto-logout after 5 min inactivity ───────────────────────────────────
+  useEffect(()=>{
+    const TIMEOUT = 5*60*1000;
+    let timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT);
+    const reset = ()=>{ clearTimeout(timer); timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT); };
+    const events = ["mousemove","mousedown","keydown","touchstart","scroll"];
+    events.forEach(e=>window.addEventListener(e, reset, {passive:true}));
+    return ()=>{ clearTimeout(timer); events.forEach(e=>window.removeEventListener(e, reset)); };
+  },[]);
+
+  const [activeTab,setActiveTab]                         = useState(()=>localStorage.getItem("onna_tab")||"Dashboard");
+  useEffect(()=>{localStorage.setItem("onna_tab",activeTab);},[activeTab]);
   const [searches,setSearches]                           = useState({});
   const setSearch = (tab,val) => setSearches(p=>({...p,[tab]:val}));
   const getSearch = tab => searches[tab]||"";
@@ -635,7 +648,7 @@ export default function OnnaDashboard() {
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
-  const [localProjects,setLocalProjects]     = useState(SEED_PROJECTS);
+  const [localProjects,setLocalProjects]     = useState([]);
   const [localLeads,setLocalLeads]           = useState(SEED_LEADS);
   const [localClients,setLocalClients]       = useState(SEED_CLIENTS);
   const [apiLoading,setApiLoading]           = useState(true);
@@ -686,6 +699,62 @@ export default function OnnaDashboard() {
   const [selectedTodo,setSelectedTodo] = useState(null);
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
+
+  // ── Google Calendar state ─────────────────────────────────────────────────
+  const [gcalToken,setGcalToken]     = useState(null);
+  const [gcalEvents,setGcalEvents]   = useState([]);
+  const [gcalLoading,setGcalLoading] = useState(false);
+  const [calMonth,setCalMonth]       = useState(new Date());
+
+  // Load Google Identity Services script once
+  useEffect(()=>{
+    if (!GCAL_CLIENT_ID) return;
+    if (document.getElementById("gsi-script")) return;
+    const s = document.createElement("script");
+    s.id = "gsi-script";
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    document.head.appendChild(s);
+  },[]);
+
+  const fetchGCalEvents = async (token, month) => {
+    setGcalLoading(true);
+    const yr = month.getFullYear(), mo = month.getMonth();
+    const timeMin = new Date(yr, mo, 1).toISOString();
+    const timeMax = new Date(yr, mo+1, 0, 23, 59, 59).toISOString();
+    try {
+      const params = new URLSearchParams({timeMin, timeMax, singleEvents:"true", orderBy:"startTime", maxResults:"250"});
+      const calListRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList",{headers:{Authorization:`Bearer ${token}`}});
+      const calList = await calListRes.json();
+      const calIds = (calList.items||[]).map(c=>c.id);
+      const allEvents = await Promise.all(calIds.map(id=>
+        fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events?${params}`,{headers:{Authorization:`Bearer ${token}`}})
+          .then(r=>r.json()).then(d=>Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:(calList.items.find(c=>c.id===id)||{}).backgroundColor})):[]).catch(()=>[])
+      ));
+      setGcalEvents(allEvents.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date)));
+    } catch {}
+    setGcalLoading(false);
+  };
+
+  // Re-fetch when month changes while connected
+  useEffect(()=>{ if (gcalToken) fetchGCalEvents(gcalToken, calMonth); },[calMonth]); // eslint-disable-line
+
+  const connectGCal = () => {
+    if (!window.google?.accounts?.oauth2) {
+      alert("Google Identity Services not loaded yet — please wait a moment and try again.");
+      return;
+    }
+    window.google.accounts.oauth2.initTokenClient({
+      client_id: GCAL_CLIENT_ID,
+      scope: "https://www.googleapis.com/auth/calendar.readonly",
+      callback: (resp) => {
+        if (resp.access_token) {
+          setGcalToken(resp.access_token);
+          fetchGCalEvents(resp.access_token, calMonth);
+        }
+      },
+    }).requestAccessToken();
+  };
 
   // ── Load all data from backend ───────────────────────────────────────────
   useEffect(()=>{
@@ -1438,10 +1507,10 @@ export default function OnnaDashboard() {
           {activeTab==="Dashboard"&&(
             <div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:24}}>
-                <StatCard label="Projects 2026"  value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>
-                <StatCard label="Revenue 2026"   value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
-                <StatCard label="Profit 2026"    value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${Math.round((profit2026/rev2026)*100)}% margin`}/>
-                <StatCard label="Pipeline"       value={`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
+                <StatCard label="Projects 2026"  value={apiLoading?"—":projects2026.length} sub={apiLoading?"loading…":`${projects2026.filter(p=>p.status==="Active").length} active`}/>
+                <StatCard label="Revenue 2026"   value={apiLoading?"—":`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
+                <StatCard label="Profit 2026"    value={apiLoading?"—":`AED ${(profit2026/1000).toFixed(0)}k`} sub={apiLoading?"loading…":`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>
+                <StatCard label="Pipeline"       value={apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
@@ -1528,6 +1597,106 @@ export default function OnnaDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* ── Google Calendar Widget ── */}
+              {(()=>{
+                const today = new Date();
+                const yr = calMonth.getFullYear();
+                const mo = calMonth.getMonth();
+                const firstDay = new Date(yr, mo, 1);
+                const lastDay  = new Date(yr, mo+1, 0);
+                const startOffset = (firstDay.getDay() + 6) % 7; // Mon=0
+                const totalCells  = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+                const cells = Array.from({length:totalCells}, (_,i) => {
+                  const d = i - startOffset + 1;
+                  return (d < 1 || d > lastDay.getDate()) ? null : new Date(yr, mo, d);
+                });
+                const eventsByDay = {};
+                gcalEvents.forEach(ev => {
+                  const startStr = ev.start?.date || ev.start?.dateTime?.slice(0,10);
+                  if (!startStr) return;
+                  const endStr   = ev.end?.date   || ev.end?.dateTime?.slice(0,10)   || startStr;
+                  const cursor = new Date(startStr+"T00:00:00");
+                  const endD   = new Date(endStr  +"T00:00:00");
+                  let guard = 0;
+                  while (cursor < endD || cursor.toISOString().slice(0,10) === startStr) {
+                    const key = cursor.toISOString().slice(0,10);
+                    if (!eventsByDay[key]) eventsByDay[key] = [];
+                    eventsByDay[key].push(ev);
+                    cursor.setDate(cursor.getDate()+1);
+                    if (++guard > 14) break;
+                  }
+                });
+                const DAY_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+                const monthLabel = calMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+                return (
+                  <div style={{marginTop:isMobile?12:18,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    {/* Header */}
+                    <div style={{padding:"13px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa",flexWrap:"wrap",gap:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Calendar</span>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>‹</button>
+                          <span style={{fontSize:13.5,fontWeight:600,color:T.text,minWidth:isMobile?106:120,textAlign:"center"}}>{monthLabel}</span>
+                          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>›</button>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        {gcalToken ? (
+                          <div style={{display:"flex",alignItems:"center",gap:5}}>
+                            <span style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",display:"inline-block",flexShrink:0}}/>
+                            <span style={{fontSize:11.5,color:T.muted,fontWeight:500}}>Connected</span>
+                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);}} style={{marginLeft:2,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
+                          </div>
+                        ) : GCAL_CLIENT_ID ? (
+                          <button onClick={connectGCal} style={{padding:"5px 12px",borderRadius:8,background:T.accent,border:"none",color:"#fff",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Connect Google Calendar</button>
+                        ) : (
+                          <span style={{fontSize:11,color:T.muted,fontStyle:"italic"}}>Add VITE_GOOGLE_CLIENT_ID to enable</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Grid */}
+                    <div style={{padding:isMobile?"8px 6px":"12px 14px"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:3}}>
+                        {DAY_LABELS.map(d=>(
+                          <div key={d} style={{textAlign:"center",fontSize:isMobile?9:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",padding:"2px 0 5px"}}>{d}</div>
+                        ))}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:isMobile?2:3}}>
+                        {cells.map((date,i)=>{
+                          if (!date) return <div key={`e${i}`} style={{minHeight:isMobile?44:66}}/>;
+                          const key = date.toISOString().slice(0,10);
+                          const isToday = key===today.toISOString().slice(0,10);
+                          const isWeekend = date.getDay()===0||date.getDay()===6;
+                          const dayEvs = eventsByDay[key]||[];
+                          return (
+                            <div key={key} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2}}>
+                              <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start"}}>{date.getDate()}</span>
+                              {isMobile ? (
+                                dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((_,ei)=><span key={ei} style={{width:5,height:5,borderRadius:"50%",background:T.accent,display:"inline-block"}}/>)}</div>
+                              ) : (
+                                <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden"}}>
+                                  {dayEvs.slice(0,3).map((ev,ei)=>{
+                                    const col = ev.colorId ? (GCAL_COLORS[ev.colorId]||T.accent) : T.accent;
+                                    const title = ev.summary||"(no title)";
+                                    const time  = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}) : null;
+                                    return (
+                                      <div key={ei} title={`${time?time+" ":""}${title}`} style={{fontSize:9.5,background:col+"22",color:col,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500,lineHeight:1.5}}>{time?`${time} `:""}{title}</div>
+                                    );
+                                  })}
+                                  {dayEvs.length>3&&<div style={{fontSize:9,color:T.muted,lineHeight:1.4}}>+{dayEvs.length-3} more</div>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Loading events…</div>}
+                      {!gcalToken&&!gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Connect Google Calendar to see your events here</div>}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
