@@ -391,6 +391,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [loading,setLoading]   =useState(false);
   const [mood,setMood]         =useState("idle");
   const [bob,setBob]           =useState(0);
+  const [pendingConv,setPendingConv]=useState(null);
   const [pendingLead,setPending]   =useState(null);
   const [pendingType,setPendingType]=useState("lead");
   const [pendingId,setPendingId]   =useState(null);
@@ -423,6 +424,30 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const _VENDOR_CATS=["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
   const _SOURCES=["Direct","Referral","LinkedIn","Website","Cold Outreach","Event","Other"];
   const showEntry=(entry,type,id=null,asOutreach=false)=>{setPendingType(type);setPendingId(id);setLeadEdit(entry);setPending(entry);setSaveAsOutreach(asOutreach);};
+  const buildQuestions=(entry,type)=>{
+    const qs=[];
+    if(type==="vendor"){
+      if(!entry.email)qs.push({key:"email",q:"Email address?"});
+      if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
+      if(!entry.category||!_VENDOR_CATS.includes(entry.category))qs.push({key:"category",q:"Category? Locations · Hair & Makeup · Stylists · Casting · Catering · Set Design · Equipment · Crew · Production"});
+      if(!entry.website)qs.push({key:"website",q:"Website?"});
+      if(!entry.rateCard)qs.push({key:"rateCard",q:"Any rate card info?"});
+    }else{
+      if(!entry.role)qs.push({key:"role",q:"Their role or title?"});
+      if(!entry.email)qs.push({key:"email",q:"Email address?"});
+      if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
+      if(!entry.category||!_LEAD_CATS.includes(entry.category))qs.push({key:"category",q:"Category? Production Companies · Creative Agencies · Beauty & Fragrance · Jewellery & Watches · Fashion · Editorial · Sports · Hospitality · Market Research · Commercial"});
+      if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
+      if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Lead status — cold, warm, or open?"});
+    }
+    return qs;
+  };
+  const startConv=(entry,type,asOutreach=false,updateId=null)=>{
+    const qs=buildQuestions(entry,type);
+    if(qs.length===0){showEntry(entry,type,updateId,asOutreach);return null;}
+    setPendingConv({entry,type,saveAsOutreach:asOutreach,updateId,questions:qs,idx:0});
+    return qs[0].q;
+  };
   const saveLead=async()=>{
     setSaving(true);
     try{
@@ -469,12 +494,40 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPending(null);setPendingDuplicate(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
     const userMsg={role:"user",content:input.trim()};
     const history=[...msgs,userMsg];
+
+    // ── Pending conversational Q&A → popup at end ─────────────────────────────
+    if(pendingConv){
+      setMsgs(history);setInput("");
+      const isSkip=/^(skip|s|no|nope|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
+      const conv=pendingConv;
+      const q=conv.questions[conv.idx];
+      let e={...conv.entry};
+      if(!isSkip&&q){
+        if(q.key==="status"){
+          if(/cold/i.test(input))e.status="cold";
+          else if(/warm/i.test(input))e.status="warm";
+          else if(/open/i.test(input))e.status="open";
+        }else if(q.key==="value"){
+          e.value=Number(input.replace(/[^0-9.]/g,""))||0;
+        }else{e[q.key]=input.trim();}
+      }
+      const next=conv.idx+1;
+      if(next>=conv.questions.length){
+        setPendingConv(null);
+        showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+        setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+      }else{
+        setPendingConv({...conv,entry:e,idx:next});
+        setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'skip' to leave blank)"}]);
+      }
+      return;
+    }
 
     // ── Meeting Minnie: check emails + calendar ───────────────────────────────
     if(agent.id==="minnie"&&/check.*email|meeting request|scan.*inbox|find.*meeting|check.*inbox/i.test(input.trim())){
@@ -527,9 +580,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
         const entry={...parsed,_type:"lead",date:parsed.date||today,status:parsed.status||"not_contacted"};
         const isOutreach=/outreach|tracker/i.test(input.trim());
-        showEntry(entry,"lead",null,isOutreach);
         const name=entry.contact||entry.company||"this contact";
-        setMsgs([...history,{role:"assistant",content:`Got it — pulled details for ${name}. Review and save below.`}]);
+        const firstQ=startConv(entry,"lead",isOutreach,null);
+        if(firstQ){
+          setMsgs([...history,{role:"assistant",content:`Got it — ${name} pulled. Let me fill in the gaps. (say 'skip' to leave blank)\n\n${firstQ}`}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:`Got it — review details for ${name} below and hit Save.`}]);
+        }
       }catch(e){
         setMsgs([...history,{role:"assistant",content:"Hmm, I had trouble parsing that. Try: 'I contacted [Name] at [Company], [email], [category].'"}]);
       }
@@ -547,13 +604,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
         const merged={...similar.record,...entry};
         setPendingDuplicate(null);
-        showEntry(merged,similar.type,similar.record.id,dupSaveAsOutreach||false);
-        setMsgs([...history,{role:"assistant",content:`Updating ${existName}'s record — review and save below.`}]);
+        const fq1=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
+        setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'skip' to leave blank)`:`Updating ${existName} — review below.`}]);
       }else if(isNo){
         const qname=entry._type==="vendor"?entry.name:entry.contact;
         setPendingDuplicate(null);
-        showEntry(entry,entry._type,null,dupSaveAsOutreach||false);
-        setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"} — review and save below.`}]);
+        const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
+        setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'skip' to leave blank)`:`New entry for ${qname||"this contact"} — review below.`}]);
       }else{
         const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
         setMsgs([...history,{role:"assistant",content:`Just to confirm — did you mean the existing entry "${existName}"? Reply yes or no.`}]);
@@ -582,8 +639,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||findQuery}. I also noticed a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
         }else{
           const foundEntry={...l,_type:"lead"};
-          showEntry(foundEntry,"lead",null,false);
-          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}\n\nReview and save below.`}]);
+          const fqf=startConv(foundEntry,"lead",false,null);
+          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'skip' to leave blank)":"\n\nReview and save below."}`}]);
         }
       }else{
         setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the extension is installed.`}]);
@@ -600,11 +657,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setMsgs([...history,{role:"assistant",content:`Heads up — I found a similar existing ${sim.type}: "${existName}". Did you mean them, or is this a new contact?\n\nReply yes or no.`}]);
       }else if(sim?.exact){
         const merged={...sim.record,...quickEntry};
-        showEntry(merged,sim.type,sim.record.id,false);
-        setMsgs([...history,{role:"assistant",content:`${qname} already exists — merging your info. Review and save below.`}]);
+        const fqe=startConv(merged,sim.type,false,sim.record.id);
+        setMsgs([...history,{role:"assistant",content:fqe?`${qname} exists — merging.\n\n${fqe} (or 'skip' to leave blank)`:`${qname} exists — merging. Review below.`}]);
       }else{
-        showEntry(quickEntry,quickEntry._type,null,false);
-        setMsgs([...history,{role:"assistant",content:`Got it. Review and save below.`}]);
+        const fqn=startConv(quickEntry,quickEntry._type,false,null);
+        setMsgs([...history,{role:"assistant",content:fqn?`Got it!\n\n${fqn} (or 'skip' to leave blank)`:`Got it. Review and save below.`}]);
       }
       setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
     }
@@ -620,8 +677,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           const fieldKey=detectFieldKey(fieldValue.trim());
           const displayName=type==="vendor"?record.name:(record.contact||record.company);
           const updated={...record,[fieldKey]:fieldValue.trim()};
-          showEntry(updated,type,record.id,false);
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName}! Updated ${fieldKey}. Review and save below.`}]);
+          const fqa=startConv(updated,type,false,record.id);
+          setMsgs([...history,{role:"assistant",content:fqa?`Found ${displayName}! Updated ${fieldKey}.\n\n${fqa} (or 'skip' to leave blank)`:`Found ${displayName}! Updated ${fieldKey}. Review and save below.`}]);
         }else{
           setMsgs([...history,{role:"assistant",content:`Couldn't find "${targetName.trim()}" in your vendors or clients.`}]);
         }
@@ -650,8 +707,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             setPendingDuplicate({entry:parsed,similar:sim,saveAsOutreach:false});
             setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I also found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
           }else{
-            showEntry(parsed,type,sim?.record?.id||null,false);
-            setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}\n\nReview and save below.`}]);
+            const fqp=startConv(parsed,type,false,sim?.record?.id||null);
+            setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${fqp?"\n\n"+fqp+" (or 'skip' to leave blank)":"\n\nReview and save below."}`}]);
           }
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
