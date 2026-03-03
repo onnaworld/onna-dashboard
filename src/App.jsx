@@ -2231,6 +2231,25 @@ export default function OnnaDashboard() {
                   {/* ── PASSWORD VIEW ── */}
                   {vaultView==="passwords"&&(
                     <div>
+                      {/* Add / Edit password form */}
+                      {!vaultAddPwOpen
+                        ? <button onClick={()=>{setVaultEditId(null);setVaultAddPwOpen(true);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",marginBottom:14}}>+ Add Password</button>
+                        : <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:"20px 22px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
+                            <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>{vaultEditId?"Edit Password Entry":"New Password Entry"}</div>
+                            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
+                              {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"],["notes","Notes"]].map(([k,lbl])=>(
+                                <div key={k} style={k==="notes"?{gridColumn:"span 2"}:{}}>
+                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
+                                  <input type={k==="password"?"password":"text"} value={vaultNewPw[k]} onChange={e=>setVaultNewPw(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box"}}/>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              <BtnPrimary onClick={vaultEditId?updateVaultPassword:addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":vaultEditId?"Save Changes":"Save"}</BtnPrimary>
+                              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
+                            </div>
+                          </div>
+                      }
                       <div style={{marginBottom:12}}>
                         <input value={vaultPwSearch} onChange={e=>setVaultPwSearch(e.target.value)} placeholder="Search passwords…" style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:T.surface,boxSizing:"border-box"}}/>
                       </div>
@@ -2266,26 +2285,6 @@ export default function OnnaDashboard() {
                           </tbody>
                         </table>
                       </div>
-
-                      {/* Add / Edit password form */}
-                      {!vaultAddPwOpen
-                        ? <button onClick={()=>{setVaultEditId(null);setVaultAddPwOpen(true);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.sub,fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>+ Add Password</button>
-                        : <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:"20px 22px",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                            <div style={{fontSize:12,fontWeight:600,color:T.sub,marginBottom:16,letterSpacing:"0.01em"}}>{vaultEditId?"Edit Password Entry":"New Password Entry"}</div>
-                            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
-                              {[["name","Service / Name *"],["url","URL"],["username","Username / Email"],["password","Password *"],["notes","Notes"]].map(([k,lbl])=>(
-                                <div key={k} style={k==="notes"?{gridColumn:"span 2"}:{}}>
-                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
-                                  <input type={k==="password"?"password":"text"} value={vaultNewPw[k]} onChange={e=>setVaultNewPw(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box"}}/>
-                                </div>
-                              ))}
-                            </div>
-                            <div style={{display:"flex",gap:8}}>
-                              <BtnPrimary onClick={vaultEditId?updateVaultPassword:addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":vaultEditId?"Save Changes":"Save"}</BtnPrimary>
-                              <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
-                            </div>
-                          </div>
-                      }
                     </div>
                   )}
 
