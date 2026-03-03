@@ -2240,7 +2240,7 @@ export default function OnnaDashboard() {
                             <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH><TH>Notes</TH><TH/>
                           </tr></thead>
                           <tbody>
-                            {vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).map(e=>(
+                            {vaultResources.filter(r=>r.type==="password"&&(!vaultPwSearch||[r.name,r.username,r.url,r.notes].some(v=>v&&v.toLowerCase().includes(vaultPwSearch.toLowerCase())))).sort((a,b)=>(a.name||"").toLowerCase().localeCompare((b.name||"").toLowerCase())).map(e=>(
                               <tr key={e.id} className="row">
                                 <TD bold>{e.name}</TD>
                                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{e.url?<a href={e.url.startsWith("http")?e.url:`https://${e.url}`} target="_blank" rel="noreferrer" onClick={ev=>ev.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{e.url}</a>:null}</td>
