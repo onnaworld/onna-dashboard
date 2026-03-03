@@ -705,13 +705,14 @@ export default function OnnaDashboard() {
   const [newTodo,setNewTodo]         = useState("");
   const [todoFilter,setTodoFilter]   = useState("todo");
   const [selectedTodo,setSelectedTodo] = useState(null);
-  const [dashNotes,setDashNotes]     = useState(()=>{try{return localStorage.getItem('onna_dash_notes')||""}catch{return ""}});
+  const [dashNotesList,setDashNotesList] = useState(()=>{try{const s=localStorage.getItem('onna_notes_list');return s?JSON.parse(s):[]}catch{return []}});
+  const [dashSelectedNoteId,setDashSelectedNoteId] = useState(null);
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
-  useEffect(()=>{try{localStorage.setItem('onna_dash_notes',dashNotes)}catch{}},[dashNotes]);
+  useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
-  const [gcalToken,setGcalToken]     = useState(null);
+  const [gcalToken,setGcalToken]     = useState(()=>{try{const t=sessionStorage.getItem('onna_gcal_token'),e=sessionStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
   const [gcalEvents,setGcalEvents]   = useState([]);
   const [gcalLoading,setGcalLoading] = useState(false);
   const [calMonth,setCalMonth]       = useState(new Date());
@@ -746,8 +747,8 @@ export default function OnnaDashboard() {
     setGcalLoading(false);
   };
 
-  // Re-fetch when month changes while connected
-  useEffect(()=>{ if (gcalToken) fetchGCalEvents(gcalToken, calMonth); },[calMonth]); // eslint-disable-line
+  // Re-fetch when month changes while connected, and on mount if token restored from session
+  useEffect(()=>{ if (gcalToken) fetchGCalEvents(gcalToken, calMonth); },[calMonth,gcalToken]); // eslint-disable-line
 
   const connectGCal = () => {
     if (!window.google?.accounts?.oauth2) {
@@ -760,6 +761,7 @@ export default function OnnaDashboard() {
       callback: (resp) => {
         if (resp.access_token) {
           setGcalToken(resp.access_token);
+          try{sessionStorage.setItem('onna_gcal_token',resp.access_token);sessionStorage.setItem('onna_gcal_exp',String(Date.now()+55*60*1000));}catch{}
           fetchGCalEvents(resp.access_token, calMonth);
         }
       },
@@ -1550,12 +1552,6 @@ export default function OnnaDashboard() {
           {/* ══ DASHBOARD ══ */}
           {activeTab==="Dashboard"&&(
             <div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:24}}>
-                <StatCard label="Projects 2026"  value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>
-                <StatCard label="Revenue 2026"   value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
-                <StatCard label="Profit 2026"    value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>
-                <StatCard label="Pipeline"       value={apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
-              </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
                 <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
@@ -1645,18 +1641,87 @@ export default function OnnaDashboard() {
                 </div>
               </div>
 
-              {/* ── Dashboard Notes ── */}
-              <div style={{marginTop:isMobile?12:18,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                <div style={{padding:"13px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
-                  <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
-                </div>
-                <textarea
-                  value={dashNotes}
-                  onChange={e=>setDashNotes(e.target.value)}
-                  placeholder="Jot down anything here…"
-                  style={{width:"100%",minHeight:140,padding:"14px 18px",background:"transparent",border:"none",resize:"vertical",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.7,boxSizing:"border-box",outline:"none"}}
-                />
-              </div>
+              {/* ── Notes (Mac Notes style) ── */}
+              {(()=>{
+                const selectedNote = dashNotesList.find(n=>n.id===dashSelectedNoteId)||null;
+                const getNoteTitle = (n) => (n.content||"").split("\n")[0].trim()||"New Note";
+                const getNotePreview = (n) => {
+                  const lines = (n.content||"").split("\n").filter(l=>l.trim());
+                  return lines.slice(1).join(" ").slice(0,60)||(lines[0]||"").slice(0,60);
+                };
+                const fmtDate = (ts) => {
+                  if (!ts) return "";
+                  const d = new Date(ts), now = new Date();
+                  if (d.toDateString()===now.toDateString()) return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+                  return d.toLocaleDateString([],{month:"short",day:"numeric"});
+                };
+                const createNote = () => {
+                  const n = {id:Date.now(),content:"",updatedAt:Date.now()};
+                  setDashNotesList(prev=>[n,...prev]);
+                  setDashSelectedNoteId(n.id);
+                };
+                const updateNote = (content) => {
+                  setDashNotesList(prev=>prev.map(n=>n.id===dashSelectedNoteId?{...n,content,updatedAt:Date.now()}:n));
+                };
+                const deleteNote = (id) => {
+                  if (!window.confirm("Delete this note?")) return;
+                  setDashNotesList(prev=>prev.filter(n=>n.id!==id));
+                  if (dashSelectedNoteId===id) setDashSelectedNoteId(null);
+                };
+                const showList = !isMobile || !selectedNote;
+                const showEditor = !isMobile || !!selectedNote;
+                return (
+                  <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",height:isMobile?480:440,background:T.surface}}>
+                    {/* Sidebar */}
+                    {showList&&(
+                      <div style={{width:isMobile?"100%":230,borderRight:isMobile?"none":`1px solid ${T.border}`,display:"flex",flexDirection:"column",background:"#fafafa",flexShrink:0}}>
+                        <div style={{padding:"12px 14px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
+                          <button onClick={createNote} style={{width:22,height:22,borderRadius:6,background:T.accent,border:"none",color:"#fff",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>+</button>
+                        </div>
+                        <div style={{flex:1,overflowY:"auto"}}>
+                          {dashNotesList.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
+                          {dashNotesList.map(n=>(
+                            <div key={n.id} onClick={()=>setDashSelectedNoteId(n.id)} style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:dashSelectedNoteId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s"}}>
+                              <div style={{fontSize:12.5,fontWeight:600,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getNoteTitle(n)}</div>
+                              <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
+                                <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
+                                <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getNotePreview(n)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Editor */}
+                    {showEditor&&(
+                      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
+                        {selectedNote ? (
+                          <>
+                            <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa",flexShrink:0}}>
+                              {isMobile&&<button onClick={()=>setDashSelectedNoteId(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginRight:10}}>← Notes</button>}
+                              <span style={{fontSize:11,color:T.muted,flex:1}}>{fmtDate(selectedNote.updatedAt)}</span>
+                              <button onClick={()=>deleteNote(selectedNote.id)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"2px 4px",borderRadius:5,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Delete</button>
+                            </div>
+                            <textarea
+                              autoFocus
+                              value={selectedNote.content}
+                              onChange={e=>updateNote(e.target.value)}
+                              placeholder="Start typing…"
+                              style={{flex:1,padding:"16px 20px",border:"none",resize:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.7,background:"transparent",outline:"none",boxSizing:"border-box"}}
+                            />
+                          </>
+                        ) : (
+                          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:T.muted}}>
+                            <div style={{fontSize:13}}>Select a note or create a new one</div>
+                            <button onClick={createNote} style={{padding:"8px 18px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>+ New Note</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* ── Google Calendar Widget ── */}
               {(()=>{
@@ -1810,6 +1875,15 @@ export default function OnnaDashboard() {
 
               {leadsView==="dashboard"&&(()=>{
                 const STATUSES = ["not_contacted","cold","warm","open","client"];
+                /* ── Stats row ── */
+                const _statsRow = (
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
+                    <StatCard label="Projects 2026"  value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>
+                    <StatCard label="Revenue 2026"   value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
+                    <StatCard label="Profit 2026"    value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>
+                    <StatCard label="Pipeline"       value={apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
+                  </div>
+                );
                 const COLORS   = {not_contacted:"#c0392b",cold:"#6e6e73",warm:"#1a56db",open:"#147d50",client:"#7c3aed"};
                 const STATUS_LABELS = OUTREACH_STATUS_LABELS;
                 const counts   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).length);
@@ -1886,6 +1960,7 @@ export default function OnnaDashboard() {
 
                 return (
                   <div>
+                    {_statsRow}
                     <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:22}}>
                       {STATUSES.map((s,i)=>(
                         <div key={s} style={{borderRadius:16,padding:"18px 20px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
