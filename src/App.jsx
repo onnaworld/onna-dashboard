@@ -703,10 +703,12 @@ export default function OnnaDashboard() {
 
   const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');return s?JSON.parse(s):[]}catch(e){return []}});
   const [newTodo,setNewTodo]         = useState("");
-  const [todoFilter,setTodoFilter]   = useState("all");
+  const [todoFilter,setTodoFilter]   = useState("todo");
   const [selectedTodo,setSelectedTodo] = useState(null);
+  const [dashNotes,setDashNotes]     = useState(()=>{try{return localStorage.getItem('onna_dash_notes')||""}catch{return ""}});
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
+  useEffect(()=>{try{localStorage.setItem('onna_dash_notes',dashNotes)}catch{}},[dashNotes]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(null);
@@ -853,16 +855,15 @@ export default function OnnaDashboard() {
     ...allProjectTodosFlat.filter(t=>!archivedTodos.find(a=>a.id===t.id))
   ];
   const filteredTodos = allTodos.filter(t=>{
-    if (todoFilter==="all") return true;
+    if (todoFilter==="todo") return t.type!=="project" && !["later","longterm"].includes(t.subType);
     if (todoFilter==="general") return t.type!=="project";
-    if (todoFilter==="general-now") return t.type!=="project" && t.subType==="now";
     if (todoFilter==="general-later") return t.type!=="project" && t.subType==="later";
     if (todoFilter==="general-longterm") return t.type!=="project" && t.subType==="longterm";
     if (todoFilter==="project") return t.type==="project";
     if (todoFilter.startsWith("project-")) return t.projectId===Number(todoFilter.replace("project-",""));
     return true;
   });
-  const todoTopFilter = todoFilter.startsWith("general")||todoFilter==="general"?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"all";
+  const todoTopFilter = todoFilter==="todo"?"todo":todoFilter.startsWith("general")||todoFilter==="general"?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
   const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
   const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
@@ -1557,23 +1558,26 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
-                <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
                   <div style={{padding:"14px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
                     <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Active Projects</span>
                     <span style={{fontSize:12,color:T.muted,fontWeight:500}}>{activeProjects.length}</span>
                   </div>
-                  {activeProjects.map((p,i)=>(
-                    <div key={p.id} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div>
-                        <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,fontWeight:500}}>{p.client}</div>
-                        <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
+                  <div style={{overflowY:"auto",maxHeight:480}}>
+                    {activeProjects.map((p,i)=>(
+                      <div key={p.id} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div>
+                          <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,fontWeight:500}}>{p.client}</div>
+                          <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {p.revenue.toLocaleString()}</div>
+                          <div style={{fontSize:10,color:T.muted,marginTop:2}}>{p.year}</div>
+                        </div>
                       </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {p.revenue.toLocaleString()}</div>
-                        <div style={{fontSize:10,color:T.muted,marginTop:2}}>{p.year}</div>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                    {activeProjects.length===0&&<div style={{padding:"28px 18px",textAlign:"center",fontSize:13,color:T.muted}}>No active projects.</div>}
+                  </div>
                 </div>
                 {/* To-Do */}
                 <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
@@ -1585,14 +1589,14 @@ export default function OnnaDashboard() {
                     </div>
                     {/* Top-level filter tabs */}
                     <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
-                      {[["all","All"],["general","General"],["project","Project"]].map(([val,label])=>(
+                      {[["todo","To Do"],["general","General"],["project","Projects"]].map(([val,label])=>(
                         <button key={val} onClick={()=>setTodoFilter(val)} style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
                       ))}
                     </div>
-                    {/* Sub-filter row */}
+                    {/* Sub-filter row — General only */}
                     {todoTopFilter==="general"&&(
                       <div style={{display:"flex",gap:5,paddingBottom:10}}>
-                        {[["general","All"],["general-now","Now"],["general-later","Later"],["general-longterm","Long Term"]].map(([val,label])=>(
+                        {[["general","All"],["general-later","Later"],["general-longterm","Long Term"]].map(([val,label])=>(
                           <button key={val} onClick={()=>setTodoFilter(val)} style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
                         ))}
                       </div>
@@ -1613,7 +1617,7 @@ export default function OnnaDashboard() {
                     )}
                   </div>
                   {/* Task list */}
-                  <div style={{padding:"6px 12px",flex:1,overflowY:"auto",maxHeight:320}}>
+                  <div style={{padding:"6px 12px",flex:1,overflowY:"auto",maxHeight:480}}>
                     {filteredTodos.map(t=>(
                       <div key={t.id} className="todo-item" style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}>
                         <button onClick={e=>{e.stopPropagation();(t.projectId?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
@@ -1623,7 +1627,7 @@ export default function OnnaDashboard() {
                           <span style={{fontSize:13,color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
                           {t.projectId&&<div style={{fontSize:10.5,color:T.muted,marginTop:1}}>{allProjectsMerged.find(p=>p.id===t.projectId)?.name||"Project"}</div>}
                           {!t.projectId&&t.type==="project"&&t.project&&<div style={{fontSize:10.5,color:T.muted,marginTop:1}}>{t.project}</div>}
-                          {t.subType&&!t.projectId&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType}</div>}
+                          {t.subType&&!t.projectId&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
                         </div>
                         <div className="todo-del" style={{display:"flex",gap:3}}>
                           <button onClick={e=>{e.stopPropagation();setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
@@ -1633,12 +1637,25 @@ export default function OnnaDashboard() {
                     ))}
                     {filteredTodos.length===0&&<div style={{padding:"20px 0",textAlign:"center",fontSize:13,color:T.muted}}>No tasks.</div>}
                   </div>
-                  {/* Add input — no project dropdown, just clean input */}
+                  {/* Add input */}
                   <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
-                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-personal"?"personal":todoFilter==="general-work"?"work":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else if(todoFilter==="project"){setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"project",project:"",details:""}]);}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="general-personal"?"Add personal task…":todoFilter==="general-work"?"Add work task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-personal"?"personal":todoFilter==="general-work"?"work":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else if(todoFilter==="project"){setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"project",project:"",details:""}]);}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
+                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else if(todoFilter==="project"){setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"project",project:"",details:""}]);}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="general-later"?"Add later task…":todoFilter==="general-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else if(todoFilter==="project"){setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"project",project:"",details:""}]);}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
                   </div>
                 </div>
+              </div>
+
+              {/* ── Dashboard Notes ── */}
+              <div style={{marginTop:isMobile?12:18,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                <div style={{padding:"13px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
+                  <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
+                </div>
+                <textarea
+                  value={dashNotes}
+                  onChange={e=>setDashNotes(e.target.value)}
+                  placeholder="Jot down anything here…"
+                  style={{width:"100%",minHeight:140,padding:"14px 18px",background:"transparent",border:"none",resize:"vertical",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.7,boxSizing:"border-box",outline:"none"}}
+                />
               </div>
 
               {/* ── Google Calendar Widget ── */}
