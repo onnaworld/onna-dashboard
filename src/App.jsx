@@ -610,6 +610,8 @@ export default function OnnaDashboard() {
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
+  const [vendorMsg,setVendorMsg]                         = useState("");
+  const [vendorLoading,setVendorLoading]                 = useState(false);
   const [leadMsg,setLeadMsg]                             = useState("");
   const [leadAiLoading,setLeadAiLoading]                 = useState(false);
   const [clientMsg,setClientMsg]                         = useState("");
@@ -838,7 +840,7 @@ export default function OnnaDashboard() {
     return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter);
   }).sort((a,b)=>outreachSort==="az"
     ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
-    : new Date(b.date||0)-new Date(a.date||0));
+    : (_parseDate(b.date)||new Date(0))-(_parseDate(a.date)||new Date(0)));
 
   // Merge all project todos into a flat list for master view
   const allProjectTodosFlat = Object.entries(projectTodos).flatMap(([pid,tlist])=>
@@ -929,6 +931,21 @@ export default function OnnaDashboard() {
       setClientMsg("");
     } catch {}
     setClientAiLoading(false);
+  };
+
+  const processVendorAI = async () => {
+    if (!vendorMsg.trim()) return;
+    setVendorLoading(true);
+    try {
+      const sys = `Extract vendor/supplier info and return ONLY a raw JSON array with no markdown. Each item: {"name":"","category":"","email":"","phone":"","website":"","location":"","notes":"","rateCard":""}. location format like "Dubai, UAE". website without https://.`;
+      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:vendorMsg}]});
+      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
+      const entries = Array.isArray(parsed)?parsed:[parsed];
+      const saved = await Promise.all(entries.map(e=>api.post("/api/vendors",e)));
+      saved.filter(e=>e.id).forEach(e=>setVendors(prev=>[...prev,e]));
+      setVendorMsg("");
+    } catch {}
+    setVendorLoading(false);
   };
 
   // ── Vault functions ───────────────────────────────────────────────────────────
@@ -1508,7 +1525,6 @@ export default function OnnaDashboard() {
             {!isMobile&&apiError&&!apiLoading&&<span title={`API: ${apiError}`} style={{fontSize:11,color:"#c0392b",cursor:"default"}}>● Offline</span>}
             {!isMobile&&!apiLoading&&!apiError&&<span style={{fontSize:11,color:"#147d50",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"#147d50",display:"inline-block"}}/>Live</span>}
             {activeTab==="Projects"&&!selectedProject&&<BtnPrimary small={isMobile} onClick={()=>setShowAddProject(true)}>+ New Project</BtnPrimary>}
-            {activeTab==="Vendors"&&<BtnPrimary small={isMobile} onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>}
           </div>
         </div>
 
@@ -1715,6 +1731,13 @@ export default function OnnaDashboard() {
           {/* ══ VENDORS ══ */}
           {activeTab==="Vendors"&&(
             <div>
+              <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Vendor via AI</div>
+                <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <textarea value={vendorMsg} onChange={e=>setVendorMsg(e.target.value)} rows={2} placeholder={`e.g. "Studio X - Ali Hassan | ali@studiox.com, +971 50 123 4567, studiox.ae, Photography, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
+                  <BtnPrimary onClick={processVendorAI} disabled={vendorLoading||!vendorMsg.trim()}>{vendorLoading?"Adding…":"Add"}</BtnPrimary>
+                </div>
+              </div>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                 <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
                 <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n){setBbCat(n);setBbLocation("All");}}else{setBbCat(v);setBbLocation("All");}}} options={allVendorCats} minWidth={170}/>
