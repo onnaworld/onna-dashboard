@@ -650,6 +650,7 @@ export default function OnnaDashboard() {
   const [showAddLead,setShowAddLead]         = useState(false);
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [showArchive,setShowArchive]         = useState(false);
+  const [showUserMenu,setShowUserMenu]       = useState(false);
   const [archive,setArchive]                 = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archive')||'[]')}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
@@ -1498,17 +1499,30 @@ export default function OnnaDashboard() {
             </button>
           ))}
         </nav>
-        <button onClick={()=>setShowArchive(true)} style={{margin:"4px 10px 2px",padding:"9px 14px",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:7,textAlign:"left"}}>
-          <svg width={12} height={12} viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-          Archive{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
-        </button>
-        <div style={{margin:10,padding:"12px 14px",borderRadius:12,background:"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-            <div style={{width:28,height:28,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>E</div>
-            <button onClick={()=>{localStorage.removeItem("onna_token");setAuthed(false);}} title="Sign out" style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"3px 6px",borderRadius:6,fontFamily:"inherit",fontWeight:500,lineHeight:1}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Sign out</button>
-          </div>
-          <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
-          <div style={{fontSize:11,color:T.muted}}>Admin · onna</div>
+        <div style={{margin:10,position:"relative"}}>
+          <button onClick={()=>setShowUserMenu(p=>!p)} style={{width:"100%",padding:"12px 14px",borderRadius:12,background:"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+            <div style={{width:30,height:30,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>E</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
+              <div style={{fontSize:11,color:T.muted}}>Admin · onna</div>
+            </div>
+            <svg width={10} height={10} viewBox="0 0 10 10" fill="none" style={{flexShrink:0,color:T.muted,transform:showUserMenu?"rotate(180deg)":"none",transition:"transform 0.15s"}}><path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          {showUserMenu&&(
+            <>
+              <div style={{position:"fixed",inset:0,zIndex:49}} onClick={()=>setShowUserMenu(false)}/>
+              <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,right:0,background:T.surface,borderRadius:12,border:`1px solid ${T.border}`,boxShadow:"0 4px 24px rgba(0,0,0,0.12)",zIndex:50,overflow:"hidden"}}>
+                <button onClick={()=>{setShowUserMenu(false);setShowArchive(true);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",borderBottom:`1px solid ${T.borderSub}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="none"}>
+                  <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                  View Archive{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
+                </button>
+                <button onClick={()=>{setShowUserMenu(false);localStorage.removeItem("onna_token");setAuthed(false);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",color:"#c0392b",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#fff5f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>
+                  <svg width={13} height={13} viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
