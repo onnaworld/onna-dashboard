@@ -193,6 +193,14 @@ const StarIcon = ({size=11,color="currentColor"}) => (
   </svg>
 );
 
+// ─── LOGAN EXTENSION BRIDGE ──────────────────────────────────────────────────
+let _loganExtId = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("message", e => {
+    if (e.source === window && e.data?.type === "LOGAN_EXT_READY" && e.data.id) _loganExtId = e.data.id;
+  });
+}
+
 // ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
 const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
 const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA";
@@ -203,7 +211,6 @@ function _VMouth({y=63}){return<path d={`M ${50-6} ${y} Q 50 ${y+7} ${50+6} ${y}
 function _Cheeks({color="rgba(240,120,100,0.25)"}){return<><ellipse cx="34" cy="54" rx="6" ry="4" fill={color}/><ellipse cx="66" cy="54" rx="6" ry="4" fill={color}/></>;}
 function _Logan({mood="idle",bob=0}){
   return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <ellipse cx="50" cy="94" rx="22" ry="3.5" fill="rgba(0,0,0,0.08)"/>
     <path d={_STAR} fill={_YELLOW}/>
     {mood==="excited"?<><_Cheeks color="rgba(240,120,100,0.32)"/><_SquintEyes/><_OpenMouth y={61}/></>
     :mood==="thinking"?<><_DotEyes/><_VMouth y={64}/></>
@@ -219,7 +226,6 @@ function _Logan({mood="idle",bob=0}){
 function _Rex({mood="idle",bob=0}){
   const frown=mood==="serious"||mood==="thinking";
   return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <ellipse cx="50" cy="94" rx="22" ry="3.5" fill="rgba(0,0,0,0.08)"/>
     <path d={_STAR} fill={_PINK}/>
     <_Cheeks color="rgba(240,120,140,0.25)"/>
     {mood==="talking"?<><_DotEyes y={46}/><_OpenMouth y={62}/></>
@@ -240,7 +246,6 @@ function _Nova({mood="idle",bob=0}){
   const excited=mood==="excited";
   const mouth=excited?"M 42 62 Q 50 68 58 62":mood==="thinking"?"M 43 61 Q 50 57 57 61":"M 43 62 Q 50 67 57 62";
   return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <ellipse cx="50" cy="94" rx="22" ry="3.5" fill="rgba(0,0,0,0.08)"/>
     <path d={_STAR} fill={_BLUE}/>
     <_Cheeks color="rgba(100,150,220,0.22)"/>
     <circle cx="37" cy="43" r="10" fill="rgba(255,255,255,0.3)" stroke="#1a1a1a" strokeWidth="2.5"/>
@@ -271,21 +276,24 @@ function _AgentDots({color}){
     {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:color,animation:`bop 1s ease-in-out ${i*0.18}s infinite`}}/>)}
   </div>;
 }
-function _AgentBubble({msg,bg,border}){
+function _AgentBubble({msg}){
   const isAgent=msg.role==="assistant";
   return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
-    <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:isAgent?"6px 18px 18px 18px":"18px 6px 18px 18px",background:isAgent?bg:"#1c1c1c",color:isAgent?"#1c1c1c":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?`1.5px solid ${border}`:"none",boxShadow:"0 1px 6px rgba(0,0,0,0.06)",whiteSpace:"pre-wrap"}}>
+    <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"}}>
       {msg.content}
     </div>
   </div>;
 }
 function AgentCard({agent,active,onSelect}){
-  const {Blob,name,title,emoji,color,border,accent,bg,textColor,system,placeholder,intro}=agent;
-  const [msgs,setMsgs]=useState([{role:"assistant",content:intro}]);
-  const [input,setInput]=useState("");
-  const [loading,setLoading]=useState(false);
-  const [mood,setMood]=useState("idle");
-  const [bob,setBob]=useState(0);
+  const {Blob,name,title,emoji,system,placeholder,intro}=agent;
+  const [msgs,setMsgs]         =useState([{role:"assistant",content:intro}]);
+  const [input,setInput]       =useState("");
+  const [loading,setLoading]   =useState(false);
+  const [mood,setMood]         =useState("idle");
+  const [bob,setBob]           =useState(0);
+  const [pendingLead,setPending]=useState(null);
+  const [leadEdit,setLeadEdit] =useState({});
+  const [savingLead,setSaving] =useState(false);
   const chatRef=useRef(null);
   const rafRef=useRef(null);
   const t0=useRef(null);
@@ -297,54 +305,120 @@ function AgentCard({agent,active,onSelect}){
     return()=>cancelAnimationFrame(rafRef.current);
   },[agent.id]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
+
+  const searchViaExt=(query)=>new Promise(resolve=>{
+    if(!_loganExtId)return resolve({ok:false,error:"Logan extension not detected — install it and make sure Outlook is open in another tab."});
+    if(!window.chrome?.runtime?.sendMessage)return resolve({ok:false,error:"Not running in Chrome with the extension installed."});
+    const timer=setTimeout(()=>resolve({ok:false,error:"Search timed out — Outlook may still be loading."}),20000);
+    try{window.chrome.runtime.sendMessage(_loganExtId,{type:"FIND_CONTACT",query},res=>{clearTimeout(timer);if(window.chrome.runtime.lastError)resolve({ok:false,error:window.chrome.runtime.lastError.message});else resolve(res||{ok:false,error:"No response"});});}
+    catch(e){clearTimeout(timer);resolve({ok:false,error:e.message});}
+  });
+
   const send=async()=>{
     if(!input.trim()||loading)return;
+    // Logan: detect "find/search [name]" intent → use extension
+    let findQuery=null;
+    if(agent.id==="logistical"){
+      const m=input.match(/\b(?:find|search|look\s+up|get|fetch)\s+(?:me\s+)?(?:the\s+)?(?:contact\s+(?:details?\s+)?(?:for|of)\s+)?([A-Za-z][A-Za-z\s]{1,35})(?:'s\b|\s+(?:contact|details|info|email|number|lead|and)|[.!?]?\s*$)/i);
+      if(m?.[1]){findQuery=m[1].trim().replace(/\s+(contact|details|info|email|number|lead|please|and\s+save).*$/i,"").trim();if(findQuery.split(" ").length>4||/^(a|the|an|my|this)$/i.test(findQuery))findQuery=null;}
+    }
     const userMsg={role:"user",content:input.trim()};
     const history=[...msgs,userMsg];
     setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+    if(findQuery){
+      setMsgs([...history,{role:"assistant",content:`🔍 Searching your emails for "${findQuery}"… make sure Outlook is open in another tab.`}]);
+      const result=await searchViaExt(findQuery);
+      if(result.ok&&result.lead){
+        const l=result.lead;
+        setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}! Here's what I pulled from your emails:\n\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}\n\nReview the details below and I'll save them to your pipeline.`}]);
+        setPending(l);setLeadEdit({...l});
+      }else{
+        setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the Logan extension is installed. Or paste the email text here and I'll extract everything!`}]);
+      }
+      setLoading(false);setMood("idle");return;
+    }
     try{
       const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system,messages:history.map(m=>({role:m.role,content:m.content}))})});
       if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
-      const reader=res.body.getReader();const decoder=new TextDecoder();
-      let fullText="";let buffer="";
-      while(true){
-        const{done,value}=await reader.read();if(done)break;
-        buffer+=decoder.decode(value,{stream:true});
-        const lines=buffer.split("\n");buffer=lines.pop()||"";
-        for(const line of lines){
-          if(!line.startsWith("data: "))continue;
-          const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;
-          try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta")fullText+=ev.delta.text;}catch{}
-        }
-      }
-      setMsgs(p=>[...p,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+      const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+      while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+      setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
       setMood("excited");setTimeout(()=>setMood("idle"),2500);
     }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
     setLoading(false);
   };
-  return(
-    <div onClick={!active?onSelect:undefined} style={{borderRadius:28,border:`2.5px solid ${active?border:"#e8e8e8"}`,background:"white",boxShadow:active?`0 16px 48px ${color}66`:"0 2px 12px rgba(0,0,0,0.05)",transition:"all 0.4s cubic-bezier(0.34,1.56,0.64,1)",cursor:active?"default":"pointer",overflow:"hidden",display:"flex",flexDirection:"column",flex:active?"1 1 400px":"0 0 152px",minWidth:active?300:134,maxWidth:active?490:172,transform:active?"translateY(-6px)":"scale(0.96)"}}>
-      <div style={{background:"white",padding:active?"18px 20px 14px":"22px 12px 16px",display:"flex",flexDirection:active?"row":"column",alignItems:"center",gap:active?12:4,position:"relative",overflow:"hidden"}}>
-        <Blob mood={loading?"thinking":mood} bob={active?bob:bob*0.3}/>
-        <div style={{textAlign:active?"left":"center",position:"relative",zIndex:1}}>
-          <div style={{fontWeight:900,fontSize:active?19:14,color:"#1c1c1c",fontFamily:"Georgia,serif"}}>{name}</div>
-          <div style={{marginTop:3,fontSize:10,color:"#aaa",fontFamily:"monospace",letterSpacing:0.5}}>{title}</div>
+
+  const saveLead=async()=>{
+    setSaving(true);
+    try{
+      const saved=await api.post("/api/leads",{company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"Other",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:"Email",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"});
+      if(saved?.id||saved?.company){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} has been saved to your pipeline! Find them in the Sales tab.`}]);setPending(null);}
+      else setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);
+    }catch(e){setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Save failed: ${e.message}`}]);}
+    setSaving(false);setPending(null);
+  };
+
+  const lf=(label,key,wide=false)=>(
+    <div key={key} style={{gridColumn:wide?"1/-1":"auto",display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:10.5,fontWeight:600,color:"#6e6e73",textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</label>
+      {key==="status"?(
+        <select value={leadEdit[key]||""} onChange={e=>setLeadEdit(p=>({...p,[key]:e.target.value}))} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none"}}>
+          <option value="not_contacted">Not Contacted</option><option value="cold">Cold</option><option value="warm">Warm</option><option value="open">Open</option>
+        </select>
+      ):wide?(
+        <textarea value={leadEdit[key]||""} onChange={e=>setLeadEdit(p=>({...p,[key]:e.target.value}))} rows={2} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none",resize:"vertical"}}/>
+      ):(
+        <input value={leadEdit[key]||""} onChange={e=>setLeadEdit(p=>({...p,[key]:e.target.value}))} style={{padding:"7px 10px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none"}}/>
+      )}
+    </div>
+  );
+
+  return(<>
+    {pendingLead&&(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.2)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:460,maxHeight:"88vh",overflowY:"auto",padding:"24px",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,paddingBottom:16,borderBottom:"1px solid #e5e5ea"}}>
+            <svg viewBox="0 0 100 100" width={38} height={38} style={{flexShrink:0}}>
+              <path d={_STAR} fill={_YELLOW}/><circle cx="37" cy="45" r="5" fill="#1a1a1a"/><circle cx="63" cy="45" r="5" fill="#1a1a1a"/>
+              <path d="M 36 60 Q 50 70 64 60" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>
+            </svg>
+            <div><div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>Logan found a lead!</div><div style={{fontSize:12,color:"#6e6e73",marginTop:2}}>Review and edit before saving to your pipeline</div></div>
+            <button onClick={()=>setPending(null)} style={{marginLeft:"auto",background:"none",border:"none",fontSize:20,color:"#aeaeb2",cursor:"pointer",padding:"2px 8px",lineHeight:1,flexShrink:0}}>×</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 14px",marginBottom:20}}>
+            {lf("Contact","contact")}{lf("Company","company")}{lf("Email","email")}{lf("Phone","phone")}
+            {lf("Role","role")}{lf("Est. Value (AED)","value")}{lf("Category","category")}{lf("Location","location")}
+            {lf("Date","date")}{lf("Status","status")}{lf("Notes","notes",true)}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setPending(null)} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+            <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:600,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":"✓ Add to Pipeline"}</button>
+          </div>
         </div>
-        {active&&<div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,zIndex:1}}><div style={{width:8,height:8,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 8px #22c55e"}}/><span style={{fontSize:9.5,color:"#888",fontWeight:700,opacity:0.8,fontFamily:"monospace"}}>ONLINE</span></div>}
+      </div>
+    )}
+    <div onClick={!active?onSelect:undefined} style={{borderRadius:20,border:`1.5px solid ${active?"#c7c7cc":"#e5e5ea"}`,background:"white",boxShadow:active?"0 4px 20px rgba(0,0,0,0.09)":"0 1px 4px rgba(0,0,0,0.05)",transition:"all 0.35s cubic-bezier(0.34,1.56,0.64,1)",cursor:active?"default":"pointer",overflow:"hidden",display:"flex",flexDirection:"column",flex:active?"1 1 400px":"0 0 152px",minWidth:active?300:134,maxWidth:active?490:172,transform:active?"translateY(-3px)":"scale(1)"}}>
+      <div style={{background:"white",padding:active?"18px 20px 14px":"22px 12px 16px",display:"flex",flexDirection:active?"row":"column",alignItems:"center",gap:active?12:4,borderBottom:active?"1px solid #f2f2f7":"none"}}>
+        <Blob mood={loading?"thinking":mood} bob={active?bob:bob*0.3}/>
+        <div style={{textAlign:active?"left":"center"}}>
+          <div style={{fontWeight:900,fontSize:active?18:14,color:"#1d1d1f",fontFamily:"Georgia,serif"}}>{name}</div>
+          <div style={{marginTop:3,fontSize:10,color:"#aeaeb2",fontFamily:"monospace",letterSpacing:0.5,textTransform:"uppercase"}}>{title}</div>
+        </div>
+        {active&&<div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}><div style={{width:7,height:7,borderRadius:"50%",background:"#30d158",boxShadow:"0 0 5px #30d15870"}}/><span style={{fontSize:9.5,color:"#aeaeb2",fontWeight:700,fontFamily:"monospace",letterSpacing:0.5}}>ONLINE</span></div>}
       </div>
       {active&&<>
         <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"#fafafa",minHeight:260,maxHeight:360}}>
-          {msgs.map((m,i)=><_AgentBubble key={i} msg={m} bg={bg} border={`${border}66`}/>)}
-          {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:bg,border:`1.5px solid ${border}55`,borderRadius:"6px 18px 18px 18px"}}><_AgentDots color={accent}/></div></div>}
+          {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
+          {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
         </div>
-        <div style={{padding:"12px 14px",background:"white",borderTop:"1.5px solid #f0f0f0",display:"flex",gap:8}}>
-          <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder} rows={2} style={{flex:1,resize:"none",border:`2px solid ${input?border:"#e8e8e8"}`,borderRadius:14,padding:"9px 13px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1c1c1c",background:bg,transition:"border 0.2s"}}/>
-          <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e8e8e8":color,border:`2px solid ${loading||!input.trim()?"#e8e8e8":border}`,color:loading||!input.trim()?"#bbb":textColor,borderRadius:14,padding:"0 16px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:20,alignSelf:"stretch",minWidth:48}}>↑</button>
+        <div style={{padding:"12px 14px",background:"white",borderTop:"1px solid #f2f2f7",display:"flex",gap:8}}>
+          <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={agent.id==="logistical"?`Ask me to find a contact, paste email text, or say "find Aman's contact details"…`:placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"9px 13px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s"}}/>
+          <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e5e5ea":"#1d1d1f",border:"none",color:loading||!input.trim()?"#aeaeb2":"#fff",borderRadius:12,padding:"0 16px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:46,transition:"background 0.12s"}}>↑</button>
         </div>
       </>}
-      {!active&&<div style={{padding:"6px 10px 14px",textAlign:"center",fontSize:11,color:"#ccc",fontFamily:"monospace"}}>tap to chat {emoji}</div>}
+      {!active&&<div style={{padding:"4px 10px 14px",textAlign:"center",fontSize:11,color:"#c7c7cc",fontFamily:"monospace"}}>tap to chat {emoji}</div>}
     </div>
-  );
+  </>);
 }
 
 // ─── PDF EXPORT via Blob URL ──────────────────────────────────────────────────
