@@ -526,6 +526,21 @@ export default function OnnaDashboard() {
     setLgLoading(false);
   };
 
+  // ── These two must live before the early return to satisfy Rules of Hooks ──
+  const [activeTab,setActiveTab] = useState(()=>localStorage.getItem("onna_tab")||"Dashboard");
+  useEffect(()=>{localStorage.setItem("onna_tab",activeTab);},[activeTab]);
+
+  // Auto-logout after 30 min inactivity (only active while authed)
+  useEffect(()=>{
+    if (!authed) return;
+    const TIMEOUT = 30*60*1000;
+    let timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT);
+    const reset = ()=>{ clearTimeout(timer); timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT); };
+    const events = ["mousemove","mousedown","keydown","touchstart","scroll"];
+    events.forEach(e=>window.addEventListener(e, reset, {passive:true}));
+    return ()=>{ clearTimeout(timer); events.forEach(e=>window.removeEventListener(e, reset)); };
+  },[authed]);
+
   if (!authed) return (
     <div style={_LG_WRAP}>
       <div style={_LG_CARD}>
@@ -581,18 +596,6 @@ export default function OnnaDashboard() {
   const [isMobile,setIsMobile] = useState(()=>window.innerWidth<768);
   useEffect(()=>{const fn=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn);},[]);
 
-  // ── Auto-logout after 5 min inactivity ───────────────────────────────────
-  useEffect(()=>{
-    const TIMEOUT = 5*60*1000;
-    let timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT);
-    const reset = ()=>{ clearTimeout(timer); timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT); };
-    const events = ["mousemove","mousedown","keydown","touchstart","scroll"];
-    events.forEach(e=>window.addEventListener(e, reset, {passive:true}));
-    return ()=>{ clearTimeout(timer); events.forEach(e=>window.removeEventListener(e, reset)); };
-  },[]);
-
-  const [activeTab,setActiveTab]                         = useState(()=>localStorage.getItem("onna_tab")||"Dashboard");
-  useEffect(()=>{localStorage.setItem("onna_tab",activeTab);},[activeTab]);
   const [searches,setSearches]                           = useState({});
   const setSearch = (tab,val) => setSearches(p=>({...p,[tab]:val}));
   const getSearch = tab => searches[tab]||"";
