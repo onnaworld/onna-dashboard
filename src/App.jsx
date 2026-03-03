@@ -179,6 +179,7 @@ const initColumbiaEstimate = {
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD"},
+  {id:"Agents",    label:"AGENTS"},
   {id:"Vendors",   label:"VENDORS"},
   {id:"Sales",     label:"SALES"},
   {id:"Projects",  label:"PROJECTS"},
@@ -191,6 +192,160 @@ const StarIcon = ({size=11,color="currentColor"}) => (
     <path d="M6 0.5l1.39 2.82L10.5 3.8l-2.25 2.19.53 3.09L6 7.63l-2.78 1.45.53-3.09L1.5 3.8l3.11-.48L6 0.5z"/>
   </svg>
 );
+
+// ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
+const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA";
+function _DotEyes({y=42,spread=13,size=5,color="#1a1a1a"}){return<><circle cx={50-spread} cy={y} r={size} fill={color}/><circle cx={50+spread} cy={y} r={size} fill={color}/></>;}
+function _SquintEyes({y=43,spread=13}){return<><path d={`M ${50-spread-6} ${y} Q ${50-spread} ${y-7} ${50-spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/><path d={`M ${50+spread-6} ${y} Q ${50+spread} ${y-7} ${50+spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/></>;}
+function _OpenMouth({y=62}){return<><rect x="38" y={y} width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy={y+10} rx="9" ry="5" fill="#e8697a"/></>;}
+function _VMouth({y=63}){return<path d={`M ${50-6} ${y} Q 50 ${y+7} ${50+6} ${y}`} stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>;}
+function _Cheeks({color="rgba(240,120,100,0.25)"}){return<><ellipse cx="34" cy="54" rx="6" ry="4" fill={color}/><ellipse cx="66" cy="54" rx="6" ry="4" fill={color}/></>;}
+function _Logan({mood="idle",bob=0}){
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <ellipse cx="50" cy="94" rx="22" ry="3.5" fill="rgba(0,0,0,0.08)"/>
+    <path d={_STAR} fill={_YELLOW}/>
+    {mood==="excited"?<><_Cheeks color="rgba(240,120,100,0.32)"/><_SquintEyes/><_OpenMouth y={61}/></>
+    :mood==="thinking"?<><_DotEyes/><_VMouth y={64}/></>
+    :mood==="talking"?<><_Cheeks color="rgba(240,120,100,0.22)"/><_DotEyes/><_OpenMouth y={62}/></>
+    :<><_Cheeks color="rgba(240,120,100,0.22)"/><_DotEyes/><_VMouth y={63}/></>}
+    <circle cx="84" cy="17" r="12" fill="rgba(210,238,255,0.75)" stroke="#1a1a1a" strokeWidth="2.2"/>
+    <circle cx="84" cy="17" r="8" fill="rgba(230,247,255,0.9)"/>
+    <line x1="92" y1="25" x2="100" y2="33" stroke="#1a1a1a" strokeWidth="2.8" strokeLinecap="round"/>
+    <path d="M 77 42 Q 81 30 82 23" stroke={_YELLOW} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 77 42 Q 81 30 82 23" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+  </svg>;
+}
+function _Rex({mood="idle",bob=0}){
+  const frown=mood==="serious"||mood==="thinking";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <ellipse cx="50" cy="94" rx="22" ry="3.5" fill="rgba(0,0,0,0.08)"/>
+    <path d={_STAR} fill={_PINK}/>
+    <_Cheeks color="rgba(240,120,140,0.25)"/>
+    {mood==="talking"?<><_DotEyes y={46}/><_OpenMouth y={62}/></>
+    :frown?<><_DotEyes y={46}/><path d="M 34 65 Q 50 57 66 65" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/></>
+    :<><_DotEyes y={46}/><_VMouth y={64}/></>}
+    <rect x="72" y="6" width="21" height="27" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2.2"/>
+    <rect x="78" y="4" width="9" height="7" rx="3.5" fill="#1a1a1a"/>
+    <line x1="75.5" y1="17" x2="90.5" y2="17" stroke="#c06070" strokeWidth="2"/>
+    <line x1="75.5" y1="21" x2="90.5" y2="21" stroke="#aaa" strokeWidth="1.3"/>
+    <line x1="75.5" y1="25" x2="86" y2="25" stroke="#aaa" strokeWidth="1.3"/>
+    <line x1="75.5" y1="29" x2="90.5" y2="29" stroke="#aaa" strokeWidth="1.3"/>
+    <path d="M 76 43 Q 80 29 81 20" stroke={_PINK} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 76 43 Q 80 29 81 20" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {mood==="thinking"&&<ellipse cx="17" cy="32" rx="4" ry="6" fill="rgba(140,200,255,0.65)"/>}
+  </svg>;
+}
+function _Nova({mood="idle",bob=0}){
+  const excited=mood==="excited";
+  const mouth=excited?"M 42 62 Q 50 68 58 62":mood==="thinking"?"M 43 61 Q 50 57 57 61":"M 43 62 Q 50 67 57 62";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <ellipse cx="50" cy="94" rx="22" ry="3.5" fill="rgba(0,0,0,0.08)"/>
+    <path d={_STAR} fill={_BLUE}/>
+    <_Cheeks color="rgba(100,150,220,0.22)"/>
+    <circle cx="37" cy="43" r="10" fill="rgba(255,255,255,0.3)" stroke="#1a1a1a" strokeWidth="2.5"/>
+    <circle cx="63" cy="43" r="10" fill="rgba(255,255,255,0.3)" stroke="#1a1a1a" strokeWidth="2.5"/>
+    <line x1="47" y1="43" x2="53" y2="43" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round"/>
+    <line x1="27" y1="41" x2="21" y2="39" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round"/>
+    <line x1="73" y1="41" x2="79" y2="39" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round"/>
+    {excited?<><path d="M 31 45 Q 37 40 43 45" stroke="#1a1a1a" strokeWidth="2.5" fill="none" strokeLinecap="round"/><path d="M 57 45 Q 63 40 69 45" stroke="#1a1a1a" strokeWidth="2.5" fill="none" strokeLinecap="round"/></>:<><circle cx="37" cy="44" r="4" fill="#1a1a1a"/><circle cx="63" cy="44" r="4" fill="#1a1a1a"/></>}
+    {mood==="talking"?<><rect x="38" y="62" width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy="72" rx="9" ry="5" fill="#e8697a"/></>:<path d={mouth} stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>}
+  </svg>;
+}
+const AGENT_DEFS = [
+  {id:"logistical",name:"Logan",title:"Logistics",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
+   system:`You are Logan, a cheerful logistical assistant for ONNA, a film/TV production company in Dubai. Scan emails and descriptions, extract shoot details (dates, locations, crew, call times, client names), and return them in a clean format. Be upbeat, use occasional emojis, keep responses concise. Always summarise at the top then list details neatly.`,
+   placeholder:"Paste a client email or describe a shoot...",
+   intro:"Hiii! 🔍 I'm Logan! Paste me a client email or describe your shoot and I'll pull out all the key details for your dashboard! ✨"},
+  {id:"compliance",name:"Connie",title:"Compliance",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
+   system:`You are Connie, a serious compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments. Be thorough and formal. Cover: location risks, equipment hazards, talent welfare, UAE permits (Media Regulatory Authority, Dubai Film Permit), weather, emergency protocols. Reference actual UAE laws. Structure output clearly with sections.`,
+   placeholder:"Describe your project for a risk assessment...",
+   intro:"I am Connie. I do not take compliance lightly. Describe your project and I will conduct a thorough Risk Assessment against UAE and international production safety regulations."},
+  {id:"researcher",name:"Research Rex",title:"Research",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
+   system:`You are Nova, an enthusiastic research assistant for ONNA, a film/TV production company in Dubai. When given a Dubai location, provide: nearest hospital with approximate address and distance, nearest pharmacy, typical weather context, useful nearby landmarks for production, parking and access notes, and any location-specific permits. Be specific about Dubai geography. Format in clear sections with a friendly tone.`,
+   placeholder:"Give me a Dubai location to research...",
+   intro:"Hi hi! 🔬 I'm Research Rex! Give me any Dubai location and I'll find the nearest hospital, note the weather patterns, and research everything you need for your shoot! 🌟"},
+];
+function _AgentDots({color}){
+  return<div style={{display:"flex",gap:5,padding:"10px 14px",alignItems:"center"}}>
+    {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:color,animation:`bop 1s ease-in-out ${i*0.18}s infinite`}}/>)}
+  </div>;
+}
+function _AgentBubble({msg,bg,border}){
+  const isAgent=msg.role==="assistant";
+  return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
+    <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:isAgent?"6px 18px 18px 18px":"18px 6px 18px 18px",background:isAgent?bg:"#1c1c1c",color:isAgent?"#1c1c1c":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?`1.5px solid ${border}`:"none",boxShadow:"0 1px 6px rgba(0,0,0,0.06)",whiteSpace:"pre-wrap"}}>
+      {msg.content}
+    </div>
+  </div>;
+}
+function AgentCard({agent,active,onSelect}){
+  const {Blob,name,title,emoji,color,border,accent,bg,textColor,system,placeholder,intro}=agent;
+  const [msgs,setMsgs]=useState([{role:"assistant",content:intro}]);
+  const [input,setInput]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [mood,setMood]=useState("idle");
+  const [bob,setBob]=useState(0);
+  const chatRef=useRef(null);
+  const rafRef=useRef(null);
+  const t0=useRef(null);
+  useEffect(()=>{
+    const speed=agent.id==="compliance"?1.1:agent.id==="researcher"?1.9:1.5;
+    const amp=agent.id==="compliance"?3:5;
+    const fn=ts=>{if(!t0.current)t0.current=ts;setBob(Math.sin(((ts-t0.current)/1000)*speed)*amp);rafRef.current=requestAnimationFrame(fn);};
+    rafRef.current=requestAnimationFrame(fn);
+    return()=>cancelAnimationFrame(rafRef.current);
+  },[agent.id]);
+  useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg={role:"user",content:input.trim()};
+    const history=[...msgs,userMsg];
+    setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+    try{
+      const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system,messages:history.map(m=>({role:m.role,content:m.content}))})});
+      if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+      const reader=res.body.getReader();const decoder=new TextDecoder();
+      let fullText="";let buffer="";
+      while(true){
+        const{done,value}=await reader.read();if(done)break;
+        buffer+=decoder.decode(value,{stream:true});
+        const lines=buffer.split("\n");buffer=lines.pop()||"";
+        for(const line of lines){
+          if(!line.startsWith("data: "))continue;
+          const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;
+          try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta")fullText+=ev.delta.text;}catch{}
+        }
+      }
+      setMsgs(p=>[...p,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+      setMood("excited");setTimeout(()=>setMood("idle"),2500);
+    }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+    setLoading(false);
+  };
+  return(
+    <div onClick={!active?onSelect:undefined} style={{borderRadius:28,border:`2.5px solid ${active?border:"#e8e8e8"}`,background:"white",boxShadow:active?`0 16px 48px ${color}66`:"0 2px 12px rgba(0,0,0,0.05)",transition:"all 0.4s cubic-bezier(0.34,1.56,0.64,1)",cursor:active?"default":"pointer",overflow:"hidden",display:"flex",flexDirection:"column",flex:active?"1 1 400px":"0 0 152px",minWidth:active?300:134,maxWidth:active?490:172,transform:active?"translateY(-6px)":"scale(0.96)"}}>
+      <div style={{background:"white",padding:active?"18px 20px 14px":"22px 12px 16px",display:"flex",flexDirection:active?"row":"column",alignItems:"center",gap:active?12:4,position:"relative",overflow:"hidden"}}>
+        <Blob mood={loading?"thinking":mood} bob={active?bob:bob*0.3}/>
+        <div style={{textAlign:active?"left":"center",position:"relative",zIndex:1}}>
+          <div style={{fontWeight:900,fontSize:active?19:14,color:"#1c1c1c",fontFamily:"Georgia,serif"}}>{name}</div>
+          <div style={{marginTop:3,fontSize:10,color:"#aaa",fontFamily:"monospace",letterSpacing:0.5}}>{title}</div>
+        </div>
+        {active&&<div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,zIndex:1}}><div style={{width:8,height:8,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 8px #22c55e"}}/><span style={{fontSize:9.5,color:"#888",fontWeight:700,opacity:0.8,fontFamily:"monospace"}}>ONLINE</span></div>}
+      </div>
+      {active&&<>
+        <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"#fafafa",minHeight:260,maxHeight:360}}>
+          {msgs.map((m,i)=><_AgentBubble key={i} msg={m} bg={bg} border={`${border}66`}/>)}
+          {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:bg,border:`1.5px solid ${border}55`,borderRadius:"6px 18px 18px 18px"}}><_AgentDots color={accent}/></div></div>}
+        </div>
+        <div style={{padding:"12px 14px",background:"white",borderTop:"1.5px solid #f0f0f0",display:"flex",gap:8}}>
+          <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder} rows={2} style={{flex:1,resize:"none",border:`2px solid ${input?border:"#e8e8e8"}`,borderRadius:14,padding:"9px 13px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1c1c1c",background:bg,transition:"border 0.2s"}}/>
+          <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e8e8e8":color,border:`2px solid ${loading||!input.trim()?"#e8e8e8":border}`,color:loading||!input.trim()?"#bbb":textColor,borderRadius:14,padding:"0 16px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:20,alignSelf:"stretch",minWidth:48}}>↑</button>
+        </div>
+      </>}
+      {!active&&<div style={{padding:"6px 10px 14px",textAlign:"center",fontSize:11,color:"#ccc",fontFamily:"monospace"}}>tap to chat {emoji}</div>}
+    </div>
+  );
+}
 
 // ─── PDF EXPORT via Blob URL ──────────────────────────────────────────────────
 const exportToPDF = (content, title) => {
@@ -933,6 +1088,9 @@ export default function OnnaDashboard() {
   const [outlookLoading,setOutlookLoading] = useState(false);
   const [outlookError,setOutlookError]     = useState("");
 
+  // ── Agents state ──────────────────────────────────────────────────────────────
+  const [agentActiveIdx,setAgentActiveIdx] = useState(0);
+
   // Load Google Identity Services script once
   useEffect(()=>{
     if (!GCAL_CLIENT_ID) return;
@@ -1299,6 +1457,107 @@ export default function OnnaDashboard() {
       setAiMsg(""); setAttachedFile(null);
     } catch {}
     setAiLoading(false);
+  };
+
+  // ── Agent markdown renderer ───────────────────────────────────────────────────
+  const fmtInline = (text) => {
+    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    return parts.map((p,i)=>{
+      if (p.startsWith("**")&&p.endsWith("**")) return <strong key={i}>{p.slice(2,-2)}</strong>;
+      if (p.startsWith("`")&&p.endsWith("`")) return <code key={i} style={{background:"rgba(0,0,0,0.07)",borderRadius:4,padding:"1px 5px",fontSize:"0.88em",fontFamily:"monospace"}}>{p.slice(1,-1)}</code>;
+      return <span key={i}>{p}</span>;
+    });
+  };
+  const renderAgentMd = (text) => {
+    if (!text) return null;
+    const lines = text.split("\n");
+    const out = []; let inCode=false; let codeLines=[]; let inTable=false; let tableRows=[];
+    const flushTable = (key) => {
+      if (!tableRows.length) return;
+      out.push(<div key={`t${key}`} style={{overflowX:"auto",marginBottom:6}}>
+        <table style={{borderCollapse:"collapse",fontSize:11.5,width:"100%"}}>
+          {tableRows.map((r,ri)=><tr key={ri}>{r.map((c,ci)=>{
+            const Tag=ri===0?"th":"td";
+            return <Tag key={ci} style={{border:"1px solid #d1d1d6",padding:"4px 8px",textAlign:"left",background:ri===0?"#f5f5f7":"transparent",whiteSpace:"nowrap"}}>{fmtInline(c.trim())}</Tag>;
+          })}</tr>)}
+        </table></div>);
+      tableRows=[];
+    };
+    lines.forEach((line,i)=>{
+      if (line.startsWith("```")) {
+        if (inCode) { out.push(<pre key={i} style={{background:"#f2f2f7",borderRadius:8,padding:"10px 12px",overflowX:"auto",fontSize:11.5,lineHeight:1.5,margin:"4px 0",fontFamily:"monospace"}}>{codeLines.join("\n")}</pre>); codeLines=[]; inCode=false; }
+        else { if(inTable){flushTable(i);inTable=false;} inCode=true; } return;
+      }
+      if (inCode) { codeLines.push(line); return; }
+      if (line.startsWith("|")) {
+        const cells = line.split("|").slice(1,-1);
+        if (!cells.every(c=>/^[-: ]+$/.test(c))) { inTable=true; tableRows.push(cells); }
+        return;
+      }
+      if (inTable) { flushTable(i); inTable=false; }
+      if (line.startsWith("### ")) { out.push(<div key={i} style={{fontWeight:700,fontSize:12.5,marginTop:10,marginBottom:2,color:"#1d1d1f"}}>{fmtInline(line.slice(4))}</div>); return; }
+      if (line.startsWith("## "))  { out.push(<div key={i} style={{fontWeight:700,fontSize:14,marginTop:12,marginBottom:4,color:"#1d1d1f"}}>{fmtInline(line.slice(3))}</div>); return; }
+      if (line.startsWith("# "))   { out.push(<div key={i} style={{fontWeight:700,fontSize:16,marginTop:14,marginBottom:6,color:"#1d1d1f"}}>{fmtInline(line.slice(2))}</div>); return; }
+      if (line.match(/^[-*]\s/))   { out.push(<div key={i} style={{display:"flex",gap:6,marginBottom:1.5}}><span style={{flexShrink:0,marginTop:2}}>•</span><span style={{lineHeight:1.55}}>{fmtInline(line.slice(2))}</span></div>); return; }
+      const numMatch = line.match(/^(\d+)\.\s(.*)$/);
+      if (numMatch) { out.push(<div key={i} style={{display:"flex",gap:6,marginBottom:1.5}}><span style={{flexShrink:0,minWidth:16,textAlign:"right",marginTop:2}}>{numMatch[1]}.</span><span style={{lineHeight:1.55}}>{fmtInline(numMatch[2])}</span></div>); return; }
+      if (!line.trim()) { out.push(<div key={i} style={{height:5}}/>); return; }
+      out.push(<div key={i} style={{lineHeight:1.6,marginBottom:1}}>{fmtInline(line)}</div>);
+    });
+    if (inTable) flushTable("end");
+    return out;
+  };
+
+  // ── Agent streaming chat ──────────────────────────────────────────────────────
+  const sendAgentMessage = async (agentId, userText) => {
+    if (!userText.trim() || agentStreaming) return;
+    const userMsg = {role:"user", content:userText.trim()};
+    const history = [...(agentChats[agentId]||[]), userMsg];
+    setAgentChats(prev=>({...prev,[agentId]:history}));
+    setAgentInput("");
+    setAgentStreaming(true);
+    setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:"",streaming:true}]}));
+    try {
+      const messages = history.map(m=>({role:m.role,content:m.content}));
+      const res = await fetch(`/api/agents/${agentId}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages})});
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({error:`HTTP ${res.status}`}));
+        setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:`Error: ${e.error||"Unknown error"}`,streaming:false}]}));
+        setAgentStreaming(false); return;
+      }
+      const reader = res.body.getReader(); const decoder = new TextDecoder();
+      let fullText=""; let buffer="";
+      while (true) {
+        const {done,value} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value,{stream:true});
+        const lines = buffer.split("\n"); buffer = lines.pop()||"";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw||raw==="[DONE]") continue;
+          try {
+            const ev = JSON.parse(raw);
+            if (ev.type==="content_block_delta"&&ev.delta?.type==="text_delta") {
+              fullText += ev.delta.text;
+              setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:fullText,streaming:true}]}));
+            }
+            if (ev.type==="message_stop") {
+              setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:fullText,streaming:false}]}));
+            }
+            if (ev.error) {
+              fullText += (fullText?"\n\n":"")+`⚠️ ${ev.error}`;
+              setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:fullText,streaming:false}]}));
+            }
+          } catch {}
+        }
+      }
+      setAgentChats(prev=>({...prev,[agentId]:prev[agentId].map((m,i)=>i===prev[agentId].length-1?{...m,streaming:false}:m)}));
+    } catch(err) {
+      setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:`Error: ${err.message}`,streaming:false}]}));
+    }
+    setAgentStreaming(false);
+    setTimeout(()=>agentChatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
   };
 
   const generateContract = async p => {
@@ -1730,6 +1989,13 @@ export default function OnnaDashboard() {
         .todo-item:hover{background:#f5f5f7;border-radius:8px;}
         .mob-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
         .bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border:none;background:transparent;cursor:pointer;font-family:inherit;transition:color 0.12s;}
+        @keyframes sparkle{0%,100%{opacity:0;transform:scale(0.2) rotate(0deg);}50%{opacity:1;transform:scale(1) rotate(90deg);}}
+        @keyframes bop{0%,80%,100%{transform:scale(1) translateY(0)}40%{transform:scale(1.4) translateY(-6px)}}
+        @keyframes floatStar{0%{transform:translate(0,0) scale(0.8);opacity:0.6;}25%{transform:translate(4px,-5px) scale(1.1);opacity:1;}50%{transform:translate(8px,2px) scale(0.9);opacity:0.8;}75%{transform:translate(3px,6px) scale(1);opacity:1;}100%{transform:translate(0,0) scale(0.8);opacity:0.6;}}
+        .agent-card{transition:all 0.15s ease;cursor:pointer;}
+        .agent-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,0.1)!important;}
+        .agent-chat-msg{animation:fadeInMsg 0.18s ease;}
+        @keyframes fadeInMsg{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
       `}</style>
 
       {/* ── SIDEBAR (desktop only) ── */}
@@ -2618,6 +2884,23 @@ export default function OnnaDashboard() {
               )}
             </div>
           )}
+
+        {/* ── AGENTS TAB ── */}
+        {activeTab==="Agents"&&(
+          <div>
+            <div style={{textAlign:"center",marginBottom:32}}>
+              <div style={{display:"inline-block",background:"rgba(255,255,255,0.8)",border:"1.5px solid rgba(0,0,0,0.07)",borderRadius:99,padding:"4px 16px",marginBottom:12,fontSize:10,letterSpacing:2,color:"#bbb",fontFamily:"monospace"}}>ONNA · AGENT SQUAD</div>
+              <h1 style={{fontSize:isMobile?22:28,fontWeight:900,margin:"0 0 6px",fontFamily:"Georgia,serif",color:"#1c1c1c",letterSpacing:-0.5}}>Meet Your Agents 👋</h1>
+              <p style={{color:"#bbb",fontSize:13,margin:0}}>Click an agent to start chatting</p>
+            </div>
+            <div style={{display:"flex",gap:14,width:"100%",alignItems:"flex-start",flexWrap:"wrap",justifyContent:"center"}}>
+              {AGENT_DEFS.map((a,i)=>(
+                <AgentCard key={a.id} agent={a} active={agentActiveIdx===i} onSelect={()=>setAgentActiveIdx(i)}/>
+              ))}
+            </div>
+            <div style={{marginTop:36,textAlign:"center",fontSize:10,color:"#ddd",letterSpacing:2,fontFamily:"monospace"}}>POWERED BY CLAUDE · ONNA.WORLD</div>
+          </div>
+        )}
 
         {/* ── NOTES TAB ── */}
         {activeTab==="Notes"&&(
