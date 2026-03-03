@@ -280,9 +280,9 @@ function _Minnie({mood="idle",bob=0}){
 }
 const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
-   system:`You are Vendor Vinnie, ONNA's contact extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to extract vendor and client information from emails and save them to the correct list.
+   system:`You are Vendor Vinnie, ONNA's contact and outreach assistant. ONNA is a film/TV production company in Dubai. You do two things: save vendors/suppliers to the database, and log outreach contacts to the pipeline tracker.
 
-When asked to find a contact, search their Outlook emails and pull out the details.
+When the user mentions contacting someone (e.g. "I just spoke to Aman at X"), extract the details and add them to the outreach tracker with today's date auto-filled.
 
 Be warm, brief and direct.`,
    placeholder:`Create New Vendor`,
@@ -466,6 +466,24 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         }
         setLoading(false);setMood("idle");
       }catch(e){setMsgs([...history,{role:"assistant",content:"Something went wrong: "+e.message}]);setLoading(false);setMood("idle");}
+      return;
+    }
+
+    // ── Vinnie: add to outreach tracker ──────────────────────────────────────
+    if(agent.id==="logistical"&&/outreach|just contacted|add.*lead|add.*pipeline|pipeline|i contacted|i spoke|i met/i.test(input.trim())){
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+      const today=new Date().toISOString().slice(0,10);
+      try{
+        const sys=`Extract contact info from this message and return ONLY a raw JSON object (no markdown, no array). Fields: {"company":"","contact":"","role":"","email":"","phone":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"not_contacted"}. Use today's date (${today}) for "date" unless the message specifies otherwise. For category, pick the closest match from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial.`;
+        const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
+        const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
+        const entry={...parsed,_type:"lead",date:parsed.date||today,status:"not_contacted"};
+        showEntry(entry,"lead");
+        setMsgs([...history,{role:"assistant",content:`Got it! I've set up a lead for ${entry.contact||entry.company||"this contact"} with today's date (${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}). Review the details and save below.`}]);
+      }catch(e){
+        setMsgs([...history,{role:"assistant",content:"Hmm, I had trouble parsing that. Try: 'I contacted [Name] at [Company], [email], [category].'"}]);
+      }
+      setLoading(false);setMood("idle");
       return;
     }
 
@@ -1312,12 +1330,6 @@ export default function OnnaDashboard() {
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
-  const [vendorMsg,setVendorMsg]                         = useState("");
-  const [vendorLoading,setVendorLoading]                 = useState(false);
-  const [leadMsg,setLeadMsg]                             = useState("");
-  const [leadAiLoading,setLeadAiLoading]                 = useState(false);
-  const [clientMsg,setClientMsg]                         = useState("");
-  const [clientAiLoading,setClientAiLoading]             = useState(false);
   const [outreachCatFilter,setOutreachCatFilter]         = useState("All");
   const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
@@ -1629,20 +1641,6 @@ export default function OnnaDashboard() {
     setOutreachLoading(false);
   };
 
-  const processLeadAI = async () => {
-    if (!leadMsg.trim()) return;
-    setLeadAiLoading(true);
-    try {
-      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:800,system:_aiSystem,messages:[{role:"user",content:leadMsg}]});
-      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
-      const entries = (Array.isArray(parsed)?parsed:[parsed]).map(e=>({...e,status:"not_contacted",value:0}));
-      const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
-      const newOutreach = saved.filter(e=>e.id);
-      setOutreach(prev=>[...prev,...newOutreach]);
-      setLeadMsg("");
-    } catch {}
-    setLeadAiLoading(false);
-  };
 
   // Promote a lead/outreach entry to a client record when status → "client"
   const promoteToClient = async (entity) => {
@@ -1661,35 +1659,7 @@ export default function OnnaDashboard() {
     if (saved.id) setLocalClients(prev=>[...prev,saved]);
   };
 
-  const processClientAI = async () => {
-    if (!clientMsg.trim()) return;
-    setClientAiLoading(true);
-    try {
-      const sys = `Extract client info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","name":"","email":"","phone":"","country":"","notes":""}. country = location like "Dubai, UAE".`;
-      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:clientMsg}]});
-      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
-      const entries = Array.isArray(parsed)?parsed:[parsed];
-      const saved = await Promise.all(entries.map(e=>api.post("/api/clients",e)));
-      saved.filter(e=>e.id).forEach(e=>setLocalClients(prev=>[...prev,e]));
-      setClientMsg("");
-    } catch {}
-    setClientAiLoading(false);
-  };
 
-  const processVendorAI = async () => {
-    if (!vendorMsg.trim()) return;
-    setVendorLoading(true);
-    try {
-      const sys = `Extract vendor/supplier info and return ONLY a raw JSON array with no markdown. Each item: {"name":"","category":"","email":"","phone":"","website":"","location":"","notes":"","rateCard":""}. location format like "Dubai, UAE". website without https://.`;
-      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:vendorMsg}]});
-      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
-      const entries = Array.isArray(parsed)?parsed:[parsed];
-      const saved = await Promise.all(entries.map(e=>api.post("/api/vendors",e)));
-      saved.filter(e=>e.id).forEach(e=>setVendors(prev=>[...prev,e]));
-      setVendorMsg("");
-    } catch {}
-    setVendorLoading(false);
-  };
 
   // ── Vault functions ───────────────────────────────────────────────────────────
   const unlockVault = async () => {
@@ -2629,13 +2599,6 @@ export default function OnnaDashboard() {
           {/* ══ VENDORS ══ */}
           {activeTab==="Vendors"&&(
             <div>
-              <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Vendor via AI</div>
-                <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
-                  <textarea value={vendorMsg} onChange={e=>setVendorMsg(e.target.value)} rows={2} placeholder={`e.g. "Studio X - Ali Hassan | ali@studiox.com, +971 50 123 4567, studiox.ae, Photography, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                  <BtnPrimary onClick={processVendorAI} disabled={vendorLoading||!vendorMsg.trim()}>{vendorLoading?"Adding…":"Add"}</BtnPrimary>
-                </div>
-              </div>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                 <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
                 <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n){setBbCat(n);setBbLocation("All");}}else{setBbCat(v);setBbLocation("All");}}} options={allVendorCats} minWidth={170}/>
@@ -2643,6 +2606,7 @@ export default function OnnaDashboard() {
                 <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
                 <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                 <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
+                <BtnPrimary onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>
               </div>
               <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
@@ -2812,18 +2776,12 @@ export default function OnnaDashboard() {
 
               {leadsView==="leads"&&(
                 <div>
-                  <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Lead via AI</div>
-                    <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
-                      <textarea value={leadMsg} onChange={e=>setLeadMsg(e.target.value)} rows={2} placeholder={`e.g. "Nike - Sarah Johnson | Brand Director sarah@nike.com, 1 Mar 2026, Sports, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                      <BtnPrimary onClick={processLeadAI} disabled={leadAiLoading||!leadMsg.trim()}>{leadAiLoading?"Adding…":"Add"}</BtnPrimary>
-                    </div>
-                  </div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Leads")} onChange={v=>setSearch("Leads",v)} placeholder="Search company or contact…"/>
                     <span style={{fontSize:12,color:T.muted}}>{filteredLeads.length} leads</span>
                     <button onClick={()=>downloadCSV(filteredLeads,[{key:"company",label:"Company"},{key:"contact",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"},{key:"value",label:"Value (AED)"},{key:"location",label:"Location"},{key:"notes",label:"Notes"}],"leads.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                     <button onClick={()=>exportTablePDF(filteredLeads,[{key:"company",label:"Company"},{key:"contact",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Leads Pipeline")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
+                    <BtnPrimary onClick={()=>setShowAddLead(true)}>+ New Lead</BtnPrimary>
                   </div>
                   <div style={{display:"flex",gap:16,marginBottom:12,flexWrap:"wrap"}}>
                     {[["not_contacted","Not yet reached out","#c0392b","#fff3e0"],["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
@@ -2858,13 +2816,6 @@ export default function OnnaDashboard() {
 
               {leadsView==="clients"&&(
                 <div>
-                  <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Client via AI</div>
-                    <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
-                      <textarea value={clientMsg} onChange={e=>setClientMsg(e.target.value)} rows={2} placeholder={`e.g. "Nike - Sarah Johnson | Brand Director sarah@nike.com +971501234567, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                      <BtnPrimary onClick={processClientAI} disabled={clientAiLoading||!clientMsg.trim()}>{clientAiLoading?"Adding…":"Add"}</BtnPrimary>
-                    </div>
-                  </div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
                     <SearchBar value={getSearch("Clients")} onChange={v=>setSearch("Clients",v)} placeholder="Search clients…"/>
                     <span style={{fontSize:12,color:T.muted}}>{localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length} clients</span>
