@@ -266,8 +266,8 @@ const AGENT_DEFS = [
 When asked to find a contact, search their Outlook emails and pull out the details.
 
 Be warm, brief and direct.`,
-   placeholder:`Paste an email, or type: "Elie Kolko, Equipment Rental, Dubai Vendor, e@cinegear.com"`,
-   intro:"Hey! I'm Vinnie. Paste an email and I'll extract the contact info, or type a quick entry like: Name, Category, Location Vendor, email@domain.com"},
+   placeholder:`Create New Vendor`,
+   intro:"Hey! I'm Vinnie. Let me create your database! ✏️"},
   {id:"compliance",name:"Connie",title:"Compliance",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
    system:`You are Connie, a serious compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments. Be thorough and formal. Cover: location risks, equipment hazards, talent welfare, UAE permits (Media Regulatory Authority, Dubai Film Permit), weather, emergency protocols. Reference actual UAE laws. Structure output clearly with sections.`,
    placeholder:"Describe your project for a risk assessment...",
