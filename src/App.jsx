@@ -417,7 +417,9 @@ function _AgentBubble({msg}){
 function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
-  const [input,setInput]       =useState("");
+  const [input,_setInput]       =useState("");
+  const _inputRef=useRef("");
+  const setInput=(v)=>{_inputRef.current=v;_setInput(v);};
   const [loading,setLoading]   =useState(false);
   const [mood,setMood]         =useState("idle");
   const [bob,setBob]           =useState(0);
@@ -459,19 +461,19 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(type==="vendor"){
       if(!entry.email)qs.push({key:"email",q:"Email address?"});
       if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
-      if(!entry.category||!_VENDOR_CATS.includes(entry.category))qs.push({key:"category",q:"Category? Locations · Hair & Makeup · Stylists · Casting · Catering · Set Design · Equipment · Crew · Production"});
+      if(!entry.category||!_VENDOR_CATS.includes(entry.category))qs.push({key:"category",q:"Category?",options:_VENDOR_CATS,addNew:true});
       if(!entry.website)qs.push({key:"website",q:"Website?"});
       if(!entry.rateCard)qs.push({key:"rateCard",q:"Any rate card info?"});
-      qs.push({key:"location",q:"Location? (default: Dubai, UAE)"});
+      qs.push({key:"location",q:"Location?",options:["Dubai, UAE","London, UK","New York, US","Los Angeles, US"],addNew:true});
       qs.push({key:"notes",q:"Any notes?"});
     }else{
       if(!entry.role)qs.push({key:"role",q:"Their role or title?"});
       if(!entry.email)qs.push({key:"email",q:"Email address?"});
       if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
-      if(!entry.category||!_LEAD_CATS.includes(entry.category))qs.push({key:"category",q:"Category? Production Companies · Creative Agencies · Beauty & Fragrance · Jewellery & Watches · Fashion · Editorial · Sports · Hospitality · Market Research · Commercial"});
+      if(!entry.category||!_LEAD_CATS.includes(entry.category))qs.push({key:"category",q:"Category?",options:_LEAD_CATS,addNew:true});
       if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
       if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Lead status — cold, warm, or open?"});
-      qs.push({key:"location",q:`Location? (default: Dubai, UAE)`});
+      qs.push({key:"location",q:"Location?",options:["Dubai, UAE","London, UK","New York, US","Los Angeles, US"],addNew:true});
       qs.push({key:"source",q:"How did you find them? Direct · Referral · LinkedIn · Website · Cold Outreach · Event · Other"});
       qs.push({key:"notes",q:"Any notes?"});
     }
@@ -525,7 +527,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   );
 
   const send=async()=>{
-    if(!input.trim()||loading)return;
+    if(!_inputRef.current.trim()||loading)return;
+    const input=_inputRef.current;
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
@@ -539,7 +542,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     if(pendingConv){
       setMsgs(history);setInput("");
-      const isSkip=/^(skip|s|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
+      const isSkip=/^(x|skip|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
       const conv=pendingConv;
       const q=conv.questions[conv.idx];
       let e={...conv.entry};
@@ -557,12 +560,12 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
           }else{
             setPendingConv({...conv,_awaitingNewCat:false,entry:e,idx:next});
-            setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'skip' to leave blank)"}]);
+            setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'x' to skip)"}]);
           }
         }else if(isNo){
           // re-ask the category question
           setPendingConv({...conv,_awaitingNewCat:false,entry:{...e,category:""}});
-          setMsgs([...history,{role:"assistant",content:q.q+" (or 'skip' to leave blank)"}]);
+          setMsgs([...history,{role:"assistant",content:q.q+" (or 'x' to skip)"}]);
         }else{
           setMsgs([...history,{role:"assistant",content:"Add new category? Reply yes or no."}]);
         }
@@ -581,7 +584,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             e.value=Number(input.replace(/[^0-9.]/g,""))||0;
           }else if(q.key==="category"){
             const validCats=conv.type==="vendor"?_VENDOR_CATS:_LEAD_CATS;
-            const match=validCats.find(c=>c.toLowerCase()===input.trim().toLowerCase());
+            const inp=input.trim().toLowerCase();
+            const match=validCats.find(c=>c.toLowerCase()===inp)||validCats.find(c=>c.toLowerCase().startsWith(inp)||inp.startsWith(c.toLowerCase().split(" ")[0]))||validCats.find(c=>c.toLowerCase().includes(inp)||inp.includes(c.toLowerCase().replace(/ & /," ").split(" ")[0]));
             if(match){
               e.category=match;
             }else{
@@ -600,7 +604,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
       }else{
         setPendingConv({...conv,entry:e,idx:next});
-        setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'skip' to leave blank)"}]);
+        setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'x' to skip)"}]);
       }
       return;
     }
@@ -651,7 +655,17 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
-        const sys=`You are an expert at parsing natural language vendor/supplier descriptions. Extract vendor info and return ONLY a raw JSON object (no markdown, no array). Fields: {"name":"","category":"","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}. For category pick from: Locations, Hair and Makeup, Stylists, Casting, Catering, Set Design, Equipment, Crew, Production. Default location to "Dubai, UAE" if not specified.`;
+        const sys=`You are an expert at parsing natural language vendor/supplier descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).
+
+Rules:
+- Names: anything that looks like a person/company name → "name"
+- Emails: anything with @ → "email". Infer name from domain if no name given
+- Phone numbers: digits with +/spaces/dashes → "phone"
+- Website: domain only (no https://)
+- Category: fuzzy match to closest from: Locations, Hair and Makeup, Stylists, Casting, Catering, Set Design, Equipment, Crew, Production. E.g. "photographer" → "Crew", "MUA" → "Hair and Makeup", "location scout" → "Locations"
+- Location: any city/country mentioned, default "Dubai, UAE"
+
+Fields: {"name":"","category":"","email":"","phone":"","website":"","location":"City, Country","notes":"","rateCard":""}.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
         const entry={...parsed,_type:"vendor",location:parsed.location||"Dubai, UAE"};
@@ -664,11 +678,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         }else if(sim?.exact){
           const merged={...sim.record,...entry};
           const fq=startConv(merged,"vendor",false,sim.record.id);
-          setMsgs([...history,{role:"assistant",content:fq?`${vname} exists — merging. ${fq} (or 'skip' to leave blank)`:`${vname} exists — merging. Review below.`}]);
+          setMsgs([...history,{role:"assistant",content:fq?`${vname} exists — merging. ${fq} (or 'x' to skip)`:`${vname} exists — merging. Review below.`}]);
         }else{
           const firstQ=startConv(entry,"vendor",false,null);
           if(firstQ){
-            setMsgs([...history,{role:"assistant",content:`Got it — ${vname} pulled. Let me fill in the gaps. (say 'skip' to leave blank)\n\n${firstQ}`}]);
+            setMsgs([...history,{role:"assistant",content:`Got it — ${vname} pulled. Let me fill in the gaps. ('x' to skip)\n\n${firstQ}`}]);
           }else{
             showEntry(entry,"vendor",null,false);
             setMsgs([...history,{role:"assistant",content:`Got it — review details for ${vname} below and hit Save.`}]);
@@ -686,7 +700,18 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
       try{
-        const sys=`You are an expert at parsing natural language contact descriptions. Extract contact info and return ONLY a raw JSON object (no markdown, no array). Parse sentences like "Emily Lucas at Mr Porter, Head of Production today" as contact:"Emily Lucas", company:"Mr Porter", role:"Head of Production". Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"not_contacted"}. Use today's date (${today}) for "date" unless specified. Only fill category if clearly stated — leave blank otherwise. For status leave as not_contacted unless user explicitly says warm/open/cold.`;
+        const sys=`You are an expert at parsing natural language contact descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).
+
+Rules:
+- Names: anything that looks like a person's name → "contact"
+- Emails: anything with @ → "email". Infer company from domain (e.g. emily@mrporter.com → company:"Mr Porter")
+- Phone numbers: digits with +/spaces/dashes → "phone"
+- Category: fuzzy match to the closest from this list: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial. E.g. "Production Company" → "Production Companies", "Beauty" → "Beauty & Fragrance", "Fashion brand" → "Fashion"
+- Location: any city/country mentioned → "location", default "Dubai, UAE"
+- Date: use today (${today}) unless explicitly stated
+- Status: default "not_contacted" unless user says warm/open/cold
+
+Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"not_contacted"}.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
         const entry={...parsed,_type:"lead",date:parsed.date||today,status:parsed.status||"not_contacted"};
@@ -694,7 +719,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const name=entry.contact||entry.company||"this contact";
         const firstQ=startConv(entry,"lead",isOutreach,null);
         if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Got it — ${name} pulled. Let me fill in the gaps. (say 'skip' to leave blank)\n\n${firstQ}`}]);
+          setMsgs([...history,{role:"assistant",content:`Got it — ${name} pulled. Let me fill in the gaps. ('x' to skip)\n\n${firstQ}`}]);
         }else{
           showEntry(entry,"lead",null,isOutreach);
           setMsgs([...history,{role:"assistant",content:`Got it — review details for ${name} below and hit Save.`}]);
@@ -717,12 +742,12 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const merged={...similar.record,...entry};
         setPendingDuplicate(null);
         const fq1=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
-        setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'skip' to leave blank)`:`Updating ${existName} — review below.`}]);
+        setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'x' to skip)`:`Updating ${existName} — review below.`}]);
       }else if(isNo){
         const qname=entry._type==="vendor"?entry.name:entry.contact;
         setPendingDuplicate(null);
         const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
-        setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'skip' to leave blank)`:`New entry for ${qname||"this contact"} — review below.`}]);
+        setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
       }else{
         const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
         setMsgs([...history,{role:"assistant",content:`Just to confirm — did you mean the existing entry "${existName}"? Reply yes or no.`}]);
@@ -752,7 +777,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         }else{
           const foundEntry={...l,_type:"lead"};
           const fqf=startConv(foundEntry,"lead",false,null);
-          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'skip' to leave blank)":"\n\nReview and save below."}`}]);
+          setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
         }
       }else{
         setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the extension is installed.`}]);
@@ -770,10 +795,10 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       }else if(sim?.exact){
         const merged={...sim.record,...quickEntry};
         const fqe=startConv(merged,sim.type,false,sim.record.id);
-        setMsgs([...history,{role:"assistant",content:fqe?`${qname} exists — merging.\n\n${fqe} (or 'skip' to leave blank)`:`${qname} exists — merging. Review below.`}]);
+        setMsgs([...history,{role:"assistant",content:fqe?`${qname} exists — merging.\n\n${fqe} (or 'x' to skip)`:`${qname} exists — merging. Review below.`}]);
       }else{
         const fqn=startConv(quickEntry,quickEntry._type,false,null);
-        setMsgs([...history,{role:"assistant",content:fqn?`Got it!\n\n${fqn} (or 'skip' to leave blank)`:`Got it. Review and save below.`}]);
+        setMsgs([...history,{role:"assistant",content:fqn?`Got it!\n\n${fqn} (or 'x' to skip)`:`Got it. Review and save below.`}]);
       }
       setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
     }
@@ -842,7 +867,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I also found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
           }else{
             const fqp=startConv(parsed,type,false,sim?.record?.id||null);
-            setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${fqp?"\n\n"+fqp+" (or 'skip' to leave blank)":"\n\nReview and save below."}`}]);
+            setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${fqp?"\n\n"+fqp+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
           }
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
@@ -928,9 +953,24 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
     </div>
 
+    {/* dropdown option buttons for category/location questions */}
+    {pendingConv&&!pendingConv._awaitingNewCat&&pendingConv.questions[pendingConv.idx]?.options&&(
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7"}}>
+        {pendingConv.questions[pendingConv.idx].options.map(opt=>(
+          <button key={opt} type="button" onClick={()=>{setInput(opt);setTimeout(send,0);}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:11.5,fontWeight:500,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
+            {opt}
+          </button>
+        ))}
+        {pendingConv.questions[pendingConv.idx].addNew&&(
+          <button type="button" onClick={()=>{const ta=document.querySelector('[data-vinnie-ta]');if(ta){ta.focus();}}} style={{padding:"5px 10px",borderRadius:8,border:"1px dashed #aeaeb2",background:"transparent",fontSize:11.5,fontWeight:500,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
+            + Add New
+          </button>
+        )}
+      </div>
+    )}
     {/* inline input bar */}
-    <div style={{padding:"10px 12px",background:"white",borderTop:"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
-      <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
+    <div style={{padding:"10px 12px",background:"white",borderTop:pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"none":"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
+      <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e5e5ea":"#1d1d1f",border:"none",color:loading||!input.trim()?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
   </>);
@@ -1882,16 +1922,23 @@ export default function OnnaDashboard() {
     ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
     : (_parseDate(b.date)||new Date(0))-(_parseDate(a.date)||new Date(0)));
 
-  // Dashboard todos — general only (project todos stay in their project pages)
-  const allTodos = todos.filter(t=>!archivedTodos.find(a=>a.id===t.id));
+  // Dashboard todos — general and project kept strictly separate
+  const allProjectTodosFlat = Object.entries(projectTodos).flatMap(([pid,tlist])=>
+    (tlist||[]).map(t=>({...t,_source:"project",projectId:Number(pid)}))
+  );
+  const generalTodos = todos.filter(t=>!archivedTodos.find(a=>a.id===t.id)).map(t=>({...t,_source:"general"}));
+  const projectTodosFlat = allProjectTodosFlat.filter(t=>!archivedTodos.find(a=>a.id===t.id));
+  const allTodos = [...generalTodos,...projectTodosFlat];
   const filteredTodos = allTodos.filter(t=>{
-    if (todoFilter==="todo") return !["later","longterm"].includes(t.subType);
-    if (todoFilter==="general") return true;
-    if (todoFilter==="general-later") return t.subType==="later";
-    if (todoFilter==="general-longterm") return t.subType==="longterm";
+    if (todoFilter==="todo") return t._source==="general" && !["later","longterm"].includes(t.subType);
+    if (todoFilter==="general") return t._source==="general";
+    if (todoFilter==="general-later") return t._source==="general" && t.subType==="later";
+    if (todoFilter==="general-longterm") return t._source==="general" && t.subType==="longterm";
+    if (todoFilter==="project") return t._source==="project";
+    if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-",""));
     return true;
   });
-  const todoTopFilter = todoFilter==="todo"?"todo":todoFilter.startsWith("general")||todoFilter==="general"?"general":"todo";
+  const todoTopFilter = todoFilter==="todo"?"todo":todoFilter.startsWith("general")||todoFilter==="general"?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
   const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
   const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
@@ -2823,7 +2870,7 @@ export default function OnnaDashboard() {
                     </div>
                     {/* Top-level filter tabs */}
                     <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
-                      {[["todo","To Do"],["general","General"]].map(([val,label])=>(
+                      {[["todo","To Do"],["general","General"],["project","Projects"]].map(([val,label])=>(
                         <button key={val} onClick={()=>setTodoFilter(val)} style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
                       ))}
                     </div>
@@ -2835,21 +2882,30 @@ export default function OnnaDashboard() {
                         ))}
                       </div>
                     )}
+                    {todoTopFilter==="project"&&(
+                      <div style={{paddingBottom:10}}>
+                        <select value={todoFilter} onChange={e=>setTodoFilter(e.target.value)} style={{width:"100%",padding:"7px 28px 7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+                          <option value="project">All projects</option>
+                          {allProjectsMerged.map(p=>(<option key={p.id} value={`project-${p.id}`}>{p.name}</option>))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                   {/* Task list — shows ~5 items then scrolls */}
                   <div style={{padding:"6px 12px",overflowY:"auto",maxHeight:215}}>
                     {filteredTodos.map(t=>(
                       <div key={t.id} className="todo-item" style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}>
-                        <button onClick={e=>{e.stopPropagation();setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
+                        <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
                           {t.done&&<span style={{color:"#fff",fontSize:9,lineHeight:1,fontWeight:700}}>✓</span>}
                         </button>
                         <div style={{flex:1,minWidth:0}}>
                           <span style={{fontSize:13,color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
-                          {t.subType&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
+                          {t._source==="project"&&<div style={{fontSize:10.5,color:T.muted,marginTop:1}}>{allProjectsMerged.find(p=>p.id===t.projectId)?.name||"Project"}</div>}
+                          {t._source==="general"&&t.subType&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
                         </div>
                         <div className="todo-del" style={{display:"flex",gap:3}}>
                           <button onClick={e=>{e.stopPropagation();setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
-                          <button onClick={e=>{e.stopPropagation();setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                          <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).filter(x=>x.id!==t.id)})):setTodos(prev=>prev.filter(x=>x.id!==t.id)));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
                         </div>
                       </div>
                     ))}
@@ -2857,8 +2913,8 @@ export default function OnnaDashboard() {
                   </div>
                   {/* Add input */}
                   <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
-                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);setNewTodo("");}}} placeholder={todoFilter==="general-later"?"Add later task…":todoFilter==="general-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
+                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="general-later"?"Add later task…":todoFilter==="general-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
                   </div>
                 </div>
               </div>
