@@ -501,9 +501,9 @@ const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
 // ─── DASH NOTES COMPONENT ────────────────────────────────────────────────────
 const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
   const editorRef = useRef(null);
+  const [hoveredNoteId,setHoveredNoteId] = useState(null);
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
 
-  // Sync editor HTML only when switching notes (not on every keystroke)
   useEffect(()=>{
     if (editorRef.current) editorRef.current.innerHTML = selectedNote?.content||"";
   },[selectedId]); // eslint-disable-line
@@ -512,19 +512,23 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
     if (!selectedNote||!editorRef.current) return;
     setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:editorRef.current.innerHTML,updatedAt:Date.now()}:n));
   };
+  const updateTitle = (val) => {
+    setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,title:val,updatedAt:Date.now()}:n));
+  };
   const createNote = () => {
-    const n={id:Date.now(),content:"",updatedAt:Date.now()};
+    const n={id:Date.now(),title:"",content:"",updatedAt:Date.now()};
     setNotes(prev=>[n,...prev]); setSelectedId(n.id);
   };
-  const deleteNote = (id) => {
+  const deleteNote = (id,e) => {
+    e?.stopPropagation();
     if (!window.confirm("Delete this note?")) return;
     setNotes(prev=>prev.filter(n=>n.id!==id));
     if (selectedId===id) setSelectedId(null);
   };
   const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
   const getPlain = (html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
-  const getTitle = (n) => getPlain(n.content).split("\n")[0].trim().slice(0,50)||"New Note";
-  const getPreview = (n) => { const p=getPlain(n.content).replace(/\n+/g," "); return p.slice(getTitle(n).length).trim().slice(0,55); };
+  const getTitle = (n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note";
+  const getPreview = (n) => { const p=getPlain(n.content).replace(/\n+/g," ").trim(); return p.slice(0,60); };
   const fmtDate = (ts) => { if(!ts)return""; const d=new Date(ts),now=new Date(); if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString([],{month:"short",day:"numeric"}); };
   const sorted = [...notes].sort((a,b)=>b.updatedAt-a.updatedAt);
   const showList = !isMobile||!selectedNote;
@@ -541,12 +545,15 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
           <div style={{flex:1,overflowY:"auto"}}>
             {sorted.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
             {sorted.map(n=>(
-              <div key={n.id} onClick={()=>setSelectedId(n.id)} style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s"}}>
-                <div style={{fontSize:12.5,fontWeight:600,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
-                <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
-                  <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
-                  <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
+              <div key={n.id} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
+                  <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
+                    <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
+                    <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
+                  </div>
                 </div>
+                {hoveredNoteId===n.id&&<button onClick={e=>deleteNote(n.id,e)} style={{background:"none",border:"none",color:"#c0392b",cursor:"pointer",fontSize:15,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Delete note">×</button>}
               </div>
             ))}
           </div>
@@ -563,6 +570,8 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
                 <button onMouseDown={e=>{e.preventDefault();fmt("italic");}} style={{...TBtnStyle,fontStyle:"italic"}}>I</button>
                 <button onMouseDown={e=>{e.preventDefault();fmt("underline");}} style={{...TBtnStyle,textDecoration:"underline"}}>U</button>
                 <button onMouseDown={e=>{e.preventDefault();fmt("strikeThrough");}} style={{...TBtnStyle,textDecoration:"line-through"}}>S</button>
+                <button onMouseDown={e=>{e.preventDefault();fmt("insertUnorderedList");}} title="Bullet list" style={{...TBtnStyle,fontSize:13}}>•≡</button>
+                <button onMouseDown={e=>{e.preventDefault();fmt("insertOrderedList");}} title="Numbered list" style={{...TBtnStyle,fontSize:11}}>1≡</button>
                 <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
                 <select onMouseDown={e=>e.stopPropagation()} onChange={e=>{fmt("fontName",e.target.value);editorRef.current?.focus();}} defaultValue="" style={{...TBtnStyle,minWidth:90,padding:"0 4px",fontSize:11}}>
                   <option value="">Font</option>
@@ -582,23 +591,23 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
                   <option value="6">XXL</option>
                 </select>
                 <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
-                {/* Text colours */}
                 {["#1d1d1f","#c0392b","#1a56db","#147d50","#8e24aa","#e67e22"].map(c=>(
                   <button key={c} onMouseDown={e=>{e.preventDefault();fmt("foreColor",c);}} title={c} style={{width:16,height:16,borderRadius:"50%",background:c,border:"1.5px solid rgba(0,0,0,0.18)",cursor:"pointer",padding:0,flexShrink:0}}/>
                 ))}
                 <div style={{width:1,height:18,background:T.border,margin:"0 2px"}}/>
-                {/* Highlight colours */}
                 {[["#fff176","Yellow"],["#b3f0d4","Green"],["#b3d4f5","Blue"],["#ffd6d6","Red"]].map(([bg,lbl])=>(
                   <button key={bg} onMouseDown={e=>{e.preventDefault();fmt("hiliteColor",bg);}} title={`Highlight ${lbl}`} style={{width:16,height:16,borderRadius:3,background:bg,border:"1.5px solid rgba(0,0,0,0.12)",cursor:"pointer",padding:0,flexShrink:0}}/>
                 ))}
                 <button onMouseDown={e=>{e.preventDefault();fmt("hiliteColor","transparent");}} title="Clear highlight" style={{...TBtnStyle,fontSize:10,color:T.muted,minWidth:16,width:16,padding:0}}>✕</button>
                 <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
                   <span style={{fontSize:10.5,color:T.muted}}>{fmtDate(selectedNote.updatedAt)}</span>
-                  <button onClick={()=>deleteNote(selectedNote.id)} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"2px 4px",borderRadius:5,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Delete</button>
+                  <button onClick={e=>deleteNote(selectedNote.id,e)} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"2px 4px",borderRadius:5,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>Delete</button>
                 </div>
               </div>
+              {/* Title input */}
+              <input value={selectedNote.title||""} onChange={e=>updateTitle(e.target.value)} placeholder="Title" style={{border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"14px 20px 10px",fontSize:20,fontWeight:700,color:T.text,outline:"none",background:"transparent",fontFamily:"inherit",width:"100%",boxSizing:"border-box",flexShrink:0}}/>
               {/* Editable content */}
-              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={updateContent} style={{flex:1,padding:"16px 20px",outline:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.75,overflowY:"auto",boxSizing:"border-box"}}/>
+              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={updateContent} style={{flex:1,padding:"12px 20px 16px",outline:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.75,overflowY:"auto",boxSizing:"border-box"}}/>
             </>
           ) : (
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:T.muted}}>
@@ -1787,6 +1796,81 @@ export default function OnnaDashboard() {
           {/* ══ DASHBOARD ══ */}
           {activeTab==="Dashboard"&&(
             <div>
+              {/* ── Google Calendar Widget ── */}
+              {(()=>{
+                const today = new Date();
+                const yr = calMonth.getFullYear();
+                const mo = calMonth.getMonth();
+                const firstDay = new Date(yr, mo, 1);
+                const lastDay  = new Date(yr, mo+1, 0);
+                const startOffset = (firstDay.getDay() + 6) % 7;
+                const totalCells  = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+                const cells = Array.from({length:totalCells}, (_,i) => { const d = i - startOffset + 1; return (d < 1 || d > lastDay.getDate()) ? null : new Date(yr, mo, d); });
+                const seen0 = new Set();
+                const allCalEvents0 = [...gcalEvents, ...outlookEvents].filter(ev => { const day=ev.start?.date||ev.start?.dateTime?.slice(0,10); const k=(ev.summary||"").trim().toLowerCase()+"|"+day; if(seen0.has(k))return false; seen0.add(k); return true; });
+                const eventsByDay0 = {};
+                allCalEvents0.forEach(ev => { const startStr=ev.start?.date||ev.start?.dateTime?.slice(0,10); if(!startStr)return; const endStr=ev.end?.date||ev.end?.dateTime?.slice(0,10)||startStr; const cursor=new Date(startStr+"T00:00:00"); const endD=new Date(endStr+"T00:00:00"); const startKey=cursor.toISOString().slice(0,10); let guard=0; while(cursor<endD||cursor.toISOString().slice(0,10)===startKey){const key=cursor.toISOString().slice(0,10);if(!eventsByDay0[key])eventsByDay0[key]=[];eventsByDay0[key].push(ev);cursor.setDate(cursor.getDate()+1);if(++guard>14)break;} });
+                const DAY_LABELS0 = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+                const monthLabel = calMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+                return (
+                  <div style={{marginBottom:isMobile?12:18,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <div style={{padding:"13px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa",flexWrap:"wrap",gap:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Calendar</span>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>‹</button>
+                          <span style={{fontSize:13.5,fontWeight:600,color:T.text,minWidth:isMobile?106:120,textAlign:"center"}}>{monthLabel}</span>
+                          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>›</button>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5}}>
+                          <span style={{width:7,height:7,borderRadius:"50%",background:outlookLoading?"#f59e0b":outlookError?"#ef4444":outlookEvents.length>0?"#0078d4":"#d1d1d6",display:"inline-block",flexShrink:0}}/>
+                          <span style={{fontSize:11,color:outlookError?"#ef4444":T.muted,fontWeight:500}} title={outlookError||undefined}>{outlookLoading?"Syncing…":outlookError?"Outlook error (↻ retry)":outlookEvents.length>0?`Outlook (${outlookEvents.length})`:"Outlook"}</span>
+                          <button onClick={fetchOutlookCal} disabled={outlookLoading} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>↻</button>
+                        </div>
+                        <div style={{width:1,height:12,background:T.border}}/>
+                        {gcalToken ? (
+                          <div style={{display:"flex",alignItems:"center",gap:5}}>
+                            <span style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",display:"inline-block",flexShrink:0}}/>
+                            <span style={{fontSize:11,color:T.muted,fontWeight:500}}>Google</span>
+                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);try{sessionStorage.removeItem('onna_gcal_token');sessionStorage.removeItem('onna_gcal_exp');}catch{}}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
+                          </div>
+                        ) : GCAL_CLIENT_ID ? (
+                          <button onClick={connectGCal} style={{padding:"4px 10px",borderRadius:7,background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Google Calendar</button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div style={{padding:isMobile?"8px 6px":"12px 14px"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:3}}>
+                        {DAY_LABELS0.map(d=>(<div key={d} style={{textAlign:"center",fontSize:isMobile?9:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",padding:"2px 0 5px"}}>{d}</div>))}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:isMobile?2:3}}>
+                        {cells.map((date,i)=>{
+                          if (!date) return <div key={`e${i}`} style={{minHeight:isMobile?44:66}}/>;
+                          const key=date.toISOString().slice(0,10);
+                          const isToday=key===today.toISOString().slice(0,10);
+                          const isWeekend=date.getDay()===0||date.getDay()===6;
+                          const dayEvs=eventsByDay0[key]||[];
+                          return (
+                            <div key={key} onClick={()=>setCalDayView(date)} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px":"4px 5px",display:"flex",flexDirection:"column",gap:2,overflow:"hidden",minWidth:0,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=isToday?T.accent+"25":"#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=isToday?T.accent+"15":"transparent"}>
+                              <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start",flexShrink:0}}>{date.getDate()}</span>
+                              {isMobile?(dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>):(
+                                <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden",minWidth:0}}>
+                                  {dayEvs.slice(0,3).map((ev,ei)=>{const col=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);const title=ev.summary||"(no title)";const time=ev.start?.dateTime?new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}):null;return(<div key={ei} title={`${time?time+" ":""}${title}`} style={{fontSize:9.5,background:col+"22",color:col,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500,lineHeight:1.5,minWidth:0,width:"100%",boxSizing:"border-box"}}>{time?`${time} `:""}{title}</div>);})}
+                                  {dayEvs.length>3&&<div style={{fontSize:9,color:T.muted,lineHeight:1.4}}>+{dayEvs.length-3} more</div>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Loading events…</div>}
+                      {!gcalToken&&!gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Connect Google Calendar to see your events here</div>}
+                    </div>
+                  </div>
+                );
+              })()}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
                 <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
@@ -1796,7 +1880,7 @@ export default function OnnaDashboard() {
                   </div>
                   <div style={{overflowY:"auto",maxHeight:480}}>
                     {activeProjects.map((p,i)=>(
-                      <div key={p.id} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div key={p.id} onClick={()=>{setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");}} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                         <div>
                           <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,fontWeight:500}}>{p.client}</div>
                           <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
@@ -1847,8 +1931,8 @@ export default function OnnaDashboard() {
                       </div>
                     )}
                   </div>
-                  {/* Task list */}
-                  <div style={{padding:"6px 12px",flex:1,overflowY:"auto",maxHeight:480}}>
+                  {/* Task list — shows ~5 items then scrolls */}
+                  <div style={{padding:"6px 12px",overflowY:"auto",maxHeight:215}}>
                     {filteredTodos.map(t=>(
                       <div key={t.id} className="todo-item" style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}>
                         <button onClick={e=>{e.stopPropagation();(t.projectId?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
@@ -1879,121 +1963,6 @@ export default function OnnaDashboard() {
               {/* ── Notes ── */}
               <DashNotes notes={dashNotesList} setNotes={setDashNotesList} selectedId={dashSelectedNoteId} setSelectedId={setDashSelectedNoteId} isMobile={isMobile}/>
 
-              {/* ── Google Calendar Widget ── */}
-              {(()=>{
-                const today = new Date();
-                const yr = calMonth.getFullYear();
-                const mo = calMonth.getMonth();
-                const firstDay = new Date(yr, mo, 1);
-                const lastDay  = new Date(yr, mo+1, 0);
-                const startOffset = (firstDay.getDay() + 6) % 7; // Mon=0
-                const totalCells  = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
-                const cells = Array.from({length:totalCells}, (_,i) => {
-                  const d = i - startOffset + 1;
-                  return (d < 1 || d > lastDay.getDate()) ? null : new Date(yr, mo, d);
-                });
-                // Deduplicate: if GCal and Outlook have the same event title on the same day, keep only GCal
-                const seen = new Set();
-                const allCalEvents = [...gcalEvents, ...outlookEvents].filter(ev => {
-                  const day = ev.start?.date || ev.start?.dateTime?.slice(0,10);
-                  const key = (ev.summary||"").trim().toLowerCase() + "|" + day;
-                  if (seen.has(key)) return false;
-                  seen.add(key);
-                  return true;
-                });
-                const eventsByDay = {};
-                allCalEvents.forEach(ev => {
-                  const startStr = ev.start?.date || ev.start?.dateTime?.slice(0,10);
-                  if (!startStr) return;
-                  const endStr   = ev.end?.date   || ev.end?.dateTime?.slice(0,10)   || startStr;
-                  const cursor = new Date(startStr+"T00:00:00");
-                  const endD   = new Date(endStr  +"T00:00:00");
-                  const startKey = cursor.toISOString().slice(0,10); // UTC key — must compare like-for-like
-                  let guard = 0;
-                  while (cursor < endD || cursor.toISOString().slice(0,10) === startKey) {
-                    const key = cursor.toISOString().slice(0,10);
-                    if (!eventsByDay[key]) eventsByDay[key] = [];
-                    eventsByDay[key].push(ev);
-                    cursor.setDate(cursor.getDate()+1);
-                    if (++guard > 14) break;
-                  }
-                });
-                const DAY_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-                const monthLabel = calMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
-                return (
-                  <div style={{marginTop:isMobile?12:18,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    {/* Header */}
-                    <div style={{padding:"13px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa",flexWrap:"wrap",gap:8}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Calendar</span>
-                        <div style={{display:"flex",alignItems:"center",gap:4}}>
-                          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()-1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>‹</button>
-                          <span style={{fontSize:13.5,fontWeight:600,color:T.text,minWidth:isMobile?106:120,textAlign:"center"}}>{monthLabel}</span>
-                          <button onClick={()=>setCalMonth(m=>new Date(m.getFullYear(),m.getMonth()+1,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,padding:"1px 7px",cursor:"pointer",fontSize:14,color:T.sub,lineHeight:1.5,fontFamily:"inherit"}}>›</button>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                        {/* Outlook status */}
-                        <div style={{display:"flex",alignItems:"center",gap:5}}>
-                          <span style={{width:7,height:7,borderRadius:"50%",background:outlookLoading?"#f59e0b":outlookError?"#ef4444":outlookEvents.length>0?"#0078d4":"#d1d1d6",display:"inline-block",flexShrink:0}}/>
-                          <span style={{fontSize:11,color:outlookError?"#ef4444":T.muted,fontWeight:500}} title={outlookError||undefined}>{outlookLoading?"Syncing…":outlookError?`Outlook error (↻ retry)`:outlookEvents.length>0?`Outlook (${outlookEvents.length})`:"Outlook"}</span>
-                          <button onClick={fetchOutlookCal} disabled={outlookLoading} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>↻</button>
-                        </div>
-                        <div style={{width:1,height:12,background:T.border}}/>
-                        {/* Google Calendar status */}
-                        {gcalToken ? (
-                          <div style={{display:"flex",alignItems:"center",gap:5}}>
-                            <span style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",display:"inline-block",flexShrink:0}}/>
-                            <span style={{fontSize:11,color:T.muted,fontWeight:500}}>Google</span>
-                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);try{sessionStorage.removeItem('onna_gcal_token');sessionStorage.removeItem('onna_gcal_exp');}catch{}}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
-                          </div>
-                        ) : GCAL_CLIENT_ID ? (
-                          <button onClick={connectGCal} style={{padding:"4px 10px",borderRadius:7,background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Google Calendar</button>
-                        ) : null}
-                      </div>
-                    </div>
-                    {/* Grid */}
-                    <div style={{padding:isMobile?"8px 6px":"12px 14px"}}>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:3}}>
-                        {DAY_LABELS.map(d=>(
-                          <div key={d} style={{textAlign:"center",fontSize:isMobile?9:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",padding:"2px 0 5px"}}>{d}</div>
-                        ))}
-                      </div>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:isMobile?2:3}}>
-                        {cells.map((date,i)=>{
-                          if (!date) return <div key={`e${i}`} style={{minHeight:isMobile?44:66}}/>;
-                          const key = date.toISOString().slice(0,10);
-                          const isToday = key===today.toISOString().slice(0,10);
-                          const isWeekend = date.getDay()===0||date.getDay()===6;
-                          const dayEvs = eventsByDay[key]||[];
-                          return (
-                            <div key={key} onClick={()=>setCalDayView(date)} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2,overflow:"hidden",minWidth:0,cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=isToday?T.accent+"25":"#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=isToday?T.accent+"15":"transparent"}>
-                              <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start",flexShrink:0}}>{date.getDate()}</span>
-                              {isMobile ? (
-                                dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>
-                              ) : (
-                                <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden",minWidth:0}}>
-                                  {dayEvs.slice(0,3).map((ev,ei)=>{
-                                    const col = ev.colorId ? (gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent) : (ev.calendarColor||T.accent);
-                                    const title = ev.summary||"(no title)";
-                                    const time  = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}) : null;
-                                    return (
-                                      <div key={ei} title={`${time?time+" ":""}${title}`} style={{fontSize:9.5,background:col+"22",color:col,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500,lineHeight:1.5,minWidth:0,width:"100%",boxSizing:"border-box"}}>{time?`${time} `:""}{title}</div>
-                                    );
-                                  })}
-                                  {dayEvs.length>3&&<div style={{fontSize:9,color:T.muted,lineHeight:1.4}}>+{dayEvs.length-3} more</div>}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Loading events…</div>}
-                      {!gcalToken&&!gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Connect Google Calendar to see your events here</div>}
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           )}
 
