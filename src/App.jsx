@@ -1620,14 +1620,16 @@ export default function OnnaDashboard() {
   const [projectYear,setProjectYear]                     = useState(2026);
   const [selectedProject,setSelectedProject]             = useState(null);
   const [projectSection,setProjectSection]               = useState("Home");
+  const [creativeSubSection,setCreativeSubSection]       = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
   const [aiMsg,setAiMsg]                                 = useState("");
   const [aiLoading,setAiLoading]                         = useState(false);
   const [attachedFile,setAttachedFile]                   = useState(null);
   const [projectFiles,setProjectFiles]                   = useState({});
+  const [projectFileStore,setProjectFileStore]           = useState(()=>{try{const s=localStorage.getItem('onna_project_files');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectCasting,setProjectCasting]               = useState({});
   const [projectLocLinks,setProjectLocLinks]             = useState({});
-  const [projectCreativeLinks,setProjectCreativeLinks]   = useState({});
+  const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectContracts,setProjectContracts]           = useState({});
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
@@ -1704,6 +1706,8 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
   useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
+  useEffect(()=>{try{localStorage.setItem('onna_project_files',JSON.stringify(projectFileStore))}catch{}},[projectFileStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
@@ -2211,7 +2215,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home");
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
@@ -2359,7 +2363,7 @@ export default function OnnaDashboard() {
 
     const SECTION_META = {
       "Finances":       {emoji:"💰",count:`${entries.length} transactions`},
-      "Creative":       {emoji:"🎨",count:`${getProjectFiles(p.id,"moodboards").length+getProjectFiles(p.id,"briefs").length} files`},
+      "Creative":       {emoji:"🎨",count:`${((projectFileStore[p.id]||{}).moodboards||[]).length+((projectFileStore[p.id]||{}).briefs||[]).length} files`},
       "Estimates":      {emoji:"📋",count:`${(projectEstimates[p.id]||[]).length} version(s)`},
       "Contracts":      {emoji:"📝",count:"Generate contract"},
       "Quotes":         {emoji:"💬",count:`${quotes.length} quote(s)`},
@@ -2403,7 +2407,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>setProjectSection(sec)} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -2462,36 +2466,94 @@ export default function OnnaDashboard() {
       </div>
     );
 
-    if (projectSection==="Creative") return (
-      <div style={{display:"flex",flexDirection:"column",gap:28}}>
-        {/* ── Moodboard ── */}
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Moodboard</div>
-          <p style={{fontSize:12.5,color:T.muted,marginBottom:14}}>Upload moodboard files or link a Dropbox / Drive folder.</p>
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
-            <div style={{display:"flex",gap:10}}>
-              <input value={(projectCreativeLinks[p.id]||{}).moodboard||""} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),moodboard:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-              {(projectCreativeLinks[p.id]||{}).moodboard&&<a href={(projectCreativeLinks[p.id]||{}).moodboard} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Open ↗</a>}
+    if (projectSection==="Creative") {
+      const storeFiles = (projectFileStore[p.id]||{});
+      const moodFiles = storeFiles.moodboards||[];
+      const briefFiles = storeFiles.briefs||[];
+
+      const addStoredFiles = async (category, fileList) => {
+        const newEntries = [];
+        for (const f of fileList) {
+          if (f.size > 10*1024*1024) { alert(`"${f.name}" is over 10 MB. Please use the Dropbox / Drive link for large files.`); continue; }
+          const data = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
+          newEntries.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});
+        }
+        if (newEntries.length===0) return;
+        setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),...newEntries]}}));
+      };
+      const deleteStoredFile = (category, fileId) => {
+        setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:((prev[p.id]||{})[category]||[]).filter(f=>f.id!==fileId)}}));
+      };
+      const downloadStoredFile = (file) => {
+        const a=document.createElement("a"); a.href=file.data; a.download=file.name; a.click();
+      };
+
+      const FileVersionList = ({files,category}) => (
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
+          {files.map((f,i)=>(
+            <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+              <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
+              <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"📄":f.type?.includes("image")?"🖼":"📎"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+              </div>
+              <button onClick={()=>downloadStoredFile(f)} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
+              <button onClick={()=>{if(confirm(`Delete V${i+1} — ${f.name}?`))deleteStoredFile(category,f.id);}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
             </div>
-          </div>
-          <UploadZone label="Upload moodboard files (PDF, images)" files={getProjectFiles(p.id,"moodboards")} onAdd={f=>addProjectFiles(p.id,"moodboards",f)}/>
+          ))}
         </div>
-        {/* ── Brief ── */}
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Brief</div>
-          <p style={{fontSize:12.5,color:T.muted,marginBottom:14}}>Upload creative briefs or link a Dropbox / Drive folder.</p>
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
-            <div style={{display:"flex",gap:10}}>
-              <input value={(projectCreativeLinks[p.id]||{}).brief||""} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),brief:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-              {(projectCreativeLinks[p.id]||{}).brief&&<a href={(projectCreativeLinks[p.id]||{}).brief} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Open ↗</a>}
+      );
+
+      // Sub-section file manager
+      const renderFileManager = (category, label, linkKey) => {
+        const files = category==="moodboards"?moodFiles:briefFiles;
+        const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
+        return (
+          <div>
+            <button onClick={()=>setCreativeSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
+            <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
+            <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or link a Dropbox / Drive folder.</p>
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+              <div style={{display:"flex",gap:10}}>
+                <input value={link} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[linkKey]:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                {link&&<a href={link} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Open ↗</a>}
+              </div>
             </div>
+            <UploadZone label={`Upload ${label.toLowerCase()} files (PDF, images)`} files={[]} onAdd={f=>addStoredFiles(category,f)}/>
+            {files.length>0&&(
+              <>
+                <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:22,marginBottom:6}}>{files.length} file{files.length!==1?"s":""} uploaded</div>
+                <FileVersionList files={files} category={category}/>
+              </>
+            )}
           </div>
-          <UploadZone label="Upload brief documents (PDF, images)" files={getProjectFiles(p.id,"briefs")} onAdd={f=>addProjectFiles(p.id,"briefs",f)}/>
+        );
+      };
+
+      // Sub-navigation: show two cards if no sub-section selected
+      if (!creativeSubSection) return (
+        <div>
+          <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Creative assets for this project.</p>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
+            {[["moodboard","Moodboard","🎨",moodFiles],["brief","Brief","📋",briefFiles]].map(([key,label,emoji,files])=>(
+              <div key={key} onClick={()=>setCreativeSubSection(key)} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
+                <div style={{minWidth:0,flex:1}}>
+                  <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
+                  <div style={{fontSize:12,color:T.muted}}>{files.length} file{files.length!==1?"s":""}</div>
+                </div>
+                <span style={{color:T.muted,fontSize:16,flexShrink:0}}>›</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    );
+      );
+
+      if (creativeSubSection==="moodboard") return renderFileManager("moodboards","Moodboard","moodboard");
+      if (creativeSubSection==="brief") return renderFileManager("briefs","Brief","brief");
+    }
 
     if (projectSection==="Estimates") {
       const estimates    = projectEstimates[p.id]||[];
@@ -2774,7 +2836,7 @@ export default function OnnaDashboard() {
           <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
             {isMobile&&<img src="/logo.png" alt="ONNA" style={{height:18,width:"auto",marginRight:6,flexShrink:0}}/>}
             <span style={{fontSize:isMobile?14:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentTab.label}</span>
-            {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300,flexShrink:0}}>›</span><span style={{fontSize:isMobile?12:14,color:T.sub,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedProject.name}</span>{!isMobile&&projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}</span></>}</>}
+            {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300,flexShrink:0}}>›</span><span style={{fontSize:isMobile?12:14,color:T.sub,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedProject.name}</span>{!isMobile&&projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}{creativeSubSection?` › ${creativeSubSection==="moodboard"?"Moodboard":"Brief"}`:""}</span></>}</>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:isMobile?6:10,flexShrink:0}}>
             {!isMobile&&apiLoading&&<span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}><span style={{width:6,height:6,borderRadius:"50%",background:"#92680a",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}/>Syncing…</span>}
@@ -3320,12 +3382,12 @@ export default function OnnaDashboard() {
             if (selectedProject) return (
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
-                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
-                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
+                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
