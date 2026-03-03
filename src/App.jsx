@@ -111,7 +111,7 @@ const parseICS = (text) => {
   Object.values(excMap).forEach(ex=>{const ds=ex.start?.date||ex.start?.dateTime?.slice(0,10);if(ds){const d=new Date(ds+"T00:00:00");if(d>=winStart&&d<=winEnd)events.push(ex);}});
   return events;
 };
-const PROJECT_SECTIONS = ["Home","Finances","Creative Brief","Estimates","Contracts","Quotes","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
+const PROJECT_SECTIONS = ["Home","Finances","Creative","Estimates","Contracts","Quotes","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
@@ -1627,6 +1627,7 @@ export default function OnnaDashboard() {
   const [projectFiles,setProjectFiles]                   = useState({});
   const [projectCasting,setProjectCasting]               = useState({});
   const [projectLocLinks,setProjectLocLinks]             = useState({});
+  const [projectCreativeLinks,setProjectCreativeLinks]   = useState({});
   const [projectContracts,setProjectContracts]           = useState({});
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
@@ -2358,7 +2359,7 @@ export default function OnnaDashboard() {
 
     const SECTION_META = {
       "Finances":       {emoji:"💰",count:`${entries.length} transactions`},
-      "Creative Brief": {emoji:"🎨",count:`${getProjectFiles(p.id,"briefs").length} files`},
+      "Creative":       {emoji:"🎨",count:`${getProjectFiles(p.id,"moodboards").length+getProjectFiles(p.id,"briefs").length} files`},
       "Estimates":      {emoji:"📋",count:`${(projectEstimates[p.id]||[]).length} version(s)`},
       "Contracts":      {emoji:"📝",count:"Generate contract"},
       "Quotes":         {emoji:"💬",count:`${quotes.length} quote(s)`},
@@ -2461,9 +2462,35 @@ export default function OnnaDashboard() {
       </div>
     );
 
-    if (projectSection==="Creative Brief") return (
-      <div><p style={{fontSize:13,color:T.sub,marginBottom:18}}>Upload mood boards, creative briefs, references and creative documents for this project.</p>
-      <UploadZone label="Upload briefs & mood boards (PDF, images)" files={getProjectFiles(p.id,"briefs")} onAdd={f=>addProjectFiles(p.id,"briefs",f)}/></div>
+    if (projectSection==="Creative") return (
+      <div style={{display:"flex",flexDirection:"column",gap:28}}>
+        {/* ── Moodboard ── */}
+        <div>
+          <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Moodboard</div>
+          <p style={{fontSize:12.5,color:T.muted,marginBottom:14}}>Upload moodboard files or link a Dropbox / Drive folder.</p>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+            <div style={{display:"flex",gap:10}}>
+              <input value={(projectCreativeLinks[p.id]||{}).moodboard||""} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),moodboard:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              {(projectCreativeLinks[p.id]||{}).moodboard&&<a href={(projectCreativeLinks[p.id]||{}).moodboard} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Open ↗</a>}
+            </div>
+          </div>
+          <UploadZone label="Upload moodboard files (PDF, images)" files={getProjectFiles(p.id,"moodboards")} onAdd={f=>addProjectFiles(p.id,"moodboards",f)}/>
+        </div>
+        {/* ── Brief ── */}
+        <div>
+          <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Brief</div>
+          <p style={{fontSize:12.5,color:T.muted,marginBottom:14}}>Upload creative briefs or link a Dropbox / Drive folder.</p>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+            <div style={{display:"flex",gap:10}}>
+              <input value={(projectCreativeLinks[p.id]||{}).brief||""} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),brief:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              {(projectCreativeLinks[p.id]||{}).brief&&<a href={(projectCreativeLinks[p.id]||{}).brief} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Open ↗</a>}
+            </div>
+          </div>
+          <UploadZone label="Upload brief documents (PDF, images)" files={getProjectFiles(p.id,"briefs")} onAdd={f=>addProjectFiles(p.id,"briefs",f)}/>
+        </div>
+      </div>
     );
 
     if (projectSection==="Estimates") {
