@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
@@ -377,7 +378,7 @@ function parseQuickEntry(text){
   const emailPart=parts.find(p=>/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(p));
   if(!emailPart)return null;
   const nonEmail=parts.filter(p=>p!==emailPart);
-  const isVendor=/vendor|supplier/i.test(text);
+  const isVendor=/vendor|supplier|equipment|studio|hire|rental|crew|freelancer|photographer|videographer|stylist|catering|set design|casting|hair and makeup/i.test(text);
   const locPart=nonEmail.find(p=>/dubai|london|uae|uk|abu dhabi/i.test(p));
   const loc=locPart?locPart.replace(/\b(vendor|supplier|client|customer)\b/gi,"").replace(/[,\s]+$/,"").trim():"Dubai, UAE";
   if(isVendor){
@@ -538,10 +539,36 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     if(pendingConv){
       setMsgs(history);setInput("");
-      const isSkip=/^(skip|s|no|nope|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
+      const isSkip=/^(skip|s|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
       const conv=pendingConv;
       const q=conv.questions[conv.idx];
       let e={...conv.entry};
+
+      // ── Handle pending "add new category?" confirmation ──
+      if(conv._awaitingNewCat){
+        const isYes=/^(yes|yep|yeah|y|sure|ok|create|add)\b/i.test(input.trim());
+        const isNo=/^(no|nope|nah|n|cancel)\b/i.test(input.trim());
+        if(isYes){
+          // keep the custom category as-is, advance to next question
+          const next=conv.idx+1;
+          if(next>=conv.questions.length){
+            setPendingConv(null);
+            showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+            setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+          }else{
+            setPendingConv({...conv,_awaitingNewCat:false,entry:e,idx:next});
+            setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'skip' to leave blank)"}]);
+          }
+        }else if(isNo){
+          // re-ask the category question
+          setPendingConv({...conv,_awaitingNewCat:false,entry:{...e,category:""}});
+          setMsgs([...history,{role:"assistant",content:q.q+" (or 'skip' to leave blank)"}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:"Add new category? Reply yes or no."}]);
+        }
+        return;
+      }
+
       if(q){
         if(isSkip){
           if(q.key==="location"&&!e.location)e.location="Dubai, UAE";
@@ -552,6 +579,17 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             else if(/open/i.test(input))e.status="open";
           }else if(q.key==="value"){
             e.value=Number(input.replace(/[^0-9.]/g,""))||0;
+          }else if(q.key==="category"){
+            const validCats=conv.type==="vendor"?_VENDOR_CATS:_LEAD_CATS;
+            const match=validCats.find(c=>c.toLowerCase()===input.trim().toLowerCase());
+            if(match){
+              e.category=match;
+            }else{
+              e.category=input.trim();
+              setPendingConv({...conv,entry:e,_awaitingNewCat:true});
+              setMsgs([...history,{role:"assistant",content:\`"\${input.trim()}" isn't a recognised category. Add it as a new category?\`}]);
+              return;
+            }
           }else{e[q.key]=input.trim();}
         }
       }
@@ -608,8 +646,43 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       return;
     }
 
-    // ── Vinnie: add to outreach tracker ──────────────────────────────────────
-    if(agent.id==="logistical"&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
+    // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
+    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(input.trim())&&!/outreach|tracker|pipeline/i.test(input.trim());
+    if(_isVendorIntent){
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+      try{
+        const sys=`You are an expert at parsing natural language vendor/supplier descriptions. Extract vendor info and return ONLY a raw JSON object (no markdown, no array). Fields: {"name":"","category":"","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}. For category pick from: Locations, Hair and Makeup, Stylists, Casting, Catering, Set Design, Equipment, Crew, Production. Default location to "Dubai, UAE" if not specified.`;
+        const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
+        const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
+        const entry={...parsed,_type:"vendor",location:parsed.location||"Dubai, UAE"};
+        const vname=entry.name||"this vendor";
+        const sim=findSimilar(vname,allVendors,allLeads);
+        if(sim&&!sim.exact){
+          const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
+          setPendingDuplicate({entry,similar:sim,saveAsOutreach:false});
+          setMsgs([...history,{role:"assistant",content:`Got it — ${vname}. I found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
+        }else if(sim?.exact){
+          const merged={...sim.record,...entry};
+          const fq=startConv(merged,"vendor",false,sim.record.id);
+          setMsgs([...history,{role:"assistant",content:fq?`${vname} exists — merging. ${fq} (or 'skip' to leave blank)`:`${vname} exists — merging. Review below.`}]);
+        }else{
+          const firstQ=startConv(entry,"vendor",false,null);
+          if(firstQ){
+            setMsgs([...history,{role:"assistant",content:`Got it — ${vname} pulled. Let me fill in the gaps. (say 'skip' to leave blank)\n\n${firstQ}`}]);
+          }else{
+            showEntry(entry,"vendor",null,false);
+            setMsgs([...history,{role:"assistant",content:`Got it — review details for ${vname} below and hit Save.`}]);
+          }
+        }
+      }catch(e){
+        setMsgs([...history,{role:"assistant",content:"Hmm, I had trouble parsing that. Try: 'New vendor [Name], [Category], [email]'"}]);
+      }
+      setLoading(false);setMood("idle");
+      return;
+    }
+
+    // ── Vinnie: add to outreach tracker / lead ───────────────────────────────
+    if(agent.id==="logistical"&&!/\b(vendor|supplier)\b/i.test(input.trim())&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
       try{
@@ -623,6 +696,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         if(firstQ){
           setMsgs([...history,{role:"assistant",content:`Got it — ${name} pulled. Let me fill in the gaps. (say 'skip' to leave blank)\n\n${firstQ}`}]);
         }else{
+          showEntry(entry,"lead",null,isOutreach);
           setMsgs([...history,{role:"assistant",content:`Got it — review details for ${name} below and hit Save.`}]);
         }
       }catch(e){
@@ -788,8 +862,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
   if(!active)return null;
   return(<>
-    {/* save modal */}
-    {pendingLead&&(
+    {/* save modal — portal to body so overflow:hidden parent can't clip it */}
+    {pendingLead&&createPortal(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",zIndex:201,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
         <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",padding:"24px",boxShadow:"0 24px 70px rgba(0,0,0,0.18)"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,paddingBottom:16,borderBottom:"1px solid #e5e5ea"}}>
@@ -830,7 +904,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           </div>
         </div>
       </div>
-    )}
+    ,document.body)}
 
     {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
@@ -1580,9 +1654,6 @@ export default function OnnaDashboard() {
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
-  const [todoDropdownOpen,setTodoDropdownOpen] = useState(false);
-  const [todoDropdownProject,setTodoDropdownProject] = useState(null);
-
   const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');return s?JSON.parse(s):[]}catch(e){return []}});
   const [newTodo,setNewTodo]         = useState("");
   const [todoFilter,setTodoFilter]   = useState("todo");
@@ -1811,24 +1882,16 @@ export default function OnnaDashboard() {
     ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
     : (_parseDate(b.date)||new Date(0))-(_parseDate(a.date)||new Date(0)));
 
-  // Merge all project todos into a flat list for master view
-  const allProjectTodosFlat = Object.entries(projectTodos).flatMap(([pid,tlist])=>
-    (tlist||[]).map(t=>({...t,type:"project",projectId:Number(pid)}))
-  );
-  const allTodos = [
-    ...todos.filter(t=>!archivedTodos.find(a=>a.id===t.id)),
-    ...allProjectTodosFlat.filter(t=>!archivedTodos.find(a=>a.id===t.id))
-  ];
+  // Dashboard todos — general only (project todos stay in their project pages)
+  const allTodos = todos.filter(t=>!archivedTodos.find(a=>a.id===t.id));
   const filteredTodos = allTodos.filter(t=>{
-    if (todoFilter==="todo") return t.type!=="project" && !["later","longterm"].includes(t.subType);
-    if (todoFilter==="general") return t.type!=="project";
-    if (todoFilter==="general-later") return t.type!=="project" && t.subType==="later";
-    if (todoFilter==="general-longterm") return t.type!=="project" && t.subType==="longterm";
-    if (todoFilter==="project") return t.type==="project";
-    if (todoFilter.startsWith("project-")) return t.projectId===Number(todoFilter.replace("project-",""));
+    if (todoFilter==="todo") return !["later","longterm"].includes(t.subType);
+    if (todoFilter==="general") return true;
+    if (todoFilter==="general-later") return t.subType==="later";
+    if (todoFilter==="general-longterm") return t.subType==="longterm";
     return true;
   });
-  const todoTopFilter = todoFilter==="todo"?"todo":todoFilter.startsWith("general")||todoFilter==="general"?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
+  const todoTopFilter = todoFilter==="todo"?"todo":todoFilter.startsWith("general")||todoFilter==="general"?"general":"todo";
 
   const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
   const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
@@ -2101,7 +2164,7 @@ export default function OnnaDashboard() {
   const changeTab = tab => {
     setActiveTab(tab); setSelectedProject(null); setProjectSection("Home");
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
-    if (tab==="Notes") {
+    if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
       api.get("/api/notes").then(data=>{ setNotes(Array.isArray(data)?data:[]); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
     }
@@ -2760,7 +2823,7 @@ export default function OnnaDashboard() {
                     </div>
                     {/* Top-level filter tabs */}
                     <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
-                      {[["todo","To Do"],["general","General"],["project","Projects"]].map(([val,label])=>(
+                      {[["todo","To Do"],["general","General"]].map(([val,label])=>(
                         <button key={val} onClick={()=>setTodoFilter(val)} style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
                       ))}
                     </div>
@@ -2772,37 +2835,21 @@ export default function OnnaDashboard() {
                         ))}
                       </div>
                     )}
-                    {todoTopFilter==="project"&&(
-                      <div style={{paddingBottom:10}}>
-                        <select
-                          value={todoFilter}
-                          onChange={e=>setTodoFilter(e.target.value)}
-                          style={{width:"100%",padding:"7px 28px 7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}
-                        >
-                          <option value="project">All projects</option>
-                          {allProjectsMerged.map(p=>(
-                            <option key={p.id} value={`project-${p.id}`}>{p.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
                   </div>
                   {/* Task list — shows ~5 items then scrolls */}
                   <div style={{padding:"6px 12px",overflowY:"auto",maxHeight:215}}>
                     {filteredTodos.map(t=>(
                       <div key={t.id} className="todo-item" style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}>
-                        <button onClick={e=>{e.stopPropagation();(t.projectId?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
+                        <button onClick={e=>{e.stopPropagation();setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
                           {t.done&&<span style={{color:"#fff",fontSize:9,lineHeight:1,fontWeight:700}}>✓</span>}
                         </button>
                         <div style={{flex:1,minWidth:0}}>
                           <span style={{fontSize:13,color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
-                          {t.projectId&&<div style={{fontSize:10.5,color:T.muted,marginTop:1}}>{allProjectsMerged.find(p=>p.id===t.projectId)?.name||"Project"}</div>}
-                          {!t.projectId&&t.type==="project"&&t.project&&<div style={{fontSize:10.5,color:T.muted,marginTop:1}}>{t.project}</div>}
-                          {t.subType&&!t.projectId&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
+                          {t.subType&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
                         </div>
                         <div className="todo-del" style={{display:"flex",gap:3}}>
                           <button onClick={e=>{e.stopPropagation();setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
-                          <button onClick={e=>{e.stopPropagation();(t.projectId?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).filter(x=>x.id!==t.id)})):setTodos(prev=>prev.filter(x=>x.id!==t.id)));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                          <button onClick={e=>{e.stopPropagation();setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
                         </div>
                       </div>
                     ))}
@@ -2810,8 +2857,8 @@ export default function OnnaDashboard() {
                   </div>
                   {/* Add input */}
                   <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
-                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else if(todoFilter==="project"){setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"project",project:"",details:""}]);}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="general-later"?"Add later task…":todoFilter==="general-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else if(todoFilter==="project"){setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"project",project:"",details:""}]);}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
+                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);setNewTodo("");}}} placeholder={todoFilter==="general-later"?"Add later task…":todoFilter==="general-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
                   </div>
                 </div>
               </div>
