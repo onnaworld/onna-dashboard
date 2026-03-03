@@ -890,7 +890,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     {/* save modal — portal to body so overflow:hidden parent can't clip it */}
     {pendingLead&&createPortal(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",zIndex:201,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-        <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",padding:"24px",boxShadow:"0 24px 70px rgba(0,0,0,0.18)"}}>
+        <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",padding:"24px",boxShadow:"0 24px 70px rgba(0,0,0,0.18)",fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,paddingBottom:16,borderBottom:"1px solid #e5e5ea"}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>{pendingId?(pendingType==="vendor"?"Update Vendor":"Update Lead"):(pendingType==="vendor"?"New Vendor":"New Lead")}</div>
@@ -962,7 +962,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           </button>
         ))}
         {pendingConv.questions[pendingConv.idx].addNew&&(
-          <button type="button" onClick={()=>{const ta=document.querySelector('[data-vinnie-ta]');if(ta){ta.focus();}}} style={{padding:"5px 10px",borderRadius:8,border:"1px dashed #aeaeb2",background:"transparent",fontSize:11.5,fontWeight:500,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
+          <button type="button" onClick={()=>{setInput("");const ta=document.querySelector('[data-vinnie-ta]');if(ta){ta.focus();ta.placeholder="Type new "+pendingConv.questions[pendingConv.idx].key+" and press Enter...";}}} style={{padding:"5px 10px",borderRadius:8,border:"1px dashed #d4aa20",background:"#fffef5",fontSize:11.5,fontWeight:600,color:"#7a5800",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#fef3c0";}} onMouseOut={e=>{e.currentTarget.style.background="#fffef5";}}>
             + Add New
           </button>
         )}
@@ -1922,9 +1922,10 @@ export default function OnnaDashboard() {
     ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
     : (_parseDate(b.date)||new Date(0))-(_parseDate(a.date)||new Date(0)));
 
-  // Dashboard todos — general and project kept strictly separate
+  // Dashboard todos — general and project kept strictly separate (projects = active only)
+  const activeProjectIds = new Set(activeProjects.map(p=>p.id));
   const allProjectTodosFlat = Object.entries(projectTodos).flatMap(([pid,tlist])=>
-    (tlist||[]).map(t=>({...t,_source:"project",projectId:Number(pid)}))
+    activeProjectIds.has(Number(pid)) ? (tlist||[]).map(t=>({...t,_source:"project",projectId:Number(pid)})) : []
   );
   const generalTodos = todos.filter(t=>!archivedTodos.find(a=>a.id===t.id)).map(t=>({...t,_source:"general"}));
   const projectTodosFlat = allProjectTodosFlat.filter(t=>!archivedTodos.find(a=>a.id===t.id));
@@ -2886,7 +2887,7 @@ export default function OnnaDashboard() {
                       <div style={{paddingBottom:10}}>
                         <select value={todoFilter} onChange={e=>setTodoFilter(e.target.value)} style={{width:"100%",padding:"7px 28px 7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
                           <option value="project">All projects</option>
-                          {allProjectsMerged.map(p=>(<option key={p.id} value={`project-${p.id}`}>{p.name}</option>))}
+                          {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(<option key={p.id} value={`project-${p.id}`}>{p.name}</option>))}
                         </select>
                       </div>
                     )}
