@@ -117,7 +117,7 @@ const parseICS = (text) => {
   Object.values(excMap).forEach(ex=>{const ds=ex.start?.date||ex.start?.dateTime?.slice(0,10);if(ds){const d=new Date(ds+"T00:00:00");if(d>=winStart&&d<=winEnd)events.push(ex);}});
   return events;
 };
-const PROJECT_SECTIONS = ["Home","Finances","Creative","Budget","Contracts","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
+const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Locations","Casting","Styling","Workbook"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
@@ -1628,6 +1628,7 @@ export default function OnnaDashboard() {
   const [projectSection,setProjectSection]               = useState("Home");
   const [creativeSubSection,setCreativeSubSection]       = useState(null);
   const [budgetSubSection,setBudgetSubSection]           = useState(null);
+  const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
   const [aiMsg,setAiMsg]                                 = useState("");
   const [aiLoading,setAiLoading]                         = useState(false);
@@ -2224,7 +2225,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
@@ -2371,16 +2372,12 @@ export default function OnnaDashboard() {
     const margin     = totalIn>0?Math.round((profit/totalIn)*100):0;
 
     const SECTION_META = {
-      "Finances":       {emoji:"💰",count:`${entries.length} transactions`},
       "Creative":       {emoji:"🎨",count:`${((projectFileStore[p.id]||{}).moodboards||[]).length+((projectFileStore[p.id]||{}).briefs||[]).length} files`},
       "Budget":         {emoji:"📊",count:`${(projectEstimates[p.id]||[]).length} estimate(s), ${quotes.length} quote(s)`},
-      "Contracts":      {emoji:"📝",count:"Generate contract"},
+      "Documents":      {emoji:"📁",count:"Call sheets, contracts & more"},
       "Locations":      {emoji:"📍",count:"Add folder link"},
       "Casting":        {emoji:"🎭",count:`${getProjectCasting(p.id).length} models`},
-      "Permits":        {emoji:"📜",count:`${getProjectFiles(p.id,"permits").length} files`},
       "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
-      "Call Sheet":     {emoji:"📞",count:"Generate call sheet"},
-      "Risk Assessment":{emoji:"⚠️",count:"Generate risk assessment"},
       "Workbook":       {emoji:"📒",count:"Notes & links"},
     };
 
@@ -2415,7 +2412,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -2425,51 +2422,6 @@ export default function OnnaDashboard() {
               </div>
             );
           })}
-        </div>
-      </div>
-    );
-
-    if (projectSection==="Finances") return (
-      <div>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?14:20}}>
-          <MiniStat label="Total Revenue"   value={`AED ${totalIn.toLocaleString()}`}/>
-          <MiniStat label="Total Expenses"  value={`AED ${totalOut.toLocaleString()}`}/>
-          <MiniStat label="Net Profit"      value={`AED ${profit.toLocaleString()}`}/>
-          <MiniStat label="Margin"          value={`${margin}%`}/>
-        </div>
-        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Entry — describe a transaction or attach a receipt</div>
-          <div style={{padding:"13px 16px"}}>
-            <textarea value={aiMsg} onChange={e=>setAiMsg(e.target.value)} rows={2} placeholder={`e.g. "Paid Frndz Studio AED 8,500 for camera crew 15 Feb, invoice FRNDZ-042"`} style={{width:"100%",background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none",marginBottom:10,lineHeight:"1.6"}}/>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <label style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.sub,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
-                📎 {attachedFile?attachedFile.name:"Attach receipt"}<input type="file" accept="image/*,.pdf" style={{display:"none"}} onChange={e=>setAttachedFile(e.target.files[0]||null)}/>
-              </label>
-              {attachedFile&&<button onClick={()=>setAttachedFile(null)} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>× remove</button>}
-              <BtnPrimary onClick={()=>processProjectAI(p)} disabled={aiLoading||(!aiMsg.trim()&&!attachedFile)}>{aiLoading?"Processing…":"Add to table"}</BtnPrimary>
-            </div>
-          </div>
-        </div>
-        <div style={{marginBottom:12}}><SearchBar value={getSearch("Finance")} onChange={v=>setSearch("Finance",v)} placeholder="Search transactions…"/></div>
-        <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>{["Supplier","Category","Sub Category","Invoice No.","Receipt","Date Paid","Amount","In/Out","Notes",""].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>
-              {allEntries.filter(e=>!getSearch("Finance")||e.supplier?.toLowerCase().includes(getSearch("Finance").toLowerCase())).length===0
-                ?<tr><td colSpan={10} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No entries yet — describe a transaction above.</td></tr>
-                :allEntries.filter(e=>!getSearch("Finance")||e.supplier?.toLowerCase().includes(getSearch("Finance").toLowerCase())).map((e,i)=>(
-                  <tr key={e.id} style={{background:i%2===0?"transparent":"#fafafa"}}>
-                    <TD bold>{e.supplier||"—"}</TD><TD>{e.category||"—"}</TD><TD muted>{e.subCategory||"—"}</TD><TD muted>{e.invoiceNumber||"—"}</TD>
-                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{e.receiptLink?<a href={e.receiptLink} target="_blank" rel="noreferrer" style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>View ↗</a>:<span style={{color:T.muted,fontSize:12.5}}>—</span>}</td>
-                    <TD muted>{e.datePaid||"—"}</TD>
-                    <TD bold>{e.amount?`AED ${Number(e.amount).toLocaleString()}`:"—"}</TD>
-                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><span style={{fontSize:11,padding:"2px 8px",borderRadius:999,fontWeight:500,background:e.direction==="in"?T.inBg:T.outBg,color:e.direction==="in"?T.inColor:T.outColor}}>{e.direction==="in"?"IN":"OUT"}</span></td>
-                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,maxWidth:160}}><span style={{fontSize:12.5,color:T.muted,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.notes||"—"}</span></td>
-                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{!String(e.id).startsWith("q_")&&<button onClick={()=>setProjectEntries(prev=>({...prev,[p.id]:(prev[p.id]||[]).filter(x=>x.id!==e.id)}))} style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:0}}>×</button>}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
         </div>
       </div>
     );
@@ -2519,7 +2471,7 @@ export default function OnnaDashboard() {
         const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
         return (
           <div>
-            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
+            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
             <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
             <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or link a Dropbox / Drive folder.</p>
             <div style={{marginBottom:18}}>
@@ -2589,7 +2541,7 @@ export default function OnnaDashboard() {
       // Budget Tracker sub-section
       if (budgetSubSection==="tracker") return (
         <div>
-          <button onClick={()=>setBudgetSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:18}}>Budget Tracker</div>
           <div style={{padding:52,textAlign:"center",color:T.muted,fontSize:13,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`}}>Budget tracker coming soon — track project income, expenses, and profit here.</div>
         </div>
@@ -2598,7 +2550,7 @@ export default function OnnaDashboard() {
       // Quotations sub-section
       if (budgetSubSection==="quotations") return (
         <div>
-          <button onClick={()=>setBudgetSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Quotations</div>
           <p style={{fontSize:13,color:T.sub,marginBottom:16}}>Upload supplier quotes here. They will also appear in the Finances table under the "Quote" category.</p>
           <UploadZone label="Upload supplier quotes (PDF, images)" files={quotes} onAdd={f=>addProjectFiles(p.id,"quotes",f)}/>
@@ -2662,7 +2614,7 @@ export default function OnnaDashboard() {
       }
       return (
         <div>
-          <button onClick={()=>setBudgetSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
             <div style={{fontSize:18,fontWeight:700,color:T.text}}>Estimates</div>
             <BtnPrimary onClick={()=>setEditingEstimate({...initColumbiaEstimate,id:null,version:versionLabels[estimates.length]||`V${estimates.length+1}`,client:p.client,project:p.name})}>+ New Estimate</BtnPrimary>
@@ -2690,52 +2642,93 @@ export default function OnnaDashboard() {
       );
     }
 
-    if (projectSection==="Contracts") return (
-      <div>
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Agreement Type</div>
-          <Sel value={contractType} onChange={setContractType} options={CONTRACT_TYPES} minWidth={320}/>
-        </div>
-        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:20,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:16,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Supplier Details</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            {[["Commissionee / Supplier Name","commissionee"],["Individual (for PSC agreements)","individual"],["Role / Services","role"],["Fee (incl. currency)","fee"],["Shoot / Service Date","shootDate"],["Payment Terms","paymentTerms"],["Deliverables","deliverables"],["Usage Rights","usageRights"],["Deadline","deadline"],["Project Reference","projectRef"]].map(([label,key])=>(
-              <div key={key}>
-                <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5,fontWeight:500}}>{label}</div>
-                <input value={contractFields[key]||""} onChange={e=>setContractFields(prev=>({...prev,[key]:e.target.value}))} style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+    if (projectSection==="Documents") {
+      // Documents sub-navigation — Call Sheet, Risk Assessment, Contracts, Permits
+      const DOC_CARDS = [
+        {key:"callsheet",  emoji:"📋", label:"Call Sheet"},
+        {key:"risk",       emoji:"⚠️", label:"Risk Assessment"},
+        {key:"contracts",  emoji:"📝", label:"Contracts"},
+        {key:"permits",    emoji:"📄", label:"Permits"},
+      ];
+
+      if (!documentsSubSection) return (
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+          {DOC_CARDS.map(c=>(
+            <div key={c.key} onClick={()=>setDocumentsSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <span style={{fontSize:28}}>{c.emoji}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Open {c.label.toLowerCase()}</div>
               </div>
-            ))}
-          </div>
-          <div style={{marginTop:16,display:"flex",justifyContent:"flex-end"}}>
-            <BtnPrimary onClick={()=>generateContract(p)} disabled={contractLoading}>{contractLoading?"Generating…":"Generate Contract"}</BtnPrimary>
-          </div>
-        </div>
-        {generatedContract&&(
-          <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-            <div style={{padding:"11px 16px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
-              <span style={{fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",fontWeight:600}}>Generated Contract — {contractType}</span>
-              <div style={{display:"flex",gap:6}}>
-                <BtnSecondary small onClick={()=>navigator.clipboard.writeText(generatedContract)}>Copy</BtnSecondary>
-                <BtnExport onClick={()=>exportToPDF(buildContractHTML(generatedContract),`${contractType} — ${p.name}`)}>Export PDF</BtnExport>
-              </div>
-            </div>
-            <div style={{padding:22,maxHeight:500,overflowY:"auto"}}>
-              <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:13,lineHeight:"1.8",color:T.sub,margin:0}}>{generatedContract}</pre>
-            </div>
-          </div>
-        )}
-        <div style={{marginTop:18}}>
-          <div style={{fontSize:11,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Saved Contracts</div>
-          {(projectContracts[p.id]||[]).length===0?<div style={{fontSize:13,color:T.muted}}>No saved contracts yet.</div>:(projectContracts[p.id]||[]).map((c,i)=>(
-            <div key={i} style={{padding:"10px 14px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:12.5,color:T.sub,flex:1}}>{c.type} — {c.name}</span>
-              <span style={{fontSize:11,color:T.muted}}>{c.date}</span>
             </div>
           ))}
         </div>
-      </div>
-    );
+      );
 
+      // Back button for all document sub-sections
+      const docBack = <button onClick={()=>setDocumentsSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
+
+      if (documentsSubSection==="callsheet") return (
+        <div>{docBack}<AIDocPanel project={p} docType="Call Sheet" systemPrompt={callSheetSystemPrompt} savedDocs={savedCallSheets}/></div>
+      );
+
+      if (documentsSubSection==="risk") return (
+        <div>{docBack}<AIDocPanel project={p} docType="Risk Assessment" systemPrompt={riskSystemPrompt} savedDocs={savedRiskAssessments}/></div>
+      );
+
+      if (documentsSubSection==="contracts") return (
+        <div>
+          {docBack}
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Agreement Type</div>
+            <Sel value={contractType} onChange={setContractType} options={CONTRACT_TYPES} minWidth={320}/>
+          </div>
+          <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:20,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:16,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Supplier Details</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {[["Commissionee / Supplier Name","commissionee"],["Individual (for PSC agreements)","individual"],["Role / Services","role"],["Fee (incl. currency)","fee"],["Shoot / Service Date","shootDate"],["Payment Terms","paymentTerms"],["Deliverables","deliverables"],["Usage Rights","usageRights"],["Deadline","deadline"],["Project Reference","projectRef"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5,fontWeight:500}}>{label}</div>
+                  <input value={contractFields[key]||""} onChange={e=>setContractFields(prev=>({...prev,[key]:e.target.value}))} style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:16,display:"flex",justifyContent:"flex-end"}}>
+              <BtnPrimary onClick={()=>generateContract(p)} disabled={contractLoading}>{contractLoading?"Generating…":"Generate Contract"}</BtnPrimary>
+            </div>
+          </div>
+          {generatedContract&&(
+            <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div style={{padding:"11px 16px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
+                <span style={{fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",fontWeight:600}}>Generated Contract — {contractType}</span>
+                <div style={{display:"flex",gap:6}}>
+                  <BtnSecondary small onClick={()=>navigator.clipboard.writeText(generatedContract)}>Copy</BtnSecondary>
+                  <BtnExport onClick={()=>exportToPDF(buildContractHTML(generatedContract),`${contractType} — ${p.name}`)}>Export PDF</BtnExport>
+                </div>
+              </div>
+              <div style={{padding:22,maxHeight:500,overflowY:"auto"}}>
+                <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:13,lineHeight:"1.8",color:T.sub,margin:0}}>{generatedContract}</pre>
+              </div>
+            </div>
+          )}
+          <div style={{marginTop:18}}>
+            <div style={{fontSize:11,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Saved Contracts</div>
+            {(projectContracts[p.id]||[]).length===0?<div style={{fontSize:13,color:T.muted}}>No saved contracts yet.</div>:(projectContracts[p.id]||[]).map((c,i)=>(
+              <div key={i} style={{padding:"10px 14px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:12.5,color:T.sub,flex:1}}>{c.type} — {c.name}</span>
+                <span style={{fontSize:11,color:T.muted}}>{c.date}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      if (documentsSubSection==="permits") return (
+        <div>{docBack}<UploadZone label="Upload permit paperwork (PDF, images)" files={getProjectFiles(p.id,"permits")} onAdd={f=>addProjectFiles(p.id,"permits",f)}/></div>
+      );
+
+      return null;
+    }
 
     if (projectSection==="Locations") return (
       <div>
@@ -2784,10 +2777,7 @@ export default function OnnaDashboard() {
       );
     }
 
-    if (projectSection==="Permits") return <UploadZone label="Upload permit paperwork (PDF, images)" files={getProjectFiles(p.id,"permits")} onAdd={f=>addProjectFiles(p.id,"permits",f)}/>;
     if (projectSection==="Styling") return <UploadZone label="Upload styling documents (PDF, images)" files={getProjectFiles(p.id,"styling")} onAdd={f=>addProjectFiles(p.id,"styling",f)}/>;
-    if (projectSection==="Call Sheet")     return <AIDocPanel project={p} docType="Call Sheet"      systemPrompt={callSheetSystemPrompt} savedDocs={savedCallSheets}/>;
-    if (projectSection==="Risk Assessment") return <AIDocPanel project={p} docType="Risk Assessment" systemPrompt={riskSystemPrompt}      savedDocs={savedRiskAssessments}/>;
     if (projectSection==="Workbook") return (
       <div>
         <p style={{fontSize:13,color:T.sub,marginBottom:12}}>General project notes, timelines, links and references.</p>
@@ -3429,12 +3419,12 @@ export default function OnnaDashboard() {
             if (selectedProject) return (
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
-                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
-                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
+                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
