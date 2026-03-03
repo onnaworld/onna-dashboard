@@ -260,18 +260,14 @@ function _Nova({mood="idle",bob=0}){
   </svg>;
 }
 const AGENT_DEFS = [
-  {id:"logistical",name:"Logan",title:"Logistics",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
-   system:`You are Logan, ONNA's lead extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to find and extract client/lead information from emails and help save it to the pipeline.
+  {id:"logistical",name:"Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
+   system:`You are Vinnie, ONNA's contact extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to extract vendor and client information from emails and save them to the correct list.
 
-When the user asks you to find a contact or search for someone (e.g. "find Aman's contact details", "search for Sarah"), you will automatically search their Outlook emails using the Logan Chrome extension — just acknowledge you're on it, no caveats.
+When asked to find a contact, search their Outlook emails and pull out the details.
 
-When the user pastes email text, extract: company, contact name, email, phone, role, estimated project value, category, location, date, status, and a one-line opportunity summary. Return results in a clean scannable format.
-
-Status guide: not_contacted = ONNA sent an email but got no reply; cold = some contact, little engagement; warm = back-and-forth happening; open = meeting discussed or confirmed.
-
-Be warm, brief and direct. Never refuse a lead search or extraction request.`,
-   placeholder:"Ask me to find a contact, paste email text, or say 'find Aman's contact details'…",
-   intro:"Hey! 👋 I'm Logan, your lead extraction assistant. Ask me to find a contact from your Outlook emails, or paste in an email and I'll pull out all the lead details for your pipeline."},
+Be warm, brief and direct.`,
+   placeholder:`Paste an email, or type: "Elie Kolko, Equipment Rental, Dubai Vendor, e@cinegear.com"`,
+   intro:"Hey! I'm Vinnie. Paste an email and I'll extract the contact info, or type a quick entry like: Name, Category, Location Vendor, email@domain.com"},
   {id:"compliance",name:"Connie",title:"Compliance",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
    system:`You are Connie, a serious compliance officer for ONNA, a film/TV production company in Dubai. Cross-reference project details with UAE and international safety laws to draft Risk Assessments. Be thorough and formal. Cover: location risks, equipment hazards, talent welfare, UAE permits (Media Regulatory Authority, Dubai Film Permit), weather, emergency protocols. Reference actual UAE laws. Structure output clearly with sections.`,
    placeholder:"Describe your project for a risk assessment...",
@@ -281,6 +277,22 @@ Be warm, brief and direct. Never refuse a lead search or extraction request.`,
    placeholder:"Give me a Dubai location to research...",
    intro:"Hi hi! 🔬 I'm Research Rex! Give me any Dubai location and I'll find the nearest hospital, note the weather patterns, and research everything you need for your shoot! 🌟"},
 ];
+function parseQuickEntry(text){
+  if(text.length>300||text.includes("\n"))return null;
+  const parts=text.split(",").map(s=>s.trim()).filter(Boolean);
+  if(parts.length<3||parts.length>6)return null;
+  const emailPart=parts.find(p=>/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(p));
+  if(!emailPart)return null;
+  const nonEmail=parts.filter(p=>p!==emailPart);
+  const isVendor=/vendor|supplier/i.test(text);
+  const locPart=nonEmail.find(p=>/dubai|london|uae|uk|abu dhabi/i.test(p));
+  const loc=locPart?locPart.replace(/\b(vendor|supplier|client|customer)\b/gi,"").replace(/[,\s]+$/,"").trim():"Dubai, UAE";
+  if(isVendor){
+    return{_type:"vendor",name:nonEmail[0]||"",category:nonEmail[1]||"",email:emailPart,phone:"",website:"",location:loc||"Dubai, UAE",notes:"",rateCard:""};
+  }else{
+    return{_type:"lead",contact:nonEmail[0]||"",role:nonEmail[1]||"",company:nonEmail[2]||"",email:emailPart,phone:"",value:"",category:"Other",location:loc||"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""};
+  }
+}
 function _AgentDots({color}){
   return<div style={{display:"flex",gap:5,padding:"10px 14px",alignItems:"center"}}>
     {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:color,animation:`bop 1s ease-in-out ${i*0.18}s infinite`}}/>)}
@@ -302,6 +314,7 @@ function AgentCard({agent,active,onSelect}){
   const [mood,setMood]         =useState("idle");
   const [bob,setBob]           =useState(0);
   const [pendingLead,setPending]=useState(null);
+  const [pendingType,setPendingType]=useState("lead");
   const [leadEdit,setLeadEdit] =useState({});
   const [savingLead,setSaving] =useState(false);
   const chatRef=useRef(null);
@@ -317,7 +330,7 @@ function AgentCard({agent,active,onSelect}){
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
 
   const searchViaExt=(query)=>new Promise(resolve=>{
-    if(!_loganExtId)return resolve({ok:false,error:"Logan extension not detected — install it and make sure Outlook is open in another tab."});
+    if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the Logan extension, and make sure Outlook is open in another tab."});
     if(!window.chrome?.runtime?.sendMessage)return resolve({ok:false,error:"Not running in Chrome with the extension installed."});
     const timer=setTimeout(()=>resolve({ok:false,error:"Search timed out — Outlook may still be loading."}),20000);
     try{window.chrome.runtime.sendMessage(_loganExtId,{type:"FIND_CONTACT",query},res=>{clearTimeout(timer);if(window.chrome.runtime.lastError)resolve({ok:false,error:window.chrome.runtime.lastError.message});else resolve(res||{ok:false,error:"No response"});});}
@@ -326,12 +339,14 @@ function AgentCard({agent,active,onSelect}){
 
   const send=async()=>{
     if(!input.trim()||loading)return;
-    // Logan: detect "find/search [name]" intent → use extension
+    // Vinnie: detect "find/search [name]" intent → use extension
     let findQuery=null;
     if(agent.id==="logistical"){
       const m=input.match(/\b(?:find|search|look\s+up|get|fetch)\s+(?:me\s+)?(?:the\s+)?(?:contact\s+(?:details?\s+)?(?:for|of)\s+)?([A-Za-z][A-Za-z\s]{1,35})(?:'s\b|\s+(?:contact|details|info|email|number|lead|and)|[.!?]?\s*$)/i);
       if(m?.[1]){findQuery=m[1].trim().replace(/\s+(contact|details|info|email|number|lead|please|and\s+save).*$/i,"").trim();if(findQuery.split(" ").length>4||/^(a|the|an|my|this)$/i.test(findQuery))findQuery=null;}
     }
+    // Vinnie: detect quick-text entry e.g. "Elie Kolko, Equipment Rental, Dubai Vendor, e@cinegear.com"
+    const quickEntry=(!findQuery&&agent.id==="logistical")?parseQuickEntry(input.trim()):null;
     const userMsg={role:"user",content:input.trim()};
     const history=[...msgs,userMsg];
     setMsgs(history);setInput("");setLoading(true);setMood("thinking");
@@ -340,12 +355,34 @@ function AgentCard({agent,active,onSelect}){
       const result=await searchViaExt(findQuery);
       if(result.ok&&result.lead){
         const l=result.lead;
-        setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}! Here's what I pulled from your emails:\n\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}\n\nReview the details below and I'll save them to your pipeline.`}]);
-        setPending(l);setLeadEdit({...l});
+        setPendingType("lead");setLeadEdit({...l});setPending(l);
+        setMsgs([...history,{role:"assistant",content:`Found ${l.contact||findQuery}! Here's what I pulled from your emails:\n\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}\n\nReview the details below and save.`}]);
       }else{
-        setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the Logan extension is installed. Or paste the email text here and I'll extract everything!`}]);
+        setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the extension is installed. Or paste the email text here and I'll extract everything!`}]);
       }
       setLoading(false);setMood("idle");return;
+    }
+    if(quickEntry){
+      const qname=quickEntry._type==="vendor"?quickEntry.name:quickEntry.contact;
+      setPendingType(quickEntry._type);setLeadEdit(quickEntry);setPending(quickEntry);
+      setMsgs([...history,{role:"assistant",content:`Got it! I've parsed the details for ${qname||"this contact"}. Review and save below.`}]);
+      setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+    }
+    // Vinnie: if text looks like it contains contact/email info, try non-streaming extraction
+    if(agent.id==="logistical"&&/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(input)){
+      try{
+        const extractSys=`You are Vinnie, contact extraction assistant for ONNA (Dubai film/TV production). Extract from the text and return ONLY raw JSON, no markdown.Type: "vendor"=supplier/service provider/equipment rental/studio. "lead"=potential client/brand/agency hiring ONNA.Vendor JSON: {"_type":"vendor","name":"company or person name","category":"service type","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}Lead JSON: {"_type":"lead","company":"","contact":"person name","email":"","phone":"","role":"job title","value":"integer AED or empty string","category":"one of: Production Companies,Creative Agencies,Beauty & Fragrance,Jewellery & Watches,Fashion,Editorial,Sports,Hospitality,Market Research,Commercial","location":"City, Country","date":"YYYY-MM-DD","status":"not_contacted or cold or warm or open","notes":"one sentence"}If nothing extractable return {"_type":"none"}.`;
+        const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:500,system:extractSys,messages:[{role:"user",content:input.trim().substring(0,4000)}]});
+        const raw=(data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
+        const parsed=JSON.parse(raw);
+        if(parsed._type&&parsed._type!=="none"){
+          const type=parsed._type;
+          const ename=type==="vendor"?parsed.name:(parsed.contact||parsed.company);
+          setPendingType(type);setLeadEdit(parsed);setPending(parsed);
+          setMsgs([...history,{role:"assistant",content:`Found ${ename||"a contact"}!\n\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}  📍 ${parsed.location||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}\n\nReview the details below and save.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+      }catch{}
     }
     try{
       const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system,messages:history.map(m=>({role:m.role,content:m.content}))})});
@@ -361,9 +398,15 @@ function AgentCard({agent,active,onSelect}){
   const saveLead=async()=>{
     setSaving(true);
     try{
-      const saved=await api.post("/api/leads",{company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"Other",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:"Email",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"});
-      if(saved?.id||saved?.company){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} has been saved to your pipeline! Find them in the Sales tab.`}]);setPending(null);}
-      else setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);
+      if(pendingType==="vendor"){
+        const saved=await api.post("/api/vendors",{name:leadEdit.name||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""});
+        if(saved?.id||saved?.name){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved! Find them in the Vendors tab.`}]);setPending(null);}
+        else setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);
+      }else{
+        const saved=await api.post("/api/leads",{company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"Other",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:"Email",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"});
+        if(saved?.id||saved?.company){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} saved to your pipeline! Find them in the Sales tab.`}]);setPending(null);}
+        else setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);
+      }
     }catch(e){setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Save failed: ${e.message}`}]);}
     setSaving(false);setPending(null);
   };
@@ -392,17 +435,22 @@ function AgentCard({agent,active,onSelect}){
               <path d={_STAR} fill={_YELLOW}/><circle cx="37" cy="45" r="5" fill="#1a1a1a"/><circle cx="63" cy="45" r="5" fill="#1a1a1a"/>
               <path d="M 36 60 Q 50 70 64 60" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>
             </svg>
-            <div><div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>Logan found a lead!</div><div style={{fontSize:12,color:"#6e6e73",marginTop:2}}>Review and edit before saving to your pipeline</div></div>
+            <div><div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>{pendingType==="vendor"?"New vendor":"New lead"}</div><div style={{fontSize:12,color:"#6e6e73",marginTop:2}}>Review and edit before saving</div></div>
             <button onClick={()=>setPending(null)} style={{marginLeft:"auto",background:"none",border:"none",fontSize:20,color:"#aeaeb2",cursor:"pointer",padding:"2px 8px",lineHeight:1,flexShrink:0}}>×</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 14px",marginBottom:20}}>
-            {lf("Contact","contact")}{lf("Company","company")}{lf("Email","email")}{lf("Phone","phone")}
-            {lf("Role","role")}{lf("Est. Value (AED)","value")}{lf("Category","category")}{lf("Location","location")}
-            {lf("Date","date")}{lf("Status","status")}{lf("Notes","notes",true)}
+            {pendingType==="vendor"?<>
+              {lf("Name","name",true)}{lf("Category","category")}{lf("Email","email")}{lf("Phone","phone")}
+              {lf("Website","website")}{lf("Location","location")}{lf("Rate Card","rateCard")}{lf("Notes","notes",true)}
+            </>:<>
+              {lf("Contact","contact")}{lf("Company","company")}{lf("Email","email")}{lf("Phone","phone")}
+              {lf("Role","role")}{lf("Est. Value (AED)","value")}{lf("Category","category")}{lf("Location","location")}
+              {lf("Date","date")}{lf("Status","status")}{lf("Notes","notes",true)}
+            </>}
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>setPending(null)} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-            <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:600,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":"✓ Add to Pipeline"}</button>
+            <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:600,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":pendingType==="vendor"?"✓ Save Vendor":"✓ Add to Pipeline"}</button>
           </div>
         </div>
       </div>

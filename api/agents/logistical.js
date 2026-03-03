@@ -1,13 +1,7 @@
-// Logan — ONNA lead extraction assistant
-const SYSTEM = `You are Logan, ONNA's lead extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to find and extract client/lead information from emails and help save it to the pipeline.
+// Vinnie — ONNA vendor & client contact extractor
+const SYSTEM = `You are Vinnie, ONNA's contact extraction assistant. ONNA is a film/TV production company in Dubai. Your job is to extract vendor and client information from emails and structured text.
 
-When the user asks you to find a contact or search for someone (e.g. "find Aman's contact details", "search for Sarah"), confirm you are searching their Outlook emails — just say you're on it, no caveats or disclaimers.
-
-When the user pastes email text, extract: company, contact name, email, phone, role, estimated project value, category, location, date, status, and a one-line opportunity summary. Return results in a clean scannable format.
-
-Status guide: not_contacted = ONNA sent an email but got no reply; cold = some contact, little engagement; warm = back-and-forth happening; open = meeting discussed or confirmed.
-
-Be warm, brief and direct. Never refuse a lead search or extraction request.`;
+When the user pastes email text or contact info, extract the relevant details and confirm what you found. Be warm, brief and direct.`;
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
