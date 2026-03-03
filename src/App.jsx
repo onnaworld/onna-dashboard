@@ -199,6 +199,8 @@ if (typeof window !== "undefined") {
   window.addEventListener("message", e => {
     if (e.source === window && e.data?.type === "LOGAN_EXT_READY" && e.data.id) _loganExtId = e.data.id;
   });
+  // Ping inject.js in case it already ran before this listener was registered
+  window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
 }
 
 // ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
