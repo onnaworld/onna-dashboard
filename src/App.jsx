@@ -1419,6 +1419,7 @@ export default function OnnaDashboard() {
   const [leadMonth,setLeadMonth]                         = useState("All");
   const [selectedLead,setSelectedLead]                   = useState(null);
   const [selectedOutreach,setSelectedOutreach]           = useState(null);
+  const [addContactForm,setAddContactForm]               = useState(null); // {type,name,email,phone,role}
   const [leadsView,setLeadsView]                         = useState(()=>localStorage.getItem("onna_leads_view")||"dashboard");
   useEffect(()=>{localStorage.setItem("onna_leads_view",leadsView);},[leadsView]);
   const [outreach,setOutreach]                           = useState(initOutreach);
@@ -2009,6 +2010,10 @@ export default function OnnaDashboard() {
       try { localStorage.setItem(storageKey, JSON.stringify(pruned)); } catch {}
     }
   };
+
+  // ── Extra contacts helpers (localStorage) ─────────────────────────────────
+  const getXContacts = (type, id) => { try { return JSON.parse(localStorage.getItem(`onna_xc_${type}_${id}`) || '[]'); } catch { return []; } };
+  const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${type}_${id}`, JSON.stringify(arr)); } catch {} };
 
   // ── Archive helpers ──────────────────────────────────────────────────────────
   const archiveItem = (table, item) => {
@@ -2707,7 +2712,7 @@ export default function OnnaDashboard() {
                   <thead><tr><TH>Name</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
                   <tbody>
                     {filteredBB.map(b=>(
-                      <tr key={b.id} className="row" onClick={()=>setEditVendor({...b})} style={{cursor:"pointer"}}>
+                      <tr key={b.id} className="row" onClick={()=>setEditVendor({...b,_xContacts:getXContacts('vendor',b.id)})} style={{cursor:"pointer"}}>
                         <TD bold>{b.name}</TD>
                         <TD muted>{b.category||"—"}</TD>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email||"—"}</a></td>
@@ -2797,7 +2802,7 @@ export default function OnnaDashboard() {
                 // Daily reminders logic
                 const today = new Date();
                 const oneMonthAgo = new Date(today); oneMonthAgo.setMonth(oneMonthAgo.getMonth()-1);
-                const openLead = l => l._fromOutreach ? setSelectedOutreach(outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact}) : setSelectedLead(l);
+                const openLead = l => { if(l._fromOutreach){const o=outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact};setSelectedOutreach({...o,_xContacts:getXContacts('outreach',o.id)});}else{setSelectedLead({...l,_xContacts:getXContacts('lead',l.id)});} };
                 const toContact = allLeadsCombined.filter(l=>l.status==="not_contacted").slice(0,5);
                 const toFollowUp = allLeadsCombined.filter(l=>{
                   if(l.status==="not_contacted"||l.status==="client") return false;
@@ -2878,7 +2883,7 @@ export default function OnnaDashboard() {
                       </tr></thead>
                       <tbody>
                         {filteredLeads.map(l=>(
-                          <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" onClick={()=>l._fromOutreach?setSelectedOutreach(outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact}):setSelectedLead(l)}>
+                          <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" onClick={()=>{ if(l._fromOutreach){const o=outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact};setSelectedOutreach({...o,_xContacts:getXContacts('outreach',o.id)});}else{setSelectedLead({...l,_xContacts:getXContacts('lead',l.id)});}}}>
                             <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role||""}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${l.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{l.email}</a></td>
                             <TD muted>{l.category}</TD>
@@ -2976,7 +2981,7 @@ export default function OnnaDashboard() {
                       </tr></thead>
                       <tbody>
                         {filteredOutreach.map(o=>(
-                          <tr key={o.id} className="row" onClick={()=>setSelectedOutreach({...o})}>
+                          <tr key={o.id} className="row" onClick={()=>setSelectedOutreach({...o,_xContacts:getXContacts('outreach',o.id)})}>
                             <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${o.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{o.email}</a></td>
                             <TD muted>{o.category}</TD>
@@ -3412,6 +3417,36 @@ export default function OnnaDashboard() {
                 <Sel value={selectedLead.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedLead(p=>({...p,location:n}));}else setSelectedLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
               </div>
             </div>
+            {/* Additional Contacts */}
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:10,color:T.muted,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Additional Contacts</div>
+                <button onClick={()=>setAddContactForm({type:"lead",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>＋ Add Contact</button>
+              </div>
+              {(selectedLead._xContacts||[]).map((c,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
+                  <button onClick={()=>setSelectedLead(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                </div>
+              ))}
+              {addContactForm?.type==="lead"&&(
+                <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
+                      <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
+                        <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                    <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+                    <button onClick={()=>{setSelectedLead(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
+                  </div>
+                </div>
+              )}
+            </div>
             <div style={{marginBottom:18}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
               <textarea value={selectedLead.notes||""} onChange={e=>setSelectedLead(p=>({...p,notes:e.target.value}))} rows={3}
@@ -3439,7 +3474,8 @@ export default function OnnaDashboard() {
               <div style={{display:"flex",gap:8}}>
                 <BtnSecondary onClick={()=>setSelectedLead(null)}>Cancel</BtnSecondary>
                 <BtnPrimary onClick={async()=>{
-                  const {id,...fields} = selectedLead;
+                  const {id,_xContacts,...fields} = selectedLead;
+                  setXContacts('lead', id, _xContacts||[]);
                   await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
                   setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
                   setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
@@ -3495,6 +3531,36 @@ export default function OnnaDashboard() {
                 <Sel value={selectedOutreach.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedOutreach(p=>({...p,location:n}));}else setSelectedOutreach(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
               </div>
             </div>
+            {/* Additional Contacts */}
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:10,color:T.muted,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Additional Contacts</div>
+                <button onClick={()=>setAddContactForm({type:"outreach",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>＋ Add Contact</button>
+              </div>
+              {(selectedOutreach._xContacts||[]).map((c,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
+                  <button onClick={()=>setSelectedOutreach(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                </div>
+              ))}
+              {addContactForm?.type==="outreach"&&(
+                <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
+                      <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
+                        <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                    <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+                    <button onClick={()=>{setSelectedOutreach(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
+                  </div>
+                </div>
+              )}
+            </div>
             <div style={{marginBottom:18}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
               <textarea value={selectedOutreach.notes||""} onChange={e=>setSelectedOutreach(p=>({...p,notes:e.target.value}))} rows={3}
@@ -3512,7 +3578,8 @@ export default function OnnaDashboard() {
               <div style={{display:"flex",gap:8}}>
                 <BtnSecondary onClick={()=>setSelectedOutreach(null)}>Cancel</BtnSecondary>
                 <BtnPrimary onClick={async()=>{
-                  const {id,...fields}=selectedOutreach;
+                  const {id,_xContacts,...fields}=selectedOutreach;
+                  setXContacts('outreach', id, _xContacts||[]);
                   await api.put(`/api/outreach/${id}`,{...fields,value:Number(fields.value)||0});
                   setOutreach(prev=>prev.map(x=>x.id===id?{...selectedOutreach,value:Number(fields.value)||0}:x));
                   if(selectedOutreach.status==="client") promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});
@@ -3719,6 +3786,37 @@ export default function OnnaDashboard() {
                 style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
             </div>
 
+            {/* Additional Contacts */}
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:10,color:T.muted,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Additional Contacts</div>
+                <button onClick={()=>setAddContactForm({type:"vendor",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>＋ Add Contact</button>
+              </div>
+              {(editVendor._xContacts||[]).map((c,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
+                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
+                  <button onClick={()=>setEditVendor(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                </div>
+              ))}
+              {addContactForm?.type==="vendor"&&(
+                <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
+                      <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
+                        <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                    <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+                    <button onClick={()=>{setEditVendor(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Notes */}
             <div style={{marginBottom:22}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
@@ -3741,7 +3839,8 @@ export default function OnnaDashboard() {
               <div style={{display:"flex",gap:8}}>
                 <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
                 <BtnPrimary onClick={async()=>{
-                  const {id,...fields}=editVendor;
+                  const {id,_xContacts,...fields}=editVendor;
+                  setXContacts('vendor', id, _xContacts||[]);
                   await api.put(`/api/vendors/${id}`,fields);
                   setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
                   setEditVendor(null);
