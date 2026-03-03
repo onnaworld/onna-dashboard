@@ -242,6 +242,73 @@ function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRisk
   setRiskAssessmentStore(prev => ({ ...prev, [projectId]: versions }));
 }
 
+// ─── CODY (CONTRACT) HELPERS ────────────────────────────────────────────────
+const CONTRACT_INIT = {
+  activeType:"commission_se",
+  fieldValues:{},
+  generalTermsEdits:{},
+  sigNames:{},
+  signatures:{},
+  prodLogo:null,
+};
+
+const CONTRACT_TYPE_IDS = ["commission_se","commission_psc","talent","talent_psc"];
+const CONTRACT_TYPE_LABELS = {"commission_se":"Commissioning Agreement (Self-Employed)","commission_psc":"Commissioning Agreement (Via PSC)","talent":"Talent Agreement","talent_psc":"Talent Agreement (Via PSC)"};
+
+const CONTRACT_FIELDS = {
+  commission_se:["date","client","commissioner","commissionee","content","deadline","fee","usage","special"],
+  commission_psc:["date","client","commissioner","commissionee","content","deadline","fee","usage","special"],
+  talent:["date","brand","brandRep","agency","talent","campaign","services","venue","content","usage","fee","invoicing","special"],
+  talent_psc:["date","brand","brandRep","agency","psc","talent","campaign","services","venue","content","usage","fee","invoicing","special"],
+};
+
+function buildCodySystem(project, ctData, versionLabel, ctSnapshot) {
+  return `You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live contract database.
+
+CRITICAL: You ALREADY HAVE the full contract data below. NEVER ask the user to paste, share, or provide contract details — you can see everything. Just act on their request immediately.
+
+You are viewing: "${project.name}" — ${versionLabel}
+
+CURRENT CONTRACT STATE:
+${ctSnapshot}
+
+INSTRUCTIONS:
+- When the user asks to ADD or UPDATE contract fields, output a JSON patch inside a \`\`\`json code block.
+- For field values: {"fieldValues":{"commission_se_date":"2024-03-15","commission_se_client":"Acme Corp..."}}
+  - Field keys follow the pattern: {contractType}_{fieldKey} e.g. "commission_se_commissionee", "talent_brand"
+- To switch contract type: {"activeType":"talent"} (valid types: commission_se, commission_psc, talent, talent_psc)
+- For signature names: {"sigNames":{"commission_se_left_name":"Emily","commission_se_left_date":"2024-03-15"}}
+- For general terms edits: {"generalTermsEdits":{"commission_se":"Full text..."}} (only if user wants custom terms)
+- Only output JSON for write intents. For read-only questions (e.g. "what fields are empty?", "review the contract"), answer in plain text with NO JSON block.
+- When asked "what's missing?" or similar, scan all fields for the active contract type and list which are still using default placeholder values (containing [brackets]).
+- Available contract types: Commissioning Agreement (Self-Employed), Commissioning Agreement (Via PSC), Talent Agreement, Talent Agreement (Via PSC)
+- NEVER say you don't have access to data. You have FULL access.
+- Be warm, concise and professional. Use plain language when chatting but produce professional contract language in outputs.`;
+}
+
+function applyCodyPatch(patch, projectId, versionIdx, currentVersions, setContractStore) {
+  const versions = [...currentVersions];
+  const ver = { ...versions[versionIdx] };
+
+  // Switch contract type
+  if (patch.activeType && CONTRACT_TYPE_IDS.includes(patch.activeType)) ver.activeType = patch.activeType;
+
+  // Merge field values
+  if (patch.fieldValues) ver.fieldValues = { ...(ver.fieldValues || {}), ...patch.fieldValues };
+
+  // Merge signature names
+  if (patch.sigNames) ver.sigNames = { ...(ver.sigNames || {}), ...patch.sigNames };
+
+  // Merge general terms edits
+  if (patch.generalTermsEdits) ver.generalTermsEdits = { ...(ver.generalTermsEdits || {}), ...patch.generalTermsEdits };
+
+  // Logo
+  if (patch.prodLogo !== undefined) ver.prodLogo = patch.prodLogo;
+
+  versions[versionIdx] = ver;
+  setContractStore(prev => ({ ...prev, [projectId]: versions }));
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = "https://onna-backend-v2.vercel.app";
 const API_SECRET = import.meta.env.VITE_API_SECRET || "";
@@ -692,7 +759,7 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,contractDocStore,setContractDocStore,activeContractVersion}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -714,6 +781,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const attachRef=useRef(null);
   const chatRef=useRef(null);
   const rafRef=useRef(null);
@@ -729,6 +797,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
   useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
@@ -945,7 +1014,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
 
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
-    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(input.trim())&&!/outreach|tracker|pipeline/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,40}\b(?:outlook|inbox|emails?)\b/i.test(input.trim());
+    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(input.trim())&&!/outreach|tracker|pipeline/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,40}\b(?:outlook|inbox|emails?)\b/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\s+(?:me\s+)?(?:the\s+)?(?:for\s+)?(?:\w+\s+(?:for\s+)?)?[A-Z][a-z]+\s+[A-Z][a-z]+\b.{0,30}\b(?:and\s+(?:create|add|make|save|start))\b/i.test(input.trim());
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
@@ -1258,6 +1327,16 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
+      // Export / PDF intent — generate directly from callSheetStore data
+      if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(call\s*sheet|pdf|export|download|print|document|doc)\b/i.test(input)){
+        const csVersions_ex=callSheetStore?.[project.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
+        const csData_ex=csVersions_ex[vIdx_ex];
+        exportToPDF(buildCallSheetHTML(csData_ex),`Call Sheet — ${project.name} — ${csData_ex.label||"Day 1"}`);
+        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there! 📋"}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       const csVersions = callSheetStore?.[project.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
       vIdx = Math.min(vIdx, csVersions.length-1);
 
@@ -1361,6 +1440,16 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const list=localProjects.map(p=>`• ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
+      }
+
+      // Export / PDF intent — generate directly from riskAssessmentStore data
+      if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(risk|assessment|pdf|export|download|print|document|doc)\b/i.test(input)){
+        const raVersions_ex=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
+        const raData_ex=raVersions_ex[vIdx_ex];
+        exportToPDF(buildRiskAssessmentHTML(raData_ex),`Risk Assessment — ${project.name} — ${raData_ex.label||"Version 1"}`);
+        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there! 🔬"}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
       const raVersions = riskAssessmentStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
@@ -1620,6 +1709,28 @@ ${cs.passportNote?`<div style="text-align:center;color:#C62828;font-size:10pt;fo
 <div class="sec">INVOICING</div><p>Payment terms: <strong>${esc(cs.invoicing.terms)}</strong>. Send invoices to: ${esc(cs.invoicing.email)}</p><p style="white-space:pre-line">${esc(cs.invoicing.address)}</p><p><strong>TRN:</strong> ${esc(cs.invoicing.trn)}</p>
 <div class="sec">PROTOCOL ON SET</div><p style="font-size:9pt;color:#555">${esc(cs.protocol)}</p>
 <div class="sec">NEAREST EMERGENCY SERVICES</div><p><strong>${esc(cs.emergencyDialPrefix)}</strong> ${emergNums}</p><p><strong>NEAREST HOSPITAL:</strong> ${esc(cs.emergency.hospital)}</p><p><strong>NEAREST POLICE STATION:</strong> ${esc(cs.emergency.police)}</p>`;
+};
+
+// ─── RISK ASSESSMENT PDF EXPORT ───────────────────────────────────────────────
+const buildRiskAssessmentHTML = (ra) => {
+  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const metaFields = [{l:"SHOOT NAME",k:"shootName"},{l:"SHOOT DATE",k:"shootDate"},{l:"LOCATIONS",k:"locations"},{l:"CREW ON SET",k:"crewOnSet"},{l:"TIMING",k:"timing"}];
+  const metaHTML = metaFields.map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10pt;font-weight:700;letter-spacing:1.5px;min-width:100px">${l}:</span><span style="font-size:10pt">${esc(ra[k])}</span></div>`).join("");
+  const sectionsHTML = (ra.sections||[]).map((sec,si) => {
+    const cols = sec.cols || ["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
+    const thead = cols.map((c,ci)=>`<th style="flex:${ci===0?3:ci===3?5:1.2};font-size:8pt;font-weight:700;letter-spacing:1.5px;padding:5px 6px;text-align:left;background:#f0f0f0">${esc(c)}</th>`).join("");
+    const rows = (sec.rows||[]).map(row => `<tr>${row.map((cell,ci)=>`<td style="padding:4px 6px;font-size:9.5pt;border-bottom:1px solid #eee;${ci===0?"font-weight:600":""}">${esc(cell)}</td>`).join("")}</tr>`).join("");
+    return `<div style="background:#000;color:#fff;font-size:10pt;font-weight:700;letter-spacing:1.5px;text-align:center;padding:4px 8px;text-transform:uppercase;margin-top:20px">${si+1}. ${esc(sec.title)}</div><table style="width:100%;border-collapse:collapse"><thead><tr>${thead}</tr></thead><tbody>${rows}</tbody></table>`;
+  }).join("");
+  const conductHTML = (ra.conductItems||[]).map(item=>`<div style="margin-bottom:4px;font-size:9.5pt">• <strong>${esc(item.label)}</strong> ${esc(item.text)}</div>`).join("");
+  const waiverHTML = (ra.waiverItems||[]).map((item,i)=>`<div style="margin-bottom:4px;font-size:9.5pt"><strong>${i+1}. ${esc(item.label)}</strong> ${esc(item.text)}</div>`).join("");
+  const emergencyHTML = (ra.emergencyItems||[]).map(item=>`<div style="margin-bottom:4px;font-size:9.5pt">• <strong>${esc(item.label)}</strong> ${esc(item.text)}</div>`).join("");
+  return `<div style="text-align:center;font-size:12pt;font-weight:700;letter-spacing:1.5px;margin-bottom:16px">RISK ASSESSMENT</div>
+<div style="margin-bottom:20px">${metaHTML}</div>
+${sectionsHTML}
+<div class="sec">PROFESSIONAL CODE OF CONDUCT</div><p style="font-size:9.5pt;margin-bottom:8px">${esc(ra.conductIntro)}</p>${conductHTML}
+<div class="sec">LIABILITY WAIVER &amp; ACKNOWLEDGMENT</div><p style="font-size:9.5pt;margin-bottom:8px">${esc(ra.waiverIntro)}</p>${waiverHTML}
+<div class="sec">EMERGENCY RESPONSE PLAN</div>${emergencyHTML}`;
 };
 
 // ─── TABLE EXPORT HELPERS ──────────────────────────────────────────────────────
@@ -2231,6 +2342,8 @@ export default function OnnaDashboard() {
   const [activeCSVersion,setActiveCSVersion]             = useState(0);
   const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeRAVersion,setActiveRAVersion]             = useState(0);
+  const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
+  const [activeContractVersion,setActiveContractVersion] = useState(0);
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
@@ -2311,6 +2424,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
@@ -3339,7 +3453,7 @@ export default function OnnaDashboard() {
                 ))}
                 <button onClick={addCSVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted,transition:"all 0.12s"}}>+ Add Day</button>
               </div>
-              <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
+              <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
             </div>
             {/* Editable label */}
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>
@@ -3578,7 +3692,7 @@ export default function OnnaDashboard() {
                 {raVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveRAVersion(i)} style={{padding:"6px 14px",borderRadius:9,fontSize:12,fontWeight:raIdx===i?600:500,cursor:"pointer",border:`1px solid ${raIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:raIdx===i?T.accent:"transparent",color:raIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||`Version ${i+1}`}</button>{raVersions.length>1&&<button onClick={()=>deleteRAVersion(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete version">×</button>}</div>))}
                 <button onClick={addRAVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Add Version</button>
               </div>
-              <BtnExport onClick={()=>{const el=document.getElementById("onna-ra-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:6mm 0;size:A4;}}</style></head><body></body></html>');doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
+              <BtnExport onClick={()=>{const el=document.getElementById("onna-ra-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>');doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
             </div>
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${raIdx+1}`}/></div>
 
