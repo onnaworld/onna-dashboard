@@ -605,7 +605,8 @@ export default function OnnaDashboard() {
   const [leadMonth,setLeadMonth]                         = useState("All");
   const [selectedLead,setSelectedLead]                   = useState(null);
   const [selectedOutreach,setSelectedOutreach]           = useState(null);
-  const [leadsView,setLeadsView]                         = useState("dashboard");
+  const [leadsView,setLeadsView]                         = useState(()=>localStorage.getItem("onna_leads_view")||"dashboard");
+  useEffect(()=>{localStorage.setItem("onna_leads_view",leadsView);},[leadsView]);
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
@@ -821,18 +822,23 @@ export default function OnnaDashboard() {
   const leadMonths = ["All",...Array.from(new Set(allLeadsCombined.map(l=>getMonthLabel(l.date)).filter(Boolean)))];
   const filteredLeads = useMemo(()=>{
     const q=getSearch("Leads").toLowerCase();
-    return allLeadsCombined.filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth));
+    return allLeadsCombined
+      .filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth))
+      .sort((a,b)=>(a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase()));
   },[searches,leadCat,leadStatus,leadMonth,localLeads,outreach]);
 
   const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
 
+  const [outreachSort,setOutreachSort] = useState("date"); // "date" | "az"
   const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category).filter(Boolean)))];
   const outreachMonths     = ["All",...Array.from(new Set(outreach.map(o=>getMonthLabel(o.date)).filter(Boolean)))];
   const filteredOutreach   = outreach.filter(o=>{
     if (o.status==="not_contacted") return false; // not_contacted items live in Leads
     const q=getSearch("Outreach").toLowerCase();
     return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter);
-  });
+  }).sort((a,b)=>outreachSort==="az"
+    ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
+    : new Date(b.date||0)-new Date(a.date||0));
 
   // Merge all project todos into a flat list for master view
   const allProjectTodosFlat = Object.entries(projectTodos).flatMap(([pid,tlist])=>
@@ -1984,6 +1990,10 @@ export default function OnnaDashboard() {
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Outreach")} onChange={v=>setSearch("Outreach",v)} placeholder="Search outreach…"/>
+                    <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${T.border}`,flexShrink:0}}>
+                      <button onClick={()=>setOutreachSort("date")} style={{padding:"5px 11px",background:outreachSort==="date"?T.accent:"#f5f5f7",border:"none",color:outreachSort==="date"?"#fff":T.sub,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Recent first</button>
+                      <button onClick={()=>setOutreachSort("az")} style={{padding:"5px 11px",background:outreachSort==="az"?T.accent:"#f5f5f7",border:"none",borderLeft:`1px solid ${T.border}`,color:outreachSort==="az"?"#fff":T.sub,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>A–Z</button>
+                    </div>
                     <span style={{fontSize:12,color:T.muted}}>{filteredOutreach.length} contacts</span>
                     <button onClick={()=>downloadCSV(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"},{key:"value",label:"Value (AED)"},{key:"location",label:"Location"},{key:"notes",label:"Notes"}],"outreach.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                     <button onClick={()=>exportTablePDF(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Outreach Tracker")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
