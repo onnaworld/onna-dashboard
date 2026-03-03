@@ -26,25 +26,88 @@ const GCAL_COLORS = {"1":"#d50000","2":"#e67c73","3":"#f4511e","4":"#f6bf26","5"
 // Outlook / Office 365 ICS feed (public shared calendar)
 const OUTLOOK_CAL_ICS = "https://outlook.office365.com/owa/calendar/2b3ad2259c4b4aaeb9ef497749cda730@onnaproduction.com/03e7e6c4750845fcb9ec9bb1040863bb2959111588689312764/calendar.ics";
 const parseICS = (text) => {
-  const events = [];
+  const now = new Date();
+  const winStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  const winEnd   = new Date(now.getFullYear(), now.getMonth() + 13, 0);
   const unfolded = text.replace(/\r\n[ \t]/g,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
-  const vevents = unfolded.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g)||[];
-  for (const ve of vevents) {
-    const get = k => { const m=ve.match(new RegExp(`^${k}(?:;[^:]*)?:(.+)$`,"m")); return m?m[1].trim():""; };
-    const summary = get("SUMMARY")||"(No title)";
-    const uid = get("UID")||String(Math.random());
-    const rawStart=get("DTSTART"), rawEnd=get("DTEND")||rawStart;
-    const toField = s => {
-      const c=s.replace(/^.*T/,""); // strip date prefix if somehow left
-      const pure=s.replace(/[^0-9T]/g,""); // keep digits and T
-      if(pure.length===8) return {date:`${pure.slice(0,4)}-${pure.slice(4,6)}-${pure.slice(6,8)}`};
-      if(pure.length>=15){const u=s.endsWith("Z")?"Z":"";return {dateTime:`${pure.slice(0,4)}-${pure.slice(4,6)}-${pure.slice(6,8)}T${pure.slice(9,11)}:${pure.slice(11,13)}:${pure.slice(13,15)}${u}`};}
-      return {date:`${pure.slice(0,4)}-${pure.slice(4,6)}-${pure.slice(6,8)}`};
+  const rawBlocks = unfolded.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g)||[];
+  const getF = (block,key) => { const m=block.match(new RegExp(`^${key}(?:;[^:]*)?:(.+)$`,"m")); return m?m[1].trim():""; };
+  const isZ = s => (s||"").endsWith("Z");
+  const pad = n => String(n).padStart(2,"0");
+  const parseDT = s => {
+    if (!s) return null;
+    const p = s.replace(/[^0-9T]/g,"");
+    if (p.length===8) return new Date(+p.slice(0,4),+p.slice(4,6)-1,+p.slice(6,8));
+    if (p.length>=15) { const [y,mo,d,h,mi,sc]=[p.slice(0,4),p.slice(4,6),p.slice(6,8),p.slice(9,11),p.slice(11,13),p.slice(13,15)].map(Number); return isZ(s)?new Date(Date.UTC(y,mo-1,d,h,mi,sc)):new Date(y,mo-1,d,h,mi,sc); }
+    return null;
+  };
+  // Always store local date so grid key matching works regardless of timezone
+  const dtToField = (dt,allDay,utc) => {
+    if (!dt) return {};
+    if (allDay) return {date:`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`};
+    if (utc) return {dateTime:dt.toISOString()};
+    return {dateTime:`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`};
+  };
+  const DAY_JS = {SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+  const mondayOf = d => { const r=new Date(d); r.setHours(0,0,0,0); r.setDate(r.getDate()-((r.getDay()+6)%7)); return r; };
+  const expandRRule = (rrStr,rawS,rawE,exdates) => {
+    const parts={}; rrStr.split(";").forEach(p=>{const [k,v]=p.split("=");if(k&&v)parts[k]=v;});
+    const freq=parts.FREQ; if(!freq) return [];
+    const intv=Math.max(1,parseInt(parts.INTERVAL||"1",10));
+    const until=parts.UNTIL?parseDT(parts.UNTIL):winEnd;
+    const maxN=parts.COUNT?parseInt(parts.COUNT,10):2000;
+    const bds=parts.BYDAY?parts.BYDAY.split(",").map(s=>DAY_JS[s.replace(/[^A-Z]/g,"")]).filter(n=>n!=null):null;
+    const allDay=rawS.replace(/[^0-9T]/g,"").length===8, utc=isZ(rawS);
+    const dtS=parseDT(rawS),dtE=parseDT(rawE||rawS); if(!dtS) return [];
+    const durMs=Math.max(0,(dtE||dtS)-dtS);
+    const exSet=new Set(exdates.flatMap(l=>l.split(",")).map(s=>{const d=parseDT(s.trim());return d?`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`:null;}).filter(Boolean));
+    const results=[]; let nTotal=0;
+    const addOcc=occ=>{
+      if(nTotal>=maxN||occ<dtS||occ<winStart||occ>winEnd||occ>until) return;
+      const endO=new Date(occ.getTime()+durMs);
+      const occKey=`${occ.getFullYear()}-${pad(occ.getMonth()+1)}-${pad(occ.getDate())}`;
+      if(exSet.has(occKey)) return;
+      results.push({start:dtToField(occ,allDay,utc),end:dtToField(endO,allDay,utc),occKey}); nTotal++;
     };
-    const start=toField(rawStart), end=toField(rawEnd);
-    if(!rawStart) continue;
-    events.push({id:uid,summary,start,end,calendarColor:"#0078d4",_outlook:true});
+    if(freq==="DAILY"){
+      let c=new Date(dtS); while(c<=winEnd&&c<=until&&nTotal<maxN){addOcc(c);c=new Date(c);c.setDate(c.getDate()+intv);}
+    } else if(freq==="WEEKLY"){
+      const days=bds||[dtS.getDay()]; let wk=mondayOf(dtS),wkN=0;
+      while(wk<=winEnd&&wk<=until&&nTotal<maxN&&wkN<2000){
+        for(const dn of days){const dm=(dn+6)%7;const occ=new Date(wk);occ.setDate(wk.getDate()+dm);if(!allDay)occ.setHours(dtS.getHours(),dtS.getMinutes(),dtS.getSeconds(),0);addOcc(occ);}
+        wk.setDate(wk.getDate()+7*intv); wkN++;
+      }
+    } else if(freq==="MONTHLY"){
+      let c=new Date(dtS); while(c<=winEnd&&c<=until&&nTotal<maxN){addOcc(c);c=new Date(c);c.setMonth(c.getMonth()+intv);}
+    } else if(freq==="YEARLY"){
+      let c=new Date(dtS); while(c<=winEnd&&c<=until&&nTotal<maxN){addOcc(c);c=new Date(c);c.setFullYear(c.getFullYear()+intv);}
+    }
+    return results;
+  };
+  const baseEvs=[]; const excMap={};
+  for(const ve of rawBlocks){
+    const g=k=>getF(ve,k);
+    const uid=g("UID")||String(Math.random()); const recId=g("RECURRENCE-ID"),rrule=g("RRULE");
+    const rawStart=g("DTSTART"),rawEnd=g("DTEND"); const summary=g("SUMMARY")||"(No title)";
+    const exdates=[...ve.matchAll(/^EXDATE(?:;[^:]*)?:(.+)$/gm)].map(m=>m[1].trim());
+    if(recId){ const rd=parseDT(recId); if(!rd) continue; const key=`${uid}_${rd.getFullYear()}-${pad(rd.getMonth()+1)}-${pad(rd.getDate())}`;
+      const allDay=rawStart.replace(/[^0-9T]/g,"").length===8,utc=isZ(rawStart); const s=parseDT(rawStart),e=parseDT(rawEnd||rawStart);
+      if(s) excMap[key]={id:key,summary,start:dtToField(s,allDay,utc),end:dtToField(e||s,allDay,utc),calendarColor:"#0078d4",_outlook:true};
+    } else { baseEvs.push({uid,rrule,rawStart,rawEnd:rawEnd||rawStart,summary,exdates}); }
   }
+  const events=[];
+  for(const ev of baseEvs){
+    if(!ev.rawStart) continue;
+    const allDay=ev.rawStart.replace(/[^0-9T]/g,"").length===8,utc=isZ(ev.rawStart);
+    const dtS=parseDT(ev.rawStart); if(!dtS) continue;
+    if(ev.rrule){
+      const occs=expandRRule(ev.rrule,ev.rawStart,ev.rawEnd,ev.exdates);
+      for(const occ of occs){const key=`${ev.uid}_${occ.occKey}`;if(excMap[key]){events.push(excMap[key]);delete excMap[key];}else events.push({id:key,summary:ev.summary,start:occ.start,end:occ.end,calendarColor:"#0078d4",_outlook:true});}
+    } else if(dtS>=winStart&&dtS<=winEnd){
+      const dtE=parseDT(ev.rawEnd); events.push({id:ev.uid,summary:ev.summary,start:dtToField(dtS,allDay,utc),end:dtToField(dtE||dtS,allDay,utc),calendarColor:"#0078d4",_outlook:true});
+    }
+  }
+  Object.values(excMap).forEach(ex=>{const ds=ex.start?.date||ex.start?.dateTime?.slice(0,10);if(ds){const d=new Date(ds+"T00:00:00");if(d>=winStart&&d<=winEnd)events.push(ex);}});
   return events;
 };
 const PROJECT_SECTIONS = ["Home","Finances","Creative Brief","Estimates","Contracts","Quotes","Locations","Casting","Permits","Styling","Call Sheet","Risk Assessment","Workbook"];
