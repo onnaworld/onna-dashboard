@@ -262,6 +262,89 @@ const CONTRACT_FIELDS = {
   talent_psc:["date","brand","brandRep","agency","psc","talent","campaign","services","venue","content","usage","fee","invoicing","special"],
 };
 
+const CONTRACT_DOC_TYPES = [
+  { id: "commission_se", label: "Commissioning Agreement (Self-Employed)", short: "Commission (SE)",
+    title: "COMMISSIONING AGREEMENT", headTermsLabel: "HEAD TERMS",
+    fields: [
+      { key: "date", label: "Commencement Date", defaultValue: "[Date]" },
+      { key: "client", label: "Client", defaultValue: "[Name of Company] a company registered in [Country] under number [License Number] whose registered office is at [Address]" },
+      { key: "commissioner", label: "Commissioner", defaultValue: "ONNA FILM, TV & RADIO PRODUCTION SERVICES L.L.C Trading as ONNA, a company registered in The United Arab Emirates under license number 1541190 whose registered office is at OFFICE NO. F1-022, PROPERTY INVESTMENT OFFICE 4-F1 DUBAI UNITED ARAB EMIRATES" },
+      { key: "commissionee", label: "Commissionee", defaultValue: "[Insert full name and address]" },
+      { key: "content", label: "Commissioned Content (including out-takes)", defaultValue: "[Name of Shoot]\nAttend the [Name of Shoot] as [Role] on [Date] to [Scope of work]\n[Additional Scope of work]\n\nAll the products of Commissionee's services under this Agreement, including but not limited to all photographic images, video and audio in whatever form taken or to be taken by the Commissionee or the Commissionee's employees, agents or representatives, including any reproductions, extracts and adaptations and including retouched and post-production versions of such images, are included in the Commissioned Content." },
+      { key: "deadline", label: "Deadline for Submission", defaultValue: "[Date of delivery]" },
+      { key: "fee", label: "Fee", defaultValue: "[Fee] broken down as follows:\n\nIf the Commissionee fails to attend the Shoot or seeks to terminate his/her involvement in the Campaign for any reason, or if ONNA terminates this Agreement under clause 10 of the General Conditions, the Fee shall not be payable (and any portion of the Fee already paid by the ONNA shall be refunded accordingly).\n\nIf the Commissionee is more than one (1) hour late for the Shoot, or fails to stay for the shoot duration, Commissioner may at its option: (i) pay the Commissionee a pro-rated portion of the Fee; or (ii) agree that the Commissionee shall make up the lost time at the end of the Shoot or attend an additional shoot on an alternative date agreed by the Commissioner at its sole discretion." },
+      { key: "usage", label: "Usage", defaultValue: "[Usage]" },
+      { key: "special", label: "Special Terms", defaultValue: "The Commissionee agrees to keep all details of the Campaign confidential which, for the avoidance of doubt, shall include refraining from posting anything about the Campaign without the written approval of the Commissioner." },
+    ],
+    sigLeft: "Signed by an authorised representative for and on behalf of ONNA",
+    sigRight: "Signed by the Commissionee",
+  },
+  { id: "commission_psc", label: "Commissioning Agreement (Via PSC)", short: "Commission (PSC)",
+    title: "COMMISSIONING AGREEMENT", headTermsLabel: "HEAD TERMS",
+    fields: [
+      { key: "date", label: "Commencement Date", defaultValue: "[Date]" },
+      { key: "client", label: "Client", defaultValue: "[Name of Company] a company registered in [Country] under number [License Number] whose registered office is at [Address]" },
+      { key: "commissioner", label: "Commissioner", defaultValue: "ONNA FILM, TV & RADIO PRODUCTION SERVICES L.L.C Trading as ONNA, a company registered in The United Arab Emirates under license number 1541190 whose registered office is at OFFICE NO. F1-022, PROPERTY INVESTMENT OFFICE 4-F1 DUBAI UNITED ARAB EMIRATES" },
+      { key: "commissionee", label: "Commissionee", defaultValue: "[Name of Company] a company registered in [Country] under number [License Number] whose registered office is at [Address]\nFor the services of [Full name and address] (the \"Individual\")" },
+      { key: "content", label: "Commissioned Content (including out-takes)", defaultValue: "[Name of Shoot]\nAttend the [Name of Shoot] as [Role] on [Date] to [Scope of work]\n[Additional Scope of work]\n\nAll the products of Commissionee's and Individual's services under this Agreement, including but not limited to all photographic images, video and audio in whatever form taken or to be taken by the Commissionee or the Commissionee's employees, agents or representatives, including any reproductions, extracts and adaptations and including retouched and post-production versions of such images, are included in the Commissioned Content." },
+      { key: "deadline", label: "Deadline for Submission", defaultValue: "[Date of delivery]" },
+      { key: "fee", label: "Fee", defaultValue: "[Fee] broken down as follows:\n\nIf the Individual fails to attend the Shoot or seeks to terminate his/her involvement in the Campaign for any reason, or if ONNA terminates this Agreement under clause 10 of the General Conditions, the Fee shall not be payable (and any portion of the Fee already paid by the ONNA shall be refunded accordingly).\n\nIf the Individual is more than one (1) hour late for the Shoot, or fails to stay for the shoot duration, Commissioner may at its option: (i) pay the Commissionee a pro-rated portion of the Fee; or (ii) agree that the Individual shall make up the lost time at the end of the Shoot or attend an additional shoot on an alternative date agreed by the Commissioner at its sole discretion." },
+      { key: "usage", label: "Usage", defaultValue: "[Usage]" },
+      { key: "special", label: "Special Terms", defaultValue: "The Commissionee agrees to keep all details of the Campaign confidential which, for the avoidance of doubt, shall include refraining from posting anything about the Campaign without the written approval of the Commissioner." },
+    ],
+    sigLeft: "Signed by an authorised representative for and on behalf of ONNA",
+    sigRight: "Signed by an authorised representative for and on behalf of Commissionee",
+  },
+  { id: "talent", label: "Talent Agreement", short: "Talent",
+    title: "TALENT AGREEMENT - COMMERCIAL TERMS", headTermsLabel: "COMMERCIAL TERMS",
+    fields: [
+      { key: "date", label: "Commencement Date", defaultValue: "[Date]" },
+      { key: "brand", label: "Brand", defaultValue: "[Name of Company] a company registered in [Country] under number [License Number] whose registered office is at [Address]" },
+      { key: "brandRep", label: "Brand Representative", defaultValue: "Name: [Client Name] Email: [Client Email] Telephone: [Client Mobile]" },
+      { key: "agency", label: "Agency", defaultValue: "ONNA FILM, TV & RADIO PRODUCTION SERVICES L.L.C Trading as ONNA, a company registered in The United Arab Emirates under license number 1541190 whose registered office is at OFFICE NO. F1-022, PROPERTY INVESTMENT OFFICE 4-F1 DUBAI UNITED ARAB EMIRATES" },
+      { key: "talent", label: "Talent", defaultValue: "[Name] whose address is at [Address]\nName: [Talent Name]\nEmail: [Talent Email] Telephone: [Talent Mobile]\nAgent (if applicable): [Company] (the \"Agent\")" },
+      { key: "campaign", label: "Campaign", defaultValue: "[Name of Shoot]" },
+      { key: "services", label: "Services", defaultValue: "Shoot Date: [DATE]\nShoot Duration: [HOURS] (inclusive)\nAdditional PR Services: [Details]" },
+      { key: "venue", label: "Venue", defaultValue: "[Address]" },
+      { key: "content", label: "Content", defaultValue: "Any content created, combined, edited or otherwise captured by the Brand, Agency or Talent for the purposes of promoting the Campaign." },
+      { key: "usage", label: "Usage", defaultValue: "[Usage Terms]" },
+      { key: "fee", label: "Fee", defaultValue: "[Fee]" },
+      { key: "invoicing", label: "Invoicing Terms", defaultValue: "It is acknowledged that the Talent has nominated his/her Agent to issue the invoice for the Fee on his/her behalf." },
+      { key: "special", label: "Special Terms", defaultValue: "The Talent agrees to keep all details of the Campaign confidential." },
+    ],
+    sigLeft: "Signed by an authorised representative for and on behalf of ONNA",
+    sigRight: "Signed by the Talent",
+  },
+  { id: "talent_psc", label: "Talent Agreement (Via PSC)", short: "Talent (PSC)",
+    title: "TALENT AGREEMENT VIA PSC - COMMERCIAL TERMS", headTermsLabel: "COMMERCIAL TERMS",
+    fields: [
+      { key: "date", label: "Commencement Date", defaultValue: "[Date]" },
+      { key: "brand", label: "Brand", defaultValue: "[Name of Company] a company registered in [Country] under number [License Number] whose registered office is at [Address]" },
+      { key: "brandRep", label: "Brand Representative", defaultValue: "Name: [Client Name] Email: [Client Email] Telephone: [Client Mobile]" },
+      { key: "agency", label: "Agency", defaultValue: "ONNA FILM, TV & RADIO PRODUCTION SERVICES L.L.C Trading as ONNA, a company registered in The United Arab Emirates under license number 1541190 whose registered office is at OFFICE NO. F1-022, PROPERTY INVESTMENT OFFICE 4-F1 DUBAI UNITED ARAB EMIRATES" },
+      { key: "psc", label: "Loanout/Personal Services Company (the \"PSC\")", defaultValue: "[Talent Company Name]; a company registered in [Country] under number [License Number] whose registered office is at [Address]" },
+      { key: "talent", label: "Talent", defaultValue: "[Name] whose address is at [Address]\nName: [Talent Name]\nEmail: [Talent Email] Telephone: [Talent Mobile]\nAgent (if applicable): [Company] (the \"Agent\")" },
+      { key: "campaign", label: "Campaign", defaultValue: "[Name of Shoot]" },
+      { key: "services", label: "Services", defaultValue: "Shoot Date: [DATE]\nShoot Duration: [HOURS] (inclusive)\nAdditional PR Services: [Details]" },
+      { key: "venue", label: "Venue", defaultValue: "[Address]" },
+      { key: "content", label: "Content", defaultValue: "Any content created, combined, edited or otherwise captured by the Brand, Agency or Talent for the purposes of promoting the Campaign." },
+      { key: "usage", label: "Usage", defaultValue: "[Usage Terms]" },
+      { key: "fee", label: "Fee", defaultValue: "[Fee]" },
+      { key: "invoicing", label: "Invoicing Terms", defaultValue: "It is acknowledged that the Talent has nominated his/her Agent to issue the invoice for the Fee on his/her behalf." },
+      { key: "special", label: "Special Terms", defaultValue: "The PSC shall procure that the Talent agrees to keep all details of the Campaign confidential." },
+    ],
+    sigLeft: "Signed by an authorised representative for and on behalf of ONNA",
+    sigRight: "Signed by an authorised representative for and on behalf of the PSC",
+  },
+];
+
+const GENERAL_TERMS_DOC = {
+  commission_se: `GENERAL TERMS\n\n  These General Terms together with the Head Terms above constitute an agreement (the "Agreement") under which the Commissionee agrees to provide the Services to the the Commissioner. The parties hereby accept and agree to be bound by the terms set out in this Agreement. Should there be any conflict between the Head Terms and the General Terms, the Head Terms shall prevail.\n\n  IT IS AGREED AS FOLLOWS:\n\n1.  The Commissionee agrees to create and supply the Commissioned Content to the Commissioner (the Services) by the Deadline for Submission, in relation to which, time is of the essence.\n\n2.  The Commissionee irrevocably and unconditionally assign to us Commissioner of all third party rights, claims and encumbrances and, without prejudice to the foregoing, with full title guarantee and where the assignment is of copyright by way of assignment of present and future copyright, all of Commissionee's rights, title and interests in and to the entire copyright in the Commissioned Content throughout the world, for the full period of such rights and thereafter in perpetuity.\n\n3.  The Commissioner agrees that the Commissionee may use the Commissioned Content for portfolio purposes subject to the prior written approval of the Commissioner.\n\n4.  Payment Terms: The Commissioner shall pay to the Commissionee the Fee. The Commissionee may invoice after delivery and payment is due within 60 days.\n\n5.  Parties Relationship/Tax: The relationship will be that of independent contractor.\n\n6.  Confidentiality: The Commissionee will keep all Confidential Information secure and use it only for the Services.\n\n7.  Warranties: The Commissionee warrants the Commissioned Content is original work and will not infringe third party rights.\n\n8.  Indemnity & Insurance: The Commissionee shall indemnify the Commissioner and maintain adequate insurance.\n\n9.  Termination: The Commissioner may terminate by written notice for breach, insolvency, criminal conviction, incapacity, or at convenience up to three weeks prior.\n\n10. Force Majeure: Suspension or termination without liability for events beyond control.\n\n11. Miscellaneous: Entire agreement, variations in writing, severability, counterparts, English law and jurisdiction.`,
+  commission_psc: `GENERAL TERMS\n\n  These General Terms together with the Head Terms above constitute an agreement (the "Agreement") under which the Commissionee agrees procure that the Individual provides the Services to the the Commissioner. The parties hereby accept and agree to be bound by the terms set out in this Agreement. Should there be any conflict between the Head Terms and the General Terms, the Head Terms shall prevail.\n\n  IT IS AGREED AS FOLLOWS:\n\n1.  The Commissionee shall procure that the Individual creates and supplies the Commissioned Content to the Commissioner (the Services) by the Deadline for Submission.\n\n2.  The Commissionee and the Individual each irrevocably and unconditionally assign to the Commissioner all rights, title and interest in and to the Commissioned Content and the entire copyright therein throughout the world in perpetuity.\n\n3.  Subject to the Commissioner's prior written approval, the Commissionee and the Individual may use the Commissioned Content for portfolio purposes.\n\n4.  Payment Terms: The Commissioner shall pay to the Commissionee the Fee within 60 days of invoice.\n\n5.  Parties Relationship/Tax: Independent contractor relationship. The Commissionee is responsible for all taxes.\n\n6.  Confidentiality: All Confidential Information must be kept secure and used only for the Services.\n\n7.  Warranties: The Commissioned Content will be original work and will not infringe third party rights.\n\n8.  Indemnity & Insurance: Joint and several indemnity. Adequate insurance required.\n\n9.  Termination: The Commissioner may terminate for breach, insolvency, criminal conviction, incapacity, or at convenience.\n\n10. Force Majeure: Suspension or termination without liability for events beyond control.\n\n11. Miscellaneous: Entire agreement, variations in writing, severability, counterparts, English law and jurisdiction.`,
+  talent: `GENERAL TERMS\n\n  These Commercial Terms and General Terms together constitute an agreement (the "Agreement") under which the Talent agrees to provide the Services to the Client & the Agency. The parties hereby accept and agree to be bound by the terms set out in this Agreement.\n\n  IT IS AGREED AS FOLLOWS:\n\n1.  Definitions: "Business Day", "Fee", "Group", "Intellectual Property Rights", "Services", "Term" as defined herein.\n\n2.  Interpretation: Standard interpretation clauses.\n\nCOMMENCEMENT AND TERM: The Agreement shall commence on the Commencement Date.\n\nSUPPLY OF SERVICES: The Talent shall supply the Services with the highest level of care, skill and diligence.\n\nWARRANTIES & INDEMNITY: The Talent warrants they have the right to enter into this Agreement and indemnifies the Agency.\n\nAGENCY'S OBLIGATIONS: The Agency shall fulfil obligations as set out in the Commercial Terms.\n\nIMAGE WAIVER: The Talent grants all consents for use of Content for the Specified Purpose.\n\nINTELLECTUAL PROPERTY: Talent assigns all rights in the Content to Agency in perpetuity.\n\nCHARGES AND PAYMENT: Payment within 60 days of invoice. Agency may deduct withholding taxes.\n\nLIMITATION OF LIABILITY: Agency's total liability shall not exceed the Fee.\n\nINSURANCE: Talent shall maintain adequate insurance.\n\nTERMINATION: Either party may terminate for material breach, insolvency, or cessation of business. Force Majeure provisions apply.\n\nGENERAL: No subcontracting without consent. Independent contractor relationship. Confidentiality obligations. Data protection compliance. English law and jurisdiction.`,
+  talent_psc: `GENERAL TERMS\n\n  These Commercial Terms and General Terms together constitute an agreement (the "Agreement") under which the PSC agrees to provide the Services of the Talent to the Client & the Agency. The parties hereby accept and agree to be bound by the terms set out in this Agreement.\n\n  IT IS AGREED AS FOLLOWS:\n\n1.  Definitions: "Business Day", "Fee", "Group", "Intellectual Property Rights", "Services", "Term" as defined herein.\n\n2.  Interpretation: Standard interpretation clauses.\n\nCOMMENCEMENT AND TERM: The Agreement shall commence on the Commencement Date.\n\nSUPPLY OF SERVICES: The PSC shall procure that the Talent supplies the Services with the highest level of care, skill and diligence.\n\nWARRANTIES & INDEMNITY: The PSC warrants and shall procure that Talent warrants they have the right to enter into this Agreement.\n\nAGENCY'S OBLIGATIONS: The Agency shall fulfil obligations as set out in the Commercial Terms.\n\nIMAGE WAIVER: The PSC shall procure that Talent grants all consents for use of Content.\n\nINTELLECTUAL PROPERTY: PSC and Talent assign all rights in the Content to Agency in perpetuity.\n\nCHARGES AND PAYMENT: Payment to PSC within 60 days of invoice. Agency may deduct withholding taxes.\n\nLIMITATION OF LIABILITY: Agency's total liability shall not exceed the Fee.\n\nINSURANCE: PSC/Talent shall maintain adequate insurance.\n\nTERMINATION: Either party may terminate for material breach, insolvency, or cessation of business. Force Majeure provisions apply.\n\nGENERAL: No subcontracting without consent. Independent contractor relationship. Confidentiality obligations. Data protection compliance. English law and jurisdiction.`,
+};
+
 function buildCodySystem(project, ctData, versionLabel, ctSnapshot) {
   return `You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live contract database.
 
@@ -673,23 +756,17 @@ Keep replies concise and professional. Sign off as the ONNA team. Always propose
    placeholder:"Describe your shoot and I'll build the budget...",
    intro:"Hey! I'm Budget Billie 💰 Tell me about your shoot — type, days, crew size, location — and I'll build a full line-item budget with AED/USD, markup and contingency. What are we shooting?"},
   {id:"contracts",name:"Contract Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
-   system:`You are Contract Cody, a contract drafting assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database.
+   system:`You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are connected to live contract data and can read and update it directly.
 
-You help generate contracts for film and TV production, including:
+You help draft and manage contracts including:
 - Commissioning Agreements (Self Employed & Via PSC)
 - Talent Agreements (Direct & Via PSC)
-- Any other production-related contracts
 
-Your workflow:
-1. Ask the user what type of contract they need
-2. Collect all required fields via a friendly Q&A (names, dates, rates, terms, etc.)
-3. Once all fields are gathered, present a save form in the UI so the contract is saved to the database
+You can fill in contract fields, switch between contract types, review what's missing, and export contracts to PDF. All changes are saved automatically to the project.
 
-NEVER say you cannot save data, cannot connect to a database, or suggest using external tools. You are already connected. Just collect the info and the system handles the rest.
-
-Be warm, brief and direct. Use plain language — not legalese — when chatting, but produce professional contract language in the final output.`,
-   placeholder:"Describe the contract you need...",
-   intro:"Hey! I'm Contract Cody 📝 I help draft contracts for your productions — Commissioning Agreements, Talent Agreements, and more. Tell me what you need and I'll walk you through it!"},
+NEVER say you cannot save data or need external tools. You have FULL access. Be warm, brief and direct.`,
+   placeholder:"Fill in contract details, switch types, review what's missing...",
+   intro:"I'm Contract Cody. I'm connected to your live contracts — tell me to fill in fields, switch contract types, review what's missing, or export to PDF. 📝"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -1332,7 +1409,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const csVersions_ex=callSheetStore?.[project.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
         const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
         const csData_ex=csVersions_ex[vIdx_ex];
-        exportToPDF(buildCallSheetHTML(csData_ex),`Call Sheet — ${project.name} — ${csData_ex.label||"Day 1"}`);
+        printCallSheetPDF(csData_ex);
         setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there! 📋"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -1447,7 +1524,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const raVersions_ex=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
         const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
         const raData_ex=raVersions_ex[vIdx_ex];
-        exportToPDF(buildRiskAssessmentHTML(raData_ex),`Risk Assessment — ${project.name} — ${raData_ex.label||"Version 1"}`);
+        printRiskAssessmentPDF(raData_ex);
         setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there! 🔬"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -1487,6 +1564,126 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Risk assessment updated."}]);
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
+    // ── Cody: live contract handler ──────────────────────────────────────────
+    if(agent.id==="contracts"&&contractDocStore&&setContractDocStore){
+      if(!codyCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const lower=input.toLowerCase();
+        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        if(!project){
+          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's contract should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const ctVersions = contractDocStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+        if(ctVersions.length===1){
+          setCodyCtx({projectId:project.id,vIdx:0});
+          const vLabel=ctVersions[0].label||"Version 1";
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on the contract for **${project.name}** (${vLabel}). What would you like to do? I can fill in contract fields, switch contract types, or review what's missing.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const list=ctVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple contract versions:\n\n${list}\n\nWhich version should I work on?`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      let {projectId,vIdx}=codyCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setCodyCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      const lower=input.toLowerCase();
+      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      if(switchProject){
+        const swVersions=contractDocStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+        if(swVersions.length===1){
+          setCodyCtx({projectId:switchProject.id,vIdx:0});
+          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
+        }else{
+          setCodyCtx(null);
+          const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
+
+      if(/\b(switch|change|different|new)\s+(project|contract)\b/i.test(input)){
+        setCodyCtx(null);
+        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's contract should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Export / PDF intent
+      if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(contract|agreement|pdf|export|download|print|document|doc)\b/i.test(input)){
+        const el=document.getElementById("onna-ct-print");
+        if(el){
+          const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contract</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
+          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the contract now — save it as PDF from there! 📝"}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:"To export the contract, head to **Projects → Documents → Contracts** and click **Export PDF** at the top. The contract needs to be open in the documents view for me to export it."}]);
+        }
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      const ctVersions = contractDocStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+      vIdx = Math.min(vIdx, ctVersions.length-1);
+      const ver = ctVersions[vIdx];
+      const vLabel = ver.label || `Version ${vIdx+1}`;
+
+      // Build contract snapshot
+      const activeType = ver.activeType || "commission_se";
+      let snap = `Active Contract Type: ${CONTRACT_TYPE_LABELS[activeType]||activeType}\n`;
+      const fields = CONTRACT_FIELDS[activeType] || [];
+      snap += "Fields:\n";
+      fields.forEach(fk => {
+        const val = (ver.fieldValues||{})[`${activeType}_${fk}`] || "(default/empty)";
+        snap += `  ${fk}: ${val.substring(0,200)}${val.length>200?"...":""}\n`;
+      });
+      if(ver.sigNames){
+        const sigs = Object.entries(ver.sigNames).filter(([k])=>k.startsWith(activeType));
+        if(sigs.length) snap += "Signatures:\n" + sigs.map(([k,v])=>`  ${k}: ${v}`).join("\n") + "\n";
+      }
+
+      const codySystem = buildCodySystem(project, ver, vLabel, snap);
+
+      try{
+        const codyIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            if(mi===0) return{role:m.role,content:codyIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:codySystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            applyCodyPatch(patch, project.id, vIdx, ctVersions, setContractDocStore);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Contract updated."}]);
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -1689,48 +1886,100 @@ ${content}
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 };
 
-// ─── CALL SHEET PDF EXPORT ────────────────────────────────────────────────────
-const buildCallSheetHTML = (cs) => {
-  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const venueHTML = cs.venueRows.map(r=>`<tr><td style="font-weight:700;width:120px;font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:1.5px;padding:3px 4px">${esc(r.label)}</td><td style="font-size:11pt;padding:3px 4px">${esc(r.value)}</td></tr>`).join("");
-  const schedHTML = cs.schedule.map(r=>`<tr><td style="font-weight:600;padding:4px">${esc(r.time)}</td><td style="font-weight:600;padding:4px">${esc(r.activity)}</td><td style="padding:4px">${esc(r.notes)}</td></tr>`).join("");
-  const deptHTML = cs.departments.map(dept => {
-    const crewRows = dept.crew.map(c=>`<tr style="border-bottom:1px solid #f0f0f0"><td style="font-size:8pt;color:#666;padding:3px 4px">${esc(c.role)}</td><td style="font-weight:600;padding:3px 4px">${esc(c.name)}</td><td style="padding:3px 4px">${esc(c.mobile)}</td><td style="padding:3px 4px;color:#1565C0">${esc(c.email)}</td><td style="text-align:right;font-weight:600;padding:3px 8px">${esc(c.callTime)}</td></tr>`).join("");
-    return `<tr><td colspan="5" style="padding:0"><div style="background:#1a1a1a;color:#fff;padding:3px 8px;font-size:9pt;font-weight:800;letter-spacing:1.5px">${esc(dept.name)}</div></td></tr>${crewRows}`;
+// ─── CALL SHEET PDF EXPORT (mirrors on-screen layout exactly) ─────────────────
+const printCallSheetPDF = (cs) => {
+  const e = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+  const LS = "letter-spacing:1.5px;";
+  const secTitle = `font-size:10px;font-weight:800;${LS}text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;`;
+  const logoImg = (src) => src ? `<img src="${src}" style="max-height:50px;max-width:120px;object-fit:contain"/>` : "";
+  const logos = `<div style="padding:22px 32px 18px;display:flex;justify-content:space-between;align-items:center">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div>`;
+  const venueHTML = (cs.venueRows||[]).map(r=>`<div style="display:flex;align-items:flex-start;margin-bottom:5px;gap:8px"><div style="min-width:95px;font-size:9px;font-weight:700;color:#888;${LS}text-transform:uppercase">${e(r.label)}</div><div style="flex:1;font-size:11px">${e(r.value)}</div></div>`).join("");
+  const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
+  const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
+  const deptHTML = (cs.departments||[]).map(dept => {
+    const crewRows = (dept.crew||[]).map(c=>`<tr style="background:#fff;border-bottom:1px solid #f5f5f5"><td style="padding:3px 4px;font-size:9px;color:#666">${e(c.role)}</td><td style="padding:3px 4px;font-size:10px;font-weight:600">${e(c.name)}</td><td style="padding:3px 4px;font-size:10px">${e(c.mobile)}</td><td style="padding:3px 4px;font-size:10px;color:#1565C0">${e(c.email)}</td><td style="padding:3px 8px 3px 4px;font-size:10px;font-weight:600;text-align:right">${e(c.callTime)}</td></tr>`).join("");
+    return `<tr><td colspan="5" style="padding:0"><div style="background:#1a1a1a;padding:3px 8px;font-size:9px;font-weight:800;${LS}color:#fff">${e(dept.name)}</div></td></tr>${crewRows}`;
   }).join("");
-  const emergNums = cs.emergencyNumbers.map(en=>`<span style="color:#C62828;font-weight:800;font-size:12pt">${esc(en.number)}</span> FOR <strong>${esc(en.label)}</strong>`).join(" | ");
-  return `<div style="text-align:center;font-size:12pt;font-weight:800;letter-spacing:1.5px;margin-bottom:8px">CALL SHEET</div>
-<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div><div style="font-size:22pt;font-weight:800;letter-spacing:1.5px">${esc(cs.shootName||"SHOOT NAME")}</div><div style="font-size:10pt;font-weight:600;margin-top:4px">${esc(cs.date)}</div></div><div style="font-size:12pt;font-weight:700;letter-spacing:1.5px">SHOOT DAY ${esc(cs.dayNumber||"#")}</div></div>
-${cs.passportNote?`<div style="text-align:center;color:#C62828;font-size:10pt;font-weight:700;letter-spacing:1.5px;margin-bottom:8px">${esc(cs.passportNote)}</div>`:""}
-<div style="border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:10px;font-size:11pt"><strong style="font-size:9pt;color:#888;text-transform:uppercase;letter-spacing:1.5px">Production On Set:</strong> ${esc(cs.productionContacts)}</div>
-<div class="sec">SHOOT</div><table style="margin-bottom:14px">${venueHTML}</table>
-<div class="sec">SCHEDULE</div><table><thead><tr><th style="width:10%">TIME</th><th style="width:18%">ACTIVITY</th><th>NOTES</th></tr></thead><tbody>${schedHTML}</tbody></table>
-<div class="sec">CONTACTS</div><table style="font-size:10pt"><thead><tr><th>ROLE</th><th>NAME</th><th>MOBILE</th><th>EMAIL</th><th style="text-align:right">CALL TIME</th></tr></thead><tbody>${deptHTML}</tbody></table>
-<div class="sec">INVOICING</div><p>Payment terms: <strong>${esc(cs.invoicing.terms)}</strong>. Send invoices to: ${esc(cs.invoicing.email)}</p><p style="white-space:pre-line">${esc(cs.invoicing.address)}</p><p><strong>TRN:</strong> ${esc(cs.invoicing.trn)}</p>
-<div class="sec">PROTOCOL ON SET</div><p style="font-size:9pt;color:#555">${esc(cs.protocol)}</p>
-<div class="sec">NEAREST EMERGENCY SERVICES</div><p><strong>${esc(cs.emergencyDialPrefix)}</strong> ${emergNums}</p><p><strong>NEAREST HOSPITAL:</strong> ${esc(cs.emergency.hospital)}</p><p><strong>NEAREST POLICE STATION:</strong> ${esc(cs.emergency.police)}</p>`;
+  const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:12px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
+  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div><img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const weatherImg = cs.weatherImage ? `<div style="padding:10px 32px 14px"><div style="${secTitle}">WEATHER</div><img src="${cs.weatherImage}" style="width:100%;max-height:160px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
+${logos}
+<div style="height:5px;background:#000;margin:0 32px"></div>
+<div style="text-align:center;padding:20px 32px 4px"><div style="font-size:12px;font-weight:800;${LS}color:#000">CALL SHEET</div></div>
+<div style="padding:8px 32px 16px;display:flex;justify-content:space-between;align-items:flex-start">
+  <div><div style="font-size:24px;font-weight:800;${LS}line-height:1.1">${e(cs.shootName)}</div><div style="margin-top:6px;font-size:10px;color:#000;font-weight:600;${LS}">${e(cs.date)}</div></div>
+  <div style="font-size:12px;font-weight:700;${LS}color:#000;padding-top:4px;white-space:nowrap">SHOOT DAY ${e(cs.dayNumber||"#")}</div>
+</div>
+${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C62828;font-size:10px;font-weight:700;${LS}">${e(cs.passportNote)}</div>`:""}
+<div style="height:1px;background:#eee;margin:0 32px"></div>
+<div style="padding:10px 32px;border-bottom:1px solid #eee;font-size:11px"><span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;${LS}">Production On Set: </span>${e(cs.productionContacts)}</div>
+<div style="padding:14px 32px 8px"><div style="${secTitle}">SHOOT</div>${venueHTML}</div>
+<div style="padding:10px 32px"><div style="${secTitle}">SCHEDULE</div>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr style="background:#F4F4F4"><td style="${thStyle}background:#F4F4F4;width:10%">TIME</td><td style="${thStyle}background:#F4F4F4;width:18%">ACTIVITY</td><td style="${thStyle}background:#F4F4F4">NOTES</td></tr></thead><tbody>${schedHTML}</tbody></table>
+</div>
+<div style="padding:10px 32px"><div style="${secTitle}">CONTACTS</div>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr><td style="${thStyle}width:17%">ROLE</td><td style="${thStyle}width:15%">NAME</td><td style="${thStyle}width:16%">MOBILE</td><td style="${thStyle}width:30%">EMAIL</td><td style="${thStyle}width:8%;text-align:right;padding-right:8px">CALL TIME</td></tr></thead><tbody>${deptHTML}</tbody></table>
+</div>
+${mapImg}${weatherImg}
+<div style="padding:14px 32px"><div style="${secTitle}">INVOICING</div>
+  <div style="font-size:11px;margin-bottom:8px">Please note that payment terms are <strong>${e(cs.invoicing?.terms)}</strong> from the date of invoice.</div>
+  <div style="font-size:11px"><div style="font-weight:700;margin-bottom:2px">FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <span style="color:#1565C0">${e(cs.invoicing?.email)}</span></div><div style="font-weight:700;margin-top:6px">BILLING ADDRESS:</div><div style="white-space:pre-line;line-height:1.6">${e(cs.invoicing?.address)}</div><div style="margin-top:4px"><strong>TRN:</strong> ${e(cs.invoicing?.trn)}</div></div>
+</div>
+<div style="padding:10px 32px"><div style="${secTitle}">PROTOCOL ON SET</div><div style="font-size:10px;color:#555;line-height:1.7;white-space:pre-wrap">${e(cs.protocol)}</div></div>
+<div style="padding:10px 32px"><div style="${secTitle}">NEAREST EMERGENCY SERVICES</div>
+  <div style="font-size:11px;margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><strong style="font-size:11px;font-weight:700;${LS}">${e(cs.emergencyDialPrefix)}</strong> ${emergNums}</div>
+  <div style="font-size:11px;margin-bottom:4px"><strong>NEAREST HOSPITAL: </strong>${e(cs.emergency?.hospital)}</div>
+  <div style="font-size:11px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
+</div>
+</div>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:6mm 0;size:A4;}}</style><script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};}<\/script></head><body>${body}</body></html>`;
+  const blob = new Blob([html], {type:"text/html"});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if(!win){const a=document.createElement("a");a.href=url;a.download="Call Sheet.html";a.click();}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
 };
 
-// ─── RISK ASSESSMENT PDF EXPORT ───────────────────────────────────────────────
-const buildRiskAssessmentHTML = (ra) => {
-  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const metaFields = [{l:"SHOOT NAME",k:"shootName"},{l:"SHOOT DATE",k:"shootDate"},{l:"LOCATIONS",k:"locations"},{l:"CREW ON SET",k:"crewOnSet"},{l:"TIMING",k:"timing"}];
-  const metaHTML = metaFields.map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10pt;font-weight:700;letter-spacing:1.5px;min-width:100px">${l}:</span><span style="font-size:10pt">${esc(ra[k])}</span></div>`).join("");
-  const sectionsHTML = (ra.sections||[]).map((sec,si) => {
-    const cols = sec.cols || ["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
-    const thead = cols.map((c,ci)=>`<th style="flex:${ci===0?3:ci===3?5:1.2};font-size:8pt;font-weight:700;letter-spacing:1.5px;padding:5px 6px;text-align:left;background:#f0f0f0">${esc(c)}</th>`).join("");
-    const rows = (sec.rows||[]).map(row => `<tr>${row.map((cell,ci)=>`<td style="padding:4px 6px;font-size:9.5pt;border-bottom:1px solid #eee;${ci===0?"font-weight:600":""}">${esc(cell)}</td>`).join("")}</tr>`).join("");
-    return `<div style="background:#000;color:#fff;font-size:10pt;font-weight:700;letter-spacing:1.5px;text-align:center;padding:4px 8px;text-transform:uppercase;margin-top:20px">${si+1}. ${esc(sec.title)}</div><table style="width:100%;border-collapse:collapse"><thead><tr>${thead}</tr></thead><tbody>${rows}</tbody></table>`;
+// ─── RISK ASSESSMENT PDF EXPORT (mirrors on-screen layout exactly) ───────────
+const printRiskAssessmentPDF = (ra) => {
+  const e = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+  const LS = "letter-spacing:1.5px;";
+  const logoImg = (src) => src ? `<img src="${src}" style="max-height:50px;max-width:120px;object-fit:contain"/>` : "";
+  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
+  const metaHTML = [{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10px;font-weight:700;${LS}min-width:100px">${l}</span><span style="font-size:10px;letter-spacing:0.5px">${e(ra[k])}</span></div>`).join("");
+  const sectionsHTML = (ra.sections||[]).map((sec,si)=>{
+    const cols=sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
+    const colHead=cols.map((c,ci)=>`<div style="flex:${ci===0?3:ci===3?5:1.2};font-size:9px;font-weight:700;${LS}padding:0 6px;color:#000">${e(c)}</div>`).join("");
+    const rows=(sec.rows||[]).map(row=>`<div style="display:flex;border-bottom:1px solid #eee;padding:4px 0;align-items:flex-start">${row.map((cell,ci)=>`<div style="flex:${ci===0?3:ci===3?5:1.2};padding:0 6px;font-size:10px;letter-spacing:0.5px;${ci===0?"font-weight:600;":""}">${e(cell)}</div>`).join("")}</div>`).join("");
+    return `<div style="background:#000;color:#fff;font-size:10px;font-weight:700;${LS}text-align:center;padding:4px 8px;text-transform:uppercase;margin-top:24px">${si+1}. ${e(sec.title)}</div><div style="display:flex;background:#F4F4F4;border-bottom:1px solid #ddd;padding:5px 0">${colHead}</div>${rows}`;
   }).join("");
-  const conductHTML = (ra.conductItems||[]).map(item=>`<div style="margin-bottom:4px;font-size:9.5pt">• <strong>${esc(item.label)}</strong> ${esc(item.text)}</div>`).join("");
-  const waiverHTML = (ra.waiverItems||[]).map((item,i)=>`<div style="margin-bottom:4px;font-size:9.5pt"><strong>${i+1}. ${esc(item.label)}</strong> ${esc(item.text)}</div>`).join("");
-  const emergencyHTML = (ra.emergencyItems||[]).map(item=>`<div style="margin-bottom:4px;font-size:9.5pt">• <strong>${esc(item.label)}</strong> ${esc(item.text)}</div>`).join("");
-  return `<div style="text-align:center;font-size:12pt;font-weight:700;letter-spacing:1.5px;margin-bottom:16px">RISK ASSESSMENT</div>
+  const sectionHdr=(title)=>`<div style="background:#000;color:#fff;font-size:10px;font-weight:700;${LS}text-align:center;padding:4px 0;text-transform:uppercase;margin-top:24px;margin-bottom:0">${title}</div>`;
+  const conductHTML=(ra.conductItems||[]).map(item=>`<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px">•</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px">${e(item.text)}</span></div></div>`).join("");
+  const waiverHTML=(ra.waiverItems||[]).map((item,i)=>`<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px;font-weight:700;min-width:14px">${i+1}.</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px">${e(item.text)}</span></div></div>`).join("");
+  const emergencyHTML=(ra.emergencyItems||[]).map(item=>`<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px">•</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px">${e(item.text)}</span></div></div>`).join("");
+  const body = `<div style="background:#fff;padding:32px 40px;font-family:${F};color:#1a1a1a;line-height:1.5;max-width:880px;margin:0 auto">
+${logos}
+<div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div>
+<div style="text-align:center;font-size:12px;font-weight:700;${LS}text-transform:uppercase;margin-bottom:16px">RISK ASSESSMENT</div>
 <div style="margin-bottom:20px">${metaHTML}</div>
 ${sectionsHTML}
-<div class="sec">PROFESSIONAL CODE OF CONDUCT</div><p style="font-size:9.5pt;margin-bottom:8px">${esc(ra.conductIntro)}</p>${conductHTML}
-<div class="sec">LIABILITY WAIVER &amp; ACKNOWLEDGMENT</div><p style="font-size:9.5pt;margin-bottom:8px">${esc(ra.waiverIntro)}</p>${waiverHTML}
-<div class="sec">EMERGENCY RESPONSE PLAN</div>${emergencyHTML}`;
+${sectionHdr("PROFESSIONAL CODE OF CONDUCT")}
+<div style="padding:8px 12px"><div style="font-size:10px;letter-spacing:0.5px;margin-bottom:8px;white-space:pre-wrap">${e(ra.conductIntro)}</div>${conductHTML}</div>
+${sectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
+<div style="padding:8px 12px"><div style="font-size:10px;letter-spacing:0.5px;margin-bottom:8px;white-space:pre-wrap">${e(ra.waiverIntro)}</div>${waiverHTML}</div>
+${sectionHdr("EMERGENCY RESPONSE PLAN")}
+<div style="padding:8px 12px">${emergencyHTML}</div>
+<div style="margin-top:60px;display:flex;justify-content:space-between;font-size:9px;${LS}color:#000"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
+</div>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:6mm 0;size:A4;}}</style><script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};}<\/script></head><body>${body}</body></html>`;
+  const blob = new Blob([html], {type:"text/html"});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if(!win){const a=document.createElement("a");a.href=url;a.download="Risk Assessment.html";a.click();}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
 };
 
 // ─── TABLE EXPORT HELPERS ──────────────────────────────────────────────────────
@@ -4868,13 +5117,16 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={(a.id==="compliance"||a.id==="researcher")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher")?allProjectsMerged:undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts")?allProjectsMerged:undefined}
                       vendors={a.id==="compliance"?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
                       setRiskAssessmentStore={a.id==="researcher"?setRiskAssessmentStore:undefined}
                       activeRAVersion={a.id==="researcher"?activeRAVersion:undefined}
+                      contractDocStore={a.id==="contracts"?contractDocStore:undefined}
+                      setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
+                      activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
                     />
                   ))}
                 </div>
