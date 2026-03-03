@@ -205,7 +205,7 @@ if (typeof window !== "undefined") {
 
 // ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
 const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0";
 function _DotEyes({y=42,spread=13,size=5,color="#1a1a1a"}){return<><circle cx={50-spread} cy={y} r={size} fill={color}/><circle cx={50+spread} cy={y} r={size} fill={color}/></>;}
 function _SquintEyes({y=43,spread=13}){return<><path d={`M ${50-spread-6} ${y} Q ${50-spread} ${y-7} ${50-spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/><path d={`M ${50+spread-6} ${y} Q ${50+spread} ${y-7} ${50+spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/></>;}
 function _OpenMouth({y=62}){return<><rect x="38" y={y} width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy={y+10} rx="9" ry="5" fill="#e8697a"/></>;}
@@ -278,6 +278,31 @@ function _Minnie({mood="idle",bob=0}){
     <path d="M 72 44 Q 76 30 77 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
   </svg>;
 }
+function _Billie({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_GREEN}/>
+    <_Cheeks color="rgba(60,160,90,0.20)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Calculator accessory */}
+    <rect x="71" y="5" width="22" height="27" rx="3.5" fill="white" stroke="#1a1a1a" strokeWidth="2.1"/>
+    <rect x="73" y="8" width="18" height="7" rx="2" fill="#c8efd4"/>
+    <text x="82" y="14.5" fontSize="5" fill="#2a7a3a" textAnchor="middle" fontWeight="700" fontFamily="monospace">AED</text>
+    {/* Calc button grid */}
+    {[[74,18],[79,18],[84,18],[89,18],[74,23],[79,23],[84,23],[89,23]].map(([x,y],i)=>(
+      <rect key={i} x={x} y={y} width="3.5" height="3.5" rx="0.8" fill={i===3||i===7?"#3a9a5a":_GREEN} opacity="0.85"/>
+    ))}
+    <path d="M 73 46 Q 77 32 78 15" stroke={_GREEN} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 73 46 Q 77 32 78 15" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Coin stack */}
+    <ellipse cx="19" cy="34" rx="7" ry="3" fill="#F5D13A" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <ellipse cx="19" cy="31" rx="7" ry="3" fill="#F5D13A" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <ellipse cx="19" cy="28" rx="7" ry="3" fill="#ffe066" stroke="#1a1a1a" strokeWidth="1.5"/>
+  </svg>;
+}
 const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
    system:`You are Vendor Vinnie, a contact assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database. When you collect contact details, a save modal appears in the dashboard UI and the user saves the record straight to the database. Everything is real and connected.
@@ -316,6 +341,10 @@ When given an email that looks like a meeting request, you:
 Keep replies concise and professional. Sign off as the ONNA team. Always propose times in Dubai time (GST, UTC+4).`,
    placeholder:"Paste a meeting request email or say 'check emails for meeting requests'...",
    intro:"Hi! I'm Meeting Minnie. Paste a meeting request email and I'll check your calendar for conflicts and draft a reply with three available time slots. 📅"},
+  {id:"billie",name:"Budget Billie",title:"Budgets",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
+   system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. Be fast, confident and accurate.`,
+   placeholder:"Describe your shoot and I'll build the budget...",
+   intro:"Hey! I'm Budget Billie 💰 Tell me about your shoot — type, days, crew size, location — and I'll build a full line-item budget with AED/USD, markup and contingency. What are we shooting?"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -805,7 +834,23 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
-      {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
+      {msgs.map((m,i)=>{
+        const isBudgetMsg=agent.id==="billie"&&m.role==="assistant"&&/AED|subtotal|total|contingency|agency fee/i.test(m.content);
+        return(<div key={i}>
+          <_AgentBubble msg={m}/>
+          {isBudgetMsg&&!loading&&(
+            <div style={{display:"flex",gap:6,marginTop:-4,marginBottom:8,paddingLeft:4}}>
+              <button onClick={()=>{
+                const w=window.open("","_blank");
+                if(!w)return;
+                w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ONNA Budget</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;font-size:11pt;color:#111;padding:20mm 16mm;line-height:1.6}h1{font-size:18pt;margin-bottom:4px}pre{white-space:pre-wrap;font-family:inherit;font-size:10.5pt;line-height:1.7}.footer{margin-top:30px;font-size:8pt;color:#888;border-top:1px solid #ddd;padding-top:8px}</style></head><body><h1>ONNA Production Budget</h1><p style="color:#666;font-size:9pt;margin-bottom:20px">${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</p><pre>${m.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</pre><div class="footer">Generated by Budget Billie · ONNA Production Services · onna.world</div></body></html>`);
+                w.document.close();w.print();
+              }} style={{fontSize:10,fontWeight:600,color:"#1a5a30",background:"#c8efd4",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>⬇ Export PDF</button>
+              <button onClick={()=>navigator.clipboard?.writeText(m.content)} style={{fontSize:10,fontWeight:600,color:"#555",background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+            </div>
+          )}
+        </div>);
+      })}
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
     </div>
 
