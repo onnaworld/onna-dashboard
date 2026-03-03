@@ -1949,12 +1949,20 @@ export default function OnnaDashboard() {
                       </div>
                     </div>
                     {/* Debug panel — remove once working */}
-                    {(outlookEvents.length>0||gcalEvents.length>0)&&<div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"6px 14px",fontSize:10,color:"#92400e",fontFamily:"monospace",lineHeight:1.6}}>
-                      <b>DEBUG (delete me once working)</b><br/>
-                      Outlook: {outlookEvents.length} events | first 3 dates: {outlookEvents.slice(0,3).map(e=>`"${e.summary}" ${e.start?.date||e.start?.dateTime?.slice(0,10)}`).join(" · ")}<br/>
-                      GCal: {gcalEvents.length} events | first 3 dates: {gcalEvents.slice(0,3).map(e=>`"${e.summary}" ${e.start?.date||e.start?.dateTime?.slice(0,10)}`).join(" · ")}<br/>
-                      Current month cells expect keys like: {new Date(calMonth.getFullYear(),calMonth.getMonth(),15).toISOString().slice(0,10)}
-                    </div>}
+                    {(()=>{
+                      const mo=calMonth.getMonth(),yr2=calMonth.getFullYear();
+                      const inMonth=ev=>{const s=ev.start?.date||ev.start?.dateTime?.slice(0,10);if(!s)return false;const d=new Date(s+"T12:00:00");return d.getFullYear()===yr2&&d.getMonth()===mo;};
+                      const gThis=gcalEvents.filter(inMonth);
+                      const oThis=outlookEvents.filter(inMonth);
+                      const cellKey=new Date(yr2,mo,15).toISOString().slice(0,10);
+                      const evKey=gThis[0]?new Date((gThis[0].start?.date||gThis[0].start?.dateTime?.slice(0,10))+"T00:00:00").toISOString().slice(0,10):"n/a";
+                      return <div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"6px 14px",fontSize:10,color:"#92400e",fontFamily:"monospace",lineHeight:1.8}}>
+                        <b>DEBUG</b><br/>
+                        GCal this month ({gThis.length}): {gThis.map(e=>`${e.start?.date||e.start?.dateTime?.slice(0,10)} "${e.summary}"`).join(" | ")}<br/>
+                        Outlook this month ({oThis.length}): {oThis.length?oThis.map(e=>`${e.start?.date||e.start?.dateTime?.slice(0,10)} "${e.summary}"`).join(" | "):"none — all events are Dec 2025/Jan 2026"}<br/>
+                        Cell key mid-month: {cellKey} | First GCal event key: {evKey} | Match: {cellKey.slice(0,7)===evKey.slice(0,7)?"YES ✓":"NO ✗"}
+                      </div>;
+                    })()}
                     {/* Grid */}
                     <div style={{padding:isMobile?"8px 6px":"12px 14px"}}>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:3}}>
