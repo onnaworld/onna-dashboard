@@ -499,7 +499,7 @@ export default function OnnaDashboard() {
     setLgLoading(true); setLgErr("");
     try {
       const data = await fetch(`${API}/api/auth/login`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
-      if (data.token) { localStorage.setItem("onna_token",data.token); setAuthed(true); }
+      if (data.token) { localStorage.setItem("onna_token",data.token); window.location.reload(); }
       else setLgErr("Incorrect username or password");
     } catch { setLgErr("Could not connect. Please try again."); }
     setLgLoading(false);
@@ -617,7 +617,7 @@ export default function OnnaDashboard() {
   const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
 
-  const [vendors,setVendors]                         = useState(initVendors);
+  const [vendors,setVendors]                         = useState(()=>{try{const c=localStorage.getItem('onna_cache_vendors');return c?JSON.parse(c):initVendors}catch{return initVendors}});
   const [bbCat,setBbCat]                                 = useState("All");
   const [bbLocation,setBbLocation]                       = useState("All");
   const [showRateModal,setShowRateModal]                 = useState(null);
@@ -651,9 +651,9 @@ export default function OnnaDashboard() {
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
-  const [localProjects,setLocalProjects]     = useState([]);
-  const [localLeads,setLocalLeads]           = useState(SEED_LEADS);
-  const [localClients,setLocalClients]       = useState(SEED_CLIENTS);
+  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[]}catch{return []}});
+  const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
+  const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
 
@@ -771,9 +771,9 @@ export default function OnnaDashboard() {
       api.get("/api/outreach"),
     ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
-      if (Array.isArray(projects) && projects.length > 0) setLocalProjects(projects);
-      if (Array.isArray(leads)    && leads.length > 0)    setLocalLeads(leads);
-      if (Array.isArray(vendors)  && vendors.length > 0)  setVendors(vendors);
+      if (Array.isArray(projects) && projects.length > 0) { setLocalProjects(projects); try{localStorage.setItem('onna_cache_projects',JSON.stringify(projects))}catch{} }
+      if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
+      if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
 
       // Retroactive sync: find any leads/outreach with status="client" that have no client record yet
@@ -788,7 +788,9 @@ export default function OnnaDashboard() {
       const seen = new Set();
       const unique = toCreate.filter(e=>{const k=e.company.trim().toLowerCase();if(seen.has(k))return false;seen.add(k);return true;});
       const newlyCreated = (await Promise.all(unique.map(e=>api.post("/api/clients",{company:e.company,name:e.name,email:e.email,phone:e.phone,country:e.country,notes:e.notes})))).filter(r=>r.id);
-      setLocalClients([...existingClients,...newlyCreated]);
+      const finalClients = [...existingClients,...newlyCreated];
+      setLocalClients(finalClients);
+      try{localStorage.setItem('onna_cache_clients',JSON.stringify(finalClients))}catch{}
 
       setApiLoading(false);
     }).catch(()=>setApiLoading(false));
@@ -1510,9 +1512,9 @@ export default function OnnaDashboard() {
           {activeTab==="Dashboard"&&(
             <div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:24}}>
-                <StatCard label="Projects 2026"  value={apiLoading?"—":projects2026.length} sub={apiLoading?"loading…":`${projects2026.filter(p=>p.status==="Active").length} active`}/>
-                <StatCard label="Revenue 2026"   value={apiLoading?"—":`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
-                <StatCard label="Profit 2026"    value={apiLoading?"—":`AED ${(profit2026/1000).toFixed(0)}k`} sub={apiLoading?"loading…":`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>
+                <StatCard label="Projects 2026"  value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>
+                <StatCard label="Revenue 2026"   value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
+                <StatCard label="Profit 2026"    value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>
                 <StatCard label="Pipeline"       value={apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
@@ -1680,7 +1682,7 @@ export default function OnnaDashboard() {
                               ) : (
                                 <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden"}}>
                                   {dayEvs.slice(0,3).map((ev,ei)=>{
-                                    const col = ev.colorId ? (GCAL_COLORS[ev.colorId]||T.accent) : T.accent;
+                                    const col = ev.colorId ? (GCAL_COLORS[ev.colorId]||T.accent) : (ev.calendarColor||T.accent);
                                     const title = ev.summary||"(no title)";
                                     const time  = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}) : null;
                                     return (
