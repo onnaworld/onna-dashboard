@@ -417,14 +417,21 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const buildQuestions=(entry,type)=>{
     const qs=[];
     if(type==="vendor"){
-      if(!entry.email)qs.push({key:"email",q:"What's their email address?"});
-      if(!entry.phone)qs.push({key:"phone",q:"Do you have a phone number for them?"});
-      if(!entry.category)qs.push({key:"category",q:"What category? Locations · Hair & Makeup · Stylists · Casting · Catering · Set Design · Equipment · Crew · Production"});
+      if(!entry.name)qs.push({key:"name",q:"Vendor name?"});
+      if(!entry.email)qs.push({key:"email",q:"Email address?"});
+      if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
+      if(!entry.category)qs.push({key:"category",q:"Category?\nLocations · Hair & Makeup · Stylists · Casting · Catering · Set Design · Equipment · Crew · Production"});
+      if(!entry.website)qs.push({key:"website",q:"Website?"});
+      if(!entry.rateCard)qs.push({key:"rateCard",q:"Rate card info?"});
     }else{
-      if(!entry.email)qs.push({key:"email",q:"What's their email address?"});
-      if(!entry.phone)qs.push({key:"phone",q:"Do you have a phone number?"});
-      if(!entry.category)qs.push({key:"category",q:"What category? Production Companies · Creative Agencies · Beauty & Fragrance · Jewellery & Watches · Fashion · Editorial · Sports · Hospitality · Market Research · Commercial"});
-      if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"What's their lead status — cold, warm, or open?"});
+      if(!entry.contact)qs.push({key:"contact",q:"Contact name?"});
+      if(!entry.company)qs.push({key:"company",q:"Company?"});
+      if(!entry.role)qs.push({key:"role",q:"Their role or title?"});
+      if(!entry.email)qs.push({key:"email",q:"Email address?"});
+      if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
+      if(!entry.category)qs.push({key:"category",q:"Category?\nProduction Companies · Creative Agencies · Beauty & Fragrance · Jewellery & Watches · Fashion · Editorial · Sports · Hospitality · Market Research · Commercial"});
+      if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
+      if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Status — cold, warm, or open?"});
     }
     return qs;
   };
@@ -432,7 +439,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     const qs=buildQuestions(entry,type);
     if(qs.length===0)return null;
     setPendingConv({entry,type,saveAsOutreach,updateId,questions:qs,idx:0});
-    return qs[0].q+" _(or 'skip' to leave it blank)_";
+    return qs[0].q;
   };
   const saveConvEntry=async(entry,type,saveAsOutreach,updateId)=>{
     try{
@@ -448,9 +455,10 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         if(updateId){await api.put(`/api/leads/${updateId}`,fields);onUpdateLead?.(updateId,fields);msg=`✓ ${entry.contact||"Lead"} updated in the Sales tab.`;}
         else{const saved=await api.post("/api/leads",fields);if(!saved?.id&&!saved?.company)return`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`;msg=`✓ ${entry.contact||entry.company||"Lead"} added to your pipeline!`;}
         if(saveAsOutreach&&!updateId){
-          const oFields={clientName:entry.contact||entry.company||"",company:entry.company||"",email:entry.email||"",phone:entry.phone||"",category:entry.category||"Other",date:entry.date||new Date().toISOString().split("T")[0],notes:entry.notes||"",status:"contacted"};
-          try{await api.post("/api/outreach",oFields);msg+=" Also logged to your Outreach Tracker ✓";}
-          catch(e){msg+=` (Note: Outreach Tracker save failed: ${e.message})`;}
+          const oStatus=(!entry.status||entry.status==="not_contacted")?"cold":entry.status;
+          const oFields={clientName:entry.contact||"",company:entry.company||"",role:entry.role||"",email:entry.email||"",phone:entry.phone||"",category:entry.category||"Other",date:entry.date||new Date().toISOString().split("T")[0],notes:entry.notes||"",status:oStatus,value:Number(entry.value)||0,location:entry.location||"Dubai, UAE",source:entry.source||"Direct"};
+          try{await api.post("/api/outreach",oFields);msg+="\nAlso logged to Outreach Tracker ✓";}
+          catch(e){msg+=`\n(Outreach Tracker save failed: ${e.message})`;}
         }
         return msg;
       }
@@ -472,7 +480,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Pending conversational Q&A ────────────────────────────────────────────
     if(pendingConv){
       setMsgs(history);setInput("");
-      const isSkip=/^(skip|no|nope|don'?t have|i don'?t|don'?t know|n\/a|none|-|pass)$/i.test(input.trim());
+      const isSkip=/^(skip|s|no|nope|n\/a|none|-|pass|don'?t have|i don'?t|don'?t know|i don'?t have|don'?t have that|not sure|unsure|blank|leave( it)? blank)$/i.test(input.trim());
       const conv=pendingConv;
       const currentQ=conv.questions[conv.idx];
       let updatedEntry={...conv.entry};
@@ -482,6 +490,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           else if(/warm/i.test(input))updatedEntry.status="warm";
           else if(/open/i.test(input))updatedEntry.status="open";
           else if(/not.{0,5}contact/i.test(input))updatedEntry.status="not_contacted";
+        }else if(currentQ.key==="value"){
+          updatedEntry.value=Number(input.replace(/[^0-9.]/g,""))||0;
         }else{updatedEntry[currentQ.key]=input.trim();}
       }
       const nextIdx=conv.idx+1;
@@ -493,7 +503,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       }else{
         const nextQ=conv.questions[nextIdx];
         setPendingConv({...conv,entry:updatedEntry,idx:nextIdx});
-        setMsgs([...history,{role:"assistant",content:nextQ.q+" _(or 'skip' to leave it blank)_"}]);
+        setMsgs([...history,{role:"assistant",content:nextQ.q}]);
       }
       return;
     }
@@ -544,7 +554,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
       try{
-        const sys=`Extract contact info from this message and return ONLY a raw JSON object (no markdown, no array). Fields: {"company":"","contact":"","role":"","email":"","phone":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"not_contacted"}. Use today's date (${today}) for "date" unless the message specifies otherwise. For category, pick the closest match from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial.`;
+        const sys=`Extract contact info from this message and return ONLY a raw JSON object (no markdown, no array). Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"cold"}. Use today's date (${today}) for "date" unless the message specifies otherwise. For category pick the closest match from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial. For status use: not_contacted, cold, warm, or open.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
         const entry={...parsed,_type:"lead",date:parsed.date||today,status:parsed.status||"not_contacted"};
@@ -552,7 +562,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const saveAsOutreach=/outreach|tracker/i.test(input.trim());
         const firstQ=startConv(entry,"lead",saveAsOutreach,null);
         if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Got it! I've pulled the details for ${name}. Just a couple of quick questions to fill in the gaps:\n\n${firstQ}`}]);
+          setMsgs([...history,{role:"assistant",content:`Got it — ${name} logged. A few quick gaps to fill (say 'skip' for anything you don't have):\n\n${firstQ}`}]);
         }else{
           const msg=await saveConvEntry(entry,"lead",saveAsOutreach,null);
           setMsgs([...history,{role:"assistant",content:msg}]);
@@ -576,7 +586,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setPendingDuplicate(null);
         const firstQ=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
         if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Updating ${existName}'s record.\n\n${firstQ}`}]);
+          setMsgs([...history,{role:"assistant",content:`Updating ${existName}. (say 'skip' for anything you don't have)\n\n${firstQ}`}]);
         }else{
           setLoading(true);setMood("thinking");
           const msg=await saveConvEntry(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
@@ -588,7 +598,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setPendingDuplicate(null);
         const firstQ=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
         if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Creating a new entry for ${qname||"this contact"}.\n\n${firstQ}`}]);
+          setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"}. (say 'skip' for anything you don't have)\n\n${firstQ}`}]);
         }else{
           setLoading(true);setMood("thinking");
           const msg=await saveConvEntry(entry,entry._type,dupSaveAsOutreach||false,null);
@@ -643,11 +653,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       }else if(sim?.exact){
         const merged={...sim.record,...quickEntry};
         const firstQ=startConv(merged,sim.type,false,sim.record.id);
-        setMsgs([...history,{role:"assistant",content:`${qname} already exists — merging your new info.${firstQ?"\n\n"+firstQ:""}`}]);
+        setMsgs([...history,{role:"assistant",content:`${qname} exists — merging.${firstQ?"\n\n"+firstQ+" (skip = leave blank)":""}`}]);
         if(!firstQ){const msg=await saveConvEntry(merged,sim.type,false,sim.record.id);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
       }else{
         const firstQ=startConv(quickEntry,quickEntry._type,false,null);
-        setMsgs([...history,{role:"assistant",content:`Got it! Parsed details for ${qname||"this contact"}.${firstQ?"\n\n"+firstQ:""}`}]);
+        setMsgs([...history,{role:"assistant",content:`Got it.${firstQ?"\n\n"+firstQ+" (skip = leave blank)":""}`}]);
         if(!firstQ){const msg=await saveConvEntry(quickEntry,quickEntry._type,false,null);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
       }
       setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -696,7 +706,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I also found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
           }else{
             const firstQ=startConv(parsed,type,false,sim?.record?.id||null);
-            setMsgs([...history,{role:"assistant",content:`Found ${ename||"a contact"}!\n\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${firstQ?"\n\n"+firstQ:""}`}]);
+            setMsgs([...history,{role:"assistant",content:`Found ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${firstQ?"\n\n"+firstQ+" (skip = leave blank)":""}`}]);
             if(!firstQ){const msg=await saveConvEntry(parsed,type,false,sim?.record?.id||null);setMsgs(p=>[...p,{role:"assistant",content:msg}]);}
           }
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
