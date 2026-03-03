@@ -32,7 +32,7 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
   const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:38,maxWidth:120,objectFit:"contain"}}/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>×</button></div>:<div onClick={()=>ref.current.click()} style={{width:100,height:36,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:38,maxWidth:120,objectFit:"contain"}}/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>×</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:100,height:36,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
@@ -46,7 +46,7 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
     const onUp = () => { dragRef.current.dragging=false; window.removeEventListener("mousemove",onMove); window.removeEventListener("mouseup",onUp); };
     window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
   }, [height]);
-  return <div>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{width:"100%",height,objectFit:"cover",borderRadius:4,display:"block"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div onClick={()=>ref.current.click()} style={{width:"100%",height,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  return <div>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{width:"100%",height,objectFit:"cover",borderRadius:4,display:"block"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:"100%",height,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSXbtn = ({ onClick, size = 16 }) => <button onClick={onClick} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:size,padding:"0 3px",lineHeight:1,transition:"color 0.15s"}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>×</button>;
@@ -54,7 +54,7 @@ const CSAddBtn = ({ onClick, label }) => <button onClick={onClick} style={{backg
 
 const CALLSHEET_INIT = {
   shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"",
-  agencyLogo:null,clientLogo:null,mapImage:null,weatherImage:null,
+  productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,weatherImage:null,
   venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""}],
   schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],
   departments:[
@@ -281,7 +281,7 @@ if (typeof window !== "undefined") {
 
 // ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
 const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623";
 function _DotEyes({y=42,spread=13,size=5,color="#1a1a1a"}){return<><circle cx={50-spread} cy={y} r={size} fill={color}/><circle cx={50+spread} cy={y} r={size} fill={color}/></>;}
 function _SquintEyes({y=43,spread=13}){return<><path d={`M ${50-spread-6} ${y} Q ${50-spread} ${y-7} ${50-spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/><path d={`M ${50+spread-6} ${y} Q ${50+spread} ${y-7} ${50+spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/></>;}
 function _OpenMouth({y=62}){return<><rect x="38" y={y} width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy={y+10} rx="9" ry="5" fill="#e8697a"/></>;}
@@ -379,6 +379,30 @@ function _Billie({mood="idle",bob=0}){
     <ellipse cx="19" cy="28" rx="7" ry="3" fill="#ffe066" stroke="#1a1a1a" strokeWidth="1.5"/>
   </svg>;
 }
+function _Cody({mood="idle",bob=0}){
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_ORANGE}/>
+    <_Cheeks color="rgba(245,166,35,0.22)"/>
+    {mood==="talking"?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :mood==="thinking"?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :mood==="excited"?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Contract/document accessory */}
+    <rect x="70" y="5" width="22" height="28" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2.1"/>
+    <line x1="74" y1="12" x2="88" y2="12" stroke={_ORANGE} strokeWidth="2"/>
+    <line x1="74" y1="17" x2="88" y2="17" stroke="#aaa" strokeWidth="1.3"/>
+    <line x1="74" y1="22" x2="84" y2="22" stroke="#aaa" strokeWidth="1.3"/>
+    <line x1="74" y1="27" x2="88" y2="27" stroke="#aaa" strokeWidth="1.3"/>
+    {/* Signature scribble */}
+    <path d="M 76 25 Q 79 23 82 25 Q 85 27 88 25" stroke={_ORANGE} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+    <path d="M 73 46 Q 77 32 78 15" stroke={_ORANGE} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 73 46 Q 77 32 78 15" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Pen accessory */}
+    <line x1="16" y1="22" x2="26" y2="38" stroke="#1a1a1a" strokeWidth="3" strokeLinecap="round"/>
+    <line x1="16" y1="22" x2="26" y2="38" stroke={_ORANGE} strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx="15" cy="20" r="2" fill="#1a1a1a"/>
+  </svg>;
+}
 const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
    system:`You are Vendor Vinnie, a contact assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database. When you collect contact details, a save modal appears in the dashboard UI and the user saves the record straight to the database. Everything is real and connected.
@@ -421,6 +445,24 @@ Keep replies concise and professional. Sign off as the ONNA team. Always propose
    system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. Be fast, confident and accurate.`,
    placeholder:"Describe your shoot and I'll build the budget...",
    intro:"Hey! I'm Budget Billie 💰 Tell me about your shoot — type, days, crew size, location — and I'll build a full line-item budget with AED/USD, markup and contingency. What are we shooting?"},
+  {id:"contracts",name:"Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
+   system:`You are Contract Cody, a contract drafting assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database.
+
+You help generate contracts for film and TV production, including:
+- Commissioning Agreements (Self Employed & Via PSC)
+- Talent Agreements (Direct & Via PSC)
+- Any other production-related contracts
+
+Your workflow:
+1. Ask the user what type of contract they need
+2. Collect all required fields via a friendly Q&A (names, dates, rates, terms, etc.)
+3. Once all fields are gathered, present a save form in the UI so the contract is saved to the database
+
+NEVER say you cannot save data, cannot connect to a database, or suggest using external tools. You are already connected. Just collect the info and the system handles the rest.
+
+Be warm, brief and direct. Use plain language — not legalese — when chatting, but produce professional contract language in the final output.`,
+   placeholder:"Describe the contract you need...",
+   intro:"Hey! I'm Contract Cody 📝 I help draft contracts for your productions — Commissioning Agreements, Talent Agreements, and more. Tell me what you need and I'll walk you through it!"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -2841,7 +2883,7 @@ export default function OnnaDashboard() {
                 ))}
                 <button onClick={addCSVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted,transition:"all 0.12s"}}>+ Add Day</button>
               </div>
-              <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet ${csData.label||"Day "+(csIdx+1)} — ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;padding:0;}@media print{@page{margin:8mm 0mm;size:A4;}body{padding:0;}}button,input[type=file]{display:none!important;}.cs-no-print{display:none!important;}[data-cs-upload-placeholder]{display:none!important;}</style></head><body>${el.outerHTML}<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script></body></html>`;const blob=new Blob([html],{type:"text/html"});const url=URL.createObjectURL(blob);const win=window.open(url,"_blank");if(!win){const a=document.createElement("a");a.href=url;a.download=`Call Sheet ${csData.label||"Day "+(csIdx+1)} — ${p.name}.html`;a.click();}setTimeout(()=>URL.revokeObjectURL(url),60000);}}>Export PDF</BtnExport>
+              <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
             </div>
             {/* Editable label */}
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>
@@ -2852,7 +2894,7 @@ export default function OnnaDashboard() {
 
                 {/* TOP BAR */}
                 <div style={{padding:"22px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:30,fontWeight:400,letterSpacing:1,color:"#000",fontFamily:"'Didot', serif"}}>onna</span>
+                  <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
                   <div style={{display:"flex",gap:16,alignItems:"center"}}>
                     <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                     <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
