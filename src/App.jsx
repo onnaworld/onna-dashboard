@@ -1080,8 +1080,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx);
   const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : null;
   useEffect(()=>{
-    if (onFullWidthChange) onFullWidthChange(active && hasDocCtx && !isMobile);
-  },[active, hasDocCtx, isMobile]);
+    if (onFullWidthChange) onFullWidthChange(active && !isMobile);
+  },[active, isMobile]);
 
   const chatRef=useRef(null);
   const rafRef=useRef(null);
@@ -1204,6 +1204,29 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     if(pendingConv){
+      // ── "try again" / "search again" / "retry" — abort Q&A, re-search Outlook ──
+      const retryM=agent.id==="logistical"&&input.trim().match(/\b(?:try|search|look|fetch|find|retry|redo|re-?search|re-?do)\s*(?:again|outlook|emails?)?\s*(?:for\s+)?(.+)?$/i);
+      if(retryM){
+        const retryName=(retryM[1]||"").trim().replace(/\s+(?:again|in\s+outlook|in\s+my\s+emails?)$/i,"").trim()||pendingConv.entry?.contact||pendingConv.entry?.name||lastSearchRef.current?._query||"";
+        if(retryName){
+          setPendingConv(null);
+          setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+          setMsgs([...history,{role:"assistant",content:`Searching again for "${retryName}"…`}]);
+          const retryType=pendingConv.type||"lead";
+          const result=await searchViaExt(retryName);
+          if(result.ok&&result.lead){
+            const l=result.lead;
+            if(retryType==="vendor"&&!l.name)l.name=l.contact||retryName;
+            lastSearchRef.current={...l,_type:retryType,_query:retryName,_ts:Date.now()};
+            const foundEntry={...l,_type:retryType};
+            const fqf=startConv(foundEntry,retryType,false,pendingConv.updateId||null);
+            setMsgs([...history,{role:"assistant",content:`Found ${l.contact||l.name||retryName}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
+          }else{
+            setMsgs([...history,{role:"assistant",content:`Still couldn't find "${retryName}".\n\n${result.error||""}\n\nTip: try opening an email from this person in Outlook first, then say "try again".`}]);
+          }
+          setLoading(false);setMood("idle");return;
+        }
+      }
       setMsgs(history);setInput("");
       const isSkip=/^(x|skip|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
       const conv=pendingConv;
@@ -5661,10 +5684,15 @@ export default function OnnaDashboard() {
           )}
 
         {/* ── AGENTS TAB ── */}
-        {activeTab==="Agents"&&(
-          <div style={{display:"flex",flexDirection:isMobile?"column":agentWantsFullWidth?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
-            {/* Agent avatars — top strip when full-width, left column otherwise */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:agentWantsFullWidth?{display:"flex",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:10,padding:"10px 20px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+        {activeTab==="Agents"&&(()=>{
+          const hasActiveAgent = agentActiveIdx !== null;
+          const useWideLayout = hasActiveAgent && !isMobile;
+          return (
+          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
+            {/* Agent avatars — top strip when agent selected, full grid otherwise */}
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:6,padding:"10px 20px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+              {/* Prev arrow */}
+              {useWideLayout&&<button onClick={()=>{const prev=(agentActiveIdx-1+AGENT_DEFS.length)%AGENT_DEFS.length;setAgentActiveIdx(prev);}} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
               {AGENT_DEFS.map((a,i)=>{
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -5673,21 +5701,23 @@ export default function OnnaDashboard() {
                   onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={isMobile?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)",flexShrink:0}:agentWantsFullWidth?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 10px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)",flexShrink:0}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.55)":agentWantsFullWidth?"scale(0.45)":"scale(1)",transformOrigin:"center"}}>
+                  style={isMobile?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)",flexShrink:0}:useWideLayout?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 10px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)",flexShrink:0}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
+                  <div style={{transform:isMobile?"scale(0.55)":useWideLayout?"scale(0.55)":"scale(1)",transformOrigin:"center"}}>
                     <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
-                  <span style={{fontSize:isMobile?9:agentWantsFullWidth?8:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
+                  <span style={{fontSize:isMobile?9:useWideLayout?9:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
                 </button>
               );})}
+              {/* Next arrow */}
+              {useWideLayout&&<button onClick={()=>{const next=(agentActiveIdx+1)%AGENT_DEFS.length;setAgentActiveIdx(next);}} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
-            {/* Chat panel — centered wide card when full-width, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:agentWantsFullWidth&&!isMobile?"center":"stretch",minHeight:0,padding:isMobile?"0":agentWantsFullWidth?"8px 16px":"8px 8px 8px 0"}}>
+            {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
-                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",maxWidth:agentWantsFullWidth?1400:undefined,width:agentWantsFullWidth?"100%":undefined}}>Select an agent to start chatting</div>
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":"100%",maxWidth:agentWantsFullWidth?1400:undefined,width:agentWantsFullWidth?"100%":undefined}}>
-                  {/* Bubble header */}
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":"100%",maxWidth:1400,width:"100%"}}>
+                  {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
                     <button onClick={()=>setAgentActiveIdx(null)} style={{marginLeft:"auto",background:"none",border:"none",fontSize:17,color:"#aeaeb2",cursor:"pointer",padding:"2px 6px",lineHeight:1}}>✕</button>
@@ -5721,7 +5751,7 @@ export default function OnnaDashboard() {
               )}
             </div>
           </div>
-        )}
+          );})()}
 
         {/* ── NOTES TAB ── */}
         {activeTab==="Notes"&&(
