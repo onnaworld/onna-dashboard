@@ -1933,7 +1933,7 @@ export default function OnnaDashboard() {
   const allTodos = [...generalTodos,...projectTodosFlat];
   const filteredTodos = allTodos.filter(t=>{
     if (todoFilter==="todo") return t._source==="general" && !["later","longterm"].includes(t.subType);
-    if (todoFilter==="general") return t._source==="general";
+    if (todoFilter==="general") return t._source==="general" && ["later","longterm"].includes(t.subType);
     if (todoFilter==="general-later") return t._source==="general" && t.subType==="later";
     if (todoFilter==="general-longterm") return t._source==="general" && t.subType==="longterm";
     if (todoFilter==="project") return t._source==="project";
