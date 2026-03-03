@@ -587,7 +587,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             }else{
               e.category=input.trim();
               setPendingConv({...conv,entry:e,_awaitingNewCat:true});
-              setMsgs([...history,{role:"assistant",content:\`"\${input.trim()}" isn't a recognised category. Add it as a new category?\`}]);
+              setMsgs([...history,{role:"assistant",content:`"${input.trim()}" isn't a recognised category. Add it as a new category?`}]);
               return;
             }
           }else{e[q.key]=input.trim();}
