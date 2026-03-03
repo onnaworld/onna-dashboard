@@ -293,6 +293,20 @@ function parseQuickEntry(text){
     return{_type:"lead",contact:nonEmail[0]||"",role:nonEmail[1]||"",company:nonEmail[2]||"",email:emailPart,phone:"",value:"",category:"Other",location:loc||"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""};
   }
 }
+function detectFieldKey(value){
+  if(/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(value))return"email";
+  if(/^\+?[\d\s\-().]{7,}$/.test(value))return"phone";
+  if(/^(https?:\/\/)?[\w-]+(\.[\w-]+)+/.test(value)&&!value.includes("@"))return"website";
+  return"notes";
+}
+function findVendorOrLead(name,allVendors,allLeads){
+  const q=name.toLowerCase().trim();
+  const vendor=(allVendors||[]).find(v=>v.name?.toLowerCase().includes(q)||q.includes(v.name?.toLowerCase()?.trim()||"__"));
+  if(vendor)return{record:vendor,type:"vendor"};
+  const lead=(allLeads||[]).find(l=>(l.contact?.toLowerCase().includes(q)||q.includes(l.contact?.toLowerCase()?.trim()||"__"))||(l.company?.toLowerCase().includes(q)||q.includes(l.company?.toLowerCase()?.trim()||"__")));
+  if(lead)return{record:lead,type:"lead"};
+  return null;
+}
 function _AgentDots({color}){
   return<div style={{display:"flex",gap:5,padding:"10px 14px",alignItems:"center"}}>
     {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:color,animation:`bop 1s ease-in-out ${i*0.18}s infinite`}}/>)}
@@ -306,7 +320,7 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect}){
+function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onUpdateLead}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState([{role:"assistant",content:intro}]);
   const [input,setInput]       =useState("");
@@ -315,6 +329,7 @@ function AgentCard({agent,active,onSelect}){
   const [bob,setBob]           =useState(0);
   const [pendingLead,setPending]=useState(null);
   const [pendingType,setPendingType]=useState("lead");
+  const [pendingId,setPendingId]=useState(null);
   const [leadEdit,setLeadEdit] =useState({});
   const [savingLead,setSaving] =useState(false);
   const chatRef=useRef(null);
@@ -364,9 +379,27 @@ function AgentCard({agent,active,onSelect}){
     }
     if(quickEntry){
       const qname=quickEntry._type==="vendor"?quickEntry.name:quickEntry.contact;
-      setPendingType(quickEntry._type);setLeadEdit(quickEntry);setPending(quickEntry);
+      setPendingType(quickEntry._type);setPendingId(null);setLeadEdit(quickEntry);setPending(quickEntry);
       setMsgs([...history,{role:"assistant",content:`Got it! I've parsed the details for ${qname||"this contact"}. Review and save below.`}]);
       setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+    }
+    // Vinnie: "add [value] to [name]" — update existing vendor or lead
+    if(agent.id==="logistical"){
+      const addM=input.match(/^add\s+(.+?)\s+to\s+([A-Za-z][\w\s]{1,40}?)\.?\s*$/i);
+      if(addM){
+        const [,fieldValue,targetName]=addM;
+        const found=findVendorOrLead(targetName.trim(),allVendors,allLeads);
+        if(found){
+          const {record,type}=found;
+          const fieldKey=detectFieldKey(fieldValue.trim());
+          const displayName=type==="vendor"?record.name:(record.contact||record.company);
+          setPendingType(type);setPendingId(record.id);setLeadEdit({...record,[fieldKey]:fieldValue.trim()});setPending({...record,[fieldKey]:fieldValue.trim()});
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName}! Adding ${fieldKey}: "${fieldValue.trim()}". Review and confirm below.`}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:`I couldn't find "${targetName.trim()}" in your vendors or clients.\n\nTo create a new record, try:\n${targetName.trim()}, Category, Dubai Vendor, email@domain.com`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
     }
     // Vinnie: if text looks like it contains contact/email info, try non-streaming extraction
     if(agent.id==="logistical"&&/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(input)){
@@ -399,13 +432,27 @@ function AgentCard({agent,active,onSelect}){
     setSaving(true);
     try{
       if(pendingType==="vendor"){
-        const saved=await api.post("/api/vendors",{name:leadEdit.name||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""});
-        if(saved?.id||saved?.name){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved! Find them in the Vendors tab.`}]);setPending(null);}
-        else setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);
+        const fields={name:leadEdit.name||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""};
+        if(pendingId){
+          await api.put(`/api/vendors/${pendingId}`,fields);
+          onUpdateVendor?.(pendingId,fields);
+          setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} updated in the Vendors tab.`}]);
+        }else{
+          const saved=await api.post("/api/vendors",fields);
+          if(saved?.id||saved?.name)setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved! Find them in the Vendors tab.`}]);
+          else{setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);setSaving(false);return;}
+        }
       }else{
-        const saved=await api.post("/api/leads",{company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"Other",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:"Email",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"});
-        if(saved?.id||saved?.company){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} saved to your pipeline! Find them in the Sales tab.`}]);setPending(null);}
-        else setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);
+        const fields={company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"Other",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:"Email",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"};
+        if(pendingId){
+          await api.put(`/api/leads/${pendingId}`,fields);
+          onUpdateLead?.(pendingId,fields);
+          setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} updated in the Sales tab.`}]);
+        }else{
+          const saved=await api.post("/api/leads",fields);
+          if(saved?.id||saved?.company)setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} saved to your pipeline! Find them in the Sales tab.`}]);
+          else{setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Couldn't save: ${saved?.error||"Unknown error"}`}]);setSaving(false);return;}
+        }
       }
     }catch(e){setMsgs(p=>[...p,{role:"assistant",content:`⚠️ Save failed: ${e.message}`}]);}
     setSaving(false);setPending(null);
@@ -435,7 +482,7 @@ function AgentCard({agent,active,onSelect}){
               <path d={_STAR} fill={_YELLOW}/><circle cx="37" cy="45" r="5" fill="#1a1a1a"/><circle cx="63" cy="45" r="5" fill="#1a1a1a"/>
               <path d="M 36 60 Q 50 70 64 60" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>
             </svg>
-            <div><div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>{pendingType==="vendor"?"New vendor":"New lead"}</div><div style={{fontSize:12,color:"#6e6e73",marginTop:2}}>Review and edit before saving</div></div>
+            <div><div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>{pendingId?(pendingType==="vendor"?"Update vendor":"Update lead"):(pendingType==="vendor"?"New vendor":"New lead")}</div><div style={{fontSize:12,color:"#6e6e73",marginTop:2}}>Review and edit before saving</div></div>
             <button onClick={()=>setPending(null)} style={{marginLeft:"auto",background:"none",border:"none",fontSize:20,color:"#aeaeb2",cursor:"pointer",padding:"2px 8px",lineHeight:1,flexShrink:0}}>×</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 14px",marginBottom:20}}>
@@ -450,7 +497,7 @@ function AgentCard({agent,active,onSelect}){
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>setPending(null)} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-            <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:600,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":pendingType==="vendor"?"✓ Save Vendor":"✓ Add to Pipeline"}</button>
+            <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:600,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":pendingId?"✓ Save Changes":pendingType==="vendor"?"✓ Save Vendor":"✓ Add to Pipeline"}</button>
           </div>
         </div>
       </div>
@@ -3027,7 +3074,12 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",gap:14,width:"100%",alignItems:"flex-start",flexWrap:"wrap",justifyContent:"center"}}>
               {AGENT_DEFS.map((a,i)=>(
-                <AgentCard key={a.id} agent={a} active={agentActiveIdx===i} onSelect={()=>setAgentActiveIdx(i)}/>
+                <AgentCard key={a.id} agent={a} active={agentActiveIdx===i} onSelect={()=>setAgentActiveIdx(i)}
+                  allVendors={a.id==="logistical"?vendors:undefined}
+                  allLeads={a.id==="logistical"?localLeads:undefined}
+                  onUpdateVendor={a.id==="logistical"?(id,fields)=>{setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));}:undefined}
+                  onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
+                />
               ))}
             </div>
             <div style={{marginTop:36,textAlign:"center",fontSize:10,color:"#ddd",letterSpacing:2,fontFamily:"monospace"}}>POWERED BY CLAUDE · ONNA.WORLD</div>
