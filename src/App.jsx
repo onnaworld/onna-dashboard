@@ -181,7 +181,7 @@ const TABS = [
   {id:"Dashboard", label:"DASHBOARD"},
   {id:"Agents",    label:"AGENTS"},
   {id:"Vendors",   label:"VENDORS"},
-  {id:"Sales",     label:"SALES"},
+  {id:"Clients",   label:"CLIENTS"},
   {id:"Projects",  label:"PROJECTS"},
   {id:"Resources", label:"RESOURCES"},
   {id:"Notes",     label:"NOTES"},
@@ -1570,6 +1570,12 @@ export default function OnnaDashboard() {
   const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
   const [customLeadCats,setCustomLeadCats]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_cats')||'[]')}catch{return []}});
   const [customVendorCats,setCustomVendorCats] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_cats')||'[]')}catch{return []}});
+  const [hiddenLeadBuiltins,setHiddenLeadBuiltins] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_hidden_lead_cats')||'[]')}catch{return []}});
+  const [hiddenVendorBuiltins,setHiddenVendorBuiltins] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_hidden_vendor_cats')||'[]')}catch{return []}});
+  const [showCatManager,setShowCatManager] = useState(false);
+  const [catEdit,setCatEdit] = useState(null);
+  const [catEditVal,setCatEditVal] = useState("");
+  const [catSaving,setCatSaving] = useState(false);
   const [customVendorLocs,setCustomVendorLocs] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
@@ -2123,6 +2129,69 @@ export default function OnnaDashboard() {
     }
   };
 
+  // ── Category manager helpers ──────────────────────────────────────────────
+  const deleteCat = async (type, cat) => {
+    setCatSaving(true);
+    const isLead = type === 'lead';
+    const builtin = isLead ? LEAD_CATEGORIES.includes(cat) : VENDORS_CATEGORIES.includes(cat);
+    const records = isLead ? localLeads : vendors;
+    const affected = records.filter(r => r.category === cat);
+    for (const r of affected) {
+      const {id, ...fields} = r;
+      try {
+        if (isLead) {
+          await api.put(`/api/leads/${id}`, {...fields, category:'', value:Number(fields.value)||0});
+          setLocalLeads(prev => prev.map(x => x.id===id ? {...x,category:''} : x));
+        } else {
+          await api.put(`/api/vendors/${id}`, {...fields, category:''});
+          setVendors(prev => prev.map(x => x.id===id ? {...x,category:''} : x));
+        }
+      } catch {}
+    }
+    if (builtin) {
+      const key = isLead ? 'onna_hidden_lead_cats' : 'onna_hidden_vendor_cats';
+      const setter = isLead ? setHiddenLeadBuiltins : setHiddenVendorBuiltins;
+      setter(prev => { const u=[...prev,cat]; try{localStorage.setItem(key,JSON.stringify(u));}catch{} return u; });
+    } else {
+      if (isLead) {
+        const u = customLeadCats.filter(c=>c!==cat);
+        setCustomLeadCats(u); try{localStorage.setItem('onna_lead_cats',JSON.stringify(u));}catch{}
+      } else {
+        const u = customVendorCats.filter(c=>c!==cat);
+        setCustomVendorCats(u); try{localStorage.setItem('onna_vendor_cats',JSON.stringify(u));}catch{}
+      }
+    }
+    setCatSaving(false);
+  };
+
+  const renameCat = async (type, oldCat, newCat) => {
+    if (!newCat.trim() || newCat.trim()===oldCat) { setCatEdit(null); return; }
+    setCatSaving(true);
+    const isLead = type === 'lead';
+    const records = isLead ? localLeads : vendors;
+    const affected = records.filter(r => r.category === oldCat);
+    for (const r of affected) {
+      const {id, ...fields} = r;
+      try {
+        if (isLead) {
+          await api.put(`/api/leads/${id}`, {...fields, category:newCat.trim(), value:Number(fields.value)||0});
+          setLocalLeads(prev => prev.map(x => x.id===id ? {...x,category:newCat.trim()} : x));
+        } else {
+          await api.put(`/api/vendors/${id}`, {...fields, category:newCat.trim()});
+          setVendors(prev => prev.map(x => x.id===id ? {...x,category:newCat.trim()} : x));
+        }
+      } catch {}
+    }
+    if (isLead) {
+      const u = customLeadCats.map(c=>c===oldCat?newCat.trim():c);
+      setCustomLeadCats(u); try{localStorage.setItem('onna_lead_cats',JSON.stringify(u));}catch{}
+    } else {
+      const u = customVendorCats.map(c=>c===oldCat?newCat.trim():c);
+      setCustomVendorCats(u); try{localStorage.setItem('onna_vendor_cats',JSON.stringify(u));}catch{}
+    }
+    setCatEdit(null); setCatSaving(false);
+  };
+
   // ── Extra contacts helpers (localStorage) ─────────────────────────────────
   const getXContacts = (type, id) => { try { return JSON.parse(localStorage.getItem(`onna_xc_${type}_${id}`) || '[]'); } catch { return []; } };
   const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${type}_${id}`, JSON.stringify(arr)); } catch {} };
@@ -2162,8 +2231,8 @@ export default function OnnaDashboard() {
   };
 
   const allLeadLocs  = ["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA",...customLeadLocs,"＋ Add location"];
-  const allLeadCats  = [...LEAD_CATEGORIES,...customLeadCats,"＋ Add category"];
-  const allVendorCats = ["All",...VENDORS_CATEGORIES,...customVendorCats,"＋ Add category"];
+  const allLeadCats  = [...LEAD_CATEGORIES.filter(c=>!hiddenLeadBuiltins.includes(c)),...customLeadCats,"＋ Add category"];
+  const allVendorCats = ["All",...VENDORS_CATEGORIES.filter(c=>!hiddenVendorBuiltins.includes(c)),...customVendorCats,"＋ Add category"];
   const allVendorLocs = [...BB_LOCATIONS,...customVendorLocs,"＋ Add location"];
 
   // ─── PROJECT SECTION RENDERER ──────────────────────────────────────────────
@@ -2546,6 +2615,10 @@ export default function OnnaDashboard() {
                   <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                   View Archive{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
                 </button>
+                <button onClick={()=>{setShowUserMenu(false);setShowCatManager(true);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",borderBottom:`1px solid ${T.borderSub}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="none"}>
+                  <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                  Manage Categories
+                </button>
                 <button onClick={()=>{setShowUserMenu(false);localStorage.removeItem("onna_token");setAuthed(false);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",color:"#c0392b",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#fff5f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>
                   <svg width={13} height={13} viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Sign out
@@ -2840,8 +2913,8 @@ export default function OnnaDashboard() {
             </div>
           )}
 
-          {/* ══ SALES ══ */}
-          {activeTab==="Sales"&&(
+          {/* ══ CLIENTS ══ */}
+          {activeTab==="Clients"&&(
             <div>
               <div style={{display:"flex",gap:6,marginBottom:22}}>
                 <Pill label="Overview"         active={leadsView==="dashboard"} onClick={()=>setLeadsView("dashboard")}/>
@@ -4024,6 +4097,65 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",gap:8}}>
               <BtnPrimary onClick={vaultEditId?updateVaultPassword:addVaultPassword} disabled={vaultSaving||!vaultNewPw.name.trim()||!vaultNewPw.password.trim()}>{vaultSaving?"Saving…":vaultEditId?"Save Changes":"Save"}</BtnPrimary>
               <BtnSecondary onClick={()=>{setVaultAddPwOpen(false);setVaultEditId(null);setVaultNewPw({name:"",url:"",username:"",password:"",notes:""});}}>Cancel</BtnSecondary>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CATEGORY MANAGER MODAL ── */}
+      {showCatManager&&(
+        <div className="modal-bg" onClick={()=>setShowCatManager(false)}>
+          <div style={{borderRadius:20,padding:28,width:560,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
+              <div>
+                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Manage Categories</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete client and vendor categories</div>
+              </div>
+              <button onClick={()=>setShowCatManager(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            </div>
+            <div style={{overflowY:"auto",flex:1}}>
+              {[
+                {label:"Client Categories",type:"lead",builtin:LEAD_CATEGORIES.filter(c=>c!=="All"),custom:customLeadCats,hidden:hiddenLeadBuiltins},
+                {label:"Vendor Categories",type:"vendor",builtin:VENDORS_CATEGORIES,custom:customVendorCats,hidden:hiddenVendorBuiltins},
+              ].map(section=>(
+                <div key={section.type} style={{marginBottom:28}}>
+                  <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12,paddingBottom:7,borderBottom:`1px solid ${T.border}`}}>{section.label}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {/* Built-in categories */}
+                    {section.builtin.filter(c=>!section.hidden.includes(c)).map(cat=>(
+                      <div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
+                        <span style={{flex:1,fontSize:13,color:T.text}}>{cat}</span>
+                        <span style={{fontSize:10,color:T.muted,background:"#f0ede8",borderRadius:999,padding:"2px 8px",fontWeight:500}}>built-in</span>
+                        <button disabled={catSaving} onClick={async()=>{if(!window.confirm(`Delete "${cat}"? All ${section.type==='lead'?'clients':'vendors'} in this category will have it cleared.`))return;await deleteCat(section.type,cat);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                      </div>
+                    ))}
+                    {/* Custom categories */}
+                    {section.custom.map(cat=>(
+                      <div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
+                        {catEdit&&catEdit.type===section.type&&catEdit.cat===cat?(
+                          <>
+                            <input autoFocus value={catEditVal} onChange={e=>setCatEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")renameCat(section.type,cat,catEditVal);if(e.key==="Escape")setCatEdit(null);}} style={{flex:1,border:`1.5px solid ${T.accent}`,borderRadius:7,padding:"5px 8px",fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}/>
+                            <button disabled={catSaving} onClick={()=>renameCat(section.type,cat,catEditVal)} style={{background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",padding:"4px 10px",borderRadius:6,fontFamily:"inherit",opacity:catSaving?0.5:1}}>Save</button>
+                            <button onClick={()=>setCatEdit(null)} style={{background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",padding:"4px 6px",fontFamily:"inherit"}}>Cancel</button>
+                          </>
+                        ):(
+                          <>
+                            <span style={{flex:1,fontSize:13,color:T.text}}>{cat}</span>
+                            <button disabled={catSaving} onClick={()=>{setCatEdit({type:section.type,cat});setCatEditVal(cat);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Rename</button>
+                            <button disabled={catSaving} onClick={async()=>{if(!window.confirm(`Delete "${cat}"? All ${section.type==='lead'?'clients':'vendors'} in this category will have it cleared.`))return;await deleteCat(section.type,cat);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    {section.builtin.filter(c=>!section.hidden.includes(c)).length===0&&section.custom.length===0&&(
+                      <div style={{fontSize:13,color:T.muted,padding:"12px 0",textAlign:"center"}}>No categories.</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{borderTop:`1px solid ${T.border}`,paddingTop:16,marginTop:4,flexShrink:0,display:"flex",justifyContent:"flex-end"}}>
+              <BtnSecondary onClick={()=>setShowCatManager(false)}>Done</BtnSecondary>
             </div>
           </div>
         </div>
