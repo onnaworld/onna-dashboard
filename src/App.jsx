@@ -322,7 +322,7 @@ function _AgentBubble({msg}){
 }
 function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onUpdateLead}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
-  const [msgs,setMsgs]         =useState([{role:"assistant",content:intro}]);
+  const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);return s?JSON.parse(s):[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,setInput]       =useState("");
   const [loading,setLoading]   =useState(false);
   const [mood,setMood]         =useState("idle");
@@ -343,6 +343,7 @@ function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onU
     return()=>cancelAnimationFrame(rafRef.current);
   },[agent.id]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
+  useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
 
   const searchViaExt=(query)=>new Promise(resolve=>{
     if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the Logan extension, and make sure Outlook is open in another tab."});
@@ -473,6 +474,7 @@ function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onU
     </div>
   );
 
+  if(!active)return null;
   return(<>
     {pendingLead&&(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.2)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -502,26 +504,15 @@ function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onU
         </div>
       </div>
     )}
-    <div onClick={!active?onSelect:undefined} style={{borderRadius:20,border:`1.5px solid ${active?"#c7c7cc":"#e5e5ea"}`,background:"white",boxShadow:active?"0 4px 20px rgba(0,0,0,0.09)":"0 1px 4px rgba(0,0,0,0.05)",transition:"all 0.35s cubic-bezier(0.34,1.56,0.64,1)",cursor:active?"default":"pointer",overflow:"hidden",display:"flex",flexDirection:"column",flex:active?"1 1 400px":"0 0 152px",minWidth:active?300:134,maxWidth:active?490:172,transform:active?"translateY(-3px)":"scale(1)"}}>
-      <div style={{background:"white",padding:active?"18px 20px 14px":"22px 12px 16px",display:"flex",flexDirection:active?"row":"column",alignItems:"center",gap:active?12:4,borderBottom:active?"1px solid #f2f2f7":"none"}}>
-        <Blob mood={loading?"thinking":mood} bob={active?bob:bob*0.3}/>
-        <div style={{textAlign:active?"left":"center"}}>
-          <div style={{fontWeight:900,fontSize:active?18:14,color:"#1d1d1f",fontFamily:"Georgia,serif"}}>{name}</div>
-          <div style={{marginTop:3,fontSize:10,color:"#aeaeb2",fontFamily:"monospace",letterSpacing:0.5,textTransform:"uppercase"}}>{title}</div>
-        </div>
-        {active&&<div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}><div style={{width:7,height:7,borderRadius:"50%",background:"#30d158",boxShadow:"0 0 5px #30d15870"}}/><span style={{fontSize:9.5,color:"#aeaeb2",fontWeight:700,fontFamily:"monospace",letterSpacing:0.5}}>ONLINE</span></div>}
+    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
+      <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+        {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
+        {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
       </div>
-      {active&&<>
-        <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"#fafafa",minHeight:260,maxHeight:360}}>
-          {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
-          {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
-        </div>
-        <div style={{padding:"12px 14px",background:"white",borderTop:"1px solid #f2f2f7",display:"flex",gap:8}}>
-          <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={agent.id==="logistical"?`Ask me to find a contact, paste email text, or say "find Aman's contact details"…`:placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"9px 13px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s"}}/>
-          <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e5e5ea":"#1d1d1f",border:"none",color:loading||!input.trim()?"#aeaeb2":"#fff",borderRadius:12,padding:"0 16px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:46,transition:"background 0.12s"}}>↑</button>
-        </div>
-      </>}
-      {!active&&<div style={{padding:"4px 10px 14px",textAlign:"center",fontSize:11,color:"#c7c7cc",fontFamily:"monospace"}}>tap to chat {emoji}</div>}
+      <div style={{padding:"12px 16px",background:"white",borderTop:"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
+        <textarea value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"9px 13px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s"}}/>
+        <button onClick={send} disabled={loading||!input.trim()} style={{background:loading||!input.trim()?"#e5e5ea":"#1d1d1f",border:"none",color:loading||!input.trim()?"#aeaeb2":"#fff",borderRadius:12,padding:"0 16px",cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:46,transition:"background 0.12s"}}>↑</button>
+      </div>
     </div>
   </>);
 }
@@ -3066,13 +3057,18 @@ export default function OnnaDashboard() {
 
         {/* ── AGENTS TAB ── */}
         {activeTab==="Agents"&&(
-          <div>
-            <div style={{textAlign:"center",marginBottom:32}}>
-              <div style={{display:"inline-block",background:"rgba(255,255,255,0.8)",border:"1.5px solid rgba(0,0,0,0.07)",borderRadius:99,padding:"4px 16px",marginBottom:12,fontSize:10,letterSpacing:2,color:"#bbb",fontFamily:"monospace"}}>ONNA · AGENT SQUAD</div>
-              <h1 style={{fontSize:isMobile?22:28,fontWeight:900,margin:"0 0 6px",fontFamily:"Georgia,serif",color:"#1c1c1c",letterSpacing:-0.5}}>Meet Your Agents 👋</h1>
-              <p style={{color:"#bbb",fontSize:13,margin:0}}>Click an agent to start chatting</p>
+          <div style={{display:"flex",flexDirection:"column",margin:isMobile?"-20px -16px 0":"-28px -32px 0",height:"calc(100vh - 72px)"}}>
+            {/* Star selector */}
+            <div style={{display:"flex",justifyContent:"center",alignItems:"flex-end",gap:isMobile?20:52,padding:"28px 24px 20px",borderBottom:"1px solid #f2f2f7",flexShrink:0,background:"white"}}>
+              {AGENT_DEFS.map((a,i)=>(
+                <button key={a.id} onClick={()=>setAgentActiveIdx(i)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"4px 8px",borderRadius:16,opacity:agentActiveIdx===i?1:0.25,transform:agentActiveIdx===i?"scale(1.1)":"scale(1)",transition:"all 0.2s ease"}}>
+                  <a.Blob mood="idle" bob={0}/>
+                  <span style={{fontSize:10.5,fontWeight:700,color:"#1d1d1f",fontFamily:"Georgia,serif",letterSpacing:0.3}}>{a.name}</span>
+                </button>
+              ))}
             </div>
-            <div style={{display:"flex",gap:14,width:"100%",alignItems:"flex-start",flexWrap:"wrap",justifyContent:"center"}}>
+            {/* Chat panel */}
+            <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:"#fafafa"}}>
               {AGENT_DEFS.map((a,i)=>(
                 <AgentCard key={a.id} agent={a} active={agentActiveIdx===i} onSelect={()=>setAgentActiveIdx(i)}
                   allVendors={a.id==="logistical"?vendors:undefined}
@@ -3082,7 +3078,6 @@ export default function OnnaDashboard() {
                 />
               ))}
             </div>
-            <div style={{marginTop:36,textAlign:"center",fontSize:10,color:"#ddd",letterSpacing:2,fontFamily:"monospace"}}>POWERED BY CLAUDE · ONNA.WORLD</div>
           </div>
         )}
 
