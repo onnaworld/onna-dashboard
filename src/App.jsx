@@ -2841,13 +2841,13 @@ export default function OnnaDashboard() {
                 ))}
                 <button onClick={addCSVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted,transition:"all 0.12s"}}>+ Add Day</button>
               </div>
-              <BtnExport onClick={()=>exportToPDF(buildCallSheetHTML(csData),`Call Sheet ${csData.label||"Day "+(csIdx+1)} — ${p.name}`)}>Export PDF</BtnExport>
+              <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet ${csData.label||"Day "+(csIdx+1)} — ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;padding:0;}@media print{@page{margin:8mm 0mm;size:A4;}body{padding:0;}}button,input[type=file]{display:none!important;}.cs-no-print{display:none!important;}[data-cs-upload-placeholder]{display:none!important;}</style></head><body>${el.outerHTML}<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script></body></html>`;const blob=new Blob([html],{type:"text/html"});const url=URL.createObjectURL(blob);const win=window.open(url,"_blank");if(!win){const a=document.createElement("a");a.href=url;a.download=`Call Sheet ${csData.label||"Day "+(csIdx+1)} — ${p.name}.html`;a.click();}setTimeout(()=>URL.revokeObjectURL(url),60000);}}>Export PDF</BtnExport>
             </div>
             {/* Editable label */}
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>
               Label: <input value={csData.label||""} onChange={e=>csU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:140}} placeholder={`Day ${csIdx+1}`}/>
             </div>
-            <div style={{background:"#EDEDED",padding:"24px 12px",fontFamily:CS_FONT,borderRadius:14}}>
+            <div id="onna-cs-print" style={{background:"#fff",padding:"0",fontFamily:CS_FONT,borderRadius:0}}>
               <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
 
                 {/* TOP BAR */}
