@@ -2035,7 +2035,15 @@ export default function OnnaDashboard() {
                             <div style={{fontSize:14,fontWeight:600,color:T.text,lineHeight:1.3}}>{ev.summary||"(No title)"}</div>
                             <div style={{fontSize:12,color:T.muted,marginTop:3}}>{timeStr}</div>
                             {ev.location&&<div style={{fontSize:11,color:T.muted,marginTop:2}}>📍 {ev.location}</div>}
-                            {ev.description&&<div style={{fontSize:11,color:T.sub,marginTop:4,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{ev.description.replace(/<[^>]+>/g,"").slice(0,300)}</div>}
+                            {ev.description&&(()=>{
+                              const plain=ev.description.replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&#?\w+;/g," ").trim();
+                              const parts=plain.split(/(https?:\/\/[^\s]+)/g);
+                              return <div style={{fontSize:11,color:T.sub,marginTop:4,lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+                                {parts.map((p,pi)=>p.match(/^https?:\/\//)
+                                  ?<a key={pi} href={p} target="_blank" rel="noreferrer" style={{color:T.accent,textDecoration:"underline",wordBreak:"break-all"}}>{p}</a>
+                                  :<span key={pi}>{p}</span>)}
+                              </div>;
+                            })()}
                             <div style={{fontSize:10,color:T.muted,marginTop:4,opacity:0.6}}>{source}</div>
                           </div>
                         </div>
