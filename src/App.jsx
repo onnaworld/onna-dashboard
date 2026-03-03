@@ -320,7 +320,7 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onUpdateLead}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);return s?JSON.parse(s):[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,setInput]       =useState("");
@@ -476,8 +476,12 @@ function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onU
 
   if(!active)return null;
   return(<>
+    {/* backdrop */}
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.08)",zIndex:99}}/>
+
+    {/* save modal */}
     {pendingLead&&(
-      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.2)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.2)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",zIndex:201,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
         <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:460,maxHeight:"88vh",overflowY:"auto",padding:"24px",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,paddingBottom:16,borderBottom:"1px solid #e5e5ea"}}>
             <svg viewBox="0 0 100 100" width={38} height={38} style={{flexShrink:0}}>
@@ -504,8 +508,14 @@ function AgentCard({agent,active,onSelect,allVendors,allLeads,onUpdateVendor,onU
         </div>
       </div>
     )}
-    <div style={{display:"flex",flexDirection:"column",flex:1,minHeight:0}}>
-      <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+
+    {/* chat bottom sheet */}
+    <div style={{position:"fixed",bottom:0,left:0,right:0,height:"72vh",background:"white",borderRadius:"20px 20px 0 0",boxShadow:"0 -6px 40px rgba(0,0,0,0.10)",display:"flex",flexDirection:"column",zIndex:100}}>
+      <div style={{display:"flex",alignItems:"center",padding:"14px 20px 10px",borderBottom:"1px solid #f2f2f7",flexShrink:0}}>
+        <span style={{fontWeight:700,fontSize:15,color:"#1d1d1f",fontFamily:"Georgia,serif"}}>{name}</span>
+        <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",fontSize:19,color:"#aeaeb2",cursor:"pointer",padding:"2px 6px",lineHeight:1}}>✕</button>
+      </div>
+      <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"16px 20px",background:"white"}}>
         {msgs.map((m,i)=><_AgentBubble key={i} msg={m}/>)}
         {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
       </div>
@@ -1259,7 +1269,7 @@ export default function OnnaDashboard() {
   const [outlookError,setOutlookError]     = useState("");
 
   // ── Agents state ──────────────────────────────────────────────────────────────
-  const [agentActiveIdx,setAgentActiveIdx] = useState(0);
+  const [agentActiveIdx,setAgentActiveIdx] = useState(null);
 
   // Load Google Identity Services script once
   useEffect(()=>{
@@ -3057,27 +3067,21 @@ export default function OnnaDashboard() {
 
         {/* ── AGENTS TAB ── */}
         {activeTab==="Agents"&&(
-          <div style={{display:"flex",flexDirection:"column",margin:isMobile?"-20px -16px 0":"-28px -32px 0",height:"calc(100vh - 72px)"}}>
-            {/* Star selector */}
-            <div style={{display:"flex",justifyContent:"center",alignItems:"flex-end",gap:isMobile?20:52,padding:"28px 24px 20px",borderBottom:"1px solid #f2f2f7",flexShrink:0,background:"white"}}>
-              {AGENT_DEFS.map((a,i)=>(
-                <button key={a.id} onClick={()=>setAgentActiveIdx(i)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"4px 8px",borderRadius:16,opacity:agentActiveIdx===i?1:0.25,transform:agentActiveIdx===i?"scale(1.1)":"scale(1)",transition:"all 0.2s ease"}}>
-                  <a.Blob mood="idle" bob={0}/>
-                  <span style={{fontSize:10.5,fontWeight:700,color:"#1d1d1f",fontFamily:"Georgia,serif",letterSpacing:0.3}}>{a.name}</span>
-                </button>
-              ))}
-            </div>
-            {/* Chat panel */}
-            <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",background:"#fafafa"}}>
-              {AGENT_DEFS.map((a,i)=>(
-                <AgentCard key={a.id} agent={a} active={agentActiveIdx===i} onSelect={()=>setAgentActiveIdx(i)}
-                  allVendors={a.id==="logistical"?vendors:undefined}
-                  allLeads={a.id==="logistical"?localLeads:undefined}
-                  onUpdateVendor={a.id==="logistical"?(id,fields)=>{setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));}:undefined}
-                  onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
-                />
-              ))}
-            </div>
+          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:isMobile?28:60,padding:"60px 24px"}}>
+            {AGENT_DEFS.map((a,i)=>(
+              <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"8px",borderRadius:20,transition:"transform 0.18s ease",transform:agentActiveIdx===i?"scale(1.12)":"scale(1)"}}>
+                <a.Blob mood="idle" bob={0}/>
+                <span style={{fontSize:11,fontWeight:700,color:"#1d1d1f",fontFamily:"Georgia,serif",letterSpacing:0.3}}>{a.name}</span>
+              </button>
+            ))}
+            {AGENT_DEFS.map((a,i)=>(
+              <AgentCard key={a.id} agent={a} active={agentActiveIdx===i} onSelect={()=>setAgentActiveIdx(i)} onClose={()=>setAgentActiveIdx(null)}
+                allVendors={a.id==="logistical"?vendors:undefined}
+                allLeads={a.id==="logistical"?localLeads:undefined}
+                onUpdateVendor={a.id==="logistical"?(id,fields)=>{setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));}:undefined}
+                onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
+              />
+            ))}
           </div>
         )}
 
