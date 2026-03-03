@@ -949,12 +949,15 @@ export default function OnnaDashboard() {
       const colorsData = await colorsRes.json().catch(()=>({}));
       if (colorsData.event) setGcalEventColors(colorsData.event);
       const calItems = calList.items||[];
-      const allEvents = await Promise.all(calItems.map(cal=>
+      console.log("[GCal] calendars found:", calItems.map(c=>c.summary+"("+c.id+")"));
+      const allEventsArr = await Promise.all(calItems.map(cal=>
         fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,{headers:{Authorization:`Bearer ${token}`}})
-          .then(r=>r.json()).then(d=>Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:cal.backgroundColor,calendarFg:cal.foregroundColor})):[]).catch(()=>[])
+          .then(r=>r.json()).then(d=>{console.log("[GCal]",cal.summary,"→",d.items?.length??0,"events");return Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:cal.backgroundColor,calendarFg:cal.foregroundColor})):[];}).catch(err=>{console.error("[GCal] failed",cal.summary,err);return [];})
       ));
-      setGcalEvents(allEvents.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date)));
-    } catch {}
+      const flat = allEventsArr.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date));
+      console.log("[GCal] total events this month:", flat.length);
+      setGcalEvents(flat);
+    } catch(err) { console.error("[GCal] top-level error:", err); }
     setGcalLoading(false);
   };
 
@@ -969,6 +972,9 @@ export default function OnnaDashboard() {
       }
       const text = await res.text();
       const evs = parseICS(text);
+      console.log("[Outlook] raw ICS length:", text.length, "chars");
+      console.log("[Outlook] parsed events:", evs.length, "total");
+      console.log("[Outlook] sample dates:", evs.slice(0,10).map(e=>e.summary+" → "+(e.start?.date||e.start?.dateTime)));
       setOutlookEvents(evs);
       try{sessionStorage.setItem('onna_outlook_evs',JSON.stringify(evs));}catch{}
     } catch(err) {
