@@ -117,7 +117,7 @@ const parseICS = (text) => {
   Object.values(excMap).forEach(ex=>{const ds=ex.start?.date||ex.start?.dateTime?.slice(0,10);if(ds){const d=new Date(ds+"T00:00:00");if(d>=winStart&&d<=winEnd)events.push(ex);}});
   return events;
 };
-const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Locations","Casting","Styling","Workbook"];
+const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Travel","Locations","Casting","Styling","Schedule"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
@@ -1629,6 +1629,7 @@ export default function OnnaDashboard() {
   const [creativeSubSection,setCreativeSubSection]       = useState(null);
   const [budgetSubSection,setBudgetSubSection]           = useState(null);
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
+  const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
   const [aiMsg,setAiMsg]                                 = useState("");
   const [aiLoading,setAiLoading]                         = useState(false);
@@ -2225,7 +2226,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
@@ -2378,7 +2379,8 @@ export default function OnnaDashboard() {
       "Locations":      {emoji:"📍",count:"Add folder link"},
       "Casting":        {emoji:"🎭",count:`${getProjectCasting(p.id).length} models`},
       "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
-      "Workbook":       {emoji:"📒",count:"Notes & links"},
+      "Travel":         {emoji:"✈️",count:"Flights, hotels & logistics"},
+      "Schedule":       {emoji:"📒",count:"Production, pre & post"},
     };
 
     // mini stat card used in project sections
@@ -2412,7 +2414,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -2471,7 +2473,7 @@ export default function OnnaDashboard() {
         const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
         return (
           <div>
-            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
+            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
             <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
             <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or link a Dropbox / Drive folder.</p>
             <div style={{marginBottom:18}}>
@@ -2778,12 +2780,75 @@ export default function OnnaDashboard() {
     }
 
     if (projectSection==="Styling") return <UploadZone label="Upload styling documents (PDF, images)" files={getProjectFiles(p.id,"styling")} onAdd={f=>addProjectFiles(p.id,"styling",f)}/>;
-    if (projectSection==="Workbook") return (
+
+    // Travel section — upload zone + folder link
+    if (projectSection==="Travel") return (
       <div>
-        <p style={{fontSize:13,color:T.sub,marginBottom:12}}>General project notes, timelines, links and references.</p>
-        <textarea value={projectNotes[p.id]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id]:e.target.value}))} rows={18} placeholder="Add your notes, timelines, links, contacts…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
+        <div style={{marginBottom:18}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Folder Link</div>
+          <div style={{display:"flex",gap:10}}>
+            <input value={projectLocLinks[p.id+"_travel"]||""} onChange={e=>setProjectLocLinks(prev=>({...prev,[p.id+"_travel"]:e.target.value}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+            {projectLocLinks[p.id+"_travel"]&&<a href={projectLocLinks[p.id+"_travel"]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none"}}>Open Folder ↗</a>}
+          </div>
+        </div>
+        <UploadZone label="Upload travel documents — flights, hotels, itineraries (PDF, images)" files={getProjectFiles(p.id,"travel")} onAdd={f=>addProjectFiles(p.id,"travel",f)}/>
       </div>
     );
+
+    // Schedule section — sub-nav with Production Schedule, Pre-Production, Post-Production
+    if (projectSection==="Schedule") {
+      const SCHED_CARDS = [
+        {key:"production",    emoji:"🎬", label:"Production Schedule"},
+        {key:"preproduction", emoji:"📝", label:"Pre-Production"},
+        {key:"postproduction",emoji:"🎞️", label:"Post-Production"},
+      ];
+
+      if (!scheduleSubSection) return (
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
+          {SCHED_CARDS.map(c=>(
+            <div key={c.key} onClick={()=>setScheduleSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <span style={{fontSize:28}}>{c.emoji}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Open {c.label.toLowerCase()}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+
+      const schedBack = <button onClick={()=>setScheduleSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Schedule</button>;
+
+      if (scheduleSubSection==="production") return (
+        <div>
+          {schedBack}
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Production Schedule</div>
+          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Key dates, shoot schedule, and production timeline.</p>
+          <textarea value={projectNotes[p.id+"_prodsched"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_prodsched"]:e.target.value}))} rows={16} placeholder="Add production schedule, shoot days, key dates…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
+        </div>
+      );
+
+      if (scheduleSubSection==="preproduction") return (
+        <div>
+          {schedBack}
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Pre-Production</div>
+          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Planning notes, recces, meetings, and preparation tasks.</p>
+          <textarea value={projectNotes[p.id+"_preprod"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_preprod"]:e.target.value}))} rows={16} placeholder="Add pre-production notes, planning tasks, meeting notes…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
+        </div>
+      );
+
+      if (scheduleSubSection==="postproduction") return (
+        <div>
+          {schedBack}
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Post-Production</div>
+          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Edit notes, delivery specs, feedback rounds, and post timeline.</p>
+          <textarea value={projectNotes[p.id+"_postprod"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_postprod"]:e.target.value}))} rows={16} placeholder="Add post-production notes, edit feedback, delivery specs…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
+        </div>
+      );
+
+      return null;
+    }
+
     return null;
   };
 
@@ -3419,12 +3484,12 @@ export default function OnnaDashboard() {
             if (selectedProject) return (
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
-                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
-                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
+                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
