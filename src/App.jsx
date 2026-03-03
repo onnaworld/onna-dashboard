@@ -1588,7 +1588,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
-  const [gcalToken,setGcalToken]     = useState(()=>{try{const t=sessionStorage.getItem('onna_gcal_token'),e=sessionStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
+  const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
   const [gcalEvents,setGcalEvents]   = useState([]);
   const [gcalLoading,setGcalLoading] = useState(false);
   const [gcalEventColors,setGcalEventColors] = useState({});
@@ -1659,7 +1659,50 @@ export default function OnnaDashboard() {
     setOutlookLoading(false);
   };
 
-  // Re-fetch when month changes while connected, and on mount if token restored from session
+  // Silent re-auth: if user previously connected but token is gone/expired, auto-reconnect
+  useEffect(()=>{
+    if (!localStorage.getItem('onna_gcal_connected') || gcalToken) return;
+    const tryS = () => {
+      if (!window.google?.accounts?.oauth2 || !GCAL_CLIENT_ID) return;
+      window.google.accounts.oauth2.initTokenClient({
+        client_id: GCAL_CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/calendar.readonly",
+        prompt: "",
+        callback: resp => {
+          if (resp.access_token) {
+            setGcalToken(resp.access_token);
+            try{localStorage.setItem('onna_gcal_token',resp.access_token);localStorage.setItem('onna_gcal_exp',String(Date.now()+55*60*1000));}catch{}
+            fetchGCalEvents(resp.access_token, calMonth);
+          }
+        },
+      }).requestAccessToken({prompt:"none"});
+    };
+    const t = setTimeout(tryS, 2000); // give GSI script time to load
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line
+
+  // Proactive token refresh — check every 10 min, refresh if <8 min left on token
+  useEffect(()=>{
+    const id = setInterval(()=>{
+      const exp = Number(localStorage.getItem('onna_gcal_exp')||0);
+      if (!localStorage.getItem('onna_gcal_connected') || Date.now() < exp - 8*60*1000) return;
+      if (!window.google?.accounts?.oauth2 || !GCAL_CLIENT_ID) return;
+      window.google.accounts.oauth2.initTokenClient({
+        client_id: GCAL_CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/calendar.readonly",
+        prompt: "",
+        callback: resp => {
+          if (resp.access_token) {
+            setGcalToken(resp.access_token);
+            try{localStorage.setItem('onna_gcal_token',resp.access_token);localStorage.setItem('onna_gcal_exp',String(Date.now()+55*60*1000));}catch{}
+          }
+        },
+      }).requestAccessToken({prompt:"none"});
+    }, 10*60*1000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line
+
+  // Re-fetch when month changes while connected, and on mount if token restored
   useEffect(()=>{ if (gcalToken) fetchGCalEvents(gcalToken, calMonth); },[calMonth,gcalToken]); // eslint-disable-line
   // Auto-fetch Outlook ICS on mount (public feed, no auth needed)
   useEffect(()=>{ if (authed) fetchOutlookCal(); },[authed]); // eslint-disable-line
@@ -1675,7 +1718,7 @@ export default function OnnaDashboard() {
       callback: (resp) => {
         if (resp.access_token) {
           setGcalToken(resp.access_token);
-          try{sessionStorage.setItem('onna_gcal_token',resp.access_token);sessionStorage.setItem('onna_gcal_exp',String(Date.now()+55*60*1000));}catch{}
+          try{localStorage.setItem('onna_gcal_token',resp.access_token);localStorage.setItem('onna_gcal_exp',String(Date.now()+55*60*1000));localStorage.setItem('onna_gcal_connected','1');}catch{}
           fetchGCalEvents(resp.access_token, calMonth);
         }
       },
@@ -2574,7 +2617,7 @@ export default function OnnaDashboard() {
                           <div style={{display:"flex",alignItems:"center",gap:5}}>
                             <span style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",display:"inline-block",flexShrink:0}}/>
                             <span style={{fontSize:11,color:T.muted,fontWeight:500}}>Google</span>
-                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);try{sessionStorage.removeItem('onna_gcal_token');sessionStorage.removeItem('onna_gcal_exp');}catch{}}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
+                            <button onClick={()=>{setGcalToken(null);setGcalEvents([]);try{localStorage.removeItem('onna_gcal_token');localStorage.removeItem('onna_gcal_exp');localStorage.removeItem('onna_gcal_connected');}catch{}}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>Disconnect</button>
                           </div>
                         ) : GCAL_CLIENT_ID ? (
                           <button onClick={connectGCal} style={{padding:"4px 10px",borderRadius:7,background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Google Calendar</button>
