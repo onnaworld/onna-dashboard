@@ -897,7 +897,7 @@ export default function OnnaDashboard() {
   const fetchOutlookCal = async () => {
     setOutlookLoading(true);
     try {
-      const res = await fetch(OUTLOOK_CAL_ICS);
+      const res = await fetch("/api/proxy-ics");
       if (!res.ok) throw new Error("fetch failed");
       const text = await res.text();
       const evs = parseICS(text);
