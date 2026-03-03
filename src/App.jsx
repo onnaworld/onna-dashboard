@@ -292,13 +292,59 @@ function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRisk
 
 // ─── CODY (CONTRACT) HELPERS ────────────────────────────────────────────────
 const CONTRACT_INIT = {
-  activeType:"commission_se",
+  contractType:"commission_se",
   fieldValues:{},
   generalTermsEdits:{},
   sigNames:{},
   signatures:{},
   prodLogo:null,
+  signingStatus:"not_sent",
+  signingToken:null,
 };
+
+// Migrate old-format contract (activeType + prefixed keys) → new format (contractType + bare keys)
+function migrateContract(c) {
+  if (!c.activeType) return c; // already new format or no migration needed
+  const ct = c.activeType;
+  const next = { ...c, contractType: ct };
+  delete next.activeType;
+  // Strip type prefix from fieldValues
+  if (c.fieldValues) {
+    const fv = {};
+    Object.entries(c.fieldValues).forEach(([k, v]) => {
+      if (k.startsWith(ct + "_")) fv[k.slice(ct.length + 1)] = v;
+      else fv[k] = v;
+    });
+    next.fieldValues = fv;
+  }
+  // Strip type prefix from sigNames
+  if (c.sigNames) {
+    const sn = {};
+    Object.entries(c.sigNames).forEach(([k, v]) => {
+      if (k.startsWith(ct + "_")) sn[k.slice(ct.length + 1)] = v;
+      else sn[k] = v;
+    });
+    next.sigNames = sn;
+  }
+  // Strip type prefix from signatures
+  if (c.signatures) {
+    const sg = {};
+    Object.entries(c.signatures).forEach(([k, v]) => {
+      if (k.startsWith(ct + "_")) sg[k.slice(ct.length + 1)] = v;
+      else sg[k] = v;
+    });
+    next.signatures = sg;
+  }
+  // Strip type prefix from generalTermsEdits — keep only the active type's value
+  if (c.generalTermsEdits && c.generalTermsEdits[ct]) {
+    next.generalTermsEdits = { custom: c.generalTermsEdits[ct] };
+  } else {
+    next.generalTermsEdits = {};
+  }
+  if (!next.signingStatus) next.signingStatus = "not_sent";
+  if (!next.signingToken) next.signingToken = null;
+  return next;
+}
 
 const CONTRACT_TYPE_IDS = ["commission_se","commission_psc","talent","talent_psc"];
 const CONTRACT_TYPE_LABELS = {"commission_se":"Commissioning Agreement (Self-Employed)","commission_psc":"Commissioning Agreement (Via PSC)","talent":"Talent Agreement","talent_psc":"Talent Agreement (Via PSC)"};
@@ -394,25 +440,26 @@ const GENERAL_TERMS_DOC = {
 };
 
 function buildCodySystem(project, ctData, versionLabel, ctSnapshot) {
+  const ct = ctData.contractType || "commission_se";
   return `You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live contract database.
 
 CRITICAL: You ALREADY HAVE the full contract data below. NEVER ask the user to paste, share, or provide contract details — you can see everything. Just act on their request immediately.
 
 You are viewing: "${project.name}" — ${versionLabel}
+Contract Type: ${CONTRACT_TYPE_LABELS[ct]||ct} (fixed — cannot be changed after creation)
 
 CURRENT CONTRACT STATE:
 ${ctSnapshot}
 
 INSTRUCTIONS:
 - When the user asks to ADD or UPDATE contract fields, output a JSON patch inside a \`\`\`json code block.
-- For field values: {"fieldValues":{"commission_se_date":"2024-03-15","commission_se_client":"Acme Corp..."}}
-  - Field keys follow the pattern: {contractType}_{fieldKey} e.g. "commission_se_commissionee", "talent_brand"
-- To switch contract type: {"activeType":"talent"} (valid types: commission_se, commission_psc, talent, talent_psc)
-- For signature names: {"sigNames":{"commission_se_left_name":"Emily","commission_se_left_date":"2024-03-15"}}
-- For general terms edits: {"generalTermsEdits":{"commission_se":"Full text..."}} (only if user wants custom terms)
+- For field values: {"fieldValues":{"date":"2024-03-15","client":"Acme Corp..."}}
+  - Field keys are bare (no type prefix): "date", "client", "commissionee", "brand", "talent", etc.
+- For signature names: {"sigNames":{"left_name":"Emily","left_date":"2024-03-15"}}
+- For general terms edits: {"generalTermsEdits":{"custom":"Full text..."}} (only if user wants custom terms)
+- The contract type is fixed at creation and CANNOT be changed. Do not output activeType patches.
 - Only output JSON for write intents. For read-only questions (e.g. "what fields are empty?", "review the contract"), answer in plain text with NO JSON block.
-- When asked "what's missing?" or similar, scan all fields for the active contract type and list which are still using default placeholder values (containing [brackets]).
-- Available contract types: Commissioning Agreement (Self-Employed), Commissioning Agreement (Via PSC), Talent Agreement, Talent Agreement (Via PSC)
+- When asked "what's missing?" or similar, scan all fields and list which are still using default placeholder values (containing [brackets]).
 - NEVER say you don't have access to data. You have FULL access.
 - Be warm, concise and professional. Use plain language when chatting but produce professional contract language in outputs.`;
 }
@@ -421,10 +468,7 @@ function applyCodyPatch(patch, projectId, versionIdx, currentVersions, setContra
   const versions = [...currentVersions];
   const ver = { ...versions[versionIdx] };
 
-  // Switch contract type
-  if (patch.activeType && CONTRACT_TYPE_IDS.includes(patch.activeType)) ver.activeType = patch.activeType;
-
-  // Merge field values
+  // Merge field values (bare keys now, no type prefix)
   if (patch.fieldValues) ver.fieldValues = { ...(ver.fieldValues || {}), ...patch.fieldValues };
 
   // Merge signature names
@@ -1104,11 +1148,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   // Remove tabs for archived/deleted projects
   useEffect(()=>{if(agent.id==="compliance"&&connieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=connieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==connieTabs.length){setConnieTabs(filtered);if(connieCtx&&!activeIds.has(connieCtx.projectId)){if(filtered.length>0){setConnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setConnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
 
-  const searchViaExt=(query)=>new Promise(resolve=>{
-    if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the Logan extension, and make sure Outlook is open in another tab."});
+  const searchViaExt=(query,source)=>new Promise(resolve=>{
+    if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the extension, and make sure Outlook or WhatsApp Web is open in another tab."});
     if(!window.chrome?.runtime?.sendMessage)return resolve({ok:false,error:"Not running in Chrome with the extension installed."});
-    const timer=setTimeout(()=>resolve({ok:false,error:"Search timed out — Outlook may still be loading."}),20000);
-    try{window.chrome.runtime.sendMessage(_loganExtId,{type:"FIND_CONTACT",query},res=>{clearTimeout(timer);if(window.chrome.runtime.lastError)resolve({ok:false,error:window.chrome.runtime.lastError.message});else resolve(res||{ok:false,error:"No response"});});}
+    const timer=setTimeout(()=>resolve({ok:false,error:"Search timed out — the tab may still be loading."}),25000);
+    try{window.chrome.runtime.sendMessage(_loganExtId,{type:"FIND_CONTACT",query,source:source||"auto"},res=>{clearTimeout(timer);if(window.chrome.runtime.lastError)resolve({ok:false,error:window.chrome.runtime.lastError.message});else resolve(res||{ok:false,error:"No response"});});}
     catch(e){clearTimeout(timer);resolve({ok:false,error:e.message});}
   });
 
@@ -1338,7 +1382,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
     const _vinInput=input.trim().replace(/\s+/g," ");
-    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|inbox|emails?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
+    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
@@ -1488,9 +1532,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     // ── Intent detection (Vinnie only) ────────────────────────────────────────
     let findQuery=null;
+    let findSource="auto";
     if(agent.id==="logistical"){
-      const m=input.match(/\b(?:find|search|look\s+up|get|fetch)\s+(?:me\s+)?(?:the\s+)?(?:for\s+)?(?:(?:my\s+)?(?:outlook|emails?|inbox)\s+(?:for\s+)?)?(?:(?:contact|email)(?:\s+(?:details?|email|info|contact))?\s+(?:for|of)\s+)?([A-Za-z][A-Za-z\s]{1,35})(?:'s\b|\s+(?:contact|details|info|email|number|lead|and)|(?:\s+in\s+(?:my\s+)?(?:outlook|emails?|inbox))|[.!?]?\s*$)/i);
-      if(m?.[1]){findQuery=m[1].trim().replace(/\s+in\s+(?:my\s+)?(?:outlook|emails?|inbox)$/i,"").replace(/\s+(?:contact|details|info|email|number|lead|please|and\s+(?:save|create|add|make|start).*)$/i,"").trim();if(findQuery.split(" ").length>4||/^(a|the|an|my|this)$/i.test(findQuery))findQuery=null;}
+      const m=input.match(/\b(?:find|search|look\s+up|get|fetch)\s+(?:me\s+)?(?:the\s+)?(?:for\s+)?(?:(?:my\s+)?(?:outlook|whatsapp|emails?|inbox|chats?)\s+(?:for\s+)?)?(?:(?:contact|email)(?:\s+(?:details?|email|info|contact))?\s+(?:for|of)\s+)?([A-Za-z][A-Za-z\s]{1,35})(?:'s\b|\s+(?:contact|details|info|email|number|lead|and)|(?:\s+in\s+(?:my\s+)?(?:outlook|whatsapp|emails?|inbox|chats?))|[.!?]?\s*$)/i);
+      if(m?.[1]){findQuery=m[1].trim().replace(/\s+in\s+(?:my\s+)?(?:outlook|whatsapp|emails?|inbox|chats?)$/i,"").replace(/\s+(?:contact|details|info|email|number|lead|please|and\s+(?:save|create|add|make|start).*)$/i,"").trim();if(findQuery.split(" ").length>4||/^(a|the|an|my|this)$/i.test(findQuery))findQuery=null;}
+      if(findQuery){
+        if(/\bwhatsapp\b/i.test(input))findSource="whatsapp";
+        else if(/\b(?:outlook|emails?|inbox)\b/i.test(input))findSource="outlook";
+      }
     }
     const quickEntry=(!findQuery&&agent.id==="logistical")?parseQuickEntry(input.trim()):null;
     setMsgs(history);setInput("");setLoading(true);setMood("thinking");
@@ -1498,8 +1547,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     if(findQuery){
       const wantsVendor=/\b(vendor|supplier)\b/i.test(input);
       const findType=wantsVendor?"vendor":"lead";
-      setMsgs([...history,{role:"assistant",content:`Searching your emails for "${findQuery}"…`}]);
-      const result=await searchViaExt(findQuery);
+      const sourceLabel=findSource==="whatsapp"?"WhatsApp":findSource==="outlook"?"emails":"contacts";
+      setMsgs([...history,{role:"assistant",content:`Searching your ${sourceLabel} for "${findQuery}"…`}]);
+      const result=await searchViaExt(findQuery,findSource);
       if(result.ok&&result.lead){
         const l=result.lead;
         if(wantsVendor&&!l.name)l.name=l.contact||findQuery;
@@ -1995,16 +2045,16 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const vLabel = ver.label || `Version ${vIdx+1}`;
 
       // Build contract snapshot
-      const activeType = ver.activeType || "commission_se";
-      let snap = `Active Contract Type: ${CONTRACT_TYPE_LABELS[activeType]||activeType}\n`;
+      const activeType = ver.contractType || "commission_se";
+      let snap = `Contract Type: ${CONTRACT_TYPE_LABELS[activeType]||activeType}\n`;
       const fields = CONTRACT_FIELDS[activeType] || [];
       snap += "Fields:\n";
       fields.forEach(fk => {
-        const val = (ver.fieldValues||{})[`${activeType}_${fk}`] || "(default/empty)";
+        const val = (ver.fieldValues||{})[fk] || "(default/empty)";
         snap += `  ${fk}: ${val.substring(0,200)}${val.length>200?"...":""}\n`;
       });
       if(ver.sigNames){
-        const sigs = Object.entries(ver.sigNames).filter(([k])=>k.startsWith(activeType));
+        const sigs = Object.entries(ver.sigNames);
         if(sigs.length) snap += "Signatures:\n" + sigs.map(([k,v])=>`  ${k}: ${v}`).join("\n") + "\n";
       }
 
@@ -3102,7 +3152,7 @@ export default function OnnaDashboard() {
   const [activeCSVersion,setActiveCSVersion]             = useState(0);
   const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeRAVersion,setActiveRAVersion]             = useState(0);
-  const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
+  const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
   const [activeContractVersion,setActiveContractVersion] = useState(0);
   const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
   const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
@@ -5688,7 +5738,7 @@ export default function OnnaDashboard() {
           const hasActiveAgent = agentActiveIdx !== null;
           const useWideLayout = hasActiveAgent && !isMobile;
           return (
-          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
+          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"auto":useWideLayout?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
             <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:6,padding:"10px 20px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
@@ -5712,11 +5762,11 @@ export default function OnnaDashboard() {
               {useWideLayout&&<button onClick={()=>{const next=(agentActiveIdx+1)%AGENT_DEFS.length;setAgentActiveIdx(next);}} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
+            <div style={{flex:useWideLayout?undefined:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
-                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",minHeight:useWideLayout?700:undefined}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":"100%",maxWidth:1400,width:"100%"}}>
+                <div style={{flex:useWideLayout?undefined:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":useWideLayout?800:"100%",maxWidth:1400,width:"100%"}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
