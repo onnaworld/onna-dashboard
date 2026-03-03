@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from "react";
 import { createPortal } from "react-dom";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
@@ -2881,7 +2881,7 @@ export default function OnnaDashboard() {
                     </tr></thead>
                     <tbody>
                       {csData.departments.map((dept,di) => (
-                        <React.Fragment key={di}>
+                        <Fragment key={di}>
                           <tr><td colSpan={6} style={{padding:0}}>
                             <div style={{background:"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                               <CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/>
@@ -2909,7 +2909,7 @@ export default function OnnaDashboard() {
                             </tr>
                           ))}
                           <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr>
-                        </React.Fragment>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>
