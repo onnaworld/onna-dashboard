@@ -858,6 +858,7 @@ export default function OnnaDashboard() {
   const [calMonth,setCalMonth]       = useState(new Date());
   const [outlookEvents,setOutlookEvents] = useState(()=>{try{const c=sessionStorage.getItem('onna_outlook_evs');return c?JSON.parse(c):[]}catch{return []}});
   const [outlookLoading,setOutlookLoading] = useState(false);
+  const [outlookError,setOutlookError]     = useState("");
 
   // Load Google Identity Services script once
   useEffect(()=>{
@@ -896,15 +897,20 @@ export default function OnnaDashboard() {
 
   const fetchOutlookCal = async () => {
     setOutlookLoading(true);
+    setOutlookError("");
     try {
       const res = await fetch("/api/proxy-ics");
-      if (!res.ok) throw new Error("fetch failed");
+      if (!res.ok) {
+        const body = await res.text().catch(()=>"");
+        throw new Error(`Proxy ${res.status}: ${body.slice(0,120)}`);
+      }
       const text = await res.text();
       const evs = parseICS(text);
       setOutlookEvents(evs);
       try{sessionStorage.setItem('onna_outlook_evs',JSON.stringify(evs));}catch{}
-    } catch {
-      // CORS may block direct fetch — load from sessionStorage cache if available
+    } catch(err) {
+      console.error("Outlook ICS fetch failed:", err);
+      setOutlookError(err.message||"Failed");
       try{const c=sessionStorage.getItem('onna_outlook_evs');if(c)setOutlookEvents(JSON.parse(c));}catch{}
     }
     setOutlookLoading(false);
@@ -1856,8 +1862,8 @@ export default function OnnaDashboard() {
                       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                         {/* Outlook status */}
                         <div style={{display:"flex",alignItems:"center",gap:5}}>
-                          <span style={{width:7,height:7,borderRadius:"50%",background:outlookLoading?"#f59e0b":outlookEvents.length>0?"#0078d4":"#d1d1d6",display:"inline-block",flexShrink:0}}/>
-                          <span style={{fontSize:11,color:T.muted,fontWeight:500}}>{outlookLoading?"Syncing…":outlookEvents.length>0?`Outlook (${outlookEvents.length})`:"Outlook"}</span>
+                          <span style={{width:7,height:7,borderRadius:"50%",background:outlookLoading?"#f59e0b":outlookError?"#ef4444":outlookEvents.length>0?"#0078d4":"#d1d1d6",display:"inline-block",flexShrink:0}}/>
+                          <span style={{fontSize:11,color:outlookError?"#ef4444":T.muted,fontWeight:500}} title={outlookError||undefined}>{outlookLoading?"Syncing…":outlookError?`Outlook error (↻ retry)`:outlookEvents.length>0?`Outlook (${outlookEvents.length})`:"Outlook"}</span>
                           <button onClick={fetchOutlookCal} disabled={outlookLoading} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:10,padding:"0 2px",fontFamily:"inherit",textDecoration:"underline"}}>↻</button>
                         </div>
                         <div style={{width:1,height:12,background:T.border}}/>
