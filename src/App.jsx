@@ -949,15 +949,12 @@ export default function OnnaDashboard() {
       const colorsData = await colorsRes.json().catch(()=>({}));
       if (colorsData.event) setGcalEventColors(colorsData.event);
       const calItems = calList.items||[];
-      console.log("[GCal] calendars found:", calItems.map(c=>c.summary+"("+c.id+")"));
       const allEventsArr = await Promise.all(calItems.map(cal=>
         fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,{headers:{Authorization:`Bearer ${token}`}})
-          .then(r=>r.json()).then(d=>{console.log("[GCal]",cal.summary,"→",d.items?.length??0,"events");return Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:cal.backgroundColor,calendarFg:cal.foregroundColor})):[];}).catch(err=>{console.error("[GCal] failed",cal.summary,err);return [];})
+          .then(r=>r.json()).then(d=>Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:cal.backgroundColor,calendarFg:cal.foregroundColor})):[]).catch(()=>[])
       ));
-      const flat = allEventsArr.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date));
-      console.log("[GCal] total events this month:", flat.length);
-      setGcalEvents(flat);
-    } catch(err) { console.error("[GCal] top-level error:", err); }
+      setGcalEvents(allEventsArr.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date)));
+    } catch {}
     setGcalLoading(false);
   };
 
@@ -972,9 +969,6 @@ export default function OnnaDashboard() {
       }
       const text = await res.text();
       const evs = parseICS(text);
-      console.log("[Outlook] raw ICS length:", text.length, "chars");
-      console.log("[Outlook] parsed events:", evs.length, "total");
-      console.log("[Outlook] sample dates:", evs.slice(0,10).map(e=>e.summary+" → "+(e.start?.date||e.start?.dateTime)));
       setOutlookEvents(evs);
       try{sessionStorage.setItem('onna_outlook_evs',JSON.stringify(evs));}catch{}
     } catch(err) {
@@ -1905,8 +1899,9 @@ export default function OnnaDashboard() {
                   const endStr   = ev.end?.date   || ev.end?.dateTime?.slice(0,10)   || startStr;
                   const cursor = new Date(startStr+"T00:00:00");
                   const endD   = new Date(endStr  +"T00:00:00");
+                  const startKey = cursor.toISOString().slice(0,10); // UTC key — must compare like-for-like
                   let guard = 0;
-                  while (cursor < endD || cursor.toISOString().slice(0,10) === startStr) {
+                  while (cursor < endD || cursor.toISOString().slice(0,10) === startKey) {
                     const key = cursor.toISOString().slice(0,10);
                     if (!eventsByDay[key]) eventsByDay[key] = [];
                     eventsByDay[key].push(ev);
@@ -1948,21 +1943,6 @@ export default function OnnaDashboard() {
                         ) : null}
                       </div>
                     </div>
-                    {/* Debug panel — remove once working */}
-                    {(()=>{
-                      const mo=calMonth.getMonth(),yr2=calMonth.getFullYear();
-                      const inMonth=ev=>{const s=ev.start?.date||ev.start?.dateTime?.slice(0,10);if(!s)return false;const d=new Date(s+"T12:00:00");return d.getFullYear()===yr2&&d.getMonth()===mo;};
-                      const gThis=gcalEvents.filter(inMonth);
-                      const oThis=outlookEvents.filter(inMonth);
-                      const cellKey=new Date(yr2,mo,15).toISOString().slice(0,10);
-                      const evKey=gThis[0]?new Date((gThis[0].start?.date||gThis[0].start?.dateTime?.slice(0,10))+"T00:00:00").toISOString().slice(0,10):"n/a";
-                      return <div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"6px 14px",fontSize:10,color:"#92400e",fontFamily:"monospace",lineHeight:1.8}}>
-                        <b>DEBUG</b><br/>
-                        GCal this month ({gThis.length}): {gThis.map(e=>`${e.start?.date||e.start?.dateTime?.slice(0,10)} "${e.summary}"`).join(" | ")}<br/>
-                        Outlook this month ({oThis.length}): {oThis.length?oThis.map(e=>`${e.start?.date||e.start?.dateTime?.slice(0,10)} "${e.summary}"`).join(" | "):"none — all events are Dec 2025/Jan 2026"}<br/>
-                        Cell key mid-month: {cellKey} | First GCal event key: {evKey} | Match: {cellKey.slice(0,7)===evKey.slice(0,7)?"YES ✓":"NO ✗"}
-                      </div>;
-                    })()}
                     {/* Grid */}
                     <div style={{padding:isMobile?"8px 6px":"12px 14px"}}>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:3}}>
