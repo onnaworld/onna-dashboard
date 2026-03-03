@@ -694,7 +694,7 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -715,6 +715,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
+  const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const attachRef=useRef(null);
   const chatRef=useRef(null);
   const rafRef=useRef(null);
@@ -729,7 +730,10 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
+  // Seed tab from existing connieCtx on mount (so returning users see their active tab)
+  useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
 
   const searchViaExt=(query)=>new Promise(resolve=>{
     if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the Logan extension, and make sure Outlook is open in another tab."});
@@ -819,7 +823,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -1290,6 +1294,104 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             applyConniePatch(patch, project.id, vIdx, csVersions, setCallSheetStore);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Call sheet updated."}]);
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
+    // ── Ronnie: live risk assessment handler ────────────────────────────────────
+    if(agent.id==="researcher"&&riskAssessmentStore&&setRiskAssessmentStore){
+      if(!ronnieCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const lower=input.toLowerCase();
+        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        if(!project){
+          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const raVersions = riskAssessmentStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        if(raVersions.length===1){
+          setRonnieCtx({projectId:project.id,vIdx:0});
+          const vLabel=raVersions[0].label||"Version 1";
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on the risk assessment for **${project.name}** (${vLabel}). What would you like to do? I can add risks, review what's missing, or update any section.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const list=raVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple versions:\n\n${list}\n\nWhich version should I work on?`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      let {projectId,vIdx}=ronnieCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      const lower=input.toLowerCase();
+      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      if(switchProject){
+        const swVersions=riskAssessmentStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        if(swVersions.length===1){
+          setRonnieCtx({projectId:switchProject.id,vIdx:0});
+          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
+        }else{
+          setRonnieCtx(null);
+          const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
+
+      if(/\b(switch|change|different|new)\s+(project|risk\s*assess)\b/i.test(input)){
+        setRonnieCtx(null);
+        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      const raVersions = riskAssessmentStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+      vIdx = Math.min(vIdx, raVersions.length-1);
+      const ver = raVersions[vIdx];
+      const vLabel = ver.label || `Version ${vIdx+1}`;
+
+      // Build risk assessment snapshot
+      let snap = `Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
+      if(ver.sections?.length) snap += "Risk Sections:\n" + ver.sections.map((s,si)=>`  ${si+1}. ${s.title}:\n` + s.rows.map(r=>`    [${r[0]||"?"}] Level: ${r[1]||"?"} | At Risk: ${r[2]||"?"} | Mitigation: ${r[3]||"(empty)"}`).join("\n")).join("\n") + "\n";
+      if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map(c=>`  • ${c.label} ${c.text}`).join("\n") + "\n";
+      if(ver.waiverItems?.length) snap += "Liability Waiver:\n" + ver.waiverItems.map(w=>`  ${w.label} ${w.text}`).join("\n") + "\n";
+      if(ver.emergencyItems?.length) snap += "Emergency Plan:\n" + ver.emergencyItems.map(e=>`  • ${e.label} ${e.text}`).join("\n") + "\n";
+
+      const ronnieSystem = buildRonnieSystem(project, ver, vLabel, snap);
+
+      try{
+        const ronnieIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            if(mi===0) return{role:m.role,content:ronnieIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:ronnieSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Risk assessment updated."}]);
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -4555,10 +4657,13 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={a.id==="compliance"?selectedProject:undefined}
-                      localProjects={a.id==="compliance"?allProjectsMerged:undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher")?allProjectsMerged:undefined}
                       vendors={a.id==="compliance"?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
+                      riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
+                      setRiskAssessmentStore={a.id==="researcher"?setRiskAssessmentStore:undefined}
+                      activeRAVersion={a.id==="researcher"?activeRAVersion:undefined}
                     />
                   ))}
                 </div>
