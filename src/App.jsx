@@ -432,6 +432,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       if(!entry.category||!_VENDOR_CATS.includes(entry.category))qs.push({key:"category",q:"Category? Locations · Hair & Makeup · Stylists · Casting · Catering · Set Design · Equipment · Crew · Production"});
       if(!entry.website)qs.push({key:"website",q:"Website?"});
       if(!entry.rateCard)qs.push({key:"rateCard",q:"Any rate card info?"});
+      qs.push({key:"location",q:"Location? (default: Dubai, UAE)"});
+      qs.push({key:"notes",q:"Any notes?"});
     }else{
       if(!entry.role)qs.push({key:"role",q:"Their role or title?"});
       if(!entry.email)qs.push({key:"email",q:"Email address?"});
@@ -439,6 +441,9 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       if(!entry.category||!_LEAD_CATS.includes(entry.category))qs.push({key:"category",q:"Category? Production Companies · Creative Agencies · Beauty & Fragrance · Jewellery & Watches · Fashion · Editorial · Sports · Hospitality · Market Research · Commercial"});
       if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
       if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Lead status — cold, warm, or open?"});
+      qs.push({key:"location",q:`Location? (default: Dubai, UAE)`});
+      qs.push({key:"source",q:"How did you find them? Direct · Referral · LinkedIn · Website · Cold Outreach · Event · Other"});
+      qs.push({key:"notes",q:"Any notes?"});
     }
     return qs;
   };
@@ -508,14 +513,18 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       const conv=pendingConv;
       const q=conv.questions[conv.idx];
       let e={...conv.entry};
-      if(!isSkip&&q){
-        if(q.key==="status"){
-          if(/cold/i.test(input))e.status="cold";
-          else if(/warm/i.test(input))e.status="warm";
-          else if(/open/i.test(input))e.status="open";
-        }else if(q.key==="value"){
-          e.value=Number(input.replace(/[^0-9.]/g,""))||0;
-        }else{e[q.key]=input.trim();}
+      if(q){
+        if(isSkip){
+          if(q.key==="location"&&!e.location)e.location="Dubai, UAE";
+        }else{
+          if(q.key==="status"){
+            if(/cold/i.test(input))e.status="cold";
+            else if(/warm/i.test(input))e.status="warm";
+            else if(/open/i.test(input))e.status="open";
+          }else if(q.key==="value"){
+            e.value=Number(input.replace(/[^0-9.]/g,""))||0;
+          }else{e[q.key]=input.trim();}
+        }
       }
       const next=conv.idx+1;
       if(next>=conv.questions.length){
