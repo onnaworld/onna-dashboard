@@ -1891,7 +1891,15 @@ export default function OnnaDashboard() {
                   const d = i - startOffset + 1;
                   return (d < 1 || d > lastDay.getDate()) ? null : new Date(yr, mo, d);
                 });
-                const allCalEvents = [...gcalEvents, ...outlookEvents];
+                // Deduplicate: if GCal and Outlook have the same event title on the same day, keep only GCal
+                const seen = new Set();
+                const allCalEvents = [...gcalEvents, ...outlookEvents].filter(ev => {
+                  const day = ev.start?.date || ev.start?.dateTime?.slice(0,10);
+                  const key = (ev.summary||"").trim().toLowerCase() + "|" + day;
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
                 const eventsByDay = {};
                 allCalEvents.forEach(ev => {
                   const startStr = ev.start?.date || ev.start?.dateTime?.slice(0,10);
@@ -1958,18 +1966,18 @@ export default function OnnaDashboard() {
                           const isWeekend = date.getDay()===0||date.getDay()===6;
                           const dayEvs = eventsByDay[key]||[];
                           return (
-                            <div key={key} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2}}>
-                              <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start"}}>{date.getDate()}</span>
+                            <div key={key} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px 3px 3px":"4px 5px 4px",display:"flex",flexDirection:"column",gap:2,overflow:"hidden",minWidth:0}}>
+                              <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start",flexShrink:0}}>{date.getDate()}</span>
                               {isMobile ? (
                                 dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>
                               ) : (
-                                <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden"}}>
+                                <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden",minWidth:0}}>
                                   {dayEvs.slice(0,3).map((ev,ei)=>{
                                     const col = ev.colorId ? (gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent) : (ev.calendarColor||T.accent);
                                     const title = ev.summary||"(no title)";
                                     const time  = ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}) : null;
                                     return (
-                                      <div key={ei} title={`${time?time+" ":""}${title}`} style={{fontSize:9.5,background:col+"22",color:col,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500,lineHeight:1.5}}>{time?`${time} `:""}{title}</div>
+                                      <div key={ei} title={`${time?time+" ":""}${title}`} style={{fontSize:9.5,background:col+"22",color:col,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500,lineHeight:1.5,minWidth:0,width:"100%",boxSizing:"border-box"}}>{time?`${time} `:""}{title}</div>
                                     );
                                   })}
                                   {dayEvs.length>3&&<div style={{fontSize:9,color:T.muted,lineHeight:1.4}}>+{dayEvs.length-3} more</div>}
