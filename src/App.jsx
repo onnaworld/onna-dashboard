@@ -2610,18 +2610,19 @@ export default function OnnaDashboard() {
               </div>
               <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
-                  <thead><tr><TH>Name</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
+                  <thead><tr><TH>Name</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
                   <tbody>
                     {filteredBB.map(b=>(
                       <tr key={b.id} className="row" onClick={()=>setEditVendor({...b})} style={{cursor:"pointer"}}>
                         <TD bold>{b.name}</TD>
+                        <TD muted>{b.category||"—"}</TD>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email||"—"}</a></td>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,whiteSpace:"nowrap",fontSize:12.5,color:T.sub}}>{b.phone||"—"}</td>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{b.website?<a href={`https://${b.website}`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.website}</a>:<span style={{color:T.muted,fontSize:12.5}}>—</span>}</td>
                         <TD muted>{b.location||"—"}</TD>
                       </tr>
                     ))}
-                    {filteredBB.length===0&&<tr><td colSpan={5} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
+                    {filteredBB.length===0&&<tr><td colSpan={6} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -2726,22 +2727,6 @@ export default function OnnaDashboard() {
                 return (
                   <div>
                     {_statsRow}
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:14,marginBottom:22}}>
-                      {STATUSES.map((s,i)=>(
-                        <div key={s} style={{borderRadius:16,padding:"18px 20px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-                            <span style={{width:8,height:8,borderRadius:"50%",background:COLORS[s],flexShrink:0}}/>
-                            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.05em",textTransform:"uppercase",fontWeight:600,lineHeight:1.3}}>{STATUS_LABELS[s]}</span>
-                          </div>
-                          <div style={{fontSize:30,fontWeight:700,color:T.text,letterSpacing:"-0.03em",lineHeight:1,marginBottom:4}}>{counts[i]}</div>
-                          <div style={{fontSize:12,color:T.muted,marginBottom:10}}>AED {values[i].toLocaleString()}</div>
-                          <div style={{height:3,borderRadius:999,background:T.borderSub}}>
-                            <div style={{width:`${Math.round((counts[i]/total)*100)}%`,height:"100%",borderRadius:999,background:COLORS[s]}}/>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
                       <Donut title="Conversion" groups={stageGroups}/>
                       <Donut title="By Category" groups={catGroups}/>
