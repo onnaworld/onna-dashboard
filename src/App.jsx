@@ -6890,6 +6890,7 @@ export default function OnnaDashboard() {
   const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
   const [projectNotes,setProjectNotes]                   = useState({});
   const [projectInfo,setProjectInfo]                     = useState(()=>{try{const s=localStorage.getItem('onna_project_info');return s?JSON.parse(s):{}}catch{return {}}});
+  const projectInfoRef                                   = useRef(projectInfo);
   const [editingEstimate,setEditingEstimate]             = useState(null);
   const [actualsTrackerTab,setActualsTrackerTab]         = useState("detail");
   const actualsExpandedRef                               = useRef({});
@@ -7068,11 +7069,11 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
-  useEffect(()=>{try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
+  useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
   const syncProjectInfoToDocs = (pid) => {
-    const info = projectInfo[pid];
+    const info = (projectInfoRef.current||{})[pid];
     if(!info) return;
     // Call Sheets
     setCallSheetStore(prev=>{
@@ -8555,7 +8556,6 @@ export default function OnnaDashboard() {
           const newCS = {id:newId,label:`Day ${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
           newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
-          setActiveCSVersion(csVersions.length);
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
         };
         const deleteCS = (idx) => { setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
@@ -8892,7 +8892,7 @@ export default function OnnaDashboard() {
 
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name}${arr.length?" - New":""}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name}${arr.length?" - New":""}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
         const deleteRA = (idx) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
