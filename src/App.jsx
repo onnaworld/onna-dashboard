@@ -6063,6 +6063,8 @@ export default function OnnaDashboard() {
   const [selectedTodo,setSelectedTodo] = useState(null);
   const [pendingProjectTask,setPendingProjectTask] = useState(null);
   const [pendingDragToProject,setPendingDragToProject] = useState(null);
+  const [dashNotesList,setDashNotesList] = useState(()=>{try{const s=localStorage.getItem('onna_notes_list');return s?JSON.parse(s):[]}catch{return []}});
+  const [dashSelectedNoteId,setDashSelectedNoteId] = useState(null);
 
   // ─── GLOBAL UNDO (Cmd+Z) ──────────────────────────────────────────────────
   const undoStack = useRef([]);
@@ -6120,8 +6122,6 @@ export default function OnnaDashboard() {
       setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);
     }
   };
-  const [dashNotesList,setDashNotesList] = useState(()=>{try{const s=localStorage.getItem('onna_notes_list');return s?JSON.parse(s):[]}catch{return []}});
-  const [dashSelectedNoteId,setDashSelectedNoteId] = useState(null);
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
   useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
