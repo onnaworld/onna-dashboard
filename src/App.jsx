@@ -3127,8 +3127,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{textAlign:"center",padding:"20px 32px 4px"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET{cpr&&cpr.markers.length>0&&<span style={{display:"flex",gap:4,marginLeft:12}}><button onClick={acceptAllC} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllC} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></span>}</div></div>
             <div style={{padding:"8px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline",position:"relative"}}>
               <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:shootName")?cHL:{}}><CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/></span>{hasCM("cs:scalar:shootName")&&<><button onClick={()=>acceptCM("cs:scalar:shootName")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:shootName")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"absolute",left:"50%",transform:"translateX(-50%)"}}><span style={hasCM("cs:scalar:date")?cHL:{}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></span>{hasCM("cs:scalar:date")&&<><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>SHOOT DAY <span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></span>{hasCM("cs:scalar:dayNumber")&&<><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"absolute",left:"50%",transform:"translateX(-50%)"}}><span style={hasCM("cs:scalar:date")?cHL:{}}><span style={hasCM("cs:scalar:date")?cHL:{}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></span></span>{hasCM("cs:scalar:date")&&<><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>SHOOT DAY <span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></span></span>{hasCM("cs:scalar:dayNumber")&&<><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
             </div>
             <div style={{padding:"0 32px 10px",textAlign:"center"}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/></div>
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
@@ -3171,7 +3171,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>WEATHER{(hasCM("cs:scalar:weatherSummary")||hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC")||hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherSunrise")||hasCM("cs:weatherHourly"))&&<span><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&acceptCM(m));}} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&declineCM(m));}} style={cRevBtn("decline")}>{"\u2715"}</button></span>}</div>
-              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></span></div>
+              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></span></span></div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
@@ -9442,7 +9442,7 @@ export default function OnnaDashboard() {
                 </div>
 
                 <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
-                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div>
+                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET{cpr&&cpr.markers.length>0&&<span style={{display:"flex",gap:4,marginLeft:12}}><button onClick={acceptAllC} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllC} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></span>}</div>
                 </div>
 
                 <div style={{padding:"8px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
@@ -10353,53 +10353,6 @@ export default function OnnaDashboard() {
           const sec=tiData.sections[si];const col=(sec.columns||[])[ci];if(!col)return;
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=(s.columns||[]).filter((_,j)=>j!==ci);s.data=s.data.map(r=>{const nr={...r};delete nr[col.key];return nr;});store[p.id]=arr;return store;});
         };
-
-        // Inline helpers for the itinerary editor
-        const TIHl = ({text,style:s={}}) => {if(!text)return null;const parts=String(text).split(/(\[.*?\])/g);return <span style={s}>{parts.map((pt,i)=>pt.startsWith("[")&&pt.endsWith("]")?<span key={i} style={{background:"#FFF9C4",borderRadius:2,padding:"0 2px"}}>{pt}</span>:<span key={i}>{pt}</span>)}</span>;};
-        const TICell = ({value,onChange,style:s={},align="left"}) => {
-          const [editing,setEditing]=useState(false);const [temp,setTemp]=useState(value);
-          useEffect(()=>{setTemp(value);},[value]);
-          const commit=()=>{setEditing(false);onChange(temp);};
-          if(editing)return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>;
-          return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>}</div>;
-        };
-        const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn}) => (
-          <div style={{marginBottom:16}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#000",padding:"4px 8px"}}>
-              <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
-                <div onClick={onEditTitle} style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>{title}</div>
-                {subtitle&&<div onClick={onEditSubtitle} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:"rgba(255,255,255,0.55)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{subtitle}</div>}
-              </div>
-              <div style={{display:"flex",gap:10,flexShrink:0}}>
-                {isCustom&&onAddColumn&&<span onClick={onAddColumn} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD COLUMN</span>}
-                <span onClick={onAddRow} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
-                <span onClick={onDelete} style={{fontFamily:CS_FONT,fontSize:10,color:"rgba(255,255,255,0.3)",cursor:"pointer"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.3)"}>×</span>
-              </div>
-            </div>
-            <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
-              <div style={{width:18}}/>
-              {columns.map((col,ci)=>(
-                <div key={col.key} style={{flex:col.flex,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",padding:"4px 4px",display:"flex",alignItems:"center",gap:2}}>
-                  <span onClick={isCustom&&onEditColumn?()=>onEditColumn(ci):undefined} style={{cursor:isCustom?"pointer":"default"}}>{col.label}</span>
-                  {isCustom&&onDeleteColumn&&columns.length>1&&<span onClick={()=>onDeleteColumn(ci)} style={{cursor:"pointer",fontSize:8,color:"#ddd",marginLeft:2}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>}
-                </div>
-              ))}
-            </div>
-            {rows.map((row,ri)=>(
-              <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
-                <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
-                </div>
-                {columns.map(col=>(
-                  <div key={col.key} style={{flex:col.flex}}>
-                    <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
-                  </div>
-                ))}
-              </div>
-            ))}
-            {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
-          </div>
-        );
 
         const tiExportPDF = () => {
           const el=document.getElementById("onna-ti-print");if(!el)return;
