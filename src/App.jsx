@@ -1692,7 +1692,7 @@ You do two things:
 NEVER say you cannot save data, cannot connect to a database, or suggest using external tools like Airtable or Notion. You are already connected. Just collect the info and the system handles the rest.
 
 Be warm, brief and direct.`,
-   placeholder:`Create New Vendor`,
+   placeholder:"Create new vendor...",
    intro:"Hey! I'm Vendor Vinnie. Let me create your database! ✏️"},
   {id:"compliance",name:"Call Sheet Connie",title:"Call Sheets",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
    system:`You are Call Sheet Connie, a production coordinator for ONNA. You are connected to live call sheet data and can read and update it directly.`,
@@ -1711,7 +1711,7 @@ When given an email that looks like a meeting request, you:
 3. Draft a warm, professional reply proposing three specific available time slots
 
 Keep replies concise and professional. Sign off as the ONNA team. Always propose times in Dubai time (GST, UTC+4).`,
-   placeholder:"Paste a meeting request email or say 'check emails for meeting requests'...",
+   placeholder:"Create new meeting...",
    intro:"Hi! I'm Meeting Minnie. Paste a meeting request email and I'll check your calendar for conflicts and draft a reply with three available time slots. 📅"},
   {id:"billie",name:"Budget Billie",title:"Budgets",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
    system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. Be fast, confident and accurate.`,
