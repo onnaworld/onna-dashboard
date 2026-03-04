@@ -135,6 +135,30 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteR
   </div>
 );
 
+// ─── DIETARY LIST HELPERS ────────────────────────────────────────────────────
+const DIETARY_TAGS = ["None","Vegetarian","Vegan","Halal","Kosher","Gluten-Free","Dairy-Free","Nut Allergy","Shellfish Allergy","Pescatarian","Other"];
+const DIETARY_TAG_COLORS = {"None":{bg:"#f4f4f4",text:"#999"},"Vegetarian":{bg:"#E8F5E9",text:"#2E7D32"},"Vegan":{bg:"#C8E6C9",text:"#1B5E20"},"Halal":{bg:"#E3F2FD",text:"#1565C0"},"Kosher":{bg:"#E8EAF6",text:"#283593"},"Gluten-Free":{bg:"#FFF3E0",text:"#E65100"},"Dairy-Free":{bg:"#FFF8E1",text:"#F57F17"},"Nut Allergy":{bg:"#FCE4EC",text:"#C62828"},"Shellfish Allergy":{bg:"#FCE4EC",text:"#C62828"},"Pescatarian":{bg:"#E0F7FA",text:"#00695C"},"Other":{bg:"#F3E5F5",text:"#6A1B9A"}};
+const DietaryTagSelect = ({value,onChange}) => {
+  const [open,setOpen]=useState(false);
+  const current=value||"None";
+  const c=DIETARY_TAG_COLORS[current]||DIETARY_TAG_COLORS["Other"];
+  return (
+    <div style={{position:"relative"}}>
+      <div onClick={()=>setOpen(!open)} style={{fontFamily:CS_FONT,fontSize:8,fontWeight:600,letterSpacing:0.5,background:c.bg,color:c.text,padding:"3px 8px",borderRadius:2,cursor:"pointer",textAlign:"center",userSelect:"none",whiteSpace:"nowrap"}}>{current}</div>
+      {open&&<div style={{position:"absolute",top:"100%",left:0,background:"#fff",border:"1px solid #ddd",zIndex:10,minWidth:130,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",maxHeight:200,overflowY:"auto"}}>
+        {DIETARY_TAGS.map(tag=>{const tc=DIETARY_TAG_COLORS[tag]||DIETARY_TAG_COLORS["Other"];return(
+          <div key={tag} onClick={()=>{onChange(tag);setOpen(false);}} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,padding:"5px 8px",cursor:"pointer",borderBottom:"1px solid #f5f5f5",color:tc.text,display:"flex",alignItems:"center",gap:6}} onMouseEnter={e=>e.currentTarget.style.background="#f9f9f9"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:tc.bg,border:`1px solid ${tc.text}`,flexShrink:0}}/>{tag}
+          </div>);})}
+      </div>}
+    </div>
+  );
+};
+const DIETARY_INIT = {
+  project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",cateringContact:"[Catering Company / Contact]"},
+  people:[{id:1,name:"[Name]",role:"[Role]",department:"[Department]",dietary:"None",allergies:"",notes:""}],
+};
+
 // ─── BUDGET CONNIE (ESTIMATE) CONSTANTS ──────────────────────────────────────
 const EST_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const EST_LS = 0.5;
