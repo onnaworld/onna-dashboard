@@ -4901,6 +4901,60 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
+      // ── Confirm delete (user said "yes" after delete warning) ──
+      if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_delete"&&/\b(yes|yep|yeah|sure|go ahead|do it|confirm|delete it)\b/i.test(input)){
+        const cd=codyPendingRef.current;codyPendingRef.current=null;
+        const _delVersions=contractDocStore?.[cd.projectId]||[];
+        const _delVer=_delVersions[cd.vIdx];
+        const _delLabel=_delVer?.label||`Version ${cd.vIdx+1}`;
+        setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[cd.projectId]||[];arr.splice(cd.vIdx,1);store[cd.projectId]=arr;return store;});
+        setCodyCtx(null);if(setActiveContractVersion) setActiveContractVersion(null);
+        setMsgs([...history,{role:"assistant",content:`Done — **${_delLabel}** has been deleted. Say a project name to start again.`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+      if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_delete"&&/\b(no|nah|cancel|never\s*mind|stop|keep)\b/i.test(input)){
+        codyPendingRef.current=null;
+        setMsgs([...history,{role:"assistant",content:"Got it — contract kept. What else can I help with?"}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // ── Confirm clear edits (user said "yes" after clear warning) ──
+      if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_clear"&&/\b(yes|yep|yeah|sure|go ahead|do it|confirm|clear it|reset it)\b/i.test(input)){
+        const cc=codyPendingRef.current;codyPendingRef.current=null;
+        setContractDocStore(prev=>{
+          const store=JSON.parse(JSON.stringify(prev));const arr=store[cc.projectId]||[];
+          if(arr[cc.vIdx]){const ct=arr[cc.vIdx];ct.fieldValues={};ct.generalTermsEdits={};ct.sigNames={};ct.signatures={};ct.prodLogo=null;ct.signingStatus="not_sent";ct.signingToken=null;}
+          store[cc.projectId]=arr;return store;
+        });
+        setMsgs([...history,{role:"assistant",content:"All edits have been cleared — the contract is back to a blank slate. Ready to fill it in again!"}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+      if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_clear"&&/\b(no|nah|cancel|never\s*mind|stop|keep)\b/i.test(input)){
+        codyPendingRef.current=null;
+        setMsgs([...history,{role:"assistant",content:"No worries — nothing was changed."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // ── Delete contract intent ──
+      if(/\b(delete|remove)\b.*\b(contract|this|it)\b/i.test(input)||/\b(contract|this|it)\b.*\b(delete|remove)\b/i.test(input)){
+        const _delVersions=contractDocStore?.[project.id]||[];
+        const _delVer=_delVersions[vIdx];
+        const _delLabel=_delVer?.label||`Version ${vIdx+1}`;
+        codyPendingRef.current={step:"confirm_delete",projectId:project.id,vIdx};
+        setMsgs([...history,{role:"assistant",content:`Are you sure you want to delete **${_delLabel}**? This can't be undone.\n\nSay yes to confirm or no to cancel.`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // ── Clear edits / reset contract intent ──
+      if(/\b(clear|reset|wipe|blank)\b.*\b(edit|field|contract|this|it|all|everything)\b/i.test(input)||/\b(start\s+over|start\s+fresh|blank\s+slate)\b/i.test(input)){
+        const _clrVersions=contractDocStore?.[project.id]||[];
+        const _clrVer=_clrVersions[vIdx];
+        const _clrLabel=_clrVer?.label||`Version ${vIdx+1}`;
+        codyPendingRef.current={step:"confirm_clear",projectId:project.id,vIdx};
+        setMsgs([...history,{role:"assistant",content:`Are you sure you want to clear all edits on **${_clrLabel}**? This will reset all fields, signatures, and terms back to blank.\n\nSay yes to confirm or no to cancel.`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
       const ctVersions = contractDocStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
       vIdx = Math.min(vIdx, ctVersions.length-1);
       const ver = ctVersions[vIdx];
