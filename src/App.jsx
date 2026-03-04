@@ -1870,7 +1870,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
   };
 
   return (
-    <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
+    <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700 }}>
       <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
         <div style={{ marginLeft:"auto",display:"flex" }}>
@@ -1979,30 +1979,30 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
             <div key={sec.id}>
               {subtotalRow}
               <div style={{marginBottom:12}}>
-              <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 8px",textTransform:"uppercase",alignItems:"center"}}>
-                <span style={{marginRight:8}}>{sec.num}</span><span>{sec.title}</span>
-                <div style={{flex:1}}></div>
-                <span style={{fontSize:9,...hdr,background:"transparent",color:"#fff",border:"none",padding:0}}>NOTES</span>
-                <span style={{width:50,textAlign:"center",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>DAYS</span>
-                <span style={{width:40,textAlign:"center",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>QTY</span>
-                <span style={{width:90,textAlign:"right",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>UNIT PRICE AED</span>
-                <span style={{width:90,textAlign:"right",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>TOTAL AED</span>
-                <span style={{width:90,textAlign:"right",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>TOTAL USD</span>
-                <span style={{width:24}}></span>
+              <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
+                <div style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
+                <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
+                <div style={{width:120,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
+                <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
+                <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
+                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
+                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL AED</div>
+                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL USD</div>
+                <div style={{width:24,flexShrink:0}}></div>
               </div>
               {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);return(
                 <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch"}}>
-                  <div style={{width:40,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
-                  <div style={{flex:1}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
-                  <div style={{width:120}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
-                  <div style={{width:50}}><EstCell value={row.days} onChange={v=>updateRow(si,ri,"days",v)} align="center" /></div>
-                  <div style={{width:40}}><EstCell value={row.qty} onChange={v=>updateRow(si,ri,"qty",v)} align="center" /></div>
-                  <div style={{width:90}}>{autoCalc
+                  <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
+                  <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
+                  <div style={{width:120,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
+                  <div style={{width:50,flexShrink:0}}><EstCell value={row.days} onChange={v=>updateRow(si,ri,"days",v)} align="center" /></div>
+                  <div style={{width:40,flexShrink:0}}><EstCell value={row.qty} onChange={v=>updateRow(si,ri,"qty",v)} align="center" /></div>
+                  <div style={{width:90,flexShrink:0}}>{autoCalc
                     ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
                     : <EstCell value={row.rate} onChange={v=>updateRow(si,ri,"rate",v)} align="right" />}</div>
-                  <div style={{width:90,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot)}</div>
-                  <div style={{width:90,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*exchangeRate)}</div>
-                  <div style={{width:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot)}</div>
+                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*exchangeRate)}</div>
+                  <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <span onClick={()=>removeRow(si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span></div>
                 </div>);})}
               <div style={{display:"flex",justifyContent:"space-between"}}>
