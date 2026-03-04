@@ -4353,6 +4353,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
           // Create new label with V1
           const newLabel={id:Date.now(),label:labelName,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT)),revisions:[],finalRevision:null};
+          newLabel.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
           const {revisions:_r,finalRevision:_f,...snap}=newLabel;
           newLabel.revisions=[{label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))}];
           setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newLabel);return store;});
@@ -7216,7 +7217,7 @@ export default function OnnaDashboard() {
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
               <div style={{display:"flex",gap:10}}>
                 <input value={link} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[linkKey]:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                {link&&<a href={link} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Open ↗</a>}
+                {link&&<a href={link} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Upload ↗</a>}
               </div>
             </div>
             <UploadZone label={`Upload ${label.toLowerCase()} files (PDF, images)`} files={[]} onAdd={f=>addStoredFiles(category,f)}/>
@@ -10003,6 +10004,8 @@ export default function OnnaDashboard() {
                   if(tplLinks&&Object.keys(tplLinks).length>0) setProjectCreativeLinks(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplLinks))}));
                   const tplFiles=projectFileStore?.[tplId];
                   if(tplFiles&&Object.keys(tplFiles).length>0) setProjectFileStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplFiles))}));
+                  const tplActuals=projectActuals?.[tplId];
+                  if(tplActuals&&tplActuals.length>0){const cloned=JSON.parse(JSON.stringify(tplActuals));cloned.forEach(s=>s.rows.forEach(r=>{r.expenses=[];r.zohoAmount="0";r.status="";}));setProjectActuals(prev=>({...prev,[saved.id]:cloned}));}
                 }
                 setTemplateProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
                 setShowFromTemplate(false);
