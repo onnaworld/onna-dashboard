@@ -4350,7 +4350,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(/\b(switch|change|different|new)\s+(project|risk\s*assess)\b/i.test(input)){
         setRonnieCtx(null);
         const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -6003,6 +6003,7 @@ export default function OnnaDashboard() {
   const [projectSection,setProjectSection]               = useState("Home");
   const [creativeSubSection,setCreativeSubSection]       = useState(null);
   const [budgetSubSection,setBudgetSubSection]           = useState(null);
+  const [previewFile,setPreviewFile]                     = useState(null);
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
@@ -6916,7 +6917,7 @@ export default function OnnaDashboard() {
   // ─── PROJECT SECTION RENDERER ──────────────────────────────────────────────
   const renderProjectSection = p => {
     const entries    = projectEntries[p.id]||[];
-    const quotes     = getProjectFiles(p.id,"quotes");
+    const quotes     = (projectFileStore[p.id]||{}).quotations||[];
     const allEntries = [...entries,...quotes.map((f,i)=>({id:`q_${i}`,supplier:f.name,category:"Quote",subCategory:"",invoiceNumber:"",receiptLink:"",datePaid:"",amount:"",direction:"out",notes:"Uploaded quote"}))];
     const totalIn    = entries.filter(e=>e.direction==="in").reduce((a,b)=>a+Number(b.amount),0);
     const totalOut   = entries.filter(e=>e.direction==="out").reduce((a,b)=>a+Number(b.amount),0);
@@ -7101,14 +7102,61 @@ export default function OnnaDashboard() {
       );
 
       // Quotations sub-section
-      if (budgetSubSection==="quotations") return (
+      if (budgetSubSection==="quotations") {
+        const quoteFiles = (projectFileStore[p.id]||{}).quotations||[];
+        const addQuoteFiles = async (fileList) => {
+          const newEntries = [];
+          for (const f of fileList) {
+            if (f.size > 40*1024*1024) { alert(`"${f.name}" is over 40 MB.`); continue; }
+            const data = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
+            newEntries.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});
+          }
+          if (newEntries.length===0) return;
+          setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),quotations:[...((prev[p.id]||{}).quotations||[]),...newEntries]}}));
+        };
+        const deleteQuoteFile = (fileId) => setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),quotations:((prev[p.id]||{}).quotations||[]).filter(f=>f.id!==fileId)}}));
+        const renameQuoteFile = (fileId, newName) => setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),quotations:((prev[p.id]||{}).quotations||[]).map(f=>f.id===fileId?{...f,name:newName}:f)}}));
+        const downloadQuoteFile = (file) => {const a=document.createElement("a");a.href=file.data;a.download=file.name;a.click();};
+        return (
         <div>
           <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Quotations</div>
-          <p style={{fontSize:13,color:T.sub,marginBottom:16}}>Upload supplier quotes here. They will also appear in the Finances table under the "Quote" category.</p>
-          <UploadZone label="Upload supplier quotes (PDF, images)" files={quotes} onAdd={f=>addProjectFiles(p.id,"quotes",f)}/>
+          <p style={{fontSize:13,color:T.sub,marginBottom:16}}>Upload vendor quotations here. Click a file to preview.</p>
+          <label onDrop={e=>{e.preventDefault();addQuoteFiles(Array.from(e.dataTransfer.files));}} onDragOver={e=>e.preventDefault()} style={{display:"block",border:`1.5px dashed ${T.border}`,borderRadius:14,padding:36,textAlign:"center",cursor:"pointer",background:"#fafafa",transition:"border-color 0.15s",marginBottom:18}}>
+            <div style={{fontSize:26,marginBottom:8,opacity:0.35}}>⬆</div>
+            <div style={{fontSize:13,color:T.sub,marginBottom:4,fontWeight:500}}>Upload vendor quotations (PDF, images, spreadsheets)</div>
+            <div style={{fontSize:12,color:T.muted}}>Drag & drop or click to upload</div>
+            <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx" style={{display:"none"}} onChange={e=>addQuoteFiles(Array.from(e.target.files))}/>
+          </label>
+          {quoteFiles.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {quoteFiles.map((f)=>(
+              <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)",cursor:f.type?.includes("pdf")||f.type?.includes("image")?"pointer":"default"}} onClick={()=>{if(f.type?.includes("pdf")||f.type?.includes("image"))setPreviewFile(f);}}>
+                <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"📄":f.type?.includes("image")?"🖼":"📎"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                  <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                </div>
+                <button onClick={e=>{e.stopPropagation();const n=prompt("Rename file:",f.name);if(n&&n.trim())renameQuoteFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
+                <button onClick={e=>{e.stopPropagation();downloadQuoteFile(f);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Download">Export</button>
+                <button onClick={e=>{e.stopPropagation();if(confirm(`Delete "${f.name}"?`))deleteQuoteFile(f.id);}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
+              </div>
+            ))}
+          </div>}
+          {previewFile&&<div className="modal-bg" onClick={()=>setPreviewFile(null)}>
+            <div style={{width:"90vw",maxWidth:900,height:"85vh",background:T.surface,borderRadius:16,overflow:"hidden",display:"flex",flexDirection:"column",border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.25)"}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 20px",borderBottom:`1px solid ${T.border}`}}>
+                <div style={{fontSize:14,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{previewFile.name}</div>
+                <button onClick={()=>setPreviewFile(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
+              </div>
+              <div style={{flex:1,overflow:"auto",background:"#f0f0f2"}}>
+                {previewFile.type?.includes("pdf")?<iframe src={previewFile.data} style={{width:"100%",height:"100%",border:"none"}}/>
+                :previewFile.type?.includes("image")?<img src={previewFile.data} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block",margin:"auto"}} alt={previewFile.name}/>
+                :<div style={{padding:40,textAlign:"center",color:T.muted}}>Preview not available for this file type.</div>}
+              </div>
+            </div>
+          </div>}
         </div>
-      );
+      );}
 
       // Estimates sub-section
       if (budgetSubSection!=="estimates") return null;
