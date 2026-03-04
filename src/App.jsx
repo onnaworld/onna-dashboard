@@ -2110,7 +2110,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"40px 40px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-4}}>
                   <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                 </div>
@@ -2184,7 +2184,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
             <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-            <div style={{display:"flex",gap:16,alignItems:"center"}}>
+            <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-4}}>
               <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
               <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
             </div>
@@ -2284,6 +2284,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const [ronnieTabs,setRonnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
+  const addRonnieTab=(projectId,vIdx,label)=>setRonnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
@@ -2313,11 +2315,16 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
+  useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
   useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
   // Remove tabs for archived/deleted projects
   useEffect(()=>{if(agent.id==="compliance"&&connieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=connieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==connieTabs.length){setConnieTabs(filtered);if(connieCtx&&!activeIds.has(connieCtx.projectId)){if(filtered.length>0){setConnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setConnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
 
+  // Seed tab from existing ronnieCtx on mount
+  useEffect(()=>{if(agent.id==="researcher"&&ronnieCtx&&ronnieTabs.length===0){const p=localProjects?.find(pr=>pr.id===ronnieCtx.projectId);if(p){const vs=riskAssessmentStore?.[p.id]||[];const vLabel=(vs[ronnieCtx.vIdx]?.label)||`Version ${ronnieCtx.vIdx+1}`;addRonnieTab(p.id,ronnieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
+  // Remove ronnie tabs for archived/deleted projects
+  useEffect(()=>{if(agent.id==="researcher"&&ronnieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=ronnieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==ronnieTabs.length){setRonnieTabs(filtered);if(ronnieCtx&&!activeIds.has(ronnieCtx.projectId)){if(filtered.length>0){setRonnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setRonnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
   const searchViaExt=(query,source)=>new Promise(resolve=>{
     if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the extension, and make sure Outlook or WhatsApp Web is open in another tab."});
     if(!window.chrome?.runtime?.sendMessage)return resolve({ok:false,error:"Not running in Chrome with the extension installed."});
@@ -2471,7 +2478,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -3214,13 +3221,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const type=parsed._type;
           const ename=type==="vendor"?parsed.name:(parsed.contact||parsed.company);
           const ecompany=parsed.company||"";
-          const sim=findSimilar(ename||"",allVendors,allLeads)||(ecompany?findSimilar(ecompany,allVendors,allLeads):null);
-          if(sim&&!sim.exact){
-            const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
-            setPendingDuplicate({entry:parsed,similar:sim,saveAsOutreach:false});
-            setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I found a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+          const epMatches=[...findAllSimilar(ename||"",allVendors,allLeads),...(ecompany?findAllSimilar(ecompany,allVendors,allLeads):[])];
+          const seenE=new Set();const epDedup=epMatches.filter(m=>{const k=m.type+"_"+m.record.id;if(seenE.has(k))return false;seenE.add(k);return true;});
+          if(epDedup.length>0){
+            setPendingDuplicate({entry:parsed,matches:epDedup,saveAsOutreach:false});
+            setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}.\n\n${_dupMsg(epDedup,ename||ecompany)}`}]);
           }else{
-            const fqp=startConv(parsed,type,false,sim?.record?.id||null);
+            const fqp=startConv(parsed,type,false,null);
             setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${fqp?"\n\n"+fqp+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
           }
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -3581,7 +3588,28 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(raVersions.length===1){
           setRonnieCtx({projectId:project.id,vIdx:0});
           const vLabel=raVersions[0].label||"Version 1";
+          addRonnieTab(project.id,0,`${project.name} · ${vLabel}`);
           setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on the risk assessment for **${project.name}** (${vLabel}). What would you like to do? I can add risks, review what's missing, or update any section.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        // Multiple versions — try to match version in same message
+        const verMatch=lower.match(/\bversion\s*(\d+)\b/i);
+        let matchIdx=-1;
+        if(verMatch){
+          const verNum=parseInt(verMatch[1]);
+          matchIdx=raVersions.findIndex(v=>(v.label||"").toLowerCase().includes(`version ${verNum}`));
+          if(matchIdx<0&&verNum>=1&&verNum<=raVersions.length) matchIdx=verNum-1;
+        }
+        if(matchIdx<0){
+          const labelMatch=raVersions.findIndex(v=>v.label && lower.includes(v.label.toLowerCase()));
+          if(labelMatch>=0) matchIdx=labelMatch;
+        }
+        if(matchIdx>=0){
+          setRonnieCtx({projectId:project.id,vIdx:matchIdx});
+          const vLabel=raVersions[matchIdx].label||`Version ${matchIdx+1}`;
+          addRonnieTab(project.id,matchIdx,`${project.name} · ${vLabel}`);
+          const _v=raVersions[matchIdx];const _hasData=_v.shootName||_v.sections?.some(s=>s.rows?.length);
+          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the risk assessment data from before. What would you like to do?`:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         const list=raVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
@@ -3599,6 +3627,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const swVersions=riskAssessmentStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
         if(swVersions.length===1){
           setRonnieCtx({projectId:switchProject.id,vIdx:0});
+          addRonnieTab(switchProject.id,0,`${switchProject.name} · ${swVersions[0].label||"Version 1"}`);
           setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
         }else{
           setRonnieCtx(null);
@@ -4030,7 +4059,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       </div>
     )}
 
-    {/* inline chat messages */}
+    {/* Ronnie tab bar */}
+    {agent.id==="researcher"&&ronnieTabs.length>0&&(
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
+        {ronnieTabs.map((tab,i)=>{
+          const isActive=ronnieCtx&&ronnieCtx.projectId===tab.projectId&&ronnieCtx.vIdx===tab.vIdx;
+          return(
+            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setRonnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to **${tab.label}**.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #6a9eca":"1px solid #e0e0e0",background:isActive?"#f3f8ff":"#f5f5f7",color:isActive?"#1a4a80":"#6e6e73",borderBottom:isActive?"2px solid #6a9eca":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+              <span>{tab.label}</span>
+              <span onClick={e=>{e.stopPropagation();setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to **${switchTo.label}**.`}]);}else{setRonnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
+            </div>
+          );
+        })}
+        <div onClick={()=>{setRonnieCtx(null);setMsgs(prev=>[...prev,{role:"assistant",content:"Which project's risk assessment should I open?"}]);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+      </div>
+    )}
+
+        {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
       {msgs.map((m,i)=>{
         const isBudgetMsg=agent.id==="billie"&&m.role==="assistant"&&/AED|subtotal|total|contingency|agency fee/i.test(m.content);
@@ -4144,7 +4189,7 @@ const printCallSheetPDF = (cs) => {
   const LS = "letter-spacing:1.5px;";
   const secTitle = `font-size:10px;font-weight:800;${LS}text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;`;
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-  const logos = `<div style="padding:40px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
+  const logos = `<div style="padding:40px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-4px">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
   const venueHTML = (cs.venueRows||[]).map(r=>`<div style="display:flex;align-items:flex-start;margin-bottom:5px;gap:8px"><div style="min-width:95px;font-size:9px;font-weight:700;color:#888;${LS}text-transform:uppercase">${e(r.label)}</div><div style="flex:1;font-size:11px">${e(r.value)}</div></div>`).join("");
   const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
   const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
@@ -4199,7 +4244,7 @@ const printRiskAssessmentPDF = (ra) => {
   const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
   const LS = "letter-spacing:1.5px;";
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
+  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-4px">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
   const metaHTML = [{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10px;font-weight:700;${LS}min-width:100px">${l}</span><span style="font-size:10px;letter-spacing:0.5px">${e(ra[k])}</span></div>`).join("");
   const sectionsHTML = (ra.sections||[]).map((sec,si)=>{
     const cols=sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
@@ -4766,9 +4811,9 @@ export default function OnnaDashboard() {
             clone2.querySelectorAll("button").forEach(b=>b.remove());
             clone2.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
             clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
-            clone2.style.cssText="background:#fff;border-radius:0;padding:0;box-shadow:none;";
+            clone2.style.cssText="background:#fff;border-radius:0;box-shadow:none;";
             const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
             idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
           }
           setSignSubmitted(true);
@@ -4780,43 +4825,37 @@ export default function OnnaDashboard() {
 
     const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
     return (
-      <div style={{minHeight:"100vh",background:_printMode?"#fff":"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print{display:none!important}body{background:#fff!important;margin:0;padding:0;}@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}#onna-sign-print{box-shadow:none!important;border-radius:0!important;padding:20px 24px!important;}}`}</style>
+      <div style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
+        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print{display:none!important}body{background:#fff!important;margin:0;padding:0;}@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}#onna-sign-print{box-shadow:none!important;border-radius:0!important;margin:0!important}}`}</style>
         {!_printMode && <div className="sign-header-bar" style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
           <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
           <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
         </div>}
-        <div style={{maxWidth:860,margin:_printMode?"0":"20px auto",padding:_printMode?"0":"0 14px"}}>
+        <div style={{maxWidth:860,margin:"20px auto",padding:"0 14px"}}>
           {signLoading && <div style={{textAlign:"center",padding:60,color:"#888"}}>Loading contract...</div>}
           {signError && <div style={{textAlign:"center",padding:60,color:"#c0392b"}}>{signError}</div>}
-          {signData && signData.status === "signed" && !signSubmitted && !_printMode && (
-            <div style={{background:"#fff",borderRadius:14,padding:"40px 24px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
-              <div style={{fontSize:28,marginBottom:12}}>✓</div>
-              <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>This contract has been signed</div>
-              <div style={{fontSize:13,color:"#888"}}>Signed on {signData.signedAt ? new Date(signData.signedAt).toLocaleDateString() : "N/A"}</div>
-            </div>
-          )}
-          {signSubmitted && !_printMode && (
-            <div style={{background:"#fff",borderRadius:14,padding:"40px 24px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
-              <div style={{fontSize:28,marginBottom:12}}>✓</div>
-              <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>Signature submitted successfully</div>
-              <div style={{fontSize:13,color:"#888"}}>Thank you. You may now close this page.</div>
-            </div>
-          )}
-          {signData && (signData.status !== "signed" || _printMode) && !signSubmitted && (() => {
+          {signData && (() => {
+            const isSignedOrSubmitted = signData.status === "signed" || signSubmitted;
             const snap = signData.contractSnapshot || {};
             const ctType = signData.ct || signData.contractType || snap.contractType || snap.activeType || "commission_se";
             const ctDef = CONTRACT_DOC_TYPES.find(c=>c.id===ctType) || CONTRACT_DOC_TYPES[0];
             const fv = snap.fieldValues || snap.fv || {};
             const getVal = (key) => fv[key] || fv[`${ctType}_${key}`] || ctDef.fields.find(f=>f.key===key)?.defaultValue || "";
             const generalTerms = (snap.generalTermsEdits||{}).custom || snap.gte || (snap.generalTermsEdits||{})[ctType] || GENERAL_TERMS_DOC[ctType] || "";
-            // In print mode, use stored vendor signature data
-            const vs = (_printMode && signData.vendorSig) || {};
-            const printVendorSig = vs.signature || "";
-            const printVendorName = vs.sigName || "";
-            const printVendorDate = vs.sigDate || "";
+            // In print mode or after signing, use stored vendor signature data
+            const readOnlySig = _printMode || isSignedOrSubmitted;
+            const vs = signData.vendorSig || {};
+            const printVendorSig = signSubmitted ? signVendorSig : (vs.signature || "");
+            const printVendorName = signSubmitted ? signVendorName : (vs.sigName || "");
+            const printVendorDate = signSubmitted ? signVendorDate : (vs.sigDate || "");
             return (
-              <div id="onna-sign-print" style={{background:"#fff",borderRadius:_printMode?0:14,padding:_printMode?"20px 24px":isMobile?"28px 16px 20px":"48px 40px 32px",boxShadow:_printMode?"none":"0 2px 12px rgba(0,0,0,0.06)"}}>
+              <div id="onna-sign-print" style={{background:"#fff",borderRadius:_printMode?0:14,padding:isMobile?"28px 16px 20px":"48px 40px 32px",boxShadow:_printMode?"none":"0 2px 12px rgba(0,0,0,0.06)"}}>
+                {isSignedOrSubmitted && !_printMode && (
+                  <div style={{background:"#f0faf4",border:"1px solid #c8efd4",borderRadius:10,padding:"12px 18px",marginBottom:20,textAlign:"center"}}>
+                    <span style={{fontSize:14,fontWeight:600,color:"#1a5a30"}}>{signSubmitted ? "Signature submitted successfully" : "This contract has been signed"}</span>
+                    {!signSubmitted && signData.signedAt && <div style={{fontSize:12,color:"#888",marginTop:4}}>Signed on {new Date(signData.signedAt).toLocaleDateString()}</div>}
+                  </div>
+                )}
                 {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:36,maxWidth:140,objectFit:"contain",marginBottom:4}}/>}
                 <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
                 <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:isMobile?10:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:12}}>{ctDef.title}</div>
@@ -4870,13 +4909,13 @@ export default function OnnaDashboard() {
                       <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigRight}</div>
                       <div style={{marginBottom:8}}>
                         <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
-                        {_printMode ? (
+                        {readOnlySig ? (
                           <div style={{height:80,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",display:"flex",alignItems:"center",justifyContent:"center"}}>
                             {printVendorSig ? <img src={printVendorSig} alt="" style={{maxHeight:76,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
                           </div>
                         ) : <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={80}/>}
                       </div>
-                      {_printMode ? (<>
+                      {readOnlySig ? (<>
                         <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
                           <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
                           <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{printVendorName || "—"}</span>
@@ -4899,7 +4938,7 @@ export default function OnnaDashboard() {
                   </div>
                 </div>
 
-                {!_printMode && <div style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
+                {!_printMode && !isSignedOrSubmitted && <div style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
                   {(() => { const canSubmit = !!(signVendorSig && signVendorName.trim() && signVendorDate.trim()); return <button onClick={submitVendorSig} disabled={signSubmitting || !canSubmit} style={{padding:"12px 36px",borderRadius:10,background:canSubmit?"#1a5a30":"#999",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:canSubmit?"pointer":"not-allowed",fontFamily:"inherit",opacity:signSubmitting?0.6:1,width:isMobile?"100%":"auto",transition:"background 0.2s"}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>; })()}
                 </div>}
                 {_printMode && <div className="no-print" style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
@@ -6188,7 +6227,7 @@ export default function OnnaDashboard() {
                 <div style={{padding:"40px 40px 0"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                     <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                    <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-4}}>
                       <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                       <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                     </div>
@@ -6422,7 +6461,7 @@ export default function OnnaDashboard() {
             <div id="onna-ra-print" style={{background:"#fff",padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-4}}>
                   <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
                 </div>
@@ -6628,7 +6667,7 @@ export default function OnnaDashboard() {
           const el=document.getElementById("onna-ct-print");if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
           idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
 
