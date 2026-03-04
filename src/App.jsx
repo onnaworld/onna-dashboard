@@ -2473,7 +2473,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
   // ── CONNIE (Call Sheet) ──
   if (agentId === "compliance" && callSheetStore && setCallSheetStore) {
-    const csVersions = callSheetStore[projectId] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+    const csVersions = callSheetStore[projectId] || [];
+      if(csVersions.length===0) return <div style={{padding:40,textAlign:"center",color:"#888",fontSize:12}}>No call sheet created yet. Tell Connie a project name to get started.</div>;
     const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
     const csData = csVersions[csIdx] || csVersions[0];
     const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
@@ -2784,6 +2785,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const setPendingDuplicate=(v)=>{_pendingDupRef.current=v;_setPendingDuplicate(v);};
   const [attachments,setAttachments]=useState([]);
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
+  const [conniePending,setConniePending]=useState(null); // {projectId, step:"pick_name"|"pick_existing_or_new"}
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
@@ -4266,16 +4268,70 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
           setLoading(false);setMood("idle");return;
         }
+
+        // ── pending: waiting for call sheet name ──
+        if(conniePending?.step==="pick_name"){
+          const proj=localProjects.find(p=>p.id===conniePending.projectId);
+          if(!proj){setConniePending(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
+          const nameInput=input.trim();
+          if(!nameInput){setMsgs([...history,{role:"assistant",content:"Please enter a name for this call sheet (e.g. Shoot Day 1, Recce Day)."}]);setLoading(false);setMood("idle");return;}
+          const csVersions=callSheetStore?.[proj.id]||[];
+          const newCS={id:Date.now(),label:nameInput,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
+          newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");
+          setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});
+          const newIdx=csVersions.length;
+          setConnieCtx({projectId:proj.id,vIdx:newIdx});
+          addConnieTab(proj.id,newIdx,`${proj.name} · ${nameInput}`);
+          setConniePending(null);
+          setMsgs([...history,{role:"assistant",content:`✓ Created "${nameInput}" for ${proj.name}. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+
+        // ── pending: pick existing or new ──
+        if(conniePending?.step==="pick_existing_or_new"){
+          const proj=localProjects.find(p=>p.id===conniePending.projectId);
+          if(!proj){setConniePending(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
+          const csVersions=callSheetStore?.[proj.id]||[];
+          const lower=input.toLowerCase();
+          if(/\b(new|create)\b/i.test(lower)){
+            setConniePending({projectId:proj.id,step:"pick_name"});
+            setMsgs([...history,{role:"assistant",content:`What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);
+            setLoading(false);setMood("idle");return;
+          }
+          const num=parseInt(input.trim(),10);
+          let matchIdx=-1;
+          if(num>=1&&num<=csVersions.length) matchIdx=num-1;
+          else matchIdx=csVersions.findIndex(v=>(v.label||"").toLowerCase().includes(lower));
+          if(matchIdx>=0){
+            setConniePending(null);
+            setConnieCtx({projectId:proj.id,vIdx:matchIdx});
+            addConnieTab(proj.id,matchIdx,`${proj.name} · ${csVersions[matchIdx].label||`Version ${matchIdx+1}`}`);
+            setMsgs([...history,{role:"assistant",content:`Got it — working on ${proj.name} → ${csVersions[matchIdx].label||`Version ${matchIdx+1}`}. What would you like to do?`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          const list=csVersions.map((v,i)=>`${i+1}. ${v.label||`Version ${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Pick a call sheet by number/name, or say **new** to create another.\n\n${list}`}]);
+          setLoading(false);setMood("idle");return;
+        }
+
         // Try to match a project name in this message
         const lower=input.toLowerCase();
-        const project = fuzzyMatchProject(localProjects,input);
+        const num=parseInt(input.trim(),10);
+        let project=null;
+        if(num>=1&&num<=localProjects.length) project=localProjects[num-1];
+        else project=fuzzyMatchProject(localProjects,input);
         if(!project){
-          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's call sheet should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's call sheet should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
         // Project matched — now resolve version
-        const csVersions = callSheetStore?.[project.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const csVersions = callSheetStore?.[project.id] || [];
+        if(csVersions.length===0){
+          setConniePending({projectId:project.id,step:"pick_name"});
+          setMsgs([...history,{role:"assistant",content:`No call sheets for ${project.name} yet. What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);
+          setLoading(false);setMood("idle");return;
+        }
         if(csVersions.length===1){
           setConnieCtx({projectId:project.id,vIdx:0});
           const vLabel=csVersions[0].label||"Day 1";
@@ -4284,28 +4340,10 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on ${project.name} (${vLabel}). I still have all the call sheet data from before. What would you like to do?`:`Got it — I'm now working on ${project.name} (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        // Multiple versions — try to match day in same message
-        const dayMatch=lower.match(/\bday\s*(\d+)\b/i);
-        let vIdx=-1;
-        if(dayMatch){
-          const dayNum=parseInt(dayMatch[1]);
-          vIdx=csVersions.findIndex(v=>(v.label||"").toLowerCase().includes(`day ${dayNum}`) || v.dayNumber==String(dayNum));
-        }
-        if(vIdx<0){
-          const labelMatch=csVersions.findIndex(v=>v.label && lower.includes(v.label.toLowerCase()));
-          if(labelMatch>=0) vIdx=labelMatch;
-        }
-        if(vIdx>=0){
-          setConnieCtx({projectId:project.id,vIdx});
-          const vLabel=csVersions[vIdx].label||`Day ${vIdx+1}`;
-          addConnieTab(project.id,vIdx,`${project.name} · ${vLabel}`);
-          const _v2=csVersions[vIdx];const _hasData2=_v2.shootName||_v2.schedule?.some(s=>s.activity)||_v2.departments?.some(d=>d.crew?.some(c=>c.name));
-          setMsgs([...history,{role:"assistant",content:_hasData2?`Got it — I'm back on ${project.name} (${vLabel}). I still have all the call sheet data from before. What would you like to do?`:`Got it — I'm now working on ${project.name} (${vLabel}). What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        // Couldn't determine version — ask
-        const list=csVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`${project.name} has multiple days:\n\n${list}\n\nWhich day should I work on?`}]);
+        // Multiple versions — show numbered list
+        setConniePending({projectId:project.id,step:"pick_existing_or_new"});
+        const list=csVersions.map((v,i)=>`${i+1}. ${v.label||`Version ${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`${project.name} has ${csVersions.length} call sheets:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -4319,35 +4357,34 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
         setConnieCtx(null);
-        // Re-run by simulating the input will go through the !connieCtx path next time
-        setMsgs([...history,{role:"assistant",content:`Switching to ${switchProject.name}...`}]);
-        // Set new context immediately if single version
-        const swVersions=callSheetStore?.[switchProject.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
-        if(swVersions.length===1){
+        const swVersions=callSheetStore?.[switchProject.id]||[];
+        if(swVersions.length===0){
+          setConniePending({projectId:switchProject.id,step:"pick_name"});
+          setMsgs([...history,{role:"assistant",content:`No call sheets for ${switchProject.name} yet. What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);
+        }else if(swVersions.length===1){
           setConnieCtx({projectId:switchProject.id,vIdx:0});
           const vl=swVersions[0].label||"Day 1";
           addConnieTab(switchProject.id,0,`${switchProject.name} · ${vl}`);
-          const _sw=swVersions[0];const _swHas=_sw.shootName||_sw.schedule?.some(s=>s.activity)||_sw.departments?.some(d=>d.crew?.some(c=>c.name));
-          setMsgs([...history,{role:"assistant",content:_swHas?`Switched to ${switchProject.name} (${vl}). All your existing call sheet data is still here. What would you like to do?`:`Switched to ${switchProject.name} (${vl}). What would you like to do?`}]);
+          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${vl}). What would you like to do?`}]);
         } else {
-          const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
-          setConnieCtx(null);
-          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has multiple days:\n\n${list}\n\nWhich day should I work on?`}]);
+          setConniePending({projectId:switchProject.id,step:"pick_existing_or_new"});
+          const list=swVersions.map((v,i)=>`${i+1}. ${v.label||`Version ${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${swVersions.length} call sheets:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         }
         setLoading(false);setMood("idle");return;
       }
 
       // If user says "switch project" / "change project"
       if(/\b(switch|change|different|new)\s+(project|call\s*sheet)\b/i.test(input)){
-        setConnieCtx(null);
-        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setConnieCtx(null);setConniePending(null);
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's call sheet should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
 
       // Export / PDF intent — check for missing data first
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(call\s*sheet|pdf|export|download|print|document|doc)\b/i.test(input)){
-        const csVersions_ex=callSheetStore?.[project.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const csVersions_ex=callSheetStore?.[project.id]||[];
         const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
         const csData_ex=csVersions_ex[vIdx_ex];
 
@@ -4387,7 +4424,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
       // "What's missing" breakdown for call sheet
       if(/\b(what('?s| is) missing|breakdown|what do i need|what('?s| is) empty|missing (fields|info|data|information))\b/i.test(input)){
-        const csVersions_m=callSheetStore?.[project.id]||[{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const csVersions_m=callSheetStore?.[project.id]||[];
         const vIdx_m=Math.min(vIdx,csVersions_m.length-1);
         const csData_m=csVersions_m[vIdx_m];
         const missing=[];
@@ -4410,7 +4447,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
-      const csVersions = callSheetStore?.[project.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+      const csVersions = callSheetStore?.[project.id] || [];
+      if(csVersions.length===0){setConnieCtx(null);setConniePending({projectId:project.id,step:"pick_name"});setMsgs([...history,{role:"assistant",content:`No call sheets for ${project.name} yet. What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);setLoading(false);setMood("idle");return;}
       vIdx = Math.min(vIdx, csVersions.length-1);
 
       const ver = csVersions[vIdx];
@@ -4479,16 +4517,19 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
         const lower=input.toLowerCase();
-        const project = fuzzyMatchProject(localProjects,input);
+        const num=parseInt(input.trim(),10);
+        let project=null;
+        if(num>=1&&num<=localProjects.length) project=localProjects[num-1];
+        else project=fuzzyMatchProject(localProjects,input);
         if(!project){
-          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
         const estVersions = projectEstimates?.[project.id] || [];
         if(estVersions.length===0){
           setBillieCtx({projectId:project.id,pendingCreate:true});
-          setMsgs([...history,{role:"assistant",content:`No estimates for ${project.name} yet. Want me to create a new V1?`}]);
+          setMsgs([...history,{role:"assistant",content:`No estimates for ${project.name} yet. What should I call this estimate? (e.g. Production Estimate V1, Client Pitch Budget)`}]);
           setLoading(false);setMood("idle");return;
         }
         if(estVersions.length===1){
@@ -4496,50 +4537,36 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const vLabel=estVersions[0].ts?.version||"V1";
           const _sec0=estVersions[0].sections||defaultSections();
           const _hasData=_sec0.some(s=>s.rows.some(r=>estNum(r.rate)>0));
-          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on ${project.name} (${vLabel}). I still have all the estimate data from before. What would you like to update?`:`Got it — I'm now working on the estimate for ${project.name} (${vLabel}). What would you like to do? I can update header info, rows, or help you build an estimate from scratch.`}]);
+          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on ${project.name} (${vLabel}). I still have all the estimate data from before. What would you like to update?`:`Got it — I'm now working on the estimate for ${project.name} (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        const vMatch=lower.match(/\bv(\d+)\b/i);
-        let vIdx=-1;
-        if(vMatch) vIdx=estVersions.findIndex(v=>(v.ts?.version||"").toLowerCase().includes(`v${vMatch[1]}`));
-        if(vIdx<0){
-          const labelMatch=estVersions.findIndex(v=>v.ts?.version && lower.includes(v.ts.version.toLowerCase()));
-          if(labelMatch>=0) vIdx=labelMatch;
-        }
-        if(vIdx>=0){
-          setBillieCtx({projectId:project.id,vIdx});
-          const vLabel=estVersions[vIdx].ts?.version||`V${vIdx+1}`;
-          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on ${project.name} (${vLabel}). What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        const list=estVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
+        // Multiple versions — show numbered list
         setBillieCtx({projectId:project.id,pendingVersion:true});
-        setMsgs([...history,{role:"assistant",content:`${project.name} has multiple estimate versions:\n\n${list}\n\nWhich version should I work on? Or say "create new" to start a fresh estimate.`}]);
+        const list=estVersions.map((v,i)=>`${i+1}. ${v.ts?.version||`V${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`${project.name} has ${estVersions.length} estimates:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         setLoading(false);setMood("idle");return;
       }
 
-      // ── pendingCreate confirmation handler ──
+      // ── pendingCreate — waiting for name ──
       if(billieCtx.pendingCreate){
         const lower=input.toLowerCase();
-        if(/\b(yes|yeah|yep|sure|ok|go|create|do it|please)\b/i.test(lower)){
-          const project=localProjects?.find(p=>p.id===billieCtx.projectId);
-          if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
-          const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
-          ne.ts={...ne.ts,version:"PRODUCTION ESTIMATE V1",client:project.client||"",project:project.name||""};
-          setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
-          setBillieCtx({projectId:project.id,vIdx:0});
-          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].prodLogo)arr[arr.length-1].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
-          setMsgs([...history,{role:"assistant",content:`Created V1 for ${project.name}! I'm now working on it. What would you like to do? I can update header info, rows, or help you build the estimate from scratch.`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
         if(/\b(no|nah|cancel|nevermind|never mind|nope)\b/i.test(lower)){
           setBillieCtx(null);
           setMsgs([...history,{role:"assistant",content:"No worries! Let me know if you need anything else."}]);
           setLoading(false);setMood("idle");return;
         }
-        // Unrecognized response while pending create — re-prompt
-        setMsgs([...history,{role:"assistant",content:`Want me to create a new V1 estimate? Say yes to create or no to cancel.`}]);
-        setLoading(false);setMood("idle");return;
+        const project=localProjects?.find(p=>p.id===billieCtx.projectId);
+        if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+        const nameInput=input.trim();
+        if(!nameInput){setMsgs([...history,{role:"assistant",content:"Please enter a name for this estimate."}]);setLoading(false);setMood("idle");return;}
+        const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+        ne.ts={...ne.ts,version:nameInput,client:project.client||"",project:project.name||""};
+        setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
+        const newIdx=(projectEstimates?.[project.id]||[]).length;
+        setBillieCtx({projectId:project.id,vIdx:newIdx});
+        const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].prodLogo)arr[arr.length-1].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+        setMsgs([...history,{role:"assistant",content:`✓ Created "${nameInput}" for ${project.name}! I'm now working on it. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
       // ── pendingVersion selection handler ──
@@ -4548,21 +4575,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const pvProject=localProjects?.find(p=>p.id===billieCtx.projectId);
         if(!pvProject){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
         const pvVersions=projectEstimates?.[pvProject.id]||[];
-        if(/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
-          const vNum=pvVersions.length+1;const vLabels=["V1","V2","V3","V4","V5"];
-          const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
-          ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${vLabels[pvVersions.length]||`V${vNum}`}`,client:pvProject.client||"",project:pvProject.name||""};
-          setProjectEstimates(prev=>({...prev,[pvProject.id]:[...(prev[pvProject.id]||[]),ne]}));
-          const newIdx=pvVersions.length;
-          setBillieCtx({projectId:pvProject.id,vIdx:newIdx});
-          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[pvProject.id]||[];if(arr[newIdx]&&!arr[newIdx].prodLogo)arr[newIdx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
-          setMsgs([...history,{role:"assistant",content:`Created ${vLabels[pvVersions.length]||`V${vNum}`} for ${pvProject.name}! I'm now working on it. What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        if(/\b(new|create)\b/i.test(lower)){
+          setBillieCtx({projectId:pvProject.id,pendingCreate:true});
+          setMsgs([...history,{role:"assistant",content:`What should I call this new estimate?`}]);
+          setLoading(false);setMood("idle");return;
         }
-        const vMatch=lower.match(/\bv\s*(\d+)\b/i);
+        const num=parseInt(input.trim(),10);
         let pvIdx=-1;
-        if(vMatch) pvIdx=pvVersions.findIndex(v=>(v.ts?.version||"").toLowerCase().includes(`v${vMatch[1]}`));
-        if(pvIdx<0){const numMatch=lower.match(/\b(\d+)\b/);if(numMatch){const n=parseInt(numMatch[1]);if(n>=1&&n<=pvVersions.length)pvIdx=n-1;}}
+        if(num>=1&&num<=pvVersions.length) pvIdx=num-1;
+        if(pvIdx<0){const vMatch=lower.match(/\bv\s*(\d+)\b/i);if(vMatch)pvIdx=pvVersions.findIndex(v=>(v.ts?.version||"").toLowerCase().includes(`v${vMatch[1]}`));}
         if(pvIdx<0){const labelMatch=pvVersions.findIndex(v=>v.ts?.version&&lower.includes(v.ts.version.toLowerCase()));if(labelMatch>=0)pvIdx=labelMatch;}
         if(pvIdx>=0){
           setBillieCtx({projectId:pvProject.id,vIdx:pvIdx});
@@ -4570,8 +4591,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on ${pvProject.name} (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        const pvList=pvVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`I didn't catch that. Which version?\n\n${pvList}\n\nJust say V1, V2, etc. or "create new".`}]);
+        const pvList=pvVersions.map((v,i)=>`${i+1}. ${v.ts?.version||`V${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Pick an estimate by number/name, or say **new**.\n\n${pvList}`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -4600,35 +4621,27 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const swVersions=projectEstimates?.[switchProject.id]||[];
         if(swVersions.length===0){
           setBillieCtx({projectId:switchProject.id,pendingCreate:true});
-          setMsgs([...history,{role:"assistant",content:`No estimates for ${switchProject.name} yet. Want me to create a new V1?`}]);
+          setMsgs([...history,{role:"assistant",content:`No estimates for ${switchProject.name} yet. What should I call this estimate?`}]);
         }else if(swVersions.length===1){
           setBillieCtx({projectId:switchProject.id,vIdx:0});
           setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${swVersions[0].ts?.version||"V1"}). What would you like to do?`}]);
         }else{
           setBillieCtx({projectId:switchProject.id,pendingVersion:true});
-          const list=swVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has multiple versions:\n\n${list}\n\nWhich version? Or say "create new" for a fresh estimate.`}]);
+          const list=swVersions.map((v,i)=>`${i+1}. ${v.ts?.version||`V${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${swVersions.length} estimates:\n\n${list}\n\nPick one by number/name, or say **new**.`}]);
         }
         setLoading(false);setMood("idle");return;
       }
 
       if(/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
-        const curVersions=projectEstimates?.[projectId]||[];
-        const vNum=curVersions.length+1;
-        const vLabels=["V1","V2","V3","V4","V5"];
-        const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
-        ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${vLabels[curVersions.length]||`V${vNum}`}`,client:project.client||"",project:project.name||""};
-        setProjectEstimates(prev=>({...prev,[projectId]:[...(prev[projectId]||[]),ne]}));
-        const newIdx=curVersions.length;
-        setBillieCtx({projectId,vIdx:newIdx});
-        const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[projectId]||[];if(arr[newIdx]&&!arr[newIdx].prodLogo)arr[newIdx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
-        setMsgs([...history,{role:"assistant",content:`Created ${vLabels[curVersions.length]||`V${vNum}`} for ${project.name}! I'm now working on it. What would you like to do?`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        setBillieCtx({projectId,pendingCreate:true});
+        setMsgs([...history,{role:"assistant",content:`What should I call this new estimate?`}]);
+        setLoading(false);setMood("idle");return;
       }
 
       if(/\b(switch|change|different|new)\s+(project|budget)\b/i.test(input)){
         setBillieCtx(null);
-        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's estimate should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -4709,10 +4722,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
           setLoading(false);setMood("idle");return;
         }
-        const project = fuzzyMatchProject(localProjects,input);
+        const num=parseInt(input.trim(),10);
+        const project = (num>=1&&num<=localProjects.length)?localProjects[num-1]:fuzzyMatchProject(localProjects,input);
         if(!project){
-          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's expenses should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's expenses should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
         setFinnCtx({projectId:project.id});
@@ -4723,7 +4737,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       if(/\b(switch|change|different|new)\s+(project|budget)\b/i.test(input)){
         setFinnCtx(null);
-        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's expenses should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -4815,7 +4829,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
         const project = fuzzyMatchProject(localProjects,input);
         if(!project){
-          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's casting should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
           setLoading(false);setMood("idle");return;
         }
@@ -4827,7 +4841,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       if(/\b(switch|change|different|new)\s+(project|casting)\b/i.test(input)){
         setCarrieCtx(null);
-        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's casting should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -4914,47 +4928,32 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
         const lower=input.toLowerCase();
-        const project = fuzzyMatchProject(localProjects,input);
+        const num=parseInt(input.trim(),10);
+        let project=null;
+        if(num>=1&&num<=localProjects.length) project=localProjects[num-1];
+        else project=fuzzyMatchProject(localProjects,input);
         if(!project){
-          const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
-        // Project found — auto-create RA if none, or open the existing one
         const raLabels=riskAssessmentStore?.[project.id]||[];
         if(raLabels.length===0){
-          // No RA yet — auto-create one
-          const newRA={id:Date.now(),label:project.name,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
-          newRA.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
-          setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newRA);return store;});
-          const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[0].productionLogo){arr[0].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
-          setRonnieCtx({projectId:project.id,vIdx:0});
-          if(setActiveRAVersion)setActiveRAVersion(0);
-          addRonnieTab(project.id,0,project.name);
-          setMsgs([...history,{role:"assistant",content:`✓ Created risk assessment for ${project.name}. I'm ready to work on it — tell me what risks to add, or ask me to review what's missing.`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          setRonnieCtx({projectId:project.id,_step:"create_label"});
+          setMsgs([...history,{role:"assistant",content:`No risk assessments for ${project.name} yet. What should I call this risk assessment? (e.g. Shoot Day, Recce Day, Pre-Production)`}]);
+          setLoading(false);setMood("idle");return;
         }
-        // Has RA(s) — if only one, open directly; if multiple, try to match by label or ask
         if(raLabels.length===1){
           setRonnieCtx({projectId:project.id,vIdx:0});
           if(setActiveRAVersion)setActiveRAVersion(0);
           addRonnieTab(project.id,0,project.name);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name}'s risk assessment. What would you like to do?`}]);
+          setMsgs([...history,{role:"assistant",content:`Working on ${project.name}'s risk assessment (${raLabels[0].label||"Untitled"}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        // Multiple RAs — try matching a label in the message
-        const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
-        if(matchedLabel>=0){
-          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
-          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
-          addRonnieTab(project.id,matchedLabel,`${project.name} · ${raLabels[matchedLabel].label}`);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} — ${raLabels[matchedLabel].label}. What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        // No match — show list
-        const list=raLabels.map(v=>`• ${v.label||"Untitled"}`).join("\n");
+        // Multiple RAs — show numbered list
         setRonnieCtx({projectId:project.id,_step:"pick_label"});
-        setMsgs([...history,{role:"assistant",content:`${project.name} has ${raLabels.length} risk assessments:\n\n${list}\n\nWhich one should I work on, or say **create new** to add another?`}]);
+        const list=raLabels.map((v,i)=>`${i+1}. ${v.label||"Untitled"}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`${project.name} has ${raLabels.length} risk assessments:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -4990,16 +4989,19 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment?"}]);
           setLoading(false);setMood("idle");return;
         }
-        const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
-        if(matchedLabel>=0){
-          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
-          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
-          addRonnieTab(project.id,matchedLabel,`${project.name} · ${raLabels[matchedLabel].label}`);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} — ${raLabels[matchedLabel].label}. What would you like to do?`}]);
+        const num=parseInt(input.trim(),10);
+        let matchIdx=-1;
+        if(num>=1&&num<=raLabels.length) matchIdx=num-1;
+        else matchIdx=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
+        if(matchIdx>=0){
+          setRonnieCtx({projectId:project.id,vIdx:matchIdx});
+          if(setActiveRAVersion)setActiveRAVersion(matchIdx);
+          addRonnieTab(project.id,matchIdx,`${project.name} · ${raLabels[matchIdx].label}`);
+          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} — ${raLabels[matchIdx].label}. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        const list=raLabels.map(v=>`• ${v.label||"Untitled"}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Which risk assessment?\n\n${list}\n\nOr say **create new**.`}]);
+        const list=raLabels.map((v,i)=>`${i+1}. ${v.label||"Untitled"}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Pick a risk assessment by number/name, or say **new**.\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
       if(ronnieCtx._step){setRonnieCtx(null);setLoading(false);setMood("idle");return;}
@@ -5012,29 +5014,26 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
-        // Switch to a different project — auto-create RA if none
         const raLabels=riskAssessmentStore?.[switchProject.id]||[];
         if(raLabels.length===0){
-          const newRA={id:Date.now(),label:switchProject.name,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
-          newRA.shootName=`${switchProject.client||""} | ${switchProject.name}`.replace(/^TEMPLATE \| /,"");
-          setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[switchProject.id])store[switchProject.id]=[];store[switchProject.id].push(newRA);return store;});
-          const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[switchProject.id]||[];if(arr.length>0&&!arr[0].productionLogo){arr[0].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
+          setRonnieCtx({projectId:switchProject.id,_step:"create_label"});
+          setMsgs([...history,{role:"assistant",content:`No risk assessments for ${switchProject.name} yet. What should I call this risk assessment?`}]);
+        }else if(raLabels.length===1){
           setRonnieCtx({projectId:switchProject.id,vIdx:0});
           if(setActiveRAVersion)setActiveRAVersion(0);
           addRonnieTab(switchProject.id,0,switchProject.name);
-          setMsgs([...history,{role:"assistant",content:`✓ Created risk assessment for ${switchProject.name}. What would you like to do?`}]);
+          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} — ${raLabels[0].label||"Risk Assessment"}. What would you like to do?`}]);
         }else{
-          setRonnieCtx({projectId:switchProject.id,vIdx:0});
-          if(setActiveRAVersion)setActiveRAVersion(0);
-          addRonnieTab(switchProject.id,0,switchProject.name);
-          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name}'s risk assessment. What would you like to do?`}]);
+          setRonnieCtx({projectId:switchProject.id,_step:"pick_label"});
+          const list=raLabels.map((v,i)=>`${i+1}. ${v.label||"Untitled"}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${raLabels.length} risk assessments:\n\n${list}\n\nPick one by number/name, or say **new**.`}]);
         }
         setLoading(false);setMood("idle");return;
       }
 
       if(/\b(switch|change|different)\s+project\b/i.test(input)){
         setRonnieCtx(null);
-        const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -5254,10 +5253,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
 
         // ── Flow A: no pending, no context — find project ──
-        const project = fuzzyMatchProject(localProjects,input);
+        const _cNum=parseInt(input.trim(),10);
+        const project = (_cNum>=1&&_cNum<=localProjects.length)?localProjects[_cNum-1]:fuzzyMatchProject(localProjects,input);
         if(!project){
-          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's contract should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's contract should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
         const ctVersions = contractDocStore?.[project.id] || [];
@@ -5279,8 +5279,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
-        const swVersions=contractDocStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
-        if(swVersions.length===1){
+        const swVersions=contractDocStore?.[switchProject.id]||[];
+        if(swVersions.length===0){
+          setCodyCtx(null);
+          const typeList=CONTRACT_TYPE_IDS.map((t,i)=>`${i+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");
+          codyPendingRef.current={projectId:switchProject.id,step:"pick_type"};
+          setMsgs([...history,{role:"assistant",content:`${switchProject.name} doesn't have any contracts yet. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);
+        }else if(swVersions.length===1){
           setCodyCtx({projectId:switchProject.id,vIdx:0});
           codyPendingRef.current=null;
           if(setActiveContractVersion) setActiveContractVersion(0);
@@ -5296,7 +5301,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
       if(/\b(switch|change|different)\s+project\b/i.test(input)){
         setCodyCtx(null);codyPendingRef.current=null;
-        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's contract should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -8564,7 +8569,8 @@ export default function OnnaDashboard() {
         const csSet = (fn) => {
           setCallSheetStore(prev => {
             const store = JSON.parse(JSON.stringify(prev));
-            const arr = store[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+            const arr = store[p.id] || [];
+            if(arr.length===0)return store;
             const idx = Math.min(csIdx, arr.length - 1);
             arr[idx] = fn(arr[idx]);
             store[p.id] = arr; return store;
@@ -8574,7 +8580,7 @@ export default function OnnaDashboard() {
           const newId = Date.now();
           setCallSheetStore(prev => {
             const store = JSON.parse(JSON.stringify(prev));
-            const arr = store[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+            const arr = store[p.id] || [];
             arr.push({id:newId,label:`Day ${arr.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))});
             store[p.id] = arr; return store;
           });
@@ -10373,8 +10379,8 @@ export default function OnnaDashboard() {
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
             <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:0,padding:"14px 8px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"space-evenly",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"10px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
-              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>s>0?s-1:agentTotal-AGENTS_VISIBLE)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
-              {AGENT_DEFS.slice(agentStart,agentStart+AGENTS_VISIBLE).map((a)=>{
+              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s-1+agentTotal)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
+              {Array.from({length:Math.min(AGENTS_VISIBLE,agentTotal)},(_,k)=>AGENT_DEFS[(agentStart+k)%agentTotal]).map((a)=>{
                 const i=AGENT_DEFS.indexOf(a);
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -10391,7 +10397,7 @@ export default function OnnaDashboard() {
                 </button>
               );})}
               {/* Next arrow */}
-              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>s<agentTotal-AGENTS_VISIBLE?s+1:0)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
+              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
             <div style={{flex:useWideLayout?undefined:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
