@@ -2499,7 +2499,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -3832,13 +3832,24 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     // ── Billie: live estimate handler ───────────────────────────────────────────
     if(agent.id==="billie"&&projectEstimates&&setProjectEstimates){
+      const _fuzzyMatchProject = (text, excludeId) => {
+        const lo = text.toLowerCase().trim();
+        const cands = excludeId ? (localProjects||[]).filter(p=>p.id!==excludeId) : (localProjects||[]);
+        const exact = cands.find(p=>lo.includes(p.name.toLowerCase()));
+        if (exact) return exact;
+        const _ed = (a,b) => { const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>i); for(let j=1;j<=n;j++){let pv=d[0];d[0]=j;for(let i=1;i<=m;i++){const t=d[i];d[i]=a[i-1]===b[j-1]?pv:1+Math.min(pv,d[i],d[i-1]);pv=t;}} return d[m]; };
+        const words = lo.split(/\s+/);
+        for (const p of cands) { const pn=p.name.toLowerCase(); if(words.some(w=>w.length>=3&&_ed(w,pn)<=2))return p; const pw=pn.split(/\s+/); if(words.some(w=>w.length>=3&&pw.some(q=>q.length>=3&&_ed(w,q)<=2)))return p; }
+        return null;
+      };
+
       if(!billieCtx){
         if(!localProjects?.length){
           setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
           setLoading(false);setMood("idle");return;
         }
         const lower=input.toLowerCase();
-        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        const project = _fuzzyMatchProject(input);
         if(!project){
           const list=localProjects.map(p=>`• ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
@@ -3872,6 +3883,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         const list=estVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
+        setBillieCtx({projectId:project.id,pendingVersion:true});
         setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple estimate versions:\n\n${list}\n\nWhich version should I work on? Or say "create new" to start a fresh estimate.`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -3900,12 +3912,45 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
+      // ── pendingVersion selection handler ──
+      if(billieCtx.pendingVersion){
+        const lower=input.toLowerCase();
+        const pvProject=localProjects?.find(p=>p.id===billieCtx.projectId);
+        if(!pvProject){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+        const pvVersions=projectEstimates?.[pvProject.id]||[];
+        if(/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
+          const vNum=pvVersions.length+1;const vLabels=["V1","V2","V3","V4","V5"];
+          const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+          ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${vLabels[pvVersions.length]||`V${vNum}`}`,client:pvProject.client||"",project:pvProject.name||""};
+          setProjectEstimates(prev=>({...prev,[pvProject.id]:[...(prev[pvProject.id]||[]),ne]}));
+          const newIdx=pvVersions.length;
+          setBillieCtx({projectId:pvProject.id,vIdx:newIdx});
+          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[pvProject.id]||[];if(arr[newIdx]&&!arr[newIdx].prodLogo)arr[newIdx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+          setMsgs([...history,{role:"assistant",content:`Created **${vLabels[pvVersions.length]||`V${vNum}`}** for **${pvProject.name}**! I'm now working on it. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const vMatch=lower.match(/\bv\s*(\d+)\b/i);
+        let pvIdx=-1;
+        if(vMatch) pvIdx=pvVersions.findIndex(v=>(v.ts?.version||"").toLowerCase().includes(`v${vMatch[1]}`));
+        if(pvIdx<0){const numMatch=lower.match(/\b(\d+)\b/);if(numMatch){const n=parseInt(numMatch[1]);if(n>=1&&n<=pvVersions.length)pvIdx=n-1;}}
+        if(pvIdx<0){const labelMatch=pvVersions.findIndex(v=>v.ts?.version&&lower.includes(v.ts.version.toLowerCase()));if(labelMatch>=0)pvIdx=labelMatch;}
+        if(pvIdx>=0){
+          setBillieCtx({projectId:pvProject.id,vIdx:pvIdx});
+          const vLabel=pvVersions[pvIdx].ts?.version||`V${pvIdx+1}`;
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${pvProject.name}** (${vLabel}). What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const pvList=pvVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`I didn't catch that. Which version?\n\n${pvList}\n\nJust say **V1**, **V2**, etc. or "create new".`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
       let {projectId,vIdx}=billieCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
       const lower=input.toLowerCase();
-      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      const switchProject=_fuzzyMatchProject(input, projectId);
       if(switchProject){
         const swVersions=projectEstimates?.[switchProject.id]||[];
         if(swVersions.length===0){
@@ -3915,7 +3960,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setBillieCtx({projectId:switchProject.id,vIdx:0});
           setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].ts?.version||"V1"}). What would you like to do?`}]);
         }else{
-          setBillieCtx(null);
+          setBillieCtx({projectId:switchProject.id,pendingVersion:true});
           const list=swVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version? Or say "create new" for a fresh estimate.`}]);
         }
@@ -4372,27 +4417,94 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
         const lower=input.toLowerCase();
+        const pending=codyPendingRef.current;
+        const typeList=CONTRACT_TYPE_IDS.map((t,i)=>`${i+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");
+
+        // ── Flow B: pending pick_existing_or_new ──
+        if(pending&&pending.step==="pick_existing_or_new"){
+          const pid=pending.projectId;
+          const proj=localProjects.find(p=>p.id===pid);
+          const ctVersions=contractDocStore?.[pid]||[];
+          if(/\b(new|create)\b/i.test(input)){
+            codyPendingRef.current={projectId:pid,step:"pick_type"};
+            setMsgs([...history,{role:"assistant",content:`What type of contract for **${proj?.name||"this project"}**?\n\n${typeList}\n\nPick a number or name.`}]);
+            setLoading(false);setMood("idle");return;
+          }
+          const num=parseInt(input.trim(),10);
+          let matchIdx=-1;
+          if(num>=1&&num<=ctVersions.length) matchIdx=num-1;
+          else matchIdx=ctVersions.findIndex(v=>(v.label||"").toLowerCase().includes(lower)||(CONTRACT_TYPE_LABELS[v.contractType]||"").toLowerCase().includes(lower));
+          if(matchIdx>=0){
+            codyPendingRef.current=null;
+            setCodyCtx({projectId:pid,vIdx:matchIdx});
+            if(setActiveContractVersion) setActiveContractVersion(matchIdx);
+            const vLabel=ctVersions[matchIdx].label||`Version ${matchIdx+1}`;
+            setMsgs([...history,{role:"assistant",content:`Got it — working on **${proj?.name}** → **${vLabel}**. What would you like to do?`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          setMsgs([...history,{role:"assistant",content:`I didn't catch that. Pick a contract by number/name, or say **new** to create another.\n\n${ctVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n")}`}]);
+          setLoading(false);setMood("idle");return;
+        }
+
+        // ── Flow C: pending pick_type ──
+        if(pending&&pending.step==="pick_type"){
+          const pid=pending.projectId;
+          const proj=localProjects.find(p=>p.id===pid);
+          const num=parseInt(input.trim(),10);
+          let typeId=null;
+          if(num>=1&&num<=CONTRACT_TYPE_IDS.length) typeId=CONTRACT_TYPE_IDS[num-1];
+          else typeId=CONTRACT_TYPE_IDS.find(t=>lower.includes(CONTRACT_TYPE_LABELS[t].toLowerCase()));
+          if(!typeId){
+            setMsgs([...history,{role:"assistant",content:`Please pick a contract type:\n\n${typeList}\n\nEnter a number (1-4) or type the name.`}]);
+            setLoading(false);setMood("idle");return;
+          }
+          const ctVersions=contractDocStore?.[pid]||[];
+          const newIdx=ctVersions.length;
+          setContractDocStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));
+            const arr=store[pid]||[];
+            arr.push({id:Date.now(),label:CONTRACT_TYPE_LABELS[typeId]||typeId,contractType:typeId,fieldValues:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
+            const logoImg=new Image();logoImg.crossOrigin="anonymous";
+            logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setContractDocStore(prev2=>{const s=JSON.parse(JSON.stringify(prev2));if(s[pid]&&s[pid][newIdx]&&!s[pid][newIdx].prodLogo)s[pid][newIdx].prodLogo=dataUrl;return s;});}catch{}};
+            logoImg.src="/onna-default-logo.png";
+            store[pid]=arr;return store;
+          });
+          codyPendingRef.current=null;
+          setCodyCtx({projectId:pid,vIdx:newIdx});
+          if(setActiveContractVersion) setActiveContractVersion(newIdx);
+          setMsgs([...history,{role:"assistant",content:`Created a new **${CONTRACT_TYPE_LABELS[typeId]}** for **${proj?.name}**. I'm ready to help fill it in — what would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+
+        // ── Flow A: no pending, no context — find project ──
         const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
         if(!project){
           const list=localProjects.map(p=>`• ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's contract should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
           setLoading(false);setMood("idle");return;
         }
-        const ctVersions = contractDocStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+        const ctVersions = contractDocStore?.[project.id] || [];
+        if(ctVersions.length===0){
+          codyPendingRef.current={projectId:project.id,step:"pick_type"};
+          setMsgs([...history,{role:"assistant",content:`**${project.name}** doesn't have any contracts yet. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);
+          setLoading(false);setMood("idle");return;
+        }
         if(ctVersions.length===1){
           setCodyCtx({projectId:project.id,vIdx:0});
+          if(setActiveContractVersion) setActiveContractVersion(0);
           const vLabel=ctVersions[0].label||"Version 1";
           setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on the contract for **${project.name}** (${vLabel}). What would you like to do? I can fill in contract fields, switch contract types, or review what's missing.`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        const list=ctVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple contract versions:\n\n${list}\n\nWhich version should I work on?`}]);
+        codyPendingRef.current={projectId:project.id,step:"pick_existing_or_new"};
+        const list=ctVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has ${ctVersions.length} contracts:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         setLoading(false);setMood("idle");return;
       }
 
       let {projectId,vIdx}=codyCtx;
       let project=localProjects?.find(p=>p.id===projectId);
-      if(!project){setCodyCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+      if(!project){setCodyCtx(null);codyPendingRef.current=null;if(setActiveContractVersion) setActiveContractVersion(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
       const lower=input.toLowerCase();
       const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
@@ -4400,19 +4512,39 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const swVersions=contractDocStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
         if(swVersions.length===1){
           setCodyCtx({projectId:switchProject.id,vIdx:0});
+          codyPendingRef.current=null;
+          if(setActiveContractVersion) setActiveContractVersion(0);
           setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
         }else{
           setCodyCtx(null);
-          const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
+          codyPendingRef.current={projectId:switchProject.id,step:"pick_existing_or_new"};
+          const list=swVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has ${swVersions.length} contracts:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         }
         setLoading(false);setMood("idle");return;
       }
 
-      if(/\b(switch|change|different|new)\s+(project|contract)\b/i.test(input)){
-        setCodyCtx(null);
+      if(/\b(switch|change|different)\s+project\b/i.test(input)){
+        setCodyCtx(null);codyPendingRef.current=null;
         const list=localProjects.map(p=>`• ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's contract should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+      if(/\bnew\s+contract\b/i.test(input)){
+        const typeList=CONTRACT_TYPE_IDS.map((t,i)=>`${i+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");
+        setCodyCtx(null);codyPendingRef.current={projectId,step:"pick_type"};
+        setMsgs([...history,{role:"assistant",content:`New contract for **${project.name}** — what type?\n\n${typeList}\n\nPick a number or name.`}]);
+        setLoading(false);setMood("idle");return;
+      }
+      if(/\b(switch|change|different)\s+contract\b/i.test(input)){
+        const ctList=contractDocStore?.[projectId]||[];
+        if(ctList.length<=1){
+          setMsgs([...history,{role:"assistant",content:`**${project.name}** only has one contract. Say **new contract** to create another!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        setCodyCtx(null);codyPendingRef.current={projectId,step:"pick_existing_or_new"};
+        const list=ctList.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** contracts:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         setLoading(false);setMood("idle");return;
       }
 
