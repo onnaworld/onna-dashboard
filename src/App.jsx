@@ -6202,6 +6202,8 @@ export default function OnnaDashboard() {
   const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
+  const [actualsTrackerTab,setActualsTrackerTab]         = useState("detail");
+  const actualsExpandedRef                               = useRef({});
   const [contractType,setContractType]                   = useState(CONTRACT_TYPES[0]);
   const [contractFields,setContractFields]               = useState({commissionee:"",individual:"",role:"",fee:"",shootDate:"",deliverables:"",usageRights:"",paymentTerms:"NET 30 days",deadline:"",projectRef:""});
   const [generatedContract,setGeneratedContract]         = useState("");
@@ -7205,6 +7207,18 @@ export default function OnnaDashboard() {
       );
 
       // Sub-section file manager
+      const [linkUploading, setLinkUploading] = useState(false);
+      const uploadFromLink = async (url, category) => {
+        setLinkUploading(true);
+        try {
+          const resp = await fetch("/api/proxy-download", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
+          const data = await resp.json();
+          if (data.error) throw new Error(data.error);
+          const entry = {id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};
+          setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),entry]}}));
+        } catch(e) { alert("Upload failed: "+e.message); }
+        setLinkUploading(false);
+      };
       const renderFileManager = (category, label, linkKey) => {
         const files = category==="moodboards"?moodFiles:briefFiles;
         const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
@@ -7212,12 +7226,12 @@ export default function OnnaDashboard() {
           <div>
             <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
             <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
-            <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or link a Dropbox / Drive folder.</p>
+            <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or paste a Dropbox / Drive link to import.</p>
             <div style={{marginBottom:18}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
               <div style={{display:"flex",gap:10}}>
                 <input value={link} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[linkKey]:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                {link&&<a href={link} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",flexShrink:0}}>Upload ↗</a>}
+                {link&&<button disabled={linkUploading} onClick={()=>uploadFromLink(link,category)} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading…":"Upload"}</button>}
               </div>
             </div>
             <UploadZone label={`Upload ${label.toLowerCase()} files (PDF, images)`} files={[]} onAdd={f=>addStoredFiles(category,f)}/>
@@ -7337,14 +7351,9 @@ export default function OnnaDashboard() {
           });
         };
 
-        // Tracker tab state
-        const [trackerTab, setTrackerTab] = [
-          budgetSubSection === "tracker" ? (window._actTrackerTab || "detail") : "detail",
-          (v) => { window._actTrackerTab = v; setBudgetSubSection("tracker"); }
-        ];
-        // Expanded rows state
-        const expandedRef = useRef({});
-        const toggleExpand = (key) => { expandedRef.current[key] = !expandedRef.current[key]; setBudgetSubSection("tracker"); };
+        const trackerTab = actualsTrackerTab;
+        const setTrackerTab = setActualsTrackerTab;
+        const toggleExpand = (key) => { actualsExpandedRef.current[key] = !actualsExpandedRef.current[key]; setProjectActuals(prev => ({...prev})); };
 
         // Export PDF
         const exportActualsPDF = () => {
@@ -7374,7 +7383,7 @@ export default function OnnaDashboard() {
 
         return (
         <div>
-          <button onClick={()=>{setBudgetSubSection(null);window._actTrackerTab="detail";}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}>
             <div style={{fontSize:18,fontWeight:700,color:T.text}}>Budget Tracker</div>
             <button onClick={exportActualsPDF} style={{background:T.accent,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Export PDF</button>
@@ -7472,7 +7481,7 @@ export default function OnnaDashboard() {
                         const expTotal = actualsRowExpenseTotal(row);
                         const zohoVal = estNum(row.zohoAmount);
                         const rowKey = `${si}-${ri}`;
-                        const isExpanded = expandedRef.current[rowKey];
+                        const isExpanded = actualsExpandedRef.current[rowKey];
                         return (
                           <Fragment key={ri}>
                             <tr style={{borderBottom:`1px solid ${T.borderSub}`}}>
