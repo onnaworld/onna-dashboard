@@ -6469,16 +6469,9 @@ ${content}
 <div class="ftr"><span>ONNA FILM TV RADIO PRODUCTION SERVICES LLC · DUBAI &amp; LONDON</span><span>Generated ${date}</span></div>
 </body></html>`;
 
-  // Use Blob URL — avoids document.write cross-origin issues
-  const blob = new Blob([html], {type:"text/html"});
-  const url  = URL.createObjectURL(blob);
-  const win  = window.open(url, "_blank");
-  if (!win) {
-    // Fallback: trigger download as .html file the user can print
-    const a = document.createElement("a");
-    a.href = url; a.download = `${title}.html`; a.click();
-  }
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+  const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
+  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
 };
 
 // ─── CALL SHEET PDF EXPORT (mirrors on-screen layout exactly) ─────────────────
@@ -6538,12 +6531,10 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
 </div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style>${PRINT_CLEANUP_SCRIPT}</head><body>${body}</body></html>`;
-  const blob = new Blob([html], {type:"text/html"});
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if(!win){const a=document.createElement("a");a.href=url;a.download="Call Sheet.html";a.click();}
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}</body></html>`;
+  const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+  const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
+  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
 };
 
 // ─── RISK ASSESSMENT PDF EXPORT (mirrors on-screen layout exactly) ───────────
@@ -6578,12 +6569,10 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
 <div style="padding:8px 12px">${emergencyHTML}</div>
 <div style="margin-top:60px;display:flex;justify-content:space-between;font-size:9px;${LS}color:#000"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
 </div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style>${PRINT_CLEANUP_SCRIPT}</head><body>${body}</body></html>`;
-  const blob = new Blob([html], {type:"text/html"});
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
-  if(!win){const a=document.createElement("a");a.href=url;a.download="Risk Assessment.html";a.click();}
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}</body></html>`;
+  const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+  const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
+  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
 };
 
 // ─── ACTUALS STATUS CONSTANTS ────────────────────────────────────────────────
@@ -6648,11 +6637,9 @@ ${PRINT_CLEANUP_SCRIPT}
 ${tablesHTML}
 <div class="ftr"><span>ONNA FILM TV RADIO PRODUCTION SERVICES LLC · DUBAI &amp; LONDON</span><span>Generated ${date}</span></div>
 </body></html>`;
-      const blob = new Blob([html], {type:"text/html"});
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, "_blank");
-      if (!win) { const a = document.createElement("a"); a.href = url; a.download = `${title}.html`; a.click(); }
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+      const _doc=iframe.contentDocument;_doc.open();_doc.write(html);_doc.close();
+      setTimeout(()=>{_doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
     } catch(e) { console.error("Casting PDF export error:", e); }
   };
   logoImg.onerror = () => { console.error("Failed to load logo for casting PDF"); };
