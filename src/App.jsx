@@ -5530,6 +5530,44 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
+      // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
+      const lastMsg_ex = history[history.length-1];
+      if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
+        printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg_ex._pendingExport.label}) \u2014 save it as PDF from there! \ud83d\udd2c`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+      // Export / PDF intent (before fuzzyMatch to avoid false project switches)
+      if(/\b(export|pdf|download|print|save\s*as|generate\s*(a\s*)?pdf)\b/i.test(input)){
+        const raVersions_ex=riskAssessmentStore?.[project.id]||[];
+        const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
+        const ver_ex=raVersions_ex[vIdx_ex];
+        if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
+        const _missing=[];
+        if(!ver_ex.shootName) _missing.push("Shoot Name");
+        if(!ver_ex.shootDate) _missing.push("Shoot Date");
+        if(!ver_ex.locations) _missing.push("Locations");
+        if(!ver_ex.crewOnSet) _missing.push("Crew on Set");
+        if(!ver_ex.timing) _missing.push("Timing");
+        if(!(ver_ex.sections||[]).length) _missing.push("Risk Sections (none added)");
+        (ver_ex.sections||[]).forEach(s=>{
+          const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);
+          if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);
+          s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);});
+        });
+        if(!(ver_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
+        if(!(ver_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
+        if(!(ver_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
+        if(_missing.length>0){
+          const warnMsg=`Before exporting, I noticed the following fields are missing or incomplete:\n\n${_missing.map(m=>`- ${m}`).join("\n")}\n\nAre you sure you want to export as-is? Type **"yes, export"** to proceed, or let me know what you'd like to fill in first.`;
+          setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
+          setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        printRiskAssessmentPDF(ver_ex);
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} \u2014 save it as PDF from there! \ud83d\udd2c`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
@@ -5577,46 +5615,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-
-      // Handle "yes, export" confirmation after missing fields warning
-      const lastMsg = history[history.length-1];
-      if(lastMsg&&lastMsg._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
-        printRiskAssessmentPDF(lastMsg._pendingExport.raData);
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg._pendingExport.label}) \u2014 save it as PDF from there! \ud83d\udd2c`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      // Export / PDF intent
-      if(/\b(export|pdf|download|print|save\s*as|generate\s*(a\s*)?pdf)\b/i.test(input)){
-        const raVersions_ex=riskAssessmentStore?.[project.id]||[];
-        const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
-        const ver_ex=raVersions_ex[vIdx_ex];
-        if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
-        // Check for missing/empty fields before export
-        const _missing=[];
-        if(!ver_ex.shootName) _missing.push("Shoot Name");
-        if(!ver_ex.shootDate) _missing.push("Shoot Date");
-        if(!ver_ex.locations) _missing.push("Locations");
-        if(!ver_ex.crewOnSet) _missing.push("Crew on Set");
-        if(!ver_ex.timing) _missing.push("Timing");
-        if(!(ver_ex.sections||[]).length) _missing.push("Risk Sections (none added)");
-        (ver_ex.sections||[]).forEach(s=>{
-          const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);
-          if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);
-          s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);});
-        });
-        if(!(ver_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
-        if(!(ver_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
-        if(!(ver_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
-        if(_missing.length>0){
-          const warnMsg=`Before exporting, I noticed the following fields are missing or incomplete:\n\n${_missing.map(m=>`- ${m}`).join("\n")}\n\nAre you sure you want to export as-is? Type **"yes, export"** to proceed, or let me know what you'd like to fill in first.`;
-          setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
-          setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        printRiskAssessmentPDF(ver_ex);
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} \u2014 save it as PDF from there! \ud83d\udd2c`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
 
       const raVersions = riskAssessmentStore?.[project.id] || [];
       vIdx = Math.min(vIdx, raVersions.length-1);
