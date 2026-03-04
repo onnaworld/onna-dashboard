@@ -27,19 +27,29 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
 
 const SignaturePad = ({ value, onChange, height = 60 }) => {
   const canvasRef = useRef(null);
+  const wrapRef = useRef(null);
   const drawing = useRef(false);
-  const clear = () => { const c=canvasRef.current; if(!c)return; c.getContext("2d").clearRect(0,0,c.width,c.height); onChange(""); };
-  const getPos = (e) => { const r=canvasRef.current.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left,y:t.clientY-r.top}; };
+  const clear = () => { const c=canvasRef.current; if(c) c.getContext("2d").clearRect(0,0,c.width,c.height); onChange(""); };
+  const getPos = (e) => {
+    const c=canvasRef.current; const r=c.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    // Scale mouse coords from CSS size to canvas internal size
+    const scaleX=c.width/r.width; const scaleY=c.height/r.height;
+    return {x:(t.clientX-r.left)*scaleX, y:(t.clientY-r.top)*scaleY};
+  };
   const startDraw = (e) => { e.preventDefault(); drawing.current=true; const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
-  const moveDraw = (e) => { if(!drawing.current)return; e.preventDefault(); const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.lineWidth=1.5; ctx.lineCap="round"; ctx.strokeStyle="#1a1a1a"; ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  const moveDraw = (e) => { if(!drawing.current)return; e.preventDefault(); const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.lineWidth=2; ctx.lineCap="round"; ctx.strokeStyle="#1a1a1a"; ctx.lineTo(p.x,p.y); ctx.stroke(); };
   const endDraw = (e) => { if(!drawing.current)return; e&&e.preventDefault(); drawing.current=false; const c=canvasRef.current; if(c) onChange(c.toDataURL("image/png")); };
+  // Resize canvas to match container width for crisp rendering
   useEffect(()=>{
-    const c=canvasRef.current; if(!c)return;
-    const ctx=c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height);
-    if(value){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0);img.src=value;}
+    const c=canvasRef.current; const w=wrapRef.current; if(!c||!w)return;
+    const resize=()=>{ const rect=w.getBoundingClientRect(); c.width=Math.round(rect.width); c.height=height; if(value){const img=new Image();img.onload=()=>c.getContext("2d").drawImage(img,0,0,c.width,c.height);img.src=value;} };
+    resize();
+    window.addEventListener("resize",resize);
+    return ()=>window.removeEventListener("resize",resize);
   },[]);
-  if(value) return <div style={{position:"relative",height,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid #ddd",borderRadius:2,background:"#fafafa"}}><img src={value} alt="" style={{maxHeight:height-4,maxWidth:"100%"}}/><button onClick={clear} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",borderRadius:3,fontSize:8,padding:"1px 5px",cursor:"pointer",lineHeight:"14px"}}>Clear</button></div>;
-  return <div style={{position:"relative"}}><canvas ref={canvasRef} width={300} height={height} onMouseDown={startDraw} onMouseMove={moveDraw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={moveDraw} onTouchEnd={endDraw} style={{width:"100%",height,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",cursor:"crosshair",display:"block",touchAction:"none"}}/><button onClick={clear} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,0.4)",color:"#fff",border:"none",borderRadius:3,fontSize:8,padding:"1px 5px",cursor:"pointer",lineHeight:"14px"}}>Clear</button></div>;
+  if(value) return <div style={{position:"relative",height,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid #ddd",borderRadius:2,background:"#fafafa"}}><img src={value} alt="" style={{maxHeight:height-4,maxWidth:"100%"}}/><button onClick={clear} style={{position:"absolute",top:4,right:4,background:"#d32f2f",color:"#fff",border:"none",borderRadius:4,fontSize:10,padding:"3px 10px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>Clear</button></div>;
+  return <div ref={wrapRef} style={{position:"relative"}}><canvas ref={canvasRef} width={600} height={height} onMouseDown={startDraw} onMouseMove={moveDraw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={moveDraw} onTouchEnd={endDraw} style={{width:"100%",height,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",cursor:"crosshair",display:"block",touchAction:"none"}}/><button onClick={clear} style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",borderRadius:4,fontSize:10,padding:"3px 10px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>Clear</button></div>;
 };
 
 const CSEditTextarea = ({ value, onChange, style = {} }) => {
@@ -53,7 +63,7 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
   const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"center",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:38,maxWidth:120,objectFit:"contain"}}/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>×</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:100,height:36,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:60,maxWidth:200,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:120,height:40,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
@@ -165,6 +175,67 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
 
   versions[versionIdx] = ver;
   setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
+}
+
+// ─── BILLIE (ESTIMATE) HELPERS ───────────────────────────────────────────────
+function buildBillieSystem(project, estData, versionLabel, estSnapshot) {
+  return `You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live estimate database.
+
+CRITICAL: You ALREADY HAVE the full estimate data below. NEVER ask the user to paste, share, or provide estimate details — you can see everything. Just act on their request immediately.
+
+You are viewing: "${project.name}" — ${versionLabel}
+
+CURRENT ESTIMATE STATE:
+${estSnapshot}
+
+INSTRUCTIONS:
+- When the user asks to ADD, UPDATE, or CHANGE line items, header fields, or notes, output a JSON patch inside a \`\`\`json code block.
+- For header fields: {"header":{"client":"...","project":"...","date":"...","photographer":"...","deliverables":"...","deadlines":"...","usageTerms":"...","shootDate":"...","shootLocation":"...","paymentTerms":"..."}}
+- For line items (merge by cat number): {"lineItems":[{"cat":"1","name":"Photography Fees","aed":5000},{"cat":"4","name":"Video Crew","aed":51000}]}
+- For notes: {"notes":"..."}
+- Only output JSON for write intents. For read-only questions (e.g. "what's the total?", "show me the budget"), answer in plain text with NO JSON block.
+- When updating line items, merge by category number (cat field). If the cat exists, update it. If it's new, append it.
+- Always show dual currency: AED and USD (fixed rate: 1 USD = 3.67 AED, i.e. 1 AED = 0.27 USD).
+- Default Agency Fee: 15% on production subtotal (goes in cat 18).
+- Default Contingency: 10% on production subtotal (can be added as separate line).
+- Be warm, concise and professional.
+- NEVER say you don't have access to data, can't see the estimate, or need the user to share information. You have FULL access.`;
+}
+
+function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProjectEstimates) {
+  const versions = [...currentVersions];
+  const ver = { ...versions[versionIdx] };
+
+  // Merge header fields
+  if (patch.header) {
+    Object.keys(patch.header).forEach(k => {
+      if (patch.header[k] !== undefined) ver[k] = patch.header[k];
+    });
+  }
+
+  // Merge scalar fields directly (for convenience)
+  const scalars = ["version","date","client","project","attention","photographer","deliverables","deadlines","usageTerms","agreedRounds","shootDate","shootDays","shootHours","shootLocation","paymentTerms"];
+  scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
+
+  // Merge notes
+  if (patch.notes !== undefined) ver.notes = patch.notes;
+
+  // Merge lineItems by cat (case-insensitive cat match)
+  if (patch.lineItems && Array.isArray(patch.lineItems)) {
+    const existing = ver.lineItems ? ver.lineItems.map(li => ({ ...li })) : [];
+    patch.lineItems.forEach(pli => {
+      const idx = existing.findIndex(li => String(li.cat) === String(pli.cat));
+      if (idx >= 0) {
+        existing[idx] = { ...existing[idx], ...pli };
+      } else {
+        existing.push(pli);
+      }
+    });
+    ver.lineItems = existing;
+  }
+
+  versions[versionIdx] = ver;
+  setProjectEstimates(prev => ({ ...prev, [projectId]: versions }));
 }
 
 // ─── Generic doc updater factory ──────────────────────────────────────────────
@@ -873,9 +944,12 @@ function findSimilar(name,allVendors,allLeads){
   const q=name.toLowerCase().trim();
   const thresh=Math.max(2,Math.floor(q.length*0.28));
   for(const v of(allVendors||[])){
-    const vn=(v.name||"").toLowerCase().trim();if(!vn)continue;
-    if(vn===q)return{record:v,type:"vendor",exact:true};
-    if(levenshtein(q,vn)<=thresh)return{record:v,type:"vendor",exact:false};
+    const vn=(v.name||"").toLowerCase().trim();
+    const vc=(v.company||"").toLowerCase().trim();
+    if(vn&&vn===q)return{record:v,type:"vendor",exact:true};
+    if(vc&&vc===q)return{record:v,type:"vendor",exact:true};
+    if(vn&&levenshtein(q,vn)<=thresh)return{record:v,type:"vendor",exact:false};
+    if(vc&&levenshtein(q,vc)<=thresh)return{record:v,type:"vendor",exact:false};
   }
   for(const l of(allLeads||[])){
     const ln=(l.contact||l.company||"").toLowerCase().trim();if(!ln)continue;
@@ -895,7 +969,7 @@ function parseQuickEntry(text){
   const locPart=nonEmail.find(p=>/dubai|london|uae|uk|abu dhabi/i.test(p));
   const loc=locPart?locPart.replace(/\b(vendor|supplier|client|customer)\b/gi,"").replace(/[,\s]+$/,"").trim():"Dubai, UAE";
   if(isVendor){
-    return{_type:"vendor",name:nonEmail[0]||"",category:nonEmail[1]||"",email:emailPart,phone:"",website:"",location:loc||"Dubai, UAE",notes:"",rateCard:""};
+    return{_type:"vendor",name:nonEmail[0]||"",company:"",category:nonEmail[1]||"",email:emailPart,phone:"",website:"",location:loc||"Dubai, UAE",notes:"",rateCard:""};
   }else{
     return{_type:"lead",contact:nonEmail[0]||"",role:nonEmail[1]||"",company:nonEmail[2]||"",email:emailPart,phone:"",value:"",category:"Other",location:loc||"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""};
   }
@@ -929,7 +1003,7 @@ function _AgentBubble({msg}){
   </div>;
 }
 // ─── AgentDocPreview — live editable document preview for split-pane ────────
-function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion}) {
+function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion}) {
   if (!projectId) return null;
 
   // ── CONNIE (Call Sheet) ──
@@ -1060,32 +1134,120 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
   // ── CODY (Contracts) ──
   if (agentId === "contracts" && contractDocStore && setContractDocStore) {
-    const ctVersions = contractDocStore[projectId] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+    const ctVersions = contractDocStore[projectId] || [];
+    if (ctVersions.length === 0) return <div style={{padding:40,textAlign:"center",color:"#888",fontSize:13}}>No contracts yet. Create one from Documents → Contracts.</div>;
     const ctIdx = Math.min(activeContractVersion||0, ctVersions.length - 1);
     const ctData = ctVersions[ctIdx] || ctVersions[0];
-    const {update:ctU, set:ctSet} = makeDocUpdater(projectId, ctIdx, setContractDocStore, CONTRACT_INIT, "Version 1");
-    const activeContractType = ctData.activeType || "commission_se";
+    const {update:ctU, set:ctSet} = makeDocUpdater(projectId, ctIdx, setContractDocStore, CONTRACT_INIT, "Contract");
+    const activeContractType = ctData.contractType || "commission_se";
     const ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===activeContractType) || CONTRACT_DOC_TYPES[0];
-    const ctGetVal = (key) => (ctData.fieldValues||{})[`${activeContractType}_${key}`] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
-    const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [`${activeContractType}_${key}`]:val}}));
-    const ctGeneralTerms = (ctData.generalTermsEdits||{})[activeContractType] || GENERAL_TERMS_DOC[activeContractType] || "";
-    const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{...(d.generalTermsEdits||{}), [activeContractType]:val}}));
+    const ctGetVal = (key) => (ctData.fieldValues||{})[key] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
+    const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [key]:val}}));
+    const ctGeneralTerms = (ctData.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[activeContractType] || "";
+    const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{custom:val}}));
 
     return (
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
-        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Contract — {ctData.label||`Version ${ctIdx+1}`}</div>
-        {/* Contract type switcher */}
-        <div style={{display:"flex",gap:0,borderBottom:"2px solid #000",marginBottom:0,overflowX:"auto"}}>
-          {CONTRACT_DOC_TYPES.map(c=>(<div key={c.id} onClick={()=>ctSet(d=>({...d,activeType:c.id}))} style={{fontFamily:CT_FONT,fontSize:9,fontWeight:activeContractType===c.id?700:400,letterSpacing:CT_LS_HDR,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:activeContractType===c.id?"#000":"#f5f5f5",color:activeContractType===c.id?"#fff":"#666",transition:"all 0.15s",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{c.short}</div>))}
-        </div>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Contract — {ctData.label||`Contract ${ctIdx+1}`} ({ctContract.short})</div>
         <div style={{padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}><CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/></div>
           <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
           <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
           {ctContract.headTermsLabel && (<><div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span></div>{ctContract.fields.map((field) => (<div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}><div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span></div><div style={{flex:1,padding:"8px 12px"}}><CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!ctGetVal(field.key) || ctGetVal(field.key)===field.defaultValue} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/></div></div>))}</>)}
-          {ctContract.sigLeft && (<><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div><div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>{[{side:"left",label:ctContract.sigLeft},{side:"right",label:ctContract.sigRight}].map(({side,label})=>(<div key={side} style={{flex:1,padding:"12px",borderRight:side==="left"?"1px solid #eee":"none"}}><div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div><div style={{marginBottom:8}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span><SignaturePad value={(ctData.signatures||{})[`${activeContractType}_${side}`]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [`${activeContractType}_${side}`]:v}}))} height={60}/></div>{["name","date"].map(f=>(<div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span><div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}><CSEditField value={(ctData.sigNames||{})[`${activeContractType}_${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${activeContractType}_${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/></div></div>))}</div>))}</div></>)}
+          {ctContract.sigLeft && (<><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div><div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>{[{side:"left",label:ctContract.sigLeft},{side:"right",label:ctContract.sigRight}].map(({side,label})=>(<div key={side} style={{flex:1,padding:"12px",borderRight:side==="left"?"1px solid #eee":"none"}}><div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div><div style={{marginBottom:8}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span><SignaturePad value={(ctData.signatures||{})[side]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [side]:v}}))} height={60}/></div>{["name","date"].map(f=>(<div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span><div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}><CSEditField value={(ctData.sigNames||{})[`${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/></div></div>))}</div>))}</div></>)}
           <div style={{marginTop:32}}><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div><textarea value={ctGeneralTerms} onChange={e=>ctSetGeneralTerms(e.target.value)} style={{width:"100%",boxSizing:"border-box",fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",border:"1px solid #eee",borderTop:"none",padding:"12px",minHeight:600,resize:"vertical",outline:"none",background:"#fff",whiteSpace:"pre-wrap"}} onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7";}} onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff";}}/></div>
           <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:CT_FONT,fontSize:9,letterSpacing:CT_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── BILLIE (Estimate) ──
+  if (agentId === "billie" && projectEstimates && setProjectEstimates) {
+    const estVersions = projectEstimates[projectId] || [{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:"",project:""}];
+    const estIdx = Math.min(activeEstimateVersion||0, estVersions.length - 1);
+    const estData = estVersions[estIdx] || estVersions[0];
+    const {update:estU, set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, {...initColumbiaEstimate,client:"",project:""}, "V1");
+
+    const subtotal = (estData.lineItems||[]).filter(l=>l.cat!=="18").reduce((a,b)=>a+Number(b.aed||0),0);
+    const fees = (estData.lineItems||[]).filter(l=>l.cat==="18").reduce((a,b)=>a+Number(b.aed||0),0);
+    const total = subtotal+fees; const vat=total*0.05; const grand=total+vat;
+
+    const EST_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+    const EST_LS = 0.5; const EST_LS_HDR = 1.5;
+
+    return (
+      <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Estimate — {estData.version||`V${estIdx+1}`}</div>
+        <div style={{padding:"32px 40px",fontFamily:EST_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+            <span style={{fontFamily:"'Didot','Playfair Display',Georgia,serif",fontSize:30,fontWeight:400,letterSpacing:1,color:"#000"}}>onna</span>
+          </div>
+          <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
+          <div style={{textAlign:"center",fontFamily:EST_FONT,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>
+            <CSEditField value={estData.version||"PRODUCTION ESTIMATE V1"} onChange={v=>estU("version",v)} bold style={{fontSize:12,letterSpacing:EST_LS_HDR}} placeholder="PRODUCTION ESTIMATE V1"/>
+          </div>
+          <div style={{marginBottom:16}}>
+            {[["DATE:",estData.date,"date"],["CLIENT:",estData.client,"client"],["PROJECT:",estData.project,"project"],
+              ["ATTENTION:",estData.attention,"attention"],["PHOTOGRAPHER / DIRECTOR:",estData.photographer,"photographer"],
+              ["DELIVERABLES:",estData.deliverables,"deliverables"],["DEADLINES:",estData.deadlines,"deadlines"],
+              ["USAGE TERMS:",estData.usageTerms,"usageTerms"],["SHOOT DATE:",estData.shootDate,"shootDate"],
+              ["SHOOT LOCATION:",estData.shootLocation,"shootLocation"],["PAYMENT TERMS:",estData.paymentTerms,"paymentTerms"]].map(([lbl,val,key])=>
+              <div key={key} style={{display:"flex",gap:6,minHeight:20,alignItems:"baseline",marginBottom:2}}>
+                <span style={{fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS,minWidth:180,flexShrink:0}}>{lbl}</span>
+                <CSEditField value={val||""} onChange={v=>estU(key,v)} isPlaceholder={!val} placeholder={lbl.replace(":","").toLowerCase()} style={{fontSize:10,letterSpacing:EST_LS}}/>
+              </div>)}
+          </div>
+          {/* Line Items */}
+          <div style={{borderTop:"2px solid #000"}}>
+            <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_FONT,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"4px 8px",textTransform:"uppercase"}}>
+              <span style={{width:30}}>#</span><span style={{flex:1}}>CATEGORY</span>
+              <span style={{width:100,textAlign:"right"}}>AED</span>
+              <span style={{width:100,textAlign:"right"}}>USD</span>
+              <span style={{width:24}}/>
+            </div>
+            {(estData.lineItems||[]).map((li,idx)=>(
+              <div key={li.cat+"-"+idx} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"center"}}>
+                <div style={{width:30,padding:"4px 6px",fontFamily:EST_FONT,fontSize:9,color:"#999"}}>{li.cat}</div>
+                <div style={{flex:1}}><CSEditField value={li.name||""} onChange={v=>estSet(d=>({...d,lineItems:d.lineItems.map((l,i)=>i===idx?{...l,name:v}:l)}))} style={{fontSize:10,letterSpacing:EST_LS}} placeholder="Category name"/></div>
+                <div style={{width:100,padding:"4px 6px"}}>
+                  <input type="number" value={li.aed||0} onChange={e=>estSet(d=>({...d,lineItems:d.lineItems.map((l,i)=>i===idx?{...l,aed:Number(e.target.value)}:l)}))} style={{width:"100%",fontFamily:EST_FONT,fontSize:10,textAlign:"right",border:"none",outline:"none",background:"transparent",padding:"2px 0"}} onFocus={e=>{e.target.style.background="#FFFDE7";}} onBlur={e=>{e.target.style.background="transparent";}}/>
+                </div>
+                <div style={{width:100,padding:"4px 6px",fontFamily:EST_FONT,fontSize:10,textAlign:"right",color:"#999"}}>{li.aed?(Number(li.aed)*0.27).toLocaleString(undefined,{maximumFractionDigits:2}):"—"}</div>
+                <div style={{width:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <CSXbtn onClick={()=>estSet(d=>({...d,lineItems:d.lineItems.filter((_,i)=>i!==idx)}))} size={13}/>
+                </div>
+              </div>
+            ))}
+            <div style={{padding:"4px 6px"}}>
+              <CSAddBtn onClick={()=>estSet(d=>{const nextCat=String(Math.max(0,...d.lineItems.map(l=>Number(l.cat)||0))+1);return{...d,lineItems:[...d.lineItems,{cat:nextCat,name:"",aed:0}]};})} label="Add Line"/>
+            </div>
+          </div>
+          {/* Totals */}
+          <div style={{borderTop:"2px solid #000",marginTop:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
+              <span>SUBTOTAL</span><span>AED {total.toLocaleString()}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_FONT,fontSize:10,letterSpacing:EST_LS,color:"#666",borderTop:"1px solid #eee"}}>
+              <span>VAT (5%)</span><span>AED {vat.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
+              <span>GRAND TOTAL</span><span>AED {grand.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_FONT,fontSize:10,letterSpacing:EST_LS,color:"#666"}}>
+              <span>USD TOTAL</span><span>${(grand*0.27).toLocaleString(undefined,{maximumFractionDigits:0})}</span>
+            </div>
+          </div>
+          {/* Notes */}
+          <div style={{marginTop:16}}>
+            <div style={{fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS,marginBottom:4}}>NOTES:</div>
+            <CSEditTextarea value={estData.notes||""} onChange={v=>estU("notes",v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}}/>
+          </div>
+          {/* Footer */}
+          <div style={{marginTop:40,display:"flex",justifyContent:"space-between",fontFamily:EST_FONT,fontSize:9,letterSpacing:EST_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+            <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+          </div>
         </div>
       </div>
     );
@@ -1094,7 +1256,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,contractDocStore,setContractDocStore,activeContractVersion,onFullWidthChange,isMobile}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,contractDocStore,setContractDocStore,activeContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -1117,12 +1279,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx);
-  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : null;
+  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx);
+  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);
   },[active, isMobile]);
@@ -1142,6 +1305,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
   useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
@@ -1156,28 +1320,71 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     catch(e){clearTimeout(timer);resolve({ok:false,error:e.message});}
   });
 
-  const _LEAD_CATS=["Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
-  const _VENDOR_CATS=["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
+  const _LEAD_CATS_BASE=["Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
+  const _VENDOR_CATS_BASE=["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
+  const _LOCS_BASE=["Dubai, UAE","London, UK","New York, US","Los Angeles, US"];
   const _SOURCES=["Direct","Referral","LinkedIn","Website","Cold Outreach","Event","Other"];
+  // ── Format helpers — clean up user input ──
+  const _titleCase=(s)=>s.replace(/\b\w/g,c=>c.toUpperCase());
+  const _formatPhone=(s)=>{
+    let p=s.replace(/[^\d+\-() ]/g,"").replace(/\s+/g," ").trim();
+    // If it starts with 00, convert to +
+    if(p.startsWith("00"))p="+"+p.slice(2);
+    // If no country code and 10+ digits, assume +971 (UAE)
+    const digits=p.replace(/\D/g,"");
+    if(!p.startsWith("+")&&digits.length>=10){
+      if(digits.startsWith("0"))p="+971 "+digits.slice(1);
+      else if(digits.startsWith("971"))p="+"+digits;
+    }
+    // Format: +XX XXXX XXXXXX or similar grouping
+    if(p.startsWith("+")){
+      const d=p.replace(/\D/g,"");
+      if(d.length===12)p="+"+d.slice(0,2)+" "+d.slice(2,6)+" "+d.slice(6);      // +44 7779 300256
+      else if(d.length===11)p="+"+d.slice(0,2)+" "+d.slice(2,6)+" "+d.slice(6);  // +44 7779 30025
+      else if(d.length===13)p="+"+d.slice(0,3)+" "+d.slice(3,5)+" "+d.slice(5,8)+" "+d.slice(8); // +971 50 123 4567
+    }
+    return p;
+  };
+  const _formatVal=(key,val)=>{
+    if(!val)return val;
+    if(key==="name"||key==="contact"||key==="company")return _titleCase(val);
+    if(key==="phone")return _formatPhone(val);
+    if(key==="email")return val.toLowerCase().trim();
+    if(key==="website")return val.toLowerCase().replace(/^https?:\/\//i,"").replace(/\/$/,"").trim();
+    if(key==="location")return _titleCase(val);
+    if(key==="role")return _titleCase(val);
+    return val;
+  };
+  // Read custom options from localStorage (same keys as dashboard)
+  const _readCustom=(key)=>{try{return JSON.parse(localStorage.getItem(key)||"[]");}catch{return[];}};
+  const _persistCustom=(key,val)=>{const list=_readCustom(key);if(!list.includes(val)){list.push(val);try{localStorage.setItem(key,JSON.stringify(list));}catch{}}};
+  const _VENDOR_CATS=[..._VENDOR_CATS_BASE,..._readCustom("onna_vendor_cats")];
+  const _LEAD_CATS=[..._LEAD_CATS_BASE,..._readCustom("onna_lead_cats")];
+  const _VENDOR_LOCS=[..._LOCS_BASE,..._readCustom("onna_vendor_locs")];
+  const _LEAD_LOCS=[..._LOCS_BASE,..._readCustom("onna_lead_locs")];
   const showEntry=(entry,type,id=null,asOutreach=false)=>{setPendingType(type);setPendingId(id);setLeadEdit(entry);setPending(entry);setSaveAsOutreach(asOutreach);};
   const buildQuestions=(entry,type)=>{
     const qs=[];
     if(type==="vendor"){
-      if(!entry.email)qs.push({key:"email",q:"Email address?"});
+      if(!entry.name)qs.push({key:"name",q:"Vendor name?"});
+      if(!entry.company)qs.push({key:"company",q:"Company name?"});
+      if(!entry.email)qs.push({key:"email",q:"Email address? (or tell me their company, e.g. 'works for Common Era')"});
       if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
       if(!entry.category||!_VENDOR_CATS.includes(entry.category))qs.push({key:"category",q:"Category?",options:_VENDOR_CATS,addNew:true});
       if(!entry.website)qs.push({key:"website",q:"Website?"});
       if(!entry.rateCard)qs.push({key:"rateCard",q:"Any rate card info?"});
-      qs.push({key:"location",q:"Location?",options:["Dubai, UAE","London, UK","New York, US","Los Angeles, US"],addNew:true});
+      qs.push({key:"location",q:"Location?",options:_VENDOR_LOCS,addNew:true});
       qs.push({key:"notes",q:"Any notes?"});
     }else{
+      if(!entry.contact)qs.push({key:"contact",q:"Contact name?"});
+      if(!entry.company)qs.push({key:"company",q:"Company?"});
       if(!entry.role)qs.push({key:"role",q:"Their role or title?"});
-      if(!entry.email)qs.push({key:"email",q:"Email address?"});
+      if(!entry.email)qs.push({key:"email",q:"Email address? (or tell me their company, e.g. 'works for Common Era')"});
       if(!entry.phone)qs.push({key:"phone",q:"Phone number?"});
       if(!entry.category||!_LEAD_CATS.includes(entry.category))qs.push({key:"category",q:"Category?",options:_LEAD_CATS,addNew:true});
       if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
       if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Lead status — cold, warm, or open?"});
-      qs.push({key:"location",q:"Location?",options:["Dubai, UAE","London, UK","New York, US","Los Angeles, US"],addNew:true});
+      qs.push({key:"location",q:"Location?",options:_LEAD_LOCS,addNew:true});
       qs.push({key:"source",q:"How did you find them? Direct · Referral · LinkedIn · Website · Cold Outreach · Event · Other"});
       qs.push({key:"notes",q:"Any notes?"});
     }
@@ -1193,7 +1400,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     setSaving(true);
     try{
       if(pendingType==="vendor"){
-        const fields={name:leadEdit.name||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""};
+        const fields={name:leadEdit.name||"",company:leadEdit.company||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""};
         if(pendingId){await api.put(`/api/vendors/${pendingId}`,fields);onUpdateVendor?.(pendingId,fields);setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} updated.`}]);}
         else{const saved=await api.post("/api/vendors",fields);if(saved?.id||saved?.name)setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved to Vendors.`}]);else{setMsgs(p=>[...p,{role:"assistant",content:`⚠️ ${saved?.error||"Save failed"}`}]);setSaving(false);return;}}
       }else{
@@ -1248,6 +1455,49 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     if(pendingConv){
+      // ── Mid-Q&A search — fill missing fields from Outlook/WhatsApp ──
+      const midSearchM=agent.id==="logistical"&&input.trim().match(/\b(?:search|check|look|find|scan)\s+(?:(?:my|in|on|the)\s+)?(?:outlook|whatsapp|emails?|inbox|chats?)\b/i);
+      if(midSearchM){
+        const conv=pendingConv;
+        const searchName=conv.entry?.contact||conv.entry?.name||lastSearchRef.current?._query||"";
+        if(searchName){
+          setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+          const srcM=input.trim().match(/\b(outlook|whatsapp)\b/i);
+          const result=await searchViaExt(searchName,srcM?srcM[1].toLowerCase():undefined);
+          if(result.ok&&result.lead){
+            const l=result.lead;
+            // Filter out Outlook UI artifacts
+            const _junk=/^(unread|inbox|focused|drafts?|sent|junk|archive|deleted|starred|flagged|all mail|spam|trash|important|none|null|undefined|n\/a)$/i;
+            const _clean=(v)=>v&&typeof v==="string"&&v.trim()&&!_junk.test(v.trim())?v.trim():"";
+            lastSearchRef.current={...l,_type:conv.type,_query:searchName,_ts:Date.now()};
+            const e={...conv.entry};
+            const filled=[];
+            const fillKeys=conv.type==="vendor"
+              ?[["email","email"],["phone","phone"],["company","company"],["website","website"],["notes","role"]]
+              :[["email","email"],["phone","phone"],["company","company"],["role","role"]];
+            for(const [eKey,lKey] of fillKeys){
+              const cleaned=eKey==="email"?(_clean(l[lKey])&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(_clean(l[lKey]))?_clean(l[lKey]):""):eKey==="phone"?(_clean(l[lKey])&&/\d{4,}/.test(_clean(l[lKey]))?_clean(l[lKey]):""):_clean(l[lKey]);
+              if(!e[eKey]&&cleaned){e[eKey]=_formatVal(eKey,cleaned);filled.push(eKey);}
+            }
+            // Skip questions that are now filled
+            let newIdx=conv.idx;
+            const qs=conv.questions;
+            while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
+            const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:`Searched for ${searchName} but couldn't extract usable contact info. Try opening their email in Outlook first.`;
+            if(newIdx>=qs.length){
+              setPendingConv(null);
+              showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+            }else{
+              setPendingConv({...conv,entry:e,idx:newIdx});
+              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);
+            }
+          }else{
+            setMsgs([...history,{role:"assistant",content:`Couldn't find "${searchName}" — ${result.error||"no results"}. Let's continue.\n\n${conv.questions[conv.idx].q} (or 'x' to skip)`}]);
+          }
+          setLoading(false);setMood("idle");return;
+        }
+      }
       // ── "try again" / "search again" / "retry" — abort Q&A, re-search Outlook ──
       const retryM=agent.id==="logistical"&&input.trim().match(/\b(?:try|search|look|fetch|find|retry|redo|re-?search|re-?do)\s*(?:again|outlook|emails?)?\s*(?:for\s+)?(.+)?$/i);
       if(retryM){
@@ -1282,12 +1532,32 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const isYes=/^(yes|yep|yeah|y|sure|ok|create|add)\b/i.test(input.trim());
         const isNo=/^(no|nope|nah|n|cancel)\b/i.test(input.trim());
         if(isYes){
+          // Persist the custom category to localStorage for future dropdown use
+          if(e.category){
+            const catKey=conv.type==="vendor"?"onna_vendor_cats":"onna_lead_cats";
+            _persistCustom(catKey,e.category);
+          }
           // keep the custom category as-is, advance to next question
           const next=conv.idx+1;
           if(next>=conv.questions.length){
             setPendingConv(null);
-            showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
-            setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+            if(!conv.updateId){
+              const eName=conv.type==="vendor"?e.name:(e.contact||"");
+              const eCompany=conv.type==="vendor"?(e.notes||""):(e.company||"");
+              const compSim=findSimilar(eName,allVendors,allLeads);
+              const companySim=!compSim&&eCompany?findSimilar(eCompany,allVendors,allLeads):null;
+              if(companySim&&!companySim.exact){
+                const existName=companySim.type==="vendor"?companySim.record.name:(companySim.record.contact||companySim.record.company);
+                setPendingDuplicate({entry:{...e,_type:conv.type},similar:companySim,saveAsOutreach:conv.saveAsOutreach||false});
+                setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed a similar existing ${companySim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+              }else{
+                showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+                setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+              }
+            }else{
+              showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+              setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+            }
           }else{
             setPendingConv({...conv,_awaitingNewCat:false,entry:e,idx:next});
             setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'x' to skip)"}]);
@@ -1324,14 +1594,93 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
               setMsgs([...history,{role:"assistant",content:`"${input.trim()}" isn't a recognised category. Add it as a new category?`}]);
               return;
             }
-          }else{e[q.key]=input.trim();}
+          }else if(q.key==="email"){
+            const inp2=input.trim();
+            // If it's a valid email, just use it
+            if(/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(inp2)){
+              e.email=_formatVal("email",inp2);
+            }else if(conv._emailOptions){
+              // User is picking from options (e.g. "1", "2", or the email itself)
+              const pickNum=parseInt(inp2);
+              if(pickNum>=1&&pickNum<=conv._emailOptions.length){e.email=_formatVal("email",conv._emailOptions[pickNum-1]);}
+              else{const pickMatch=conv._emailOptions.find(o=>o.toLowerCase().includes(inp2.toLowerCase()));if(pickMatch)e.email=_formatVal("email",pickMatch);else e.email=_formatVal("email",inp2);}
+              delete conv._emailOptions;
+            }else{
+              // Check for company hint: "works for X", "at X", "company is X", or just a company name
+              const companyHint=inp2.match(/(?:works?\s+(?:for|at)|at|company\s+(?:is|=)|from)\s+(.+)/i);
+              const hintName=companyHint?companyHint[1].trim():inp2;
+              // Get domains from last search
+              const ls=lastSearchRef.current;
+              const allEmails=ls?._allEmails||[];
+              const domains=ls?._domains||[];
+              // Find domains matching the company hint
+              const hintLower=hintName.toLowerCase().replace(/[^a-z0-9]/g,"");
+              const matchDomains=domains.filter(d=>d.replace(/[^a-z0-9]/g,"").includes(hintLower)||hintLower.includes(d.split(".")[0].replace(/[^a-z0-9]/g,"")));
+              // Also check allEmails for ones at matching domains
+              const matchEmails=allEmails.filter(em=>{const d=em.split("@")[1]||"";return matchDomains.some(md=>d===md)||d.replace(/[^a-z0-9]/g,"").includes(hintLower);});
+              if(matchDomains.length||matchEmails.length){
+                // Generate likely email patterns for the contact name at the domain
+                const contactName=(e.contact||e.name||"").trim();
+                const firstName=(contactName.split(" ")[0]||"").toLowerCase();
+                const lastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
+                const domain=matchDomains[0]||(matchEmails[0]||"").split("@")[1]||"";
+                const suggestions=[];
+                if(domain){
+                  if(firstName)suggestions.push(firstName+"@"+domain);
+                  if(firstName&&lastName)suggestions.push(firstName+"."+lastName+"@"+domain);
+                  if(firstName&&lastName)suggestions.push(firstName[0]+"."+lastName+"@"+domain);
+                  if(firstName&&lastName)suggestions.push(firstName[0]+lastName+"@"+domain);
+                  if(lastName)suggestions.push(lastName+"@"+domain);
+                }
+                // Add any actual found emails at that domain
+                matchEmails.forEach(me=>{if(!suggestions.includes(me))suggestions.push(me)});
+                // Deduplicate
+                const unique=[...new Set(suggestions)];
+                if(unique.length){
+                  setPendingConv({...conv,entry:e,_emailOptions:unique});
+                  const optList=unique.map((o,i)=>`${i+1}. ${o}`).join("\n");
+                  setMsgs([...history,{role:"assistant",content:`Found options at ${domain||hintName}:\n\n${optList}\n\nReply with the number, or type the correct email.`}]);
+                  return;
+                }
+              }
+              // No domain match — treat as raw input
+              e.email=_formatVal("email",inp2);
+            }
+          }else{
+            e[q.key]=_formatVal(q.key,input.trim());
+            // Persist custom location to localStorage for future dropdown use
+            if(q.key==="location"&&e[q.key]){
+              const locs=conv.type==="vendor"?_VENDOR_LOCS:_LEAD_LOCS;
+              if(!locs.includes(input.trim())){
+                const locKey=conv.type==="vendor"?"onna_vendor_locs":"onna_lead_locs";
+                _persistCustom(locKey,input.trim());
+              }
+            }
+          }
         }
       }
       const next=conv.idx+1;
       if(next>=conv.questions.length){
         setPendingConv(null);
-        showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
-        setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+        // Company-based duplicate detection for new entries
+        if(!conv.updateId){
+          const eName=conv.type==="vendor"?e.name:(e.contact||"");
+          const eCompany=conv.type==="vendor"?(e.notes||""):(e.company||"");
+          // Check company/name against existing records (beyond what findSimilar already caught by name)
+          const compSim=findSimilar(eName,allVendors,allLeads);
+          const companySim=!compSim&&eCompany?findSimilar(eCompany,allVendors,allLeads):null;
+          if(companySim&&!companySim.exact){
+            const existName=companySim.type==="vendor"?companySim.record.name:(companySim.record.contact||companySim.record.company);
+            setPendingDuplicate({entry:{...e,_type:conv.type},similar:companySim,saveAsOutreach:conv.saveAsOutreach||false});
+            setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed a similar existing ${companySim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+          }else{
+            showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+            setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+          }
+        }else{
+          showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+          setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
+        }
       }else{
         setPendingConv({...conv,entry:e,idx:next});
         setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'x' to skip)"}]);
@@ -1381,31 +1730,39 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
 
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
-    const _vinInput=input.trim().replace(/\s+/g," ");
-    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
+    const _vinInput=input.trim().replace(/\s+/g," ").replace(/^(?:hey|hi|hello|yo)?\s*(?:vinnie|vin)\s*[,.]?\s*/i,"");
+    const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:vendor|supplier|lead|contact)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+      // Bare "create new vendor" / "new vendor" with no data → start blank Q&A from name
+      if(/^(?:create|add|new|make|save)?\s*(?:a\s+)?(?:new\s+)?(?:vendor|supplier)\s*[.!?]?\s*$/i.test(_vinInput)){
+        const entry={_type:"vendor",name:"",company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""};
+        const firstQ=startConv(entry,"vendor",false,null);
+        setMsgs([...history,{role:"assistant",content:`New vendor — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+        setLoading(false);setMood("idle");return;
+      }
       try{
         const sys=`You are an expert at parsing natural language vendor/supplier descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).
 
 Rules:
-- Names: anything that looks like a person/company name → "name"
+- Names: anything that looks like a person name → "name"
+- Company: anything that looks like a company/business/org name → "company"
 - Emails: anything with @ → "email". Infer name from domain if no name given
 - Phone numbers: digits with +/spaces/dashes → "phone"
 - Website: domain only (no https://)
 - Category: fuzzy match to closest from: Locations, Hair and Makeup, Stylists, Casting, Catering, Set Design, Equipment, Crew, Production. E.g. "photographer" → "Crew", "MUA" → "Hair and Makeup", "location scout" → "Locations"
 - Location: any city/country mentioned, default "Dubai, UAE"
 
-Fields: {"name":"","category":"","email":"","phone":"","website":"","location":"City, Country","notes":"","rateCard":""}.`;
+Fields: {"name":"","company":"","category":"","email":"","phone":"","website":"","location":"City, Country","notes":"","rateCard":""}.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
-        const entry={...parsed,_type:"vendor",location:parsed.location||"Dubai, UAE"};
+        const entry={...parsed,_type:"vendor",company:parsed.company||"",location:parsed.location||"Dubai, UAE"};
         const vname=entry.name||"this vendor";
-        const sim=findSimilar(vname,allVendors,allLeads);
+        const sim=findSimilar(vname,allVendors,allLeads)||(entry.company?findSimilar(entry.company,allVendors,allLeads):null);
         if(sim&&!sim.exact){
           const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
           setPendingDuplicate({entry,similar:sim,saveAsOutreach:false});
-          setMsgs([...history,{role:"assistant",content:`Got it — ${vname}. I found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
+          setMsgs([...history,{role:"assistant",content:`Got it — ${vname}. I found a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
         }else if(sim?.exact){
           const merged={...sim.record,...entry};
           const fq=startConv(merged,"vendor",false,sim.record.id);
@@ -1427,9 +1784,17 @@ Fields: {"name":"","category":"","email":"","phone":"","website":"","location":"
     }
 
     // ── Vinnie: add to outreach tracker / lead ───────────────────────────────
-    if(agent.id==="logistical"&&!/\b(vendor|supplier)\b/i.test(input.trim())&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
+    if(agent.id==="logistical"&&!/\b(vendor|supplier)\b/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
+      // Bare "create new lead" / "new lead" with no data → start blank Q&A from contact name
+      if(/^(?:create|add|new|make|save)?\s*(?:a\s+)?(?:new\s+)?(?:lead|contact)\s*[.!?]?\s*$/i.test(_vinInput)){
+        const entry={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
+        const isOutreach=/outreach|tracker/i.test(input.trim());
+        const firstQ=startConv(entry,"lead",isOutreach,null);
+        setMsgs([...history,{role:"assistant",content:`New lead — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+        setLoading(false);setMood("idle");return;
+      }
       try{
         const sys=`You are an expert at parsing natural language contact descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).
 
@@ -1465,23 +1830,33 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     // ── Pending duplicate confirmation ────────────────────────────────────────
     if(pendingDuplicate&&agent.id==="logistical"){
       const {entry,similar,saveAsOutreach:dupSaveAsOutreach}=pendingDuplicate;
-      const isYes=/^(yes|yep|yeah|sure|correct|right|that'?s? ?(them|him|her|it)?|update|them)\b/i.test(input.trim());
-      const isNo=/^(no|nope|new|different|create|separate)\b/i.test(input.trim());
+      const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
+      const pick=input.trim();
+      const is1=/^(1|yes|yep|yeah|sure|correct|right|that'?s? ?(them|him|her|it)?|update|them)\b/i.test(pick);
+      const is2=/^(2|add\s*contact|add\s*new\s*contact|add\s*to)\b/i.test(pick);
+      const is3=/^(3|no|nope|new|different|create|separate)\b/i.test(pick);
       setMsgs(history);setInput("");
-      if(isYes){
-        const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
+      if(is1){
         const merged={...similar.record,...entry};
         setPendingDuplicate(null);
         const fq1=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
         setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'x' to skip)`:`Updating ${existName} — review below.`}]);
-      }else if(isNo){
+      }else if(is2){
+        const xType=similar.type;
+        const xId=similar.record.id;
+        const existing=getXContacts(xType,xId);
+        const newContact={name:entry.contact||entry.name||"",role:entry.role||"",email:entry.email||"",phone:entry.phone||""};
+        existing.push(newContact);
+        setXContacts(xType,xId,existing);
+        setPendingDuplicate(null);
+        setMsgs([...history,{role:"assistant",content:`Added ${newContact.name||"new contact"} as a contact on ${existName}.`}]);
+      }else if(is3){
         const qname=entry._type==="vendor"?entry.name:entry.contact;
         setPendingDuplicate(null);
         const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
         setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
       }else{
-        const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
-        setMsgs([...history,{role:"assistant",content:`Just to confirm — did you mean the existing entry "${existName}"? Reply yes or no.`}]);
+        setMsgs([...history,{role:"assistant",content:`I found a similar existing ${similar.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
       }
       setMood("idle");return;
     }
@@ -1521,7 +1896,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Found ${displayName} (existing ${type}). ${hasRecent?"Merged Outlook data. ":""}${fq?fq+" (or 'x' to skip)":"Review and update below."}`}]);
         }else{
           // No existing record — create new
-          const newEntry=hasRecent?{...lastS,_type:upType}:{_type:upType,...(upType==="vendor"?{name:upName,category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
+          const newEntry=hasRecent?{...lastS,_type:upType}:{_type:upType,...(upType==="vendor"?{name:upName,company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
           if(hasRecent&&upType==="vendor"&&!newEntry.name)newEntry.name=newEntry.contact||upName;
           const fq=startConv(newEntry,upType,false,null);
           setMsgs([...history,{role:"assistant",content:`No existing ${upType} "${upName}" found — creating new. ${hasRecent?"Using Outlook data. ":""}${fq?"\n\n"+fq+" (or 'x' to skip)":"\nReview and save below."}`}]);
@@ -1546,6 +1921,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     if(findQuery){
       const wantsVendor=/\b(vendor|supplier)\b/i.test(input);
+      const wantsCreate=/\b(?:create|add|new|save|make)\b/i.test(input);
+      const wantsUpdate=/\b(?:update|edit|modify|change)\b/i.test(input);
       const findType=wantsVendor?"vendor":"lead";
       const sourceLabel=findSource==="whatsapp"?"WhatsApp":findSource==="outlook"?"emails":"contacts";
       setMsgs([...history,{role:"assistant",content:`Searching your ${sourceLabel} for "${findQuery}"…`}]);
@@ -1554,15 +1931,49 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const l=result.lead;
         if(wantsVendor&&!l.name)l.name=l.contact||findQuery;
         lastSearchRef.current={...l,_type:findType,_query:findQuery,_ts:Date.now()};
-        const sim=findSimilar(l.contact||l.name||l.company||"",allVendors,allLeads);
-        if(sim&&!sim.exact){
-          const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
-          setPendingDuplicate({entry:{...l,_type:findType},similar:sim,saveAsOutreach:false});
-          setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||l.name||findQuery}. I also noticed a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
-        }else{
+        // If user explicitly said "update" → find existing record and merge scraped data
+        if(wantsUpdate){
+          const found=findVendorOrLead(findQuery,allVendors,allLeads);
+          if(found){
+            const {record,type}=found;
+            const displayName=type==="vendor"?record.name:(record.contact||record.company);
+            const merged={...record};
+            if(type==="vendor"){
+              if(!merged.email&&l.email)merged.email=l.email;
+              if(!merged.phone&&l.phone)merged.phone=l.phone;
+              if(!merged.website&&l.website)merged.website=l.website;
+              if(!merged.notes&&l.role)merged.notes=l.role;
+            }else{
+              if(!merged.email&&l.email)merged.email=l.email;
+              if(!merged.phone&&l.phone)merged.phone=l.phone;
+              if(!merged.company&&l.company)merged.company=l.company;
+              if(!merged.role&&l.role)merged.role=l.role;
+            }
+            const fqu=startConv(merged,type,false,record.id);
+            setMsgs([...history,{role:"assistant",content:`Found ${l.contact||l.name||findQuery} and matched to existing ${type} "${displayName}". Merged scraped data.\n📧 ${merged.email||"—"}  📱 ${merged.phone||"—"}\n🏢 ${merged.company||l.company||"—"}  💼 ${merged.role||l.role||"—"}${fqu?"\n\n"+fqu+" (or 'x' to skip)":"\n\nReview and update below."}`}]);
+          }else{
+            // No existing record found — create new with scraped data
+            const foundEntry={...l,_type:findType};
+            const fqf=startConv(foundEntry,findType,false,null);
+            setMsgs([...history,{role:"assistant",content:`No existing ${findType} "${findQuery}" found — creating new with scraped data.\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
+          }
+        // If user explicitly said "create/add/new" → skip duplicate check, go straight to new entry
+        }else if(wantsCreate){
           const foundEntry={...l,_type:findType};
           const fqf=startConv(foundEntry,findType,false,null);
           setMsgs([...history,{role:"assistant",content:`Found ${l.contact||l.name||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
+        // Default — check for duplicates (name then company)
+        }else{
+          const sim=findSimilar(l.contact||l.name||"",allVendors,allLeads)||(l.company?findSimilar(l.company,allVendors,allLeads):null);
+          if(sim&&!sim.exact){
+            const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
+            setPendingDuplicate({entry:{...l,_type:findType},similar:sim,saveAsOutreach:false});
+            setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||l.name||findQuery}. I noticed a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+          }else{
+            const foundEntry={...l,_type:findType};
+            const fqf=startConv(foundEntry,findType,false,null);
+            setMsgs([...history,{role:"assistant",content:`Found ${l.contact||l.name||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
+          }
         }
       }else{
         setMsgs([...history,{role:"assistant",content:`Couldn't find "${findQuery}" automatically.\n\n${result.error||""}\n\nTip: make sure Outlook is open in another tab and the extension is installed.`}]);
@@ -1572,11 +1983,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     if(quickEntry){
       const qname=quickEntry._type==="vendor"?quickEntry.name:quickEntry.contact;
-      const sim=findSimilar(qname,allVendors,allLeads);
+      const qcompany=quickEntry.company||"";
+      const sim=findSimilar(qname,allVendors,allLeads)||(qcompany?findSimilar(qcompany,allVendors,allLeads):null);
       if(sim&&!sim.exact){
         const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
         setPendingDuplicate({entry:quickEntry,similar:sim,saveAsOutreach:false});
-        setMsgs([...history,{role:"assistant",content:`Heads up — I found a similar existing ${sim.type}: "${existName}". Did you mean them, or is this a new contact?\n\nReply yes or no.`}]);
+        setMsgs([...history,{role:"assistant",content:`Heads up — I found a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
       }else if(sim?.exact){
         const merged={...sim.record,...quickEntry};
         const fqe=startConv(merged,sim.type,false,sim.record.id);
@@ -1637,7 +2049,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const today=new Date().toISOString().slice(0,10);
       try{
         const extractSys=isVendorMsg
-          ?`Extract vendor/supplier info and return ONLY raw JSON object (no markdown): {"_type":"vendor","name":"","category":"","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}. If nothing extractable return {"_type":"none"}.`
+          ?`Extract vendor/supplier info and return ONLY raw JSON object (no markdown): {"_type":"vendor","name":"","company":"","category":"","email":"","phone":"","website":"domain only","location":"City, Country","notes":"","rateCard":""}. If nothing extractable return {"_type":"none"}.`
           :`Extract contact info for outreach and return ONLY raw JSON object (no markdown): {"_type":"lead","company":"","contact":"","email":"","phone":"","role":"","value":"","category":"","location":"Dubai, UAE","date":"${today}","status":"not_contacted","notes":""}. For category pick from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial. If nothing extractable return {"_type":"none"}.`;
         const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:500,system:extractSys,messages:[{role:"user",content:input.trim().substring(0,4000)}]});
         const raw=(data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim();
@@ -1645,11 +2057,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(parsed._type&&parsed._type!=="none"){
           const type=parsed._type;
           const ename=type==="vendor"?parsed.name:(parsed.contact||parsed.company);
-          const sim=findSimilar(ename||"",allVendors,allLeads);
+          const ecompany=parsed.company||"";
+          const sim=findSimilar(ename||"",allVendors,allLeads)||(ecompany?findSimilar(ecompany,allVendors,allLeads):null);
           if(sim&&!sim.exact){
             const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
             setPendingDuplicate({entry:parsed,similar:sim,saveAsOutreach:false});
-            setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I also found a similar existing ${sim.type}: "${existName}". Did you mean them?\n\nReply yes or no.`}]);
+            setMsgs([...history,{role:"assistant",content:`Extracted contact: ${ename}. I found a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
           }else{
             const fqp=startConv(parsed,type,false,sim?.record?.id||null);
             setMsgs([...history,{role:"assistant",content:`Extracted ${ename||"a contact"}!\n📧 ${parsed.email||"—"}  📱 ${parsed.phone||"—"}\n${type==="vendor"?`🏭 ${parsed.category||"—"}`:`🏢 ${parsed.company||"—"}  💼 ${parsed.role||"—"}`}${fqp?"\n\n"+fqp+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
@@ -1853,6 +2266,123 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             applyConniePatch(patch, project.id, vIdx, csVersions, setCallSheetStore);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Call sheet updated."}]);
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
+    // ── Billie: live estimate handler ───────────────────────────────────────────
+    if(agent.id==="billie"&&projectEstimates&&setProjectEstimates){
+      if(!billieCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const lower=input.toLowerCase();
+        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        if(!project){
+          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:project.client||"",project:project.name||""}];
+        if(!projectEstimates?.[project.id]) setProjectEstimates(prev=>({...prev,[project.id]:estVersions}));
+        if(estVersions.length===1){
+          setBillieCtx({projectId:project.id,vIdx:0});
+          const vLabel=estVersions[0].version||"V1";
+          const _hasData=estVersions[0].lineItems?.some(li=>li.aed>0);
+          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the estimate data from before. What would you like to update?`:`Got it — I'm now working on the estimate for **${project.name}** (${vLabel}). What would you like to do? I can update header info, line items, or help you build an estimate from scratch.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const vMatch=lower.match(/\bv(\d+)\b/i);
+        let vIdx=-1;
+        if(vMatch) vIdx=estVersions.findIndex(v=>(v.version||"").toLowerCase()===`v${vMatch[1]}`);
+        if(vIdx<0){
+          const labelMatch=estVersions.findIndex(v=>v.version && lower.includes(v.version.toLowerCase()));
+          if(labelMatch>=0) vIdx=labelMatch;
+        }
+        if(vIdx>=0){
+          setBillieCtx({projectId:project.id,vIdx});
+          const vLabel=estVersions[vIdx].version||`V${vIdx+1}`;
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const list=estVersions.map((v,i)=>`• ${v.version||`V${i+1}`}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple estimate versions:\n\n${list}\n\nWhich version should I work on?`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      let {projectId,vIdx}=billieCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      const lower=input.toLowerCase();
+      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      if(switchProject){
+        const swVersions=projectEstimates?.[switchProject.id]||[{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:switchProject.client||"",project:switchProject.name||""}];
+        if(!projectEstimates?.[switchProject.id]) setProjectEstimates(prev=>({...prev,[switchProject.id]:swVersions}));
+        if(swVersions.length===1){
+          setBillieCtx({projectId:switchProject.id,vIdx:0});
+          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].version||"V1"}). What would you like to do?`}]);
+        }else{
+          setBillieCtx(null);
+          const list=swVersions.map((v,i)=>`• ${v.version||`V${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
+
+      if(/\b(switch|change|different|new)\s+(project|estimate|budget)\b/i.test(input)){
+        setBillieCtx(null);
+        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's estimate should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:project.client||"",project:project.name||""}];
+      if(!projectEstimates?.[project.id]) setProjectEstimates(prev=>({...prev,[project.id]:estVersions}));
+      vIdx = Math.min(vIdx, estVersions.length-1);
+      const ver = estVersions[vIdx];
+      const vLabel = ver.version || `V${vIdx+1}`;
+
+      let snap = `Version: ${ver.version||"V1"} | Date: ${ver.date||"(empty)"} | Client: ${ver.client||"(empty)"} | Project: ${ver.project||"(empty)"}\n`;
+      snap += `Photographer: ${ver.photographer||"(empty)"} | Deliverables: ${ver.deliverables||"(empty)"}\n`;
+      snap += `Shoot Date: ${ver.shootDate||"(empty)"} | Days: ${ver.shootDays||"(empty)"} | Hours: ${ver.shootHours||"(empty)"} | Location: ${ver.shootLocation||"(empty)"}\n`;
+      snap += `Payment: ${ver.paymentTerms||"(empty)"}\n`;
+      if(ver.lineItems?.length) snap += "Line Items:\n" + ver.lineItems.map(li=>`  Cat ${li.cat}: ${li.name} — AED ${(li.aed||0).toLocaleString()}`).join("\n") + "\n";
+      const subtotal = (ver.lineItems||[]).reduce((s,li)=>s+(li.aed||0),0);
+      snap += `Subtotal: AED ${subtotal.toLocaleString()} | VAT (5%): AED ${(subtotal*0.05).toLocaleString()} | Total: AED ${(subtotal*1.05).toLocaleString()}\n`;
+      if(ver.notes) snap += `Notes: ${ver.notes}\n`;
+
+      const billieSystem = buildBillieSystem(project, ver, vLabel, snap);
+
+      try{
+        const billieIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            if(mi===0) return{role:m.role,content:billieIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:billieSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Estimate updated."}]);
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -2114,10 +2644,96 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     setLoading(false);
   };
 
+  // ── Vinnie split-screen card ──────────────────────────────────────────────
+  const _isVinnie=agent.id==="logistical";
+  const _hasVinnieCard=_isVinnie&&!isMobile&&(!!pendingConv||!!pendingLead);
+  // During Q&A, read from pendingConv.entry; after Q&A, read from leadEdit
+  const _cardEntry=pendingConv?pendingConv.entry:(pendingLead?leadEdit:null);
+  const _cardType=pendingConv?pendingConv.type:pendingType;
+  const _cardIsEditable=!!pendingLead&&!pendingConv;
+  const _cardIsNew=pendingConv?!pendingConv.updateId:!pendingId;
+  const _cardTitle=_cardIsNew?(_cardType==="vendor"?"New Vendor":"New Lead"):(_cardType==="vendor"?"Update Vendor":"Update Lead");
+  // Editable card field — works during Q&A (updates pendingConv.entry) and post-Q&A (updates leadEdit)
+  const _cf=(label,key,wide=false,opts=null,inputType="text")=>{
+    const val=_cardEntry?.[key]||"";
+    const isCurrentQ=pendingConv&&pendingConv.questions[pendingConv.idx]?.key===key;
+    const onChange=(v)=>{
+      if(pendingConv){setPendingConv(prev=>({...prev,entry:{...prev.entry,[key]:v}}));}
+      else{setLeadEdit(p=>({...p,[key]:v}));}
+    };
+    return(
+      <div key={key} style={{gridColumn:wide?"1/-1":"auto",display:"flex",flexDirection:"column",gap:3}}>
+        <label style={{fontSize:10,fontWeight:600,color:isCurrentQ?"#007aff":"#86868b",textTransform:"uppercase",letterSpacing:"0.05em",transition:"color 0.2s"}}>{label}</label>
+        {opts?(
+          <select value={val} onChange={e=>onChange(e.target.value)} style={{padding:"7px 10px",borderRadius:8,border:isCurrentQ?"1.5px solid #007aff":"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:"#1d1d1f",background:isCurrentQ?"#f0f7ff":"#f5f5f7",outline:"none",transition:"all 0.2s"}}>
+            <option value="">—</option>
+            {opts.map(o=>typeof o==="string"?<option key={o} value={o}>{o}</option>:<option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        ):wide?(
+          <textarea value={val} onChange={e=>onChange(e.target.value)} rows={2} style={{padding:"7px 10px",borderRadius:8,border:isCurrentQ?"1.5px solid #007aff":"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:val?"#1d1d1f":"#c7c7cc",background:isCurrentQ?"#f0f7ff":"#f5f5f7",outline:"none",resize:"vertical",transition:"all 0.2s"}}/>
+        ):(
+          <input type={inputType} value={val} onChange={e=>onChange(e.target.value)} style={{padding:"7px 10px",borderRadius:8,border:isCurrentQ?"1.5px solid #007aff":"1px solid #e5e5ea",fontSize:13,fontFamily:"inherit",color:val?"#1d1d1f":"#c7c7cc",background:isCurrentQ?"#f0f7ff":"#f5f5f7",outline:"none",transition:"all 0.2s"}}/>
+        )}
+      </div>
+    );
+  };
+
+  function _renderVinnieCard(){
+    if(!_cardEntry)return null;
+    const _statusOpts=[{value:"not_contacted",label:"Not Contacted"},{value:"cold",label:"Cold"},{value:"warm",label:"Warm"},{value:"open",label:"Open"}];
+    return(
+      <div style={{display:"flex",flexDirection:"column",height:"100%",background:"#fff",overflow:"hidden"}}>
+        <div style={{padding:"20px 20px 0",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:14,borderBottom:"1px solid #e5e5ea"}}>
+            <div style={{width:36,height:36,borderRadius:10,background:_cardType==="vendor"?"#f0f0f5":"#edf7ed",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{_cardType==="vendor"?"🏢":"👤"}</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:15,color:"#1d1d1f"}}>{_cardTitle}</div>
+              <div style={{fontSize:11.5,color:"#86868b",marginTop:1}}>{pendingConv?"Answer in chat or edit directly":"Edit fields and save"}</div>
+            </div>
+            <button onClick={()=>{setPending(null);setPendingConv(null);}} style={{background:"none",border:"none",fontSize:20,color:"#aeaeb2",cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"0 20px 20px"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 14px",marginBottom:_cardIsEditable?20:0}}>
+            {_cardType==="vendor"?<>
+              {_cf("Name","name",true)}
+              {_cf("Category","category",false,_VENDOR_CATS)}
+              {_cf("Email","email",false,null,"email")}
+              {_cf("Phone","phone",false,null,"tel")}
+              {_cf("Website","website")}
+              {_cf("Rate Card","rateCard")}
+              {_cf("Location","location")}
+              {_cf("Notes","notes",true)}
+            </>:<>
+              {_cf("Contact Name","contact")}
+              {_cf("Company","company")}
+              {_cf("Role / Title","role")}
+              {_cf("Email","email",false,null,"email")}
+              {_cf("Phone","phone",false,null,"tel")}
+              {_cf("Category","category",false,_LEAD_CATS)}
+              {_cf("Status","status",false,_statusOpts)}
+              {_cf("Est. Value (AED)","value",false,null,"number")}
+              {_cf("Date","date",false,null,"date")}
+              {_cf("Location","location")}
+              {_cf("Source","source",false,_SOURCES)}
+              {_cf("Notes","notes",true)}
+            </>}
+          </div>
+          {_cardIsEditable&&(
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setPending(null)} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+              <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":pendingId?"✓ Save Changes":_cardType==="vendor"?"✓ Save Vendor":"✓ Save to Pipeline"}</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if(!active)return null;
   return(<>
-    {/* save modal — portal to body so overflow:hidden parent can't clip it */}
-    {pendingLead&&createPortal(
+    {/* save modal — only on mobile or non-Vinnie agents */}
+    {pendingLead&&!_hasVinnieCard&&createPortal(
       <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",zIndex:201,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
         <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",padding:"24px",boxShadow:"0 24px 70px rgba(0,0,0,0.18)",fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,paddingBottom:16,borderBottom:"1px solid #e5e5ea"}}>
@@ -2129,7 +2745,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 14px",marginBottom:20}}>
             {pendingType==="vendor"?<>
-              {lf("Name","name",true)}
+              {lf("Name","name")}
+              {lf("Company","company")}
               {lf("Category","category",false,_VENDOR_CATS)}
               {lf("Email","email",false,null,"email")}
               {lf("Phone","phone",false,null,"tel")}
@@ -2160,14 +2777,24 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       </div>
     ,document.body)}
 
-    {/* Split-pane: doc preview + chat, or just chat */}
-    {hasDocCtx && !isMobile ? (
+    {/* Split-pane: Vinnie card + chat, OR doc preview + chat, OR just chat */}
+    {_hasVinnieCard ? (
+      <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:"0 0 45%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden",background:"#fff"}}>
+          {_renderVinnieCard()}
+        </div>
+        <div style={{flex:"0 0 55%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+          {_renderAgentChat()}
+        </div>
+      </div>
+    ) : hasDocCtx && !isMobile ? (
       <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
         <div style={{flex:"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion}
-            contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}/>
+            contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}
+            projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}/>
         </div>
         <div style={{flex:"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
@@ -2217,14 +2844,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     {/* dropdown option buttons for category/location questions */}
     {pendingConv&&!pendingConv._awaitingNewCat&&pendingConv.questions[pendingConv.idx]?.options&&(
-      <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7"}}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
         {pendingConv.questions[pendingConv.idx].options.map(opt=>(
           <button key={opt} type="button" onClick={()=>{setInput(opt);setTimeout(send,0);}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:11.5,fontWeight:500,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
             {opt}
           </button>
         ))}
         {pendingConv.questions[pendingConv.idx].addNew&&(
-          <button type="button" onClick={()=>{setInput("");const ta=document.querySelector('[data-vinnie-ta]');if(ta){ta.focus();ta.placeholder="Type new "+pendingConv.questions[pendingConv.idx].key+" and press Enter...";}}} style={{padding:"5px 10px",borderRadius:8,border:"1px dashed #d4aa20",background:"#fffef5",fontSize:11.5,fontWeight:600,color:"#7a5800",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#fef3c0";}} onMouseOut={e=>{e.currentTarget.style.background="#fffef5";}}>
+          <button type="button" onClick={()=>{setInput("");setMsgs(prev=>[...prev,{role:"assistant",content:`Type a new ${pendingConv.questions[pendingConv.idx].key} below and press Enter.`}]);const ta=document.querySelector('[data-vinnie-ta]');if(ta){ta.focus();ta.placeholder="Type new "+pendingConv.questions[pendingConv.idx].key+"...";}}} style={{padding:"5px 10px",borderRadius:8,border:"1px dashed #d4aa20",background:"#fffef5",fontSize:11.5,fontWeight:600,color:"#7a5800",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#fef3c0";}} onMouseOut={e=>{e.currentTarget.style.background="#fffef5";}}>
             + Add New
           </button>
         )}
@@ -2903,7 +3530,8 @@ export default function OnnaDashboard() {
   },[authed]);
 
   // ── Public signing page (bypasses login) ────────────────────────────────────
-  const _signToken = new URLSearchParams(window.location.search).get("sign") || "";
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _signToken = _urlParams.get("sign") || "";
   const [signData, setSignData] = useState(null);
   const [signLoading, setSignLoading] = useState(false);
   const [signError, setSignError] = useState("");
@@ -2929,35 +3557,50 @@ export default function OnnaDashboard() {
   if (_signToken) {
     // CT_FONT, CT_LS, CT_LS_HDR hoisted to top level
     const submitVendorSig = async () => {
-      if (!signVendorSig) { alert("Please draw your signature"); return; }
+      if (!signVendorSig || !signVendorName.trim() || !signVendorDate.trim()) { alert("Please fill in your signature, name, and date before submitting."); return; }
       setSignSubmitting(true);
       try {
         const resp = await fetch("/api/sign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: _signToken, sigName: signVendorName, sigDate: signVendorDate, signature: signVendorSig }) });
         const data = await resp.json();
-        if (data.ok) setSignSubmitted(true);
+        if (data.ok) {
+          // Auto-generate PDF before showing success state (so contract is still visible)
+          const el = document.getElementById("onna-sign-print");
+          if (el) {
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll("button").forEach(b=>b.remove());
+            clone.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
+            clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
+            const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Signed Contract</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+            idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+          }
+          setSignSubmitted(true);
+        }
         else alert(data.error || "Submission failed");
       } catch (err) { alert("Error: " + err.message); }
       setSignSubmitting(false);
     };
 
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
     return (
       <div style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-        <div style={{background:"#1d1d1f",padding:"14px 28px",display:"flex",alignItems:"center",gap:10}}>
+        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}`}</style>
+        <div style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
           <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
           <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
         </div>
-        <div style={{maxWidth:860,margin:"28px auto",padding:"0 20px"}}>
+        <div style={{maxWidth:860,margin:"20px auto",padding:"0 14px"}}>
           {signLoading && <div style={{textAlign:"center",padding:60,color:"#888"}}>Loading contract...</div>}
           {signError && <div style={{textAlign:"center",padding:60,color:"#c0392b"}}>{signError}</div>}
           {signData && signData.status === "signed" && !signSubmitted && (
-            <div style={{background:"#fff",borderRadius:14,padding:"48px 40px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+            <div style={{background:"#fff",borderRadius:14,padding:"40px 24px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
               <div style={{fontSize:28,marginBottom:12}}>✓</div>
               <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>This contract has been signed</div>
               <div style={{fontSize:13,color:"#888"}}>Signed on {signData.signedAt ? new Date(signData.signedAt).toLocaleDateString() : "N/A"}</div>
             </div>
           )}
           {signSubmitted && (
-            <div style={{background:"#fff",borderRadius:14,padding:"48px 40px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+            <div style={{background:"#fff",borderRadius:14,padding:"40px 24px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
               <div style={{fontSize:28,marginBottom:12}}>✓</div>
               <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>Signature submitted successfully</div>
               <div style={{fontSize:13,color:"#888"}}>Thank you. You may now close this page.</div>
@@ -2965,16 +3608,19 @@ export default function OnnaDashboard() {
           )}
           {signData && signData.status !== "signed" && !signSubmitted && (() => {
             const snap = signData.contractSnapshot || {};
-            const ctType = signData.contractType || snap.activeType || "commission_se";
+            const ctType = signData.ct || signData.contractType || snap.contractType || snap.activeType || "commission_se";
             const ctDef = CONTRACT_DOC_TYPES.find(c=>c.id===ctType) || CONTRACT_DOC_TYPES[0];
-            const getVal = (key) => (snap.fieldValues||{})[`${ctType}_${key}`] || ctDef.fields.find(f=>f.key===key)?.defaultValue || "";
-            const generalTerms = (snap.generalTermsEdits||{})[ctType] || GENERAL_TERMS_DOC[ctType] || "";
+            const fv = snap.fieldValues || snap.fv || {};
+            const getVal = (key) => fv[key] || fv[`${ctType}_${key}`] || ctDef.fields.find(f=>f.key===key)?.defaultValue || "";
+            const generalTerms = (snap.generalTermsEdits||{}).custom || snap.gte || (snap.generalTermsEdits||{})[ctType] || GENERAL_TERMS_DOC[ctType] || "";
             return (
-              <div style={{background:"#fff",borderRadius:14,padding:"32px 40px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
-                {signData.projectName && <div style={{fontSize:11,color:"#888",marginBottom:8,letterSpacing:0.5}}>Project: {signData.projectName}</div>}
-                {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:38,maxWidth:120,objectFit:"contain",marginBottom:8}}/>}
-                <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
-                <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctDef.title}</div>
+              <div id="onna-sign-print" style={{background:"#fff",borderRadius:14,padding:isMobile?"20px 16px":"32px 40px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+                {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:60,maxWidth:200,objectFit:"contain",marginBottom:8}}/>}
+                <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
+                <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:isMobile?10:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:4}}>{ctDef.title}</div>
+                {signData.projectName && <div style={{textAlign:"center",fontSize:11,color:"#888",marginBottom:4,letterSpacing:0.5}}>Project: {signData.projectName}</div>}
+                {signData.label && <div style={{textAlign:"center",fontSize:13,fontWeight:600,color:"#1d1d1f",marginBottom:16}}>{signData.label}</div>}
+                {!signData.projectName && !signData.label && <div style={{marginBottom:16}}/>}
 
                 {/* Head Terms (read-only) */}
                 {ctDef.headTermsLabel && (<>
@@ -2982,40 +3628,40 @@ export default function OnnaDashboard() {
                     <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctDef.headTermsLabel}</span>
                   </div>
                   {ctDef.fields.map(field => (
-                    <div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}>
-                      <div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
+                    <div key={field.key} className="sign-field-row" style={{display:"flex",borderBottom:"1px solid #eee",minHeight:28}}>
+                      <div className="sign-field-label" style={{width:180,minWidth:180,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
                         <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span>
                       </div>
                       <div style={{flex:1,padding:"8px 12px"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,whiteSpace:"pre-wrap"}}>{getVal(field.key)}</span>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{getVal(field.key)}</span>
                       </div>
                     </div>
                   ))}
                 </>)}
 
                 {/* General Terms (read-only) */}
-                <div style={{marginTop:32}}>
+                <div style={{marginTop:24}}>
                   <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div>
-                  <div style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",padding:"12px",whiteSpace:"pre-wrap",border:"1px solid #eee",borderTop:"none"}}>{generalTerms}</div>
+                  <div style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",padding:"12px",whiteSpace:"pre-wrap",wordBreak:"break-word",border:"1px solid #eee",borderTop:"none"}}>{generalTerms}</div>
                 </div>
 
-                {/* Vendor Signature Block */}
-                <div style={{marginTop:32}}>
+                {/* Signature Block */}
+                <div style={{marginTop:24}}>
                   <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>SIGNATURE</div>
-                  <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
+                  <div className="sign-sig-cols" style={{display:"flex",borderBottom:"1px solid #eee"}}>
                     {/* Left side (ONNA) - read only */}
-                    <div style={{flex:1,padding:"12px",borderRight:"1px solid #eee"}}>
+                    <div className="sign-sig-left" style={{flex:1,padding:"12px",borderRight:"1px solid #eee"}}>
                       <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigLeft}</div>
                       <div style={{marginBottom:8}}>
                         <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
                         <div style={{height:60,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          {(snap.signatures||{})[`${ctType}_left`] ? <img src={(snap.signatures||{})[`${ctType}_left`]} alt="" style={{maxHeight:56,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
+                          {(snap.signatures||{}).left || (snap.signatures||{})[`${ctType}_left`] ? <img src={(snap.signatures||{}).left || (snap.signatures||{})[`${ctType}_left`]} alt="" style={{maxHeight:56,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
                         </div>
                       </div>
                       {["name","date"].map(f=>(
-                        <div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{(snap.sigNames||{})[`${ctType}_left_${f}`]||"—"}</span>
+                        <div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>{f==="name"?"Print Name:":"Date:"}</span>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{(snap.sigNames||{})[`left_${f}`] || (snap.sigNames||{})[`${ctType}_left_${f}`]||"—"}</span>
                         </div>
                       ))}
                     </div>
@@ -3024,22 +3670,22 @@ export default function OnnaDashboard() {
                       <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigRight}</div>
                       <div style={{marginBottom:8}}>
                         <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
-                        <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={60}/>
+                        <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={80}/>
                       </div>
-                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>Print Name:</span>
-                        <input value={signVendorName} onChange={e=>setSignVendorName(e.target.value)} placeholder="Print name..." style={{flex:1,fontFamily:CT_FONT,fontSize:10,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"2px 4px",background:"transparent"}}/>
+                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
+                        <input value={signVendorName} onChange={e=>setSignVendorName(e.target.value)} placeholder="Print name..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
                       </div>
-                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>Date:</span>
-                        <input value={signVendorDate} onChange={e=>setSignVendorDate(e.target.value)} placeholder="Date..." style={{flex:1,fontFamily:CT_FONT,fontSize:10,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"2px 4px",background:"transparent"}}/>
+                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Date:</span>
+                        <input value={signVendorDate} onChange={e=>setSignVendorDate(e.target.value)} placeholder="Date..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{textAlign:"center",marginTop:24}}>
-                  <button onClick={submitVendorSig} disabled={signSubmitting} style={{padding:"10px 32px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:signSubmitting?0.6:1}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>
+                <div style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
+                  {(() => { const canSubmit = !!(signVendorSig && signVendorName.trim() && signVendorDate.trim()); return <button onClick={submitVendorSig} disabled={signSubmitting || !canSubmit} style={{padding:"12px 36px",borderRadius:10,background:canSubmit?"#1a5a30":"#999",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:canSubmit?"pointer":"not-allowed",fontFamily:"inherit",opacity:signSubmitting?0.6:1,width:isMobile?"100%":"auto",transition:"background 0.2s"}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>; })()}
                 </div>
               </div>
             );
@@ -3153,16 +3799,49 @@ export default function OnnaDashboard() {
   const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeRAVersion,setActiveRAVersion]             = useState(0);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
-  const [activeContractVersion,setActiveContractVersion] = useState(0);
+  const [activeContractVersion,setActiveContractVersion] = useState(null);
+  const [ctTypeModalOpen,setCtTypeModalOpen]             = useState(false);
   const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
   const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
   const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
+  const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
   const [contractType,setContractType]                   = useState(CONTRACT_TYPES[0]);
   const [contractFields,setContractFields]               = useState({commissionee:"",individual:"",role:"",fee:"",shootDate:"",deliverables:"",usageRights:"",paymentTerms:"NET 30 days",deadline:"",projectRef:""});
   const [generatedContract,setGeneratedContract]         = useState("");
   const [contractLoading,setContractLoading]             = useState(false);
+
+  // Auto-poll pending signing requests every 30s
+  useEffect(() => {
+    if (!authed) return;
+    const poll = async () => {
+      const token = getToken(); if (!token) return;
+      const allProjects = Object.entries(contractDocStore);
+      for (const [pid, contracts] of allProjects) {
+        if (!Array.isArray(contracts)) continue;
+        for (let i = 0; i < contracts.length; i++) {
+          const ct = contracts[i];
+          if (ct.signingStatus !== "pending" || !ct.signingToken) continue;
+          try {
+            const resp = await fetch(`/api/sign?token=${encodeURIComponent(ct.signingToken)}`, {headers:{"Authorization":`Bearer ${token}`}});
+            const data = await resp.json();
+            if (data.status === "signed" && data.vendorSig) {
+              setContractDocStore(prev => {
+                const store = JSON.parse(JSON.stringify(prev)); const arr = store[pid] || []; const c = arr[i]; if (!c) return store;
+                c.sigNames = { ...(c.sigNames||{}), right_name: data.vendorSig.sigName||"", right_date: data.vendorSig.sigDate||"" };
+                c.signatures = { ...(c.signatures||{}), right: data.vendorSig.signature||"" };
+                c.signingStatus = "signed"; arr[i] = c; store[pid] = arr; return store;
+              });
+            }
+          } catch {}
+        }
+      }
+    };
+    poll(); // check immediately on load
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, [authed, contractDocStore]);
 
   const [showAddProject,setShowAddProject]   = useState(false);
   const [showAddLead,setShowAddLead]         = useState(false);
@@ -3172,7 +3851,7 @@ export default function OnnaDashboard() {
   const [archive,setArchive]                 = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archive')||'[]')}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
-  const [newVendor,setNewVendor]             = useState({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
+  const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
   const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[]}catch{return []}});
   const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
@@ -4580,32 +5259,133 @@ export default function OnnaDashboard() {
       }
 
       if (documentsSubSection==="contracts") {
-        const ctVersions = contractDocStore[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
+        const ctVersions = contractDocStore[p.id] || [];
+        // If no contract selected yet, show contract list + type selector
+        if (activeContractVersion === null || ctVersions.length === 0) {
+          const createContract = (typeId) => {
+            setContractDocStore(prev => {
+              const store = JSON.parse(JSON.stringify(prev));
+              const arr = store[p.id] || [];
+              arr.push({id:Date.now(),label:CONTRACT_TYPE_LABELS[typeId]||typeId,contractType:typeId,fieldValues:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
+              // Load default logo as data URL
+              const newIdx = arr.length - 1;
+              const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
+              logoImg.onload = () => { try { const cv = document.createElement("canvas"); cv.width = logoImg.naturalWidth; cv.height = logoImg.naturalHeight; cv.getContext("2d").drawImage(logoImg, 0, 0); const dataUrl = cv.toDataURL("image/png"); setContractDocStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][newIdx] && !s[p.id][newIdx].prodLogo) s[p.id][newIdx].prodLogo = dataUrl; return s; }); } catch {} };
+              logoImg.src = "/onna-default-logo.png";
+              store[p.id] = arr; return store;
+            });
+            setActiveContractVersion(ctVersions.length);
+            setCtTypeModalOpen(false);
+          };
+          const deleteContract = (idx) => {
+            if (!confirm("Delete this contract?")) return;
+            setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
+          };
+          const checkSigningStatus = async (idx) => {
+            const ct = ctVersions[idx]; if (!ct?.signingToken) return;
+            try {
+              const resp = await fetch(`/api/sign?token=${encodeURIComponent(ct.signingToken)}`, {headers:{"Authorization":`Bearer ${getToken()}`}});
+              const data = await resp.json();
+              if (data.error) { alert("Could not check: " + data.error); return; }
+              if (data.status === "signed" && data.vendorSig) {
+                setContractDocStore(prev => {
+                  const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; const c = arr[idx]; if (!c) return store;
+                  c.sigNames = { ...(c.sigNames||{}), right_name: data.vendorSig.sigName||"", right_date: data.vendorSig.sigDate||"" };
+                  c.signatures = { ...(c.signatures||{}), right: data.vendorSig.signature||"" };
+                  c.signingStatus = "signed"; arr[idx] = c; store[p.id] = arr; return store;
+                });
+                setTimeout(()=>{ setActiveContractVersion(idx); setTimeout(()=>{
+                  const el=document.getElementById("onna-ct-print");if(!el)return;
+                  const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+                  const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+                  const idoc=iframe.contentDocument;idoc.open();idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contract</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:\'Avenir\',\'Avenir Next\',\'Nunito Sans\',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}}</style></head><body></body></html>');idoc.close();
+                  idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+                },500); },100);
+                alert("Vendor signature merged! PDF export opening...");
+              } else {
+                alert("Status: " + (data.status||"pending") + " \u2014 not yet signed.");
+              }
+            } catch (err) { alert("Error checking status: " + err.message); }
+          };
+          const STATUS_BADGE = {not_sent:{label:"Not sent",bg:"#f5f5f5",color:"#999"},pending:{label:"Pending signature",bg:"#FFF9C4",color:"#8d6e00"},signed:{label:"Signed",bg:"#e8f5e9",color:"#2e7d32"}};
+          return (
+            <div>
+              {docBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Contracts</div>
+                <button onClick={()=>setCtTypeModalOpen(true)} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Contract</button>
+              </div>
+              {ctVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No contracts yet. Click "+ New Contract" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {ctVersions.map((ct,i)=>{const def=CONTRACT_DOC_TYPES.find(c=>c.id===ct.contractType)||CONTRACT_DOC_TYPES[0];const sb=STATUS_BADGE[ct.signingStatus||"not_sent"]||STATUS_BADGE.not_sent;return(
+                  <div key={ct.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveContractVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>{def.short}</span>
+                        <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:sb.bg,color:sb.color,padding:"2px 8px",borderRadius:4}}>{sb.label}</span>
+                      </div>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text}}>{ct.label||def.label}</div>
+                      <div style={{fontSize:11,color:T.muted,marginTop:2}}>{(ct.fieldValues||{}).date||"No date set"}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                      {ct.signingStatus==="pending"&&<button onClick={()=>checkSigningStatus(i)} style={{padding:"4px 10px",borderRadius:7,background:"#fff3e0",color:"#e65100",border:"1px solid #ffcc80",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Check Status</button>}
+                      <button onClick={()=>deleteContract(i)} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                    </div>
+                  </div>
+                );})}
+              </div>
+              {ctTypeModalOpen && (
+                <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.4)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setCtTypeModalOpen(false)}>
+                  <div style={{background:"#fff",borderRadius:16,padding:"28px 32px",maxWidth:440,width:"90%",boxShadow:"0 8px 32px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+                    <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>New Contract</div>
+                    <div style={{fontSize:12,color:T.muted,marginBottom:18}}>Select a contract type:</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {CONTRACT_DOC_TYPES.map(c=>(
+                        <button key={c.id} onClick={()=>createContract(c.id)} style={{padding:"14px 18px",borderRadius:10,border:`1px solid ${T.border}`,background:T.surface,cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=T.accent;e.currentTarget.style.background="#f8f8fa";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.background=T.surface;}}>
+                          <div style={{fontSize:13,fontWeight:600,color:T.text}}>{c.label}</div>
+                          <div style={{fontSize:11,color:T.muted,marginTop:2}}>{c.short}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={()=>setCtTypeModalOpen(false)} style={{marginTop:14,padding:"8px 20px",borderRadius:8,background:"transparent",border:`1px solid ${T.border}`,color:T.sub,fontSize:12,cursor:"pointer",fontFamily:"inherit",width:"100%"}}>Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
         const ctIdx = Math.min(activeContractVersion, ctVersions.length - 1);
         const ctData = ctVersions[ctIdx] || ctVersions[0];
-        const ctU = (path, val) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}]; const idx = Math.min(ctIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
-        const ctSet = (fn) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}]; const idx = Math.min(ctIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
-        const addCTVersion = () => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}]; arr.push({id:Date.now(),label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(CONTRACT_INIT))}); store[p.id] = arr; return store; }); setActiveContractVersion(ctVersions.length); };
-        const deleteCTVersion = (idx) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveContractVersion(v => Math.min(v, ctVersions.length - 2)); };
-        // CT_FONT, CT_LS, CT_LS_HDR hoisted to top level
-        const activeContractType = ctData.activeType || "commission_se";
+        const ctU = (path, val) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; const idx = Math.min(ctIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
+        const ctSet = (fn) => { setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; const idx = Math.min(ctIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
+        const activeContractType = ctData.contractType || "commission_se";
         const ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===activeContractType) || CONTRACT_DOC_TYPES[0];
-        const ctGetVal = (key) => (ctData.fieldValues||{})[`${activeContractType}_${key}`] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
-        const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [`${activeContractType}_${key}`]:val}}));
-        const ctGeneralTerms = (ctData.generalTermsEdits||{})[activeContractType] || GENERAL_TERMS_DOC[activeContractType] || "";
-        const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{...(d.generalTermsEdits||{}), [activeContractType]:val}}));
+        const ctGetVal = (key) => (ctData.fieldValues||{})[key] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
+        const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [key]:val}}));
+        const ctGeneralTerms = (ctData.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[activeContractType] || "";
+        const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{custom:val}}));
 
         const sigShareUrl = ctSignShareUrl;
         const setSigShareUrl = setCtSignShareUrl;
         const sigShareLoading = ctSignShareLoading;
         const setSigShareLoading = setCtSignShareLoading;
+
+        const sigShareTitle = `ONNA | ${ctData.label || ctContract.label}`;
+
         const sendForSignature = async () => {
           setSigShareLoading(true);
           try {
-            const snapshot = { fieldValues: ctData.fieldValues || {}, generalTermsEdits: ctData.generalTermsEdits || {}, sigNames: ctData.sigNames || {}, signatures: ctData.signatures || {}, prodLogo: ctData.prodLogo || null, activeType: activeContractType };
-            const resp = await fetch("/api/sign", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ contractSnapshot: snapshot, projectName: p.name, contractType: activeContractType }) });
+            const resolvedTerms = (ctData.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[activeContractType] || "";
+            const fieldLabels = {};
+            ctContract.fields.forEach(f => { fieldLabels[f.key] = f.label; });
+            const snapshot = { fieldValues: ctData.fieldValues || {}, generalTermsEdits: { custom: resolvedTerms }, sigNames: ctData.sigNames || {}, signatures: ctData.signatures || {}, prodLogo: ctData.prodLogo || null, contractType: activeContractType, fieldLabels };
+            const resp = await fetch("/api/sign", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ contractSnapshot: snapshot, projectName: p.name, contractType: activeContractType, label: ctData.label || ctContract.label }) });
             const data = await resp.json();
-            if (data.url) setSigShareUrl(data.url);
+            if (data.url) {
+              setSigShareUrl(data.url);
+              ctSet(d=>({...d, signingStatus:"pending", signingToken:data.token||null}));
+            }
             else alert("Failed to create signing link: " + (data.error || "Unknown error"));
           } catch (err) { alert("Error: " + err.message); }
           setSigShareLoading(false);
@@ -4615,54 +5395,42 @@ export default function OnnaDashboard() {
           const el=document.getElementById("onna-ct-print");if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ctContract.title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
-          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ctContract.title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+          idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
 
         return (
           <div>
-            {docBack}
+            <button onClick={()=>setActiveContractVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16}}>Back to Contracts</button>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                {ctVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveContractVersion(i)} style={{padding:"6px 14px",borderRadius:9,fontSize:12,fontWeight:ctIdx===i?600:500,cursor:"pointer",border:`1px solid ${ctIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:ctIdx===i?T.accent:"transparent",color:ctIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||`Version ${i+1}`}</button>{ctVersions.length>1&&<button onClick={()=>deleteCTVersion(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete version">×</button>}</div>))}
-                <button onClick={addCTVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Add Version</button>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>{ctContract.short}</span>
+                <span style={{fontSize:14,fontWeight:600,color:T.text}}>{ctData.label||ctContract.label}</span>
               </div>
               <div style={{display:"flex",gap:6}}>
                 <BtnExport onClick={ctExportPDF}>Export PDF</BtnExport>
-                <button onClick={sendForSignature} disabled={sigShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#1a5a30",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5,opacity:sigShareLoading?0.6:1}}>{sigShareLoading?"Generating…":"✉ Send for Signature"}</button>
+                <button onClick={sendForSignature} disabled={sigShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#1a5a30",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5,opacity:sigShareLoading?0.6:1}}>{sigShareLoading?"Generating\u2026":"Send for Signature"}</button>
               </div>
             </div>
             {sigShareUrl && (
-              <div style={{background:"#f0faf4",border:"1px solid #c8efd4",borderRadius:10,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <span style={{fontSize:12,fontWeight:500,color:"#1a5a30"}}>Signing link:</span>
-                <input readOnly value={sigShareUrl} style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #c8efd4",fontSize:11.5,fontFamily:"inherit",color:"#333",background:"#fff"}}/>
-                <button onClick={()=>{navigator.clipboard.writeText(sigShareUrl);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy Link</button>
-                <button onClick={()=>setSigShareUrl(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:"0 4px"}}>×</button>
+              <div style={{background:"#f0faf4",border:"1px solid #c8efd4",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1a5a30",marginBottom:8}}>{sigShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <input readOnly value={sigShareUrl} style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #c8efd4",fontSize:11.5,fontFamily:"inherit",color:"#333",background:"#fff"}}/>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${sigShareTitle}\n${sigShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                  <button onClick={()=>setSigShareUrl(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit",padding:"0 4px"}}>Close</button>
+                </div>
               </div>
             )}
-            <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={ctData.label||""} onChange={e=>ctU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${ctIdx+1}`}/></div>
-
-            {/* Contract type switcher */}
-            <div style={{display:"flex",gap:0,borderBottom:"2px solid #000",marginBottom:0,overflowX:"auto",marginTop:16}}>
-              {CONTRACT_DOC_TYPES.map(c=>(
-                <div key={c.id} onClick={()=>ctSet(d=>({...d,activeType:c.id}))}
-                  style={{fontFamily:CT_FONT,fontSize:9,fontWeight:activeContractType===c.id?700:400,letterSpacing:CT_LS_HDR,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",
-                    background:activeContractType===c.id?"#000":"#f5f5f5",color:activeContractType===c.id?"#fff":"#666",
-                    transition:"all 0.15s",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{c.short}</div>
-              ))}
-            </div>
+            <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={ctData.label||""} onChange={e=>ctU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:220}} placeholder={ctContract.label}/></div>
 
             <div id="onna-ct-print" style={{background:"#fff",padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
-              {/* Header */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/>
               </div>
               <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
-
-              {/* Title */}
               <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
 
-              {/* Head Terms Table */}
               {ctContract.headTermsLabel && (<>
                 <div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}>
                   <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span>
@@ -4679,7 +5447,6 @@ export default function OnnaDashboard() {
                 ))}
               </>)}
 
-              {/* Signature Block */}
               {ctContract.sigLeft && (<>
                 <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div>
                 <div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>
@@ -4688,13 +5455,13 @@ export default function OnnaDashboard() {
                       <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div>
                       <div style={{marginBottom:8}}>
                         <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
-                        <SignaturePad value={(ctData.signatures||{})[`${activeContractType}_${side}`]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [`${activeContractType}_${side}`]:v}}))} height={60}/>
+                        <SignaturePad value={(ctData.signatures||{})[side]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [side]:v}}))} height={60}/>
                       </div>
                       {["name","date"].map(f=>(
                         <div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
                           <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span>
                           <div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}>
-                            <CSEditField value={(ctData.sigNames||{})[`${activeContractType}_${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${activeContractType}_${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/>
+                            <CSEditField value={(ctData.sigNames||{})[`${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/>
                           </div>
                         </div>
                       ))}
@@ -4703,7 +5470,6 @@ export default function OnnaDashboard() {
                 </div>
               </>)}
 
-              {/* General Terms */}
               <div style={{marginTop:32}}>
                 <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div>
                 <textarea value={ctGeneralTerms} onChange={e=>ctSetGeneralTerms(e.target.value)}
@@ -4712,7 +5478,6 @@ export default function OnnaDashboard() {
                   onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff";}}/>
               </div>
 
-              {/* Footer */}
               <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:CT_FONT,fontSize:9,letterSpacing:CT_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
                 <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
                 <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
@@ -5180,17 +5945,18 @@ export default function OnnaDashboard() {
                 <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n){setBbCat(n);setBbLocation("All");}}else{setBbCat(v);setBbLocation("All");}}} options={allVendorCats} minWidth={170}/>
                 <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setBbLocation(n);}else setBbLocation(v);}} options={["All",...allVendorLocs]} minWidth={170}/>
                 <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
-                <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
-                <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
+                <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
+                <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
                 <BtnPrimary onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>
               </div>
               <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
-                  <thead><tr><TH>Name</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
+                  <thead><tr><TH>Name</TH><TH>Company</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
                   <tbody>
                     {filteredBB.map(b=>(
                       <tr key={b.id} className="row" onClick={()=>setEditVendor({...b,_xContacts:getXContacts('vendor',b.id)})} style={{cursor:"pointer"}}>
                         <TD bold>{b.name}</TD>
+                        <TD muted>{b.company||"—"}</TD>
                         <TD muted>{b.category||"—"}</TD>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email||"—"}</a></td>
                         <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,whiteSpace:"nowrap",fontSize:12.5,color:T.sub}}>{b.phone||"—"}</td>
@@ -5198,7 +5964,7 @@ export default function OnnaDashboard() {
                         <TD muted>{b.location||"—"}</TD>
                       </tr>
                     ))}
-                    {filteredBB.length===0&&<tr><td colSpan={6} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
+                    {filteredBB.length===0&&<tr><td colSpan={7} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -5766,7 +6532,7 @@ export default function OnnaDashboard() {
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",minHeight:useWideLayout?600:undefined}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:useWideLayout?undefined:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":useWideLayout?500:"100%",maxWidth:1400,width:"100%"}}>
+                <div style={{flex:useWideLayout?undefined:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":useWideLayout?"calc(100vh - 200px)":"100%",maxWidth:1400,width:"100%"}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
@@ -5783,8 +6549,8 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts")?allProjectsMerged:undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?allProjectsMerged:undefined}
                       vendors={a.id==="compliance"?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
@@ -5793,6 +6559,9 @@ export default function OnnaDashboard() {
                       contractDocStore={a.id==="contracts"?contractDocStore:undefined}
                       setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
                       activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
+                      projectEstimates={a.id==="billie"?projectEstimates:undefined}
+                      setProjectEstimates={a.id==="billie"?setProjectEstimates:undefined}
+                      activeEstimateVersion={a.id==="billie"?activeEstimateVersion:undefined}
                       onFullWidthChange={setAgentWantsFullWidth}
                       isMobile={isMobile}
                     />
@@ -6217,7 +6986,7 @@ export default function OnnaDashboard() {
               <button onClick={()=>setShowAddVendor(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"],["Rate Card","rateCard"],["Notes","notes"]].map(([label,key])=>(
+              {[["Name","name"],["Company","company"],["Email","email"],["Phone","phone"],["Website","website"],["Rate Card","rateCard"],["Notes","notes"]].map(([label,key])=>(
                 <div key={key} style={{gridColumn:key==="notes"?"span 2":"auto"}}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
                   <input value={newVendor[key]} onChange={e=>setNewVendor(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
@@ -6234,7 +7003,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;const saved=await api.post("/api/vendors",newVendor);if(saved.id)setVendors(prev=>[...prev,saved]);setNewVendor({name:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;const saved=await api.post("/api/vendors",newVendor);if(saved.id)setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
             </div>
           </div>
         </div>
@@ -6265,14 +7034,14 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
               <div>
                 <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{editVendor.name||"Vendor"}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{editVendor.category} · {editVendor.location}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[editVendor.company,editVendor.category,editVendor.location].filter(Boolean).join(" · ")}</div>
               </div>
               <button onClick={()=>setEditVendor(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
             </div>
 
             {/* Contact details */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
-              {[["Name","name"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
+              {[["Name","name"],["Company","company"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
                 <div key={key}>
                   <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
                   <input value={editVendor[key]||""} onChange={e=>setEditVendor(p=>({...p,[key]:e.target.value}))}
