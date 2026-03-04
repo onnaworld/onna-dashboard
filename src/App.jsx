@@ -6976,75 +6976,64 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
-  const infoSyncRef = useRef({});
   useEffect(()=>{
-    Object.entries(projectInfo).forEach(([pid,info])=>{
+    const pids = Object.keys(projectInfo);
+    if(!pids.length) return;
+    pids.forEach(pid=>{
+      const info = projectInfo[pid];
       if(!info) return;
-      const sig = JSON.stringify(info);
-      // Call Sheets: shootName, date, venueRows LOCATIONS
-      const csArr = callSheetStore?.[pid];
-      if(csArr&&csArr.length>0){
-        const csKey = `cs_${pid}_${csArr.length}`;
-        const prevSig = infoSyncRef.current[csKey];
-        if(prevSig!==sig){
-          let changed=false;
-          const next=JSON.parse(JSON.stringify(csArr));
-          next.forEach(cs=>{
-            if(info.shootName && !cs.shootName){cs.shootName=info.shootName;changed=true;}
-            if(info.shootDate && !cs.date){cs.date=info.shootDate;changed=true;}
-            if(info.shootLocation && cs.venueRows){
-              const locRow=cs.venueRows.find(r=>r.label==="LOCATIONS");
-              if(locRow&&!locRow.value){locRow.value=info.shootLocation;changed=true;}
-            }
-          });
-          infoSyncRef.current[csKey]=sig;
-          if(changed) setCallSheetStore(prev=>({...prev,[pid]:next}));
-        }
-      }
-      // Risk Assessments: shootName, shootDate, locations, crewOnSet
-      const raArr = riskAssessmentStore?.[pid];
-      if(raArr&&raArr.length>0){
-        const raKey = `ra_${pid}_${raArr.length}`;
-        const prevSig = infoSyncRef.current[raKey];
-        if(prevSig!==sig){
-          let changed=false;
-          const next=JSON.parse(JSON.stringify(raArr));
-          next.forEach(ra=>{
-            if(info.shootName && !ra.shootName){ra.shootName=info.shootName;changed=true;}
-            if(info.shootDate && !ra.shootDate){ra.shootDate=info.shootDate;changed=true;}
-            if(info.shootLocation && !ra.locations){ra.locations=info.shootLocation;changed=true;}
-            if(info.crewOnSet && !ra.crewOnSet){ra.crewOnSet=info.crewOnSet;changed=true;}
-          });
-          infoSyncRef.current[raKey]=sig;
-          if(changed) setRiskAssessmentStore(prev=>({...prev,[pid]:next}));
-        }
-      }
-      // Contracts: date, usage, venue, campaign (talent types)
-      const ctArr = contractDocStore?.[pid];
-      if(ctArr&&ctArr.length>0){
-        const ctKey = `ct_${pid}_${ctArr.length}`;
-        const prevSig = infoSyncRef.current[ctKey];
-        if(prevSig!==sig){
-          let changed=false;
-          const next=JSON.parse(JSON.stringify(ctArr));
-          next.forEach(ct=>{
-            const type=ct.contractType||"commission_se";
-            const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
-            if(!typeDef) return;
-            const fv=ct.fieldValues||{};
-            const isDefault=(key)=>{const f=typeDef.fields.find(fd=>fd.key===key);return !fv[key]||fv[key]===f?.defaultValue;};
-            if(info.shootDate && isDefault("date")){fv.date=info.shootDate;changed=true;}
-            if(info.usage && isDefault("usage")){fv.usage=info.usage;changed=true;}
-            if((type==="talent"||type==="talent_psc")&&info.shootLocation&&isDefault("venue")){fv.venue=info.shootLocation;changed=true;}
-            if((type==="talent"||type==="talent_psc")&&info.shootName&&isDefault("campaign")){fv.campaign=info.shootName;changed=true;}
-            ct.fieldValues=fv;
-          });
-          infoSyncRef.current[ctKey]=sig;
-          if(changed) setContractDocStore(prev=>({...prev,[pid]:next}));
-        }
-      }
+      const hasVal = info.shootName||info.shootDate||info.shootLocation||info.usage||info.crewOnSet;
+      if(!hasVal) return;
+      // Call Sheets
+      setCallSheetStore(prev=>{
+        const arr=prev[pid]; if(!arr||!arr.length) return prev;
+        let changed=false;
+        const next=arr.map(cs=>{
+          const c={...cs};
+          if(info.shootName && !c.shootName){c.shootName=info.shootName;changed=true;}
+          if(info.shootDate && !c.date){c.date=info.shootDate;changed=true;}
+          if(info.shootLocation && c.venueRows){
+            const hasEmpty=c.venueRows.some(r=>r.label==="LOCATIONS"&&!r.value);
+            if(hasEmpty){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"&&!r.value?{...r,value:info.shootLocation}:r);changed=true;}
+          }
+          return c;
+        });
+        return changed?{...prev,[pid]:next}:prev;
+      });
+      // Risk Assessments
+      setRiskAssessmentStore(prev=>{
+        const arr=prev[pid]; if(!arr||!arr.length) return prev;
+        let changed=false;
+        const next=arr.map(ra=>{
+          const c={...ra};
+          if(info.shootName && !c.shootName){c.shootName=info.shootName;changed=true;}
+          if(info.shootDate && !c.shootDate){c.shootDate=info.shootDate;changed=true;}
+          if(info.shootLocation && !c.locations){c.locations=info.shootLocation;changed=true;}
+          if(info.crewOnSet && !c.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
+          return c;
+        });
+        return changed?{...prev,[pid]:next}:prev;
+      });
+      // Contracts
+      setContractDocStore(prev=>{
+        const arr=prev[pid]; if(!arr||!arr.length) return prev;
+        let changed=false;
+        const next=arr.map(ct=>{
+          const type=ct.contractType||"commission_se";
+          const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
+          if(!typeDef) return ct;
+          const fv={...(ct.fieldValues||{})};
+          const isDefault=(key)=>{const f=typeDef.fields.find(fd=>fd.key===key);return !fv[key]||fv[key]===f?.defaultValue;};
+          if(info.shootDate && isDefault("date")){fv.date=info.shootDate;changed=true;}
+          if(info.usage && isDefault("usage")){fv.usage=info.usage;changed=true;}
+          if((type==="talent"||type==="talent_psc")&&info.shootLocation&&isDefault("venue")){fv.venue=info.shootLocation;changed=true;}
+          if((type==="talent"||type==="talent_psc")&&info.shootName&&isDefault("campaign")){fv.campaign=info.shootName;changed=true;}
+          return changed?{...ct,fieldValues:fv}:ct;
+        });
+        return changed?{...prev,[pid]:next}:prev;
+      });
     });
-  },[projectInfo,callSheetStore,riskAssessmentStore,contractDocStore]);
+  },[projectInfo]);
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
@@ -7100,9 +7089,11 @@ export default function OnnaDashboard() {
   // ── Agents state ──────────────────────────────────────────────────────────────
   const [agentActiveIdx,_setAgentActiveIdx] = useState(null);
   const [agentHoverIdx,setAgentHoverIdx]   = useState(null);
-  const [agentPage,setAgentPage]           = useState(0);
-  const AGENTS_PER_PAGE=4;
-  const setAgentActiveIdx=idx=>{_setAgentActiveIdx(idx);if(idx!==null)setAgentPage(Math.floor(idx/AGENTS_PER_PAGE));};
+  const [agentStart,setAgentStart]         = useState(0);
+  const AGENTS_VISIBLE=7;
+  const agentTotal=AGENT_DEFS.length;
+  const needsAgentNav=agentTotal>AGENTS_VISIBLE;
+  const setAgentActiveIdx=idx=>{_setAgentActiveIdx(idx);if(idx!==null&&needsAgentNav){if(idx<agentStart)setAgentStart(idx);else if(idx>=agentStart+AGENTS_VISIBLE)setAgentStart(idx-AGENTS_VISIBLE+1);}};
   const [agentWantsFullWidth,setAgentWantsFullWidth] = useState(false);
   const agentConstellationRef              = useRef(null);
 
@@ -10294,10 +10285,10 @@ export default function OnnaDashboard() {
           return (
           <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"auto":useWideLayout?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:6,padding:"10px 20px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
-              {/* Prev page arrow */}
-              {(useWideLayout||isMobile)&&<button onClick={()=>setAgentPage(p=>(p-1+Math.ceil(AGENT_DEFS.length/AGENTS_PER_PAGE))%Math.ceil(AGENT_DEFS.length/AGENTS_PER_PAGE))} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
-              {AGENT_DEFS.slice(agentPage*AGENTS_PER_PAGE,(agentPage+1)*AGENTS_PER_PAGE).map((a)=>{
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:0,padding:"14px 8px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"space-evenly",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"10px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+              {/* Prev arrow */}
+              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>s>0?s-1:agentTotal-AGENTS_VISIBLE)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
+              {AGENT_DEFS.slice(agentStart,agentStart+AGENTS_VISIBLE).map((a)=>{
                 const i=AGENT_DEFS.indexOf(a);
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -10306,15 +10297,15 @@ export default function OnnaDashboard() {
                   onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={isMobile?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 10px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)",flexShrink:0}:useWideLayout?{background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 10px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)",flexShrink:0}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
+                  style={isMobile?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}:useWideLayout?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 4px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
                   <div style={{transform:isMobile?"scale(0.55)":useWideLayout?"scale(0.55)":"scale(1)",transformOrigin:"center"}}>
                     <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
                   <span style={{fontSize:isMobile?9:useWideLayout?9:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
                 </button>
               );})}
-              {/* Next page arrow */}
-              {(useWideLayout||isMobile)&&<button onClick={()=>setAgentPage(p=>(p+1)%Math.ceil(AGENT_DEFS.length/AGENTS_PER_PAGE))} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
+              {/* Next arrow */}
+              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>s<agentTotal-AGENTS_VISIBLE?s+1:0)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
             <div style={{flex:useWideLayout?undefined:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
