@@ -8047,7 +8047,7 @@ export default function OnnaDashboard() {
           {[["Shoot Name","shootName","e.g. Brand Campaign 2026"],["Shoot Date","shootDate","e.g. 15–17 March 2026"],["Shoot Location","shootLocation","e.g. Dubai Marina, Studio A"],["Usage","usage","e.g. Global digital & print, 12 months"],["Crew on Set","crewOnSet","e.g. 24 crew members"]].map(([label,key,ph])=>(
             <div key={key} style={{display:"flex",alignItems:"center",borderBottom:`1px solid ${T.borderSub}`,padding:"0 18px",minHeight:38}}>
               <span style={{fontSize:11,color:T.muted,fontWeight:500,width:120,flexShrink:0}}>{label}</span>
-              <input value={(projectInfo[p.id]||{})[key]||""} onChange={e=>{const v=e.target.value;setProjectInfo(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[key]:v}}));}} onBlur={()=>setTimeout(()=>syncProjectInfoToDocs(p.id),0)} placeholder={ph} style={{flex:1,fontSize:13,color:T.text,background:"transparent",border:"none",padding:"8px 0",fontFamily:"inherit",outline:"none"}}/>
+              <input value={(projectInfo[p.id]||{})[key]||""} onChange={e=>{const v=e.target.value;setProjectInfo(prev=>{const next={...prev,[p.id]:{...(prev[p.id]||{}),[key]:v}};projectInfoRef.current=next;return next;});}} onBlur={()=>setTimeout(()=>syncProjectInfoToDocs(p.id),0)} placeholder={ph} style={{flex:1,fontSize:13,color:T.text,background:"transparent",border:"none",padding:"8px 0",fontFamily:"inherit",outline:"none"}}/>
             </div>
           ))}
         </div>
