@@ -961,7 +961,8 @@ RESPONSE STYLE:
 - Lead with the action taken or answer, then details
 - Use bold (text) for key names, fields, and labels
 - Tone: warm, confident, professional — never robotic
-- When confirming changes, summarise what was updated in a quick bullet list`;
+- When confirming changes, summarise what was updated in a quick bullet list
+- EXPORT / PDF: If the user asks to export, download, print, save as PDF, or generate a document — simply reply "Exporting now..." and the platform will handle it automatically. Do NOT say you can't export. The export is triggered automatically by the platform when it detects export-related keywords in the user's message.`;
 }
 
 function applyRonniePatch(patch, projectId, versionIdx, _currentVersions, setRiskAssessmentStore) {
@@ -5166,7 +5167,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
 
       // Export / PDF intent
-      if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(risk|assessment|pdf|export|download|print|document|doc)\b/i.test(input)){
+      if(/\b(export|pdf|download|print|save\s*as|generate\s*(a\s*)?pdf)\b/i.test(input)){
         const raVersions_ex=riskAssessmentStore?.[project.id]||[];
         const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
         const ver_ex=raVersions_ex[vIdx_ex];
