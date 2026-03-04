@@ -625,7 +625,7 @@ const RISK_ASSESSMENT_INIT = {
   conductIntro:"All crew members on the call sheet are representatives of ONNA. High-level professionalism is mandatory to maintain relations with the Client and Agency.",
   conductItems:[{label:"Client Relations:",text:"Maintain a helpful, solutions-only attitude. Any issues must be funneled directly to ONNA, never discussed in front of the client."},{label:"Anti-Harassment:",text:"ONNA maintains a Zero-Tolerance Sexual Harassment Policy. Any inappropriate behavior, language, or conduct will result in immediate removal from the set and termination of the contract."},{label:"General Conduct:",text:"Crew must act with integrity, respecting local customs and the shoot environment (No littering / Leave No Trace)."}],
   waiverIntro:"By joining this production, the crew acknowledges:",
-  waiverItems:[{label:"Transport:",text:"Crew members choosing to drive their own vehicles to/from the shoot location do so at their own risk. They acknowledge the risks of driving in the UAE and hereby waive ONNA of any liability regarding vehicle damage or transit-related incidents."},{label:"Health:",text:"Crew confirms they are fit for the physical requirements of this shoot, including working in high temperatures where applicable."},{label:"Safety Gear:",text:"High-vis vests and emergency kits are managed by Production. Activity-appropriate footwear, clothing, sun protection, and personal hydration is the responsibility of the individual."},{label:"Insurance:",text:"Crew are responsible for maintaining their own valid personal and vehicle insurance. ONNA does not provide individual health or vehicle insurance cover."}],
+  waiverItems:[{label:"Transport:",text:"Crew members choosing to drive their own vehicles to/from the shoot location do so at their own risk. They acknowledge the risks of driving in the UAE and hereby waive ONNA of any liability regarding vehicle damage or transit-related incidents."},{label:"Health:",text:"Crew confirms they are fit for the physical requirements of this shoot, including working in high temperatures where applicable."},{label:"Safety Gear:",text:"High-vis vests and emergency kits are managed by Production. Activity-appropriate footwear, clothing, sun protection, and personal hydration is the responsibility of the individual."},{label:"Insurance:",text:"Crew are responsible for maintaining their own valid personal accident insurance and medical insurance. ONNA does not provide individual health or vehicle insurance cover."}],
   emergencyItems:[{label:"Nearest Hospital:",text:"To be confirmed based on shoot location. Production to identify closest facility and share with crew on the call sheet."},{label:"Police:",text:"999"},{label:"Ambulance:",text:"998"},{label:"Fire:",text:"997"},{label:"Production Lead (Emily):",text:"+971 585 608 616"},{label:"Muster Point:",text:"To be designated on-site by Production at the start of each shoot day and communicated at the safety briefing."},{label:"Weather Protocol:",text:"In the event of a sandstorm warning, extreme heat advisory, or site evacuation, all crew must leave equipment and report to the designated muster point for a head count by Production."},{label:"First Aid:",text:"First Aid Kit on-site at all times managed by Production. Contents checked before every shoot. Medic on standby for high-risk shoots."}],
 };
 
@@ -1843,7 +1843,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
   const doPrint = () => { const el=printRef.current; if(!el)return; const w=window.open("","_blank");
-    w.document.write('<html><head><title>ONNA Estimate</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:20px 30px;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page-break{page-break-before:always}}</style></head><body>');
+    w.document.write('<html><head><title>ONNA Estimate</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:40px 40px;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:0;size:A4;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:40px 40px;}.page-break{page-break-before:always}}</style></head><body>');
     w.document.write(el.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>w.print(),500); };
   const exportPDF = (all = false) => {
     if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
@@ -2204,7 +2204,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
           <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
           <div style={{padding:"8px 12px"}}>{(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
           {raSectionHdr("EMERGENCY RESPONSE PLAN")}
-          <div style={{padding:"8px 12px"}}>{(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          <div style={{padding:"8px 12px"}}>{(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/hospital/i.test(item.label)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
           <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:RA_FONT,fontSize:9,letterSpacing:RA_LS_HDR,color:"#000"}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
         </div>
       </div>
@@ -2556,6 +2556,27 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           }
           setLoading(false);setMood("idle");return;
         }
+      }
+      // ── "change email" / "edit name" / "go back to phone" — jump to that field ──
+      const changeM=input.trim().match(/^(?:change|edit|update|modify|go\s*back\s*to|redo)\s+(?:the\s+)?(?:my\s+)?(name|company|email|phone|role|title|website|category|location|rate\s*card|notes|value|status|source|date|contact\s*name|contact)\b/i);
+      if(changeM){
+        const rawField=changeM[1].toLowerCase().replace(/\s+/g,"");
+        const fieldMap={name:"name",company:"company",email:"email",phone:"phone",role:"role",title:"role",website:"website",category:"category",location:"location",ratecard:"rateCard",notes:"notes",value:"value",status:"status",source:"source",date:"date",contactname:"contact",contact:"contact"};
+        const fieldKey=fieldMap[rawField]||rawField;
+        const conv=pendingConv;
+        const qIdx=conv.questions.findIndex(q=>q.key===fieldKey);
+        if(qIdx>=0){
+          const e={...conv.entry};
+          e[fieldKey]=""; // clear so it gets re-asked
+          setMsgs(history);setInput("");
+          setPendingConv({...conv,entry:e,idx:qIdx,_awaitingNewCat:false});
+          setMsgs([...history,{role:"assistant",content:`Sure — ${conv.questions[qIdx].q} (or 'x' to skip)`}]);
+          return;
+        }
+        // Field not in Q&A questions — just update directly on card
+        setMsgs(history);setInput("");
+        setMsgs([...history,{role:"assistant",content:`You can edit ${changeM[1]} directly on the card. What else?`}]);
+        return;
       }
       setMsgs(history);setInput("");
       const isSkip=/^(x|skip|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
@@ -3952,19 +3973,35 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
                 ?<span style={{fontSize:11,color:"#007aff",fontWeight:600}}>Filling in via chat...</span>
                 :<button onClick={()=>_setVinnieAddContact({name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>+ Add Contact</button>}
             </div>
-            {(_cardEntry?._xContacts||[]).map((c,i)=>(
+            {(_cardEntry?._xContacts||[]).map((c,i)=>{
+              const _xUpdate=(field,val)=>{
+                const updated=(_cardEntry._xContacts||[]).map((x,j)=>j===i?{...x,[field]:val}:x);
+                if(_isXContactMode){
+                  // Update the in-progress contact in the xContact save target
+                  const xc=pendingConv._saveAsXContact;
+                  const real=updated.filter(x=>!x._inProgress);
+                  const ip=updated.find(x=>x._inProgress);
+                  if(ip){setPendingConv(prev=>({...prev,entry:{...prev.entry,[field]:val}}));}
+                  // No need to update xContacts in localStorage yet — done on save
+                }else if(pendingConv){
+                  setPendingConv(prev=>({...prev,entry:{...prev.entry,_xContacts:updated}}));
+                }else{
+                  setLeadEdit(p=>({...p,_xContacts:updated}));
+                }
+              };
+              return(
               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:c._inProgress?"#f0f7ff":"#f5f5f7",border:c._inProgress?"1.5px solid #007aff":"1px solid #e5e5ea",position:"relative"}}>
-                <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.name||"\u2014"}</div></div>
-                <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.role||"\u2014"}</div></div>
-                <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.email||"\u2014"}</div></div>
-                <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.phone||"\u2014"}</div></div>
+                {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
+                  <div key={k}><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
+                    <input value={c[k]||""} onChange={e=>_xUpdate(k,e.target.value)} style={{width:"100%",padding:"4px 7px",borderRadius:6,border:"1px solid #e5e5ea",fontSize:12,color:"#1d1d1f",fontFamily:"inherit",background:c._inProgress?"#f0f7ff":"#fff",outline:"none"}}/></div>
+                ))}
                 <button onClick={()=>{
                   const updated=(_cardEntry._xContacts||[]).filter((_,j)=>j!==i);
                   if(pendingConv){setPendingConv(prev=>({...prev,entry:{...prev.entry,_xContacts:updated}}));}
                   else{setLeadEdit(p=>({...p,_xContacts:updated}));}
                 }} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:"#86868b",cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
               </div>
-            ))}
+            );})}
             {_vinnieAddContact&&(
               <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
@@ -4282,7 +4319,7 @@ const printRiskAssessmentPDF = (ra) => {
   const sectionHdr=(title)=>`<div style="background:#000;color:#fff;font-size:10px;font-weight:700;${LS}text-align:center;padding:4px 0;text-transform:uppercase;margin-top:24px;margin-bottom:0">${title}</div>`;
   const conductHTML=(ra.conductItems||[]).map(item=>`<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px">•</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px">${e(item.text)}</span></div></div>`).join("");
   const waiverHTML=(ra.waiverItems||[]).map((item,i)=>`<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px;font-weight:700;min-width:14px">${i+1}.</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px">${e(item.text)}</span></div></div>`).join("");
-  const emergencyHTML=(ra.emergencyItems||[]).map(item=>`<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px">•</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px">${e(item.text)}</span></div></div>`).join("");
+  const emergencyHTML=(ra.emergencyItems||[]).map(item=>{const isHosp=/hospital/i.test(item.label);return `<div style="display:flex;align-items:baseline;margin-bottom:4px;gap:4px"><span style="font-size:10px">•</span><div style="flex:1"><strong style="font-size:10px;letter-spacing:0.5px">${e(item.label)}</strong> <span style="font-size:10px;letter-spacing:0.5px;${isHosp?'background:#FFFDE7;padding:1px 4px;border-radius:2px':''}">${e(item.text)}</span></div></div>`;}).join("");
   const body = `<div style="background:#fff;padding:40px 40px;font-family:${F};color:#1a1a1a;line-height:1.5;max-width:880px;margin:0 auto">
 ${logos}
 <div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div>
@@ -6543,7 +6580,7 @@ export default function OnnaDashboard() {
 
               {raSectionHdr("EMERGENCY RESPONSE PLAN")}
               <div style={{padding:"8px 12px"}}>
-                {(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+                {(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/hospital/i.test(item.label)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}))} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
                 <div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
               </div>
 
@@ -7172,9 +7209,9 @@ export default function OnnaDashboard() {
                         <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
                           {t.done&&<span style={{color:"#fff",fontSize:9,lineHeight:1,fontWeight:700}}>✓</span>}
                         </button>
-                        <div style={{flex:1,minWidth:0}}>
+                        <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTodo(t)}>
+                          {t._source==="project"&&<span style={{fontSize:10.5,fontWeight:600,color:T.muted,marginRight:5}}>{allProjectsMerged.find(p=>p.id===t.projectId)?.name||"Project"}</span>}
                           <span style={{fontSize:13,color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
-                          {t._source==="project"&&<div style={{fontSize:10.5,color:T.muted,marginTop:1}}>{allProjectsMerged.find(p=>p.id===t.projectId)?.name||"Project"}</div>}
                           {t._source==="general"&&t.subType&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
                         </div>
                         <div className="todo-del" style={{display:"flex",gap:3}}>
@@ -7183,13 +7220,13 @@ export default function OnnaDashboard() {
                         </div>
                       </div>
                     ))}
-                    {filteredTodos.length===0&&<div style={{padding:"20px 0",textAlign:"center",fontSize:13,color:T.muted}}>No tasks.</div>}
+                    {(()=>{const emptyCount=Math.max(0,5-filteredTodos.length);return emptyCount>0?Array.from({length:emptyCount}).map((_,i)=>(<div key={`empty-${i}`} style={{padding:"4px 6px",borderBottom:`1px solid ${T.borderSub}`}}><input placeholder="New task…" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){const text=e.target.value.trim();const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);}e.target.value="";}}} onBlur={e=>{if(e.target.value.trim()){const text=e.target.value.trim();const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);}e.target.value="";}}} style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"transparent",border:"none",color:T.text,fontSize:13,fontFamily:"inherit",outline:"none"}} /></div>)):null;})()}
                   </div>
-                  {/* Add input */}
-                  <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
+                  {/* Add input — shown when 5+ tasks */}
+                  {filteredTodos.length>=5&&<div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
                     <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"||todoFilter==="general-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
                     <button onClick={()=>{if(newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
-                  </div>
+                  </div>}
                 </div>
               </div>
 
@@ -8201,24 +8238,24 @@ export default function OnnaDashboard() {
             </div>
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Task</div>
-              <input value={selectedTodo.text} onChange={e=>{const u={...selectedTodo,text:e.target.value};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:14,fontFamily:"inherit"}}/>
+              <input value={selectedTodo.text} onChange={e=>{const u={...selectedTodo,text:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:14,fontFamily:"inherit"}}/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Type</div>
-                <Sel value={selectedTodo.type||"general"} onChange={v=>{const u={...selectedTodo,type:v};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} options={["general","project"]}/>
+                <Sel value={selectedTodo.type||"general"} onChange={v=>{const u={...selectedTodo,type:v};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={["general","project"]}/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Linked Project</div>
-                <Sel value={selectedTodo.project||""} onChange={v=>{const u={...selectedTodo,project:v};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} options={[{value:"",label:"None"},...allProjectsMerged.map(p=>({value:`${p.client} — ${p.name}`,label:`${p.client} — ${p.name}`}))]} minWidth={200}/>
+                <Sel value={selectedTodo.project||""} onChange={v=>{const u={...selectedTodo,project:v};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={[{value:"",label:"None"},...allProjectsMerged.map(p=>({value:`${p.client} — ${p.name}`,label:`${p.client} — ${p.name}`}))]} minWidth={200}/>
               </div>
             </div>
             <div style={{marginBottom:22}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Additional Notes</div>
-              <textarea value={selectedTodo.details||""} onChange={e=>{const u={...selectedTodo,details:e.target.value};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} rows={4} placeholder="Add notes, links, context…" style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
+              <textarea value={selectedTodo.details||""} onChange={e=>{const u={...selectedTodo,details:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} rows={4} placeholder="Add notes, links, context…" style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
             </div>
             <div style={{display:"flex",justifyContent:"space-between"}}>
-              <button onClick={()=>{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
+              <button onClick={()=>{if(selectedTodo._source==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));}else{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));}setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
               <BtnPrimary onClick={()=>setSelectedTodo(null)}>Done</BtnPrimary>
             </div>
           </div>
