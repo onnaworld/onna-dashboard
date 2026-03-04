@@ -442,6 +442,10 @@ ${csSnapshot}
 VENDOR DATABASE (name|category|email|phone):
 ${vendorSummary || "(empty)"}
 
+THE USER:
+- The user is Emily Lucas, Senior Producer at ONNA. Phone: +971 585 608 616, Email: emily@onnaproduction.com
+- If the user says "me", "I'm on set", "production on set is me", or similar, use Emily Lucas +971 585 608 616 as the value.
+
 INSTRUCTIONS:
 - When the user asks to ADD or UPDATE crew, schedule, venues, or any call sheet field, output a JSON patch inside a \`\`\`json code block.
 - For scalar fields: {"shootName":"...","date":"..."}
