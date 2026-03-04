@@ -2184,7 +2184,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
     return (
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
-        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Call Sheet — {csData.label||`Day ${csIdx+1}`}</div>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",gap:6}}>Call Sheet — <input value={csData.label||""} onChange={e=>csU("label",e.target.value)} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #e0e0e0",fontSize:10,fontWeight:600,fontFamily:"inherit",color:"#555",width:100,letterSpacing:1,textTransform:"uppercase",background:"transparent"}} placeholder={`Day ${csIdx+1}`} onFocus={e=>{e.target.style.borderColor="#c47090";e.target.style.background="#fff5f7";}} onBlur={e=>{e.target.style.borderColor="#e0e0e0";e.target.style.background="transparent";}}/></div>
         <div style={{padding:0,fontFamily:CS_FONT}}>
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
             <div style={{padding:"40px 40px 0"}}>
@@ -4818,6 +4818,41 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
+      // Generate signing link intent
+      if(/\b(sign|signing|signature|send\s+for\s+sign|generate\s+link|share\s+link|send\s+link|send\s+contract)\b/i.test(input)){
+        const _ctVersions = contractDocStore?.[project.id] || [];
+        const _vIdx = Math.min(vIdx, _ctVersions.length-1);
+        const _ver = _ctVersions[_vIdx];
+        if(!_ver){
+          setMsgs([...history,{role:"assistant",content:"No contract found to generate a signing link for."}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const _activeType = _ver.contractType || "commission_se";
+        const _ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===_activeType) || CONTRACT_DOC_TYPES[0];
+        const _resolvedTerms = (_ver.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[_activeType] || "";
+        const _fieldLabels = {}; const _resolvedFieldValues = {};
+        _ctContract.fields.forEach(f => { _fieldLabels[f.key] = f.label; _resolvedFieldValues[f.key] = (_ver.fieldValues||{})[f.key] || f.defaultValue || ""; });
+        const _snapshot = { fieldValues: _resolvedFieldValues, generalTermsEdits: { custom: _resolvedTerms }, sigNames: _ver.sigNames || {}, signatures: _ver.signatures || {}, prodLogo: _ver.prodLogo || null, contractType: _activeType, fieldLabels: _fieldLabels };
+        try{
+          const resp = await fetch("/api/sign", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ contractSnapshot: _snapshot, projectName: project.name, contractType: _activeType, label: _ver.label || _ctContract.label }) });
+          const data = await resp.json();
+          if(data.url){
+            setContractDocStore(prev=>{
+              const store=JSON.parse(JSON.stringify(prev));
+              const arr=store[project.id]||[];
+              if(arr[_vIdx]){arr[_vIdx].signingStatus="pending";arr[_vIdx].signingToken=data.token||null;}
+              store[project.id]=arr;return store;
+            });
+            setMsgs([...history,{role:"assistant",content:`Here's the signing link for **${_ver.label||"this contract"}**:\n\n🔗 **${data.url}**\n\nSend this to the other party to review and sign. I've marked the contract as **pending signature**.`}]);
+          }else{
+            setMsgs([...history,{role:"assistant",content:`Failed to generate signing link: ${data.error||"Unknown error"}`}]);
+          }
+        }catch(err){
+          setMsgs([...history,{role:"assistant",content:`Error generating link: ${err.message}`}]);
+        }
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       const ctVersions = contractDocStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
       vIdx = Math.min(vIdx, ctVersions.length-1);
       const ver = ctVersions[vIdx];
@@ -6608,16 +6643,26 @@ export default function OnnaDashboard() {
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
 
   const allProjectsMerged = localProjects.filter(p=>!archivedProjects.find(a=>a.id===p.id));
-  const getEstimateRevenue = (pid) => {
-    const ests = projectEstimates?.[pid];
-    if (!ests || ests.length === 0) return null;
-    const latest = ests[ests.length - 1];
-    const secs = latest.sections || defaultSections();
-    const { grandTotal } = estCalcTotals(secs);
-    return grandTotal;
-  };
-  const getProjRevenue = (p) => { const er = getEstimateRevenue(p.id); return er !== null ? er : p.revenue; };
-  const getProjCost = (p) => { const act = projectActuals[p.id]; if (act) { return actualsGrandZohoTotal(act); } return p.cost; };
+  const revenueCache = useMemo(()=>{
+    const cache={};
+    allProjectsMerged.forEach(p=>{
+      const ests=projectEstimates?.[p.id];
+      if(ests&&ests.length>0){const latest=ests[ests.length-1];const secs=latest.sections||defaultSections();cache[p.id]=estCalcTotals(secs).grandTotal;}
+      else cache[p.id]=null;
+    });
+    return cache;
+  },[allProjectsMerged,projectEstimates]);
+  const costCache = useMemo(()=>{
+    const cache={};
+    allProjectsMerged.forEach(p=>{
+      const act=projectActuals[p.id];
+      cache[p.id]=act?actualsGrandZohoTotal(act):null;
+    });
+    return cache;
+  },[allProjectsMerged,projectActuals]);
+  const getEstimateRevenue = (pid) => revenueCache[pid]??null;
+  const getProjRevenue = (p) => { const er = revenueCache[p.id]; return er !== null && er !== undefined ? er : p.revenue; };
+  const getProjCost = (p) => { const c = costCache[p.id]; return c !== null && c !== undefined ? c : p.cost; };
   const projects2026  = allProjectsMerged.filter(p=>p.year===2026);
   const rev2026       = projects2026.reduce((a,b)=>a+getProjRevenue(b),0);
   const profit2026    = projects2026.reduce((a,b)=>a+(getProjRevenue(b)-getProjCost(b)),0);
