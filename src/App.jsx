@@ -2518,37 +2518,85 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         if(searchName){
           setMsgs(history);setInput("");setLoading(true);setMood("thinking");
           const srcM=input.trim().match(/\b(outlook|whatsapp)\b/i);
-          const result=await searchViaExt(searchName,srcM?srcM[1].toLowerCase():undefined);
-          if(result.ok&&result.lead){
-            const l=_stripOwn(result.lead);
-            // Filter out Outlook UI artifacts and own-domain emails
-            const _junk=/^(unread|inbox|focused|drafts?|sent|junk|archive|deleted|starred|flagged|all mail|spam|trash|important|none|null|undefined|n\/a)$/i;
-            const _clean=(v)=>v&&typeof v==="string"&&v.trim()&&!_junk.test(v.trim())&&!/onna/i.test(v.trim())?v.trim():"";
-            lastSearchRef.current={...l,_type:conv.type,_query:searchName,_ts:Date.now()};
+          const source=srcM?srcM[1].toLowerCase():undefined;
+          // Search by name, then also by company if available — combine results
+          const searchTerms=[searchName];
+          if(conv.entry?.company&&conv.entry.company.toLowerCase()!==searchName.toLowerCase())searchTerms.push(conv.entry.company);
+          const _junk=/^(unread|inbox|focused|drafts?|sent|junk|archive|deleted|starred|flagged|all mail|spam|trash|important|none|null|undefined|n\/a)$/i;
+          const _clean=(v)=>v&&typeof v==="string"&&v.trim()&&!_junk.test(v.trim())&&!/onna/i.test(v.trim())?v.trim():"";
+          let combinedLead={};let allFoundEmails=[];
+          for(const term of searchTerms){
+            const result=await searchViaExt(term,source);
+            if(result.ok&&result.lead){
+              const l=_stripOwn(result.lead);
+              if(!combinedLead.email)combinedLead={...l};
+              if(l.email&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(l.email)&&!/onna/i.test(l.email))allFoundEmails.push(l.email);
+              if(l._allEmails)l._allEmails.filter(em=>!/onna/i.test(em)&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(em)).forEach(em=>allFoundEmails.push(em));
+            }
+          }
+          if(combinedLead.email||combinedLead.phone){
+            lastSearchRef.current={...combinedLead,_type:conv.type,_query:searchName,_ts:Date.now()};
             const e={...conv.entry};
             const filled=[];
+            // Fill non-email fields directly (phone, company, website, role)
             const fillKeys=conv.type==="vendor"
-              ?[["email","email"],["phone","phone"],["company","company"],["website","website"],["notes","role"]]
-              :[["email","email"],["phone","phone"],["company","company"],["role","role"]];
+              ?[["phone","phone"],["company","company"],["website","website"],["notes","role"]]
+              :[["phone","phone"],["company","company"],["role","role"]];
             for(const [eKey,lKey] of fillKeys){
-              const cleaned=eKey==="email"?(_clean(l[lKey])&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(_clean(l[lKey]))?_clean(l[lKey]):""):eKey==="phone"?(_clean(l[lKey])&&/\d{4,}/.test(_clean(l[lKey]))?_clean(l[lKey]):""):_clean(l[lKey]);
+              const cleaned=eKey==="phone"?(_clean(combinedLead[lKey])&&/\d{4,}/.test(_clean(combinedLead[lKey]))?_clean(combinedLead[lKey]):""):_clean(combinedLead[lKey]);
               if(!e[eKey]&&cleaned){e[eKey]=_formatVal(eKey,cleaned);filled.push(eKey);}
             }
-            // Skip questions that are now filled
-            let newIdx=conv.idx;
-            const qs=conv.questions;
-            while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
-            const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:`Searched for ${searchName} but couldn't extract usable contact info. Try opening their email in Outlook first.`;
-            if(newIdx>=qs.length){
-              setPendingConv(null);
-              showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
-              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+            // For email: show all found options for user to choose
+            const uniqueEmails=[...new Set(allFoundEmails)];
+            // Score emails by relevance
+            const firstName=(searchName.split(" ")[0]||"").toLowerCase();
+            const lastName=(searchName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
+            const compClean=(e.company||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+            const _scoreEmail=(em)=>{
+              let s=0;const local=em.split("@")[0].toLowerCase();const dom=em.split("@")[1]||"";
+              if(firstName&&local.includes(firstName))s+=10;
+              if(lastName&&local.includes(lastName))s+=8;
+              if(compClean&&dom.replace(/[^a-z0-9]/g,"").includes(compClean))s+=5;
+              if(/^(info|hello|contact|admin|office|sales|support|team|enquiries|bookings|studio)@/i.test(em))s-=4;
+              return s;
+            };
+            uniqueEmails.sort((a,b)=>_scoreEmail(b)-_scoreEmail(a));
+            if(!e.email&&uniqueEmails.length>1){
+              // Multiple emails — show options, don't auto-fill
+              filled.push("email (options below)");
+              const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:"";
+              const optList=uniqueEmails.map((o,i)=>`${i+1}. ${o}`).join("\n");
+              // Find the email question index
+              const emailQIdx=conv.questions.findIndex(q=>q.key==="email");
+              const targetIdx=emailQIdx>=0?emailQIdx:conv.idx;
+              setPendingConv({...conv,entry:e,idx:targetIdx,_emailOptions:uniqueEmails});
+              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nFound multiple possible emails for ${searchName}:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
+            }else if(!e.email&&uniqueEmails.length===1&&_scoreEmail(uniqueEmails[0])>=15){
+              // Single high-confidence email — auto-fill
+              e.email=_formatVal("email",uniqueEmails[0]);filled.push("email");
+              let newIdx=conv.idx;const qs=conv.questions;
+              while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
+              const filledMsg=`Found! Filled in: ${filled.join(", ")}.`;
+              if(newIdx>=qs.length){setPendingConv(null);showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}
+              else{setPendingConv({...conv,entry:e,idx:newIdx});setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);}
+            }else if(!e.email&&uniqueEmails.length===1){
+              // Single low-confidence email — show as option
+              const optList=`1. ${uniqueEmails[0]}`;
+              const emailQIdx=conv.questions.findIndex(q=>q.key==="email");
+              const targetIdx=emailQIdx>=0?emailQIdx:conv.idx;
+              const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:"";
+              setPendingConv({...conv,entry:e,idx:targetIdx,_emailOptions:uniqueEmails});
+              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nFound a possible email for ${searchName}:\n\n${optList}\n\nReply 1 to use it, type the correct email, or 'x' to skip.`}]);
             }else{
-              setPendingConv({...conv,entry:e,idx:newIdx});
-              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);
+              // Email already filled or no emails found — fill other fields and continue
+              const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:`Searched for ${searchName} but couldn't extract usable contact info.`;
+              let newIdx=conv.idx;const qs=conv.questions;
+              while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
+              if(newIdx>=qs.length){setPendingConv(null);showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}
+              else{setPendingConv({...conv,entry:e,idx:newIdx});setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);}
             }
           }else{
-            setMsgs([...history,{role:"assistant",content:`Couldn't find "${searchName}" — ${result.error||"no results"}. Let's continue.\n\n${conv.questions[conv.idx].q} (or 'x' to skip)`}]);
+            setMsgs([...history,{role:"assistant",content:`Couldn't find "${searchName}" — no results. Let's continue.\n\n${conv.questions[conv.idx].q} (or 'x' to skip)`}]);
           }
           setLoading(false);setMood("idle");return;
         }
@@ -2926,53 +2974,74 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const searchQuery=e.contact||e.name||"";
         if(nextQ.key==="email"&&searchQuery&&agent.id==="logistical"){
           setLoading(true);setMood("thinking");
+          // Search by name first, then also by company if available — combine results
+          const searchTerms=[searchQuery];
+          if(e.company&&e.company.toLowerCase()!==searchQuery.toLowerCase())searchTerms.push(e.company);
           setMsgs([...history,{role:"assistant",content:`Searching Outlook for ${searchQuery}'s email…`}]);
-          const sr=await searchViaExt(searchQuery);
+          let allFoundEmails=[];let allDoms=[];let bestLead={};let bestPhone="";
+          for(const term of searchTerms){
+            const sr=await searchViaExt(term);
+            if(sr.ok&&sr.lead){
+              const sl=_stripOwn(sr.lead);
+              if(sl.email&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(sl.email)&&!/onna/i.test(sl.email))allFoundEmails.push(sl.email);
+              if(sl._allEmails)(sl._allEmails).filter(em=>!/onna/i.test(em)&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(em)).forEach(em=>allFoundEmails.push(em));
+              if(sl._domains)(sl._domains).filter(d=>!/onna/i.test(d)).forEach(d=>allDoms.push(d));
+              if(!bestPhone&&sl.phone&&/\d{4,}/.test(sl.phone)&&!/onna/i.test(sl.phone))bestPhone=sl.phone;
+              if(!bestLead.email)bestLead=sl;
+            }
+          }
           setLoading(false);setMood("idle");
-          const sl=sr.ok?_stripOwn(sr.lead||{}):{};
-          // Collect real emails from search (filter onna + junk)
-          const realEmail=sl.email&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(sl.email)&&!/onna/i.test(sl.email)?sl.email:"";
-          const allEm=(sl._allEmails||[]).filter(em=>!/onna/i.test(em)&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(em));
-          const doms=(sl._domains||[]).filter(d=>!/onna/i.test(d));
-          if(sl)lastSearchRef.current={...sl,_type:conv.type,_query:searchQuery,_ts:Date.now()};
-          // If we found a direct email, fill it in and skip
-          if(realEmail){
-            e.email=_formatVal("email",realEmail);
-            // Also fill phone if available
-            if(!e.phone&&sl.phone&&/\d{4,}/.test(sl.phone)&&!/onna/i.test(sl.phone))e.phone=_formatVal("phone",sl.phone);
+          if(bestLead)lastSearchRef.current={...bestLead,_type:conv.type,_query:searchQuery,_ts:Date.now()};
+          // Also fill phone if available
+          if(!e.phone&&bestPhone)e.phone=_formatVal("phone",bestPhone);
+          // Score emails by relevance to the contact name + company
+          const contactName=searchQuery;
+          const firstName=(contactName.split(" ")[0]||"").toLowerCase();
+          const lastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
+          const compClean=(e.company||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+          // Generate likely patterns from company domain
+          const matchDom=allDoms.filter(d=>compClean&&(d.replace(/[^a-z0-9]/g,"").includes(compClean)||compClean.includes(d.split(".")[0].replace(/[^a-z0-9]/g,""))));
+          const domain=matchDom[0]||allFoundEmails.map(em=>em.split("@")[1]).find(d=>d&&compClean&&d.replace(/[^a-z0-9]/g,"").includes(compClean))||(compClean?compClean+".com":"");
+          const suggestions=[...allFoundEmails];
+          if(domain&&firstName){
+            const patterns=[firstName+"@"+domain];
+            if(lastName){patterns.push(firstName+"."+lastName+"@"+domain,firstName[0]+"."+lastName+"@"+domain,firstName[0]+lastName+"@"+domain);}
+            patterns.forEach(p=>{if(!suggestions.includes(p))suggestions.push(p);});
+          }
+          // Deduplicate
+          const unique=[...new Set(suggestions)];
+          // Score each email: higher = more likely to belong to this contact
+          const _scoreEmail=(em)=>{
+            let s=0;const local=em.split("@")[0].toLowerCase();const dom=em.split("@")[1]||"";
+            if(firstName&&local.includes(firstName))s+=10;
+            if(lastName&&local.includes(lastName))s+=8;
+            if(compClean&&dom.replace(/[^a-z0-9]/g,"").includes(compClean))s+=5;
+            if(compClean&&local.includes(compClean))s-=3; // company-wide email like info@, less likely personal
+            if(/^(info|hello|contact|admin|office|sales|support|team|enquiries|bookings|studio)@/i.test(em))s-=4;
+            return s;
+          };
+          unique.sort((a,b)=>_scoreEmail(b)-_scoreEmail(a));
+          if(unique.length===1&&_scoreEmail(unique[0])>=15){
+            // High-confidence single match — auto-fill but still show it
+            e.email=_formatVal("email",unique[0]);
             let skipIdx=next+1;
             while(skipIdx<conv.questions.length&&e[conv.questions[skipIdx].key])skipIdx++;
             if(skipIdx>=conv.questions.length){
               setPendingConv(null);
               showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
-              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${realEmail}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${unique[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
             }else{
               setPendingConv({...conv,entry:e,idx:skipIdx});
-              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${realEmail}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
+              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${unique[0]}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
             }
+          }else if(unique.length>0){
+            // Multiple options or low confidence — let user choose
+            setPendingConv({...conv,entry:e,idx:next,_emailOptions:unique});
+            const optList=unique.map((o,i)=>`${i+1}. ${o}`).join("\n");
+            setMsgs([...history,{role:"assistant",content:`Found possible emails for ${searchQuery}:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
           }else{
-            // No direct email found — suggest patterns from company domain
-            const contactName=searchQuery;
-            const firstName=(contactName.split(" ")[0]||"").toLowerCase();
-            const lastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
-            const compClean=(e.company||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-            const matchDom=doms.filter(d=>compClean&&(d.replace(/[^a-z0-9]/g,"").includes(compClean)||compClean.includes(d.split(".")[0].replace(/[^a-z0-9]/g,""))));
-            const domain=matchDom[0]||allEm.map(em=>em.split("@")[1]).find(d=>d&&compClean&&d.replace(/[^a-z0-9]/g,"").includes(compClean))||(compClean?compClean+".com":"");
-            const suggestions=[...allEm];
-            if(domain&&firstName){
-              const patterns=[firstName+"@"+domain];
-              if(lastName){patterns.push(firstName+"."+lastName+"@"+domain,firstName[0]+"."+lastName+"@"+domain,firstName[0]+lastName+"@"+domain,lastName+"@"+domain);}
-              patterns.forEach(p=>{if(!suggestions.includes(p))suggestions.push(p);});
-            }
-            const unique=[...new Set(suggestions)];
-            if(unique.length){
-              setPendingConv({...conv,entry:e,idx:next,_emailOptions:unique});
-              const optList=unique.map((o,i)=>`${i+1}. ${o}`).join("\n");
-              setMsgs([...history,{role:"assistant",content:`Couldn't find an exact email for ${searchQuery}. Here are possibilities:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
-            }else{
-              setPendingConv({...conv,entry:e,idx:next});
-              setMsgs([...history,{role:"assistant",content:`Couldn't find ${searchQuery}'s email in Outlook.\n\n${nextQ.q} (or 'x' to skip)`}]);
-            }
+            setPendingConv({...conv,entry:e,idx:next});
+            setMsgs([...history,{role:"assistant",content:`Couldn't find ${searchQuery}'s email in Outlook.\n\n${nextQ.q} (or 'x' to skip)`}]);
           }
         }else{
           setPendingConv({...conv,entry:e,idx:next});
@@ -5035,7 +5104,7 @@ export default function OnnaDashboard() {
             clone2.querySelectorAll("button").forEach(b=>b.remove());
             clone2.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
             clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
-            clone2.style.cssText="background:#fff;border-radius:0;box-shadow:none;";
+            clone2.style.borderRadius="0";clone2.style.boxShadow="none";
             const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
             const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
             idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
