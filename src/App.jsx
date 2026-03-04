@@ -22,7 +22,7 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
   const commit = () => { setEditing(false); onChange(temp); };
   const showYellow = isPlaceholder;
   const autoSize = useCallback((el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, []);
-  if (editing) return <textarea ref={el=>autoSize(el)} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();}}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"block"}} placeholder={placeholder}/>;
+  if (editing) return <textarea ref={el=>autoSize(el)} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();}}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"auto",minWidth:style.minWidth||60,maxWidth:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"inline-block",verticalAlign:"middle"}} placeholder={placeholder}/>;
   return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"pre-wrap",wordBreak:"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
 };
 
@@ -82,7 +82,7 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
     const onUp = () => { dragRef.current.dragging=false; window.removeEventListener("mousemove",onMove); window.removeEventListener("mouseup",onUp); };
     window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
   }, [height]);
-  return <div>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{width:"100%",height,objectFit:"cover",borderRadius:4,display:"block"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:"100%",height,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  return <div>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{width:"100%",height,objectFit:"cover",borderRadius:4,display:"block"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} onDrop={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="#ddd";const f=e.dataTransfer.files[0];if(f&&f.type.startsWith("image/")){const r=new FileReader();r.onload=ev=>onUpload(ev.target.result);r.readAsDataURL(f);}}} onDragOver={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="#666";}} onDragLeave={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ddd";}} style={{width:"100%",height,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload or drop {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSXbtn = ({ onClick, size = 16 }) => <button onClick={onClick} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:size,padding:"0 3px",lineHeight:1,transition:"color 0.15s"}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>×</button>;
@@ -409,7 +409,7 @@ const actualsGrandZohoTotal = (sections) => sections.reduce((s, sec) => s + actu
 
 const CALLSHEET_INIT = {
   shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"ALL CREW MUST BRING VALID PASSPORT/ID TO SET",
-  productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,weatherImage:null,weatherHigh:"",weatherLow:"",weatherRealFeelHigh:"",weatherRealFeelLow:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",
+  productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,mapLink:"",weatherImage:null,weatherHigh:"",weatherLow:"",weatherRealFeelHigh:"",weatherRealFeelLow:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",
   venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""}],
   schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],
   departments:[
@@ -479,7 +479,7 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
   const ver = { ...versions[versionIdx] };
 
   // Merge scalar fields
-  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherHigh","weatherLow","weatherRealFeelHigh","weatherRealFeelLow","weatherSunrise","weatherSunset","weatherBlueHour"];
+  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherHigh","weatherLow","weatherRealFeelHigh","weatherRealFeelLow","weatherSunrise","weatherSunset","weatherBlueHour","mapLink"];
   scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
 
   // Merge emergency object
@@ -626,6 +626,85 @@ function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProj
   return versionIdx;
 }
 
+// ─── FINN HELPERS ─────────────────────────────────────────────────────────
+function buildFinnSystem(project, actualsSnapshot, estimateTotals) {
+  return `You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live budget tracker (actuals) database.
+
+CRITICAL: You ALREADY HAVE the full actuals data below. NEVER ask the user to paste, share, or provide data — you can see everything. Just act on their request immediately.
+
+You are viewing: "${project.name}"
+
+CURRENT ACTUALS STATE:
+${actualsSnapshot}
+
+${estimateTotals ? `ESTIMATE TOTALS (for variance comparison):\n${estimateTotals}\n` : ""}
+
+INSTRUCTIONS:
+- When the user asks to UPDATE a row field, output a JSON patch inside a \`\`\`json code block:
+  {"updateRow": {"secIdx": 0, "rowIdx": 0, "field": "zohoAmount", "value": "5000"}}
+  Valid fields: zohoAmount, actualsAmount, status
+- To ADD an expense to a row:
+  {"addExpense": {"secIdx": 0, "rowIdx": 0, "vendor": "Vendor Name", "amount": "5000", "date": "2025-01-15", "note": "Description"}}
+- To DELETE an expense from a row:
+  {"deleteExpense": {"secIdx": 0, "rowIdx": 0, "expenseIdx": 0}}
+- To UPDATE a row's status:
+  {"updateStatus": {"secIdx": 0, "rowIdx": 0, "status": "Paid"}}
+  Valid statuses: "", "Pending", "Invoiced", "Paid", "On Hold"
+- Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
+- Row references like "1A" map to section index and row index. Section "1" = secIdx 0, Row "A" = rowIdx 0, "B" = rowIdx 1, etc.
+- Always show dual currency: AED and USD (fixed rate: 1 AED = 0.27 USD).
+- Be warm, concise and professional.
+- NEVER say you don't have access to data. You have FULL access.
+
+RESPONSE STYLE:
+- Use bullet points for lists and summaries
+- Keep responses short and scannable — no walls of text
+- Lead with the action taken or answer, then details
+- Use bold (text) for key names, fields, and labels
+- Tone: warm, confident, professional — never robotic
+- When confirming changes, summarise what was updated in a quick bullet list`;
+}
+
+function applyFinnPatch(patch, projectId, projectActuals, setProjectActuals) {
+  const sections = JSON.parse(JSON.stringify(projectActuals[projectId] || []));
+  if (!sections.length) return;
+
+  if (patch.updateRow) {
+    const { secIdx, rowIdx, field, value } = patch.updateRow;
+    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
+      sections[secIdx].rows[rowIdx][field] = value;
+    }
+  }
+
+  if (patch.addExpense) {
+    const { secIdx, rowIdx, vendor, amount, date, note } = patch.addExpense;
+    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
+      const row = sections[secIdx].rows[rowIdx];
+      if (!row.expenses) row.expenses = [];
+      row.expenses.push({ vendor: vendor || "", amount: amount || "0", date: date || "", note: note || "" });
+    }
+  }
+
+  if (patch.deleteExpense) {
+    const { secIdx, rowIdx, expenseIdx } = patch.deleteExpense;
+    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
+      const exps = sections[secIdx].rows[rowIdx].expenses || [];
+      if (expenseIdx >= 0 && expenseIdx < exps.length) {
+        exps.splice(expenseIdx, 1);
+      }
+    }
+  }
+
+  if (patch.updateStatus) {
+    const { secIdx, rowIdx, status } = patch.updateStatus;
+    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
+      sections[secIdx].rows[rowIdx].status = status;
+    }
+  }
+
+  setProjectActuals(prev => ({ ...prev, [projectId]: sections }));
+}
+
 // ─── Generic doc updater factory ──────────────────────────────────────────────
 function makeDocUpdater(projectId, vIdx, setStore, initTemplate, initLabel) {
   const getArr = (store) => store[projectId] || [{id:Date.now(),label:initLabel,...JSON.parse(JSON.stringify(initTemplate))}];
@@ -702,7 +781,7 @@ ${raSnapshot}
 
 INSTRUCTIONS:
 - When the user asks to ADD or UPDATE risks, sections, header fields, conduct items, waiver items, or emergency items, output a JSON patch inside a \`\`\`json code block.
-- For scalar fields: {"shootName":"...","shootDate":"...","locations":"...","crewOnSet":"...","timing":"..."}
+- For scalar fields: {"label":"...","shootName":"...","shootDate":"...","locations":"...","crewOnSet":"...","timing":"..."} — use "label" to rename/retitle the risk assessment version
 - For conductIntro/waiverIntro: {"conductIntro":"...","waiverIntro":"..."}
 - For sections (merge by title, case-insensitive):
   - ADD rows: {"sections":[{"title":"SECTION TITLE","rows":[["Hazard","Level","Who","Mitigation"]]}]} — rows are APPENDED.
@@ -733,7 +812,7 @@ function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRisk
   const ver = { ...versions[versionIdx] };
 
   // Merge scalar fields
-  const scalars = ["shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
+  const scalars = ["label","shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
   scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
 
   // Replace array fields wholesale
@@ -773,7 +852,7 @@ function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRisk
 
 function buildPatchMarkers(patch, preSections) {
   const markers = new Set();
-  const scalars = ["shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
+  const scalars = ["label","shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
   scalars.forEach(k => { if (patch[k] !== undefined) markers.add("scalar:"+k); });
   ["conductItems","waiverItems","emergencyItems"].forEach(k => { if (patch[k]) markers.add("array:"+k); });
   if (patch.sections && Array.isArray(patch.sections)) {
@@ -1641,7 +1720,7 @@ const initOutreach = []; // populated from DB on load
 const savedCallSheets = {};
 const savedRiskAssessments = {};
 
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8";
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
@@ -1796,6 +1875,31 @@ function _Cody({mood="idle",bob=0}){
     <circle cx="15" cy="20" r="2" fill="#1a1a1a"/>
   </svg>;
 }
+function _Finn({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_TEAL}/>
+    <_Cheeks color="rgba(60,160,160,0.20)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Receipt/clipboard accessory */}
+    <rect x="70" y="5" width="22" height="28" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2.1"/>
+    <rect x="77" y="3" width="8" height="5" rx="2.5" fill="#1a1a1a"/>
+    <line x1="74" y1="13" x2="88" y2="13" stroke={_TEAL} strokeWidth="2"/>
+    <line x1="74" y1="17" x2="88" y2="17" stroke="#aaa" strokeWidth="1.3"/>
+    <line x1="74" y1="21" x2="84" y2="21" stroke="#aaa" strokeWidth="1.3"/>
+    <line x1="74" y1="25" x2="88" y2="25" stroke="#aaa" strokeWidth="1.3"/>
+    <text x="86" y="26" fontSize="5" fill="#5aA8A8" fontWeight="700" fontFamily="monospace">$</text>
+    <path d="M 73 46 Q 77 32 78 15" stroke={_TEAL} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 73 46 Q 77 32 78 15" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Coin accessory */}
+    <ellipse cx="19" cy="32" rx="7" ry="3" fill="#F5D13A" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <ellipse cx="19" cy="29" rx="7" ry="3" fill="#ffe066" stroke="#1a1a1a" strokeWidth="1.5"/>
+    {thinking&&<ellipse cx="17" cy="22" rx="4" ry="6" fill="rgba(100,200,200,0.55)"/>}
+  </svg>;
+}
 const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
    system:`You are Vendor Vinnie, a contact assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database. When you collect contact details, a save modal appears in the dashboard UI and the user saves the record straight to the database. Everything is real and connected.
@@ -1851,6 +1955,10 @@ You can fill in contract fields, switch between contract types, review what's mi
 NEVER say you cannot save data or need external tools. You have FULL access. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add contract details...",
    intro:"I'm Contract Cody. I'm connected to your live contracts — tell me to fill in fields, switch contract types, review what's missing, or export to PDF. 📝"},
+  {id:"finn",name:"Finance Finn",title:"Expenses",emoji:"🧾",color:_TEAL,border:"#5aA8A8",accent:"#1a6060",bg:"#f0fafa",textColor:"#0a3030",tagBg:"#c8eee8",Blob:_Finn,
+   system:`You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You help track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Track an expense...",
+   intro:"Hey! I'm Finance Finn 🧾 I'm connected to your live budget tracker — I can log expenses, update Zoho amounts, flag overruns, and help you keep actuals vs estimates in check. Which project should I work on?"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -2293,14 +2401,20 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <CSAddBtn onClick={addDept} label="Add Department"/>
             </div>
             {/* MAP */}
-            <div style={{padding:"14px 32px 10px"}}><div style={csSecTitle}>MAP</div><CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
+            <div style={{padding:"14px 32px 10px"}}><div style={csSecTitle}>MAP</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
+                <span style={{fontSize:14}}>🔗</span>
+                <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
+                {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
+              </div>
+              <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px"}}><div style={csSecTitle}>WEATHER</div>
-              <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:10,fontSize:10,fontFamily:CS_FONT}}>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHigh||""} onChange={v=>csU("weatherHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLow||""} onChange={v=>csU("weatherLow",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHigh||""} onChange={v=>csU("weatherRealFeelHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLow||""} onChange={v=>csU("weatherRealFeelLow",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,fontSize:10,fontFamily:CS_FONT}}>
+                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHigh||""} onChange={v=>csU("weatherHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
+                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLow||""} onChange={v=>csU("weatherLow",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
+                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHigh||""} onChange={v=>csU("weatherRealFeelHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
+                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLow||""} onChange={v=>csU("weatherRealFeelLow",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
@@ -2345,7 +2459,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     return (
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span>Risk Assessment — {raData.label||`Version ${raIdx+1}`}</span>
+          <span style={{display:"inline-flex",alignItems:"center",gap:4,...(hasMarker("scalar:label")?{background:"#e8f5e9",borderRadius:3,padding:"1px 4px"}:{})}}>Risk Assessment — <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} placeholder={`Version ${raIdx+1}`} style={{border:"none",borderBottom:"1px solid transparent",background:"transparent",fontSize:10,fontWeight:600,color:"#555",letterSpacing:1,textTransform:"uppercase",fontFamily:"inherit",padding:"0 2px",width:Math.max(80,(raData.label||`Version ${raIdx+1}`).length*7+10),outline:"none",transition:"border-color 0.2s"}} onFocus={e=>{e.target.style.borderBottomColor="#1a4a80";}} onBlur={e=>{e.target.style.borderBottomColor="transparent";}}/>{hasMarker("scalar:label")&&<><button onClick={()=>acceptMarker("scalar:label")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:label")} style={reviewBtnStyle("decline")}>✕</button></>}</span>
           {pr&&pr.markers.length>0&&(
             <div style={{display:"flex",gap:4}}>
               <button onClick={acceptAll} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button>
@@ -2490,7 +2604,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile,pushUndo}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,projectActuals,setProjectActuals,onFullWidthChange,isMobile,pushUndo}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -2522,12 +2636,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const codyPendingRef=useRef(null); // null | {projectId, step:"pick_existing_or_new"} | {projectId, step:"pick_type"} | {projectId, step:"pick_name", typeId}
   const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const [finnCtx,setFinnCtx]=useState(()=>{try{const s=localStorage.getItem('onna_finn_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx);
-  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : null;
+  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx);
+  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="finn"?finnCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);
   },[active, isMobile]);
@@ -2548,6 +2663,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="finn"){try{if(finnCtx)localStorage.setItem('onna_finn_ctx',JSON.stringify(finnCtx));else localStorage.removeItem('onna_finn_ctx');}catch{}}},[finnCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
@@ -4420,6 +4536,110 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setLoading(false);return;
     }
 
+    // ── Finn: live actuals/expense handler ───────────────────────────────────────────────────────────────────────────
+    if(agent.id==="finn"&&projectActuals&&setProjectActuals){
+
+      if(!finnCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const project = fuzzyMatchProject(localProjects,input);
+        if(!project){
+          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's expenses should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        setFinnCtx({projectId:project.id});
+        setMsgs([...history,{role:"assistant",content:`Got it — I'm now tracking expenses for **${project.name}**. I can see all your actuals data. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      const lower=input.toLowerCase();
+      if(/\b(switch|change|different|new)\s+(project|budget)\b/i.test(input)){
+        setFinnCtx(null);
+        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's expenses should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+      const switchProject=fuzzyMatchProject(localProjects,input,finnCtx.projectId);
+      if(switchProject){
+        setFinnCtx({projectId:switchProject.id});
+        setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}**. I can see all the actuals data. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      const {projectId}=finnCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setFinnCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      const actSections = projectActuals[projectId] || [];
+      let snap = `Project: ${project.name}\nSections:\n`;
+      actSections.forEach((sec, si) => {
+        const secExpTotal = actualsSectionExpenseTotal(sec);
+        const secZoho = actualsSectionZohoTotal(sec);
+        if (secExpTotal > 0 || secZoho > 0 || sec.rows.some(r => (r.expenses||[]).length > 0 || estNum(r.zohoAmount) > 0)) {
+          snap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — Expenses: AED ${estFmt(secExpTotal)} | Zoho: AED ${estFmt(secZoho)}\n`;
+          sec.rows.forEach((r, ri) => {
+            const rExp = actualsRowExpenseTotal(r);
+            snap += `    [secIdx:${si},rowIdx:${ri}] ${r.ref||""}: ${r.desc||"(empty)"} | zohoAmount:${r.zohoAmount||"0"} | status:${r.status||"(none)"} | expenses(${(r.expenses||[]).length}): AED ${estFmt(rExp)}\n`;
+            (r.expenses||[]).forEach((e, ei) => {
+              snap += `      [expenseIdx:${ei}] vendor:${e.vendor||""} amount:${e.amount||"0"} date:${e.date||""} note:${e.note||""}\n`;
+            });
+          });
+        } else {
+          snap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — (no expenses yet)\n`;
+        }
+      });
+      const grandExp = actualsGrandExpenseTotal(actSections);
+      const grandZoho = actualsGrandZohoTotal(actSections);
+      snap += `Grand Total Expenses: AED ${estFmt(grandExp)} | Grand Total Zoho: AED ${estFmt(grandZoho)}\n`;
+
+      let estTotals = "";
+      if (projectEstimates) {
+        const estVersions = projectEstimates[projectId] || [];
+        if (estVersions.length > 0) {
+          const latestEst = estVersions[estVersions.length - 1];
+          const estSections = latestEst.sections || [];
+          const { subtotal, feesTotal, grandTotal: estGT } = estCalcTotals(estSections);
+          estTotals = `Estimate Grand Total: AED ${estFmt(estGT)} | Subtotal: AED ${estFmt(subtotal)} | Fees: AED ${estFmt(feesTotal)}\nVariance (Estimate - Actuals): AED ${estFmt(estGT - grandExp)}`;
+        }
+      }
+
+      const finnSystem = buildFinnSystem(project, snap, estTotals);
+
+      try{
+        const finnIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            if(mi===0) return{role:m.role,content:finnIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:finnSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            applyFinnPatch(patch, projectId, projectActuals, setProjectActuals);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Budget tracker updated."}]);
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
     // ── Ronnie: live risk assessment handler ─────────────────────────────────────────────────────────────────────────
     if(agent.id==="researcher"&&riskAssessmentStore&&setRiskAssessmentStore){
 
@@ -4715,7 +4935,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const vLabel = ver.label || `Version ${vIdx+1}`;
 
       // Build risk assessment snapshot
-      let snap = `Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
+      let snap = `Label: ${ver.label||"(empty)"} | Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
       if(ver.sections?.length) snap += "Risk Sections:\n" + ver.sections.map((s,si)=>`  ${si+1}. ${s.title}:\n` + s.rows.map((r,ri)=>`    [row ${ri}] ${r[0]||"?"} | Level: ${r[1]||"?"} | At Risk: ${r[2]||"?"} | Mitigation: ${r[3]||"(empty)"}`).join("\n")).join("\n") + "\n";
       if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map(c=>`  \u2022 ${c.label} ${c.text}`).join("\n") + "\n";
       if(ver.waiverItems?.length) snap += "Liability Waiver:\n" + ver.waiverItems.map(w=>`  ${w.label} ${w.text}`).join("\n") + "\n";
@@ -5564,9 +5784,10 @@ const printCallSheetPDF = (cs) => {
     return `<tr><td colspan="5" style="padding:0"><div style="background:#1a1a1a;padding:3px 8px;font-size:9px;font-weight:800;${LS}color:#fff">${e(dept.name)}</div></td></tr>${crewRows}`;
   }).join("");
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
-  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div><img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
+  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
   const weatherFields = `<div style="padding:10px 32px 4px"><div style="${secTitle}">WEATHER</div>
-  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:10px">${cs.weatherHigh?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHigh)}</div>`:""}${cs.weatherLow?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLow)}</div>`:""}${cs.weatherRealFeelHigh?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHigh)}</div>`:""}${cs.weatherRealFeelLow?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLow)}</div>`:""}</div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:10px">${cs.weatherHigh?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHigh)} °C / °F</div>`:""}${cs.weatherLow?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLow)} °C / °F</div>`:""}${cs.weatherRealFeelHigh?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHigh)} °C / °F</div>`:""}${cs.weatherRealFeelLow?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLow)} °C / °F</div>`:""}</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:10px">${cs.weatherSunrise?`<div><strong style="font-size:9px;${LS}color:#888">SUNRISE: </strong>${e(cs.weatherSunrise)}</div>`:""}${cs.weatherSunset?`<div><strong style="font-size:9px;${LS}color:#888">SUNSET: </strong>${e(cs.weatherSunset)}</div>`:""}${cs.weatherBlueHour?`<div><strong style="font-size:9px;${LS}color:#888">BLUE HOUR: </strong>${e(cs.weatherBlueHour)}</div>`:""}</div></div>`;
   const weatherImg = cs.weatherImage ? `<div style="padding:0 32px 14px"><img src="${cs.weatherImage}" style="width:100%;max-height:160px;object-fit:contain;border-radius:4px"/></div>` : "";
   const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
@@ -5588,7 +5809,7 @@ ${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C628
 <div style="padding:10px 32px"><div style="${secTitle}">CONTACTS</div>
   <table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr><td style="${thStyle}width:17%">ROLE</td><td style="${thStyle}width:15%">NAME</td><td style="${thStyle}width:16%">MOBILE</td><td style="${thStyle}width:30%">EMAIL</td><td style="${thStyle}width:8%;text-align:right;padding-right:8px">CALL TIME</td></tr></thead><tbody>${deptHTML}</tbody></table>
 </div>
-${mapImg}${weatherFields}${weatherImg}
+${mapImg||mapLink}${weatherFields}${weatherImg}
 <div style="padding:14px 32px"><div style="${secTitle}">INVOICING</div>
   <div style="font-size:11px;margin-bottom:8px">Please note that payment terms are <strong>${e(cs.invoicing?.terms)}</strong> from the date of invoice.</div>
   <div style="font-size:11px"><div style="font-weight:700;margin-bottom:2px">FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <span style="color:#1565C0">${e(cs.invoicing?.email)}</span></div><div style="font-weight:700;margin-top:6px">BILLING ADDRESS:</div><div style="white-space:pre-line;line-height:1.6">${e(cs.invoicing?.address)}</div><div style="margin-top:4px"><strong>TRN:</strong> ${e(cs.invoicing?.trn)}</div></div>
@@ -6503,6 +6724,7 @@ export default function OnnaDashboard() {
   const [projectEstimates,setProjectEstimates]           = useState(()=>{try{const s=localStorage.getItem('onna_estimates');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
   const [projectNotes,setProjectNotes]                   = useState({});
+  const [projectInfo,setProjectInfo]                     = useState(()=>{try{const s=localStorage.getItem('onna_project_info');return s?JSON.parse(s):{}}catch{return {}}});
   const [editingEstimate,setEditingEstimate]             = useState(null);
   const [actualsTrackerTab,setActualsTrackerTab]         = useState("detail");
   const actualsExpandedRef                               = useRef({});
@@ -6681,6 +6903,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
+  useEffect(()=>{try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
@@ -7468,6 +7691,18 @@ export default function OnnaDashboard() {
             <option value="In Review">In Review</option>
             <option value="Completed">Completed</option>
           </select>
+        </div>
+        {/* Project Info */}
+        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:isMobile?16:28,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{padding:"10px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
+            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Project Info</span>
+          </div>
+          {[["Shoot Name","shootName","e.g. Brand Campaign 2026"],["Shoot Date","shootDate","e.g. 15–17 March 2026"],["Shoot Location","shootLocation","e.g. Dubai Marina, Studio A"],["Usage","usage","e.g. Global digital & print, 12 months"],["Crew on Set","crewOnSet","e.g. 24 crew members"]].map(([label,key,ph])=>(
+            <div key={key} style={{display:"flex",alignItems:"center",borderBottom:`1px solid ${T.borderSub}`,padding:"0 18px",minHeight:38}}>
+              <span style={{fontSize:11,color:T.muted,fontWeight:500,width:120,flexShrink:0}}>{label}</span>
+              <input value={(projectInfo[p.id]||{})[key]||""} onChange={e=>{const v=e.target.value;setProjectInfo(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[key]:v}}));}} placeholder={ph} style={{flex:1,fontSize:13,color:T.text,background:"transparent",border:"none",padding:"8px 0",fontFamily:"inherit",outline:"none"}}/>
+            </div>
+          ))}
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:28}}>
           {[["Total Revenue",`AED ${totalIn.toLocaleString()}`,"income"],["Total Expenses",`AED ${totalOut.toLocaleString()}`,"outgoings"],["Net Profit",`AED ${profit.toLocaleString()}`,"revenue − expenses"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
@@ -8312,17 +8547,22 @@ export default function OnnaDashboard() {
                 {/* MAP */}
                 <div style={{padding:"14px 32px 10px"}}>
                   <div style={csSecTitle}>MAP</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
+                    <span style={{fontSize:14}}>🔗</span>
+                    <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
+                    {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
+                  </div>
                   <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
                 </div>
 
                 {/* WEATHER */}
                 <div style={{padding:"10px 32px 14px"}}>
                   <div style={csSecTitle}>WEATHER</div>
-                  <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:10,fontSize:10,fontFamily:CS_FONT}}>
-                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHigh||""} onChange={v=>csU("weatherHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
-                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLow||""} onChange={v=>csU("weatherLow",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
-                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHigh||""} onChange={v=>csU("weatherRealFeelHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
-                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLow||""} onChange={v=>csU("weatherRealFeelLow",v)} isPlaceholder style={{fontSize:10}} placeholder="°C / °F"/></div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,fontSize:10,fontFamily:CS_FONT}}>
+                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHigh||""} onChange={v=>csU("weatherHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
+                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLow||""} onChange={v=>csU("weatherLow",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
+                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHigh||""} onChange={v=>csU("weatherRealFeelHigh",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
+                    <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLow||""} onChange={v=>csU("weatherRealFeelLow",v)} isPlaceholder style={{fontSize:10}} placeholder="—"/> °C / °F</div>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
@@ -9953,8 +10193,8 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
                       vendors={a.id==="compliance"?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
@@ -9965,9 +10205,11 @@ export default function OnnaDashboard() {
                       setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
                       activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
                       setActiveContractVersion={a.id==="contracts"?setActiveContractVersion:undefined}
-                      projectEstimates={a.id==="billie"?projectEstimates:undefined}
-                      setProjectEstimates={a.id==="billie"?setProjectEstimates:undefined}
+                      projectEstimates={(a.id==="billie"||a.id==="finn")?projectEstimates:undefined}
+                      setProjectEstimates={(a.id==="billie"||a.id==="finn")?setProjectEstimates:undefined}
                       activeEstimateVersion={a.id==="billie"?activeEstimateVersion:undefined}
+                      projectActuals={a.id==="finn"?projectActuals:undefined}
+                      setProjectActuals={a.id==="finn"?setProjectActuals:undefined}
                       onFullWidthChange={setAgentWantsFullWidth}
                       isMobile={isMobile}
                       pushUndo={pushUndo}
@@ -10555,6 +10797,8 @@ export default function OnnaDashboard() {
                   if(Object.keys(noteUpdates).length>0) setProjectNotes(prev=>({...prev,...noteUpdates}));
                   const tplCastTables=getProjectCastingTables(tplId);
                   if(tplCastTables.some(t=>t.rows.length>0)) setProjectCasting(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCastTables))}));
+                  const tplInfo=projectInfo?.[tplId];
+                  if(tplInfo&&Object.keys(tplInfo).length>0) setProjectInfo(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplInfo))}));
                   const tplLinks=projectCreativeLinks?.[tplId];
                   if(tplLinks&&Object.keys(tplLinks).length>0) setProjectCreativeLinks(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplLinks))}));
                   const tplFiles=projectFileStore?.[tplId];
