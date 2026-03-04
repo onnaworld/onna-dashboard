@@ -6948,6 +6948,60 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
   useEffect(()=>{try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
 
+  // ── Auto-fill matching document fields from project info ──────────────────
+  useEffect(()=>{
+    Object.entries(projectInfo).forEach(([pid,info])=>{
+      if(!info) return;
+      // Call Sheets: shootName, date, venueRows LOCATIONS
+      const csArr = callSheetStore?.[pid];
+      if(csArr&&csArr.length>0){
+        let changed=false;
+        const next=JSON.parse(JSON.stringify(csArr));
+        next.forEach(cs=>{
+          if(info.shootName && !cs.shootName){cs.shootName=info.shootName;changed=true;}
+          if(info.shootDate && !cs.date){cs.date=info.shootDate;changed=true;}
+          if(info.shootLocation && cs.venueRows){
+            const locRow=cs.venueRows.find(r=>r.label==="LOCATIONS");
+            if(locRow&&!locRow.value){locRow.value=info.shootLocation;changed=true;}
+          }
+        });
+        if(changed) setCallSheetStore(prev=>({...prev,[pid]:next}));
+      }
+      // Risk Assessments: shootName, shootDate, locations, crewOnSet
+      const raArr = riskAssessmentStore?.[pid];
+      if(raArr&&raArr.length>0){
+        let changed=false;
+        const next=JSON.parse(JSON.stringify(raArr));
+        next.forEach(ra=>{
+          if(info.shootName && !ra.shootName){ra.shootName=info.shootName;changed=true;}
+          if(info.shootDate && !ra.shootDate){ra.shootDate=info.shootDate;changed=true;}
+          if(info.shootLocation && !ra.locations){ra.locations=info.shootLocation;changed=true;}
+          if(info.crewOnSet && !ra.crewOnSet){ra.crewOnSet=info.crewOnSet;changed=true;}
+        });
+        if(changed) setRiskAssessmentStore(prev=>({...prev,[pid]:next}));
+      }
+      // Contracts: date, usage, venue, campaign (talent types)
+      const ctArr = contractDocStore?.[pid];
+      if(ctArr&&ctArr.length>0){
+        let changed=false;
+        const next=JSON.parse(JSON.stringify(ctArr));
+        next.forEach(ct=>{
+          const type=ct.contractType||"commission_se";
+          const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
+          if(!typeDef) return;
+          const fv=ct.fieldValues||{};
+          const isDefault=(key)=>{const f=typeDef.fields.find(fd=>fd.key===key);return !fv[key]||fv[key]===f?.defaultValue;};
+          if(info.shootDate && isDefault("date")){fv.date=info.shootDate;changed=true;}
+          if(info.usage && isDefault("usage")){fv.usage=info.usage;changed=true;}
+          if((type==="talent"||type==="talent_psc")&&info.shootLocation&&isDefault("venue")){fv.venue=info.shootLocation;changed=true;}
+          if((type==="talent"||type==="talent_psc")&&info.shootName&&isDefault("campaign")){fv.campaign=info.shootName;changed=true;}
+          ct.fieldValues=fv;
+        });
+        if(changed) setContractDocStore(prev=>({...prev,[pid]:next}));
+      }
+    });
+  },[projectInfo]);
+
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
     const LOGO_VER = "v6"; // bump to force re-apply default logo to all docs
@@ -7002,6 +7056,8 @@ export default function OnnaDashboard() {
   // ── Agents state ──────────────────────────────────────────────────────────────
   const [agentActiveIdx,setAgentActiveIdx] = useState(null);
   const [agentHoverIdx,setAgentHoverIdx]   = useState(null);
+  const [agentPage,setAgentPage]           = useState(0);
+  const AGENTS_PER_PAGE=4;
   const [agentWantsFullWidth,setAgentWantsFullWidth] = useState(false);
   const agentConstellationRef              = useRef(null);
 
