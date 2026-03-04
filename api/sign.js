@@ -47,7 +47,7 @@ async function resolveAuth(callerAuth, stashedAuth) {
 // Slug from label: "Nathan Evans Commissioning Agreement" → "nathan-evans-commissioning-agreement"
 function labelToSlug(label) {
   return (label || "contract")
-    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/[^a-zA-Z0-9 _]/g, "")
     .trim()
     .split(/\s+/)
     .join("-")
@@ -93,7 +93,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing contractSnapshot or contractType" });
       }
 
-      const token = labelToSlug(label || projectName || contractType);
+      const slugParts = [projectName, label].filter(Boolean).join("_");
+      const token = labelToSlug(slugParts || contractType);
 
       // URL: clean slug only, data lives in backend
       const url = `https://app.onna.world?sign=${encodeURIComponent(token)}`;
