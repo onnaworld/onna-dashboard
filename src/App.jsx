@@ -7570,7 +7570,7 @@ export default function OnnaDashboard() {
                               <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"}}>{estFmt(estVal)}</div>
                               <div style={{width:90,flexShrink:0}}><EstCell value={String(expTotal||"")} onChange={()=>{}} align="right" style={{color:"#0066cc",cursor:"default"}} /></div>
                               <div style={{width:90,flexShrink:0}}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
-                              <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{estVal>0||zohoVal>0?((rv>=0?"+":"") + estFmt(rv)):""}</div>
+                              <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{(rv>=0?"+":"") + estFmt(rv)}</div>
                               <div style={{width:70,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                 <span onClick={()=>{const idx=ACTUALS_STATUSES.indexOf(row.status);updateActRow(si,ri,"status",ACTUALS_STATUSES[(idx+1)%ACTUALS_STATUSES.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",background:stBg[row.status]||"transparent",color:stColors[row.status]||"#ccc",textTransform:"uppercase"}}>{row.status||"\u2014"}</span>
                               </div>
