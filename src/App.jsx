@@ -4382,6 +4382,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
+      // "create new call sheet" / "new day" for current project
+      if(/\b(create|new|add)\b/i.test(lower)&&/\b(call\s*sheet|day|version)\b/i.test(lower)){
+        setConnieCtx(null);
+        setConniePending({projectId,step:"pick_name"});
+        setMsgs([...history,{role:"assistant",content:`What should I call this new call sheet? (e.g. Shoot Day 2, Recce Day)`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
       // Export / PDF intent — check for missing data first
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(call\s*sheet|pdf|export|download|print|document|doc)\b/i.test(input)){
         const csVersions_ex=callSheetStore?.[project.id]||[];
@@ -4697,6 +4705,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
             const newIdx = applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
+            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
             if (patch.saveAsVersion && newIdx !== vIdx) {
               setBillieCtx(prev => ({...prev, vIdx: newIdx}));
             }
@@ -5038,8 +5047,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
-      // "create new risk assessment" / "new risk assessment" for current project
-      if(/\b(create|new|add)\b/i.test(lower)&&/\b(risk\s*assess|ra|assessment)\b/i.test(lower)){
+      // "create new risk assessment" / "new version" / "create new" for current project
+      if(/\b(create|new|add)\b/i.test(lower)&&/\b(risk\s*assess|ra|assessment|version)\b/i.test(lower) || /\bcreate\s+new\b/i.test(lower)){
         setRonnieCtx({projectId,_step:"create_label"});
         setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment? (e.g. Shoot Day, Recce Day, Pre-Production)"}]);
         setLoading(false);setMood("idle");return;
@@ -5305,7 +5314,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's contract should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
-      if(/\bnew\s+contract\b/i.test(input)){
+      if(/\bnew\s+(contract|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
         const typeList=CONTRACT_TYPE_IDS.map((t,i)=>`${i+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");
         setCodyCtx(null);codyPendingRef.current={projectId,step:"pick_type"};
         setMsgs([...history,{role:"assistant",content:`New contract for ${project.name} — what type?\n\n${typeList}\n\nPick a number or name.`}]);
@@ -7118,6 +7127,20 @@ export default function OnnaDashboard() {
         if((type==="talent"||type==="talent_psc")&&info.shootLocation&&fv.venue!==info.shootLocation){fv.venue=info.shootLocation;changed=true;}
         if((type==="talent"||type==="talent_psc")&&info.shootName&&fv.campaign!==info.shootName){fv.campaign=info.shootName;changed=true;}
         return changed?{...ct,fieldValues:fv}:ct;
+      });
+      return changed?{...prev,[pid]:next}:prev;
+    });
+    // Budget Estimates
+    setProjectEstimates(prev=>{
+      const arr=prev[pid]; if(!arr||!arr.length) return prev;
+      let changed=false;
+      const next=arr.map(est=>{
+        const ts={...(est.ts||ESTIMATE_INIT.ts)};
+        if(info.shootName && ts.project!==info.shootName){ts.project=info.shootName;changed=true;}
+        if(info.usage && ts.usage!==info.usage){ts.usage=info.usage;changed=true;}
+        if(info.shootDate && ts.shootDate!==info.shootDate){ts.shootDate=info.shootDate;changed=true;}
+        if(info.shootLocation && ts.location!==info.shootLocation){ts.location=info.shootLocation;changed=true;}
+        return changed?{...est,ts}:est;
       });
       return changed?{...prev,[pid]:next}:prev;
     });
