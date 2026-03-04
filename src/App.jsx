@@ -2268,7 +2268,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     const {set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, JSON.parse(JSON.stringify(ESTIMATE_INIT)), "V1");
 
     return (
-      <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
+      <div style={{overflowY:"auto",overflowX:"auto",padding:0,background:"#fff",height:"100%"}}>
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Estimate — {estData.ts?.version||`V${estIdx+1}`}</div>
         <EstimateView estData={estData} onSet={estSet} />
       </div>
@@ -4583,14 +4583,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       </div>
     ) : hasDocCtx && !isMobile ? (
       <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
+        <div style={{flex:agent.id==="billie"?"0 0 60%":"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion}
             contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}
             projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}/>
         </div>
-        <div style={{flex:"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:agent.id==="billie"?"0 0 40%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -5397,7 +5397,7 @@ export default function OnnaDashboard() {
             clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
             clone2.style.borderRadius="0";clone2.style.boxShadow="none";
             const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:10mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
             idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
           }
           setSignSubmitted(true);
@@ -5410,7 +5410,7 @@ export default function OnnaDashboard() {
     const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
     return (
       <div className="sign-outer-wrap" style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print,.sign-success-banner{display:none!important}body{background:#fff!important;margin:0!important;padding:0!important;}@page{margin:10mm 0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.sign-outer-wrap{background:#fff!important;min-height:auto!important}.sign-inner-wrap{margin:0!important;padding:0!important;max-width:none!important}#onna-sign-print{box-shadow:none!important;border-radius:0!important;margin:0!important}}`}</style>
+        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print,.sign-success-banner{display:none!important}body{background:#fff!important;margin:0!important;padding:0!important;}@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.sign-outer-wrap{background:#fff!important;min-height:auto!important}.sign-inner-wrap{margin:0!important;padding:0!important;max-width:none!important}#onna-sign-print{box-shadow:none!important;border-radius:0!important;margin:0!important}}`}</style>
         {!_printMode && <div className="sign-header-bar" style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
           <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
           <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
@@ -7271,7 +7271,7 @@ export default function OnnaDashboard() {
           const el=document.getElementById("onna-ct-print");if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:10mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
           idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
 
