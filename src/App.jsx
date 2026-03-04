@@ -789,7 +789,7 @@ ${raSnapshot}
 
 INSTRUCTIONS:
 - When the user asks to ADD or UPDATE risks, sections, header fields, conduct items, waiver items, or emergency items, output a JSON patch inside a \`\`\`json code block.
-- For scalar fields: {"label":"...","shootName":"...","shootDate":"...","locations":"...","crewOnSet":"...","timing":"..."} — use "label" to rename/retitle the risk assessment version
+- For scalar fields: {"label":"...","shootName":"...","shootDate":"...","locations":"...","crewOnSet":"...","timing":"..."} — use "label" to rename the risk assessment
 - For conductIntro/waiverIntro: {"conductIntro":"...","waiverIntro":"..."}
 - For sections (merge by title, case-insensitive):
   - ADD rows: {"sections":[{"title":"SECTION TITLE","rows":[["Hazard","Level","Who","Mitigation"]]}]} — rows are APPENDED.
@@ -2487,7 +2487,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     if (!raVersions.length) return null;
     const raIdx = Math.min(activeRAVersion||0, raVersions.length - 1);
     const raData = raVersions[raIdx] || raVersions[0];
-    const {update:raU, set:raSet} = makeDocUpdater(projectId, raIdx, setRiskAssessmentStore, RISK_ASSESSMENT_INIT, "Version 1");
+    const {update:raU, set:raSet} = makeDocUpdater(projectId, raIdx, setRiskAssessmentStore, RISK_ASSESSMENT_INIT, "Risk Assessment");
     const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
     // Inline review state
@@ -2505,7 +2505,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     return (
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span style={{display:"inline-flex",alignItems:"center",gap:4,...(hasMarker("scalar:label")?{background:"#e8f5e9",borderRadius:3,padding:"1px 4px"}:{})}}>Risk Assessment — <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} placeholder={`Version ${raIdx+1}`} style={{border:"none",borderBottom:"1px solid transparent",background:"transparent",fontSize:10,fontWeight:600,color:"#555",letterSpacing:1,textTransform:"uppercase",fontFamily:"inherit",padding:"0 2px",width:Math.max(80,(raData.label||`Version ${raIdx+1}`).length*7+10),outline:"none",transition:"border-color 0.2s"}} onFocus={e=>{e.target.style.borderBottomColor="#1a4a80";}} onBlur={e=>{e.target.style.borderBottomColor="transparent";}}/>{hasMarker("scalar:label")&&<><button onClick={()=>acceptMarker("scalar:label")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:label")} style={reviewBtnStyle("decline")}>✕</button></>}</span>
+          <span style={{display:"inline-flex",alignItems:"center",gap:4,...(hasMarker("scalar:label")?{background:"#e8f5e9",borderRadius:3,padding:"1px 4px"}:{})}}>Risk Assessment — <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} placeholder="Untitled" style={{border:"none",borderBottom:"1px solid transparent",background:"transparent",fontSize:10,fontWeight:600,color:"#555",letterSpacing:1,textTransform:"uppercase",fontFamily:"inherit",padding:"0 2px",width:Math.max(80,(raData.label||"Untitled").length*7+10),outline:"none",transition:"border-color 0.2s"}} onFocus={e=>{e.target.style.borderBottomColor="#1a4a80";}} onBlur={e=>{e.target.style.borderBottomColor="transparent";}}/>{hasMarker("scalar:label")&&<><button onClick={()=>acceptMarker("scalar:label")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:label")} style={reviewBtnStyle("decline")}>✕</button></>}</span>
           {pr&&pr.markers.length>0&&(
             <div style={{display:"flex",gap:4}}>
               <button onClick={acceptAll} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button>
@@ -2718,7 +2718,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="compliance"&&connieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=connieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==connieTabs.length){setConnieTabs(filtered);if(connieCtx&&!activeIds.has(connieCtx.projectId)){if(filtered.length>0){setConnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setConnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed tab from existing ronnieCtx on mount
-  useEffect(()=>{if(agent.id==="researcher"&&ronnieCtx&&ronnieTabs.length===0){const p=localProjects?.find(pr=>pr.id===ronnieCtx.projectId);if(p){const vs=riskAssessmentStore?.[p.id]||[];const vLabel=(vs[ronnieCtx.vIdx]?.label)||`Version ${ronnieCtx.vIdx+1}`;addRonnieTab(p.id,ronnieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(agent.id==="researcher"&&ronnieCtx&&ronnieTabs.length===0){const p=localProjects?.find(pr=>pr.id===ronnieCtx.projectId);if(p){addRonnieTab(p.id,0,p.name);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
   // Remove ronnie tabs for archived/deleted projects
   useEffect(()=>{if(agent.id==="researcher"&&ronnieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=ronnieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==ronnieTabs.length){setRonnieTabs(filtered);if(ronnieCtx&&!activeIds.has(ronnieCtx.projectId)){if(filtered.length>0){setRonnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setRonnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
   const searchViaExt=(query,source)=>new Promise(resolve=>{
@@ -4826,7 +4826,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const raVersions = riskAssessmentStore?.[project.id] || [];
       vIdx = Math.min(vIdx, raVersions.length-1);
       const ver = raVersions[vIdx];
-      const vLabel = ver.label || `Version ${vIdx+1}`;
+      const vLabel = ver.label || "Risk Assessment";
 
       // Build risk assessment snapshot
       let snap = `Label: ${ver.label||"(empty)"} | Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
@@ -5191,7 +5191,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const ctVersions = contractDocStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
       vIdx = Math.min(vIdx, ctVersions.length-1);
       const ver = ctVersions[vIdx];
-      const vLabel = ver.label || `Version ${vIdx+1}`;
+      const vLabel = ver.label || "Risk Assessment";
 
       // Build contract snapshot
       const activeType = ver.contractType || "commission_se";
@@ -6592,7 +6592,7 @@ export default function OnnaDashboard() {
   const [projectContracts,setProjectContracts]           = useState({});
   const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeCSVersion,setActiveCSVersion]             = useState(0);
-  const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}});return d;}catch{return {}}});
+  const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Risk Assessment",...d[k]}];}});return d;}catch{return {}}});
   const [activeRAVersion,setActiveRAVersion]             = useState(0);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
   const [activeContractVersion,setActiveContractVersion] = useState(null);
@@ -6784,68 +6784,57 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
-  const infoSyncTimer = useRef(null);
-  useEffect(()=>{
-    if(infoSyncTimer.current) clearTimeout(infoSyncTimer.current);
-    infoSyncTimer.current = setTimeout(()=>{
-      const pids = Object.keys(projectInfo);
-      if(!pids.length) return;
-      pids.forEach(pid=>{
-        const info = projectInfo[pid];
-        if(!info) return;
-        const hasVal = info.shootName||info.shootDate||info.shootLocation||info.usage||info.crewOnSet;
-        if(!hasVal) return;
-        // Call Sheets
-        setCallSheetStore(prev=>{
-          const arr=prev[pid]; if(!arr||!arr.length) return prev;
-          let changed=false;
-          const next=arr.map(cs=>{
-            const c={...cs};
-            if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
-            if(info.shootDate && c.date!==info.shootDate){c.date=info.shootDate;changed=true;}
-            if(info.shootLocation && c.venueRows){
-              const locRow=c.venueRows.find(r=>r.label==="LOCATIONS");
-              if(locRow&&locRow.value!==info.shootLocation){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"?{...r,value:info.shootLocation}:r);changed=true;}
-            }
-            return c;
-          });
-          return changed?{...prev,[pid]:next}:prev;
-        });
-        // Risk Assessments
-        setRiskAssessmentStore(prev=>{
-          const arr=prev[pid]; if(!arr||!arr.length) return prev;
-          let changed=false;
-          const next=arr.map(ra=>{
-            const c={...ra};
-            if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
-            if(info.shootDate && c.shootDate!==info.shootDate){c.shootDate=info.shootDate;changed=true;}
-            if(info.shootLocation && c.locations!==info.shootLocation){c.locations=info.shootLocation;changed=true;}
-            if(info.crewOnSet && c.crewOnSet!==info.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
-            return c;
-          });
-          return changed?{...prev,[pid]:next}:prev;
-        });
-        // Contracts
-        setContractDocStore(prev=>{
-          const arr=prev[pid]; if(!arr||!arr.length) return prev;
-          let changed=false;
-          const next=arr.map(ct=>{
-            const type=ct.contractType||"commission_se";
-            const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
-            if(!typeDef) return ct;
-            const fv={...(ct.fieldValues||{})};
-            if(info.shootDate && fv.date!==info.shootDate){fv.date=info.shootDate;changed=true;}
-            if(info.usage && fv.usage!==info.usage){fv.usage=info.usage;changed=true;}
-            if((type==="talent"||type==="talent_psc")&&info.shootLocation&&fv.venue!==info.shootLocation){fv.venue=info.shootLocation;changed=true;}
-            if((type==="talent"||type==="talent_psc")&&info.shootName&&fv.campaign!==info.shootName){fv.campaign=info.shootName;changed=true;}
-            return changed?{...ct,fieldValues:fv}:ct;
-          });
-          return changed?{...prev,[pid]:next}:prev;
-        });
+  const syncProjectInfoToDocs = (pid) => {
+    const info = projectInfo[pid];
+    if(!info) return;
+    // Call Sheets
+    setCallSheetStore(prev=>{
+      const arr=prev[pid]; if(!arr||!arr.length) return prev;
+      let changed=false;
+      const next=arr.map(cs=>{
+        const c={...cs};
+        if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
+        if(info.shootDate && c.date!==info.shootDate){c.date=info.shootDate;changed=true;}
+        if(info.shootLocation && c.venueRows){
+          const locRow=c.venueRows.find(r=>r.label==="LOCATIONS");
+          if(locRow&&locRow.value!==info.shootLocation){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"?{...r,value:info.shootLocation}:r);changed=true;}
+        }
+        return c;
       });
-    }, 800);
-    return ()=>{ if(infoSyncTimer.current) clearTimeout(infoSyncTimer.current); };
-  },[projectInfo]);
+      return changed?{...prev,[pid]:next}:prev;
+    });
+    // Risk Assessments
+    setRiskAssessmentStore(prev=>{
+      const arr=prev[pid]; if(!arr||!arr.length) return prev;
+      let changed=false;
+      const next=arr.map(ra=>{
+        const c={...ra};
+        if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
+        if(info.shootDate && c.shootDate!==info.shootDate){c.shootDate=info.shootDate;changed=true;}
+        if(info.shootLocation && c.locations!==info.shootLocation){c.locations=info.shootLocation;changed=true;}
+        if(info.crewOnSet && c.crewOnSet!==info.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
+        return c;
+      });
+      return changed?{...prev,[pid]:next}:prev;
+    });
+    // Contracts
+    setContractDocStore(prev=>{
+      const arr=prev[pid]; if(!arr||!arr.length) return prev;
+      let changed=false;
+      const next=arr.map(ct=>{
+        const type=ct.contractType||"commission_se";
+        const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
+        if(!typeDef) return ct;
+        const fv={...(ct.fieldValues||{})};
+        if(info.shootDate && fv.date!==info.shootDate){fv.date=info.shootDate;changed=true;}
+        if(info.usage && fv.usage!==info.usage){fv.usage=info.usage;changed=true;}
+        if((type==="talent"||type==="talent_psc")&&info.shootLocation&&fv.venue!==info.shootLocation){fv.venue=info.shootLocation;changed=true;}
+        if((type==="talent"||type==="talent_psc")&&info.shootName&&fv.campaign!==info.shootName){fv.campaign=info.shootName;changed=true;}
+        return changed?{...ct,fieldValues:fv}:ct;
+      });
+      return changed?{...prev,[pid]:next}:prev;
+    });
+  };
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
@@ -7647,7 +7636,7 @@ export default function OnnaDashboard() {
           {[["Shoot Name","shootName","e.g. Brand Campaign 2026"],["Shoot Date","shootDate","e.g. 15–17 March 2026"],["Shoot Location","shootLocation","e.g. Dubai Marina, Studio A"],["Usage","usage","e.g. Global digital & print, 12 months"],["Crew on Set","crewOnSet","e.g. 24 crew members"]].map(([label,key,ph])=>(
             <div key={key} style={{display:"flex",alignItems:"center",borderBottom:`1px solid ${T.borderSub}`,padding:"0 18px",minHeight:38}}>
               <span style={{fontSize:11,color:T.muted,fontWeight:500,width:120,flexShrink:0}}>{label}</span>
-              <input value={(projectInfo[p.id]||{})[key]||""} onChange={e=>{const v=e.target.value;setProjectInfo(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[key]:v}}));}} placeholder={ph} style={{flex:1,fontSize:13,color:T.text,background:"transparent",border:"none",padding:"8px 0",fontFamily:"inherit",outline:"none"}}/>
+              <input value={(projectInfo[p.id]||{})[key]||""} onChange={e=>{const v=e.target.value;setProjectInfo(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[key]:v}}));}} onBlur={()=>setTimeout(()=>syncProjectInfoToDocs(p.id),0)} placeholder={ph} style={{flex:1,fontSize:13,color:T.text,background:"transparent",border:"none",padding:"8px 0",fontFamily:"inherit",outline:"none"}}/>
             </div>
           ))}
         </div>
