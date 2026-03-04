@@ -2932,7 +2932,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         }
       }
       // ── Inline duplicate check after name/company/contact is answered ──
-      if(!conv.updateId&&(q?.key==="name"||q?.key==="company"||q?.key==="contact")&&!isSkip){
+      if(!conv._skipDupCheck&&!conv.updateId&&(q?.key==="name"||q?.key==="company"||q?.key==="contact")&&!isSkip){
         const val=e[q.key]||"";
         if(val){
           const inlineMatches=findAllSimilar(val,allVendors,allLeads);
@@ -2958,8 +2958,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setMsgs([...history,{role:"assistant",content:`Added ${nc.name||"new contact"} as a contact on ${xc.existName}. Review the card below.`}]);
           return;
         }
-        // Company-based duplicate detection for new entries
-        if(!conv.updateId){
+        // Company-based duplicate detection for new entries (skip if user already said "create separate")
+        if(!conv._skipDupCheck&&!conv.updateId){
           const eName=conv.type==="vendor"?e.name:(e.contact||"");
           const eCompany=e.company||"";
           const nameMatches=findAllSimilar(eName,allVendors,allLeads);
@@ -3124,16 +3124,17 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setPendingDuplicate({..._dupState,_selectedMatch:sel});
           setMsgs([...history,{role:"assistant",content:`Selected: "${selName}" (${sel.type}).\n1. Update existing entry\n2. Add as new contact on this card\n3. None of these — create separate entry\n\nReply 1, 2, or 3.`}]);
         }else if(pickNum===noneIdx||/^(no|none|nope|new|different|create|separate)\b/i.test(pick)){
-          // "None of these" — create new
+          // "None of these" — create new, skip duplicate detection
           const qname=entry._type==="vendor"?entry.name:entry.contact;
           const rc=_dupState._remainingConv;
           setPendingDuplicate(null);
           if(rc&&rc.idx<rc.questions.length){
-            setPendingConv(rc);
+            setPendingConv({...rc,_skipDupCheck:true});
             setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"}. Continuing…\n\n${rc.questions[rc.idx].q} (or 'x' to skip)`}]);
           }else{
-            const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
-            setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
+            // All fields filled — go straight to save card, no more duplicate checks
+            showEntry(entry,entry._type,null,dupSaveAsOutreach||false);
+            setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"} — review and save below.`}]);
           }
         }else{
           // Invalid — re-show list
@@ -3235,11 +3236,12 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const rc=_dupState._remainingConv;
         setPendingDuplicate(null);
         if(rc&&rc.idx<rc.questions.length){
-          setPendingConv(rc);
+          setPendingConv({...rc,_skipDupCheck:true});
           setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"}. Continuing…\n\n${rc.questions[rc.idx].q} (or 'x' to skip)`}]);
         }else{
-          const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
-          setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
+          // All fields filled — go straight to save card, no more duplicate checks
+          showEntry(entry,entry._type,null,dupSaveAsOutreach||false);
+          setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"} — review and save below.`}]);
         }
       }else{
         setMsgs([...history,{role:"assistant",content:`Selected: "${existName}" (${chosen.type}).\n1. Update existing entry\n2. Add as new contact on this card\n3. None of these — create separate entry\n\nReply 1, 2, or 3.`}]);
@@ -4562,12 +4564,17 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               </div>
             )}
           </div>
-          {_cardIsEditable&&(
+          {_cardIsEditable?(
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>setPending(null)} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
               <button onClick={saveLead} disabled={savingLead} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>{savingLead?"Saving…":pendingId?"✓ Save Changes":_cardType==="vendor"?"✓ Save Vendor":"✓ Save to Pipeline"}</button>
             </div>
-          )}
+          ):pendingConv&&!_isXContactMode?(
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setPendingConv(null);setPending(null);setMsgs(p=>[...p,{role:"assistant",content:"Cancelled."}]);}} style={{flex:1,padding:"11px",borderRadius:10,background:"#f5f5f7",border:"1px solid #e5e5ea",fontSize:13,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+              <button onClick={()=>{const e=pendingConv.entry;const t=pendingConv.type;const uid=pendingConv.updateId;const ao=pendingConv.saveAsOutreach;setPendingConv(null);showEntry(e,t,uid,ao);setMsgs(p=>[...p,{role:"assistant",content:"Review and save below."}]);}} style={{flex:2,padding:"11px",borderRadius:10,background:"#1d1d1f",border:"none",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✓ Save Now</button>
+            </div>
+          ):null}
         </div>
       </div>
     );
@@ -8158,13 +8165,6 @@ export default function OnnaDashboard() {
 
               {leadsView==="outreach"&&(
                 <div>
-                  <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:20,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>Add Outreach Contact via AI</div>
-                    <div style={{padding:"13px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
-                      <textarea value={outreachMsg} onChange={e=>setOutreachMsg(e.target.value)} rows={2} placeholder={`e.g. "Rimowa - Priya Singh | Head of Marketing priya@rimowa.com, 27 Feb 2026, Fashion, Dubai, UAE"`} style={{flex:1,background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"9px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-                      <BtnPrimary onClick={processOutreach} disabled={outreachLoading||!outreachMsg.trim()}>{outreachLoading?"Adding…":"Add"}</BtnPrimary>
-                    </div>
-                  </div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Outreach")} onChange={v=>setSearch("Outreach",v)} placeholder="Search outreach…"/>
                     <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${T.border}`,flexShrink:0}}>
