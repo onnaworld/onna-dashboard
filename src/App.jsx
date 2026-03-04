@@ -782,7 +782,7 @@ function buildRonnieSystem(project, raData, versionLabel, raSnapshot) {
 
 CRITICAL: You ALREADY HAVE the full risk assessment data below. NEVER ask the user to paste, share, or provide risk assessment details — you can see everything. Just act on their request immediately.
 
-You are viewing: "${project.name}" — ${versionLabel}
+You are viewing the risk assessment for: "${project.name}"
 
 CURRENT RISK ASSESSMENT STATE:
 ${raSnapshot}
@@ -4707,82 +4707,30 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
           setLoading(false);setMood("idle");return;
         }
-        // Project found — check existing labels
+        // Project found — auto-create RA if none, or open the existing one
         const raLabels=riskAssessmentStore?.[project.id]||[];
         if(raLabels.length===0){
-          // No labels yet — ask to create
-          setRonnieCtx({projectId:project.id,_step:"create_label"});
-          setMsgs([...history,{role:"assistant",content:`${project.name} has no risk assessments yet. What should I call this one? (e.g. Shoot Day, Recce Day, Pre-Production)`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        // Has labels — try matching one in the message
-        const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
-        if(matchedLabel>=0){
-          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
-          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
-          addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${raLabels[matchedLabel].label}`);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} \u2014 ${raLabels[matchedLabel].label}. What would you like to do?`}]);
+          // No RA yet — auto-create one
+          const newRA={id:Date.now(),label:project.name,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
+          newRA.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
+          setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newRA);return store;});
+          const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[0].productionLogo){arr[0].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
+          setRonnieCtx({projectId:project.id,vIdx:0});
+          if(setActiveRAVersion)setActiveRAVersion(0);
+          addRonnieTab(project.id,0,project.name);
+          setMsgs([...history,{role:"assistant",content:`✓ Created risk assessment for ${project.name}. I'm ready to work on it — tell me what risks to add, or ask me to review what's missing.`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        // No label matched — show list + option to create
-        setRonnieCtx({projectId:project.id,_step:"pick_label"});
-        const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`${project.name} has these risk assessments:\n\n${list}\n\nWhich one should I work on, or say create new for a new one?`}]);
-        setLoading(false);setMood("idle");return;
+        // Has RA — open it directly
+        setRonnieCtx({projectId:project.id,vIdx:0});
+        if(setActiveRAVersion)setActiveRAVersion(0);
+        addRonnieTab(project.id,0,project.name);
+        setMsgs([...history,{role:"assistant",content:`Working on ${project.name}'s risk assessment. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-      // ── Multi-step flow handler ──
+      // ── Multi-step flow handler (legacy steps) — reset ──
       if(ronnieCtx._step){
-        const lower=input.toLowerCase();
-        const project=localProjects?.find(p=>p.id===ronnieCtx.projectId);
-        if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
-        const raLabels=riskAssessmentStore?.[project.id]||[];
-
-        // ── Step: create_label — waiting for label name ──
-        if(ronnieCtx._step==="create_label"){
-          const labelName=input.trim();
-          if(!labelName||labelName.length<1){
-            setMsgs([...history,{role:"assistant",content:"Give me a name for this risk assessment (e.g. Shoot Day, Recce Day)."}]);
-            setLoading(false);setMood("idle");return;
-          }
-          // Create new RA
-          const newLabel={id:Date.now(),label:labelName,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
-          newLabel.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
-          setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newLabel);return store;});
-          // Auto-load production logo
-          const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];const idx=arr.length-1;if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
-          const newIdx=raLabels.length;
-          setRonnieCtx({projectId:project.id,vIdx:newIdx});
-          if(setActiveRAVersion)setActiveRAVersion(newIdx);
-          addRonnieTab(project.id,newIdx,`${project.name} \u00b7 ${labelName}`);
-          setMsgs([...history,{role:"assistant",content:`\u2713 Created ${labelName} for ${project.name}. I'm ready to work on it \u2014 tell me what risks to add, or ask me to review what's missing.`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-
-        // ── Step: pick_label — waiting for label selection ──
-        if(ronnieCtx._step==="pick_label"){
-          // Check for "create new"
-          if(/\b(create|new|add)\b/i.test(lower)&&/\b(new|create|add|risk|assessment|ra)\b/i.test(lower)){
-            setRonnieCtx({...ronnieCtx,_step:"create_label"});
-            setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment? (e.g. Shoot Day, Recce Day)"}]);
-            setLoading(false);setMood("idle");return;
-          }
-          // Try matching a label
-          const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
-          if(matchedLabel<0){
-            const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
-            setMsgs([...history,{role:"assistant",content:`I didn't catch which one. Pick a risk assessment:\n\n${list}\n\nOr say create new.`}]);
-            setLoading(false);setMood("idle");return;
-          }
-          // Label found — start editing directly
-          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
-          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
-          addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${raLabels[matchedLabel].label}`);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} \u2014 ${raLabels[matchedLabel].label}. What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-
-        // Unknown step — reset
         setRonnieCtx(null);setLoading(false);setMood("idle");return;
       }
 
@@ -4794,15 +4742,22 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
-        // Reset to project selection for the new project
+        // Switch to a different project — auto-create RA if none
         const raLabels=riskAssessmentStore?.[switchProject.id]||[];
         if(raLabels.length===0){
-          setRonnieCtx({projectId:switchProject.id,_step:"create_label"});
-          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has no risk assessments yet. What should I call this one?`}]);
+          const newRA={id:Date.now(),label:switchProject.name,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
+          newRA.shootName=`${switchProject.client||""} | ${switchProject.name}`.replace(/^TEMPLATE \| /,"");
+          setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[switchProject.id])store[switchProject.id]=[];store[switchProject.id].push(newRA);return store;});
+          const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[switchProject.id]||[];if(arr.length>0&&!arr[0].productionLogo){arr[0].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
+          setRonnieCtx({projectId:switchProject.id,vIdx:0});
+          if(setActiveRAVersion)setActiveRAVersion(0);
+          addRonnieTab(switchProject.id,0,switchProject.name);
+          setMsgs([...history,{role:"assistant",content:`✓ Created risk assessment for ${switchProject.name}. What would you like to do?`}]);
         }else{
-          setRonnieCtx({projectId:switchProject.id,_step:"pick_label"});
-          const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has these risk assessments:\n\n${list}\n\nWhich one, or create new?`}]);
+          setRonnieCtx({projectId:switchProject.id,vIdx:0});
+          if(setActiveRAVersion)setActiveRAVersion(0);
+          addRonnieTab(switchProject.id,0,switchProject.name);
+          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name}'s risk assessment. What would you like to do?`}]);
         }
         setLoading(false);setMood("idle");return;
       }
@@ -4810,27 +4765,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(/\b(switch|change|different|new)\s+(project|risk\s*assess)\b/i.test(input)){
         setRonnieCtx(null);
         const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
-        setLoading(false);setMood("idle");return;
-      }
-
-      // "new label" / "new risk assessment" for current project (not switching project)
-      if(/\b(create|new|add)\s+(label|risk\s*assess|ra|assessment)\b/i.test(input)&&!/\b(version|v\d+)\b/i.test(input)){
-        setRonnieCtx({projectId,_step:"create_label"});
-        setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment?"}]);
-        setLoading(false);setMood("idle");return;
-      }
-
-      // "switch label" / "different label"
-      if(/\b(switch|change|different)\s+(label|assessment|ra)\b/i.test(input)){
-        const raLabels=riskAssessmentStore?.[project.id]||[];
-        if(raLabels.length<=1){
-          setMsgs([...history,{role:"assistant",content:"This project only has one risk assessment. Say create new to add another."}]);
-          setLoading(false);setMood("idle");return;
-        }
-        setRonnieCtx({projectId,_step:"pick_label"});
-        const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Which risk assessment?\n\n${list}\n\nOr create new.`}]);
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -6866,11 +6801,11 @@ export default function OnnaDashboard() {
           let changed=false;
           const next=arr.map(cs=>{
             const c={...cs};
-            if(info.shootName && !c.shootName){c.shootName=info.shootName;changed=true;}
-            if(info.shootDate && !c.date){c.date=info.shootDate;changed=true;}
+            if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
+            if(info.shootDate && c.date!==info.shootDate){c.date=info.shootDate;changed=true;}
             if(info.shootLocation && c.venueRows){
-              const hasEmpty=c.venueRows.some(r=>r.label==="LOCATIONS"&&!r.value);
-              if(hasEmpty){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"&&!r.value?{...r,value:info.shootLocation}:r);changed=true;}
+              const locRow=c.venueRows.find(r=>r.label==="LOCATIONS");
+              if(locRow&&locRow.value!==info.shootLocation){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"?{...r,value:info.shootLocation}:r);changed=true;}
             }
             return c;
           });
@@ -6882,10 +6817,10 @@ export default function OnnaDashboard() {
           let changed=false;
           const next=arr.map(ra=>{
             const c={...ra};
-            if(info.shootName && !c.shootName){c.shootName=info.shootName;changed=true;}
-            if(info.shootDate && !c.shootDate){c.shootDate=info.shootDate;changed=true;}
-            if(info.shootLocation && !c.locations){c.locations=info.shootLocation;changed=true;}
-            if(info.crewOnSet && !c.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
+            if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
+            if(info.shootDate && c.shootDate!==info.shootDate){c.shootDate=info.shootDate;changed=true;}
+            if(info.shootLocation && c.locations!==info.shootLocation){c.locations=info.shootLocation;changed=true;}
+            if(info.crewOnSet && c.crewOnSet!==info.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
             return c;
           });
           return changed?{...prev,[pid]:next}:prev;
@@ -6899,11 +6834,10 @@ export default function OnnaDashboard() {
             const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
             if(!typeDef) return ct;
             const fv={...(ct.fieldValues||{})};
-            const isDefault=(key)=>{const f=typeDef.fields.find(fd=>fd.key===key);return !fv[key]||fv[key]===f?.defaultValue;};
-            if(info.shootDate && isDefault("date")){fv.date=info.shootDate;changed=true;}
-            if(info.usage && isDefault("usage")){fv.usage=info.usage;changed=true;}
-            if((type==="talent"||type==="talent_psc")&&info.shootLocation&&isDefault("venue")){fv.venue=info.shootLocation;changed=true;}
-            if((type==="talent"||type==="talent_psc")&&info.shootName&&isDefault("campaign")){fv.campaign=info.shootName;changed=true;}
+            if(info.shootDate && fv.date!==info.shootDate){fv.date=info.shootDate;changed=true;}
+            if(info.usage && fv.usage!==info.usage){fv.usage=info.usage;changed=true;}
+            if((type==="talent"||type==="talent_psc")&&info.shootLocation&&fv.venue!==info.shootLocation){fv.venue=info.shootLocation;changed=true;}
+            if((type==="talent"||type==="talent_psc")&&info.shootName&&fv.campaign!==info.shootName){fv.campaign=info.shootName;changed=true;}
             return changed?{...ct,fieldValues:fv}:ct;
           });
           return changed?{...prev,[pid]:next}:prev;
@@ -8667,8 +8601,7 @@ export default function OnnaDashboard() {
         const raData = raVersions[raIdx] || raVersions[0];
         const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
         const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRAVersion = (idx) => { if(typeof pushUndo==="function")pushUndo("delete RA version"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:p.name,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(0); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
         // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
         const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
@@ -8679,14 +8612,10 @@ export default function OnnaDashboard() {
         return (
           <div>
             {docBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                {raVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveRAVersion(i)} style={{padding:"6px 14px",borderRadius:9,fontSize:12,fontWeight:raIdx===i?600:500,cursor:"pointer",border:`1px solid ${raIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:raIdx===i?T.accent:"transparent",color:raIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||`Version ${i+1}`}</button>{raVersions.length>1&&<button onClick={()=>deleteRAVersion(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete version">×</button>}</div>))}
-                <button onClick={addRAVersion} style={{padding:"6px 12px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Add Version</button>
-              </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:200}} placeholder="Risk Assessment"/></div>
               <BtnExport onClick={()=>{const el=document.getElementById("onna-ra-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>');doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
             </div>
-            <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${raIdx+1}`}/></div>
 
             <div id="onna-ra-print" style={{background:"#fff",padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
