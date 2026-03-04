@@ -6247,6 +6247,7 @@ export default function OnnaDashboard() {
   const [projectActuals,setProjectActuals]               = useState({});
   const [actualsReady,setActualsReady]                   = useState(false);
   const [projectCasting,setProjectCasting]               = useState({});
+  const [castingReady,setCastingReady]                   = useState(false);
   const [projectLocLinks,setProjectLocLinks]             = useState({});
   const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectContracts,setProjectContracts]           = useState({});
@@ -6431,6 +6432,8 @@ export default function OnnaDashboard() {
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady)idbSet("projectActuals",projectActuals).catch(()=>{});},[projectActuals,actualsReady]);
+  useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
+  useEffect(()=>{if(castingReady)idbSet("projectCasting",projectCasting).catch(()=>{});},[projectCasting,castingReady]);
   useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
@@ -6741,10 +6744,19 @@ export default function OnnaDashboard() {
 
   const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
   const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
-  const getProjectCasting  = id => projectCasting[id]||[];
-  const addCastingRow      = id => setProjectCasting(prev=>({...prev,[id]:[...(prev[id]||[]),{id:Date.now(),agency:"",name:"",email:"",option:"First Option",notes:"",link:"",headshot:null}]}));
-  const updateCastingRow   = (id,rowId,field,val) => setProjectCasting(prev=>({...prev,[id]:(prev[id]||[]).map(r=>r.id===rowId?{...r,[field]:val}:r)}));
-  const removeCastingRow   = (id,rowId) => setProjectCasting(prev=>({...prev,[id]:(prev[id]||[]).filter(r=>r.id!==rowId)}));
+  const getProjectCastingTables = id => {
+    const val = projectCasting[id];
+    if (!val || (Array.isArray(val) && val.length === 0)) return [{id:1,title:"Casting",rows:[]}];
+    if (Array.isArray(val) && val.length > 0 && !val[0].rows) return [{id:1,title:"Casting",rows:val}];
+    return val;
+  };
+  const getProjectCasting = id => getProjectCastingTables(id).reduce((a,t)=>[...a,...t.rows],[]);
+  const addCastingTable = id => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:[...tables,{id:Date.now(),title:"Untitled",rows:[]}]};});
+  const addCastingRow = (id,tableId) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,rows:[...t.rows,{id:Date.now(),agency:"",name:"",email:"",option:"First Option",notes:"",link:"",headshot:null}]}:t)};});
+  const updateCastingRow = (id,tableId,rowId,field,val) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,rows:t.rows.map(r=>r.id===rowId?{...r,[field]:val}:r)}:t)};});
+  const removeCastingRow = (id,tableId,rowId) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,rows:t.rows.filter(r=>r.id!==rowId)}:t)};});
+  const updateCastingTableTitle = (id,tableId,title) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,title}:t)};});
+  const removeCastingTable = (id,tableId) => {if(!confirm("Delete this casting table?"))return;setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.filter(t=>t.id!==tableId)};});};
 
   const _aiSystem = `Extract contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","phone":"","date":"YYYY-MM-DD","category":"","location":"","source":"Cold Outreach","notes":""}. Use location format like "Dubai, UAE" or "London, UK". If no date, use today's date.`;
 
@@ -7187,7 +7199,7 @@ export default function OnnaDashboard() {
       "Budget":         {emoji:"📊",count:`${(projectEstimates[p.id]||[]).length} estimate(s), ${quotes.length} quote(s)`},
       "Documents":      {emoji:"📁",count:"Call sheets, contracts & more"},
       "Locations":      {emoji:"📍",count:"Add folder link"},
-      "Casting":        {emoji:"🎭",count:`${getProjectCasting(p.id).length} models`},
+      "Casting":        {emoji:"🎭",count:`${getProjectCastingTables(p.id).reduce((a,t)=>a+t.rows.length,0)} models`},
       "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
       "Travel":         {emoji:"✈️",count:"Flights, hotels & logistics"},
       "Schedule":       {emoji:"📒",count:"Production, pre & post"},
@@ -8432,59 +8444,73 @@ export default function OnnaDashboard() {
     );
 
     if (projectSection==="Casting") {
-      const castingRows = getProjectCasting(p.id);
+      const castingTables = getProjectCastingTables(p.id);
       const castFiles = (projectFileStore[p.id]||{}).casting||[];
       const castLink = (projectCreativeLinks[p.id]||{}).casting||"";
+      const castCols = [{key:"agency",label:"Agency"},{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"option",label:"Option"},{key:"notes",label:"Notes"},{key:"link",label:"Link"}];
       return (
         <div>
-          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
-            <BtnPrimary onClick={()=>addCastingRow(p.id)}>+ Add Model</BtnPrimary>
-          </div>
-          <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:24}}>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr><TH style={{width:50}}/><TH>Agency</TH><TH>Name</TH><TH>Email</TH><TH>Option</TH><TH>Notes</TH><TH style={{width:36,textAlign:"center"}}>📎</TH><TH style={{width:30}}/></tr></thead>
-              <tbody>
-                {castingRows.length===0?<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:T.muted,fontSize:13}}>No models added yet.</td></tr>
-                :castingRows.map(row=>(
-                  <tr key={row.id}>
-                    <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.borderSub}`,width:50,verticalAlign:"middle"}}>
-                      {row.headshot?(
-                        <div style={{position:"relative",width:40,height:40}}>
-                          <img src={row.headshot} alt="" style={{width:40,height:40,borderRadius:8,objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}}/>
-                          <button onClick={()=>updateCastingRow(p.id,row.id,"headshot",null)} style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
-                        </div>
-                      ):(
-                        <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent;}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith("image/"))return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);}} style={{width:40,height:40,borderRadius:8,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"#ccc",background:"#fafafa"}}>+</div>
-                      )}
-                    </td>
-                    {["agency","name","email"].map(field=>(
-                      <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                        <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                      </td>
+          {castingTables.map(table=>(
+            <div key={table.id} style={{marginBottom:32}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                <input value={table.title} onChange={e=>updateCastingTableTitle(p.id,table.id,e.target.value)} style={{fontSize:18,fontWeight:700,color:T.text,background:"transparent",border:"none",borderBottom:"2px solid transparent",padding:"4px 0",fontFamily:"inherit",outline:"none",flex:1,cursor:"text"}} onFocus={e=>{e.target.style.borderBottomColor=T.accent}} onBlur={e=>{e.target.style.borderBottomColor="transparent"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}>
+                <button onClick={()=>downloadCSV(table.rows,castCols,table.title+".csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
+                <button onClick={()=>exportTablePDF(table.rows,castCols,table.title)} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
+                <BtnPrimary onClick={()=>addCastingRow(p.id,table.id)}>+ Add Model</BtnPrimary>
+                {castingTables.length>1&&<button onClick={()=>removeCastingTable(p.id,table.id)} style={{background:"none",border:`1px solid ${T.border}`,color:"#c0392b",padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>× Delete Table</button>}
+              </div>
+              <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:8}}>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr><TH style={{width:64}}/><TH>Agency</TH><TH>Name</TH><TH>Email</TH><TH>Option</TH><TH>Notes</TH><TH style={{width:36,textAlign:"center"}}>📎</TH><TH style={{width:30}}/></tr></thead>
+                  <tbody>
+                    {table.rows.length===0?<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:T.muted,fontSize:13}}>No models added yet.</td></tr>
+                    :table.rows.map(row=>(
+                      <tr key={row.id}>
+                        <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.borderSub}`,width:64,verticalAlign:"middle"}}>
+                          {row.headshot?(
+                            <div style={{position:"relative",width:56,height:56}}>
+                              <img src={row.headshot} alt="" style={{width:56,height:56,borderRadius:8,objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}}/>
+                              <button onClick={()=>updateCastingRow(p.id,table.id,row.id,"headshot",null)} style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
+                            </div>
+                          ):(
+                            <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent;}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith("image/"))return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);}} style={{width:56,height:56,borderRadius:8,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"#ccc",background:"#fafafa"}}>+</div>
+                          )}
+                        </td>
+                        {["agency","name","email"].map(field=>(
+                          <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                            <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
+                          </td>
+                        ))}
+                        <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                          <select value={row.option||"First Option"} onChange={e=>updateCastingRow(p.id,table.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
+                            <option>First Option</option><option>Second Option</option><option>Confirmed</option><option>Released</option>
+                          </select>
+                        </td>
+                        <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                          <input value={row.notes||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"notes",e.target.value)} placeholder="Notes..." style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
+                        </td>
+                        <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
+                          {row._editLink?(
+                            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                              <input autoFocus value={row._linkDraft||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"_linkDraft",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){updateCastingRow(p.id,table.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,table.id,row.id,"_editLink",false);}if(e.key==="Escape")updateCastingRow(p.id,table.id,row.id,"_editLink",false);}} placeholder="https://..." style={{width:140,padding:"4px 7px",borderRadius:6,border:`1px solid ${T.accent}`,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
+                              <button onClick={()=>{updateCastingRow(p.id,table.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,table.id,row.id,"_editLink",false);}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
+                            </div>
+                          ):(
+                            <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{updateCastingRow(p.id,table.id,row.id,"_editLink",true);updateCastingRow(p.id,table.id,row.id,"_linkDraft",row.link||"");}}} onContextMenu={e=>{e.preventDefault();updateCastingRow(p.id,table.id,row.id,"_editLink",true);updateCastingRow(p.id,table.id,row.id,"_linkDraft",row.link||"");}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>📎</span>
+                          )}
+                        </td>
+                        <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,table.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
+                      </tr>
                     ))}
-                    <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                      <select value={row.option||"First Option"} onChange={e=>updateCastingRow(p.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
-                        <option>First Option</option><option>Second Option</option><option>Confirmed</option><option>Released</option>
-                      </select>
-                    </td>
-                    <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                      <input value={row.notes||""} onChange={e=>updateCastingRow(p.id,row.id,"notes",e.target.value)} placeholder="Notes..." style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                    </td>
-                    <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
-                      {row._editLink?(
-                        <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                          <input autoFocus value={row._linkDraft||""} onChange={e=>updateCastingRow(p.id,row.id,"_linkDraft",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){updateCastingRow(p.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,row.id,"_editLink",false);}if(e.key==="Escape")updateCastingRow(p.id,row.id,"_editLink",false);}} placeholder="https://..." style={{width:140,padding:"4px 7px",borderRadius:6,border:`1px solid ${T.accent}`,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
-                          <button onClick={()=>{updateCastingRow(p.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,row.id,"_editLink",false);}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
-                        </div>
-                      ):(
-                        <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{updateCastingRow(p.id,row.id,"_editLink",true);updateCastingRow(p.id,row.id,"_linkDraft",row.link||"");}}} onContextMenu={e=>{e.preventDefault();updateCastingRow(p.id,row.id,"_editLink",true);updateCastingRow(p.id,row.id,"_linkDraft",row.link||"");}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>📎</span>
-                      )}
-                    </td>
-                    <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+          <div style={{display:"flex",justifyContent:"center",marginBottom:24}}>
+            <button onClick={()=>addCastingTable(p.id)} style={{background:"none",border:`1.5px dashed ${T.border}`,color:T.muted,padding:"10px 24px",borderRadius:10,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>+ Add Table</button>
           </div>
           <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Casting Files</div>
           <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload casting files or paste a Dropbox / Drive link to import.</p>
@@ -10186,8 +10212,8 @@ export default function OnnaDashboard() {
                   const noteKeys=["_prodsched","_preprod","_postprod"];
                   const noteUpdates={};noteKeys.forEach(k=>{const v=projectNotes[tplId+k];if(v)noteUpdates[saved.id+k]=v;});
                   if(Object.keys(noteUpdates).length>0) setProjectNotes(prev=>({...prev,...noteUpdates}));
-                  const tplCast=projectCasting?.[tplId];
-                  if(tplCast&&tplCast.length>0) setProjectCasting(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCast))}));
+                  const tplCastTables=getProjectCastingTables(tplId);
+                  if(tplCastTables.some(t=>t.rows.length>0)) setProjectCasting(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCastTables))}));
                   const tplLinks=projectCreativeLinks?.[tplId];
                   if(tplLinks&&Object.keys(tplLinks).length>0) setProjectCreativeLinks(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplLinks))}));
                   const tplFiles=projectFileStore?.[tplId];
