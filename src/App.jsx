@@ -769,151 +769,54 @@ function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRisk
   setRiskAssessmentStore(prev => ({ ...prev, [projectId]: versions }));
 }
 
-// ─── RONNIE PATCH REVIEW HELPERS ─────────────────────────────────────────────
+// ─── RONNIE INLINE REVIEW HELPERS ────────────────────────────────────────────
 
-let _patchItemId = 0;
-function buildPatchReviewItems(patch, currentVer) {
-  const items = [];
+function buildPatchMarkers(patch, preSections) {
+  const markers = new Set();
   const scalars = ["shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
-  const scalarLabels = {shootName:"Shoot Name",shootDate:"Shoot Date",locations:"Locations",crewOnSet:"Crew on Set",timing:"Timing",conductIntro:"Code of Conduct Intro",waiverIntro:"Liability Waiver Intro"};
-
-  scalars.forEach(k => {
-    if (patch[k] !== undefined) {
-      const oldVal = currentVer[k] || "(empty)";
-      items.push({ id: String(++_patchItemId), type: "scalar", label: scalarLabels[k] || k, detail: `${oldVal} → ${patch[k]}`, patch: { [k]: patch[k] }, accepted: null });
-    }
-  });
-
-  ["conductItems","waiverItems","emergencyItems"].forEach(k => {
-    if (patch[k]) {
-      const labels = {conductItems:"Code of Conduct",waiverItems:"Liability Waiver",emergencyItems:"Emergency Plan"};
-      items.push({ id: String(++_patchItemId), type: "replaceArray", label: `Replace ${labels[k]||k}`, detail: `${patch[k].length} item(s)`, patch: { [k]: patch[k] }, accepted: null });
-    }
-  });
-
+  scalars.forEach(k => { if (patch[k] !== undefined) markers.add("scalar:"+k); });
+  ["conductItems","waiverItems","emergencyItems"].forEach(k => { if (patch[k]) markers.add("array:"+k); });
   if (patch.sections && Array.isArray(patch.sections)) {
-    const existing = currentVer.sections || [];
+    const existing = preSections || [];
     patch.sections.forEach(ps => {
       const sIdx = existing.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
-
-      if (sIdx >= 0 && ps.deleteSection) {
-        items.push({ id: String(++_patchItemId), type: "deleteSection", label: `Delete section "${ps.title}"`, detail: `Remove entire section with ${existing[sIdx].rows.length} row(s)`, patch: { sections: [ps] }, accepted: null });
-        return;
-      }
-
       if (sIdx >= 0) {
-        if (ps.deleteRows && Array.isArray(ps.deleteRows)) {
-          items.push({ id: String(++_patchItemId), type: "deleteRows", label: `Delete rows in "${ps.title}"`, detail: `Remove row(s) at index ${ps.deleteRows.join(", ")}`, patch: { sections: [{ title: ps.title, deleteRows: ps.deleteRows }] }, accepted: null });
-        }
-        if (ps.updateRows && Array.isArray(ps.updateRows)) {
-          ps.updateRows.forEach(u => {
-            const oldRow = existing[sIdx].rows[u.index];
-            items.push({ id: String(++_patchItemId), type: "updateRow", label: `Update row ${u.index} in "${ps.title}"`, detail: oldRow ? `${oldRow[0]||"?"} → ${u.row[0]||"?"}` : `Set row ${u.index}`, patch: { sections: [{ title: ps.title, updateRows: [u] }] }, accepted: null });
-          });
-        }
-        if (ps.rows && ps.rows.length) {
-          items.push({ id: String(++_patchItemId), type: "addRows", label: `Add ${ps.rows.length} row(s) to "${ps.title}"`, detail: ps.rows.map(r => r[0]||"?").join(", "), rows: ps.rows, patch: { sections: [{ title: ps.title, rows: ps.rows }] }, accepted: null });
-        }
-        if (ps.replaceAllRows && Array.isArray(ps.replaceAllRows)) {
-          items.push({ id: String(++_patchItemId), type: "addRows", label: `Replace all rows in "${ps.title}"`, detail: `${ps.replaceAllRows.length} row(s)`, rows: ps.replaceAllRows, patch: { sections: [{ title: ps.title, replaceAllRows: ps.replaceAllRows }] }, accepted: null });
-        }
+        if (ps.deleteSection) { markers.add("deleteSection:"+ps.title.toUpperCase()); return; }
+        if (ps.updateRows) ps.updateRows.forEach(u => markers.add("row:"+ps.title.toUpperCase()+":"+u.index));
+        if (ps.rows) { const base = existing[sIdx].rows.length; ps.rows.forEach((_r,ri) => markers.add("row:"+ps.title.toUpperCase()+":"+(base+ri))); }
+        if (ps.replaceAllRows) ps.replaceAllRows.forEach((_r,ri) => markers.add("row:"+ps.title.toUpperCase()+":"+ri));
+        if (ps.deleteRows) ps.deleteRows.forEach(ri => markers.add("deleteRow:"+ps.title.toUpperCase()+":"+ri));
       } else {
-        items.push({ id: String(++_patchItemId), type: "newSection", label: `New section "${ps.title}"`, detail: `${(ps.rows||[]).length} row(s)`, rows: ps.rows||[], patch: { sections: [ps] }, accepted: null });
+        markers.add("newSection:"+ps.title.toUpperCase());
       }
     });
   }
-
-  return items;
+  return markers;
 }
 
-function applyPartialPatch(acceptedItems, projectId, vIdx, currentVersions, setRiskAssessmentStore) {
-  const merged = {};
-  acceptedItems.forEach(item => {
-    const p = item.patch;
-    Object.keys(p).forEach(k => {
-      if (k === "sections") {
-        if (!merged.sections) merged.sections = [];
-        p.sections.forEach(ps => {
-          const existingIdx = merged.sections.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
-          if (existingIdx >= 0) {
-            const ex = merged.sections[existingIdx];
-            if (ps.deleteSection) { merged.sections[existingIdx] = ps; return; }
-            if (ps.deleteRows) ex.deleteRows = [...(ex.deleteRows||[]), ...ps.deleteRows];
-            if (ps.updateRows) ex.updateRows = [...(ex.updateRows||[]), ...ps.updateRows];
-            if (ps.rows) ex.rows = [...(ex.rows||[]), ...ps.rows];
-            if (ps.replaceAllRows) ex.replaceAllRows = ps.replaceAllRows;
-            if (ps.cols) ex.cols = ps.cols;
-          } else {
-            merged.sections.push(JSON.parse(JSON.stringify(ps)));
-          }
-        });
-      } else {
-        merged[k] = p[k];
+function revertMarker(marker, preSnapshot, projectId, vIdx, setStore) {
+  setStore(prev => {
+    const store = JSON.parse(JSON.stringify(prev));
+    const arr = store[projectId] || [];
+    const ver = arr[vIdx]; if (!ver) return store;
+    if (marker.startsWith("scalar:")) {
+      const k = marker.slice(7); ver[k] = preSnapshot[k] !== undefined ? preSnapshot[k] : "";
+    } else if (marker.startsWith("array:")) {
+      const k = marker.slice(6); ver[k] = preSnapshot[k] ? JSON.parse(JSON.stringify(preSnapshot[k])) : [];
+    } else if (marker.startsWith("newSection:")) {
+      const title = marker.slice(11); ver.sections = (ver.sections||[]).filter(s => s.title.toUpperCase() !== title);
+    } else if (marker.startsWith("row:")) {
+      const parts = marker.split(":"); const secTitle = parts[1]; const ri = parseInt(parts[2],10);
+      const si = (ver.sections||[]).findIndex(s => s.title.toUpperCase() === secTitle);
+      const preSi = (preSnapshot.sections||[]).findIndex(s => s.title.toUpperCase() === secTitle);
+      if (si >= 0) {
+        if (preSi >= 0 && ri < (preSnapshot.sections[preSi].rows||[]).length) {
+          ver.sections[si].rows[ri] = JSON.parse(JSON.stringify(preSnapshot.sections[preSi].rows[ri]));
+        } else { ver.sections[si].rows.splice(ri, 1); }
       }
-    });
+    }
+    arr[vIdx] = ver; store[projectId] = arr; return store;
   });
-  applyRonniePatch(merged, projectId, vIdx, currentVersions, setRiskAssessmentStore);
-}
-
-// ─── RONNIE PATCH REVIEW COMPONENT ──────────────────────────────────────────
-
-function RonniePatchReview({ items, onAccept, onDecline, onAcceptAll, onDeclineAll, onConfirm }) {
-  const acceptedCount = items.filter(it => it.accepted === true).length;
-  const allDecided = items.every(it => it.accepted !== null);
-  const pillBtn = (label, onClick, bg, color, hoverBg) => (
-    <button onClick={onClick} style={{fontSize:10,fontWeight:600,color,background:bg,border:"none",borderRadius:10,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",transition:"background 0.15s"}}
-      onMouseOver={e=>{e.currentTarget.style.background=hoverBg;}} onMouseOut={e=>{e.currentTarget.style.background=bg;}}>{label}</button>
-  );
-
-  return (
-    <div style={{margin:"6px 0 10px",borderRadius:10,border:"1px solid #e0e0e0",overflow:"hidden",background:"#fafafa",maxWidth:480}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"#f5f5f7",borderBottom:"1px solid #e5e5ea"}}>
-        <span style={{fontSize:12,fontWeight:700,color:"#1d1d1f"}}>Proposed Changes</span>
-        <div style={{display:"flex",gap:4}}>
-          {pillBtn("Accept All", onAcceptAll, "#e8f5e9", "#2e7d32", "#c8e6c9")}
-          {pillBtn("Decline All", onDeclineAll, "#fce4ec", "#c62828", "#ffcdd2")}
-        </div>
-      </div>
-      <div style={{padding:"6px 8px",display:"flex",flexDirection:"column",gap:4}}>
-        {items.map(item => {
-          const accepted = item.accepted === true;
-          const declined = item.accepted === false;
-          const borderColor = declined ? "#ef5350" : "#4caf50";
-          const bg = declined ? "#fce4ec" : accepted ? "#e8f5e9" : "#f1f8e9";
-          return (
-            <div key={item.id} style={{display:"flex",alignItems:"flex-start",gap:8,borderLeft:`3px solid ${borderColor}`,background:bg,borderRadius:8,padding:"8px 12px",opacity:declined?0.5:1,transition:"all 0.15s"}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:11.5,fontWeight:600,color:"#1d1d1f",textDecoration:declined?"line-through":"none"}}>{item.label}</div>
-                <div style={{fontSize:10.5,color:"#555",marginTop:2,textDecoration:declined?"line-through":"none"}}>{item.detail}</div>
-                {(item.type==="addRows"||item.type==="newSection") && item.rows && item.rows.length > 0 && !declined && (
-                  <div style={{marginTop:4,fontSize:10,color:"#333",background:"rgba(255,255,255,0.7)",borderRadius:4,padding:"4px 6px",overflowX:"auto"}}>
-                    <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
-                      <thead><tr>{["Hazard","Level","At Risk","Mitigation"].map(h=><th key={h} style={{textAlign:"left",padding:"2px 4px",borderBottom:"1px solid #ddd",fontWeight:600,color:"#1a4a80"}}>{h}</th>)}</tr></thead>
-                      <tbody>{item.rows.slice(0,5).map((r,ri)=><tr key={ri}>{r.map((c,ci)=><td key={ci} style={{padding:"2px 4px",borderBottom:"1px solid #eee"}}>{c}</td>)}</tr>)}</tbody>
-                    </table>
-                    {item.rows.length > 5 && <div style={{color:"#888",marginTop:2}}>+{item.rows.length-5} more row(s)</div>}
-                  </div>
-                )}
-              </div>
-              <div style={{display:"flex",gap:4,flexShrink:0,paddingTop:2}}>
-                <button onClick={()=>onAccept(item.id)} style={{width:26,height:26,borderRadius:6,border:"none",background:accepted?"#4caf50":"#e8f5e9",color:accepted?"#fff":"#2e7d32",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
-                  onMouseOver={e=>{if(!accepted){e.currentTarget.style.background="#c8e6c9";}}} onMouseOut={e=>{if(!accepted){e.currentTarget.style.background="#e8f5e9";}}}>✓</button>
-                <button onClick={()=>onDecline(item.id)} style={{width:26,height:26,borderRadius:6,border:"none",background:declined?"#ef5350":"#fce4ec",color:declined?"#fff":"#c62828",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
-                  onMouseOver={e=>{if(!declined){e.currentTarget.style.background="#ffcdd2";}}} onMouseOut={e=>{if(!declined){e.currentTarget.style.background="#fce4ec";}}}>✕</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{padding:"8px 12px",borderTop:"1px solid #e5e5ea",display:"flex",justifyContent:"flex-end"}}>
-        <button onClick={onConfirm} disabled={acceptedCount===0}
-          style={{fontSize:11,fontWeight:600,color:acceptedCount>0?"#fff":"#999",background:acceptedCount>0?"#1a4a80":"#e0e0e0",border:"none",borderRadius:8,padding:"6px 14px",cursor:acceptedCount>0?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.15s"}}
-          onMouseOver={e=>{if(acceptedCount>0)e.currentTarget.style.background="#15395f";}} onMouseOut={e=>{if(acceptedCount>0)e.currentTarget.style.background="#1a4a80";}}>
-          Apply {acceptedCount} accepted change{acceptedCount!==1?"s":""}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // ─── CODY (CONTRACT) HELPERS ────────────────────────────────────────────────
@@ -2481,7 +2384,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}><CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/></div>
           <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
           <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
-          {ctContract.headTermsLabel && (<><div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span></div>{ctContract.fields.map((field) => (<div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}><div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span></div><div style={{flex:1,padding:"8px 12px"}}><CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!ctGetVal(field.key) || ctGetVal(field.key)===field.defaultValue} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/></div></div>))}</>)}
+          {ctContract.headTermsLabel && (<><div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span></div>{ctContract.fields.map((field) => {const confirmed=(ctData.fieldConfirmed||{})[field.key];return(<div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}><div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span></div><div style={{flex:1,padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}><div style={{flex:1}}><CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!confirmed} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/></div><div onClick={()=>ctConfirmField(field.key,!confirmed)} style={{cursor:"pointer",width:16,height:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{confirmed?<svg width="14" height="14" viewBox="0 0 14 14"><rect x="0.5" y="0.5" width="13" height="13" rx="2" fill="#000" stroke="#000"/><path d="M3.5 7L6 9.5L10.5 4.5" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>:<svg width="14" height="14" viewBox="0 0 14 14"><rect x="0.5" y="0.5" width="13" height="13" rx="2" fill="none" stroke="#ccc" strokeWidth="1"/></svg>}</div></div></div>)})}</>)}
           {ctContract.sigLeft && (<><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div><div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>{[{side:"left",label:ctContract.sigLeft},{side:"right",label:ctContract.sigRight}].map(({side,label})=>(<div key={side} style={{flex:1,padding:"12px",borderRight:side==="left"?"1px solid #eee":"none"}}><div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div><div style={{marginBottom:8}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span><SignaturePad value={(ctData.signatures||{})[side]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [side]:v}}))} height={60}/></div>{["name","date"].map(f=>(<div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span><div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}><CSEditField value={(ctData.sigNames||{})[`${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/></div></div>))}</div>))}</div></>)}
           <div style={{marginTop:32}}><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div><textarea value={ctGeneralTerms} onChange={e=>ctSetGeneralTerms(e.target.value)} style={{width:"100%",boxSizing:"border-box",fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",border:"1px solid #eee",borderTop:"none",padding:"12px",minHeight:600,resize:"vertical",outline:"none",background:"#fff",whiteSpace:"pre-wrap"}} onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7";}} onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff";}}/></div>
           <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:CT_FONT,fontSize:9,letterSpacing:CT_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
@@ -4794,15 +4697,18 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            const patchItems = buildPatchReviewItems(patch, ver);
             const _revCount=(raVersions[vIdx]?.revisions||[]).length;
-            if(patchItems.length===0){
-              // Fallback: no reviewable items parsed, apply directly
-              applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
+            // Save pre-snapshot, apply patch, set up inline review markers
+            const preSnapshot = JSON.parse(JSON.stringify(ver));
+            const markers = buildPatchMarkers(patch, ver.sections);
+            applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
+            if(markers.size > 0){
+              setRonniePendingReview({ preSnapshot, markers: [...markers], projectId: project.id, vIdx, revCount: _revCount });
+              setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"\n\nReview the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
+            } else {
+              // No markers — just confirm
               setTimeout(()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];const entry=arr[vIdx];if(entry&&entry.revisions?.length>0){const{revisions:_r,finalRevision:_f,...snap}=entry;entry.revisions[entry.revisions.length-1].data=JSON.parse(JSON.stringify(snap));entry.revisions[entry.revisions.length-1].savedAt=Date.now();}store[project.id]=arr;return store;});},100);
-              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Risk assessment updated.",_ronnieSavePrompt:true,_ronnieSaveMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
-            }else{
-              setMsgs([...history,{role:"assistant",content:cleanText||"Here are the proposed changes:",_pendingPatch:patch,_patchItems:patchItems,_patchMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"\u2713 Risk assessment updated.",_ronnieSavePrompt:true,_ronnieSaveMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
             }
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n\u26a0\ufe0f Could not parse patch: "+pe.message}]);
@@ -5036,13 +4942,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const _fieldLabels={};const _resolvedFieldValues={};
         _ctContract.fields.forEach(f=>{_fieldLabels[f.key]=f.label;_resolvedFieldValues[f.key]=(_ver.fieldValues||{})[f.key]||f.defaultValue||"";});
         const _snapshot={fieldValues:_resolvedFieldValues,generalTermsEdits:{custom:_resolvedTerms},sigNames:_ver.sigNames||{},signatures:_ver.signatures||{},prodLogo:_ver.prodLogo||null,contractType:_activeType,fieldLabels:_fieldLabels};
-        // Check for empty fields
-        const emptyFields=_ctContract.fields.filter(f=>{const v=(_ver.fieldValues||{})[f.key]||"";return !v||v===f.defaultValue||/^\[.*\]$/.test(v);}).map(f=>f.label);
+        // Check for unconfirmed fields
+        const emptyFields=_ctContract.fields.filter(f=>!((_ver.fieldConfirmed||{})[f.key])).map(f=>f.label);
         const _label=_ver.label||_ctContract.label;
         if(emptyFields.length>0){
           codyPendingRef.current={step:"confirm_sign",projectId:project.id,vIdx:_vIdx,snapshot:_snapshot,projectName:project.name,contractType:_activeType,label:_label};
           const list=emptyFields.map(f=>`- ${f}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Are you sure? The following fields are still empty:\n\n${list}\n\nSay yes to generate the link anyway, or no to go back and fill them in.`}]);
+          setMsgs([...history,{role:"assistant",content:`Are you sure? The following fields are still unconfirmed:\n\n${list}\n\nSay yes to generate the link anyway, or no to go back and confirm them.`}]);
           setLoading(false);setMood("idle");return;
         }
         // No empty fields — generate directly
@@ -5079,7 +4985,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const cc=codyPendingRef.current;codyPendingRef.current=null;
         setContractDocStore(prev=>{
           const store=JSON.parse(JSON.stringify(prev));const arr=store[cc.projectId]||[];
-          if(arr[cc.vIdx]){const ct=arr[cc.vIdx];ct.fieldValues={};ct.generalTermsEdits={};ct.sigNames={};ct.signatures={};ct.prodLogo=null;ct.signingStatus="not_sent";ct.signingToken=null;}
+          if(arr[cc.vIdx]){const ct=arr[cc.vIdx];ct.fieldValues={};ct.fieldConfirmed={};ct.generalTermsEdits={};ct.sigNames={};ct.signatures={};ct.prodLogo=null;ct.signingStatus="not_sent";ct.signingToken=null;}
           store[cc.projectId]=arr;return store;
         });
         setMsgs([...history,{role:"assistant",content:"All edits have been cleared — the contract is back to a blank slate. Ready to fill it in again!"}]);
@@ -5123,7 +5029,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       snap += "Fields:\n";
       fields.forEach(fk => {
         const val = (ver.fieldValues||{})[fk] || "(default/empty)";
-        snap += `  ${fk}: ${val.substring(0,200)}${val.length>200?"...":""}\n`;
+        const confirmed = (ver.fieldConfirmed||{})[fk];
+        snap += `  ${fk}: ${val.substring(0,200)}${val.length>200?"...":""} [${confirmed?"CONFIRMED":"UNCONFIRMED"}]\n`;
       });
       if(ver.sigNames){
         const sigs = Object.entries(ver.sigNames);
@@ -6534,8 +6441,10 @@ export default function OnnaDashboard() {
   const [projectSection,setProjectSection]               = useState("Home");
   const [creativeSubSection,setCreativeSubSection]       = useState(null);
   const [budgetSubSection,setBudgetSubSection]           = useState(null);
+  const [invoiceTab,setInvoiceTab]                       = useState("invoices");
   const [previewFile,setPreviewFile]                     = useState(null);
   const [quoteSearchTerm,setQuoteSearchTerm]             = useState("");
+  const [invoiceSearchTerm,setInvoiceSearchTerm]         = useState("");
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [travelSubSection,setTravelSubSection]           = useState(null);
@@ -7676,8 +7585,8 @@ export default function OnnaDashboard() {
       if (!budgetSubSection) return (
         <div>
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Budget management for this project.</p>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
-            {[["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`]].map(([key,label,emoji,desc])=>(
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
+            {[["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`],["invoices","Invoices & Receipts","🧾","Upload invoices & receipts"]].map(([key,label,emoji,desc])=>(
               <div key={key} onClick={()=>setBudgetSubSection(key)} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
@@ -7988,6 +7897,70 @@ export default function OnnaDashboard() {
                 <button onClick={e=>{e.stopPropagation();const n=prompt("Rename file:",f.name);if(n&&n.trim())renameQuoteFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
                 <button onClick={e=>{e.stopPropagation();downloadQuoteFile(f);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Download">Export</button>
                 <button onClick={e=>{e.stopPropagation();if(confirm(`Delete "${f.name}"?`))deleteQuoteFile(f.id);}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
+              </div>
+            ))}
+          </div>}
+          {previewFile&&<div className="modal-bg" onClick={()=>setPreviewFile(null)}>
+            <div style={{width:"90vw",maxWidth:900,height:"85vh",background:T.surface,borderRadius:16,overflow:"hidden",display:"flex",flexDirection:"column",border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.25)"}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 20px",borderBottom:`1px solid ${T.border}`}}>
+                <div style={{fontSize:14,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{previewFile.name}</div>
+                <button onClick={()=>setPreviewFile(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
+              </div>
+              <div style={{flex:1,overflow:"auto",background:"#f0f0f2"}}>
+                {previewFile.type?.includes("pdf")?<iframe src={previewFile.data} style={{width:"100%",height:"100%",border:"none"}}/>
+                :previewFile.type?.includes("image")?<img src={previewFile.data} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block",margin:"auto"}} alt={previewFile.name}/>
+                :<div style={{padding:40,textAlign:"center",color:T.muted}}>Preview not available for this file type.</div>}
+              </div>
+            </div>
+          </div>}
+        </div>
+      );}
+
+      // Invoices & Receipts sub-section
+      if (budgetSubSection==="invoices") {
+        const activeKey = invoiceTab;
+        const invFiles = (projectFileStore[p.id]||{})[activeKey]||[];
+        const addInvFiles = async (fileList) => {
+          const newEntries = [];
+          for (const f of fileList) {
+            if (f.size > 40*1024*1024) { alert(`"${f.name}" is over 40 MB.`); continue; }
+            const data = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
+            newEntries.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});
+          }
+          if (newEntries.length===0) return;
+          setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[activeKey]:[...((prev[p.id]||{})[activeKey]||[]),...newEntries]}}));
+        };
+        const deleteInvFile = (fileId) => setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[activeKey]:((prev[p.id]||{})[activeKey]||[]).filter(f=>f.id!==fileId)}}));
+        const renameInvFile = (fileId, newName) => setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[activeKey]:((prev[p.id]||{})[activeKey]||[]).map(f=>f.id===fileId?{...f,name:newName}:f)}}));
+        const downloadInvFile = (file) => {const a=document.createElement("a");a.href=file.data;a.download=file.name;a.click();};
+        const filteredInv = invoiceSearchTerm.trim() ? invFiles.filter(f=>f.name.toLowerCase().includes(invoiceSearchTerm.trim().toLowerCase())) : invFiles;
+        return (
+        <div>
+          <button onClick={()=>{setBudgetSubSection(null);setInvoiceTab("invoices");setInvoiceSearchTerm("");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Invoices & Receipts</div>
+          <div style={{display:"flex",gap:6,marginBottom:18}}>
+            {[["invoices","Invoices"],["receipts","Receipts"]].map(([key,label])=>(
+              <button key={key} onClick={()=>{setInvoiceTab(key);setInvoiceSearchTerm("");}} style={{padding:"7px 18px",borderRadius:20,fontSize:13,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:`1px solid ${invoiceTab===key?T.accent:T.border}`,background:invoiceTab===key?T.accent:"transparent",color:invoiceTab===key?"#fff":T.sub,transition:"all 0.15s"}}>{label}</button>
+            ))}
+          </div>
+          <label onDrop={e=>{e.preventDefault();addInvFiles(Array.from(e.dataTransfer.files));}} onDragOver={e=>e.preventDefault()} style={{display:"block",border:`1.5px dashed ${T.border}`,borderRadius:14,padding:36,textAlign:"center",cursor:"pointer",background:"#fafafa",transition:"border-color 0.15s",marginBottom:18}}>
+            <div style={{fontSize:26,marginBottom:8,opacity:0.35}}>⬆</div>
+            <div style={{fontSize:13,color:T.sub,marginBottom:4,fontWeight:500}}>Upload {invoiceTab==="invoices"?"invoices":"receipts"} (PDF, images, docs, spreadsheets)</div>
+            <div style={{fontSize:12,color:T.muted}}>Drag & drop or click to upload</div>
+            <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx" style={{display:"none"}} onChange={e=>addInvFiles(Array.from(e.target.files))}/>
+          </label>
+          {invFiles.length>0&&<input value={invoiceSearchTerm} onChange={e=>setInvoiceSearchTerm(e.target.value)} placeholder={`Search ${invoiceTab}…`} style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>}
+          {filteredInv.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {filteredInv.map((f)=>(
+              <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)",cursor:f.type?.includes("pdf")||f.type?.includes("image")?"pointer":"default"}} onClick={()=>{if(f.type?.includes("pdf")||f.type?.includes("image"))setPreviewFile(f);}}>
+                <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"📄":f.type?.includes("image")?"🖼":"📎"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                  <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                </div>
+                <button onClick={e=>{e.stopPropagation();const n=prompt("Rename file:",f.name);if(n&&n.trim())renameInvFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
+                <button onClick={e=>{e.stopPropagation();downloadInvFile(f);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Download">Export</button>
+                <button onClick={e=>{e.stopPropagation();if(confirm(`Delete "${f.name}"?`))deleteInvFile(f.id);}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
               </div>
             ))}
           </div>}
@@ -8615,6 +8588,7 @@ export default function OnnaDashboard() {
         const ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===activeContractType) || CONTRACT_DOC_TYPES[0];
         const ctGetVal = (key) => (ctData.fieldValues||{})[key] || ctContract.fields.find(f=>f.key===key)?.defaultValue || "";
         const ctSetVal = (key, val) => ctSet(d=>({...d,fieldValues:{...(d.fieldValues||{}), [key]:val}}));
+        const ctConfirmField = (key, val) => ctSet(d=>({...d, fieldConfirmed:{...(d.fieldConfirmed||{}), [key]: val}}));
         const ctGeneralTerms = (ctData.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[activeContractType] || "";
         const ctSetGeneralTerms = (val) => ctSet(d=>({...d,generalTermsEdits:{custom:val}}));
 
@@ -8689,16 +8663,17 @@ export default function OnnaDashboard() {
                 <div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}>
                   <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span>
                 </div>
-                {ctContract.fields.map((field) => (
+                {ctContract.fields.map((field) => {const confirmed=(ctData.fieldConfirmed||{})[field.key];return(
                   <div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}>
                     <div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
                       <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span>
                     </div>
-                    <div style={{flex:1,padding:"8px 12px"}}>
-                      <CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!ctGetVal(field.key) || ctGetVal(field.key)===field.defaultValue} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/>
+                    <div style={{flex:1,padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{flex:1}}><CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!confirmed} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/></div>
+                      <div onClick={()=>ctConfirmField(field.key,!confirmed)} style={{cursor:"pointer",width:16,height:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{confirmed?<svg width="14" height="14" viewBox="0 0 14 14"><rect x="0.5" y="0.5" width="13" height="13" rx="2" fill="#000" stroke="#000"/><path d="M3.5 7L6 9.5L10.5 4.5" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>:<svg width="14" height="14" viewBox="0 0 14 14"><rect x="0.5" y="0.5" width="13" height="13" rx="2" fill="none" stroke="#ccc" strokeWidth="1"/></svg>}</div>
                     </div>
                   </div>
-                ))}
+                )})}
               </>)}
 
               {ctContract.sigLeft && (<>
