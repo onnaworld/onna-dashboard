@@ -3419,9 +3419,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     // ── "update vendor/lead [Name]" — find existing or create new ─────────────
     if(agent.id==="logistical"){
-      const upM=input.match(/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact))\s+(.+?)(?:\s+(?:record|entry|details?|info))?[.!?]?\s*$/i);
-      if(upM){
-        const upType=/vendor|supplier/i.test(upM[1])?"vendor":"lead";
+      const upM=input.match(/\b(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i);
+      if(upM&&upM[2]&&upM[2].trim().length>=2&&!/\b(email|phone|name|role|company|website|category|location|notes|status|source|date|value|rate\s*card)\b/i.test(upM[2])){
+        const upTypeHint=upM[1]?(/vendor|supplier/i.test(upM[1])?"vendor":"lead"):null;
         const upName=upM[2].trim();
         setMsgs(history);setInput("");setLoading(true);setMood("thinking");
         // Look up existing record
@@ -3448,14 +3448,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               if(!merged.role&&scrape.role)merged.role=scrape.role;
             }
           }
-          const fq=startConv(merged,type,false,record.id);
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (existing ${type}). ${hasRecent?"Merged Outlook data. ":""}${fq?fq+" (or 'x' to skip)":"Review and update below."}`}]);
+          showEntry(merged,type,record.id,false);
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). ${hasRecent?"Merged Outlook data. ":""}Edit below and save.`}]);
         }else{
           // No existing record — create new
+          const upType=upTypeHint||"vendor";
           const newEntry=hasRecent?{...lastS,_type:upType}:{_type:upType,...(upType==="vendor"?{name:upName,company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
-          if(hasRecent&&upType==="vendor"&&!newEntry.name)newEntry.name=newEntry.contact||upName;
+          if(hasRecent){const scrape=lastS;if(upType==="vendor"){if(scrape.email)newEntry.email=scrape.email;if(scrape.phone)newEntry.phone=scrape.phone;}else{if(scrape.email)newEntry.email=scrape.email;if(scrape.phone)newEntry.phone=scrape.phone;if(scrape.company)newEntry.company=scrape.company;}}
           const fq=startConv(newEntry,upType,false,null);
-          setMsgs([...history,{role:"assistant",content:`No existing ${upType} "${upName}" found — creating new. ${hasRecent?"Using Outlook data. ":""}${fq?"\n\n"+fq+" (or 'x' to skip)":"\nReview and save below."}`}]);
+          setMsgs([...history,{role:"assistant",content:`No existing record for "${upName}" — creating new ${upType}. ${hasRecent?"Using Outlook data. ":""}${fq?"\n\n"+fq+" (or 'x' to skip)":"\nReview and save below."}`}]);
         }
         setLoading(false);setMood("idle");return;
       }
@@ -3950,6 +3951,21 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
       const lower=input.toLowerCase();
+      // Check if user is re-selecting the same project (e.g. typing "columbia" when already on columbia)
+      const sameProjectMatch=_fuzzyMatchProject(input);
+      if(sameProjectMatch && sameProjectMatch.id===projectId && !lower.match(/\b(update|set|add|remove|change|row|section|header|rate|qty|days|notes|payment|deliverable|photographer|shoot|location|date)\b/i)){
+        const reVersions=projectEstimates?.[projectId]||[];
+        if(reVersions.length<=1){
+          setBillieCtx({projectId,vIdx:0});
+          const vLabel=reVersions[0]?.ts?.version||"V1";
+          setMsgs([...history,{role:"assistant",content:`Got it — I'm on **${project.name}** (${vLabel}). What would you like to do?`}]);
+        }else{
+          setBillieCtx({projectId,pendingVersion:true});
+          const list=reVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple estimate versions:\n\n${list}\n\nWhich version should I work on? Or say "create new" to start a fresh estimate.`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
       const switchProject=_fuzzyMatchProject(input, projectId);
       if(switchProject){
         const swVersions=projectEstimates?.[switchProject.id]||[];
@@ -6024,8 +6040,52 @@ export default function OnnaDashboard() {
   const [selectedTodo,setSelectedTodo] = useState(null);
   const [pendingProjectTask,setPendingProjectTask] = useState(null);
   const [pendingDragToProject,setPendingDragToProject] = useState(null);
+
+  // ─── GLOBAL UNDO (Cmd+Z) ──────────────────────────────────────────────────
+  const undoStack = useRef([]);
+  const pushUndo = useCallback((label) => {
+    undoStack.current.push({
+      label,
+      todos: JSON.parse(JSON.stringify(todos)),
+      projectTodos: JSON.parse(JSON.stringify(projectTodos)),
+      outreach: JSON.parse(JSON.stringify(outreach)),
+      vendors: JSON.parse(JSON.stringify(vendors)),
+      localProjects: JSON.parse(JSON.stringify(localProjects)),
+      dashNotesList: JSON.parse(JSON.stringify(dashNotesList)),
+      archivedTodos: JSON.parse(JSON.stringify(archivedTodos)),
+      notes: JSON.parse(JSON.stringify(notes)),
+    });
+    if (undoStack.current.length > 50) undoStack.current.shift();
+  }, [todos, projectTodos, outreach, vendors, localProjects, dashNotesList, archivedTodos, notes]);
+
+  const performUndo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    const snap = undoStack.current.pop();
+    setTodos(snap.todos);
+    setProjectTodos(snap.projectTodos);
+    setOutreach(snap.outreach);
+    setVendors(snap.vendors);
+    setLocalProjects(snap.localProjects);
+    setDashNotesList(snap.dashNotesList);
+    setArchivedTodos(snap.archivedTodos);
+    setNotes(snap.notes);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+        e.preventDefault();
+        performUndo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [performUndo]);
   const addTodoFromInput = (text) => {
     if (!text) return;
+    pushUndo("add task");
     const tab = todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;
     const subType = todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;
     if (todoFilter.startsWith("project-")) {
@@ -8006,7 +8066,7 @@ export default function OnnaDashboard() {
                         <button key={val} onClick={()=>setTodoFilter(val)}
                           onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                           onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                          onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task)setPendingDragToProject(task);return;}const targetTab=val==="todo"?"onna":"personal";setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:targetTab,subType:undefined}:t));setTodoFilter(val);}}
+                          onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task){pushUndo('move to project');setPendingDragToProject(task);};return;}const targetTab=val==="todo"?"onna":"personal";pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:targetTab,subType:undefined}:t));setTodoFilter(val);}}
                           style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
                       ))}
                     </div>
@@ -8017,7 +8077,7 @@ export default function OnnaDashboard() {
                           <button key={val} onClick={()=>setTodoFilter(val)}
                             onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                             onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="todo-later"?"later":undefined;setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType}:t));setTodoFilter(val);}}
+                            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="todo-later"?"later":undefined;pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType}:t));setTodoFilter(val);}}
                             style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
                         ))}
                       </div>
@@ -8029,7 +8089,7 @@ export default function OnnaDashboard() {
                           <button key={val} onClick={()=>setTodoFilter(val)}
                             onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                             onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="general-later"?"later":undefined;setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"personal",subType}:t));setTodoFilter(val);}}
+                            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="general-later"?"later":undefined;pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"personal",subType}:t));setTodoFilter(val);}}
                             style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
                         ))}
                       </div>
@@ -8047,7 +8107,7 @@ export default function OnnaDashboard() {
                   <div style={{padding:"6px 12px",overflowY:"auto",flex:1,minHeight:0}}>
                     {filteredTodos.map(t=>(
                       <div key={t.id} className="todo-item" draggable={t._source==="general"} onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,cursor:t._source==="general"?"grab":"default"}}>
-                        <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
+                        <button onClick={e=>{e.stopPropagation();pushUndo("toggle");(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
                           {t.done&&<span style={{color:"#fff",fontSize:9,lineHeight:1,fontWeight:700}}>✓</span>}
                         </button>
                         <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTodo(t)}>
@@ -8056,8 +8116,8 @@ export default function OnnaDashboard() {
                           {t._source==="general"&&t.subType&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
                         </div>
                         <div className="todo-del" style={{display:"flex",gap:3}}>
-                          <button onClick={e=>{e.stopPropagation();setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
-                          <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).filter(x=>x.id!==t.id)})):setTodos(prev=>prev.filter(x=>x.id!==t.id)));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                          <button onClick={e=>{e.stopPropagation();pushUndo('archive');setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
+                          <button onClick={e=>{e.stopPropagation();pushUndo("toggle");(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).filter(x=>x.id!==t.id)})):setTodos(prev=>prev.filter(x=>x.id!==t.id)));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
                         </div>
                       </div>
                     ))}
@@ -9043,7 +9103,7 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <button onClick={async()=>{
                 if(!window.confirm(`Delete ${selectedOutreach.company}?`)) return;
-                archiveItem('outreach', selectedOutreach);
+                pushUndo('delete outreach');archiveItem('outreach', selectedOutreach);
                 await api.delete(`/api/outreach/${selectedOutreach.id}`);
                 setOutreach(prev=>prev.filter(x=>x.id!==selectedOutreach.id));
                 setSelectedOutreach(null);
@@ -9072,7 +9132,7 @@ export default function OnnaDashboard() {
             <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Which project should this task go under?</div>
             <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto"}}>
               {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(
-                <button key={p.id} onClick={()=>{setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:Date.now(),text:pendingProjectTask,done:false,details:""}]}));setPendingProjectTask(null);}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
+                <button key={p.id} onClick={()=>{pushUndo('add project task');setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:Date.now(),text:pendingProjectTask,done:false,details:""}]}));setPendingProjectTask(null);}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
                   <div>{p.name}</div>
                   <div style={{fontSize:10,opacity:0.7,marginTop:1}}>{p.client}</div>
                 </button>
@@ -9091,7 +9151,7 @@ export default function OnnaDashboard() {
             <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Which project should "{pendingDragToProject.text}" go under?</div>
             <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto"}}>
               {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(
-                <button key={p.id} onClick={()=>{setTodos(prev=>prev.filter(t=>t.id!==pendingDragToProject.id));setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:pendingDragToProject.id,text:pendingDragToProject.text,done:pendingDragToProject.done,details:pendingDragToProject.details||""}]}));setPendingDragToProject(null);setTodoFilter("project");}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
+                <button key={p.id} onClick={()=>{pushUndo('move to project');setTodos(prev=>prev.filter(t=>t.id!==pendingDragToProject.id));setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:pendingDragToProject.id,text:pendingDragToProject.text,done:pendingDragToProject.done,details:pendingDragToProject.details||""}]}));setPendingDragToProject(null);setTodoFilter("project");}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
                   <div>{p.name}</div>
                   <div style={{fontSize:10,opacity:0.7,marginTop:1}}>{p.client}</div>
                 </button>
@@ -9112,7 +9172,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Task</div>
-              <input value={selectedTodo.text} onChange={e=>{const u={...selectedTodo,text:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:14,fontFamily:"inherit"}}/>
+              <input value={selectedTodo.text} onChange={e=>{pushUndo("edit task");const u={...selectedTodo,text:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:14,fontFamily:"inherit"}}/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
@@ -9126,10 +9186,10 @@ export default function OnnaDashboard() {
             </div>
             <div style={{marginBottom:22}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Additional Notes</div>
-              <textarea value={selectedTodo.details||""} onChange={e=>{const u={...selectedTodo,details:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} rows={4} placeholder="Add notes, links, context…" style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
+              <textarea value={selectedTodo.details||""} onChange={e=>{pushUndo("edit notes");const u={...selectedTodo,details:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} rows={4} placeholder="Add notes, links, context…" style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
             </div>
             <div style={{display:"flex",justifyContent:"space-between"}}>
-              <button onClick={()=>{if(selectedTodo._source==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));}else{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));}setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
+              <button onClick={()=>{pushUndo('delete task');if(selectedTodo._source==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));}else{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));}setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
               <BtnPrimary onClick={()=>setSelectedTodo(null)}>Done</BtnPrimary>
             </div>
           </div>
