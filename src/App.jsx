@@ -4915,6 +4915,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
+      // Handle "yes, export" confirmation after missing fields warning
+      const lastMsg = history[history.length-1];
+      if(lastMsg&&lastMsg._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
+        printRiskAssessmentPDF(lastMsg._pendingExport.raData);
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg._pendingExport.label}) \u2014 save it as PDF from there! \ud83d\udd2c`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       // Export / PDF intent
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(risk|assessment|pdf|export|download|print|document|doc)\b/i.test(input)){
         const raVersions_ex=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
@@ -4923,6 +4931,28 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const finalIdx_ex=ver_ex.finalRevision;
         const hasFinal_ex=finalIdx_ex!=null&&ver_ex.revisions?.[finalIdx_ex];
         const raData_ex=hasFinal_ex?{...ver_ex.revisions[finalIdx_ex].data,label:ver_ex.label}:ver_ex;
+        // Check for missing/empty fields before export
+        const _missing=[];
+        if(!raData_ex.shootName) _missing.push("Shoot Name");
+        if(!raData_ex.shootDate) _missing.push("Shoot Date");
+        if(!raData_ex.locations) _missing.push("Locations");
+        if(!raData_ex.crewOnSet) _missing.push("Crew on Set");
+        if(!raData_ex.timing) _missing.push("Timing");
+        if(!(raData_ex.sections||[]).length) _missing.push("Risk Sections (none added)");
+        (raData_ex.sections||[]).forEach(s=>{
+          const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);
+          if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);
+          s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);});
+        });
+        if(!(raData_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
+        if(!(raData_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
+        if(!(raData_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
+        if(_missing.length>0){
+          // Store export intent so user can confirm
+          const warnMsg=`Before exporting, I noticed the following fields are missing or incomplete:\n\n${_missing.map(m=>`- ${m}`).join("\n")}\n\nAre you sure you want to export as-is? Type **"yes, export"** to proceed, or let me know what you'd like to fill in first.`;
+          setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:raData_ex,label:hasFinal_ex?ver_ex.revisions[finalIdx_ex].label:"working copy"}}]);
+          setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
+        }
         printRiskAssessmentPDF(raData_ex);
         const _exLabel=hasFinal_ex?` (${ver_ex.revisions[finalIdx_ex].label})`:" (working copy)";
         setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment${_exLabel} \u2014 save it as PDF from there! \ud83d\udd2c`}]);
@@ -4971,11 +5001,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             const _revCount=(raVersions[vIdx]?.revisions||[]).length;
             // Save pre-snapshot, apply patch, set up inline review markers
-            const preSnapshot = JSON.parse(JSON.stringify(ver));
-            const markers = buildPatchMarkers(patch, ver.sections);
+            // Use the ORIGINAL pre-snapshot if there's already a pending review (preserves revert baseline)
+            const existingReview = ronniePendingReview && ronniePendingReview.projectId===project.id && ronniePendingReview.vIdx===vIdx ? ronniePendingReview : null;
+            const preSnapshot = existingReview ? existingReview.preSnapshot : JSON.parse(JSON.stringify(ver));
+            const newMarkers = buildPatchMarkers(patch, ver.sections);
             applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
-            if(markers.size > 0){
-              setRonniePendingReview({ preSnapshot, markers: [...markers], projectId: project.id, vIdx, revCount: _revCount });
+            if(newMarkers.size > 0){
+              // Merge with any existing unresolved markers
+              const mergedMarkers = existingReview ? [...new Set([...existingReview.markers, ...newMarkers])] : [...newMarkers];
+              setRonniePendingReview({ preSnapshot, markers: mergedMarkers, projectId: project.id, vIdx, revCount: _revCount });
               setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"\n\nReview the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
             } else {
               // No markers — just confirm
@@ -5785,7 +5819,8 @@ const printCallSheetPDF = (cs) => {
   }).join("");
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
   const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
-  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
+  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
   const weatherFields = `<div style="padding:10px 32px 4px"><div style="${secTitle}">WEATHER</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:10px">${cs.weatherHigh?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHigh)} °C / °F</div>`:""}${cs.weatherLow?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLow)} °C / °F</div>`:""}${cs.weatherRealFeelHigh?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHigh)} °C / °F</div>`:""}${cs.weatherRealFeelLow?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLow)} °C / °F</div>`:""}</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:10px">${cs.weatherSunrise?`<div><strong style="font-size:9px;${LS}color:#888">SUNRISE: </strong>${e(cs.weatherSunrise)}</div>`:""}${cs.weatherSunset?`<div><strong style="font-size:9px;${LS}color:#888">SUNSET: </strong>${e(cs.weatherSunset)}</div>`:""}${cs.weatherBlueHour?`<div><strong style="font-size:9px;${LS}color:#888">BLUE HOUR: </strong>${e(cs.weatherBlueHour)}</div>`:""}</div></div>`;
@@ -5895,28 +5930,36 @@ const exportCastingPDF = (tables, columns, title) => {
     try {
       const cv = document.createElement("canvas"); cv.width = logoImg.naturalWidth; cv.height = logoImg.naturalHeight;
       cv.getContext("2d").drawImage(logoImg, 0, 0); const dataUrl = cv.toDataURL("image/png");
+      const PAGE_SIZE = 10;
       const tablesHTML = tables.map(t => {
-        const thead = `<tr>${columns.map(c=>`<th>${c.label}</th>`).join("")}</tr>`;
-        const tbody = (t.rows||[]).map(r=>`<tr>${columns.map(c=>{const v=r[c.key]??'';if(c.key==='link'&&v&&(v.startsWith('http://')||v.startsWith('https://')))return `<td><a href="${v}" target="_blank" style="color:#1565C0;text-decoration:underline">${v}</a></td>`;return `<td>${v}</td>`;}).join("")}</tr>`).join("");
-        return `<div class="sec">${t.title||title}</div><table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        const allRows = t.rows||[];
+        const pages = [];
+        for(let i=0;i<allRows.length;i+=PAGE_SIZE) pages.push(allRows.slice(i,i+PAGE_SIZE));
+        if(pages.length===0) pages.push([]);
+        return pages.map((pageRows,pi) => {
+          const thead = `<tr><th style="width:70px">Photo</th>${columns.map(c=>`<th>${c.label}</th>`).join("")}</tr>`;
+          const tbody = pageRows.map(r=>`<tr><td style="width:70px">${r.headshot?`<img src="${r.headshot}" style="width:56px;height:56px;border-radius:6px;object-fit:cover"/>`:''}</td>${columns.map(c=>{const v=r[c.key]??'';if(c.key==='link'&&v&&(v.startsWith('http://')||v.startsWith('https://')))return `<td><a href="${v}" target="_blank">${v}</a></td>`;return `<td>${v}</td>`;}).join("")}</tr>`).join("");
+          return `${pi===0?`<div class="sec">${t.title||title}</div>`:''}${pi>0?'<div class="page-break"></div>':''}<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        }).join("");
       }).join("");
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;font-size:10.5pt;color:#111;background:#fff;padding:22mm 18mm;line-height:1.65;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;font-size:10.5pt;color:#111;background:#fff;padding:18mm 15mm;line-height:1.65;}
   .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;padding-bottom:14px;border-bottom:1.5px solid #111;}
   .hdr img{max-height:30px;max-width:120px;object-fit:contain;}
-  .co{text-align:right;font-size:8.5pt;color:#666;line-height:1.7;}
-  .sec{font-weight:700;text-transform:uppercase;letter-spacing:0.09em;font-size:8.5pt;color:#333;margin:16px 0 7px;border-bottom:1px solid #e0e0e0;padding-bottom:4px;}
-  table{width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:9.5pt;}
-  th{background:#111;color:#fff;padding:7px 11px;text-align:left;font-size:7.5pt;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;}
-  td{padding:7px 11px;border-bottom:1px solid #eee;vertical-align:top;}
+  .sec{font-weight:700;text-transform:uppercase;letter-spacing:0.09em;font-size:9pt;color:#333;margin:16px 0 7px;border-bottom:1px solid #e0e0e0;padding-bottom:4px;}
+  table{width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:10pt;table-layout:fixed;}
+  th{background:#111;color:#fff;padding:9px 14px;text-align:left;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;}
+  td{padding:9px 14px;border-bottom:1px solid #eee;vertical-align:middle;word-wrap:break-word;}
   tr:nth-child(even) td{background:#fafafa;}
+  td img{display:block;}
   .ftr{margin-top:36px;padding-top:10px;border-top:1px solid #e0e0e0;font-size:7.5pt;color:#aaa;display:flex;justify-content:space-between;}
   a{color:#1565C0;text-decoration:underline;}
-  @media print{body{padding:12mm 15mm;}@page{margin:0;size:A4 landscape;}}
+  .page-break{page-break-before:always;margin-top:0;}
+  @media print{body{padding:10mm 12mm;}@page{margin:0;size:A4 landscape;}.page-break{page-break-before:always;}}
 </style>
-<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
+<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};</script>
 </head><body>
 <div class="hdr">
   <div><img src="${dataUrl}" alt="ONNA"/></div>
