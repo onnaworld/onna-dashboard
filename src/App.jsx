@@ -3420,7 +3420,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     // ── "update vendor/lead [Name]" — find existing or create new ─────────────
     if(agent.id==="logistical"){
       const upM=input.match(/\b(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i);
-      if(upM&&upM[2]&&upM[2].trim().length>=2&&!/\b(email|phone|name|role|company|website|category|location|notes|status|source|date|value|rate\s*card)\b/i.test(upM[2])){
+      if(upM&&upM[2]&&upM[2].trim().length>=2&&!/\b(email|phone|name|role|company|website|category|location|notes|status|source|date|value|rate\s*card)\b/i.test(upM[2])&&!/^(vendor|supplier|lead|contact)$/i.test(upM[2].trim())){
         const upTypeHint=upM[1]?(/vendor|supplier/i.test(upM[1])?"vendor":"lead"):null;
         const upName=upM[2].trim();
         setMsgs(history);setInput("");setLoading(true);setMood("thinking");
@@ -6324,7 +6324,7 @@ export default function OnnaDashboard() {
       api.get("/api/outreach"),
     ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
-      if (Array.isArray(projects) && projects.length > 0) { const migrated=projects.map(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} }
+      if (Array.isArray(projects) && projects.length > 0) { const migrated=projects.map(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} const tplP=projects.find(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"); if(tplP) api.put(`/api/projects/${tplP.id}`,{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}).catch(()=>{}); }
       if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
       if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
