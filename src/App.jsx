@@ -861,15 +861,18 @@ function buildPatchMarkers(patch, preVer) {
   scalars.forEach(k => { if (patch[k] !== undefined) markers.add("scalar:"+k); });
   // Per-item diffing for conduct/waiver/emergency arrays
   ["conductItems","waiverItems","emergencyItems"].forEach(k => {
-    if (!patch[k]) return;
+    if (!patch[k] || !Array.isArray(patch[k])) return;
     const oldArr = (preVer && preVer[k]) || [];
     const newArr = patch[k];
     const maxLen = Math.max(oldArr.length, newArr.length);
+    let foundAny = false;
     for (let i = 0; i < maxLen; i++) {
-      if (i >= oldArr.length) { markers.add("arrayItem:"+k+":"+i); continue; } // new item
-      if (i >= newArr.length) { markers.add("arrayItem:"+k+":"+i); continue; } // deleted item
-      if (JSON.stringify(oldArr[i]) !== JSON.stringify(newArr[i])) { markers.add("arrayItem:"+k+":"+i); } // changed item
+      if (i >= oldArr.length || i >= newArr.length) { markers.add("arrayItem:"+k+":"+i); foundAny=true; continue; }
+      const o = oldArr[i], n = newArr[i];
+      if ((o.label||"") !== (n.label||"") || (o.text||"") !== (n.text||"")) { markers.add("arrayItem:"+k+":"+i); foundAny=true; }
     }
+    // Fallback: if Ronnie included this array but diff found nothing, mark all items for review
+    if (!foundAny && newArr.length > 0) { for (let i = 0; i < newArr.length; i++) markers.add("arrayItem:"+k+":"+i); }
   });
   if (patch.sections && Array.isArray(patch.sections)) {
     const existing = (preVer && preVer.sections) || [];
@@ -5033,8 +5036,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               const mergedMarkers = existingReview ? [...new Set([...existingReview.markers, ...newMarkers])] : [...newMarkers];
               setRonniePendingReview({ preSnapshot, markers: mergedMarkers, projectId: project.id, vIdx, revCount: _revCount });
               setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"\n\nReview the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
+            } else if (existingReview && existingReview.markers.length > 0) {
+              // No new markers but existing review still has unresolved markers — keep it
+              setMsgs([...history,{role:"assistant",content:(cleanText||"Done.")+"\n\nYou still have pending changes to review on the left."}]);
             } else {
-              // No markers — just confirm
+              // No markers at all — just confirm
               setTimeout(()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];const entry=arr[vIdx];if(entry&&entry.revisions?.length>0){const{revisions:_r,finalRevision:_f,...snap}=entry;entry.revisions[entry.revisions.length-1].data=JSON.parse(JSON.stringify(snap));entry.revisions[entry.revisions.length-1].savedAt=Date.now();}store[project.id]=arr;return store;});},100);
               setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"\u2713 Risk assessment updated.",_ronnieSavePrompt:true,_ronnieSaveMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
             }
@@ -5959,7 +5965,7 @@ const exportCastingPDF = (tables, columns, title) => {
         if(pages.length===0) pages.push([]);
         return pages.map((pageRows,pi) => {
           const thead = `<tr><th style="width:70px">Photo</th>${columns.map(c=>`<th>${c.label}</th>`).join("")}</tr>`;
-          const tbody = pageRows.map(r=>`<tr><td style="width:70px">${r.headshot?`<img src="${r.headshot}" style="width:56px;height:56px;border-radius:6px;object-fit:cover"/>`:''}</td>${columns.map(c=>{const v=r[c.key]??'';if(c.key==='link'&&v&&(v.startsWith('http://')||v.startsWith('https://')))return `<td><a href="${v}" target="_blank">${v}</a></td>`;return `<td>${v}</td>`;}).join("")}</tr>`).join("");
+          const tbody = pageRows.map(r=>`<tr><td style="width:70px">${r.headshot?`<img src="${r.headshot}" style="width:56px;height:56px;border-radius:6px;object-fit:cover"/>`:''}</td>${columns.map(c=>{const v=r[c.key]??'';if(c.key==='link'&&v&&(v.startsWith('http://')||v.startsWith('https://')))return `<td style="text-align:center"><a href="${v}" target="_blank" style="text-decoration:none;font-size:16px" title="${v}">&#x1F4CE;</a></td>`;return `<td>${v}</td>`;}).join("")}</tr>`).join("");
           return `${pi===0?`<div class="sec">${t.title||title}</div>`:''}${pi>0?'<div class="page-break"></div>':''}<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
         }).join("");
       }).join("");
