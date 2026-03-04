@@ -4365,6 +4365,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const {revisions:_r,finalRevision:_f,...snap}=newLabel;
           newLabel.revisions=[{label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))}];
           setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newLabel);return store;});
+          // Auto-load production logo
+          const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];const idx=arr.length-1;if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=du;if(arr[idx].revisions?.length)arr[idx].revisions[arr[idx].revisions.length-1].data.productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
           const newIdx=raLabels.length;
           setRonnieCtx({projectId:project.id,vIdx:newIdx});
           if(setActiveRAVersion)setActiveRAVersion(newIdx);
@@ -5160,7 +5162,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
         <div style={{flex:agent.id==="billie"?"0 0 60%":"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
-            callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion}
+            callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
             contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}
             projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}/>
@@ -6417,7 +6419,7 @@ export default function OnnaDashboard() {
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
-    const LOGO_VER = "v4"; // bump to force re-apply default logo to all docs
+    const LOGO_VER = "v5"; // bump to force re-apply default logo to all docs
     const alreadyApplied = localStorage.getItem('onna_logo_ver') === LOGO_VER;
     const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
     logoImg.onload = () => {
@@ -6720,7 +6722,7 @@ export default function OnnaDashboard() {
   const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
   const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
   const getProjectCasting  = id => projectCasting[id]||[];
-  const addCastingRow      = id => setProjectCasting(prev=>({...prev,[id]:[...(prev[id]||[]),{id:Date.now(),agency:"",name:"",email:"",option:"First Option"}]}));
+  const addCastingRow      = id => setProjectCasting(prev=>({...prev,[id]:[...(prev[id]||[]),{id:Date.now(),agency:"",name:"",email:"",option:"First Option",notes:"",link:"",headshot:null}]}));
   const updateCastingRow   = (id,rowId,field,val) => setProjectCasting(prev=>({...prev,[id]:(prev[id]||[]).map(r=>r.id===rowId?{...r,[field]:val}:r)}));
   const removeCastingRow   = (id,rowId) => setProjectCasting(prev=>({...prev,[id]:(prev[id]||[]).filter(r=>r.id!==rowId)}));
 
@@ -7387,7 +7389,7 @@ export default function OnnaDashboard() {
           setProjectActuals(prev => {
             const store = JSON.parse(JSON.stringify(prev));
             if (!store[p.id]) store[p.id] = buildActualsFromEstimate(estSections);
-            store[p.id][secIdx].rows[rowIdx].expenses.push({ id: Date.now(), vendor: "", desc: "", amount: "0" });
+            store[p.id][secIdx].rows[rowIdx].expenses.push({ id: Date.now(), vendor: "", desc: "", amount: "0", status: "" });
             return store;
           });
         };
@@ -8412,22 +8414,45 @@ export default function OnnaDashboard() {
           </div>
           <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:24}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr><TH>Agency</TH><TH>Name of Model</TH><TH>Email</TH><TH>Option</TH><TH/></tr></thead>
+              <thead><tr><TH style={{width:50}}/><TH>Agency</TH><TH>Name</TH><TH>Email</TH><TH>Option</TH><TH>Notes</TH><TH style={{width:36,textAlign:"center"}}>📎</TH><TH style={{width:30}}/></tr></thead>
               <tbody>
-                {castingRows.length===0?<tr><td colSpan={5} style={{padding:40,textAlign:"center",color:T.muted,fontSize:13}}>No models added yet.</td></tr>
+                {castingRows.length===0?<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:T.muted,fontSize:13}}>No models added yet.</td></tr>
                 :castingRows.map(row=>(
                   <tr key={row.id}>
+                    <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.borderSub}`,width:50,verticalAlign:"middle"}}>
+                      {row.headshot?(
+                        <div style={{position:"relative",width:40,height:40}}>
+                          <img src={row.headshot} alt="" style={{width:40,height:40,borderRadius:8,objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}}/>
+                          <button onClick={()=>updateCastingRow(p.id,row.id,"headshot",null)} style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
+                        </div>
+                      ):(
+                        <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent;}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith("image/"))return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);}} style={{width:40,height:40,borderRadius:8,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"#ccc",background:"#fafafa"}}>+</div>
+                      )}
+                    </td>
                     {["agency","name","email"].map(field=>(
-                      <td key={field} style={{padding:"8px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
-                        <input value={row[field]} onChange={e=>updateCastingRow(p.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
+                      <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                        <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
                       </td>
                     ))}
-                    <td style={{padding:"8px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
-                      <select value={row.option} onChange={e=>updateCastingRow(p.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
+                    <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                      <select value={row.option||"First Option"} onChange={e=>updateCastingRow(p.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
                         <option>First Option</option><option>Second Option</option><option>Confirmed</option><option>Released</option>
                       </select>
                     </td>
-                    <td style={{padding:"8px 14px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
+                    <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                      <input value={row.notes||""} onChange={e=>updateCastingRow(p.id,row.id,"notes",e.target.value)} placeholder="Notes..." style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
+                    </td>
+                    <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
+                      {row._editLink?(
+                        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                          <input autoFocus value={row._linkDraft||""} onChange={e=>updateCastingRow(p.id,row.id,"_linkDraft",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){updateCastingRow(p.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,row.id,"_editLink",false);}if(e.key==="Escape")updateCastingRow(p.id,row.id,"_editLink",false);}} placeholder="https://..." style={{width:140,padding:"4px 7px",borderRadius:6,border:`1px solid ${T.accent}`,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
+                          <button onClick={()=>{updateCastingRow(p.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,row.id,"_editLink",false);}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
+                        </div>
+                      ):(
+                        <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{updateCastingRow(p.id,row.id,"_editLink",true);updateCastingRow(p.id,row.id,"_linkDraft",row.link||"");}}} onContextMenu={e=>{e.preventDefault();updateCastingRow(p.id,row.id,"_editLink",true);updateCastingRow(p.id,row.id,"_linkDraft",row.link||"");}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>📎</span>
+                      )}
+                    </td>
+                    <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
                   </tr>
                 ))}
               </tbody>
