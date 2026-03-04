@@ -1696,11 +1696,11 @@ Be warm, brief and direct.`,
    intro:"Hey! I'm Vendor Vinnie. Let me create your database! ✏️"},
   {id:"compliance",name:"Call Sheet Connie",title:"Call Sheets",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
    system:`You are Call Sheet Connie, a production coordinator for ONNA. You are connected to live call sheet data and can read and update it directly.`,
-   placeholder:"Add gaffer Elie Kolko, what's missing, update call time...",
+   placeholder:"Add call sheet details...",
    intro:"Hi! I'm Call Sheet Connie. I'm connected to your live call sheets — tell me to add crew, update details, or ask what's missing. 📋"},
   {id:"researcher",name:"Risk Assessment Ronnie",title:"Risk Assessment",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
    system:`You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. You are connected to live risk assessment data and can read and update it directly.`,
-   placeholder:"Add a new risk, update mitigation, review what's missing...",
+   placeholder:"Add risk assessment details...",
    intro:"I'm Risk Assessment Ronnie. I'm connected to your live risk assessments — tell me to add risks, update mitigations, or ask what's missing. I do not take safety lightly. 🔬"},
   {id:"minnie",name:"Meeting Minnie",title:"Scheduling",emoji:"📅",color:_PURPLE,border:"#a07cc0",accent:"#4a1a80",bg:"#faf5ff",textColor:"#2d0a50",tagBg:"#ede0f8",Blob:_Minnie,
    system:`You are Meeting Minnie, ONNA's scheduling assistant for a film/TV production company in Dubai. You help manage meeting requests from emails.
@@ -1715,7 +1715,7 @@ Keep replies concise and professional. Sign off as the ONNA team. Always propose
    intro:"Hi! I'm Meeting Minnie. Paste a meeting request email and I'll check your calendar for conflicts and draft a reply with three available time slots. 📅"},
   {id:"billie",name:"Budget Billie",title:"Budgets",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
    system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. Be fast, confident and accurate.`,
-   placeholder:"Describe your shoot and I'll build the budget...",
+   placeholder:"Add budget details...",
    intro:"Hey! I'm Budget Billie 💰 Tell me about your shoot — type, days, crew size, location — and I'll build a full line-item budget with AED/USD, markup and contingency. What are we shooting?"},
   {id:"contracts",name:"Contract Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
    system:`You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are connected to live contract data and can read and update it directly.
@@ -1727,7 +1727,7 @@ You help draft and manage contracts including:
 You can fill in contract fields, switch between contract types, review what's missing, and export contracts to PDF. All changes are saved automatically to the project.
 
 NEVER say you cannot save data or need external tools. You have FULL access. Be warm, brief and direct.`,
-   placeholder:"Fill in contract details, switch types, review what's missing...",
+   placeholder:"Add contract details...",
    intro:"I'm Contract Cody. I'm connected to your live contracts — tell me to fill in fields, switch contract types, review what's missing, or export to PDF. 📝"},
 ];
 function levenshtein(a,b){
@@ -2536,6 +2536,30 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         }
         return;
       }
+      // ── Awaiting update name (from bare "update") ──
+      if(pendingConv._awaitingUpdateName){
+        const pick=input.trim();
+        setMsgs(history);setInput("");
+        setPendingConv(null);
+        if(!pick||pick.length<2){
+          setMsgs([...history,{role:"assistant",content:"Please type a name to look up, e.g. 'Nancy' or 'Acme Corp'."}]);
+          setPendingConv({_awaitingUpdateName:true,entry:null,type:null,questions:[],idx:0});
+          return;
+        }
+        // Look up the name
+        setLoading(true);setMood("thinking");
+        const found=findVendorOrLead(pick,allVendors,allLeads);
+        if(found){
+          const {record,type}=found;
+          const displayName=type==="vendor"?record.name:(record.contact||record.company);
+          showEntry({...record},type,record.id,false);
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). Edit below and save.`}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:`No record found for "${pick}". Try a different name, or type 'new' to create one.`}]);
+        }
+        setLoading(false);setMood("idle");
+        return;
+      }
       // ── Mid-Q&A search — fill missing fields from Outlook/WhatsApp ──
       const midSearchM=agent.id==="logistical"&&input.trim().match(/\b(?:search|check|look|find|scan)\s+(?:(?:my|in|on|the)\s+)?(?:outlook|whatsapp|emails?|inbox|chats?)\b/i);
       if(midSearchM){
@@ -3322,6 +3346,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setMsgs(history);setInput("");
       setPendingConv({_awaitingTypeChoice:true,entry:null,type:null,questions:[],idx:0});
       setMsgs([...history,{role:"assistant",content:"What would you like to create?\n\n1. Vendor\n2. Lead\n3. Outreach Tracker (lead + outreach)\n\nReply 1, 2, or 3."}]);
+      return;
+    }
+    // ── Vinnie: bare "update" / "edit" / "open" with no name → ask who ──
+    if(agent.id==="logistical"&&/^(?:update|edit|modify|open|pull\s*up|show)\s*(?:a\s+)?(?:record|entry|contact|someone|one)?[.!?]?\s*$/i.test(_vinInput)){
+      setMsgs(history);setInput("");
+      setPendingConv({_awaitingUpdateName:true,entry:null,type:null,questions:[],idx:0});
+      setMsgs([...history,{role:"assistant",content:"Who do you want to update? Type their name (e.g. 'Nancy' or 'Acme Corp')."}]);
       return;
     }
     // ── "update [Name]" / "open [Name]" — find existing and open card (BEFORE vendor/lead intent) ──
@@ -4673,7 +4704,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
   // ── Vinnie split-screen card ──────────────────────────────────────────────
   const [_vinnieAddContact,_setVinnieAddContact]=useState(null);
   const _isVinnie=agent.id==="logistical";
-  const _hasVinnieCard=_isVinnie&&!isMobile&&((pendingConv&&!pendingConv._awaitingTypeChoice)||!!pendingLead);
+  const _hasVinnieCard=_isVinnie&&!isMobile&&((pendingConv&&!pendingConv._awaitingTypeChoice&&!pendingConv._awaitingUpdateName)||!!pendingLead);
   // During Q&A, read from pendingConv.entry; after Q&A, read from leadEdit
   // When collecting xContact details, show the existing record with the new contact in-progress
   const _isXContactMode=pendingConv&&pendingConv._saveAsXContact;
@@ -6319,7 +6350,9 @@ export default function OnnaDashboard() {
       api.get("/api/outreach"),
     ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
-      if (Array.isArray(projects) && projects.length > 0) { const seenClient=new Set(); const deduped=projects.filter(p=>{const k=(p.client||"").trim().toLowerCase();if(seenClient.has(k)){api.delete(`/api/projects/${p.id}`).catch(e=>console.warn("Failed to delete dupe:",p.id,e));return false;}seenClient.add(k);return true;}); setLocalProjects(deduped); try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{} }
+      if (Array.isArray(projects) && projects.length > 0) { const seenClient=new Set(); const deduped=projects.filter(p=>{const k=(p.client||"").trim().toLowerCase();if(seenClient.has(k)){api.delete(`/api/projects/${p.id}`).catch(e=>console.warn("Failed to delete dupe:",p.id,e));return false;}seenClient.add(k);return true;});
+        if(!deduped.find(p=>p.client==="TEMPLATE")){api.post("/api/projects",{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0,status:"Active",year:2026}).then(t=>{if(t&&t.id){setLocalProjects(prev=>[t,...prev]);try{localStorage.setItem('onna_cache_projects',JSON.stringify([t,...deduped]))}catch{}}}).catch(()=>{});}
+        setLocalProjects(deduped); try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{} }
       if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
       if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
