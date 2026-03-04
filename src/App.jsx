@@ -6002,7 +6002,7 @@ export default function OnnaDashboard() {
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
-  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const m=arr.map(p=>(p.id===1||p.id==="1")&&p.client!=="TEMPLATE"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(m))}catch{}return m;}catch{return []}});
+  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const isTpl=p=>/columbia|ima/i.test(p.client||"")&&p.client!=="TEMPLATE";const m=arr.map(p=>isTpl(p)?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(m))}catch{}return m;}catch{return []}});
   const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
   const [apiLoading,setApiLoading]           = useState(true);
@@ -6048,7 +6048,7 @@ export default function OnnaDashboard() {
   const [catEditVal,setCatEditVal] = useState("");
   const [catSaving,setCatSaving] = useState(false);
   const [customVendorLocs,setCustomVendorLocs] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
-  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
+  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');const obj=s?JSON.parse(s):{};delete obj["1"];delete obj[1];try{localStorage.setItem('onna_ptodos',JSON.stringify(obj))}catch{}return obj;}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
   const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab?t:["later","longterm"].includes(t.subType)?{...t,tab:"personal"}:{...t,tab:"onna"})}catch(e){return []}});
@@ -6319,7 +6319,7 @@ export default function OnnaDashboard() {
       api.get("/api/outreach"),
     ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
-      if (Array.isArray(projects) && projects.length > 0) { const migrated=projects.map(p=>(p.id===1||p.id==="1")&&p.client!=="TEMPLATE"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} const tplP=projects.find(p=>(p.id===1||p.id==="1")&&p.client!=="TEMPLATE"); if(tplP) api.put(`/api/projects/${tplP.id}`,{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}).catch(e=>console.warn("Template rename PUT failed:",e)); }
+      if (Array.isArray(projects) && projects.length > 0) { const isTpl=p=>/columbia|ima/i.test(p.client||"")&&p.client!=="TEMPLATE"; const migrated=projects.map(p=>isTpl(p)?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} const tplP=projects.find(isTpl); if(tplP) api.put(`/api/projects/${tplP.id}`,{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}).catch(()=>{}); }
       if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
       if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
