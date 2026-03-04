@@ -5437,30 +5437,8 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 };
 
-// ─── ACTUALS TRACKER SUB-COMPONENTS ─────────────────────────────────────────
-const ActualsCell = ({ value, onChange, style = {}, placeholder = "", readOnly = false }) => {
-  const [editing, setEditing] = useState(false);
-  const [temp, setTemp] = useState(value);
-  if (readOnly) return <span style={{ fontSize: 12, color: "#1d1d1f", ...style }}>{value || <span style={{ color: "#aeaeb2", fontSize: 11 }}>{placeholder}</span>}</span>;
-  const commit = () => { setEditing(false); if (temp !== value) onChange(temp); };
-  if (editing) return <input autoFocus value={temp} onChange={e => setTemp(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setTemp(value); setEditing(false); } }} style={{ fontSize: 12, padding: "3px 6px", border: "1px solid #d2d2d7", borderRadius: 4, outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "inherit", background: "#FFFDE7", ...style }} placeholder={placeholder} />;
-  return <span onClick={() => { setTemp(value); setEditing(true); }} style={{ fontSize: 12, cursor: "text", display: "inline-block", minWidth: 28, minHeight: 16, padding: "2px 4px", borderRadius: 3, borderBottom: "1px dashed transparent", ...style }} onMouseEnter={e => (e.target.style.borderBottom = "1px dashed #ccc")} onMouseLeave={e => (e.target.style.borderBottom = "1px dashed transparent")}>{value || <span style={{ color: "#aeaeb2", fontSize: 11 }}>{placeholder}</span>}</span>;
-};
-
+// ─── ACTUALS STATUS CONSTANTS ────────────────────────────────────────────────
 const ACTUALS_STATUSES = ["", "Pending", "Confirmed", "Paid"];
-const ACTUALS_STATUS_COLORS = { "": { bg: "transparent", color: "#aeaeb2", label: "—" }, Pending: { bg: "#fff8e8", color: "#92680a", label: "Pending" }, Confirmed: { bg: "#e8f4fd", color: "#0066cc", label: "Confirmed" }, Paid: { bg: "#edfaf3", color: "#147d50", label: "Paid" } };
-const ActualsStatusBadge = ({ status, onChange }) => {
-  const s = ACTUALS_STATUS_COLORS[status] || ACTUALS_STATUS_COLORS[""];
-  const cycle = () => { const idx = ACTUALS_STATUSES.indexOf(status); onChange(ACTUALS_STATUSES[(idx + 1) % ACTUALS_STATUSES.length]); };
-  return <span onClick={cycle} style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer", background: s.bg, color: s.color, border: `1px solid ${s.color}22`, letterSpacing: 0.3, userSelect: "none", whiteSpace: "nowrap" }}>{s.label}</span>;
-};
-
-const ActualsVariance = ({ estimate, actual }) => {
-  const diff = estimate - actual;
-  const color = diff > 0 ? "#147d50" : diff < 0 ? "#c0392b" : "#6e6e73";
-  const prefix = diff > 0 ? "+" : "";
-  return <span style={{ fontSize: 11, fontWeight: 600, color }}>{prefix}{diff.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>;
-};
 
 // ─── TABLE EXPORT HELPERS ──────────────────────────────────────────────────────
 const downloadCSV = (rows, columns, filename) => {
@@ -7203,6 +7181,18 @@ export default function OnnaDashboard() {
 
     if (projectSection==="Home") return (
       <div>
+        {/* Editable project header */}
+        <div style={{marginBottom:20,display:"flex",alignItems:"flex-start",gap:14}}>
+          <div style={{flex:1}}>
+            <input value={p.client||""} onChange={e=>{const v=e.target.value;setLocalProjects(prev=>prev.map(pr=>pr.id===p.id?{...pr,client:v}:pr));api.put(`/api/projects/${p.id}`,{client:v}).catch(()=>{});}} placeholder="Client name" style={{width:"100%",fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,background:"transparent",border:"none",borderBottom:"1px solid transparent",padding:"2px 0",fontFamily:"inherit",outline:"none",cursor:"text"}} onFocus={e=>{e.target.style.borderBottomColor=T.accent}} onBlur={e=>{e.target.style.borderBottomColor="transparent"}}/>
+            <input value={p.name||""} onChange={e=>{const v=e.target.value;setLocalProjects(prev=>prev.map(pr=>pr.id===p.id?{...pr,name:v}:pr));api.put(`/api/projects/${p.id}`,{name:v}).catch(()=>{});}} placeholder="Project name" style={{width:"100%",fontSize:22,fontWeight:700,color:T.text,letterSpacing:"-0.02em",background:"transparent",border:"none",borderBottom:"1px solid transparent",padding:"2px 0",fontFamily:"inherit",outline:"none",cursor:"text"}} onFocus={e=>{e.target.style.borderBottomColor=T.accent}} onBlur={e=>{e.target.style.borderBottomColor="transparent"}}/>
+          </div>
+          <select value={p.status||"Active"} onChange={e=>{const v=e.target.value;setLocalProjects(prev=>prev.map(pr=>pr.id===p.id?{...pr,status:v}:pr));api.put(`/api/projects/${p.id}`,{status:v}).catch(()=>{});}} style={{padding:"5px 24px 5px 10px",borderRadius:8,fontSize:11,fontWeight:500,border:`1px solid ${T.border}`,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' fill='none'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23aeaeb2' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 8px center",background:p.status==="Active"?"#e8f5e9":p.status==="Completed"?"#e3f2fd":"#fff8e1",color:p.status==="Active"?"#2e7d32":p.status==="Completed"?"#1565c0":"#f57f17",flexShrink:0,marginTop:6}}>
+            <option value="Active">Active</option>
+            <option value="In Review">In Review</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:28}}>
           {[["Total Revenue",`AED ${totalIn.toLocaleString()}`,"income"],["Total Expenses",`AED ${totalOut.toLocaleString()}`,"outgoings"],["Net Profit",`AED ${profit.toLocaleString()}`,"revenue − expenses"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
             <div key={l} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
