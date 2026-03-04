@@ -384,6 +384,26 @@ const estCalcTotals = (sections) => {
   return { subtotal, feesTotal, grandTotal: subtotal + feesTotal };
 };
 
+// ─── ACTUALS TRACKER HELPERS ────────────────────────────────────────────────
+const buildActualsFromEstimate = (estimateSections) => {
+  const secs = estimateSections || defaultSections();
+  return secs.map(s => ({
+    ...JSON.parse(JSON.stringify(s)),
+    rows: s.rows.map(r => ({
+      ...JSON.parse(JSON.stringify(r)),
+      expenses: [],
+      zohoAmount: "0",
+      status: "",
+    })),
+  }));
+};
+
+const actualsRowExpenseTotal = (row) => (row.expenses || []).reduce((s, e) => s + estNum(e.amount), 0);
+const actualsSectionExpenseTotal = (sec) => sec.rows.reduce((s, r) => s + actualsRowExpenseTotal(r), 0);
+const actualsSectionZohoTotal = (sec) => sec.rows.reduce((s, r) => s + estNum(r.zohoAmount), 0);
+const actualsGrandExpenseTotal = (sections) => sections.reduce((s, sec) => s + actualsSectionExpenseTotal(sec), 0);
+const actualsGrandZohoTotal = (sections) => sections.reduce((s, sec) => s + actualsSectionZohoTotal(sec), 0);
+
 const CALLSHEET_INIT = {
   shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"",
   productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,weatherImage:null,
@@ -2647,10 +2667,25 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const {_updateRecord:rec,_updateType:uType,_updateId:uId,_updateName:uName,_actionOptions:opts}=pendingConv;
         setMsgs(history);setInput("");
         // Allow free-text search commands too
-        const isOutlook=pick==="1"||(opts[0]&&/outlook|email/i.test(opts[0])&&pick==="1")||/\b(?:search|check)\s*(?:outlook|email)/i.test(pick);
-        const isWhatsapp=(opts.length===2&&pick==="2")||(opts.length===1&&pick==="1"&&/whatsapp|phone/i.test(opts[0]))||/\b(?:search|check)\s*(?:whatsapp|phone)/i.test(pick);
+        const pickNum=parseInt(pick);
+        const pickedOpt=(pickNum>=1&&pickNum<=opts.length)?opts[pickNum-1]:"";
+        const isOutlook=/outlook|email/i.test(pickedOpt)||/\b(?:search|check)\s*(?:outlook|email)/i.test(pick);
+        const isWhatsapp=/whatsapp|phone/i.test(pickedOpt)||/\b(?:search|check)\s*(?:whatsapp|phone)/i.test(pick);
+        const isAddContact=/secondary|add.*contact/i.test(pickedOpt)||/\b(?:add|new)\s*(?:a\s+)?(?:secondary|contact|person)\b/i.test(pick);
         const isDone=/^(done|no|skip|x|cancel|nothing|nah)$/i.test(pick);
         if(isDone){setPendingConv(null);setMsgs([...history,{role:"assistant",content:"All good. Edit the card and save when ready."}]);return;}
+        if(isAddContact){
+          // Start xContact Q&A for a new secondary contact on this record
+          setPendingConv(null);
+          const xContactFields=uType==="vendor"
+            ?[["name","Contact name?"],["email","Email address?"],["phone","Phone number?"],["role","Their role or title?"]]
+            :[["name","Contact name?"],["role","Their role or title?"],["email","Email address?"],["phone","Phone number?"]];
+          const xQs=xContactFields.map(([k,q])=>({key:k==="name"?"contact":k,q}));
+          const convData={entry:{_type:uType,contact:"",email:"",phone:"",role:""},type:uType,saveAsOutreach:false,updateId:uId,questions:xQs,idx:0,_saveAsXContact:{type:uType,id:uId,record:rec,existName:uName}};
+          setPendingConv(convData);
+          setMsgs([...history,{role:"assistant",content:`Adding a new contact on ${uName}.\n\n${xQs[0].q} (or 'x' to skip)`}]);
+          return;
+        }
         if(isOutlook||isWhatsapp){
           const source=isWhatsapp?"whatsapp":"outlook";
           setLoading(true);setMood("thinking");
@@ -2673,17 +2708,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             }
             // Check remaining missing fields
             const stillMissingEmail=!updated.email;const stillMissingPhone=!updated.phone;
-            if(stillMissingEmail||stillMissingPhone){
-              const newOpts=[];
-              if(stillMissingEmail)newOpts.push("Search Outlook for email");
-              if(stillMissingPhone)newOpts.push("Search WhatsApp for phone");
-              setPendingConv({...pendingConv,_updateRecord:updated,_actionOptions:newOpts});
-              const optStr=newOpts.map((o,i)=>`${i+1}. ${o}`).join("\n");
-              setMsgs([...history,{role:"assistant",content:filled.length?`Found: ${filled.join(", ")}. Updated card.\n\n${optStr}\n\nOr type 'done'.`:`No results from ${isWhatsapp?"WhatsApp":"Outlook"}.\n\n${optStr}\n\nOr type 'done'.`}]);
-            }else{
-              setPendingConv(null);
-              setMsgs([...history,{role:"assistant",content:filled.length?`Found: ${filled.join(", ")}. Card updated — save when ready.`:`No new info found. Edit the card manually and save.`}]);
-            }
+            const newOpts=[];
+            if(stillMissingEmail)newOpts.push("Search Outlook for email");
+            if(stillMissingPhone)newOpts.push("Search WhatsApp for phone");
+            newOpts.push("Add a secondary contact");
+            setPendingConv({...pendingConv,_updateRecord:updated,_actionOptions:newOpts});
+            const optStr=newOpts.map((o,i)=>`${i+1}. ${o}`).join("\n");
+            setMsgs([...history,{role:"assistant",content:`${filled.length?`Found: ${filled.join(", ")}. Updated card.`:`No results from ${isWhatsapp?"WhatsApp":"Outlook"}.`}\n\n${optStr}\n\nOr type 'done'.`}]);
           }else{
             setMsgs([...history,{role:"assistant",content:`No results from ${isWhatsapp?"WhatsApp":"Outlook"}. ${opts.map((o,i)=>`${i+1}. ${o}`).join("\n")}\n\nOr type 'done'.`}]);
           }
@@ -3544,14 +3575,12 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           }
           showEntry(merged,type,record.id,false);
           const missingEmail=!merged.email;const missingPhone=!merged.phone;
-          let opts="";
-          if(missingEmail||missingPhone){
-            const optList=[];
-            if(missingEmail)optList.push("Search Outlook for email");
-            if(missingPhone)optList.push("Search WhatsApp for phone");
-            opts="\n\n"+optList.map((o,i)=>`${i+1}. ${o}`).join("\n");
-            setPendingConv({_awaitingUpdateAction:true,_updateRecord:merged,_updateType:type,_updateId:record.id,_updateName:displayName,_actionOptions:optList,entry:null,type:null,questions:[],idx:0});
-          }
+          const optList=[];
+          if(missingEmail)optList.push("Search Outlook for email");
+          if(missingPhone)optList.push("Search WhatsApp for phone");
+          optList.push("Add a secondary contact");
+          const opts="\n\n"+optList.map((o,i)=>`${i+1}. ${o}`).join("\n");
+          setPendingConv({_awaitingUpdateAction:true,_updateRecord:merged,_updateType:type,_updateId:record.id,_updateName:displayName,_actionOptions:optList,entry:null,type:null,questions:[],idx:0});
           setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). ${hasRecent?"Merged Outlook data. ":""}Edit below and save.${opts}`}]);
         }else{
           const upType=upTypeHint||"vendor";
@@ -5347,6 +5376,31 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 };
 
+// ─── ACTUALS TRACKER SUB-COMPONENTS ─────────────────────────────────────────
+const ActualsCell = ({ value, onChange, style = {}, placeholder = "", readOnly = false }) => {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value);
+  if (readOnly) return <span style={{ fontSize: 12, color: "#1d1d1f", ...style }}>{value || <span style={{ color: "#aeaeb2", fontSize: 11 }}>{placeholder}</span>}</span>;
+  const commit = () => { setEditing(false); if (temp !== value) onChange(temp); };
+  if (editing) return <input autoFocus value={temp} onChange={e => setTemp(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setTemp(value); setEditing(false); } }} style={{ fontSize: 12, padding: "3px 6px", border: "1px solid #d2d2d7", borderRadius: 4, outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "inherit", background: "#FFFDE7", ...style }} placeholder={placeholder} />;
+  return <span onClick={() => { setTemp(value); setEditing(true); }} style={{ fontSize: 12, cursor: "text", display: "inline-block", minWidth: 28, minHeight: 16, padding: "2px 4px", borderRadius: 3, borderBottom: "1px dashed transparent", ...style }} onMouseEnter={e => (e.target.style.borderBottom = "1px dashed #ccc")} onMouseLeave={e => (e.target.style.borderBottom = "1px dashed transparent")}>{value || <span style={{ color: "#aeaeb2", fontSize: 11 }}>{placeholder}</span>}</span>;
+};
+
+const ACTUALS_STATUSES = ["", "Pending", "Confirmed", "Paid"];
+const ACTUALS_STATUS_COLORS = { "": { bg: "transparent", color: "#aeaeb2", label: "—" }, Pending: { bg: "#fff8e8", color: "#92680a", label: "Pending" }, Confirmed: { bg: "#e8f4fd", color: "#0066cc", label: "Confirmed" }, Paid: { bg: "#edfaf3", color: "#147d50", label: "Paid" } };
+const ActualsStatusBadge = ({ status, onChange }) => {
+  const s = ACTUALS_STATUS_COLORS[status] || ACTUALS_STATUS_COLORS[""];
+  const cycle = () => { const idx = ACTUALS_STATUSES.indexOf(status); onChange(ACTUALS_STATUSES[(idx + 1) % ACTUALS_STATUSES.length]); };
+  return <span onClick={cycle} style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer", background: s.bg, color: s.color, border: `1px solid ${s.color}22`, letterSpacing: 0.3, userSelect: "none", whiteSpace: "nowrap" }}>{s.label}</span>;
+};
+
+const ActualsVariance = ({ estimate, actual }) => {
+  const diff = estimate - actual;
+  const color = diff > 0 ? "#147d50" : diff < 0 ? "#c0392b" : "#6e6e73";
+  const prefix = diff > 0 ? "+" : "";
+  return <span style={{ fontSize: 11, fontWeight: 600, color }}>{prefix}{diff.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>;
+};
+
 // ─── TABLE EXPORT HELPERS ──────────────────────────────────────────────────────
 const downloadCSV = (rows, columns, filename) => {
   const header = columns.map(c=>`"${c.label}"`).join(",");
@@ -6120,6 +6174,7 @@ export default function OnnaDashboard() {
   const [quoteSearchTerm,setQuoteSearchTerm]             = useState("");
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
+  const [travelSubSection,setTravelSubSection]           = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
   const [aiMsg,setAiMsg]                                 = useState("");
   const [aiLoading,setAiLoading]                         = useState(false);
@@ -6127,6 +6182,8 @@ export default function OnnaDashboard() {
   const [projectFiles,setProjectFiles]                   = useState({});
   const [projectFileStore,setProjectFileStore]           = useState({});
   const [fileStoreReady,setFileStoreReady]               = useState(false);
+  const [projectActuals,setProjectActuals]               = useState({});
+  const [actualsReady,setActualsReady]                   = useState(false);
   const [projectCasting,setProjectCasting]               = useState({});
   const [projectLocLinks,setProjectLocLinks]             = useState({});
   const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
@@ -6308,6 +6365,8 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
   useEffect(()=>{idbGet("projectFileStore").then(d=>{if(d)setProjectFileStore(d);setFileStoreReady(true);}).catch(()=>setFileStoreReady(true));},[]);
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
+  useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
+  useEffect(()=>{if(actualsReady)idbSet("projectActuals",projectActuals).catch(()=>{});},[projectActuals,actualsReady]);
   useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
@@ -6546,15 +6605,16 @@ export default function OnnaDashboard() {
     return grandTotal;
   };
   const getProjRevenue = (p) => { const er = getEstimateRevenue(p.id); return er !== null ? er : p.revenue; };
+  const getProjCost = (p) => { const act = projectActuals[p.id]; if (act) { return actualsGrandZohoTotal(act); } return p.cost; };
   const projects2026  = allProjectsMerged.filter(p=>p.year===2026);
   const rev2026       = projects2026.reduce((a,b)=>a+getProjRevenue(b),0);
-  const profit2026    = projects2026.reduce((a,b)=>a+(getProjRevenue(b)-b.cost),0);
+  const profit2026    = projects2026.reduce((a,b)=>a+(getProjRevenue(b)-getProjCost(b)),0);
   const totalPipeline = localLeads.reduce((a,b)=>a+b.value,0);
   const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
   const projects      = allProjectsMerged.filter(p=>p.year===projectYear||p.client==="TEMPLATE");
   const projRev       = projects.reduce((a,b)=>a+getProjRevenue(b),0);
-  const projProfit    = projects.reduce((a,b)=>a+(getProjRevenue(b)-b.cost),0);
+  const projProfit    = projects.reduce((a,b)=>a+(getProjRevenue(b)-getProjCost(b)),0);
   const projMargin    = projRev>0?Math.round((projProfit/projRev)*100):0;
 
   const allLeadsMerged = localLeads.map(l=>leadStatusOverrides[l.id]?{...l,status:leadStatusOverrides[l.id]}:l);
@@ -6874,7 +6934,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\n**ALL CREW MUST BRING VALID EMIRATES ID TO SET**\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
@@ -7090,7 +7150,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -7149,7 +7209,7 @@ export default function OnnaDashboard() {
         const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
         return (
           <div>
-            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
+            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
             <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
             <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or link a Dropbox / Drive folder.</p>
             <div style={{marginBottom:18}}>
@@ -7217,13 +7277,248 @@ export default function OnnaDashboard() {
       );
 
       // Budget Tracker sub-section
-      if (budgetSubSection==="tracker") return (
+      if (budgetSubSection==="tracker") {
+        // Pull estimate data
+        const estVersions = projectEstimates[p.id] || [];
+        const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
+        const estSections = latestEst ? (latestEst.sections || defaultSections()) : defaultSections();
+        const estTotals = estCalcTotals(estSections);
+
+        // Auto-init actuals from estimate if not yet created
+        if (!projectActuals[p.id] && latestEst) {
+          const init = buildActualsFromEstimate(estSections);
+          setProjectActuals(prev => ({ ...prev, [p.id]: init }));
+        }
+        const actSections = projectActuals[p.id] || buildActualsFromEstimate(estSections);
+
+        const actExpenseTotal = actualsGrandExpenseTotal(actSections);
+        const actZohoTotal = actualsGrandZohoTotal(actSections);
+        const variance = estTotals.grandTotal - actZohoTotal;
+        const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((actZohoTotal / estTotals.grandTotal) * 100) : 0;
+
+        const fmtAED = (v) => v.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        // Update a row in actuals
+        const updateActRow = (secIdx, rowIdx, field, value) => {
+          setProjectActuals(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            if (!store[p.id]) store[p.id] = buildActualsFromEstimate(estSections);
+            store[p.id][secIdx].rows[rowIdx][field] = value;
+            return store;
+          });
+        };
+
+        // Add expense to a row
+        const addExpense = (secIdx, rowIdx) => {
+          setProjectActuals(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            if (!store[p.id]) store[p.id] = buildActualsFromEstimate(estSections);
+            store[p.id][secIdx].rows[rowIdx].expenses.push({ id: Date.now(), vendor: "", desc: "", amount: "0" });
+            return store;
+          });
+        };
+
+        // Update an expense
+        const updateExpense = (secIdx, rowIdx, expIdx, field, value) => {
+          setProjectActuals(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            store[p.id][secIdx].rows[rowIdx].expenses[expIdx][field] = value;
+            return store;
+          });
+        };
+
+        // Delete expense
+        const deleteExpense = (secIdx, rowIdx, expIdx) => {
+          setProjectActuals(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            store[p.id][secIdx].rows[rowIdx].expenses.splice(expIdx, 1);
+            return store;
+          });
+        };
+
+        // Tracker tab state
+        const [trackerTab, setTrackerTab] = [
+          budgetSubSection === "tracker" ? (window._actTrackerTab || "detail") : "detail",
+          (v) => { window._actTrackerTab = v; setBudgetSubSection("tracker"); }
+        ];
+        // Expanded rows state
+        const expandedRef = useRef({});
+        const toggleExpand = (key) => { expandedRef.current[key] = !expandedRef.current[key]; setBudgetSubSection("tracker"); };
+
+        // Export PDF
+        const exportActualsPDF = () => {
+          const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+          let rows = "";
+          actSections.forEach((sec, si) => {
+            const estSec = estSections[si];
+            const estSecTotal = estSec ? estSectionTotal(estSec) : 0;
+            const actExpTotal = actualsSectionExpenseTotal(sec);
+            const actZTotal = actualsSectionZohoTotal(sec);
+            rows += `<tr style="background:#f5f5f7;font-weight:700"><td colspan="2">${sec.num}. ${sec.title}</td><td style="text-align:right">${fmtAED(estSecTotal)}</td><td style="text-align:right">${fmtAED(actExpTotal)}</td><td style="text-align:right">${fmtAED(actZTotal)}</td><td style="text-align:right">${fmtAED(estSecTotal - actZTotal)}</td><td>${""}</td></tr>`;
+            sec.rows.forEach((r, ri) => {
+              const estRow = estSec?.rows[ri];
+              const estVal = estRow ? estRowTotal(estRow) : 0;
+              const expVal = actualsRowExpenseTotal(r);
+              rows += `<tr><td>${r.ref}</td><td>${r.desc}</td><td style="text-align:right">${fmtAED(estVal)}</td><td style="text-align:right">${fmtAED(expVal)}</td><td style="text-align:right">${fmtAED(estNum(r.zohoAmount))}</td><td style="text-align:right">${fmtAED(estVal - estNum(r.zohoAmount))}</td><td>${r.status || "—"}</td></tr>`;
+            });
+          });
+          rows += `<tr style="background:#1d1d1f;color:#fff;font-weight:700"><td colspan="2">GRAND TOTAL</td><td style="text-align:right">${fmtAED(estTotals.grandTotal)}</td><td style="text-align:right">${fmtAED(actExpenseTotal)}</td><td style="text-align:right">${fmtAED(actZohoTotal)}</td><td style="text-align:right">${fmtAED(variance)}</td><td>${budgetUsedPct}%</td></tr>`;
+          const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Budget Tracker — ${p.client} ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}body{font-family:${F};padding:24px;font-size:11px;}h1{font-size:16px;margin-bottom:4px;}h2{font-size:12px;color:#6e6e73;margin-bottom:16px;font-weight:400;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{padding:6px 8px;border:1px solid #d2d2d7;text-align:left;font-size:10px;}th{background:#f5f5f7;font-weight:600;}@media print{@page{margin:10mm;size:A4 landscape;}}</style><script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};}<\/script></head><body><h1>${p.client} — ${p.name}</h1><h2>Budget Tracker</h2><table><thead><tr><th>Ref</th><th>Description</th><th>Estimate</th><th>Actuals</th><th>Finals (Zoho)</th><th>Variance</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+          const blob = new Blob([html], { type: "text/html" });
+          const url = URL.createObjectURL(blob);
+          const win = window.open(url, "_blank");
+          if (!win) { const a = document.createElement("a"); a.href = url; a.download = "Budget Tracker.html"; a.click(); }
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        };
+
+        return (
         <div>
-          <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
-          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:18}}>Budget Tracker</div>
-          <div style={{padding:52,textAlign:"center",color:T.muted,fontSize:13,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`}}>Budget tracker coming soon — track project income, expenses, and profit here.</div>
+          <button onClick={()=>{setBudgetSubSection(null);window._actTrackerTab="detail";}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}>
+            <div style={{fontSize:18,fontWeight:700,color:T.text}}>Budget Tracker</div>
+            <button onClick={exportActualsPDF} style={{background:T.accent,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Export PDF</button>
+          </div>
+
+          {/* Dashboard cards */}
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:20}}>
+            {[
+              ["Estimate", fmtAED(estTotals.grandTotal), T.text],
+              ["Actuals", fmtAED(actExpenseTotal), "#0066cc"],
+              ["Finals (Zoho)", fmtAED(actZohoTotal), "#6e6e73"],
+              ["Variance", (variance >= 0 ? "+" : "") + fmtAED(variance), variance >= 0 ? "#147d50" : "#c0392b"],
+              ["Budget Used", budgetUsedPct + "%", budgetUsedPct > 100 ? "#c0392b" : budgetUsedPct > 80 ? "#92680a" : "#147d50"],
+            ].map(([label, val, clr]) => (
+              <div key={label} style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.03)"}}>
+                <div style={{fontSize:11,color:T.muted,marginBottom:4,fontWeight:500}}>{label}</div>
+                <div style={{fontSize:16,fontWeight:700,color:clr}}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:`1px solid ${T.border}`}}>
+            {["summary","detail"].map(tab=>(
+              <button key={tab} onClick={()=>setTrackerTab(tab)} style={{background:"none",border:"none",borderBottom:trackerTab===tab?`2px solid ${T.accent}`:"2px solid transparent",color:trackerTab===tab?T.text:T.muted,fontSize:13,fontWeight:trackerTab===tab?600:400,padding:"8px 18px",cursor:"pointer",fontFamily:"inherit"}}>{tab==="summary"?"Summary":"Actuals Tracker"}</button>
+            ))}
+          </div>
+
+          {/* Summary Tab */}
+          {trackerTab==="summary" && (
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:T.bg}}>
+                    <th style={{padding:"8px 10px",textAlign:"left",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Section</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Estimate</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Actuals</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Finals</th>
+                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Variance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {actSections.map((sec, si) => {
+                    const estSec = estSections[si];
+                    const estSecTot = estSec ? estSectionTotal(estSec) : 0;
+                    const actExp = actualsSectionExpenseTotal(sec);
+                    const actZoho = actualsSectionZohoTotal(sec);
+                    return (
+                      <tr key={si} style={{borderBottom:`1px solid ${T.borderSub}`}}>
+                        <td style={{padding:"10px 10px",fontWeight:600,color:T.text}}>{sec.num}. {sec.title}</td>
+                        <td style={{padding:"10px 10px",textAlign:"right",color:T.text}}>{fmtAED(estSecTot)}</td>
+                        <td style={{padding:"10px 10px",textAlign:"right",color:"#0066cc"}}>{fmtAED(actExp)}</td>
+                        <td style={{padding:"10px 10px",textAlign:"right",color:T.sub}}>{fmtAED(actZoho)}</td>
+                        <td style={{padding:"10px 10px",textAlign:"right"}}><ActualsVariance estimate={estSecTot} actual={actZoho}/></td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{background:T.accent,color:"#fff",fontWeight:700}}>
+                    <td style={{padding:"10px 10px"}}>GRAND TOTAL</td>
+                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(estTotals.grandTotal)}</td>
+                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(actExpenseTotal)}</td>
+                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(actZohoTotal)}</td>
+                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(variance)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Detail Tab */}
+          {trackerTab==="detail" && (
+            <div style={{overflowX:"auto"}}>
+              {actSections.map((sec, si) => {
+                const estSec = estSections[si];
+                return (
+                <div key={si} style={{marginBottom:20}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.text,padding:"10px 0 6px",borderBottom:`2px solid ${T.accent}`,marginBottom:0}}>{sec.num}. {sec.title}</div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead>
+                      <tr style={{background:T.bg}}>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:T.sub,fontSize:10,width:40}}>Ref</th>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:T.sub,fontSize:10,minWidth:120}}>Description</th>
+                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:90}}>Estimate</th>
+                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:90}}>Actuals</th>
+                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:100}}>Finals (Zoho)</th>
+                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:80}}>Variance</th>
+                        <th style={{padding:"6px 8px",textAlign:"center",fontWeight:600,color:T.sub,fontSize:10,width:70}}>Status</th>
+                        <th style={{padding:"6px 8px",textAlign:"center",fontWeight:600,color:T.sub,fontSize:10,width:30}}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sec.rows.map((row, ri) => {
+                        const estRow = estSec?.rows[ri];
+                        const estVal = estRow ? estRowTotal(estRow) : 0;
+                        const expTotal = actualsRowExpenseTotal(row);
+                        const zohoVal = estNum(row.zohoAmount);
+                        const rowKey = `${si}-${ri}`;
+                        const isExpanded = expandedRef.current[rowKey];
+                        return (
+                          <Fragment key={ri}>
+                            <tr style={{borderBottom:`1px solid ${T.borderSub}`}}>
+                              <td style={{padding:"7px 8px",color:T.muted,fontSize:11}}>{row.ref}</td>
+                              <td style={{padding:"7px 8px",color:T.text,fontSize:12}}>{row.desc}</td>
+                              <td style={{padding:"7px 8px",textAlign:"right",color:T.text,fontSize:12}}>{fmtAED(estVal)}</td>
+                              <td style={{padding:"7px 8px",textAlign:"right",color:"#0066cc",fontSize:12,fontWeight:500}}>{fmtAED(expTotal)}</td>
+                              <td style={{padding:"7px 8px",textAlign:"right"}}><ActualsCell value={row.zohoAmount} onChange={v => updateActRow(si, ri, "zohoAmount", v)} placeholder="0" style={{textAlign:"right",fontWeight:500}} /></td>
+                              <td style={{padding:"7px 8px",textAlign:"right"}}><ActualsVariance estimate={estVal} actual={zohoVal}/></td>
+                              <td style={{padding:"7px 8px",textAlign:"center"}}><ActualsStatusBadge status={row.status} onChange={v => updateActRow(si, ri, "status", v)}/></td>
+                              <td style={{padding:"7px 8px",textAlign:"center"}}><span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:14,color:T.muted,userSelect:"none"}}>{isExpanded?"▾":"▸"}</span></td>
+                            </tr>
+                            {isExpanded && (
+                              <tr><td colSpan={8} style={{padding:"8px 8px 12px 32px",background:T.bg,borderBottom:`1px solid ${T.borderSub}`}}>
+                                <div style={{fontSize:11,fontWeight:600,color:T.sub,marginBottom:6}}>Expenses / Vendor Quotations</div>
+                                {(row.expenses||[]).map((exp, ei) => (
+                                  <div key={exp.id} style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+                                    <ActualsCell value={exp.vendor} onChange={v => updateExpense(si, ri, ei, "vendor", v)} placeholder="Vendor" style={{width:120}} />
+                                    <ActualsCell value={exp.desc} onChange={v => updateExpense(si, ri, ei, "desc", v)} placeholder="Description" style={{flex:1,minWidth:100}} />
+                                    <ActualsCell value={exp.amount} onChange={v => updateExpense(si, ri, ei, "amount", v)} placeholder="0" style={{width:80,textAlign:"right"}} />
+                                    <button onClick={()=>deleteExpense(si, ri, ei)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:"0 4px"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                                  </div>
+                                ))}
+                                <button onClick={()=>addExpense(si, ri)} style={{background:"none",border:`1px dashed ${T.border}`,color:T.muted,fontSize:11,padding:"4px 12px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>+ Add Expense</button>
+                              </td></tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                      <tr style={{background:T.bg,fontWeight:700}}>
+                        <td colSpan={2} style={{padding:"8px 10px",color:T.text,fontSize:12}}>Section Total</td>
+                        <td style={{padding:"8px 10px",textAlign:"right",color:T.text,fontSize:12}}>{fmtAED(estSec ? estSectionTotal(estSec) : 0)}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right",color:"#0066cc",fontSize:12}}>{fmtAED(actualsSectionExpenseTotal(sec))}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right",color:T.sub,fontSize:12}}>{fmtAED(actualsSectionZohoTotal(sec))}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right"}}><ActualsVariance estimate={estSec ? estSectionTotal(estSec) : 0} actual={actualsSectionZohoTotal(sec)}/></td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      );
+        );
+      }
 
       // Quotations sub-section
       if (budgetSubSection==="quotations") {
@@ -8065,19 +8360,49 @@ export default function OnnaDashboard() {
 
     if (projectSection==="Styling") return <UploadZone label="Upload styling documents (PDF, images)" files={getProjectFiles(p.id,"styling")} onAdd={f=>addProjectFiles(p.id,"styling",f)}/>;
 
-    // Travel section — upload zone + folder link
-    if (projectSection==="Travel") return (
-      <div>
-        <div style={{marginBottom:18}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Folder Link</div>
-          <div style={{display:"flex",gap:10}}>
-            <input value={projectLocLinks[p.id+"_travel"]||""} onChange={e=>setProjectLocLinks(prev=>({...prev,[p.id+"_travel"]:e.target.value}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-            {projectLocLinks[p.id+"_travel"]&&<a href={projectLocLinks[p.id+"_travel"]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none"}}>Open Folder ↗</a>}
+    // Travel section — sub-folders
+    if (projectSection==="Travel") {
+      const TRAVEL_CARDS = [
+        {key:"flights",   emoji:"✈️",  label:"Flights"},
+        {key:"passports", emoji:"🛂", label:"Passports"},
+        {key:"hotels",    emoji:"🏨", label:"Hotels"},
+        {key:"itinerary", emoji:"🗺️",  label:"Travel Itinerary"},
+      ];
+
+      if (!travelSubSection) return (
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
+            {TRAVEL_CARDS.map(c=>(
+              <div key={c.key} onClick={()=>setTravelSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+                <span style={{fontSize:28}}>{c.emoji}</span>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                  <div style={{fontSize:12,color:T.muted,marginTop:2}}>{(getProjectFiles(p.id,"travel_"+c.key)||[]).length} file{(getProjectFiles(p.id,"travel_"+c.key)||[]).length!==1?"s":""}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Folder Link</div>
+            <div style={{display:"flex",gap:10}}>
+              <input value={projectLocLinks[p.id+"_travel"]||""} onChange={e=>setProjectLocLinks(prev=>({...prev,[p.id+"_travel"]:e.target.value}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              {projectLocLinks[p.id+"_travel"]&&<a href={projectLocLinks[p.id+"_travel"]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none"}}>Open Folder ↗</a>}
+            </div>
           </div>
         </div>
-        <UploadZone label="Upload travel documents — flights, hotels, itineraries (PDF, images)" files={getProjectFiles(p.id,"travel")} onAdd={f=>addProjectFiles(p.id,"travel",f)}/>
-      </div>
-    );
+      );
+
+      const travelBack = <button onClick={()=>setTravelSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Travel</button>;
+      const tc = TRAVEL_CARDS.find(c=>c.key===travelSubSection);
+
+      return (
+        <div>
+          {travelBack}
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>{tc?.emoji} {tc?.label}</div>
+          <UploadZone label={`Upload ${tc?.label.toLowerCase()} documents (PDF, images)`} files={getProjectFiles(p.id,"travel_"+travelSubSection)} onAdd={f=>addProjectFiles(p.id,"travel_"+travelSubSection,f)}/>
+        </div>
+      );
+    }
 
     // Schedule section — sub-nav with Production Schedule, Pre-Production, Post-Production
     if (projectSection==="Schedule") {
@@ -8760,12 +9085,12 @@ export default function OnnaDashboard() {
             if (selectedProject) return (
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
-                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
-                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
+                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setActiveCSVersion(0);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(0);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
@@ -8815,7 +9140,7 @@ export default function OnnaDashboard() {
                     <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Archived Projects</div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                       {archivedProjects.map(p=>{
-                        const _rev=getProjRevenue(p);const profit=_rev-p.cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
+                        const _rev=getProjRevenue(p);const _cost=getProjCost(p);const profit=_rev-_cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
                         return (
                           <div key={p.id} style={{borderRadius:14,padding:16,background:"#fafafa",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:10,opacity:0.75}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -8838,7 +9163,7 @@ export default function OnnaDashboard() {
 
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
                   {projects.filter(p=>!getSearch("Projects")||`${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p=>{
-                    const _rev=getProjRevenue(p);const profit=_rev-p.cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
+                    const _rev=getProjRevenue(p);const _cost=getProjCost(p);const profit=_rev-_cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
                     return (
                       <div
                         key={p.id}
