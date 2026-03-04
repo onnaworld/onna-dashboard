@@ -2653,8 +2653,16 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         if(found){
           const {record,type}=found;
           const displayName=type==="vendor"?record.name:(record.contact||record.company);
-          showEntry({...record},type,record.id,false);
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). Edit below and save.`}]);
+          const merged={...record};
+          showEntry(merged,type,record.id,false);
+          const missingEmail=!merged.email;const missingPhone=!merged.phone;
+          const optList=[];
+          if(missingEmail)optList.push("Search Outlook for email");
+          if(missingPhone)optList.push("Search WhatsApp for phone");
+          optList.push("Add a secondary contact");
+          const opts="\n\n"+optList.map((o,i)=>`${i+1}. ${o}`).join("\n")+"\n\nType 'done' if you don't need anything else.";
+          setPendingConv({_awaitingUpdateAction:true,_updateRecord:merged,_updateType:type,_updateId:record.id,_updateName:displayName,_actionOptions:optList,entry:null,type:null,questions:[],idx:0});
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). Edit below and save.${opts}`}]);
         }else{
           setMsgs([...history,{role:"assistant",content:`No record found for "${pick}". Try a different name, or type 'new' to create one.`}]);
         }
@@ -6176,6 +6184,7 @@ export default function OnnaDashboard() {
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [travelSubSection,setTravelSubSection]           = useState(null);
+  const [linkUploading,setLinkUploading]                 = useState(false);
   const [projectEntries,setProjectEntries]               = useState({});
   const [aiMsg,setAiMsg]                                 = useState("");
   const [aiLoading,setAiLoading]                         = useState(false);
@@ -7207,7 +7216,6 @@ export default function OnnaDashboard() {
       );
 
       // Sub-section file manager
-      const [linkUploading, setLinkUploading] = useState(false);
       const uploadFromLink = async (url, category) => {
         setLinkUploading(true);
         try {
