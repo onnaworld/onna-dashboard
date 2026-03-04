@@ -88,6 +88,53 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
 const CSXbtn = ({ onClick, size = 16 }) => <button onClick={onClick} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:size,padding:"0 3px",lineHeight:1,transition:"color 0.15s"}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>×</button>;
 const CSAddBtn = ({ onClick, label }) => <button onClick={onClick} style={{background:"none",border:"1px dashed #ddd",borderRadius:3,padding:"3px 12px",fontSize:9,color:"#aaa",cursor:"pointer",fontFamily:CS_FONT,letterSpacing:0.5,marginTop:4}} onMouseEnter={e=>{e.target.style.borderColor="#999";e.target.style.color="#666";}} onMouseLeave={e=>{e.target.style.borderColor="#ddd";e.target.style.color="#aaa";}}>+ {label}</button>;
 
+// ─── Travel Itinerary cell components ────────────────────────────────────────
+const TIHl = ({text,style:s={}}) => {if(!text)return null;const parts=String(text).split(/(\[.*?\])/g);return <span style={s}>{parts.map((pt,i)=>pt.startsWith("[")&&pt.endsWith("]")?<span key={i} style={{background:"#FFF9C4",borderRadius:2,padding:"0 2px"}}>{pt}</span>:<span key={i}>{pt}</span>)}</span>;};
+const TICell = ({value,onChange,style:s={},align="left"}) => {
+  const [editing,setEditing]=useState(false);const [temp,setTemp]=useState(value);
+  useEffect(()=>{setTemp(value);},[value]);
+  const commit=()=>{setEditing(false);onChange(temp);};
+  if(editing)return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>;
+  return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>}</div>;
+};
+const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn}) => (
+  <div style={{marginBottom:16}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#000",padding:"4px 8px"}}>
+      <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
+        <div onClick={onEditTitle} style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>{title}</div>
+        {subtitle&&<div onClick={onEditSubtitle} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:"rgba(255,255,255,0.55)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{subtitle}</div>}
+      </div>
+      <div style={{display:"flex",gap:10,flexShrink:0}}>
+        {isCustom&&onAddColumn&&<span onClick={onAddColumn} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD COLUMN</span>}
+        <span onClick={onAddRow} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
+        <span onClick={onDelete} style={{fontFamily:CS_FONT,fontSize:10,color:"rgba(255,255,255,0.3)",cursor:"pointer"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.3)"}>×</span>
+      </div>
+    </div>
+    <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+      <div style={{width:18}}/>
+      {columns.map((col,ci)=>(
+        <div key={col.key} style={{flex:col.flex,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",padding:"4px 4px",display:"flex",alignItems:"center",gap:2}}>
+          <span onClick={isCustom&&onEditColumn?()=>onEditColumn(ci):undefined} style={{cursor:isCustom?"pointer":"default"}}>{col.label}</span>
+          {isCustom&&onDeleteColumn&&columns.length>1&&<span onClick={()=>onDeleteColumn(ci)} style={{cursor:"pointer",fontSize:8,color:"#ddd",marginLeft:2}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>}
+        </div>
+      ))}
+    </div>
+    {rows.map((row,ri)=>(
+      <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
+        <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+        </div>
+        {columns.map(col=>(
+          <div key={col.key} style={{flex:col.flex}}>
+            <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
+          </div>
+        ))}
+      </div>
+    ))}
+    {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
+  </div>
+);
+
 // ─── BUDGET CONNIE (ESTIMATE) CONSTANTS ──────────────────────────────────────
 const EST_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const EST_LS = 0.5;
@@ -2786,13 +2833,19 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
     clone.querySelectorAll('textarea').forEach(n=>n.remove());
     clone.querySelectorAll('button').forEach(n=>n.remove());
     clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
-    const w=window.open("","_blank");
-    w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:0;size:A4;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:15mm 12mm;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body>');
-    w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>{w.document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());w.print();},500); };
+    const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:40px 40px;}@media print{@page{margin:0;size:A4;}body{padding:15mm 12mm;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
+    _d.body.appendChild(_d.adoptNode(clone));setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300); };
   const exportPDF = (all = false) => {
     if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
     else doPrint();
   };
+
+  useEffect(() => {
+    const handler = () => exportPDF(true);
+    window.addEventListener('onna-export-estimate', handler);
+    return () => window.removeEventListener('onna-export-estimate', handler);
+  });
 
   return (
     <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700 }}>
@@ -5228,11 +5281,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(estimate|budget|pdf|export|download|print|document|doc)\b/i.test(input)){
         const el=document.getElementById("onna-est-print");
         if(el){
-          const clone=el.cloneNode(true);clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());clone.querySelectorAll('textarea').forEach(n=>n.remove());clone.querySelectorAll('button').forEach(n=>n.remove());clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
-          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{background:#fff;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:40px 40px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
-          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the estimate now — save it as PDF from there!"}]);
+          window.dispatchEvent(new CustomEvent('onna-export-estimate'));
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the full estimate (all tabs) now — save it as PDF from there!"}]);
         }else{
           setMsgs([...history,{role:"assistant",content:"No estimate is currently open to export. Make sure you're viewing the estimate first!"}]);
         }
@@ -6659,7 +6709,6 @@ const exportCastingPDF = (tables, columns, title) => {
   .page-break{page-break-before:always;margin-top:0;}
   @media print{body{padding:10mm 12mm;}@page{margin:0;size:A4 landscape;}.page-break{page-break-before:always;}}
 </style>
-${PRINT_CLEANUP_SCRIPT}
 </head><body>
 <div class="hdr">
   <div><img src="${dataUrl}" alt="ONNA"/></div>
@@ -10351,8 +10400,6 @@ export default function OnnaDashboard() {
             {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
           </div>
         );
-
-        const [tiShowAddMenu,setTiShowAddMenu]=useState(false);
 
         const tiExportPDF = () => {
           const el=document.getElementById("onna-ti-print");if(!el)return;
