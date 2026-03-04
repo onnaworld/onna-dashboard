@@ -3396,7 +3396,9 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     }
     // ── "update [Name]" / "open [Name]" — find existing and open card (BEFORE vendor/lead intent) ──
     if(agent.id==="logistical"){
-      const upM=input.match(/\b(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i);
+      const _upInput=_vinInput||input.trim();
+      const upM=_upInput.match(/^(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i)
+        ||input.match(/\b(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i);
       if(upM&&upM[2]&&upM[2].trim().length>=2&&!/\b(email|phone|name|role|company|website|category|location|notes|status|source|date|value|rate\s*card)\b/i.test(upM[2])&&!/^(vendor|supplier|lead|contact)$/i.test(upM[2].trim())){
         const upTypeHint=upM[1]?(/vendor|supplier/i.test(upM[1])?"vendor":"lead"):null;
         const upName=upM[2].trim();
@@ -4155,7 +4157,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
         if(!project){
           const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}`}]);
+          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
           setLoading(false);setMood("idle");return;
         }
         // Project found — check existing labels
@@ -8919,7 +8921,7 @@ export default function OnnaDashboard() {
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
                       selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?allProjectsMerged:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
                       vendors={a.id==="compliance"?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
