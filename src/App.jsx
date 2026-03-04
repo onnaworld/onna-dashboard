@@ -6894,7 +6894,6 @@ export default function OnnaDashboard() {
         const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
         if(!typeDef) return ct;
         const fv={...(ct.fieldValues||{})};
-        if(info.shootDate && fv.date!==info.shootDate){fv.date=info.shootDate;changed=true;}
         if(info.usage && fv.usage!==info.usage){fv.usage=info.usage;changed=true;}
         if((type==="talent"||type==="talent_psc")&&info.shootLocation&&fv.venue!==info.shootLocation){fv.venue=info.shootLocation;changed=true;}
         if((type==="talent"||type==="talent_psc")&&info.shootName&&fv.campaign!==info.shootName){fv.campaign=info.shootName;changed=true;}
