@@ -2025,7 +2025,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Call Sheet — {csData.label||`Day ${csIdx+1}`}</div>
         <div style={{padding:0,fontFamily:CS_FONT}}>
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
-            <div style={{padding:"22px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{padding:"32px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
               <div style={{display:"flex",gap:16,alignItems:"center"}}>
                 <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
@@ -3966,7 +3966,7 @@ const printCallSheetPDF = (cs) => {
   const LS = "letter-spacing:1.5px;";
   const secTitle = `font-size:10px;font-weight:800;${LS}text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;`;
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:36px;max-width:140px;object-fit:contain"/>` : "";
-  const logos = `<div style="padding:22px 32px 18px;display:flex;justify-content:space-between;align-items:center">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div>`;
+  const logos = `<div style="padding:32px 32px 18px;display:flex;justify-content:space-between;align-items:center">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div>`;
   const venueHTML = (cs.venueRows||[]).map(r=>`<div style="display:flex;align-items:flex-start;margin-bottom:5px;gap:8px"><div style="min-width:95px;font-size:9px;font-weight:700;color:#888;${LS}text-transform:uppercase">${e(r.label)}</div><div style="flex:1;font-size:11px">${e(r.value)}</div></div>`).join("");
   const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
   const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
@@ -4553,7 +4553,7 @@ export default function OnnaDashboard() {
   useEffect(() => {
     if (!_signToken) return;
     setSignLoading(true);
-    fetch(`/api/sign?token=${encodeURIComponent(_signToken)}`)
+    fetch(`/api/sign?token=${encodeURIComponent(_signToken)}${_printMode ? "&prefer=signed" : ""}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) setSignError(data.error);
@@ -4956,6 +4956,42 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
+
+  // ── Auto-populate default logo for all document types on mount ────────────
+  useEffect(() => {
+    const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
+    logoImg.onload = () => {
+      try {
+        const cv = document.createElement("canvas"); cv.width = logoImg.naturalWidth; cv.height = logoImg.naturalHeight;
+        cv.getContext("2d").drawImage(logoImg, 0, 0); const dataUrl = cv.toDataURL("image/png");
+        // Call sheets — set productionLogo if missing
+        setCallSheetStore(prev => {
+          let changed = false; const s = JSON.parse(JSON.stringify(prev));
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo) { doc.productionLogo = dataUrl; changed = true; } }); });
+          return changed ? s : prev;
+        });
+        // Risk assessments — set productionLogo if missing
+        setRiskAssessmentStore(prev => {
+          let changed = false; const s = JSON.parse(JSON.stringify(prev));
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo) { doc.productionLogo = dataUrl; changed = true; } }); });
+          return changed ? s : prev;
+        });
+        // Contracts — set prodLogo if missing
+        setContractDocStore(prev => {
+          let changed = false; const s = JSON.parse(JSON.stringify(prev));
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo) { doc.prodLogo = dataUrl; changed = true; } }); });
+          return changed ? s : prev;
+        });
+        // Estimates — set prodLogo if missing
+        setProjectEstimates(prev => {
+          let changed = false; const s = JSON.parse(JSON.stringify(prev));
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo) { doc.prodLogo = dataUrl; changed = true; } }); });
+          return changed ? s : prev;
+        });
+      } catch {}
+    };
+    logoImg.src = "/onna-default-logo.png";
+  }, []);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
@@ -5963,7 +5999,7 @@ export default function OnnaDashboard() {
               <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
 
                 {/* TOP BAR */}
-                <div style={{padding:"22px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{padding:"32px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
                   <div style={{display:"flex",gap:16,alignItems:"center"}}>
                     <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
