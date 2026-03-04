@@ -10415,9 +10415,9 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
-                      vendors={a.id==="compliance"?vendors:undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn"||a.id==="carrie")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn"||a.id==="carrie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
+                      vendors={(a.id==="compliance"||a.id==="carrie")?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
                       setRiskAssessmentStore={a.id==="researcher"?setRiskAssessmentStore:undefined}
@@ -10432,6 +10432,9 @@ export default function OnnaDashboard() {
                       activeEstimateVersion={a.id==="billie"?activeEstimateVersion:undefined}
                       projectActuals={a.id==="finn"?projectActuals:undefined}
                       setProjectActuals={a.id==="finn"?setProjectActuals:undefined}
+                      projectCasting={a.id==="carrie"?projectCasting:undefined}
+                      setProjectCasting={a.id==="carrie"?setProjectCasting:undefined}
+                      getProjectCastingTables={a.id==="carrie"?getProjectCastingTables:undefined}
                       onFullWidthChange={setAgentWantsFullWidth}
                       isMobile={isMobile}
                       pushUndo={pushUndo}
