@@ -2318,24 +2318,30 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
   return null;
 }
 
-// Fuzzy project match: checks project name AND client name, supports partial word matching
+// Fuzzy project match: checks project name AND client name, supports partial/typo matching
 function fuzzyMatchProject(projects, input, excludeId) {
   const lower = input.toLowerCase().trim();
   if (!lower) return null;
   const words = lower.split(/\s+/).filter(w => w.length > 1);
-  const candidates = excludeId != null ? projects.filter(p => p.id !== excludeId) : projects;
-  // 1. Exact full name match (input contains full project name OR project name contains input)
+  const candidates = excludeId != null ? projects.filter(p => p.id !== excludeId) : (projects||[]);
+  // 1. Exact substring match (input contains project name OR project name contains input)
   const exact = candidates.find(p => lower.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lower));
   if (exact) return exact;
-  // 2. Client name match
+  // 2. Client name substring match
   const clientMatch = candidates.find(p => p.client && (lower.includes(p.client.toLowerCase()) || p.client.toLowerCase().includes(lower)));
   if (clientMatch) return clientMatch;
-  // 3. Any word from input matches a word in project name or client
+  // 3. Any word from input matches a word in project name or client (partial)
   const wordMatch = candidates.find(p => {
-    const pWords = `${p.name} ${p.client || ""}`.toLowerCase().split(/\s+/);
+    const pWords = `${p.name} ${p.client || ""}`.toLowerCase().split(/[\s\/,]+/).filter(w=>w.length>=2);
     return words.some(w => pWords.some(pw => pw.includes(w) || w.includes(pw)));
   });
   if (wordMatch) return wordMatch;
+  // 4. Levenshtein distance <= 2 for typo tolerance
+  const _ed = (a,b) => { const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>i); for(let j=1;j<=n;j++){let pv=d[0];d[0]=j;for(let i=1;i<=m;i++){const t=d[i];d[i]=a[i-1]===b[j-1]?pv:1+Math.min(pv,d[i],d[i-1]);pv=t;}} return d[m]; };
+  for (const p of candidates) {
+    const targets = `${p.name} ${p.client||""}`.toLowerCase().split(/[\s\/,]+/).filter(w=>w.length>=3);
+    if(words.some(w=>w.length>=3&&targets.some(t=>_ed(w,t)<=2))) return p;
+  }
   return null;
 }
 
@@ -4021,21 +4027,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
     // ── Billie: live estimate handler ───────────────────────────────────────────
     if(agent.id==="billie"&&projectEstimates&&setProjectEstimates){
-      const _fuzzyMatchProject = (text, excludeId) => {
-        const lo = text.toLowerCase().trim();
-        const cands = excludeId ? (localProjects||[]).filter(p=>p.id!==excludeId) : (localProjects||[]);
-        // exact substring match on name or client
-        const exact = cands.find(p=>lo.includes(p.name.toLowerCase())||(p.client&&lo.includes(p.client.toLowerCase())));
-        if (exact) return exact;
-        // fuzzy: Levenshtein distance ≤ 2 on words from name + client
-        const _ed = (a,b) => { const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>i); for(let j=1;j<=n;j++){let pv=d[0];d[0]=j;for(let i=1;i<=m;i++){const t=d[i];d[i]=a[i-1]===b[j-1]?pv:1+Math.min(pv,d[i],d[i-1]);pv=t;}} return d[m]; };
-        const words = lo.split(/\s+/);
-        for (const p of cands) {
-          const targets = [p.name, p.client||""].join(" ").toLowerCase().split(/[\s\/,]+/).filter(w=>w.length>=3);
-          if(words.some(w=>w.length>=3&&targets.some(t=>_ed(w,t)<=2))) return p;
-        }
-        return null;
-      };
+
 
       if(!billieCtx){
         if(!localProjects?.length){
@@ -4043,7 +4035,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
         const lower=input.toLowerCase();
-        const project = _fuzzyMatchProject(input);
+        const project = fuzzyMatchProject(localProjects,input);
         if(!project){
           const list=localProjects.map(p=>`• ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
@@ -4145,7 +4137,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
       const lower=input.toLowerCase();
       // Check if user is re-selecting the same project (e.g. typing "columbia" when already on columbia)
-      const sameProjectMatch=_fuzzyMatchProject(input);
+      const sameProjectMatch=fuzzyMatchProject(localProjects,input);
       if(sameProjectMatch && sameProjectMatch.id===projectId && !lower.match(/\b(update|set|add|remove|change|row|section|header|rate|qty|days|notes|payment|deliverable|photographer|shoot|location|date)\b/i)){
         const reVersions=projectEstimates?.[projectId]||[];
         if(reVersions.length<=1){
@@ -4159,7 +4151,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
         setLoading(false);setMood("idle");return;
       }
-      const switchProject=_fuzzyMatchProject(input, projectId);
+      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
         const swVersions=projectEstimates?.[switchProject.id]||[];
         if(swVersions.length===0){
@@ -8315,8 +8307,7 @@ export default function OnnaDashboard() {
                           <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {getProjRevenue(p).toLocaleString()}</div>
-                          <div style={{fontSize:10,color:T.muted,marginTop:2}}>{p.year}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:T.sub}}>{(projectTodos[p.id]||[]).length} task{(projectTodos[p.id]||[]).length!==1?"s":""}</div>
                         </div>
                       </div>
                     ))}
