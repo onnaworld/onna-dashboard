@@ -6878,7 +6878,7 @@ export default function OnnaDashboard() {
   const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectContracts,setProjectContracts]           = useState({});
   const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
-  const [activeCSVersion,setActiveCSVersion]             = useState(0);
+  const [activeCSVersion,setActiveCSVersion]             = useState(null);
   const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Risk Assessment",...d[k]}];}});return d;}catch{return {}}});
   const [activeRAVersion,setActiveRAVersion]             = useState(null);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
