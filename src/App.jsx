@@ -3912,9 +3912,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(risk|assessment|pdf|export|download|print|document|doc)\b/i.test(input)){
         const raVersions_ex=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
         const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
-        const raData_ex=raVersions_ex[vIdx_ex];
+        const ver_ex=raVersions_ex[vIdx_ex];
+        const finalIdx_ex=ver_ex.finalRevision;
+        const hasFinal_ex=finalIdx_ex!=null&&ver_ex.revisions?.[finalIdx_ex];
+        const raData_ex=hasFinal_ex?{...ver_ex.revisions[finalIdx_ex].data,label:ver_ex.label}:ver_ex;
         printRiskAssessmentPDF(raData_ex);
-        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there! 🔬"}]);
+        const _exLabel=hasFinal_ex?` (${ver_ex.revisions[finalIdx_ex].label})`:" (working copy)";
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment${_exLabel} — save it as PDF from there! 🔬`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -3959,7 +3963,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const patch = JSON.parse(jsonMatch[1].trim());
             applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Risk assessment updated."}]);
+            const _revCount=(raVersions[vIdx]?.revisions||[]).length;
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Risk assessment updated.",_ronnieSavePrompt:true,_ronnieSaveMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -4374,6 +4379,35 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const isBudgetMsg=agent.id==="billie"&&m.role==="assistant"&&/AED|subtotal|total|contingency|agency fee/i.test(m.content);
         return(<div key={i}>
           <_AgentBubble msg={m}/>
+          {m._ronnieSavePrompt&&!loading&&(
+            <div style={{display:"flex",gap:6,marginTop:-4,marginBottom:8,paddingLeft:4,flexWrap:"wrap"}}>
+              <button onClick={()=>{
+                const meta=m._ronnieSaveMeta;if(!meta)return;
+                const raVs=riskAssessmentStore?.[meta.projectId]||[];
+                const v=raVs[meta.vIdx];if(!v)return;
+                const revs=v.revisions||[];
+                const {revisions:_r,finalRevision:_f,...snap}=v;
+                const newRev={label:`V${revs.length+1}`,savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};
+                setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[meta.projectId]||[];arr[meta.vIdx].revisions=[...(arr[meta.vIdx].revisions||[]),newRev];store[meta.projectId]=arr;return store;});
+                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_ronnieSavePrompt:false}:pm).concat([{role:"assistant",content:`✓ Saved as **V${revs.length+1}**. You can continue editing the working copy.`}]));
+              }} style={{fontSize:10,fontWeight:600,color:"#1a4a80",background:"#d8eaf8",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>Save as V{(m._ronnieSaveMeta?.revCount||0)+1}</button>
+              <button onClick={()=>{
+                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_ronnieSavePrompt:false}:pm));
+              }} style={{fontSize:10,fontWeight:600,color:"#555",background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>Keep editing</button>
+              <button onClick={()=>{
+                const meta=m._ronnieSaveMeta;if(!meta)return;
+                const raVs=riskAssessmentStore?.[meta.projectId]||[];
+                const v=raVs[meta.vIdx];if(!v)return;
+                const revs=v.revisions||[];
+                const {revisions:_r,finalRevision:_f,...snap}=v;
+                const newRev={label:`V${revs.length+1} (Final)`,savedAt:Date.now(),isFinal:true,data:JSON.parse(JSON.stringify(snap))};
+                const updatedRevs=(v.revisions||[]).map(r=>({...r,isFinal:false}));
+                updatedRevs.push(newRev);
+                setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[meta.projectId]||[];arr[meta.vIdx].revisions=updatedRevs;arr[meta.vIdx].finalRevision=updatedRevs.length-1;store[meta.projectId]=arr;return store;});
+                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_ronnieSavePrompt:false}:pm).concat([{role:"assistant",content:`✓ Saved as **V${revs.length+1} (Final)**. This version will be used for PDF export. 📌`}]));
+              }} style={{fontSize:10,fontWeight:600,color:"#fff",background:"#1a4a80",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>✓ Save as Final</button>
+            </div>
+          )}
           {isBudgetMsg&&!loading&&(
             <div style={{display:"flex",gap:6,marginTop:-3,marginBottom:8,paddingLeft:4}}>
               <button onClick={()=>{
@@ -6751,6 +6785,26 @@ export default function OnnaDashboard() {
             </div>
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${raIdx+1}`}/></div>
 
+            {(raData.revisions||[]).length>0&&(
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.5,marginBottom:6,textTransform:"uppercase"}}>Saved Revisions</div>
+                <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                  {(raData.revisions||[]).map((rev,ri)=>(
+                    <div key={ri} style={{display:"flex",alignItems:"center",gap:0}}>
+                      <button onClick={()=>{if(window.confirm(`Restore ${rev.label} to the working copy? Current changes will be overwritten.`)){raSet(d=>{const {revisions,finalRevision,...rest}=d;return{...rest,...JSON.parse(JSON.stringify(rev.data)),revisions:d.revisions,finalRevision:d.finalRevision};});}}} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:rev.isFinal?700:500,cursor:"pointer",border:rev.isFinal?`2px solid ${T.accent}`:`1px solid ${T.border}`,fontFamily:"inherit",background:rev.isFinal?T.accent:"transparent",color:rev.isFinal?"#fff":T.sub,transition:"all 0.12s"}}>{rev.label}{rev.isFinal?" ✓":""}</button>
+                      <button onClick={()=>{if(!window.confirm(`Delete revision ${rev.label}?`))return;raSet(d=>{const revs=[...(d.revisions||[])];revs.splice(ri,1);let fi=d.finalRevision;if(fi===ri)fi=null;else if(fi!=null&&fi>ri)fi--;return{...d,revisions:revs,finalRevision:fi};});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete revision">×</button>
+                    </div>
+                  ))}
+                  <button onClick={()=>{const {revisions:_r,finalRevision:_f,...snap}=raData;const revs=raData.revisions||[];const newRev={label:`V${revs.length+1}`,savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};raSet(d=>({...d,revisions:[...(d.revisions||[]),newRev]}));}} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Save V{(raData.revisions||[]).length+1}</button>
+                  {(raData.revisions||[]).length>0&&!raData.revisions?.some(r=>r.isFinal)&&(
+                    <button onClick={()=>{const {revisions:_r,finalRevision:_f,...snap}=raData;const revs=raData.revisions||[];const newRev={label:`V${revs.length+1} (Final)`,savedAt:Date.now(),isFinal:true,data:JSON.parse(JSON.stringify(snap))};const updatedRevs=revs.map(r=>({...r,isFinal:false}));updatedRevs.push(newRev);raSet(d=>({...d,revisions:updatedRevs,finalRevision:updatedRevs.length-1}));}} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${T.accent}`,fontFamily:"inherit",background:T.accent,color:"#fff"}}>✓ Mark as Final</button>
+                  )}
+                </div>
+                {raData.finalRevision!=null&&raData.revisions?.[raData.finalRevision]&&(
+                  <div style={{fontSize:10,color:T.accent,marginTop:4,fontWeight:600}}>✓ Final: {raData.revisions[raData.finalRevision].label} — this version will be used for PDF export</div>
+                )}
+              </div>
+            )}
             <div id="onna-ra-print" style={{background:"#fff",padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
@@ -7452,10 +7506,10 @@ export default function OnnaDashboard() {
                     {(()=>{const emptyCount=Math.max(0,5-filteredTodos.length);return emptyCount>0?Array.from({length:emptyCount}).map((_,i)=>(<div key={`empty-${i}`} style={{padding:"4px 6px",borderBottom:`1px solid ${T.borderSub}`}}><input placeholder="New task…" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){const text=e.target.value.trim();const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);}e.target.value="";}}} onBlur={e=>{if(e.target.value.trim()){const text=e.target.value.trim();const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);}e.target.value="";}}} style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"transparent",border:"none",color:T.text,fontSize:13,fontFamily:"inherit",outline:"none"}} /></div>)):null;})()}
                   </div>
                   {/* Add input — shown when 5+ tasks */}
-                  {filteredTodos.length>=5&&<div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
+                  <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa",flexShrink:0}}>
                     <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"||todoFilter==="general-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
                     <button onClick={()=>{if(newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
-                  </div>}
+                  </div>
                 </div>
               </div>
 
@@ -8472,11 +8526,11 @@ export default function OnnaDashboard() {
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Tab</div>
-                <Sel value={selectedTodo._source==="project"?"project":selectedTodo.tab==="personal"?"personal":"onna"} onChange={v=>{if(v==="project")return;const oldSource=selectedTodo._source;const u={...selectedTodo,tab:v==="onna"?"onna":"personal",_source:"general"};setSelectedTodo(u);if(oldSource==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));setTodos(prev=>[...prev,u]);}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={[{value:"onna",label:"ONNA"},{value:"personal",label:"Personal"},...(selectedTodo._source==="project"?[{value:"project",label:"Project — "+(allProjectsMerged.find(p=>p.id===selectedTodo.projectId)?.name||"Project")}]:[])]}/>
+                <Sel value={selectedTodo._source==="project"?"project-"+selectedTodo.projectId:selectedTodo.tab==="personal"?"personal":"onna"} onChange={v=>{const oldSource=selectedTodo._source;if(v==="onna"||v==="personal"){const u={...selectedTodo,tab:v==="onna"?"onna":"personal",_source:"general",subType:selectedTodo.subType};setSelectedTodo(u);if(oldSource==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));setTodos(prev=>[...prev,u]);}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}else if(v.startsWith("project-")){const pid=Number(v.replace("project-",""));const u={...selectedTodo,_source:"project",projectId:pid};setSelectedTodo(u);if(oldSource==="project"&&selectedTodo.projectId!==pid){setProjectTodos(prev=>{const updated={...prev};updated[selectedTodo.projectId]=(updated[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id);updated[pid]=[...(updated[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}];return updated;});}else if(oldSource!=="project"){setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}]}));}}}} options={[{value:"onna",label:"ONNA"},{value:"personal",label:"Personal"},...allProjectsMerged.filter(p=>p.status==="Active").map(p=>({value:"project-"+p.id,label:p.name}))]}/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={selectedTodo._source==="project"?"project":(selectedTodo.subType==="later"?"later":"now")} onChange={v=>{if(selectedTodo._source==="project")return;const u={...selectedTodo,subType:v==="later"?"later":undefined};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} options={selectedTodo._source==="project"?[{value:"project",label:allProjectsMerged.find(p=>p.id===selectedTodo.projectId)?.name||"Project"}]:[{value:"now",label:"Now"},{value:"later",label:"Later"}]}/>
+                <Sel value={selectedTodo.subType==="later"?"later":"now"} onChange={v=>{const u={...selectedTodo,subType:v==="later"?"later":undefined};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?{...x,subType:u.subType}:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={[{value:"now",label:"Now"},{value:"later",label:"Later"}]}/>
               </div>
             </div>
             <div style={{marginBottom:22}}>
