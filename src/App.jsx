@@ -2218,7 +2218,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
 }
 
 // ─── AgentDocPreview — live editable document preview for split-pane ────────
-function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo}) {
+function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone}) {
   if (!projectId) return null;
 
   // ── CONNIE (Call Sheet) ──
@@ -2330,9 +2330,29 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     const {update:raU, set:raSet} = makeDocUpdater(projectId, raIdx, setRiskAssessmentStore, RISK_ASSESSMENT_INIT, "Version 1");
     const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
+    // Inline review state
+    const pr = ronniePendingReview && ronniePendingReview.projectId===projectId && ronniePendingReview.vIdx===raIdx ? ronniePendingReview : null;
+    const prMarkers = pr ? new Set(pr.markers) : null;
+    const hasMarker = (m) => prMarkers && prMarkers.has(m);
+    const finishReview = () => { if(setRonniePendingReview) setRonniePendingReview(null); if(onRonnieReviewDone&&pr) onRonnieReviewDone({projectId:pr.projectId,vIdx:pr.vIdx,revCount:pr.revCount||0}); };
+    const acceptMarker = (m) => { if(!setRonniePendingReview||!pr) return; const next = pr.markers.filter(x=>x!==m); if(next.length===0){ finishReview(); } else { setRonniePendingReview({...pr, markers:next}); } };
+    const declineMarker = (m) => { if(!setRonniePendingReview||!pr) return; revertMarker(m, pr.preSnapshot, pr.projectId, pr.vIdx, setRiskAssessmentStore); const next = pr.markers.filter(x=>x!==m); if(next.length===0){ finishReview(); } else { setRonniePendingReview({...pr, markers:next}); } };
+    const acceptAll = () => { finishReview(); };
+    const declineAll = () => { if(!pr) return; pr.markers.forEach(m => revertMarker(m, pr.preSnapshot, pr.projectId, pr.vIdx, setRiskAssessmentStore)); finishReview(); };
+    const reviewBtnStyle = (type) => ({width:18,height:18,borderRadius:4,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:3,lineHeight:1});
+    const hlStyle = {background:"#e8f5e9",borderLeft:"3px solid #4caf50",marginLeft:-3,paddingLeft:3,borderRadius:2,transition:"background 0.2s"};
+
     return (
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
-        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Risk Assessment — {raData.label||`Version ${raIdx+1}`}</div>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span>Risk Assessment — {raData.label||`Version ${raIdx+1}`}</span>
+          {pr&&pr.markers.length>0&&(
+            <div style={{display:"flex",gap:4}}>
+              <button onClick={acceptAll} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button>
+              <button onClick={declineAll} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button>
+            </div>
+          )}
+        </div>
         <div style={{padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
             <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
@@ -2344,18 +2364,50 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
           <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
           <div style={{textAlign:"center",fontFamily:RA_FONT,fontSize:12,fontWeight:700,letterSpacing:RA_LS_HDR,textTransform:"uppercase",marginBottom:16}}>RISK ASSESSMENT</div>
           <div style={{marginBottom:20}}>
-            {[{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>(<div key={k} style={{display:"flex",gap:6,marginBottom:2}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,minWidth:100}}>{l}</span><CSEditField value={raData[k]||""} onChange={v=>raU(k,v)} isPlaceholder={!raData[k]} placeholder={`Enter ${l.toLowerCase().replace(":","")}` } style={{fontSize:10,letterSpacing:RA_LS}}/></div>))}
+            {[{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>{
+              const marked = hasMarker("scalar:"+k);
+              return(<div key={k} style={{display:"flex",gap:6,marginBottom:2,alignItems:"center",...(marked?hlStyle:{})}}>
+                <span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,minWidth:100}}>{l}</span>
+                <CSEditField value={raData[k]||""} onChange={v=>raU(k,v)} isPlaceholder={!raData[k]} placeholder={`Enter ${l.toLowerCase().replace(":","")}` } style={{fontSize:10,letterSpacing:RA_LS}}/>
+                {marked&&<button onClick={()=>acceptMarker("scalar:"+k)} style={reviewBtnStyle("accept")} title="Accept">✓</button>}
+                {marked&&<button onClick={()=>declineMarker("scalar:"+k)} style={reviewBtnStyle("decline")} title="Revert">✕</button>}
+              </div>);
+            })}
           </div>
-          {(raData.sections||[]).map((sec,si) => (<div key={sec.id||si}><div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 8px",textTransform:"uppercase",marginTop:24,marginBottom:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}><span style={{marginRight:4}}>{si+1}.</span><CSEditField value={sec.title} onChange={v=>{raSet(d=>{d.sections[si].title=v;return d;});}} placeholder="Section Title" style={{fontSize:10,color:"#fff",letterSpacing:RA_LS_HDR}} bold/><div onClick={()=>{if(pushUndo)pushUndo("delete section");raSet(d=>({...d,sections:d.sections.filter((_,j)=>j!==si)}));}} style={{position:"absolute",right:8,cursor:"pointer",fontSize:13,color:"#666",opacity:0.6}} onMouseEnter={e=>(e.target.style.opacity=1)} onMouseLeave={e=>(e.target.style.opacity=0.6)}>×</div></div><div style={{display:"flex",background:RA_GREY,borderBottom:"1px solid #ddd",padding:"5px 0"}}>{(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"]).map((c,ci)=>(<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,fontFamily:RA_FONT,fontSize:9,fontWeight:700,letterSpacing:RA_LS_HDR,padding:"0 6px",color:"#000"}}>{c}</div>))}<div style={{width:24}}/></div>{(sec.rows||[]).map((row,ri) => (<div key={ri} style={{display:"flex",borderBottom:"1px solid #eee",padding:"4px 0",alignItems:"flex-start"}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}>{row.map((cell,ci) => (<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,padding:"0 6px"}}><CSEditField value={cell} onChange={v=>{raSet(d=>{d.sections[si].rows[ri][ci]=v;return d;});}} isPlaceholder={!cell} placeholder={(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation"])[ci]} style={{fontSize:10,letterSpacing:RA_LS}} bold={ci===0}/></div>))}<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete row");raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}));}} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:[...s.rows,(s.cols||["","","",""]).map(()=>"")]}:s)}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 6px",letterSpacing:RA_LS,marginTop:2}}>+ Add Row</div></div>))}
+          {(raData.sections||[]).map((sec,si) => {
+            const secUp = sec.title.toUpperCase();
+            const isNewSection = hasMarker("newSection:"+secUp);
+            return(<div key={sec.id||si} style={isNewSection?{...hlStyle,borderLeft:"3px solid #4caf50",paddingLeft:6,marginBottom:4}:{}}>
+            <div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 8px",textTransform:"uppercase",marginTop:24,marginBottom:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+              <span style={{marginRight:4}}>{si+1}.</span>
+              <CSEditField value={sec.title} onChange={v=>{raSet(d=>{d.sections[si].title=v;return d;});}} placeholder="Section Title" style={{fontSize:10,color:"#fff",letterSpacing:RA_LS_HDR}} bold/>
+              {isNewSection&&<button onClick={()=>acceptMarker("newSection:"+secUp)} style={{...reviewBtnStyle("accept"),marginLeft:8}} title="Accept section">✓</button>}
+              {isNewSection&&<button onClick={()=>declineMarker("newSection:"+secUp)} style={{...reviewBtnStyle("decline"),marginLeft:2}} title="Remove section">✕</button>}
+              {!isNewSection&&<div onClick={()=>{if(pushUndo)pushUndo("delete section");raSet(d=>({...d,sections:d.sections.filter((_,j)=>j!==si)}));}} style={{position:"absolute",right:8,cursor:"pointer",fontSize:13,color:"#666",opacity:0.6}} onMouseEnter={e=>(e.target.style.opacity=1)} onMouseLeave={e=>(e.target.style.opacity=0.6)}>×</div>}
+            </div>
+            <div style={{display:"flex",background:RA_GREY,borderBottom:"1px solid #ddd",padding:"5px 0"}}>{(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"]).map((c,ci)=>(<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,fontFamily:RA_FONT,fontSize:9,fontWeight:700,letterSpacing:RA_LS_HDR,padding:"0 6px",color:"#000"}}>{c}</div>))}<div style={{width:24}}/></div>
+            {(sec.rows||[]).map((row,ri) => {
+              const rowMarked = hasMarker("row:"+secUp+":"+ri);
+              return(<div key={ri} style={{display:"flex",borderBottom:"1px solid #eee",padding:"4px 0",alignItems:"flex-start",...(rowMarked?{background:"#e8f5e9"}:{})}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}>
+                {row.map((cell,ci) => (<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,padding:"0 6px"}}><CSEditField value={cell} onChange={v=>{raSet(d=>{d.sections[si].rows[ri][ci]=v;return d;});}} isPlaceholder={!cell} placeholder={(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation"])[ci]} style={{fontSize:10,letterSpacing:RA_LS}} bold={ci===0}/></div>))}
+                {rowMarked?(<div style={{display:"flex",gap:2,flexShrink:0,paddingRight:4}}>
+                  <button onClick={()=>acceptMarker("row:"+secUp+":"+ri)} style={reviewBtnStyle("accept")} title="Accept">✓</button>
+                  <button onClick={()=>declineMarker("row:"+secUp+":"+ri)} style={reviewBtnStyle("decline")} title="Revert">✕</button>
+                </div>):(<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete row");raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}));}} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>)}
+              </div>);
+            })}
+            <div onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:[...s.rows,(s.cols||["","","",""]).map(()=>"")]}:s)}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 6px",letterSpacing:RA_LS,marginTop:2}}>+ Add Row</div>
+          </div>);
+          })}
           <div onClick={()=>raSet(d=>({...d,sections:[...d.sections,{id:Date.now(),title:"NEW SECTION",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],rows:[["","","",""]]}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS,textAlign:"center",marginTop:12,padding:6}}>+ Add Risk Section</div>
           {raSectionHdr("PROFESSIONAL CODE OF CONDUCT")}
-          <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
-          <div style={{padding:"8px 12px"}}>{(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete conduct item");raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          {(()=>{const marked=hasMarker("scalar:conductIntro"); return <div style={{padding:"8px 12px",...(marked?hlStyle:{})}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/>{marked&&<span><button onClick={()=>acceptMarker("scalar:conductIntro")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:conductIntro")} style={reviewBtnStyle("decline")}>✕</button></span>}</div>;})()}
+          {(()=>{const arrMarked=hasMarker("array:conductItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:conductItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:conductItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete conduct item");raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
           {raSectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
-          <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
-          <div style={{padding:"8px 12px"}}>{(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete waiver item");raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          {(()=>{const marked=hasMarker("scalar:waiverIntro"); return <div style={{padding:"8px 12px",...(marked?hlStyle:{})}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/>{marked&&<span><button onClick={()=>acceptMarker("scalar:waiverIntro")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:waiverIntro")} style={reviewBtnStyle("decline")}>✕</button></span>}</div>;})()}
+          {(()=>{const arrMarked=hasMarker("array:waiverItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:waiverItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:waiverItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete waiver item");raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
           {raSectionHdr("EMERGENCY RESPONSE PLAN")}
-          <div style={{padding:"8px 12px"}}>{(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/hospital/i.test(item.label)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete emergency item");raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
+          {(()=>{const arrMarked=hasMarker("array:emergencyItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:emergencyItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:emergencyItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/hospital/i.test(item.label)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete emergency item");raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
           <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:RA_FONT,fontSize:9,letterSpacing:RA_LS_HDR,color:"#000"}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
         </div>
       </div>
@@ -5312,7 +5364,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
             contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}
             projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
-            pushUndo={pushUndo}/>
+            pushUndo={pushUndo}
+            ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
+            onRonnieReviewDone={(meta)=>{
+              // Sync revision and show save prompt
+              setTimeout(()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[meta.projectId]||[];const entry=arr[meta.vIdx];if(entry&&entry.revisions?.length>0){const{revisions:_r,finalRevision:_f,...snap}=entry;entry.revisions[entry.revisions.length-1].data=JSON.parse(JSON.stringify(snap));entry.revisions[entry.revisions.length-1].savedAt=Date.now();}store[meta.projectId]=arr;return store;});},100);
+              setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete.",_ronnieSavePrompt:true,_ronnieSaveMeta:meta}]);
+            }}/>
         </div>
         <div style={{flex:agent.id==="billie"?"0 0 40%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
@@ -5360,37 +5418,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const isBudgetMsg=agent.id==="billie"&&m.role==="assistant"&&/AED|subtotal|total|contingency|agency fee/i.test(m.content);
         return(<div key={i}>
           <_AgentBubble msg={m}/>
-          {m._patchItems&&m._patchItems.length>0&&(
-            <RonniePatchReview
-              items={m._patchItems}
-              onAccept={(itemId)=>{setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_patchItems:pm._patchItems.map(it=>it.id===itemId?{...it,accepted:true}:it)}:pm));}}
-              onDecline={(itemId)=>{setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_patchItems:pm._patchItems.map(it=>it.id===itemId?{...it,accepted:false}:it)}:pm));}}
-              onAcceptAll={()=>{setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_patchItems:pm._patchItems.map(it=>({...it,accepted:true}))}:pm));}}
-              onDeclineAll={()=>{setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_patchItems:pm._patchItems.map(it=>({...it,accepted:false}))}:pm));}}
-              onConfirm={()=>{
-                const meta=m._patchMeta;if(!meta)return;
-                const accepted=m._patchItems.filter(it=>it.accepted===true);
-                if(!accepted.length)return;
-                const raVs=riskAssessmentStore?.[meta.projectId]||[];
-                applyPartialPatch(accepted, meta.projectId, meta.vIdx, raVs, setRiskAssessmentStore);
-                // Auto-sync to latest revision
-                setTimeout(()=>{
-                  setRiskAssessmentStore(prev=>{
-                    const store=JSON.parse(JSON.stringify(prev));
-                    const arr=store[meta.projectId]||[];
-                    const entry=arr[meta.vIdx];
-                    if(entry&&entry.revisions?.length>0){
-                      const {revisions:_r,finalRevision:_f,...snap}=entry;
-                      entry.revisions[entry.revisions.length-1].data=JSON.parse(JSON.stringify(snap));
-                      entry.revisions[entry.revisions.length-1].savedAt=Date.now();
-                    }
-                    store[meta.projectId]=arr;return store;
-                  });
-                },100);
-                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_patchItems:null,_pendingPatch:null,_ronnieSavePrompt:true,_ronnieSaveMeta:meta}:pm).concat([{role:"assistant",content:`✓ Applied ${accepted.length} change${accepted.length!==1?"s":""}. Risk assessment updated.`}]));
-              }}
-            />
-          )}
           {m._ronnieSavePrompt&&!loading&&(
             <div style={{display:"flex",gap:6,marginTop:-4,marginBottom:8,paddingLeft:4,flexWrap:"wrap"}}>
               <button onClick={()=>{
@@ -5671,7 +5698,6 @@ const exportCastingPDF = (tables, columns, title) => {
 </head><body>
 <div class="hdr">
   <div><img src="${dataUrl}" alt="ONNA"/></div>
-  <div class="co">ONNA FILM TV RADIO PRODUCTION SERVICES LLC<br>Office F1-022, Dubai, UAE<br>hello@onnaproduction.com</div>
 </div>
 ${tablesHTML}
 <div class="ftr"><span>ONNA FILM TV RADIO PRODUCTION SERVICES LLC · DUBAI &amp; LONDON</span><span>Generated ${date}</span></div>
@@ -8376,7 +8402,7 @@ export default function OnnaDashboard() {
         const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
         const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
         const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; arr.push({id:newId,label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRAVersion = (idx) => { pushUndo("delete RA version"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
+        const deleteRAVersion = (idx) => { if(typeof pushUndo==="function")pushUndo("delete RA version"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
         // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
         const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
@@ -8491,7 +8517,7 @@ export default function OnnaDashboard() {
             setContractDocStore(prev => {
               const store = JSON.parse(JSON.stringify(prev));
               const arr = store[p.id] || [];
-              arr.push({id:Date.now(),label:CONTRACT_TYPE_LABELS[typeId]||typeId,contractType:typeId,fieldValues:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
+              arr.push({id:Date.now(),label:CONTRACT_TYPE_LABELS[typeId]||typeId,contractType:typeId,fieldValues:{},fieldConfirmed:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
               // Load default logo as data URL
               const newIdx = arr.length - 1;
               const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
@@ -8771,26 +8797,27 @@ export default function OnnaDashboard() {
                             <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent;}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith("image/"))return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);}} style={{width:56,height:56,borderRadius:8,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"#ccc",background:"#fafafa"}}>+</div>
                           )}
                         </td>
-                        <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                          {(()=>{
-                            const agencyVal = row.agency||"";
-                            const matchKey = `cast_agency_${table.id}_${row.id}`;
-                            return (<div style={{position:"relative"}}>
-                              <input value={agencyVal} onChange={e=>{updateCastingRow(p.id,table.id,row.id,"agency",e.target.value);}} onFocus={()=>{setCastAgencyOpen(matchKey);}} onBlur={()=>{setTimeout(()=>{setCastAgencyOpen(prev=>prev===matchKey?null:prev);},150);}} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                              {castAgencyOpen===matchKey&&agencyVal.length>0&&(()=>{
-                                const matches=[...new Set(vendors.map(v=>v.company).filter(Boolean))].filter(c=>c.toLowerCase().includes(agencyVal.toLowerCase()));
-                                return matches.length>0?<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,background:"#fff",border:`1px solid ${T.border}`,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",maxHeight:160,overflowY:"auto",marginTop:2}}>
-                                  {matches.map(m=><div key={m} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateCastingRow(p.id,table.id,row.id,"agency",m);setCastAgencyOpen(null);}} style={{padding:"6px 10px",fontSize:12,cursor:"pointer",borderBottom:`1px solid ${T.borderSub}`}} onMouseEnter={e=>{e.target.style.background="#f0f0f5"}} onMouseLeave={e=>{e.target.style.background="#fff"}}>{m}</div>)}
-                                </div>:null;
-                              })()}
-                            </div>);
-                          })()}
-                        </td>
-                        {["name","email"].map(field=>(
-                          <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                            <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                          </td>
-                        ))}
+                        {["agency","name","email"].map(field=>{
+                          if(field==="agency"){
+                            const agencyKey=`${table.id}_${row.id}`;
+                            const agencyMatches=castAgencyOpen===agencyKey&&(row.agency||"").length>0?[...new Set(vendors.map(v=>v.company).filter(Boolean))].filter(c=>c.toLowerCase().includes((row.agency||"").toLowerCase())):[];
+                            return(
+                              <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                                <div style={{position:"relative"}}>
+                                  <input value={row.agency||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"agency",e.target.value)} onFocus={()=>setCastAgencyOpen(agencyKey)} onBlur={()=>setTimeout(()=>setCastAgencyOpen(prev=>prev===agencyKey?null:prev),150)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
+                                  {agencyMatches.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,background:"#fff",border:`1px solid ${T.border}`,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",maxHeight:160,overflowY:"auto",marginTop:2}}>
+                                    {agencyMatches.map(m=><div key={m} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateCastingRow(p.id,table.id,row.id,"agency",m);setCastAgencyOpen(null);}} style={{padding:"6px 10px",fontSize:12,cursor:"pointer",borderBottom:`1px solid ${T.borderSub}`}} onMouseEnter={e=>{e.target.style.background="#f0f0f5"}} onMouseLeave={e=>{e.target.style.background="#fff"}}>{m}</div>)}
+                                  </div>}
+                                </div>
+                              </td>
+                            );
+                          }
+                          return(
+                            <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
+                              <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
+                            </td>
+                          );
+                        })}
                         <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
                           <select value={row.option||"First Option"} onChange={e=>updateCastingRow(p.id,table.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
                             <option>First Option</option><option>Second Option</option><option>Confirmed</option><option>Released</option>
