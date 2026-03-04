@@ -496,6 +496,7 @@ INSTRUCTIONS:
 - To add a row: {"addRow": {"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}}
 - To remove a row: {"removeRow": "4P"}
 - For notes: {"notes": "..."}
+- To save as a NEW version (e.g. "save as V2"): {"saveAsVersion": "PRODUCTION ESTIMATE V2"}. This duplicates the current estimate into a new version tab WITHOUT overwriting the original. Always use this when the user says "save as V2", "create V2", "duplicate as V3", etc. NEVER overwrite an existing version — always create a new one.
 - Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
 - Each row has: ref (e.g. "1A"), desc, notes, days, qty, rate. Total = days × qty × rate.
 - Section 18 (Production Fees) rows with a % in notes auto-calculate from subtotal.
@@ -561,8 +562,21 @@ function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProj
     ver.tcsText = patch.tcsText;
   }
 
+  // Save as new version — duplicate current version with a new label, do NOT overwrite
+  if (patch.saveAsVersion) {
+    const newVer = JSON.parse(JSON.stringify(ver));
+    newVer.id = Date.now();
+    newVer.ts = { ...(newVer.ts || {}), version: patch.saveAsVersion };
+    // Apply any other patch fields to the NEW version (not the original)
+    versions[versionIdx] = JSON.parse(JSON.stringify(currentVersions[versionIdx])); // restore original
+    versions.push(newVer);
+    setProjectEstimates(prev => ({ ...prev, [projectId]: versions }));
+    return versions.length - 1; // return new version index
+  }
+
   versions[versionIdx] = ver;
   setProjectEstimates(prev => ({ ...prev, [projectId]: versions }));
+  return versionIdx;
 }
 
 // ─── Generic doc updater factory ──────────────────────────────────────────────
@@ -1842,9 +1856,14 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
-  const doPrint = () => { const el=printRef.current; if(!el)return; const w=window.open("","_blank");
-    w.document.write('<html><head><title>ONNA Estimate</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:40px 40px;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:0;size:A4;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:40px 40px;}.page-break{page-break-before:always}}</style></head><body>');
-    w.document.write(el.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>w.print(),500); };
+  const doPrint = () => { const el=printRef.current; if(!el)return; const clone=el.cloneNode(true);
+    clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());
+    clone.querySelectorAll('textarea').forEach(n=>n.remove());
+    clone.querySelectorAll('button').forEach(n=>n.remove());
+    clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
+    const w=window.open("","_blank");
+    w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:15mm 12mm;size:A4;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.page-break{page-break-before:always}}</style></head><body>');
+    w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>w.print(),500); };
   const exportPDF = (all = false) => {
     if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
     else doPrint();
@@ -2058,7 +2077,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
               });
             })()}
           </div>
-          <div style={{marginTop:12,padding:"8px 0",borderTop:"1px solid #eee"}}>
+          <div data-noprint="1" style={{marginTop:12,padding:"8px 0",borderTop:"1px solid #eee"}}>
             <div style={{fontFamily:EST_F,fontSize:9,color:"#999",letterSpacing:EST_LS,marginBottom:4}}>Edit Terms & Conditions:</div>
             <textarea value={tcsText} onChange={e=>onSet(d=>({...d,tcsText:e.target.value}))}
               style={{width:"100%",boxSizing:"border-box",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,lineHeight:1.5,color:"#1a1a1a",border:"1px solid #eee",padding:12,minHeight:200,resize:"vertical",outline:"none",background:"#fff",whiteSpace:"pre-wrap"}}
@@ -2557,25 +2576,162 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setLoading(false);setMood("idle");return;
         }
       }
+      // ── Handle pending disambiguations from "change" command ──
+      if(pendingConv._awaitingNameChoice){
+        const pick=input.trim();
+        const fieldKey=pendingConv._awaitingNameChoice;
+        const inlineVal=pendingConv._awaitingNameInline||"";
+        const conv={...pendingConv};delete conv._awaitingNameChoice;delete conv._awaitingNameInline;
+        if(pick==="1"){
+          // Master name
+          if(inlineVal){
+            const updatedRec={...conv._saveAsXContact.record,name:inlineVal};
+            setPendingConv({...conv,_saveAsXContact:{...conv._saveAsXContact,record:updatedRec,existName:inlineVal}});
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`Updated master name to "${inlineVal}". What else?`}]);
+          }else{
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`What should the master name be?`}]);
+            setPendingConv({...conv,_awaitingMasterEdit:"name"});
+          }
+          return;
+        }else if(pick==="2"){
+          // Secondary contact name
+          if(inlineVal){
+            const e={...conv.entry};e.name=inlineVal;e.contact=inlineVal;
+            setPendingConv({...conv,entry:e});
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`Updated contact name to "${inlineVal}". What else?`}]);
+          }else{
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`What should the contact's name be?`}]);
+            setPendingConv({...conv,_awaitingContactEdit:"name"});
+          }
+          return;
+        }
+        // If neither 1 nor 2, fall through to normal Q&A
+        setPendingConv(conv);
+      }
+      if(pendingConv._awaitingMasterEdit){
+        const field=pendingConv._awaitingMasterEdit;
+        const val=input.trim();
+        const conv={...pendingConv};delete conv._awaitingMasterEdit;
+        const updatedRec={...conv._saveAsXContact.record,[field]:val};
+        const newXc={...conv._saveAsXContact,record:updatedRec};
+        if(field==="name")newXc.existName=val;
+        setPendingConv({...conv,_saveAsXContact:newXc});
+        setMsgs(history);setInput("");
+        setMsgs([...history,{role:"assistant",content:`Updated master ${field} to "${val}". ${conv.questions[conv.idx]?.q||"What else?"} (or 'x' to skip)`}]);
+        return;
+      }
+      if(pendingConv._awaitingContactEdit){
+        const field=pendingConv._awaitingContactEdit;
+        const val=input.trim();
+        const conv={...pendingConv};delete conv._awaitingContactEdit;
+        const e={...conv.entry};e[field]=val;
+        if(field==="name")e.contact=val;
+        setPendingConv({...conv,entry:e});
+        setMsgs(history);setInput("");
+        setMsgs([...history,{role:"assistant",content:`Updated contact ${field} to "${val}". ${conv.questions[conv.idx]?.q||"What else?"} (or 'x' to skip)`}]);
+        return;
+      }
       // ── "change email" / "edit name" / "go back to phone" — jump to that field ──
-      const changeM=input.trim().match(/^(?:change|edit|update|modify|go\s*back\s*to|redo)\s+(?:the\s+)?(?:my\s+)?(name|company|email|phone|role|title|website|category|location|rate\s*card|notes|value|status|source|date|contact\s*name|contact)\b/i);
+      // Also supports: "change name to X", "change master name", "change secondary email", "change contact name"
+      const changeM=input.trim().match(/^(?:change|edit|update|modify|go\s*back\s*to|redo)\s+(?:the\s+)?(?:my\s+)?(?:(master|main|primary|secondary|contact(?:'s)?|their|new)\s+)?(name|company|email|phone|role|title|website|category|location|rate\s*card|notes|value|status|source|date|contact\s*name|contact)\b(?:\s+(?:to|=|:)\s+(.+))?/i);
       if(changeM){
-        const rawField=changeM[1].toLowerCase().replace(/\s+/g,"");
+        const qualifier=(changeM[1]||"").toLowerCase();
+        const rawField=changeM[2].toLowerCase().replace(/\s+/g,"");
+        const inlineVal=(changeM[3]||"").trim();
         const fieldMap={name:"name",company:"company",email:"email",phone:"phone",role:"role",title:"role",website:"website",category:"category",location:"location",ratecard:"rateCard",notes:"notes",value:"value",status:"status",source:"source",date:"date",contactname:"contact",contact:"contact"};
         const fieldKey=fieldMap[rawField]||rawField;
         const conv=pendingConv;
+        const isXMode=!!conv._saveAsXContact;
+        const isSecondary=isXMode&&/^(secondary|contact|their|new)$/.test(qualifier);
+        const isMaster=/^(master|main|primary)$/.test(qualifier);
+
+        // In xContact mode: "change name" is ambiguous — ask which one
+        if(isXMode&&(fieldKey==="name"||fieldKey==="contact")&&!qualifier){
+          setMsgs(history);setInput("");
+          const masterName=conv._saveAsXContact.existName||conv._saveAsXContact.record.name||"master record";
+          const contactName=conv.entry.contact||conv.entry.name||"new contact";
+          setMsgs([...history,{role:"assistant",content:`Which name do you want to change?\n1. Master name ("${masterName}")\n2. Secondary contact name ("${contactName}")\n\nReply 1 or 2.`}]);
+          setPendingConv({...conv,_awaitingNameChoice:fieldKey,_awaitingNameInline:inlineVal});
+          return;
+        }
+
+        // In xContact mode with "master" qualifier — edit the parent record's field directly on card
+        if(isXMode&&isMaster){
+          if(inlineVal){
+            const rec=conv._saveAsXContact.record;
+            const updatedRec={...rec,[fieldKey==="contact"?"name":fieldKey]:inlineVal};
+            setPendingConv({...conv,_saveAsXContact:{...conv._saveAsXContact,record:updatedRec,existName:fieldKey==="name"?inlineVal:conv._saveAsXContact.existName}});
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`Updated master ${rawField} to "${inlineVal}". What else?`}]);
+          }else{
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`What should the master ${rawField} be?`}]);
+            setPendingConv({...conv,_awaitingMasterEdit:fieldKey==="contact"?"name":fieldKey});
+          }
+          return;
+        }
+
+        // xContact mode with secondary qualifier or default in xContact — edit the contact's field
+        if(isXMode&&(isSecondary||qualifier==="")){
+          // Map "name" to the contact entry's name field
+          const contactKey=(fieldKey==="name"||fieldKey==="contact")?"name":fieldKey;
+          if(inlineVal){
+            const e={...conv.entry};
+            e[contactKey]=inlineVal;
+            if(contactKey==="name")e.contact=inlineVal;
+            setPendingConv({...conv,entry:e});
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`Updated contact ${rawField} to "${inlineVal}". What else?`}]);
+          }else{
+            const qIdx=conv.questions.findIndex(q=>q.key===contactKey);
+            if(qIdx>=0){
+              const e={...conv.entry};
+              e[contactKey]="";
+              setPendingConv({...conv,entry:e,idx:qIdx,_awaitingNewCat:false});
+              setMsgs(history);setInput("");
+              setMsgs([...history,{role:"assistant",content:`Sure — ${conv.questions[qIdx].q} (or 'x' to skip)`}]);
+            }else{
+              // Field not in xContact Q&A (like name) — ask directly
+              setMsgs(history);setInput("");
+              setMsgs([...history,{role:"assistant",content:`What should the contact's ${rawField} be?`}]);
+              setPendingConv({...conv,_awaitingContactEdit:contactKey});
+            }
+          }
+          return;
+        }
+
+        // Normal Q&A mode — jump to field question
         const qIdx=conv.questions.findIndex(q=>q.key===fieldKey);
         if(qIdx>=0){
           const e={...conv.entry};
-          e[fieldKey]=""; // clear so it gets re-asked
-          setMsgs(history);setInput("");
-          setPendingConv({...conv,entry:e,idx:qIdx,_awaitingNewCat:false});
-          setMsgs([...history,{role:"assistant",content:`Sure — ${conv.questions[qIdx].q} (or 'x' to skip)`}]);
+          if(inlineVal){
+            e[fieldKey]=_formatVal(fieldKey,inlineVal);
+            setPendingConv({...conv,entry:e});
+            setMsgs(history);setInput("");
+            setMsgs([...history,{role:"assistant",content:`Updated ${rawField} to "${e[fieldKey]}". What else?`}]);
+          }else{
+            e[fieldKey]="";
+            setMsgs(history);setInput("");
+            setPendingConv({...conv,entry:e,idx:qIdx,_awaitingNewCat:false});
+            setMsgs([...history,{role:"assistant",content:`Sure — ${conv.questions[qIdx].q} (or 'x' to skip)`}]);
+          }
           return;
         }
-        // Field not in Q&A questions — just update directly on card
-        setMsgs(history);setInput("");
-        setMsgs([...history,{role:"assistant",content:`You can edit ${changeM[1]} directly on the card. What else?`}]);
+        // Field not in Q&A questions — update directly on card
+        if(inlineVal){
+          const e={...conv.entry};
+          e[fieldKey]=_formatVal(fieldKey,inlineVal);
+          setPendingConv({...conv,entry:e});
+          setMsgs(history);setInput("");
+          setMsgs([...history,{role:"assistant",content:`Updated ${rawField} to "${e[fieldKey]}". What else?`}]);
+        }else{
+          setMsgs(history);setInput("");
+          setMsgs([...history,{role:"assistant",content:`You can edit ${changeM[2]} directly on the card, or say "change ${rawField} to [value]".`}]);
+        }
         return;
       }
       setMsgs(history);setInput("");
@@ -3578,9 +3734,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(jsonMatch){
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
-            applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
+            const newIdx = applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
+            if (patch.saveAsVersion && newIdx !== vIdx) {
+              setBillieCtx(prev => ({...prev, vIdx: newIdx}));
+            }
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Estimate updated."}]);
+            const msg = patch.saveAsVersion ? `✓ Saved as new version: ${patch.saveAsVersion}` : "✓ Estimate updated.";
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+msg}]);
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -7152,7 +7312,7 @@ export default function OnnaDashboard() {
                   </div>
                 </div>
                 {/* To-Do */}
-                <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
+                <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",height:420}}>
                   {/* Title row */}
                   <div style={{padding:"13px 16px 0",background:"#fafafa",borderBottom:`1px solid ${T.borderSub}`}}>
                     <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
@@ -7203,7 +7363,7 @@ export default function OnnaDashboard() {
                     )}
                   </div>
                   {/* Task list — shows ~5 items then scrolls */}
-                  <div style={{padding:"6px 12px",overflowY:"auto",maxHeight:215}}>
+                  <div style={{padding:"6px 12px",overflowY:"auto",flex:1,minHeight:0}}>
                     {filteredTodos.map(t=>(
                       <div key={t.id} className="todo-item" draggable={t._source==="general"} onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,cursor:t._source==="general"?"grab":"default"}}>
                         <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
@@ -8242,12 +8402,12 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Type</div>
-                <Sel value={selectedTodo.type||"general"} onChange={v=>{const u={...selectedTodo,type:v};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={["general","project"]}/>
+                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Tab</div>
+                <Sel value={selectedTodo._source==="project"?"project":selectedTodo.tab==="personal"?"personal":"onna"} onChange={v=>{if(v==="project")return;const oldSource=selectedTodo._source;const u={...selectedTodo,tab:v==="onna"?"onna":"personal",_source:"general"};setSelectedTodo(u);if(oldSource==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));setTodos(prev=>[...prev,u]);}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={[{value:"onna",label:"ONNA"},{value:"personal",label:"Personal"},...(selectedTodo._source==="project"?[{value:"project",label:"Project — "+(allProjectsMerged.find(p=>p.id===selectedTodo.projectId)?.name||"Project")}]:[])]}/>
               </div>
               <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Linked Project</div>
-                <Sel value={selectedTodo.project||""} onChange={v=>{const u={...selectedTodo,project:v};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={[{value:"",label:"None"},...allProjectsMerged.map(p=>({value:`${p.client} — ${p.name}`,label:`${p.client} — ${p.name}`}))]} minWidth={200}/>
+                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
+                <Sel value={selectedTodo._source==="project"?"project":(selectedTodo.subType==="later"?"later":"now")} onChange={v=>{if(selectedTodo._source==="project")return;const u={...selectedTodo,subType:v==="later"?"later":undefined};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}} options={selectedTodo._source==="project"?[{value:"project",label:allProjectsMerged.find(p=>p.id===selectedTodo.projectId)?.name||"Project"}]:[{value:"now",label:"Now"},{value:"later",label:"Later"}]}/>
               </div>
             </div>
             <div style={{marginBottom:22}}>
