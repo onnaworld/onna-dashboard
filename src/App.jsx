@@ -2599,6 +2599,59 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setLoading(false);setMood("idle");
         return;
       }
+      // ── Awaiting update action (search outlook/whatsapp after opening card) ──
+      if(pendingConv._awaitingUpdateAction){
+        const pick=input.trim();
+        const {_updateRecord:rec,_updateType:uType,_updateId:uId,_updateName:uName,_actionOptions:opts}=pendingConv;
+        setMsgs(history);setInput("");
+        // Allow free-text search commands too
+        const isOutlook=pick==="1"||(opts[0]&&/outlook|email/i.test(opts[0])&&pick==="1")||/\b(?:search|check)\s*(?:outlook|email)/i.test(pick);
+        const isWhatsapp=(opts.length===2&&pick==="2")||(opts.length===1&&pick==="1"&&/whatsapp|phone/i.test(opts[0]))||/\b(?:search|check)\s*(?:whatsapp|phone)/i.test(pick);
+        const isDone=/^(done|no|skip|x|cancel|nothing|nah)$/i.test(pick);
+        if(isDone){setPendingConv(null);setMsgs([...history,{role:"assistant",content:"All good. Edit the card and save when ready."}]);return;}
+        if(isOutlook||isWhatsapp){
+          const source=isWhatsapp?"whatsapp":"outlook";
+          setLoading(true);setMood("thinking");
+          setMsgs([...history,{role:"assistant",content:`Searching ${isWhatsapp?"WhatsApp":"Outlook"} for ${uName}...`}]);
+          const result=await searchViaExt(uName,source);
+          setLoading(false);setMood("idle");
+          if(result.ok&&result.lead){
+            const l=_stripOwn(result.lead);
+            const updated={...rec};
+            let filled=[];
+            if(!updated.email&&l.email){updated.email=_formatVal("email",l.email);filled.push("email: "+l.email);}
+            if(!updated.phone&&l.phone){updated.phone=_formatVal("phone",l.phone);filled.push("phone: "+l.phone);}
+            if(!updated.website&&l.website){updated.website=_formatVal("website",l.website);filled.push("website: "+l.website);}
+            if(!updated.company&&l.company){updated.company=l.company;filled.push("company: "+l.company);}
+            if(uType==="vendor"&&!updated.notes&&l.role){updated.notes=l.role;filled.push("notes: "+l.role);}
+            if(uType!=="vendor"&&!updated.role&&l.role){updated.role=l.role;filled.push("role: "+l.role);}
+            if(filled.length){
+              showEntry(updated,uType,uId,false);
+              lastSearchRef.current={...l,_type:uType,_query:uName,_ts:Date.now()};
+            }
+            // Check remaining missing fields
+            const stillMissingEmail=!updated.email;const stillMissingPhone=!updated.phone;
+            if(stillMissingEmail||stillMissingPhone){
+              const newOpts=[];
+              if(stillMissingEmail)newOpts.push("Search Outlook for email");
+              if(stillMissingPhone)newOpts.push("Search WhatsApp for phone");
+              setPendingConv({...pendingConv,_updateRecord:updated,_actionOptions:newOpts});
+              const optStr=newOpts.map((o,i)=>`${i+1}. ${o}`).join("\n");
+              setMsgs([...history,{role:"assistant",content:filled.length?`Found: ${filled.join(", ")}. Updated card.\n\n${optStr}\n\nOr type 'done'.`:`No results from ${isWhatsapp?"WhatsApp":"Outlook"}.\n\n${optStr}\n\nOr type 'done'.`}]);
+            }else{
+              setPendingConv(null);
+              setMsgs([...history,{role:"assistant",content:filled.length?`Found: ${filled.join(", ")}. Card updated — save when ready.`:`No new info found. Edit the card manually and save.`}]);
+            }
+          }else{
+            setMsgs([...history,{role:"assistant",content:`No results from ${isWhatsapp?"WhatsApp":"Outlook"}. ${opts.map((o,i)=>`${i+1}. ${o}`).join("\n")}\n\nOr type 'done'.`}]);
+          }
+          return;
+        }
+        // Unrecognized — re-show options
+        const optStr=opts.map((o,i)=>`${i+1}. ${o}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Reply with a number:\n\n${optStr}\n\nOr type 'done' to skip.`}]);
+        return;
+      }
       // ── Mid-Q&A search — fill missing fields from Outlook/WhatsApp ──
       const midSearchM=agent.id==="logistical"&&input.trim().match(/\b(?:search|check|look|find|scan)\s+(?:(?:my|in|on|the)\s+)?(?:outlook|whatsapp|emails?|inbox|chats?)\b/i);
       if(midSearchM){
@@ -3425,7 +3478,16 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             }
           }
           showEntry(merged,type,record.id,false);
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). ${hasRecent?"Merged Outlook data. ":""}Edit below and save.`}]);
+          const missingEmail=!merged.email;const missingPhone=!merged.phone;
+          let opts="";
+          if(missingEmail||missingPhone){
+            const optList=[];
+            if(missingEmail)optList.push("Search Outlook for email");
+            if(missingPhone)optList.push("Search WhatsApp for phone");
+            opts="\n\n"+optList.map((o,i)=>`${i+1}. ${o}`).join("\n");
+            setPendingConv({_awaitingUpdateAction:true,_updateRecord:merged,_updateType:type,_updateId:record.id,_updateName:displayName,_actionOptions:optList,entry:null,type:null,questions:[],idx:0});
+          }
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). ${hasRecent?"Merged Outlook data. ":""}Edit below and save.${opts}`}]);
         }else{
           const upType=upTypeHint||"vendor";
           const newEntry={_type:upType,...(upType==="vendor"?{name:upName,company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
@@ -6004,6 +6066,7 @@ export default function OnnaDashboard() {
   const [creativeSubSection,setCreativeSubSection]       = useState(null);
   const [budgetSubSection,setBudgetSubSection]           = useState(null);
   const [previewFile,setPreviewFile]                     = useState(null);
+  const [quoteSearchTerm,setQuoteSearchTerm]             = useState("");
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
@@ -7117,6 +7180,7 @@ export default function OnnaDashboard() {
         const deleteQuoteFile = (fileId) => setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),quotations:((prev[p.id]||{}).quotations||[]).filter(f=>f.id!==fileId)}}));
         const renameQuoteFile = (fileId, newName) => setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),quotations:((prev[p.id]||{}).quotations||[]).map(f=>f.id===fileId?{...f,name:newName}:f)}}));
         const downloadQuoteFile = (file) => {const a=document.createElement("a");a.href=file.data;a.download=file.name;a.click();};
+        const filteredQuotes = quoteSearchTerm.trim() ? quoteFiles.filter(f=>f.name.toLowerCase().includes(quoteSearchTerm.trim().toLowerCase())) : quoteFiles;
         return (
         <div>
           <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
@@ -7128,8 +7192,9 @@ export default function OnnaDashboard() {
             <div style={{fontSize:12,color:T.muted}}>Drag & drop or click to upload</div>
             <input type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx" style={{display:"none"}} onChange={e=>addQuoteFiles(Array.from(e.target.files))}/>
           </label>
-          {quoteFiles.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {quoteFiles.map((f)=>(
+          {quoteFiles.length>0&&<input value={quoteSearchTerm} onChange={e=>setQuoteSearchTerm(e.target.value)} placeholder="Search quotations…" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>}
+          {filteredQuotes.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {filteredQuotes.map((f)=>(
               <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)",cursor:f.type?.includes("pdf")||f.type?.includes("image")?"pointer":"default"}} onClick={()=>{if(f.type?.includes("pdf")||f.type?.includes("image"))setPreviewFile(f);}}>
                 <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"📄":f.type?.includes("image")?"🖼":"📎"}</span>
                 <div style={{flex:1,minWidth:0}}>
