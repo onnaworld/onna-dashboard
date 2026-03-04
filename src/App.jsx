@@ -4804,11 +4804,38 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(el){
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${CT_FONT};padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
           doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the contract now — save it as PDF from there! 📝"}]);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the contract now — save it as PDF from there!"}]);
         }else{
-          setMsgs([...history,{role:"assistant",content:"To export the contract, head to **Projects → Documents → Contracts** and click **Export PDF** at the top. The contract needs to be open in the documents view for me to export it."}]);
+          // Build contract HTML from store data and print
+          const _xV=contractDocStore?.[project.id]||[];const _xIdx=Math.min(vIdx,_xV.length-1);const _xVer=_xV[_xIdx];
+          if(!_xVer){setMsgs([...history,{role:"assistant",content:"No contract found to export."}]);setLoading(false);setMood("idle");return;}
+          const _xType=_xVer.contractType||"commission_se";const _xCt=CONTRACT_DOC_TYPES.find(c=>c.id===_xType)||CONTRACT_DOC_TYPES[0];
+          const _xTerms=(_xVer.generalTermsEdits||{}).custom||GENERAL_TERMS_DOC[_xType]||"";
+          let fieldsHtml="";
+          if(_xCt.headTermsLabel){
+            fieldsHtml+=`<div style="background:#f4f4f4;padding:6px 12px;border-bottom:1px solid #ddd"><span style="font-family:${CT_FONT};font-size:10px;font-weight:700;letter-spacing:${CT_LS_HDR}px">${_xCt.headTermsLabel}</span></div>`;
+            _xCt.fields.forEach(f=>{const v=(_xVer.fieldValues||{})[f.key]||f.defaultValue||"";fieldsHtml+=`<div style="display:flex;border-bottom:1px solid #eee;min-height:32px"><div style="width:220px;min-width:220px;padding:8px 12px;background:#fafafa;border-right:1px solid #eee"><span style="font-family:${CT_FONT};font-size:10px;font-weight:500;letter-spacing:${CT_LS}px">${f.label}</span></div><div style="flex:1;padding:8px 12px;font-family:${CT_FONT};font-size:10px;letter-spacing:${CT_LS}px">${v.replace(/</g,"&lt;")}</div></div>`;});
+          }
+          let sigHtml="";
+          if(_xCt.sigLeft){
+            sigHtml=`<div style="background:#000;color:#fff;font-family:${CT_FONT};font-size:10px;font-weight:700;letter-spacing:${CT_LS_HDR}px;text-align:center;padding:4px 0;text-transform:uppercase;margin-top:32px">SIGNATURE</div><div style="display:flex;border-bottom:1px solid #eee">`;
+            [{side:"left",label:_xCt.sigLeft},{side:"right",label:_xCt.sigRight}].forEach(({side,label})=>{
+              const sn=_xVer.sigNames||{};const sigs=_xVer.signatures||{};
+              sigHtml+=`<div style="flex:1;padding:12px;${side==="left"?"border-right:1px solid #eee":""}"><div style="font-family:${CT_FONT};font-size:9px;font-weight:700;letter-spacing:${CT_LS}px;margin-bottom:12px">${label}</div>`;
+              sigHtml+=`<div style="margin-bottom:8px"><span style="font-family:${CT_FONT};font-size:10px;font-weight:500;display:block;margin-bottom:4px">Signature:</span>${sigs[side]?`<img src="${sigs[side]}" style="max-height:60px"/>`:`<div style="height:60px;border-bottom:1px solid #ccc"></div>`}</div>`;
+              sigHtml+=`<div style="margin-bottom:8px;display:flex;gap:8px"><span style="font-family:${CT_FONT};font-size:10px;font-weight:500;min-width:80px">Print Name:</span><span style="flex:1;border-bottom:1px solid #ccc;font-size:10px">${sn[side+"_name"]||""}</span></div>`;
+              sigHtml+=`<div style="margin-bottom:8px;display:flex;gap:8px"><span style="font-family:${CT_FONT};font-size:10px;font-weight:500;min-width:80px">Date:</span><span style="flex:1;border-bottom:1px solid #ccc;font-size:10px">${sn[side+"_date"]||""}</span></div></div>`;
+            });sigHtml+=`</div>`;
+          }
+          const logoHtml=_xVer.prodLogo?`<div style="margin-bottom:4px"><img src="${_xVer.prodLogo}" style="max-height:60px"/></div>`:"";
+          const termsEsc=_xTerms.replace(/</g,"&lt;").replace(/\n/g,"<br/>");
+          const fullHtml=`${logoHtml}<div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div><div style="text-align:center;font-family:${CT_FONT};font-size:12px;font-weight:700;letter-spacing:${CT_LS_HDR}px;text-transform:uppercase;margin-bottom:12px">${_xCt.title}</div>${project.name||_xVer.label?`<div style="font-family:${CT_FONT};font-size:9px;color:#1a1a1a;letter-spacing:${CT_LS}px;margin-bottom:14px">${project.name?`Project: ${project.name}`:""}${project.name&&_xVer.label?` | `:""}${_xVer.label||""}</div>`:``}${fieldsHtml}${sigHtml}<div style="margin-top:32px"><div style="background:#000;color:#fff;font-family:${CT_FONT};font-size:10px;font-weight:700;letter-spacing:${CT_LS_HDR}px;text-align:center;padding:4px 0;text-transform:uppercase">GENERAL TERMS</div><div style="font-family:${CT_FONT};font-size:10px;letter-spacing:${CT_LS}px;line-height:1.6;color:#1a1a1a;border:1px solid #eee;border-top:none;padding:12px;white-space:pre-wrap">${termsEsc}</div></div><div style="margin-top:60px;display:flex;justify-content:space-between;font-family:${CT_FONT};font-size:9px;letter-spacing:${CT_LS_HDR}px;color:#000;border-top:2px solid #000;padding-top:12px"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>`;
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${CT_FONT};padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body style="max-width:880px;margin:0 auto;padding:40px;line-height:1.5;color:#1a1a1a">${fullHtml}</body></html>`);doc.close();
+          setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the contract now — save it as PDF from there!"}]);
         }
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -4833,7 +4860,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
 
       // ── Generate signing link intent ──
-      if(/\b(sign|signing|signature|send\s+for\s+sign|generate\s+link|share\s+link|send\s+link|send\s+contract)\b/i.test(input)){
+      if(/\b(sign|signing|signature|send\s+for\s+sign|generate\s+(a\s+)?link|share\s+(a\s+)?(link|contract|this)|send\s+(a\s+)?(link|contract|this)|create\s+(a\s+)?(link|shareable)|get\s+(a\s+)?link|shareable\s+link)\b/i.test(input)){
         const _ctVersions=contractDocStore?.[project.id]||[];
         const _vIdx=Math.min(vIdx,_ctVersions.length-1);
         const _ver=_ctVersions[_vIdx];
