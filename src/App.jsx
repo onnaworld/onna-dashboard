@@ -2577,7 +2577,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       }
       // ── Awaiting update name (from bare "update") ──
       if(pendingConv._awaitingUpdateName){
-        const pick=input.trim();
+        const pick=input.trim().replace(/^(?:update|edit|modify|open|show)\s+(?:the\s+)?(?:(?:vendor|supplier|lead|contact)\s+)?/i,"").trim();
         setMsgs(history);setInput("");
         setPendingConv(null);
         if(!pick||pick.length<2){
@@ -5600,7 +5600,7 @@ const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,s
     <div style={{padding:"0 0 4px"}}>
       {todos.length===0&&<div style={{padding:"14px 18px",fontSize:13,color:T.muted}}>No tasks yet — add one below.</div>}
       {todos.map((t,i)=>(
-        <div key={t.id} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"9px 18px",borderBottom:i<todos.length-1?`1px solid ${T.borderSub}`:"none",transition:"background 0.1s"}}>
+        <div key={t.id} className="todo-item" style={{display:"flex",alignItems:"flex-start",gap:9,padding:"9px 18px",borderBottom:i<todos.length-1?`1px solid ${T.borderSub}`:"none",transition:"background 0.1s"}}>
           <button onClick={()=>setProjectTodos(prev=>({...prev,[projectId]:(prev[projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)}))} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
             {t.done&&<span style={{color:"#fff",fontSize:9,lineHeight:1,fontWeight:700}}>✓</span>}
           </button>
