@@ -3836,11 +3836,16 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const _fuzzyMatchProject = (text, excludeId) => {
         const lo = text.toLowerCase().trim();
         const cands = excludeId ? (localProjects||[]).filter(p=>p.id!==excludeId) : (localProjects||[]);
-        const exact = cands.find(p=>lo.includes(p.name.toLowerCase()));
+        // exact substring match on name or client
+        const exact = cands.find(p=>lo.includes(p.name.toLowerCase())||(p.client&&lo.includes(p.client.toLowerCase())));
         if (exact) return exact;
+        // fuzzy: Levenshtein distance ≤ 2 on words from name + client
         const _ed = (a,b) => { const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>i); for(let j=1;j<=n;j++){let pv=d[0];d[0]=j;for(let i=1;i<=m;i++){const t=d[i];d[i]=a[i-1]===b[j-1]?pv:1+Math.min(pv,d[i],d[i-1]);pv=t;}} return d[m]; };
         const words = lo.split(/\s+/);
-        for (const p of cands) { const pn=p.name.toLowerCase(); if(words.some(w=>w.length>=3&&_ed(w,pn)<=2))return p; const pw=pn.split(/\s+/); if(words.some(w=>w.length>=3&&pw.some(q=>q.length>=3&&_ed(w,q)<=2)))return p; }
+        for (const p of cands) {
+          const targets = [p.name, p.client||""].join(" ").toLowerCase().split(/[\s\/,]+/).filter(w=>w.length>=3);
+          if(words.some(w=>w.length>=3&&targets.some(t=>_ed(w,t)<=2))) return p;
+        }
         return null;
       };
 
