@@ -2443,21 +2443,23 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px"}}><div style={csSecTitle}>WEATHER</div>
-              <div style={{marginBottom:8,fontSize:11,fontFamily:CS_FONT,fontWeight:700,letterSpacing:CS_LS}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:11,fontWeight:700,letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
+              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
               {(csData.weatherHourly||[]).length>0&&<div style={{marginBottom:10}}>
                 <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
-                <div style={{display:"flex",gap:0,overflowX:"auto"}}>
-                  {csData.weatherHourly.map((h,i)=>(<div key={i} style={{minWidth:44,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #f0f0f0":"none",fontSize:9,fontFamily:CS_FONT}}>
+                <div style={{display:"flex",gap:0,width:"100%"}}>
+                  {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
                     <div style={{fontWeight:700,color:"#555"}}>{h.time}</div>
-                    <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a",margin:"2px 0"}}>{h.tempC}°</div>
+                    <div style={{fontSize:13,margin:"2px 0"}}>{(h.condition||"").toLowerCase().includes("sun")||(h.condition||"").toLowerCase().includes("clear")?"☀️":(h.condition||"").toLowerCase().includes("cloud")?"⛅":(h.condition||"").toLowerCase().includes("rain")||(h.condition||"").toLowerCase().includes("shower")?"🌧️":(h.condition||"").toLowerCase().includes("storm")||(h.condition||"").toLowerCase().includes("thunder")?"⛈️":(h.condition||"").toLowerCase().includes("wind")?"💨":(h.condition||"").toLowerCase().includes("fog")||(h.condition||"").toLowerCase().includes("mist")?"🌫️":(h.condition||"").toLowerCase().includes("snow")?"❄️":"🌤️"}</div>
+                    <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a",margin:"1px 0"}}>{h.tempC}°</div>
                     <div style={{fontSize:8,color:"#888"}}>{h.tempF}°F</div>
-                    <div style={{fontSize:7,color:"#aaa",marginTop:1}}>{h.condition}</div>
                   </div>))}
                 </div>
               </div>}
@@ -2466,7 +2468,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
               </div>
-              <CSResizableImage label="Weather Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/></div>
+              </div>
             {/* INVOICING */}
             <div style={{padding:"14px 32px"}}><div style={csSecTitle}>INVOICING</div><div style={{fontSize:11,marginBottom:8}}>Please note that payment terms are <strong><CSEditField value={csData.invoicing.terms} onChange={v=>csU("invoicing.terms",v)} bold style={{fontSize:11}}/></strong> from the date of invoice.</div><div style={{fontSize:11}}><div style={{fontWeight:700,marginBottom:2}}>FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <CSEditField value={csData.invoicing.email} onChange={v=>csU("invoicing.email",v)} style={{fontSize:11,color:"#1565C0"}}/></div><div style={{fontWeight:700,marginTop:6}}>BILLING ADDRESS:</div><CSEditTextarea value={csData.invoicing.address} onChange={v=>csU("invoicing.address",v)} style={{fontSize:11,lineHeight:1.6}}/><div style={{marginTop:4}}><strong>TRN:</strong> <CSEditField value={csData.invoicing.trn} onChange={v=>csU("invoicing.trn",v)} style={{fontSize:11}}/></div></div></div>
             {/* PROTOCOL */}
@@ -4721,18 +4723,75 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`✓ Created risk assessment for ${project.name}. I'm ready to work on it — tell me what risks to add, or ask me to review what's missing.`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        // Has RA — open it directly
-        setRonnieCtx({projectId:project.id,vIdx:0});
-        if(setActiveRAVersion)setActiveRAVersion(0);
-        addRonnieTab(project.id,0,project.name);
-        setMsgs([...history,{role:"assistant",content:`Working on ${project.name}'s risk assessment. What would you like to do?`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        // Has RA(s) — if only one, open directly; if multiple, try to match by label or ask
+        if(raLabels.length===1){
+          setRonnieCtx({projectId:project.id,vIdx:0});
+          if(setActiveRAVersion)setActiveRAVersion(0);
+          addRonnieTab(project.id,0,project.name);
+          setMsgs([...history,{role:"assistant",content:`Working on ${project.name}'s risk assessment. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        // Multiple RAs — try matching a label in the message
+        const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
+        if(matchedLabel>=0){
+          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
+          addRonnieTab(project.id,matchedLabel,`${project.name} · ${raLabels[matchedLabel].label}`);
+          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} — ${raLabels[matchedLabel].label}. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        // No match — show list
+        const list=raLabels.map(v=>`• ${v.label||"Untitled"}`).join("\n");
+        setRonnieCtx({projectId:project.id,_step:"pick_label"});
+        setMsgs([...history,{role:"assistant",content:`${project.name} has ${raLabels.length} risk assessments:\n\n${list}\n\nWhich one should I work on, or say **create new** to add another?`}]);
+        setLoading(false);setMood("idle");return;
       }
 
-      // ── Multi-step flow handler (legacy steps) — reset ──
-      if(ronnieCtx._step){
-        setRonnieCtx(null);setLoading(false);setMood("idle");return;
+      // ── Step: create_label — waiting for label name ──
+      if(ronnieCtx._step==="create_label"){
+        const project=localProjects?.find(p=>p.id===ronnieCtx.projectId);
+        if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
+        const labelName=input.trim();
+        if(!labelName||labelName.length<1){
+          setMsgs([...history,{role:"assistant",content:"Give me a name for this risk assessment (e.g. Shoot Day, Recce Day)."}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const raLabels=riskAssessmentStore?.[project.id]||[];
+        const newRA={id:Date.now(),label:labelName,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
+        newRA.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
+        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newRA);return store;});
+        const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];const idx=arr.length-1;if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
+        const newIdx=raLabels.length;
+        setRonnieCtx({projectId:project.id,vIdx:newIdx});
+        if(setActiveRAVersion)setActiveRAVersion(newIdx);
+        addRonnieTab(project.id,newIdx,`${project.name} · ${labelName}`);
+        setMsgs([...history,{role:"assistant",content:`✓ Created ${labelName} for ${project.name}. I'm ready to work on it — tell me what risks to add, or ask me to review what's missing.`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
+      // ── Step: pick_label — choosing from multiple RAs ──
+      if(ronnieCtx._step==="pick_label"){
+        const project=localProjects?.find(p=>p.id===ronnieCtx.projectId);
+        if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
+        const lower=input.toLowerCase();
+        const raLabels=riskAssessmentStore?.[project.id]||[];
+        if(/\b(create|new|add)\b/i.test(lower)){
+          setRonnieCtx({...ronnieCtx,_step:"create_label"});
+          setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment?"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
+        if(matchedLabel>=0){
+          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
+          addRonnieTab(project.id,matchedLabel,`${project.name} · ${raLabels[matchedLabel].label}`);
+          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} — ${raLabels[matchedLabel].label}. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        const list=raLabels.map(v=>`• ${v.label||"Untitled"}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Which risk assessment?\n\n${list}\n\nOr say **create new**.`}]);
+        setLoading(false);setMood("idle");return;
+      }
+      if(ronnieCtx._step){setRonnieCtx(null);setLoading(false);setMood("idle");return;}
 
       // ── Ready state: editing ──
       let {projectId,vIdx}=ronnieCtx;
@@ -4762,10 +4821,17 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
-      if(/\b(switch|change|different|new)\s+(project|risk\s*assess)\b/i.test(input)){
+      if(/\b(switch|change|different)\s+project\b/i.test(input)){
         setRonnieCtx(null);
         const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // "create new risk assessment" / "new risk assessment" for current project
+      if(/\b(create|new|add)\b/i.test(lower)&&/\b(risk\s*assess|ra|assessment)\b/i.test(lower)){
+        setRonnieCtx({projectId,_step:"create_label"});
+        setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment? (e.g. Shoot Day, Recce Day, Pre-Production)"}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -5654,12 +5720,14 @@ const printCallSheetPDF = (cs) => {
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
   const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
   const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
-  const weatherSummaryPDF = cs.weatherSummary ? `<div style="font-size:11px;font-weight:700;letter-spacing:1.5px;margin-bottom:8px">${e(cs.weatherSummary)}</div>` : "";
-  const weatherHourlyPDF = (cs.weatherHourly||[]).length > 0 ? `<div style="margin-bottom:10px"><div style="font-weight:700;letter-spacing:1.5px;font-size:9px;color:#888;margin-bottom:4px">HOURLY FORECAST</div><div style="display:flex;gap:0">${cs.weatherHourly.map((h,i)=>`<div style="min-width:44px;text-align:center;padding:4px 2px;border-right:${i<cs.weatherHourly.length-1?"1px solid #f0f0f0":"none"};font-size:9px"><div style="font-weight:700;color:#555">${e(h.time)}</div><div style="font-size:11px;font-weight:800;color:#1a1a1a;margin:2px 0">${e(h.tempC)}°</div><div style="font-size:8px;color:#888">${e(h.tempF)}°F</div><div style="font-size:7px;color:#aaa;margin-top:1px">${e(h.condition)}</div></div>`).join("")}</div></div>` : "";
+  const weatherSummaryPDF = cs.weatherSummary ? `<div style="font-size:9px;font-style:italic;letter-spacing:1.5px;margin-bottom:6px">${e(cs.weatherSummary)}</div>` : "";
+  const wxEmoji=(c)=>{const l=(c||"").toLowerCase();return l.includes("sun")||l.includes("clear")?"☀️":l.includes("cloud")?"⛅":l.includes("rain")||l.includes("shower")?"🌧️":l.includes("storm")||l.includes("thunder")?"⛈️":l.includes("wind")?"💨":l.includes("fog")||l.includes("mist")?"🌫️":l.includes("snow")?"❄️":"🌤️"};
+  const weatherHourlyPDF = (cs.weatherHourly||[]).length > 0 ? `<div style="margin-bottom:10px"><div style="font-weight:700;letter-spacing:1.5px;font-size:9px;color:#888;margin-bottom:4px">HOURLY FORECAST</div><div style="display:flex;width:100%">${cs.weatherHourly.map((h,i)=>`<div style="flex:1;text-align:center;padding:4px 2px;border-right:${i<cs.weatherHourly.length-1?"1px solid #eee":"none"};font-size:9px"><div style="font-weight:700;color:#555">${e(h.time)}</div><div style="font-size:13px;margin:2px 0">${wxEmoji(h.condition)}</div><div style="font-size:11px;font-weight:800;color:#1a1a1a;margin:1px 0">${e(h.tempC)}°</div><div style="font-size:8px;color:#888">${e(h.tempF)}°F</div></div>`).join("")}</div></div>` : "";
   const weatherFields = `<div style="padding:10px 32px 4px"><div style="${secTitle}">WEATHER</div>${weatherSummaryPDF}
-  <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:10px">${cs.weatherHighC?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHighC)}°C / ${e(cs.weatherHighF||"—")}°F</div>`:""}${cs.weatherLowC?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLowC)}°C / ${e(cs.weatherLowF||"—")}°F</div>`:""}${cs.weatherRealFeelHighC?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHighC)}°C / ${e(cs.weatherRealFeelHighF||"—")}°F</div>`:""}${cs.weatherRealFeelLowC?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLowC)}°C / ${e(cs.weatherRealFeelLowF||"—")}°F</div>`:""}</div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px">${cs.weatherHighC?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHighC)}°C / ${e(cs.weatherHighF||"—")}°F</div>`:""}${cs.weatherLowC?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLowC)}°C / ${e(cs.weatherLowF||"—")}°F</div>`:""}</div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:10px">${cs.weatherRealFeelHighC?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHighC)}°C / ${e(cs.weatherRealFeelHighF||"—")}°F</div>`:""}${cs.weatherRealFeelLowC?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLowC)}°C / ${e(cs.weatherRealFeelLowF||"—")}°F</div>`:""}</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:10px">${cs.weatherSunrise?`<div><strong style="font-size:9px;${LS}color:#888">SUNRISE: </strong>${e(cs.weatherSunrise)}</div>`:""}${cs.weatherSunset?`<div><strong style="font-size:9px;${LS}color:#888">SUNSET: </strong>${e(cs.weatherSunset)}</div>`:""}${cs.weatherBlueHour?`<div><strong style="font-size:9px;${LS}color:#888">BLUE HOUR: </strong>${e(cs.weatherBlueHour)}</div>`:""}</div></div>`;
-  const weatherImg = cs.weatherImage ? `<div style="padding:0 32px 14px"><img src="${cs.weatherImage}" style="width:100%;max-height:160px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const weatherImg = "";
   const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
 ${logos}
 <div style="height:5px;background:#000;margin:0 32px"></div>
@@ -5679,7 +5747,7 @@ ${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C628
 <div style="padding:10px 32px"><div style="${secTitle}">CONTACTS</div>
   <table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr><td style="${thStyle}width:17%">ROLE</td><td style="${thStyle}width:15%">NAME</td><td style="${thStyle}width:16%">MOBILE</td><td style="${thStyle}width:30%">EMAIL</td><td style="${thStyle}width:8%;text-align:right;padding-right:8px">CALL TIME</td></tr></thead><tbody>${deptHTML}</tbody></table>
 </div>
-${mapImg||mapLink}${weatherFields}${weatherImg}
+${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
 <div style="padding:14px 32px"><div style="${secTitle}">INVOICING</div>
   <div style="font-size:11px;margin-bottom:8px">Please note that payment terms are <strong>${e(cs.invoicing?.terms)}</strong> from the date of invoice.</div>
   <div style="font-size:11px"><div style="font-weight:700;margin-bottom:2px">FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <span style="color:#1565C0">${e(cs.invoicing?.email)}</span></div><div style="font-weight:700;margin-top:6px">BILLING ADDRESS:</div><div style="white-space:pre-line;line-height:1.6">${e(cs.invoicing?.address)}</div><div style="margin-top:4px"><strong>TRN:</strong> ${e(cs.invoicing?.trn)}</div></div>
@@ -7672,6 +7740,10 @@ export default function OnnaDashboard() {
             );
           })}
         </div>
+        {/* Delete project */}
+        <div style={{marginTop:40,paddingTop:20,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This cannot be undone.`))return;await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
+        </div>
       </div>
     );
 
@@ -8494,21 +8566,23 @@ export default function OnnaDashboard() {
                 {/* WEATHER */}
                 <div style={{padding:"10px 32px 14px"}}>
                   <div style={csSecTitle}>WEATHER</div>
-                  <div style={{marginBottom:8,fontSize:11,fontFamily:CS_FONT,fontWeight:700,letterSpacing:CS_LS}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:11,fontWeight:700,letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
+                  <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                   </div>
                   {(csData.weatherHourly||[]).length>0&&<div style={{marginBottom:10}}>
                     <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
-                    <div style={{display:"flex",gap:0,overflowX:"auto"}}>
-                      {csData.weatherHourly.map((h,i)=>(<div key={i} style={{minWidth:44,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #f0f0f0":"none",fontSize:9,fontFamily:CS_FONT}}>
+                    <div style={{display:"flex",gap:0,width:"100%"}}>
+                      {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
                         <div style={{fontWeight:700,color:"#555"}}>{h.time}</div>
-                        <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a",margin:"2px 0"}}>{h.tempC}°</div>
+                        <div style={{fontSize:13,margin:"2px 0"}}>{(h.condition||"").toLowerCase().includes("sun")||(h.condition||"").toLowerCase().includes("clear")?"☀️":(h.condition||"").toLowerCase().includes("cloud")?"⛅":(h.condition||"").toLowerCase().includes("rain")||(h.condition||"").toLowerCase().includes("shower")?"🌧️":(h.condition||"").toLowerCase().includes("storm")||(h.condition||"").toLowerCase().includes("thunder")?"⛈️":(h.condition||"").toLowerCase().includes("wind")?"💨":(h.condition||"").toLowerCase().includes("fog")||(h.condition||"").toLowerCase().includes("mist")?"🌫️":(h.condition||"").toLowerCase().includes("snow")?"❄️":"🌤️"}</div>
+                        <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a",margin:"1px 0"}}>{h.tempC}°</div>
                         <div style={{fontSize:8,color:"#888"}}>{h.tempF}°F</div>
-                        <div style={{fontSize:7,color:"#aaa",marginTop:1}}>{h.condition}</div>
                       </div>))}
                     </div>
                   </div>}
@@ -8517,8 +8591,7 @@ export default function OnnaDashboard() {
                     <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                     <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                   </div>
-                  <CSResizableImage label="Weather Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/>
-                </div>
+                  </div>
 
                 {/* INVOICING */}
                 <div style={{padding:"14px 32px"}}>
@@ -8590,7 +8663,8 @@ export default function OnnaDashboard() {
         const raData = raVersions[raIdx] || raVersions[0];
         const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
         const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:p.name,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(0); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} - New`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const deleteRA = (idx) => { if(typeof pushUndo==="function")pushUndo("delete risk assessment"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
         // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
         const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
@@ -8601,8 +8675,15 @@ export default function OnnaDashboard() {
         return (
           <div>
             {docBack}
+            {raVersions.length>1&&(<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:10}}>
+              {raVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveRAVersion(i)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:raIdx===i?600:500,cursor:"pointer",border:`1px solid ${raIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:raIdx===i?T.accent:"transparent",color:raIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||"Untitled"}</button><button onClick={()=>deleteRA(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete">×</button></div>))}
+              <button onClick={addRAVersion} style={{padding:"5px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ New</button>
+            </div>)}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-              <div style={{fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:200}} placeholder="Risk Assessment"/></div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:200}} placeholder="Risk Assessment"/></div>
+                {raVersions.length===1&&<button onClick={addRAVersion} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ New</button>}
+              </div>
               <BtnExport onClick={()=>{const el=document.getElementById("onna-ra-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>');doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
             </div>
 
