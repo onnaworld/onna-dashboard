@@ -1560,13 +1560,13 @@ const savedCallSheets = {};
 const savedRiskAssessments = {};
 
 const TABS = [
-  {id:"Dashboard", label:"DASHBOARD"},
-  {id:"Agents",    label:"AGENTS"},
-  {id:"Vendors",   label:"VENDORS"},
-  {id:"Clients",   label:"CLIENTS"},
-  {id:"Projects",  label:"PROJECTS"},
-  {id:"Resources", label:"RESOURCES"},
-  {id:"Notes",     label:"NOTES"},
+  {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
+  {id:"Agents",    label:"AGENTS",    starColor:_PURPLE},
+  {id:"Vendors",   label:"VENDORS",   starColor:_YELLOW},
+  {id:"Clients",   label:"CLIENTS",   starColor:_ORANGE},
+  {id:"Projects",  label:"PROJECTS",  starColor:_GREEN},
+  {id:"Resources", label:"RESOURCES", starColor:_BLUE},
+  {id:"Notes",     label:"NOTES",     starColor:"#B0B0B0"},
 ];
 
 const StarIcon = ({size=11,color="currentColor"}) => (
@@ -2317,6 +2317,27 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
   return null;
 }
 
+// Fuzzy project match: checks project name AND client name, supports partial word matching
+function fuzzyMatchProject(projects, input, excludeId) {
+  const lower = input.toLowerCase().trim();
+  if (!lower) return null;
+  const words = lower.split(/\s+/).filter(w => w.length > 1);
+  const candidates = excludeId != null ? projects.filter(p => p.id !== excludeId) : projects;
+  // 1. Exact full name match (input contains full project name OR project name contains input)
+  const exact = candidates.find(p => lower.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lower));
+  if (exact) return exact;
+  // 2. Client name match
+  const clientMatch = candidates.find(p => p.client && (lower.includes(p.client.toLowerCase()) || p.client.toLowerCase().includes(lower)));
+  if (clientMatch) return clientMatch;
+  // 3. Any word from input matches a word in project name or client
+  const wordMatch = candidates.find(p => {
+    const pWords = `${p.name} ${p.client || ""}`.toLowerCase().split(/\s+/);
+    return words.some(w => pWords.some(pw => pw.includes(w) || w.includes(pw)));
+  });
+  if (wordMatch) return wordMatch;
+  return null;
+}
+
 function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
@@ -2472,6 +2493,20 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       qs.push({key:"notes",q:"Any notes?"});
     }
     return qs;
+  };
+  // Helper: finish Q&A — respects xContact mode (saves as secondary contact on parent)
+  const _finishQA=(conv,e,history,extraMsg="")=>{
+    if(conv._saveAsXContact){
+      const xc=conv._saveAsXContact;
+      const existing=getXContacts(xc.type,xc.id);
+      const nc={name:e.contact||e.name||"",role:e.role||"",email:e.email||"",phone:e.phone||""};
+      const updated=[...existing,nc];
+      setXContacts(xc.type,xc.id,updated);
+      showEntry({...xc.record,_xContacts:updated},xc.type,xc.id,conv.saveAsOutreach||false);
+      setMsgs([...history,{role:"assistant",content:`${extraMsg?extraMsg+"\n\n":""}Added ${nc.name||"new contact"} as a contact on ${xc.existName}. Review below.`}]);
+      return true;
+    }
+    return false;
   };
   const startConv=(entry,type,asOutreach=false,updateId=null)=>{
     const qs=buildQuestions(entry,type);
@@ -2722,7 +2757,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
               let newIdx=conv.idx;const qs=conv.questions;
               while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
               const filledMsg=`Found! Filled in: ${filled.join(", ")}.`;
-              if(newIdx>=qs.length){setPendingConv(null);showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}
+              if(newIdx>=qs.length){setPendingConv(null);if(!_finishQA(conv,e,history,filledMsg)){showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}}
               else{setPendingConv({...conv,entry:e,idx:newIdx});setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);}
             }else if(!e.email&&midFinal.length===1){
               // Single low-confidence email — show as option
@@ -2737,7 +2772,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
               const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:`Searched for ${searchName} but couldn't extract usable contact info.`;
               let newIdx=conv.idx;const qs=conv.questions;
               while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
-              if(newIdx>=qs.length){setPendingConv(null);showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}
+              if(newIdx>=qs.length){setPendingConv(null);if(!_finishQA(conv,e,history,filledMsg)){showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}}
               else{setPendingConv({...conv,entry:e,idx:newIdx});setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);}
             }
           }else{
@@ -2947,7 +2982,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           const next=conv.idx+1;
           if(next>=conv.questions.length){
             setPendingConv(null);
-            if(!conv.updateId){
+            if(_finishQA(conv,e,history)){/* saved as xContact */}
+            else if(!conv.updateId){
               const eName=conv.type==="vendor"?e.name:(e.contact||"");
               const eCompany=e.company||"";
               const catDupMatches=[...findAllSimilar(eName,allVendors,allLeads),...(eCompany?findAllSimilar(eCompany,allVendors,allLeads):[])];
@@ -3178,8 +3214,19 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             while(skipIdx<conv.questions.length&&e[conv.questions[skipIdx].key])skipIdx++;
             if(skipIdx>=conv.questions.length){
               setPendingConv(null);
+              // If xContact mode, save as secondary contact on parent record
+              if(conv._saveAsXContact){
+                const xc=conv._saveAsXContact;
+                const existing=getXContacts(xc.type,xc.id);
+                const nc={name:e.contact||e.name||"",role:e.role||"",email:e.email||"",phone:e.phone||""};
+                const updated=[...existing,nc];
+                setXContacts(xc.type,xc.id,updated);
+                showEntry({...xc.record,_xContacts:updated},xc.type,xc.id,conv.saveAsOutreach||false);
+                setMsgs([...history,{role:"assistant",content:`Found email: ${finalEmails[0]}. Added ${nc.name||"new contact"} as a contact on ${xc.existName}. Review below.`}]);
+              }else{
               showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
               setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${finalEmails[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+              }
             }else{
               setPendingConv({...conv,entry:e,idx:skipIdx});
               setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${finalEmails[0]}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
@@ -3229,8 +3276,10 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             while(skipIdx<conv.questions.length&&e[conv.questions[skipIdx].key])skipIdx++;
             if(skipIdx>=conv.questions.length){
               setPendingConv(null);
-              showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
-              setMsgs([...history,{role:"assistant",content:`Found website: ${unique[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+              if(!_finishQA(conv,e,history,`Found website: ${unique[0]}`)){
+                showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+                setMsgs([...history,{role:"assistant",content:`Found website: ${unique[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+              }
             }else{
               setPendingConv({...conv,entry:e,idx:skipIdx});
               setMsgs([...history,{role:"assistant",content:`Found website: ${unique[0]}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
@@ -3774,7 +3823,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
         // Try to match a project name in this message
         const lower=input.toLowerCase();
-        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        const project = fuzzyMatchProject(localProjects,input);
         if(!project){
           const list=localProjects.map(p=>`• ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's call sheet should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
@@ -3822,7 +3871,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
       // Allow switching: if user mentions a different project name, reset context
       const lower=input.toLowerCase();
-      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
         setConnieCtx(null);
         // Re-run by simulating the input will go through the !connieCtx path next time
@@ -4225,7 +4274,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
         const lower=input.toLowerCase();
-        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        const project = fuzzyMatchProject(localProjects,input);
         if(!project){
           const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
@@ -4403,7 +4452,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
       const lower=input.toLowerCase();
-      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
         // Reset to project selection for the new project
         const raLabels=riskAssessmentStore?.[switchProject.id]||[];
@@ -4652,7 +4701,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
 
         // ── Flow A: no pending, no context — find project ──
-        const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
+        const project = fuzzyMatchProject(localProjects,input);
         if(!project){
           const list=localProjects.map(p=>`• ${p.name}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project's contract should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
@@ -4682,7 +4731,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(!project){setCodyCtx(null);codyPendingRef.current=null;if(setActiveContractVersion) setActiveContractVersion(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
       const lower=input.toLowerCase();
-      const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
+      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
       if(switchProject){
         const swVersions=contractDocStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(CONTRACT_INIT))}];
         if(swVersions.length===1){
@@ -8137,7 +8186,7 @@ export default function OnnaDashboard() {
         <nav style={{flex:1,padding:"4px 8px",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>changeTab(t.id)} className={`nav-btn${activeTab===t.id?" active":""}`}>
-              <StarIcon size={11} color="currentColor"/>
+              <StarIcon size={11} color={t.starColor||"currentColor"}/>
               <span>{t.label}</span>
             </button>
           ))}
@@ -9248,7 +9297,7 @@ export default function OnnaDashboard() {
         <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(255,255,255,0.95)",borderTop:`1px solid ${T.border}`,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>changeTab(t.id)} className="bottom-nav-btn" style={{color:activeTab===t.id?"#1d1d1f":"#aeaeb2"}}>
-              <StarIcon size={activeTab===t.id?13:11} color="currentColor"/>
+              <StarIcon size={activeTab===t.id?13:11} color={activeTab===t.id?(t.starColor||"currentColor"):"currentColor"}/>
               <span style={{fontSize:9,fontWeight:activeTab===t.id?700:500,letterSpacing:"0.04em"}}>{t.label}</span>
             </button>
           ))}
