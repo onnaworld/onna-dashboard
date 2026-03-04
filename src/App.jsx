@@ -2703,31 +2703,34 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
               return s;
             };
             uniqueEmails.sort((a,b)=>_scoreEmail(b)-_scoreEmail(a));
-            if(!e.email&&uniqueEmails.length>1){
+            // Filter out emails that clearly don't belong to this person
+            const midRelevant=uniqueEmails.filter(em=>_scoreEmail(em)>0);
+            const midFinal=midRelevant.length>0?midRelevant:uniqueEmails;
+            if(!e.email&&midFinal.length>1){
               // Multiple emails — show options, don't auto-fill
               filled.push("email (options below)");
               const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:"";
-              const optList=uniqueEmails.map((o,i)=>`${i+1}. ${o}`).join("\n");
+              const optList=midFinal.map((o,i)=>`${i+1}. ${o}`).join("\n");
               // Find the email question index
               const emailQIdx=conv.questions.findIndex(q=>q.key==="email");
               const targetIdx=emailQIdx>=0?emailQIdx:conv.idx;
-              setPendingConv({...conv,entry:e,idx:targetIdx,_emailOptions:uniqueEmails});
-              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nFound multiple possible emails for ${searchName}:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
-            }else if(!e.email&&uniqueEmails.length===1&&_scoreEmail(uniqueEmails[0])>=15){
+              setPendingConv({...conv,entry:e,idx:targetIdx,_emailOptions:midFinal});
+              setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nFound possible emails for ${searchName}:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
+            }else if(!e.email&&midFinal.length===1&&_scoreEmail(midFinal[0])>=15){
               // Single high-confidence email — auto-fill
-              e.email=_formatVal("email",uniqueEmails[0]);filled.push("email");
+              e.email=_formatVal("email",midFinal[0]);filled.push("email");
               let newIdx=conv.idx;const qs=conv.questions;
               while(newIdx<qs.length&&e[qs[newIdx].key])newIdx++;
               const filledMsg=`Found! Filled in: ${filled.join(", ")}.`;
               if(newIdx>=qs.length){setPendingConv(null);showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nAll filled in! Review everything below and hit Save ✓`}]);}
               else{setPendingConv({...conv,entry:e,idx:newIdx});setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\n${qs[newIdx].q} (or 'x' to skip)`}]);}
-            }else if(!e.email&&uniqueEmails.length===1){
+            }else if(!e.email&&midFinal.length===1){
               // Single low-confidence email — show as option
-              const optList=`1. ${uniqueEmails[0]}`;
+              const optList=`1. ${midFinal[0]}`;
               const emailQIdx=conv.questions.findIndex(q=>q.key==="email");
               const targetIdx=emailQIdx>=0?emailQIdx:conv.idx;
               const filledMsg=filled.length?`Found! Filled in: ${filled.join(", ")}.`:"";
-              setPendingConv({...conv,entry:e,idx:targetIdx,_emailOptions:uniqueEmails});
+              setPendingConv({...conv,entry:e,idx:targetIdx,_emailOptions:midFinal});
               setMsgs([...history,{role:"assistant",content:`${filledMsg}\n\nFound a possible email for ${searchName}:\n\n${optList}\n\nReply 1 to use it, type the correct email, or 'x' to skip.`}]);
             }else{
               // Email already filled or no emails found — fill other fields and continue
@@ -3165,23 +3168,26 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             return s;
           };
           unique.sort((a,b)=>_scoreEmail(b)-_scoreEmail(a));
-          if(unique.length===1&&_scoreEmail(unique[0])>=15){
+          // Filter out emails that clearly don't belong to this person (score <= 0)
+          const relevant=unique.filter(em=>_scoreEmail(em)>0);
+          const finalEmails=relevant.length>0?relevant:unique;
+          if(finalEmails.length===1&&_scoreEmail(finalEmails[0])>=15){
             // High-confidence single match — auto-fill but still show it
-            e.email=_formatVal("email",unique[0]);
+            e.email=_formatVal("email",finalEmails[0]);
             let skipIdx=next+1;
             while(skipIdx<conv.questions.length&&e[conv.questions[skipIdx].key])skipIdx++;
             if(skipIdx>=conv.questions.length){
               setPendingConv(null);
               showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
-              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${unique[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${finalEmails[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
             }else{
               setPendingConv({...conv,entry:e,idx:skipIdx});
-              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${unique[0]}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
+              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${finalEmails[0]}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
             }
-          }else if(unique.length>0){
+          }else if(finalEmails.length>0){
             // Multiple options or low confidence — let user choose
-            setPendingConv({...conv,entry:e,idx:next,_emailOptions:unique});
-            const optList=unique.map((o,i)=>`${i+1}. ${o}`).join("\n");
+            setPendingConv({...conv,entry:e,idx:next,_emailOptions:finalEmails});
+            const optList=finalEmails.map((o,i)=>`${i+1}. ${o}`).join("\n");
             setMsgs([...history,{role:"assistant",content:`Found possible emails for ${searchQuery}:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
           }else{
             setPendingConv({...conv,entry:e,idx:next});
@@ -3338,8 +3344,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             const xCompClean=(entry.company||existName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
             const _xScoreEm=(em)=>{let s=0;const loc=em.split("@")[0].toLowerCase();const dom=em.split("@")[1]||"";if(xFirstName&&loc.includes(xFirstName))s+=10;if(xLastName&&loc.includes(xLastName))s+=8;if(xCompClean&&dom.replace(/[^a-z0-9]/g,"").includes(xCompClean))s+=5;if(/^(info|hello|contact|admin|office|sales|support|team|enquiries|bookings|studio)@/i.test(em))s-=4;return s;};
             xUniqueEmails.sort((a,b)=>_xScoreEm(b)-_xScoreEm(a));
-            if(xUniqueEmails.length===1&&_xScoreEm(xUniqueEmails[0])>=15){
-              xEntry.email=_formatVal("email",xUniqueEmails[0]);
+            // Filter out emails that clearly don't belong to this contact
+            const xRelevant=xUniqueEmails.filter(em=>_xScoreEm(em)>0);
+            const xFinal=xRelevant.length>0?xRelevant:xUniqueEmails;
+            if(xFinal.length===1&&_xScoreEm(xFinal[0])>=15){
+              xEntry.email=_formatVal("email",xFinal[0]);
               let skipIdx=1;while(skipIdx<xQs.length&&xEntry[xQs[skipIdx].key])skipIdx++;
               if(skipIdx>=xQs.length){
                 setPendingConv(null);
@@ -3348,14 +3357,14 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
                 const updated=[...existing,nc];
                 setXContacts(chosen.type,chosen.record.id,updated);
                 showEntry({...chosen.record,_xContacts:updated},chosen.type,chosen.record.id,dupSaveAsOutreach||false);
-                setMsgs([...history,{role:"assistant",content:`Found email: ${xUniqueEmails[0]}. Added ${contactName} as a contact on ${existName}. Review below.`}]);
+                setMsgs([...history,{role:"assistant",content:`Found email: ${xFinal[0]}. Added ${contactName} as a contact on ${existName}. Review below.`}]);
               }else{
                 setPendingConv({...convData,entry:xEntry,idx:skipIdx});
-                setMsgs([...history,{role:"assistant",content:`Found email: ${xUniqueEmails[0]}\n\n${xQs[skipIdx].q} (or 'x' to skip)`}]);
+                setMsgs([...history,{role:"assistant",content:`Found email: ${xFinal[0]}\n\n${xQs[skipIdx].q} (or 'x' to skip)`}]);
               }
-            }else if(xUniqueEmails.length>0){
-              setPendingConv({...convData,entry:xEntry,idx:0,_emailOptions:xUniqueEmails});
-              const optList=xUniqueEmails.map((o,i)=>`${i+1}. ${o}`).join("\n");
+            }else if(xFinal.length>0){
+              setPendingConv({...convData,entry:xEntry,idx:0,_emailOptions:xFinal});
+              const optList=xFinal.map((o,i)=>`${i+1}. ${o}`).join("\n");
               setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}.\n\nFound possible emails:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
             }else{
               setPendingConv({...convData,entry:xEntry});
@@ -9083,8 +9092,33 @@ export default function OnnaDashboard() {
               </div>
             )}
 
+
+            {notesLoading ? (
+              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>Loading…</div>
+            ) : notes.length===0 ? (
+              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>No notes yet. Hit + New Note to start.</div>
+            ) : (
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+                {notes.map(n=>(
+                  <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:8}}>
+                    {n.title&&<div style={{fontSize:14,fontWeight:700,color:T.text,letterSpacing:"-0.01em"}}>{n.title}</div>}
+                    <div style={{fontSize:13,color:T.sub,lineHeight:1.65,whiteSpace:"pre-wrap",flexGrow:1}}>{n.content}</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:10,borderTop:`1px solid ${T.borderSub}`}}>
+                      <span style={{fontSize:11,color:T.muted}}>{n.updated_at?new Date(n.updated_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</span>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>{setNoteEditId(n.id);setNoteDraft({title:n.title||"",content:n.content||""});setNoteAddOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
+                        <button onClick={async()=>{if(!confirm("Delete this note?"))return;archiveItem("notes",n);await api.delete(`/api/notes/${n.id}`);setNotes(prev=>prev.filter(x=>x.id!==n.id));}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab==="Settings"&&(
-          <div style={{display:"flex",gap:0,height:"100%",overflow:"hidden"}}>
+          <div style={{display:"flex",gap:0,margin:`-${P}px -${P}px -${isMobile?80:44}px`,height:`calc(100% + ${P}px + ${isMobile?80:44}px)`,overflow:"hidden"}}>
             {/* Settings Sidebar */}
             <div style={{width:220,flexShrink:0,borderRight:`1px solid ${T.border}`,padding:"28px 0",display:"flex",flexDirection:"column",gap:2}}>
               <div style={{padding:"0 20px",marginBottom:20}}>
@@ -9192,30 +9226,6 @@ export default function OnnaDashboard() {
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-            {notesLoading ? (
-              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>Loading…</div>
-            ) : notes.length===0 ? (
-              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>No notes yet. Hit + New Note to start.</div>
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
-                {notes.map(n=>(
-                  <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:8}}>
-                    {n.title&&<div style={{fontSize:14,fontWeight:700,color:T.text,letterSpacing:"-0.01em"}}>{n.title}</div>}
-                    <div style={{fontSize:13,color:T.sub,lineHeight:1.65,whiteSpace:"pre-wrap",flexGrow:1}}>{n.content}</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:10,borderTop:`1px solid ${T.borderSub}`}}>
-                      <span style={{fontSize:11,color:T.muted}}>{n.updated_at?new Date(n.updated_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</span>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>{setNoteEditId(n.id);setNoteDraft({title:n.title||"",content:n.content||""});setNoteAddOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
-                        <button onClick={async()=>{if(!confirm("Delete this note?"))return;archiveItem("notes",n);await api.delete(`/api/notes/${n.id}`);setNotes(prev=>prev.filter(x=>x.id!==n.id));}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Delete</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
