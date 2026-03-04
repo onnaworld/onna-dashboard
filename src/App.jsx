@@ -449,6 +449,12 @@ THE USER:
 - The user is Emily Lucas, Senior Producer at ONNA. Phone: +971 585 608 616, Email: emily@onnaproduction.com
 - If the user says "me", "I'm on set", "production on set is me", or similar, use Emily Lucas +971 585 608 616 as the value.
 
+IMPORTANT FIELD MAPPING:
+- Hospital info goes in "emergency.hospital" field, NOT in schedule or venueRows
+- Police station info goes in "emergency.police" field, NOT in schedule or venueRows
+- Emergency dial numbers go in "emergencyNumbers" array
+- These are separate from venue/schedule rows — never add hospital/police as venue or schedule entries
+
 WEATHER & LOCATION:
 - When the user provides a LOCATION (city, venue, address), generate a Google Maps link in the format https://www.google.com/maps/search/[URL-encoded address] and include it in the patch as "mapLink".
 - When the user asks about weather, or provides a date and location, use your knowledge to estimate realistic weather for that location and date. Output a JSON patch with:
@@ -523,6 +529,62 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
 
   versions[versionIdx] = ver;
   setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
+}
+
+function buildConniePatchMarkers(patch, preVer) {
+  const markers = new Set();
+  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour","mapLink"];
+  scalars.forEach(k => { if (patch[k] !== undefined && patch[k] !== (preVer[k]||"")) markers.add("cs:scalar:"+k); });
+  if (patch.weatherHourly !== undefined) markers.add("cs:weatherHourly");
+  if (patch.emergency) { if(patch.emergency.hospital && patch.emergency.hospital!==(preVer.emergency?.hospital||"")) markers.add("cs:emergency.hospital"); if(patch.emergency.police && patch.emergency.police!==(preVer.emergency?.police||"")) markers.add("cs:emergency.police"); }
+  if (patch.invoicing) Object.keys(patch.invoicing).forEach(k=>{ if(patch.invoicing[k]!==(preVer.invoicing?.[k]||"")) markers.add("cs:invoicing."+k); });
+  if (patch.schedule) markers.add("cs:schedule");
+  if (patch.venueRows) markers.add("cs:venueRows");
+  if (patch.emergencyNumbers) markers.add("cs:emergencyNumbers");
+  if (patch.departments && Array.isArray(patch.departments)) {
+    patch.departments.forEach(pd => {
+      (pd.crew||[]).forEach(pc => {
+        markers.add("cs:crew:"+pd.name.toUpperCase()+":"+pc.role.toUpperCase());
+      });
+    });
+  }
+  return markers;
+}
+
+function revertConnieMarker(marker, preSnapshot, projectId, vIdx, setStore) {
+  setStore(prev => {
+    const store = JSON.parse(JSON.stringify(prev));
+    const arr = store[projectId] || [];
+    const ver = arr[vIdx]; if (!ver) return store;
+    if (marker.startsWith("cs:scalar:")) {
+      const k = marker.slice(10); ver[k] = preSnapshot[k] !== undefined ? preSnapshot[k] : "";
+    } else if (marker === "cs:weatherHourly") {
+      ver.weatherHourly = preSnapshot.weatherHourly ? JSON.parse(JSON.stringify(preSnapshot.weatherHourly)) : [];
+    } else if (marker.startsWith("cs:emergency.")) {
+      const k = marker.slice(13); if(!ver.emergency) ver.emergency={}; ver.emergency[k] = preSnapshot.emergency?.[k] || "";
+    } else if (marker.startsWith("cs:invoicing.")) {
+      const k = marker.slice(13); if(!ver.invoicing) ver.invoicing={}; ver.invoicing[k] = preSnapshot.invoicing?.[k] || "";
+    } else if (marker === "cs:schedule") {
+      ver.schedule = preSnapshot.schedule ? JSON.parse(JSON.stringify(preSnapshot.schedule)) : [];
+    } else if (marker === "cs:venueRows") {
+      ver.venueRows = preSnapshot.venueRows ? JSON.parse(JSON.stringify(preSnapshot.venueRows)) : [];
+    } else if (marker === "cs:emergencyNumbers") {
+      ver.emergencyNumbers = preSnapshot.emergencyNumbers ? JSON.parse(JSON.stringify(preSnapshot.emergencyNumbers)) : [];
+    } else if (marker.startsWith("cs:crew:")) {
+      const parts = marker.split(":"); const deptName = parts[2]; const roleName = parts[3];
+      const preDept = (preSnapshot.departments||[]).find(d=>d.name.toUpperCase()===deptName);
+      const curDept = (ver.departments||[]).find(d=>d.name.toUpperCase()===deptName);
+      if (curDept && preDept) {
+        const preCrewMember = preDept.crew.find(c=>c.role.toUpperCase()===roleName);
+        const ci = curDept.crew.findIndex(c=>c.role.toUpperCase()===roleName);
+        if (preCrewMember && ci>=0) curDept.crew[ci] = JSON.parse(JSON.stringify(preCrewMember));
+        else if (!preCrewMember && ci>=0) curDept.crew.splice(ci,1);
+      }
+    }
+    arr[vIdx] = ver;
+    store[projectId] = arr;
+    return store;
+  });
 }
 
 // ─── CARRIE (CASTING) HELPERS ────────────────────────────────────────────────
@@ -2468,13 +2530,23 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
 }
 
 // ─── AgentDocPreview — live editable document preview for split-pane ────────
-function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone}) {
+function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone}) {
   if (!projectId) return null;
 
   // ── CONNIE (Call Sheet) ──
   if (agentId === "compliance" && callSheetStore && setCallSheetStore) {
     const csVersions = callSheetStore[projectId] || [];
       if(csVersions.length===0) return <div style={{padding:40,textAlign:"center",color:"#888",fontSize:12}}>No call sheet created yet. Tell Connie a project name to get started.</div>;
+      const cpr = conniePendingReview && conniePendingReview.projectId===projectId && conniePendingReview.vIdx===(activeCSVersion||0) ? conniePendingReview : null;
+      const cprMarkers = cpr ? new Set(cpr.markers) : null;
+      const hasCM = (m) => cprMarkers && cprMarkers.has(m);
+      const finishCReview = () => { if(setConniePendingReview) setConniePendingReview(null); if(onConnieReviewDone) onConnieReviewDone(); };
+      const acceptCM = (m) => { if(!setConniePendingReview||!cpr) return; const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
+      const declineCM = (m) => { if(!setConniePendingReview||!cpr) return; revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore); const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
+      const acceptAllC = () => { finishCReview(); };
+      const declineAllC = () => { if(!cpr) return; cpr.markers.forEach(m => revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore)); finishCReview(); };
+      const cRevBtn = (type) => ({width:18,height:18,borderRadius:4,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:3,lineHeight:1});
+      const cHL = {background:"#e8f5e9",borderLeft:"3px solid #4caf50",marginLeft:-3,paddingLeft:3,borderRadius:2,transition:"background 0.2s"};
     const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
     const csData = csVersions[csIdx] || csVersions[0];
     const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
@@ -2562,8 +2634,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
-              {(csData.weatherHourly||[]).length>0&&<div style={{marginBottom:10}}>
-                <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
+              {(csData.weatherHourly||[]).length>0?<div style={{marginBottom:10,...(hasCM("cs:weatherHourly")?cHL:{})}}>
+                <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"space-between"}}>HOURLY FORECAST{hasCM("cs:weatherHourly")&&<span><button onClick={()=>acceptCM("cs:weatherHourly")} style={cRevBtn("accept")}>✓</button><button onClick={()=>declineCM("cs:weatherHourly")} style={cRevBtn("decline")}>✕</button></span>}</div>
                 <div style={{display:"flex",gap:0,width:"100%"}}>
                   {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
                     <div style={{fontWeight:700,color:"#555"}}>{h.time}</div>
@@ -2572,7 +2644,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                     <div style={{fontSize:8,color:"#888"}}>{h.tempF}°F</div>
                   </div>))}
                 </div>
-              </div>}
+              </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
@@ -2584,7 +2656,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* PROTOCOL */}
             <div style={{padding:"10px 32px"}}><div style={csSecTitle}>PROTOCOL ON SET</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
             {/* EMERGENCY */}
-            <div style={{padding:"10px 32px"}}><div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div><div style={{fontSize:9,marginBottom:8,display:"flex",flexWrap:"nowrap",alignItems:"center",gap:3}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS}}/>{csData.emergencyNumbers.map((en,i) => (<span key={i} style={{display:"inline-flex",alignItems:"center",gap:1,whiteSpace:"nowrap"}}><span style={{color:"#C62828",fontWeight:800,fontSize:10}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:10}}/></span><span style={{fontWeight:600,fontSize:8,letterSpacing:0.5}}> FOR </span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:8,fontWeight:700,letterSpacing:0.5}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={11}/>{i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 2px"}}>|</span>}</span>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></div></div>
+            <div style={{padding:"10px 32px"}}><div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div><div style={{fontSize:8,marginBottom:8,display:"flex",flexWrap:"nowrap",alignItems:"center",gap:2,overflow:"hidden"}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:8,fontWeight:700,letterSpacing:0.5,whiteSpace:"nowrap"}}/>{csData.emergencyNumbers.map((en,i) => (<span key={i} style={{display:"inline-flex",alignItems:"center",gap:1,whiteSpace:"nowrap",flexShrink:0}}><span style={{color:"#C62828",fontWeight:800,fontSize:9}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:9}}/></span><span style={{fontWeight:600,fontSize:7,letterSpacing:0.3}}> FOR </span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:7,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/>{i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 1px"}}>|</span>}</span>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></div></div>
             {/* FOOTER */}
             <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
           </div>
@@ -2719,7 +2791,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
   // ── BILLIE (Estimate) ──
   if (agentId === "billie" && projectEstimates && setProjectEstimates) {
-    const estVersions = projectEstimates[projectId] || [{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT))}];
+    const estVersions = projectEstimates[projectId] || [];
+    if (!estVersions.length) return null;
     const estIdx = Math.min(activeEstimateVersion||0, estVersions.length - 1);
     const estData = estVersions[estIdx] || estVersions[0];
     const {set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, JSON.parse(JSON.stringify(ESTIMATE_INIT)), "V1");
@@ -2790,6 +2863,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const [ronniePendingReview,setRonniePendingReview]=useState(null); // {preSnapshot, markers[], projectId, vIdx}
+  const [conniePendingReview,setConniePendingReview]=useState(null); // {preSnapshot, markers[], projectId, vIdx}
   const [ronnieTabs,setRonnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addRonnieTab=(projectId,vIdx,label)=>setRonnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
@@ -5779,6 +5853,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
             pushUndo={pushUndo}
             ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
+            conniePendingReview={conniePendingReview} setConniePendingReview={setConniePendingReview}
+            onConnieReviewDone={()=>{setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — call sheet changes saved."}]);}}
             onRonnieReviewDone={(meta)=>{
               setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — changes saved."}]);
             }}/>
@@ -8520,23 +8596,27 @@ export default function OnnaDashboard() {
           <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
             <div style={{fontSize:18,fontWeight:700,color:T.text}}>Estimates</div>
-            <BtnPrimary onClick={()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:p.name||""};setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));setEditingEstimate(ne.id);const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===ne.id);if(idx>=0&&!arr[idx].prodLogo)arr[idx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";}}>+ New Estimate</BtnPrimary>
+            <BtnPrimary onClick={()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:p.name||""};setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===ne.id);if(idx>=0&&!arr[idx].prodLogo)arr[idx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";}}>+ New Estimate</BtnPrimary>
           </div>
-          {estimates.length===0?<div style={{padding:52,textAlign:"center",color:T.muted,fontSize:13,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`}}>No estimates yet — click above to create one.</div>:(
+          {estimates.length===0?<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>:(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {estimates.map((est)=>{
                 const secs = est.sections || defaultSections();
                 const { grandTotal: gt } = estCalcTotals(secs);
                 const totalIncVat = gt + gt * 0.05;
                 return (
-                  <div key={est.id} style={{display:"flex",alignItems:"center",gap:14,padding:"16px 20px",borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <span style={{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:6,background:"#f5f5f7",color:T.sub,border:`1px solid ${T.border}`}}>{est.ts?.version||"V1"}</span>
+                  <div key={est.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setEditingEstimate(est.id)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{est.ts?.project||p.name}</div>
-                      <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{est.ts?.date||""} · AED {totalIncVat.toLocaleString(undefined,{maximumFractionDigits:0})} inc. VAT</div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>{est.ts?.version||"V1"}</span>
+                        <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:gt>0?"#e8f5e9":"#f5f5f5",color:gt>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>AED {totalIncVat.toLocaleString(undefined,{maximumFractionDigits:0})} inc. VAT</span>
+                      </div>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text}}>{est.ts?.project||p.name}</div>
+                      <div style={{fontSize:11,color:T.muted,marginTop:2}}>{est.ts?.date||"No date set"}</div>
                     </div>
-                    <BtnSecondary small onClick={()=>setEditingEstimate(est.id)}>Edit</BtnSecondary>
-                    <button onClick={(e)=>{e.stopPropagation();if(!window.confirm(`Delete this estimate (${est.ts?.version||"V1"})? It will be moved to the archive.`))return;archiveItem("estimates",{projectId:p.id,estimate:est});setProjectEstimates(prev=>{const arr=(prev[p.id]||[]).filter(x=>x.id!==est.id);const updated={...prev};if(arr.length===0)delete updated[p.id];else updated[p.id]=arr;return updated;});}} style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"4px 6px",borderRadius:6,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete estimate">×</button>
+                    <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                      <button onClick={()=>{if(!window.confirm(`Delete this estimate (${est.ts?.version||"V1"})? It will be moved to the archive.`))return;archiveItem("estimates",{projectId:p.id,estimate:est});setProjectEstimates(prev=>{const arr=(prev[p.id]||[]).filter(x=>x.id!==est.id);const updated={...prev};if(arr.length===0)delete updated[p.id];else updated[p.id]=arr;return updated;});}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                    </div>
                   </div>
                 );
               })}
@@ -8576,7 +8656,7 @@ export default function OnnaDashboard() {
         const csVersions = callSheetStore[p.id] || [];
         const addCSNew = () => {
           const newId = Date.now();
-          const newCS = {id:newId,label:`Day ${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
+          const newCS = {id:newId,label:`V${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
           newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
@@ -8831,7 +8911,7 @@ export default function OnnaDashboard() {
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                   </div>
-                  {(csData.weatherHourly||[]).length>0&&<div style={{marginBottom:10}}>
+                  {(csData.weatherHourly||[]).length>0?<div style={{marginBottom:10}}>
                     <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
                     <div style={{display:"flex",gap:0,width:"100%"}}>
                       {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
@@ -8841,7 +8921,7 @@ export default function OnnaDashboard() {
                         <div style={{fontSize:8,color:"#888"}}>{h.tempF}°F</div>
                       </div>))}
                     </div>
-                  </div>}
+                  </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
                     <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                     <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
@@ -8873,17 +8953,17 @@ export default function OnnaDashboard() {
                 {/* EMERGENCY */}
                 <div style={{padding:"10px 32px"}}>
                   <div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div>
-                  <div style={{fontSize:9,marginBottom:8,display:"flex",flexWrap:"nowrap",alignItems:"center",gap:3}}>
-                    <CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS}}/>
+                  <div style={{fontSize:8,marginBottom:8,display:"flex",flexWrap:"nowrap",alignItems:"center",gap:2,overflow:"hidden"}}>
+                    <CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:8,fontWeight:700,letterSpacing:0.5,whiteSpace:"nowrap"}}/>
                     {csData.emergencyNumbers.map((en,i) => (
-                      <span key={i} style={{display:"inline-flex",alignItems:"center",gap:1,whiteSpace:"nowrap"}}>
-                        <span style={{color:"#C62828",fontWeight:800,fontSize:10}}>
-                          <CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:10}}/>
+                      <span key={i} style={{display:"inline-flex",alignItems:"center",gap:1,whiteSpace:"nowrap",flexShrink:0}}>
+                        <span style={{color:"#C62828",fontWeight:800,fontSize:9}}>
+                          <CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:9}}/>
                         </span>
-                        <span style={{fontWeight:600,fontSize:8,letterSpacing:0.5}}> FOR </span>
-                        <CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:8,fontWeight:700,letterSpacing:0.5}}/>
-                        <CSXbtn onClick={()=>rmEmergencyNum(i)} size={11}/>
-                        {i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 2px"}}>|</span>}
+                        <span style={{fontWeight:600,fontSize:7,letterSpacing:0.3}}> FOR </span>
+                        <CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:7,fontWeight:700,letterSpacing:0.3}}/>
+                        <CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/>
+                        {i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 1px"}}>|</span>}
                       </span>
                     ))}
                     <CSAddBtn onClick={addEmergencyNum} label="Add"/>
@@ -8915,7 +8995,7 @@ export default function OnnaDashboard() {
 
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name}${arr.length?" - New":""}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
         const deleteRA = (idx) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
