@@ -441,7 +441,7 @@ function buildConnieSystem(project, csData, versionLabel, csSnapshot, vendorSumm
 
 CRITICAL: You ALREADY HAVE the full call sheet data below. NEVER ask the user to paste, share, or provide call sheet details — you can see everything. Just act on their request immediately.
 
-You are viewing: "${project.name}" — ${versionLabel}
+TODAY'S DATE: ${new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"})} (Dubai/GST, UTC+4)\n\nYou are viewing: "${project.name}" — ${versionLabel}
 
 CURRENT CALL SHEET STATE:
 ${csSnapshot}
@@ -457,7 +457,11 @@ IMPORTANT FIELD MAPPING (ALWAYS INCLUDE THESE):
 - Hospital info MUST go in "emergency":{"hospital":"..."} — ALWAYS fill this when you know the shoot location. Find the nearest hospital.
 - Police station info MUST go in "emergency":{"police":"..."} — ALWAYS fill this when you know the location.
 - Emergency numbers MUST go in "emergencyNumbers" array — ALWAYS include local emergency numbers for the country.
-- NEVER add hospital or police as venue rows or schedule entries.
+  Format: [{"number":"999","label":"POLICE"},{"number":"998","label":"AMBULANCE"},{"number":"997","label":"FIRE DEPARTMENT"}]
+  CRITICAL: "number" MUST be SHORT DIAL CODES ONLY (e.g. 999, 998, 911, 112). NEVER put addresses, hospital names, or descriptions in emergencyNumbers fields.
+- "emergency.hospital" is for the FULL NAME + ADDRESS of the nearest hospital (e.g. "Mediclinic City Hospital, Dubai Healthcare City")
+- "emergency.police" is for the FULL NAME + ADDRESS of the nearest police station (e.g. "Al Rashidiya Police Station, Dubai")
+- NEVER add hospital or police as venue rows, schedule entries, or emergency numbers.
 - When filling in location info, ALWAYS include emergency.hospital, emergency.police AND emergencyNumbers in your patch.
 
 WEATHER & LOCATION:
@@ -3087,13 +3091,13 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               </div>
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
-            <div style={{padding:"10px 32px 14px"}}><div style={csSecTitle}>WEATHER</div>
+            <div style={{padding:"10px 32px 14px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>WEATHER{(hasCM("cs:scalar:weatherSummary")||hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC")||hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherSunrise")||hasCM("cs:weatherHourly"))&&<span><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&acceptCM(m));}} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&declineCM(m));}} style={cRevBtn("decline")}>{"\u2715"}</button></span>}</div>
               <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,...(hasCM("cs:scalar:weatherSummary")?cHL:{})}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT,...((hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC"))?cHL:{})}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT,...((hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherRealFeelLowC"))?cHL:{})}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
@@ -3108,7 +3112,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                   </div>))}
                 </div>
               </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT,...((hasCM("cs:scalar:weatherSunrise")||hasCM("cs:scalar:weatherSunset")||hasCM("cs:scalar:weatherBlueHour"))?cHL:{})}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
@@ -4452,7 +4456,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       }
       const contextMsg=`Check my emails for meeting requests and draft a reply.${emailContext}${calContext}`;
       try{
-        const sysMsg=system+"\n\nToday's date: "+new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"})+" (Dubai time, GST UTC+4).";
+        const sysMsg=system;
         const proxyRes=await fetch("/api/agents/logistical",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[...history.slice(1),{role:"user",content:contextMsg}],system:sysMsg})});
         if(!proxyRes.ok){setMsgs([...history,{role:"assistant",content:"Couldn't reach the AI. Check your connection."}]);setLoading(false);setMood("idle");return;}
         const reader=proxyRes.body.getReader();const decoder=new TextDecoder();let reply="";
@@ -4818,6 +4822,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setConnieCtx({projectId:proj.id,vIdx:newIdx});
           addConnieTab(proj.id,newIdx,`${proj.name} · ${nameInput}`);
           setConniePending(null);
+          const _csLogo=new Image();_csLogo.crossOrigin="anonymous";_csLogo.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_csLogo.naturalWidth;cv.height=_csLogo.naturalHeight;cv.getContext("2d").drawImage(_csLogo,0,0);const du=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[proj.id]||[];if(arr.length>0&&!arr[arr.length-1].productionLogo)arr[arr.length-1].productionLogo=du;return s;});}catch{}};_csLogo.src="/onna-default-logo.png";
           setMsgs([...history,{role:"assistant",content:`✓ Created "${nameInput}" for ${proj.name}. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
