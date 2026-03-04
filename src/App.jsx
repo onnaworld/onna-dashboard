@@ -5569,7 +5569,7 @@ const vaultDecrypt = async (key, blob) => {
 // ─── LOGIN PAGE PRIMITIVES — must live at module level so React never remounts them ──
 const _LG_CARD = {width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"};
 const _LG_WRAP = {minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"};
-const LgLogo = () => <div style={{marginBottom:32,textAlign:"center"}}><img src="/logo.png" alt="ONNA" style={{height:36,width:"auto"}}/></div>;
+const LgLogo = () => <div style={{marginBottom:32,textAlign:"center"}}><img src="/onna-default-logo.png" alt="ONNA" style={{height:36,width:"auto"}}/></div>;
 const LgIn = ({label,id,type="text",value,onChange,onEnter,placeholder,autoFocus,hasErr}) => (
   <div>
     <div style={{fontSize:11,fontWeight:600,color:"#6e6e73",letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
@@ -6048,7 +6048,7 @@ export default function OnnaDashboard() {
   const [catEditVal,setCatEditVal] = useState("");
   const [catSaving,setCatSaving] = useState(false);
   const [customVendorLocs,setCustomVendorLocs] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
-  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');const obj=s?JSON.parse(s):{};delete obj["1"];delete obj[1];try{localStorage.setItem('onna_ptodos',JSON.stringify(obj))}catch{}return obj;}catch(e){return {}}});
+  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
   const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab?t:["later","longterm"].includes(t.subType)?{...t,tab:"personal"}:{...t,tab:"onna"})}catch(e){return []}});
@@ -9298,7 +9298,18 @@ export default function OnnaDashboard() {
                   const tplCT=contractDocStore?.[tplId];
                   if(tplCT&&tplCT.length>0) setContractDocStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCT))}));
                   const tplEst=projectEstimates?.[tplId];
-                  if(tplEst&&tplEst.length>0) setProjectEstimates(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplEst))}));
+                  if(tplEst&&tplEst.length>0){const cloned=JSON.parse(JSON.stringify(tplEst));cloned.forEach(e=>{if(e.ts){e.ts.client=saved.client||e.ts.client;e.ts.project=saved.name||e.ts.project;}});setProjectEstimates(prev=>({...prev,[saved.id]:cloned}));}
+                  const tplTodos=projectTodos?.[tplId];
+                  if(tplTodos&&tplTodos.length>0) setProjectTodos(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplTodos)).map(t=>({...t,done:false}))}));
+                  const noteKeys=["_prodsched","_preprod","_postprod"];
+                  const noteUpdates={};noteKeys.forEach(k=>{const v=projectNotes[tplId+k];if(v)noteUpdates[saved.id+k]=v;});
+                  if(Object.keys(noteUpdates).length>0) setProjectNotes(prev=>({...prev,...noteUpdates}));
+                  const tplCast=projectCasting?.[tplId];
+                  if(tplCast&&tplCast.length>0) setProjectCasting(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCast))}));
+                  const tplLinks=projectCreativeLinks?.[tplId];
+                  if(tplLinks&&Object.keys(tplLinks).length>0) setProjectCreativeLinks(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplLinks))}));
+                  const tplFiles=projectFileStore?.[tplId];
+                  if(tplFiles&&Object.keys(tplFiles).length>0) setProjectFileStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplFiles))}));
                 }
                 setTemplateProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
                 setShowFromTemplate(false);
