@@ -932,6 +932,32 @@ const RISK_ASSESSMENT_INIT = {
   emergencyItems:[{label:"Nearest Hospital:",text:"To be confirmed based on shoot location. Production to identify closest facility and share with crew on the call sheet."},{label:"Police:",text:"999"},{label:"Ambulance:",text:"998"},{label:"Fire:",text:"997"},{label:"Production Lead (Emily):",text:"+971 585 608 616"},{label:"Muster Point:",text:"To be designated on-site by Production at the start of each shoot day and communicated at the safety briefing."},{label:"Weather Protocol:",text:"In the event of a sandstorm warning, extreme heat advisory, or site evacuation, all crew must leave equipment and report to the designated muster point for a head count by Production."},{label:"First Aid:",text:"First Aid Kit on-site at all times managed by Production. Contents checked before every shoot. Medic on standby for high-risk shoots."}],
 };
 
+// ─── TRAVEL ITINERARY (TI) HELPERS ──────────────────────────────────────────
+const TI_FLIGHT_COLS = [
+  {key:"name",label:"NAME / ROLE",flex:1.2},{key:"dateOut",label:"DATE (OUT)",flex:0.7},{key:"routeOut",label:"ROUTE (OUTBOUND)",flex:2},{key:"timeOut",label:"TIME",flex:0.8},
+  {key:"dateReturn",label:"DATE (RET)",flex:0.7},{key:"routeReturn",label:"ROUTE (RETURN)",flex:2},{key:"timeReturn",label:"TIME",flex:0.8},
+  {key:"airline",label:"AIRLINE",flex:0.7},{key:"flightNo",label:"FLIGHT NO.",flex:0.7},{key:"bookingRef",label:"BOOKING REF",flex:0.7},
+];
+const TI_CAR_COLS = [
+  {key:"name",label:"NAME",flex:1.2},{key:"date",label:"DATE",flex:0.7},{key:"flightTime",label:"FLIGHT TIME",flex:0.8},{key:"collectionTime",label:"COLLECTION",flex:0.6},
+  {key:"flightNo",label:"FLIGHT NO.",flex:0.7},{key:"pickUp",label:"PICK UP ADDRESS",flex:2},{key:"dropOff",label:"DROP OFF ADDRESS",flex:2},
+  {key:"vehicleType",label:"VEHICLE",flex:0.7},{key:"bookingRef",label:"BOOKING REF",flex:0.8},
+];
+const TI_HOTEL_COLS = [
+  {key:"name",label:"NAME / ROLE",flex:1.2},{key:"hotel",label:"HOTEL",flex:1.5},{key:"address",label:"ADDRESS",flex:2},
+  {key:"checkIn",label:"CHECK IN",flex:0.7},{key:"checkOut",label:"CHECK OUT",flex:0.7},{key:"roomType",label:"ROOM TYPE",flex:0.7},
+  {key:"bookingRef",label:"BOOKING REF",flex:0.7},{key:"notes",label:"NOTES",flex:1},
+];
+const TRAVEL_ITINERARY_INIT = {
+  project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",producer:"[Producer]",destination:"[Destination]"},
+  sections:[
+    {id:"flights",type:"flights",title:"FLIGHT SCHEDULE",subtitle:"",data:[{id:1,name:"[Name / Role]",dateOut:"[Date]",routeOut:"[City (Code) > City (Code)]",timeOut:"[00:00 > 00:00]",dateReturn:"[Date]",routeReturn:"[City (Code) > City (Code)]",timeReturn:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"}]},
+    {id:"cars",type:"cars",title:"AIRPORT TRANSFERS",subtitle:"All passengers will receive a text with driver details and live tracking link.",data:[{id:1,name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}]},
+    {id:"hotels",type:"hotels",title:"HOTEL ACCOMMODATION",subtitle:"",data:[{id:1,name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""}]},
+  ],
+  notes:"This itinerary, its commission, contents and subject are all strictly confidential. We ask that you do not cite or reference in any way or manner, designers, shoot details, models, partners or suppliers without their and the client\u2019s prior express permission, until release of the subject photographs/film/recordings into the public domain.",
+};
+
 function buildRonnieSystem(project, raData, versionLabel, raSnapshot) {
   return `You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live risk assessment database.
 
@@ -3008,8 +3034,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const declineCM = (m) => { if(!setConniePendingReview||!cpr) return; revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore); const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
       const acceptAllC = () => { finishCReview(); };
       const declineAllC = () => { if(!cpr) return; cpr.markers.forEach(m => revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore)); finishCReview(); };
-      const cRevBtn = (type) => ({width:18,height:18,borderRadius:4,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:3,lineHeight:1});
-      const cHL = {background:"#e8f5e9",borderLeft:"3px solid #4caf50",marginLeft:-3,paddingLeft:3,borderRadius:2,transition:"background 0.2s"};
+      const cRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
+      const cHL = {background:"#FFF8E1",borderRadius:3,padding:"1px 4px",margin:"-1px -4px",outline:"2px solid #FFB300",outlineOffset:0};
     const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
     const csData = csVersions[csIdx] || csVersions[0];
     const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
@@ -3045,23 +3071,23 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               </div>
               <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
             </div>
-            <div style={{textAlign:"center",padding:"20px 32px 4px"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div></div>
+            <div style={{textAlign:"center",padding:"20px 32px 4px"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET{cpr&&cpr.markers.length>0&&<span style={{display:"flex",gap:4,marginLeft:12}}><button onClick={acceptAllC} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllC} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></span>}</div></div>
             <div style={{padding:"8px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline",position:"relative"}}>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,...(hasCM("cs:scalar:shootName")?cHL:{})}}><CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/>{hasCM("cs:scalar:shootName")&&<><button onClick={()=>acceptCM("cs:scalar:shootName")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:shootName")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,...(hasCM("cs:scalar:date")?cHL:{}),position:"absolute",left:"50%",transform:"translateX(-50%)"}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/>{hasCM("cs:scalar:date")&&<><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap",...(hasCM("cs:scalar:dayNumber")?cHL:{})}}>SHOOT DAY <CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/>{hasCM("cs:scalar:dayNumber")&&<><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:shootName")?cHL:{}}><CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/></span>{hasCM("cs:scalar:shootName")&&<><button onClick={()=>acceptCM("cs:scalar:shootName")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:shootName")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"absolute",left:"50%",transform:"translateX(-50%)"}}><span style={hasCM("cs:scalar:date")?cHL:{}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></span>{hasCM("cs:scalar:date")&&<><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>SHOOT DAY <span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></span>{hasCM("cs:scalar:dayNumber")&&<><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
             </div>
-            <div style={{padding:"0 32px 10px",textAlign:"center",...(hasCM("cs:scalar:passportNote")?cHL:{})}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/></div>
+            <div style={{padding:"0 32px 10px",textAlign:"center"}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/></div>
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
-            <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11,...(hasCM("cs:scalar:productionContacts")?cHL:{})}}><span style={csLbl}>Production On Set: </span><CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
+            <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11}}><span style={csLbl}>Production On Set: </span><span style={hasCM("cs:scalar:productionContacts")?cHL:{}}><CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></span>{hasCM("cs:scalar:productionContacts")&&<><button onClick={()=>acceptCM("cs:scalar:productionContacts")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:productionContacts")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
             {/* SHOOT */}
-            <div style={{padding:"14px 32px 8px",...(hasCM("cs:venueRows")?cHL:{})}}>
+            <div style={{padding:"14px 32px 8px"}}>
               <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SHOOT{hasCM("cs:venueRows")&&<span><button onClick={()=>acceptCM("cs:venueRows")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:venueRows")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               {csData.venueRows.map((row,i) => (<div key={i} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8}}><div style={{minWidth:95}}><CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/></div><div style={{flex:1,fontSize:11}}><CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/></div><CSXbtn onClick={()=>rmVenueRow(i)}/></div>))}
               <CSAddBtn onClick={addVenueRow} label="Add Row"/>
             </div>
             {/* SCHEDULE */}
-            <div style={{padding:"10px 32px",...(hasCM("cs:schedule")?cHL:{})}}>
+            <div style={{padding:"10px 32px"}}>
               <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SCHEDULE{hasCM("cs:schedule")&&<span><button onClick={()=>acceptCM("cs:schedule")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:schedule")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr style={{background:csDeptBg}}><td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td><td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td><td style={{...csTh,background:csDeptBg}}>NOTES</td><td style={{width:24,background:csDeptBg}}></td></tr></thead>
@@ -3092,12 +3118,12 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>WEATHER{(hasCM("cs:scalar:weatherSummary")||hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC")||hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherSunrise")||hasCM("cs:weatherHourly"))&&<span><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&acceptCM(m));}} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&declineCM(m));}} style={cRevBtn("decline")}>{"\u2715"}</button></span>}</div>
-              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,...(hasCM("cs:scalar:weatherSummary")?cHL:{})}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT,...((hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC"))?cHL:{})}}>
+              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></span></div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT,...((hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherRealFeelLowC"))?cHL:{})}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
@@ -3112,7 +3138,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                   </div>))}
                 </div>
               </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT,...((hasCM("cs:scalar:weatherSunrise")||hasCM("cs:scalar:weatherSunset")||hasCM("cs:scalar:weatherBlueHour"))?cHL:{})}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
@@ -3121,9 +3147,9 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* INVOICING */}
             <div style={{padding:"14px 32px"}}><div style={csSecTitle}>INVOICING</div><div style={{fontSize:11,marginBottom:8}}>Please note that payment terms are <strong><CSEditField value={csData.invoicing.terms} onChange={v=>csU("invoicing.terms",v)} bold style={{fontSize:11}}/></strong> from the date of invoice.</div><div style={{fontSize:11}}><div style={{fontWeight:700,marginBottom:2}}>FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <CSEditField value={csData.invoicing.email} onChange={v=>csU("invoicing.email",v)} style={{fontSize:11,color:"#1565C0"}}/></div><div style={{fontWeight:700,marginTop:6}}>BILLING ADDRESS:</div><CSEditTextarea value={csData.invoicing.address} onChange={v=>csU("invoicing.address",v)} style={{fontSize:11,lineHeight:1.6}}/><div style={{marginTop:4}}><strong>TRN:</strong> <CSEditField value={csData.invoicing.trn} onChange={v=>csU("invoicing.trn",v)} style={{fontSize:11}}/></div></div></div>
             {/* PROTOCOL */}
-            <div style={{padding:"10px 32px",...(hasCM("cs:scalar:protocol")?cHL:{})}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>PROTOCOL ON SET{hasCM("cs:scalar:protocol")&&<span><button onClick={()=>acceptCM("cs:scalar:protocol")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:protocol")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
+            <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>PROTOCOL ON SET{hasCM("cs:scalar:protocol")&&<span><button onClick={()=>acceptCM("cs:scalar:protocol")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:protocol")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
             {/* EMERGENCY */}
-            <div style={{padding:"10px 32px",...(hasCM("cs:emergencyNumbers")?cHL:{})}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,marginBottom:8,display:"flex",flexWrap:"nowrap",alignItems:"baseline",gap:4,overflow:"hidden"}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5,whiteSpace:"nowrap"}}/>{csData.emergencyNumbers.map((en,i) => (<span key={i} style={{display:"inline-flex",alignItems:"baseline",gap:1,whiteSpace:"nowrap",flexShrink:0}}><span style={{color:"#C62828",fontWeight:800,fontSize:11}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3}}> FOR </span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/>{i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 1px"}}>|</span>}</span>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",...(hasCM("cs:emergency.hospital")?cHL:{})}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/>{hasCM("cs:emergency.hospital")&&<><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",...(hasCM("cs:emergency.police")?cHL:{})}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/>{hasCM("cs:emergency.police")&&<><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></>}</div></div>
+            <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,marginBottom:8,display:"flex",flexWrap:"nowrap",alignItems:"baseline",gap:4,overflow:"hidden"}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5,whiteSpace:"nowrap"}}/>{csData.emergencyNumbers.map((en,i) => (<span key={i} style={{display:"inline-flex",alignItems:"baseline",gap:1,whiteSpace:"nowrap",flexShrink:0}}><span style={{color:"#C62828",fontWeight:800,fontSize:11}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3}}> FOR </span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/>{i<csData.emergencyNumbers.length-1&&<span style={{color:"#ccc",margin:"0 1px"}}>|</span>}</span>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST HOSPITAL: </strong><span style={hasCM("cs:emergency.hospital")?cHL:{}}><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.hospital")&&<><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST POLICE STATION: </strong><span style={hasCM("cs:emergency.police")?cHL:{}}><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.police")&&<><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></>}</div></div>
             {/* FOOTER */}
             <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
           </div>
@@ -6464,7 +6490,6 @@ const exportToPDF = (content, title) => {
   .ftr{margin-top:36px;padding-top:10px;border-top:1px solid #e0e0e0;font-size:7.5pt;color:#aaa;display:flex;justify-content:space-between;}
   @media print{body{padding:15mm 12mm;}@page{margin:0;size:A4;}}
 </style>
-${PRINT_CLEANUP_SCRIPT}
 </head><body>
 <div class="hdr">
   <div><div class="logo">onna</div><div class="doc-label">${title}</div></div>
@@ -7440,6 +7465,9 @@ export default function OnnaDashboard() {
   const [activeRAVersion,setActiveRAVersion]             = useState(null);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
   const [activeContractVersion,setActiveContractVersion] = useState(null);
+  const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeTIVersion,setActiveTIVersion]             = useState(null);
+  const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
   const [ctTypeModalOpen,setCtTypeModalOpen]             = useState(false);
   const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
   const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
@@ -7527,8 +7555,10 @@ export default function OnnaDashboard() {
   const [vaultViewEntry,setVaultViewEntry]   = useState(null);
 
   // ── Notes state ───────────────────────────────────────────────────────────────
-  const [notes,setNotes]                     = useState([]);
+  const [notes,setNotes]                     = useState(()=>{try{const c=localStorage.getItem('onna_cache_notes');return c?JSON.parse(c):[];}catch{return [];}});
   const [notesLoading,setNotesLoading]       = useState(false);
+  const notesFetchedRef                      = useRef(false);
+  useEffect(()=>{try{if(notes.length)localStorage.setItem('onna_cache_notes',JSON.stringify(notes));}catch{}},[notes]);
   const [noteAddOpen,setNoteAddOpen]         = useState(false);
   const [noteEditId,setNoteEditId]           = useState(null);
   const [noteDraft,setNoteDraft]             = useState({title:"",content:""});
@@ -7626,6 +7656,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
   useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
   useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
@@ -8361,9 +8392,10 @@ export default function OnnaDashboard() {
     setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
-    if (tab==="Notes"&&notes.length===0&&!notesLoading) {
-      setNotesLoading(true);
-      api.get("/api/notes").then(data=>{ setNotes(Array.isArray(data)?data:[]); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
+    if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
+      notesFetchedRef.current=true;
+      if(notes.length===0)setNotesLoading(true);
+      api.get("/api/notes").then(data=>{ if(Array.isArray(data)&&data.length)setNotes(data); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
     }
   };
 
@@ -8516,6 +8548,12 @@ export default function OnnaDashboard() {
     if (table==='contracts') {
       const {projectId, contract} = item;
       setContractDocStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(contract);return s;});
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='travelItineraries') {
+      const {projectId, travelItinerary} = item;
+      setTravelItineraryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(travelItinerary);return s;});
       setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
       return;
     }
@@ -10155,6 +10193,269 @@ export default function OnnaDashboard() {
       const travelBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Travel</button>;
       const tc = TRAVEL_CARDS.find(c=>c.key===travelSubSection);
 
+      // ── Travel Itinerary: full document editor ──
+      if (travelSubSection === "itinerary") {
+        const tiVersions = travelItineraryStore[p.id] || [];
+        const addTINew = () => {
+          const newId = Date.now();
+          const newTI = {id:newId,label:`Itinerary ${tiVersions.length+1}`,...JSON.parse(JSON.stringify(TRAVEL_ITINERARY_INIT))};
+          const _pi=(projectInfoRef.current||{})[p.id];
+          if(_pi){if(_pi.shootName)newTI.project.name=_pi.shootName;if(_pi.shootDate)newTI.project.date=_pi.shootDate;}
+          newTI.project.name=newTI.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newTI.project.name;
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newTI);return store;});
+          setActiveTIVersion(tiVersions.length);
+        };
+        const deleteTI = (idx) => {
+          if(!confirm("Delete this travel itinerary? This will be moved to trash."))return;
+          const tiData=JSON.parse(JSON.stringify((travelItineraryStore[p.id]||[])[idx]));
+          if(tiData)archiveItem('travelItineraries',{projectId:p.id,travelItinerary:tiData});
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
+          setActiveTIVersion(null);
+        };
+
+        // ── List view ──
+        if (activeTIVersion === null || tiVersions.length === 0) {
+          return (
+            <div>
+              {travelBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Travel Itineraries</div>
+                <button onClick={addTINew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Itinerary</button>
+              </div>
+              {tiVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No travel itineraries yet. Click "+ New Itinerary" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {tiVersions.map((ti,i)=>{
+                  const secCount=(ti.sections||[]).length;
+                  const rowCount=(ti.sections||[]).reduce((sum,s)=>(s.data||[]).length+sum,0);
+                  return(
+                    <div key={ti.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveTIVersion(i)}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>TI</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:rowCount>0?"#e8f5e9":"#f5f5f5",color:rowCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{secCount} section{secCount!==1?"s":""} · {rowCount} entr{rowCount!==1?"ies":"y"}</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{ti.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{ti.project?.destination||"No destination set"}</div>
+                      </div>
+                      <button onClick={e=>{e.stopPropagation();deleteTI(i);}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // ── Detail view ──
+        const tiIdx = Math.min(activeTIVersion, tiVersions.length-1);
+        const tiData = tiVersions[tiIdx] || tiVersions[0];
+        if(!tiData){setActiveTIVersion(null);return null;}
+
+        const tiU = (path, val) => {
+          setTravelItineraryStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));
+            const arr=store[p.id]||[];
+            const idx=Math.min(tiIdx,arr.length-1);
+            const d=arr[idx];
+            const k=path.split(".");let o=d;
+            for(let i=0;i<k.length-1;i++)o=o[k[i]];
+            o[k[k.length-1]]=val;
+            arr[idx]=d;store[p.id]=arr;return store;
+          });
+        };
+        const tiColsFor = (sec) => sec.type==="flights"?TI_FLIGHT_COLS:sec.type==="cars"?TI_CAR_COLS:sec.type==="hotels"?TI_HOTEL_COLS:(sec.columns||[]);
+        const tiTemplateFor = (type) => type==="flights"?{id:Date.now(),name:"[Name / Role]",dateOut:"[Date]",routeOut:"[City (Code) > City (Code)]",timeOut:"[00:00 > 00:00]",dateReturn:"[Date]",routeReturn:"[City (Code) > City (Code)]",timeReturn:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"}:type==="cars"?{id:Date.now(),name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}:{id:Date.now(),name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""};
+        const tiUpdateRow = (si,ri,key,val) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.map((s,i)=>i===si?{...s,data:s.data.map((r,j)=>j===ri?{...r,[key]:val}:r)}:s);arr[tiIdx]=d;store[p.id]=arr;return store;});
+        };
+        const tiAddRow = (si) => {
+          const sec=tiData.sections[si];
+          if(sec.type==="custom"){const emptyRow={id:Date.now()};(sec.columns||[]).forEach(c=>{emptyRow[c.key]="";});setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push(emptyRow);arr[tiIdx]=d;store[p.id]=arr;return store;});}
+          else{setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({...tiTemplateFor(sec.type),id:Date.now()});arr[tiIdx]=d;store[p.id]=arr;return store;});}
+        };
+        const tiDeleteRow = (si,ri) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data=d.sections[si].data.filter((_,j)=>j!==ri);arr[tiIdx]=d;store[p.id]=arr;return store;});};
+        const tiDeleteSection = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.filter((_,i)=>i!==si);arr[tiIdx]=d;store[p.id]=arr;return store;});};
+        const tiEditSectionTitle = (si) => {const val=prompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
+        const tiEditSectionSubtitle = (si) => {const val=prompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
+        const tiAddSection = (type) => {
+          if(type==="custom"){
+            const title=prompt("Section title:","NEW SECTION");if(!title)return;
+            const colInput=prompt("Enter column names separated by commas:","Name, Date, Details, Notes");if(!colInput)return;
+            const colNames=colInput.split(",").map(s=>s.trim()).filter(Boolean);if(colNames.length===0)return;
+            const cols=colNames.map((name,i)=>({key:`col${i+1}`,label:name.toUpperCase(),flex:1}));
+            const emptyRow={id:Date.now()};cols.forEach(c=>{emptyRow[c.key]="[Value]";});
+            setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections.push({id:`custom_${Date.now()}`,type:"custom",title:title.toUpperCase(),subtitle:"",data:[emptyRow],columns:cols});store[p.id]=arr;return store;});
+          } else {
+            const defs={flights:{type:"flights",title:"FLIGHT SCHEDULE",subtitle:"",data:[tiTemplateFor("flights")]},cars:{type:"cars",title:"AIRPORT TRANSFERS",subtitle:"All passengers will receive a text with driver details and live tracking link.",data:[tiTemplateFor("cars")]},hotels:{type:"hotels",title:"HOTEL ACCOMMODATION",subtitle:"",data:[tiTemplateFor("hotels")]}};
+            setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections.push({...defs[type],id:`${type}_${Date.now()}`});store[p.id]=arr;return store;});
+          }
+        };
+        const tiAddCustomColumn = (si) => {
+          const name=prompt("Column name:");if(!name)return;
+          const sec=tiData.sections[si];const newKey=`col${(sec.columns||[]).length+1}_${Date.now()}`;
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=[...(s.columns||[]),{key:newKey,label:name.toUpperCase(),flex:1}];s.data=s.data.map(r=>({...r,[newKey]:"[Value]"}));store[p.id]=arr;return store;});
+        };
+        const tiEditCustomColumn = (si,ci) => {
+          const sec=tiData.sections[si];const col=(sec.columns||[])[ci];if(!col)return;
+          const name=prompt("Rename column:",col.label);if(!name)return;
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].columns=(arr[tiIdx].sections[si].columns||[]).map((c,j)=>j===ci?{...c,label:name.toUpperCase()}:c);store[p.id]=arr;return store;});
+        };
+        const tiDeleteCustomColumn = (si,ci) => {
+          const sec=tiData.sections[si];const col=(sec.columns||[])[ci];if(!col)return;
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=(s.columns||[]).filter((_,j)=>j!==ci);s.data=s.data.map(r=>{const nr={...r};delete nr[col.key];return nr;});store[p.id]=arr;return store;});
+        };
+
+        // Inline helpers for the itinerary editor
+        const TIHl = ({text,style:s={}}) => {if(!text)return null;const parts=String(text).split(/(\[.*?\])/g);return <span style={s}>{parts.map((pt,i)=>pt.startsWith("[")&&pt.endsWith("]")?<span key={i} style={{background:"#FFF9C4",borderRadius:2,padding:"0 2px"}}>{pt}</span>:<span key={i}>{pt}</span>)}</span>;};
+        const TICell = ({value,onChange,style:s={},align="left"}) => {
+          const [editing,setEditing]=useState(false);const [temp,setTemp]=useState(value);
+          useEffect(()=>{setTemp(value);},[value]);
+          const commit=()=>{setEditing(false);onChange(temp);};
+          if(editing)return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>;
+          return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>}</div>;
+        };
+        const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn}) => (
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#000",padding:"4px 8px"}}>
+              <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
+                <div onClick={onEditTitle} style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>{title}</div>
+                {subtitle&&<div onClick={onEditSubtitle} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:"rgba(255,255,255,0.55)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{subtitle}</div>}
+              </div>
+              <div style={{display:"flex",gap:10,flexShrink:0}}>
+                {isCustom&&onAddColumn&&<span onClick={onAddColumn} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD COLUMN</span>}
+                <span onClick={onAddRow} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
+                <span onClick={onDelete} style={{fontFamily:CS_FONT,fontSize:10,color:"rgba(255,255,255,0.3)",cursor:"pointer"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.3)"}>×</span>
+              </div>
+            </div>
+            <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+              <div style={{width:18}}/>
+              {columns.map((col,ci)=>(
+                <div key={col.key} style={{flex:col.flex,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",padding:"4px 4px",display:"flex",alignItems:"center",gap:2}}>
+                  <span onClick={isCustom&&onEditColumn?()=>onEditColumn(ci):undefined} style={{cursor:isCustom?"pointer":"default"}}>{col.label}</span>
+                  {isCustom&&onDeleteColumn&&columns.length>1&&<span onClick={()=>onDeleteColumn(ci)} style={{cursor:"pointer",fontSize:8,color:"#ddd",marginLeft:2}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>}
+                </div>
+              ))}
+            </div>
+            {rows.map((row,ri)=>(
+              <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
+                <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+                </div>
+                {columns.map(col=>(
+                  <div key={col.key} style={{flex:col.flex}}>
+                    <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
+          </div>
+        );
+
+        const [tiShowAddMenu,setTiShowAddMenu]=useState(false);
+
+        const tiExportPDF = () => {
+          const el=document.getElementById("onna-ti-print");if(!el)return;
+          const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4 landscape;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
+          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        };
+
+        return (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <button onClick={()=>setActiveTIVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Itineraries</button>
+              <div style={{flex:1}}/>
+              <BtnExport onClick={tiExportPDF}>Export PDF</BtnExport>
+            </div>
+            <div style={{marginBottom:12}}>
+              <input value={tiData.label||""} onChange={e=>tiU("label",e.target.value)} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,width:"100%"}} placeholder="Itinerary Name"/>
+            </div>
+            <div id="onna-ti-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
+              <div style={{maxWidth:1123,margin:"0 auto",background:"#FFFFFF"}}>
+                {/* Top bar */}
+                <div style={{padding:"40px 40px 0"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <CSLogoSlot label="Production Logo" image={tiData.productionLogo} onUpload={v=>tiU("productionLogo",v)} onRemove={()=>tiU("productionLogo",null)}/>
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3}}>
+                      <CSLogoSlot label="Agency Logo" image={tiData.agencyLogo} onUpload={v=>tiU("agencyLogo",v)} onRemove={()=>tiU("agencyLogo",null)}/>
+                      <CSLogoSlot label="Client Logo" image={tiData.clientLogo} onUpload={v=>tiU("clientLogo",v)} onRemove={()=>tiU("clientLogo",null)}/>
+                    </div>
+                  </div>
+                  <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
+                </div>
+
+                <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
+                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>TRAVEL ITINERARY</div>
+                </div>
+
+                {/* Project info */}
+                <div style={{padding:"8px 32px 16px",display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {[["PROJECT:",tiData.project?.name,"project.name"],["CLIENT:",tiData.project?.client,"project.client"],["DESTINATION:",tiData.project?.destination,"project.destination"],["DATE:",tiData.project?.date,"project.date"],["PRODUCER:",tiData.project?.producer,"project.producer"]].map(([lbl,val,key])=>(
+                    <div key={key} style={{display:"flex",gap:4,alignItems:"baseline",marginRight:16}}>
+                      <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>{lbl}</span>
+                      <TICell value={val||""} onChange={v=>tiU(key,v)}/>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sections */}
+                <div style={{padding:"0 32px"}}>
+                  {(tiData.sections||[]).map((sec,si)=>(
+                    <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={sec.data||[]}
+                      onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
+                      onDelete={()=>tiDeleteSection(si)} onEditTitle={()=>tiEditSectionTitle(si)} onEditSubtitle={()=>tiEditSectionSubtitle(si)}
+                      isCustom={sec.type==="custom"} onAddColumn={sec.type==="custom"?()=>tiAddCustomColumn(si):null}
+                      onEditColumn={sec.type==="custom"?(ci)=>tiEditCustomColumn(si,ci):null} onDeleteColumn={sec.type==="custom"?(ci)=>tiDeleteCustomColumn(si,ci):null}/>
+                  ))}
+                  {(tiData.sections||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:10,color:"#ccc",letterSpacing:0.5,padding:"40px 0",textAlign:"center"}}>No sections — click + ADD SECTION below to begin</div>}
+
+                  {/* Add section menu */}
+                  <div style={{position:"relative",marginBottom:16}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:tiShowAddMenu?"#333":"#f4f4f4",padding:"6px 8px",cursor:"pointer",borderRadius:1,transition:"background .15s"}}
+                      onClick={()=>setTiShowAddMenu(!tiShowAddMenu)} onMouseEnter={e=>{if(!tiShowAddMenu)e.currentTarget.style.background="#eee";}} onMouseLeave={e=>{if(!tiShowAddMenu)e.currentTarget.style.background="#f4f4f4";}}>
+                      <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:tiShowAddMenu?"#fff":"#999",textTransform:"uppercase"}}>+ ADD SECTION</span>
+                    </div>
+                    {tiShowAddMenu&&(
+                      <div style={{background:"#fff",border:"1px solid #ddd",borderTop:"none",boxShadow:"0 4px 12px rgba(0,0,0,0.08)"}}>
+                        {[{type:"flights",label:"Flight Schedule"},{type:"cars",label:"Airport Transfers"},{type:"hotels",label:"Hotel Accommodation"},{type:"custom",label:"Custom Table"}].map(opt=>(
+                          <div key={opt.type} onClick={()=>{tiAddSection(opt.type);setTiShowAddMenu(false);}}
+                            style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,padding:"8px 12px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",color:"#666"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                            {opt.label}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confidentiality notice */}
+                <div style={{padding:"0 32px"}}>
+                  <div style={{marginTop:16,padding:"10px 0",borderTop:"1px solid #eee"}}>
+                    <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",marginBottom:4}}>CONFIDENTIALITY NOTICE</div>
+                    <div onClick={()=>{const val=prompt("Edit notice:",tiData.notes);if(val!==null)tiU("notes",val);}}
+                      style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,lineHeight:1.5,color:"#999",cursor:"text"}}>
+                      {tiData.notes||"Click to add confidentiality notice"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{padding:"0 32px 32px"}}>
+                  <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+                    <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Other travel sub-sections: keep UploadZone ──
       return (
         <div>
           {travelBack}
@@ -11278,10 +11579,10 @@ export default function OnnaDashboard() {
                   {archive.length===0?(
                     <div style={{padding:"60px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
                   ):(
-                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects","callSheets","riskAssessments","contracts","clients"].map(table=>{
+                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects","callSheets","riskAssessments","contracts","travelItineraries","clients"].map(table=>{
                       const entries=archive.filter(e=>e.table===table);
                       if(!entries.length) return null;
-                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects",callSheets:"Call Sheets",riskAssessments:"Risk Assessments",contracts:"Contracts",clients:"Clients"}[table]||table;
+                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects",callSheets:"Call Sheets",riskAssessments:"Risk Assessments",contracts:"Contracts",travelItineraries:"Travel Itineraries",clients:"Clients"}[table]||table;
                       return (
                         <div key={table} style={{marginBottom:24}}>
                           <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
@@ -11290,7 +11591,7 @@ export default function OnnaDashboard() {
                             return (
                               <div key={e.id} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:10,border:`1px solid ${T.border}`,marginBottom:6,background:"#fafafa"}}>
                                 <div style={{flex:1,minWidth:0}}>
-                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||e.item?.callSheet?.label||e.item?.riskAssessment?.label||e.item?.contract?.label||e.item?.label||"Untitled"}</div>
+                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||e.item?.callSheet?.label||e.item?.riskAssessment?.label||e.item?.contract?.label||e.item?.travelItinerary?.label||e.item?.label||"Untitled"}</div>
                                   <div style={{fontSize:11,color:T.muted,marginTop:2}}>{daysLeft} day{daysLeft!==1?"s":""} remaining</div>
                                 </div>
                                 <div style={{display:"flex",gap:6}}>
