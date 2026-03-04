@@ -5460,7 +5460,7 @@ const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
 };
 
 // ─── DASH NOTES COMPONENT ────────────────────────────────────────────────────
-const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
+const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onArchive}) => {
   const editorRef = useRef(null);
   const [hoveredNoteId,setHoveredNoteId] = useState(null);
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
@@ -5483,6 +5483,8 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile}) => {
   const deleteNote = (id,e) => {
     e?.stopPropagation();
     if (!window.confirm("Delete this note?")) return;
+    const note = notes.find(n=>n.id===id);
+    if (note && onArchive) onArchive('dashNotes', note);
     setNotes(prev=>prev.filter(n=>n.id!==id));
     if (selectedId===id) setSelectedId(null);
   };
@@ -6068,7 +6070,7 @@ export default function OnnaDashboard() {
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [showArchive,setShowArchive]         = useState(false);
   const [showUserMenu,setShowUserMenu]       = useState(false);
-  const [archive,setArchive]                 = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archive')||'[]')}catch{return []}});
+  const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
@@ -6422,7 +6424,7 @@ export default function OnnaDashboard() {
   const profit2026    = projects2026.reduce((a,b)=>a+(b.revenue-b.cost),0);
   const totalPipeline = localLeads.reduce((a,b)=>a+b.value,0);
   const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
-  const activeProjects= allProjectsMerged.filter(p=>p.status==="Active");
+  const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
   const projects      = allProjectsMerged.filter(p=>p.year===projectYear||p.client==="TEMPLATE");
   const projRev       = projects.reduce((a,b)=>a+b.revenue,0);
   const projProfit    = projects.reduce((a,b)=>a+(b.revenue-b.cost),0);
@@ -6860,6 +6862,26 @@ export default function OnnaDashboard() {
         try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
         return updated;
       });
+      return;
+    }
+    if (table==='todos') {
+      setTodos(prev=>[...prev,item]);
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='dashNotes') {
+      setDashNotesList(prev=>[item,...prev]);
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='notes') {
+      setNotes(prev=>[item,...prev]);
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='projects') {
+      setLocalProjects(prev=>[...prev,item]);
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
       return;
     }
     const {id:_origId, ...fields} = item;
@@ -8001,7 +8023,7 @@ export default function OnnaDashboard() {
               <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,right:0,background:T.surface,borderRadius:12,border:`1px solid ${T.border}`,boxShadow:"0 4px 24px rgba(0,0,0,0.12)",zIndex:50,overflow:"hidden"}}>
                 <button onClick={()=>{setShowUserMenu(false);setShowArchive(true);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",borderBottom:`1px solid ${T.borderSub}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="none"}>
                   <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                  View Archive{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
+                  View Deleted{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
                 </button>
                 <button onClick={()=>{setShowUserMenu(false);setShowCatManager(true);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",borderBottom:`1px solid ${T.borderSub}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="none"}>
                   <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
@@ -8183,7 +8205,7 @@ export default function OnnaDashboard() {
                       <div style={{paddingBottom:10}}>
                         <select value={todoFilter} onChange={e=>setTodoFilter(e.target.value)} style={{width:"100%",padding:"7px 28px 7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
                           <option value="project">All projects</option>
-                          {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(<option key={p.id} value={`project-${p.id}`}>{p.name}</option>))}
+                          {allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE").map(p=>(<option key={p.id} value={`project-${p.id}`}>{p.name}</option>))}
                         </select>
                       </div>
                     )}
@@ -8217,7 +8239,7 @@ export default function OnnaDashboard() {
               </div>
 
               {/* ── Notes ── */}
-              <DashNotes notes={dashNotesList} setNotes={setDashNotesList} selectedId={dashSelectedNoteId} setSelectedId={setDashSelectedNoteId} isMobile={isMobile}/>
+              <DashNotes notes={dashNotesList} setNotes={setDashNotesList} selectedId={dashSelectedNoteId} setSelectedId={setDashSelectedNoteId} isMobile={isMobile} onArchive={archiveItem}/>
 
             </div>
           )}
@@ -8970,7 +8992,7 @@ export default function OnnaDashboard() {
                       <span style={{fontSize:11,color:T.muted}}>{n.updated_at?new Date(n.updated_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</span>
                       <div style={{display:"flex",gap:8}}>
                         <button onClick={()=>{setNoteEditId(n.id);setNoteDraft({title:n.title||"",content:n.content||""});setNoteAddOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
-                        <button onClick={async()=>{if(!confirm("Delete this note?"))return;await api.delete(`/api/notes/${n.id}`);setNotes(prev=>prev.filter(x=>x.id!==n.id));}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Delete</button>
+                        <button onClick={async()=>{if(!confirm("Delete this note?"))return;archiveItem("notes",n);await api.delete(`/api/notes/${n.id}`);setNotes(prev=>prev.filter(x=>x.id!==n.id));}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Delete</button>
                       </div>
                     </div>
                   </div>
@@ -9285,7 +9307,7 @@ export default function OnnaDashboard() {
               <textarea value={selectedTodo.details||""} onChange={e=>{const u={...selectedTodo,details:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} rows={4} placeholder="Add notes, links, context…" style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
             </div>
             <div style={{display:"flex",justifyContent:"space-between"}}>
-              <button onClick={()=>{pushUndo('delete task');if(selectedTodo._source==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));}else{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));}setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
+              <button onClick={()=>{pushUndo('delete task');archiveItem('todos',selectedTodo);if(selectedTodo._source==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));}else{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));}setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
               <BtnPrimary onClick={()=>setSelectedTodo(null)}>Done</BtnPrimary>
             </div>
           </div>
@@ -9706,30 +9728,30 @@ export default function OnnaDashboard() {
           <div style={{borderRadius:20,padding:28,width:680,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
               <div>
-                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Archive</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Deleted items — restore or remove permanently</div>
+                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Items are permanently removed after 30 days</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                {archive.length>0&&<button onClick={()=>{if(window.confirm("Clear entire archive permanently?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Clear all</button>}
+                {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently delete all items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Empty trash</button>}
                 <button onClick={()=>setShowArchive(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
               </div>
             </div>
             <div style={{overflowY:"auto",flex:1}}>
               {archive.length===0?(
-                <div style={{padding:"48px 0",textAlign:"center",color:T.muted,fontSize:13}}>Archive is empty.</div>
+                <div style={{padding:"48px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
               ):(
-                ["leads","vendors","outreach","estimates"].map(table=>{
+                ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects"].map(table=>{
                   const entries = archive.filter(e=>e.table===table);
                   if (!entries.length) return null;
-                  const label = table.charAt(0).toUpperCase()+table.slice(1);
+                  const label = {todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects"}[table]||table;
                   return (
                     <div key={table} style={{marginBottom:24}}>
                       <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
                         {entries.map(entry=>{
                           const it = entry.item;
-                          const name = table==='estimates'?(it.estimate?.ts?.version||"Estimate"):(it.company||it.name||"—");
-                          const sub = table==='estimates'?(it.estimate?.ts?.project||""):(it.contact||it.clientName||it.category||"");
+                          const name = table==='estimates'?(it.estimate?.ts?.version||"Estimate"):table==='todos'?(it.text||"Task"):table==='dashNotes'?(it.title||"Untitled Note"):table==='notes'?(it.title||"Untitled Note"):table==='projects'?(it.name||"Project"):(it.company||it.name||"—");
+                          const sub = table==='estimates'?(it.estimate?.ts?.project||""):table==='todos'?(it.tab==="onna"?"ONNA":it.tab==="personal"?"Personal":"Project"):table==='dashNotes'?"":(it.contact||it.clientName||it.category||it.client||"");
                           const deleted = new Date(entry.deletedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
                           return (
                             <div key={entry.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.borderSub}`}}>
@@ -9737,7 +9759,7 @@ export default function OnnaDashboard() {
                                 <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
                                 {sub&&<div style={{fontSize:11.5,color:T.muted,marginTop:1}}>{sub}</div>}
                               </div>
-                              <div style={{fontSize:11,color:T.muted,flexShrink:0}}>Deleted {deleted}</div>
+                              <div style={{fontSize:11,color:T.muted,flexShrink:0}}>{(()=>{const days=Math.max(0,30-Math.floor((Date.now()-new Date(entry.deletedAt).getTime())/(24*60*60*1000)));return days<=7?<span style={{color:"#c0392b"}}>{days}d left</span>:<span>{days}d left</span>;})()}</div>
                               <button onClick={()=>restoreItem(entry)} style={{background:"#edfaf3",border:"none",color:"#147d50",padding:"5px 12px",borderRadius:7,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Restore</button>
                               <button onClick={()=>{if(window.confirm(`Permanently delete ${name}?`))permanentlyDelete(entry.id);}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0,flexShrink:0}}>×</button>
                             </div>
