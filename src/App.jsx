@@ -21,8 +21,9 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
   const [temp, setTemp] = useState(value);
   const commit = () => { setEditing(false); onChange(temp); };
   const showYellow = isPlaceholder;
-  if (editing) return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a"}} placeholder={placeholder}/>;
-  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+  const autoSize = useCallback((el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, []);
+  if (editing) return <textarea ref={el=>autoSize(el)} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();}}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"block"}} placeholder={placeholder}/>;
+  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"pre-wrap",wordBreak:"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
 };
 
 const SignaturePad = ({ value, onChange, height = 60 }) => {
@@ -2110,7 +2111,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"40px 40px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-6}}>
                   <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                 </div>
@@ -2184,7 +2185,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
             <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-            <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
+            <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-6}}>
               <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
               <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
             </div>
@@ -3644,6 +3645,19 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
+      // Logo intent — detect "add agency/client/production logo" with attachment
+      const logoMatch=input.match(/\b(agency|client|production)\s*(logo|image|jpeg|jpg|png|pic|photo|branding)\b/i);
+      if(logoMatch&&curAttachments&&curAttachments.length>0){
+        const logoType=logoMatch[1].toLowerCase();
+        const logoKey=logoType==="agency"?"agencyLogo":logoType==="client"?"clientLogo":"productionLogo";
+        const imgData=curAttachments[0].dataUrl;
+        const raVersions_l=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        const vIdx_l=Math.min(vIdx,raVersions_l.length-1);
+        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];arr[vIdx_l][logoKey]=imgData;store[project.id]=arr;return store;});
+        setMsgs([...history,{role:"assistant",content:`\u2713 ${logoType.charAt(0).toUpperCase()+logoType.slice(1)} logo updated on the risk assessment! You can see it in the document preview.`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       // Export / PDF intent — generate directly from riskAssessmentStore data
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(risk|assessment|pdf|export|download|print|document|doc)\b/i.test(input)){
         const raVersions_ex=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
@@ -3674,6 +3688,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(m.role==="assistant"){
             if(mi===0) return{role:m.role,content:ronnieIntro};
             return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          if(m._attachments&&m._attachments.length){
+            const blocks=[];
+            m._attachments.forEach(att=>{const b64=att.dataUrl.split(",")[1];const mt=att.type||"image/jpeg";blocks.push({type:"image",source:{type:"base64",media_type:mt,data:b64}});});
+            const txt=(m.content||"").replace(/\s*\[\d+ images?\]\s*$/,"").trim();
+            if(txt)blocks.push({type:"text",text:txt});
+            return{role:"user",content:blocks};
           }
           return{role:m.role,content:m.content};
         });
@@ -3847,11 +3868,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
   const _isVinnie=agent.id==="logistical";
   const _hasVinnieCard=_isVinnie&&!isMobile&&(!!pendingConv||!!pendingLead);
   // During Q&A, read from pendingConv.entry; after Q&A, read from leadEdit
-  const _cardEntry=pendingConv?pendingConv.entry:(pendingLead?leadEdit:null);
-  const _cardType=pendingConv?pendingConv.type:pendingType;
+  // When collecting xContact details, show the existing record with the new contact in-progress
+  const _isXContactMode=pendingConv&&pendingConv._saveAsXContact;
+  const _cardEntry=_isXContactMode
+    ?(()=>{const xc=pendingConv._saveAsXContact;const e=pendingConv.entry;const existing=getXContacts(xc.type,xc.id);const inProgress={name:e.contact||e.name||"",role:e.role||"",email:e.email||"",phone:e.phone||"",_inProgress:true};return{...xc.record,_xContacts:[...existing,inProgress]};})()
+    :pendingConv?pendingConv.entry:(pendingLead?leadEdit:null);
+  const _cardType=_isXContactMode?pendingConv._saveAsXContact.type:(pendingConv?pendingConv.type:pendingType);
   const _cardIsEditable=!!pendingLead&&!pendingConv;
   const _cardIsNew=pendingConv?!pendingConv.updateId:!pendingId;
-  const _cardTitle=_cardIsNew?(_cardType==="vendor"?"New Vendor":"New Lead"):(_cardType==="vendor"?"Update Vendor":"Update Lead");
+  const _cardTitle=_isXContactMode?`Adding Contact to ${pendingConv._saveAsXContact.existName}`:(_cardIsNew?(_cardType==="vendor"?"New Vendor":"New Lead"):(_cardType==="vendor"?"Update Vendor":"Update Lead"));
   // Editable card field — works during Q&A (updates pendingConv.entry) and post-Q&A (updates leadEdit)
   const _cf=(label,key,wide=false,opts=null,inputType="text")=>{
     const val=_cardEntry?.[key]||"";
@@ -3923,10 +3948,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           <div style={{marginBottom:16,marginTop:14}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
               <div style={{fontSize:10,color:"#86868b",fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Additional Contacts</div>
-              <button onClick={()=>_setVinnieAddContact({name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>+ Add Contact</button>
+              {_isXContactMode
+                ?<span style={{fontSize:11,color:"#007aff",fontWeight:600}}>Filling in via chat...</span>
+                :<button onClick={()=>_setVinnieAddContact({name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>+ Add Contact</button>}
             </div>
             {(_cardEntry?._xContacts||[]).map((c,i)=>(
-              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:"1px solid #e5e5ea",position:"relative"}}>
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:c._inProgress?"#f0f7ff":"#f5f5f7",border:c._inProgress?"1.5px solid #007aff":"1px solid #e5e5ea",position:"relative"}}>
                 <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.name||"\u2014"}</div></div>
                 <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.role||"\u2014"}</div></div>
                 <div><div style={{fontSize:9,color:"#86868b",marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:"#1d1d1f"}}>{c.email||"\u2014"}</div></div>
@@ -4082,7 +4109,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         return(<div key={i}>
           <_AgentBubble msg={m}/>
           {isBudgetMsg&&!loading&&(
-            <div style={{display:"flex",gap:6,marginTop:-8,marginBottom:8,paddingLeft:4}}>
+            <div style={{display:"flex",gap:6,marginTop:-6,marginBottom:8,paddingLeft:4}}>
               <button onClick={()=>{
                 const w=window.open("","_blank");
                 if(!w)return;
@@ -4121,7 +4148,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     </div>}
     {/* inline input bar */}
     <div style={{padding:"10px 12px",background:"white",borderTop:pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"none":"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
-      {agent.id==="compliance"&&<Fragment><button onClick={()=>attachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={attachRef} type="file" accept="image/*" multiple onChange={e=>{const files=Array.from(e.target.files||[]);files.forEach(f=>{const reader=new FileReader();reader.onload=ev=>{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl:ev.target.result}]);};reader.readAsDataURL(f);});e.target.value="";}} style={{display:"none"}}/></Fragment>}
+      {(agent.id==="compliance"||agent.id==="researcher")&&<Fragment><button onClick={()=>attachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={attachRef} type="file" accept="image/*" multiple onChange={e=>{const files=Array.from(e.target.files||[]);files.forEach(f=>{const reader=new FileReader();reader.onload=ev=>{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl:ev.target.result}]);};reader.readAsDataURL(f);});e.target.value="";}} style={{display:"none"}}/></Fragment>}
       <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} style={{background:loading||(!input.trim()&&!attachments.length)?"#e5e5ea":"#1d1d1f",border:"none",color:loading||(!input.trim()&&!attachments.length)?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||(!input.trim()&&!attachments.length)?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
@@ -4189,7 +4216,7 @@ const printCallSheetPDF = (cs) => {
   const LS = "letter-spacing:1.5px;";
   const secTitle = `font-size:10px;font-weight:800;${LS}text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;`;
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-  const logos = `<div style="padding:40px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-8px">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
+  const logos = `<div style="padding:40px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-6px">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
   const venueHTML = (cs.venueRows||[]).map(r=>`<div style="display:flex;align-items:flex-start;margin-bottom:5px;gap:8px"><div style="min-width:95px;font-size:9px;font-weight:700;color:#888;${LS}text-transform:uppercase">${e(r.label)}</div><div style="flex:1;font-size:11px">${e(r.value)}</div></div>`).join("");
   const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
   const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
@@ -4244,7 +4271,7 @@ const printRiskAssessmentPDF = (ra) => {
   const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
   const LS = "letter-spacing:1.5px;";
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-8px">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
+  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-6px">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
   const metaHTML = [{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10px;font-weight:700;${LS}min-width:100px">${l}</span><span style="font-size:10px;letter-spacing:0.5px">${e(ra[k])}</span></div>`).join("");
   const sectionsHTML = (ra.sections||[]).map((sec,si)=>{
     const cols=sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
@@ -6227,7 +6254,7 @@ export default function OnnaDashboard() {
                 <div style={{padding:"40px 40px 0"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                     <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-6}}>
                       <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                       <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                     </div>
@@ -6461,7 +6488,7 @@ export default function OnnaDashboard() {
             <div id="onna-ra-print" style={{background:"#fff",padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-6}}>
                   <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
                 </div>
@@ -7652,7 +7679,7 @@ export default function OnnaDashboard() {
                             <div style={{height:3,borderRadius:999,background:T.borderSub}}><div style={{width:`${margin}%`,height:"100%",borderRadius:999,background:T.accent}}/></div>
                           </div>
                         </div>
-                        <div style={{display:"flex",gap:8,marginTop:-8}}>
+                        <div style={{display:"flex",gap:8,marginTop:-6}}>
                           <button
                             onClick={e=>{e.stopPropagation();setArchivedProjects(prev=>[...prev,p]);}}
                             style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"7px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:500,transition:"all 0.12s"}}
