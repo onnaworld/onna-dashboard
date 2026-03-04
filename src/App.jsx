@@ -4818,38 +4818,55 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-      // Generate signing link intent
+      // ── Confirm sign bypass (user said "yes" after empty-field warning) ──
+      if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_sign"&&/\b(yes|yep|yeah|sure|go ahead|do it|send it|proceed)\b/i.test(input)){
+        const cs=codyPendingRef.current;codyPendingRef.current=null;
+        try{
+          const resp=await fetch("/api/sign",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${getToken()}`},body:JSON.stringify({contractSnapshot:cs.snapshot,projectName:cs.projectName,contractType:cs.contractType,label:cs.label})});
+          const data=await resp.json();
+          if(data.url){
+            setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[cs.projectId]||[];if(arr[cs.vIdx]){arr[cs.vIdx].signingStatus="pending";arr[cs.vIdx].signingToken=data.token||null;}store[cs.projectId]=arr;return store;});
+            setMsgs([...history,{role:"assistant",content:`Here's the signing link for **${cs.label}**:\n\n🔗 **${data.url}**\n\nSend this to the other party to review and sign. I've marked the contract as pending signature.`}]);
+          }else{setMsgs([...history,{role:"assistant",content:`Failed to generate signing link: ${data.error||"Unknown error"}`}]);}
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Error generating link: ${err.message}`}]);}
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+      if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_sign"&&/\b(no|nah|cancel|never\s*mind|stop)\b/i.test(input)){
+        codyPendingRef.current=null;
+        setMsgs([...history,{role:"assistant",content:"No problem — fill in the missing fields and let me know when you're ready to send it."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // ── Generate signing link intent ──
       if(/\b(sign|signing|signature|send\s+for\s+sign|generate\s+link|share\s+link|send\s+link|send\s+contract)\b/i.test(input)){
-        const _ctVersions = contractDocStore?.[project.id] || [];
-        const _vIdx = Math.min(vIdx, _ctVersions.length-1);
-        const _ver = _ctVersions[_vIdx];
-        if(!_ver){
-          setMsgs([...history,{role:"assistant",content:"No contract found to generate a signing link for."}]);
+        const _ctVersions=contractDocStore?.[project.id]||[];
+        const _vIdx=Math.min(vIdx,_ctVersions.length-1);
+        const _ver=_ctVersions[_vIdx];
+        if(!_ver){setMsgs([...history,{role:"assistant",content:"No contract found to generate a signing link for."}]);setLoading(false);setMood("idle");return;}
+        const _activeType=_ver.contractType||"commission_se";
+        const _ctContract=CONTRACT_DOC_TYPES.find(c=>c.id===_activeType)||CONTRACT_DOC_TYPES[0];
+        const _resolvedTerms=(_ver.generalTermsEdits||{}).custom||GENERAL_TERMS_DOC[_activeType]||"";
+        const _fieldLabels={};const _resolvedFieldValues={};
+        _ctContract.fields.forEach(f=>{_fieldLabels[f.key]=f.label;_resolvedFieldValues[f.key]=(_ver.fieldValues||{})[f.key]||f.defaultValue||"";});
+        const _snapshot={fieldValues:_resolvedFieldValues,generalTermsEdits:{custom:_resolvedTerms},sigNames:_ver.sigNames||{},signatures:_ver.signatures||{},prodLogo:_ver.prodLogo||null,contractType:_activeType,fieldLabels:_fieldLabels};
+        // Check for empty fields
+        const emptyFields=_ctContract.fields.filter(f=>{const v=(_ver.fieldValues||{})[f.key]||"";return !v||v===f.defaultValue||/^\[.*\]$/.test(v);}).map(f=>f.label);
+        const _label=_ver.label||_ctContract.label;
+        if(emptyFields.length>0){
+          codyPendingRef.current={step:"confirm_sign",projectId:project.id,vIdx:_vIdx,snapshot:_snapshot,projectName:project.name,contractType:_activeType,label:_label};
+          const list=emptyFields.map(f=>`- ${f}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Are you sure? The following fields are still empty:\n\n${list}\n\nSay yes to generate the link anyway, or no to go back and fill them in.`}]);
           setLoading(false);setMood("idle");return;
         }
-        const _activeType = _ver.contractType || "commission_se";
-        const _ctContract = CONTRACT_DOC_TYPES.find(c=>c.id===_activeType) || CONTRACT_DOC_TYPES[0];
-        const _resolvedTerms = (_ver.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[_activeType] || "";
-        const _fieldLabels = {}; const _resolvedFieldValues = {};
-        _ctContract.fields.forEach(f => { _fieldLabels[f.key] = f.label; _resolvedFieldValues[f.key] = (_ver.fieldValues||{})[f.key] || f.defaultValue || ""; });
-        const _snapshot = { fieldValues: _resolvedFieldValues, generalTermsEdits: { custom: _resolvedTerms }, sigNames: _ver.sigNames || {}, signatures: _ver.signatures || {}, prodLogo: _ver.prodLogo || null, contractType: _activeType, fieldLabels: _fieldLabels };
+        // No empty fields — generate directly
         try{
-          const resp = await fetch("/api/sign", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ contractSnapshot: _snapshot, projectName: project.name, contractType: _activeType, label: _ver.label || _ctContract.label }) });
-          const data = await resp.json();
+          const resp=await fetch("/api/sign",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${getToken()}`},body:JSON.stringify({contractSnapshot:_snapshot,projectName:project.name,contractType:_activeType,label:_label})});
+          const data=await resp.json();
           if(data.url){
-            setContractDocStore(prev=>{
-              const store=JSON.parse(JSON.stringify(prev));
-              const arr=store[project.id]||[];
-              if(arr[_vIdx]){arr[_vIdx].signingStatus="pending";arr[_vIdx].signingToken=data.token||null;}
-              store[project.id]=arr;return store;
-            });
-            setMsgs([...history,{role:"assistant",content:`Here's the signing link for **${_ver.label||"this contract"}**:\n\n🔗 **${data.url}**\n\nSend this to the other party to review and sign. I've marked the contract as **pending signature**.`}]);
-          }else{
-            setMsgs([...history,{role:"assistant",content:`Failed to generate signing link: ${data.error||"Unknown error"}`}]);
-          }
-        }catch(err){
-          setMsgs([...history,{role:"assistant",content:`Error generating link: ${err.message}`}]);
-        }
+            setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];if(arr[_vIdx]){arr[_vIdx].signingStatus="pending";arr[_vIdx].signingToken=data.token||null;}store[project.id]=arr;return store;});
+            setMsgs([...history,{role:"assistant",content:`Here's the signing link for **${_label}**:\n\n🔗 **${data.url}**\n\nSend this to the other party to review and sign. I've marked the contract as pending signature.`}]);
+          }else{setMsgs([...history,{role:"assistant",content:`Failed to generate signing link: ${data.error||"Unknown error"}`}]);}
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Error generating link: ${err.message}`}]);}
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -6422,7 +6439,7 @@ export default function OnnaDashboard() {
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
-    const LOGO_VER = "v3-smaller"; // bump to force re-apply default logo to all docs
+    const LOGO_VER = "v4"; // bump to force re-apply default logo to all docs
     const alreadyApplied = localStorage.getItem('onna_logo_ver') === LOGO_VER;
     const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
     logoImg.onload = () => {
@@ -7351,6 +7368,7 @@ export default function OnnaDashboard() {
         const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
         const estSections = latestEst ? (latestEst.sections || defaultSections()) : defaultSections();
         const estTotals = estCalcTotals(estSections);
+        const actProdLogo = latestEst?.prodLogo || null;
 
         // Auto-init actuals from estimate if not yet created
         if (!projectActuals[p.id] && latestEst) {
@@ -7361,10 +7379,8 @@ export default function OnnaDashboard() {
 
         const actExpenseTotal = actualsGrandExpenseTotal(actSections);
         const actZohoTotal = actualsGrandZohoTotal(actSections);
-        const variance = estTotals.grandTotal - actZohoTotal;
+        const actVariance = estTotals.grandTotal - actZohoTotal;
         const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((actZohoTotal / estTotals.grandTotal) * 100) : 0;
-
-        const fmtAED = (v) => v.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         // Update a row in actuals
         const updateActRow = (secIdx, rowIdx, field, value) => {
@@ -7408,177 +7424,185 @@ export default function OnnaDashboard() {
         const setTrackerTab = setActualsTrackerTab;
         const toggleExpand = (key) => { actualsExpandedRef.current[key] = !actualsExpandedRef.current[key]; setProjectActuals(prev => ({...prev})); };
 
-        // Export PDF
-        const exportActualsPDF = () => {
-          const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
-          let rows = "";
-          actSections.forEach((sec, si) => {
-            const estSec = estSections[si];
-            const estSecTotal = estSec ? estSectionTotal(estSec) : 0;
-            const actExpTotal = actualsSectionExpenseTotal(sec);
-            const actZTotal = actualsSectionZohoTotal(sec);
-            rows += `<tr style="background:#f5f5f7;font-weight:700"><td colspan="2">${sec.num}. ${sec.title}</td><td style="text-align:right">${fmtAED(estSecTotal)}</td><td style="text-align:right">${fmtAED(actExpTotal)}</td><td style="text-align:right">${fmtAED(actZTotal)}</td><td style="text-align:right">${fmtAED(estSecTotal - actZTotal)}</td><td>${""}</td></tr>`;
-            sec.rows.forEach((r, ri) => {
-              const estRow = estSec?.rows[ri];
-              const estVal = estRow ? estRowTotal(estRow) : 0;
-              const expVal = actualsRowExpenseTotal(r);
-              rows += `<tr><td>${r.ref}</td><td>${r.desc}</td><td style="text-align:right">${fmtAED(estVal)}</td><td style="text-align:right">${fmtAED(expVal)}</td><td style="text-align:right">${fmtAED(estNum(r.zohoAmount))}</td><td style="text-align:right">${fmtAED(estVal - estNum(r.zohoAmount))}</td><td>${r.status || "—"}</td></tr>`;
-            });
-          });
-          rows += `<tr style="background:#1d1d1f;color:#fff;font-weight:700"><td colspan="2">GRAND TOTAL</td><td style="text-align:right">${fmtAED(estTotals.grandTotal)}</td><td style="text-align:right">${fmtAED(actExpenseTotal)}</td><td style="text-align:right">${fmtAED(actZohoTotal)}</td><td style="text-align:right">${fmtAED(variance)}</td><td>${budgetUsedPct}%</td></tr>`;
-          const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Budget Tracker — ${p.client} ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}body{font-family:${F};padding:24px;font-size:11px;}h1{font-size:16px;margin-bottom:4px;}h2{font-size:12px;color:#6e6e73;margin-bottom:16px;font-weight:400;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{padding:6px 8px;border:1px solid #d2d2d7;text-align:left;font-size:10px;}th{background:#f5f5f7;font-weight:600;}@media print{@page{margin:10mm;size:A4 landscape;}}</style><script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};}<\/script></head><body><h1>${p.client} — ${p.name}</h1><h2>Budget Tracker</h2><table><thead><tr><th>Ref</th><th>Description</th><th>Estimate</th><th>Actuals</th><th>Finals (Zoho)</th><th>Variance</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
-          const blob = new Blob([html], { type: "text/html" });
-          const url = URL.createObjectURL(blob);
-          const win = window.open(url, "_blank");
-          if (!win) { const a = document.createElement("a"); a.href = url; a.download = "Budget Tracker.html"; a.click(); }
-          setTimeout(() => URL.revokeObjectURL(url), 60000);
-        };
+        const actHdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
+        const stColors = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
+        const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
+
+        // Print export — clone the document and print
+        const doActPrint = () => { const el=document.getElementById("actuals-print-area"); if(!el)return; const clone=el.cloneNode(true); clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove()); clone.querySelectorAll('button').forEach(n=>n.remove()); const w=window.open("","_blank"); w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:10mm 8mm;size:A4 landscape;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>'); w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>w.print(),500); };
 
         return (
         <div>
-          <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}>
-            <div style={{fontSize:18,fontWeight:700,color:T.text}}>Budget Tracker</div>
-            <button onClick={exportActualsPDF} style={{background:T.accent,color:"#fff",border:"none",borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Export PDF</button>
-          </div>
+          <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>&#8249; Back to Budget</button>
 
-          {/* Dashboard cards */}
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:20}}>
-            {[
-              ["Estimate", fmtAED(estTotals.grandTotal), T.text],
-              ["Actuals", fmtAED(actExpenseTotal), "#0066cc"],
-              ["Finals (Zoho)", fmtAED(actZohoTotal), "#6e6e73"],
-              ["Variance", (variance >= 0 ? "+" : "") + fmtAED(variance), variance >= 0 ? "#147d50" : "#c0392b"],
-              ["Budget Used", budgetUsedPct + "%", budgetUsedPct > 100 ? "#c0392b" : budgetUsedPct > 80 ? "#92680a" : "#147d50"],
-            ].map(([label, val, clr]) => (
-              <div key={label} style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.03)"}}>
-                <div style={{fontSize:11,color:T.muted,marginBottom:4,fontWeight:500}}>{label}</div>
-                <div style={{fontSize:16,fontWeight:700,color:clr}}>{val}</div>
+          {/* Document container — matches EstimateView style */}
+          <div style={{ maxWidth:1000,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700 }}>
+            {/* Tab bar */}
+            <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
+              {[{id:"summary",label:"SUMMARY"},{id:"detail",label:"ACTUALS TRACKER"}].map(t=><div key={t.id} onClick={()=>setTrackerTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:trackerTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:trackerTab===t.id?"#000":"#f5f5f5",color:trackerTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
+              <div style={{ marginLeft:"auto",display:"flex" }}>
+                <div onClick={doActPrint} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+                  onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>EXPORT PDF</div>
               </div>
-            ))}
-          </div>
+            </div>
 
-          {/* Tabs */}
-          <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:`1px solid ${T.border}`}}>
-            {["summary","detail"].map(tab=>(
-              <button key={tab} onClick={()=>setTrackerTab(tab)} style={{background:"none",border:"none",borderBottom:trackerTab===tab?`2px solid ${T.accent}`:"2px solid transparent",color:trackerTab===tab?T.text:T.muted,fontSize:13,fontWeight:trackerTab===tab?600:400,padding:"8px 18px",cursor:"pointer",fontFamily:"inherit"}}>{tab==="summary"?"Summary":"Actuals Tracker"}</button>
-            ))}
-          </div>
+            <div id="actuals-print-area" style={{ padding:"40px 40px" }}>
+              {/* Logo + header */}
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
+                {actProdLogo ? <img src={actProdLogo} style={{maxHeight:36,maxWidth:140,objectFit:"contain"}} alt="Logo"/> : <div/>}
+              </div>
+              <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
 
-          {/* Summary Tab */}
-          {trackerTab==="summary" && (
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-                <thead>
-                  <tr style={{background:T.bg}}>
-                    <th style={{padding:"8px 10px",textAlign:"left",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Section</th>
-                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Estimate</th>
-                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Actuals</th>
-                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Finals</th>
-                    <th style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:T.sub,borderBottom:`1px solid ${T.border}`,fontSize:11}}>Variance</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:4}}>BUDGET TRACKER</div>
+              <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
+
+              {/* Summary cards row */}
+              <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
+                {[
+                  ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a"],
+                  ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a"],
+                  ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a"],
+                  ["VARIANCE", (actVariance>=0?"+":"") + estFmt(actVariance), actVariance>=0?"#147d50":"#c0392b"],
+                  ["BUDGET USED", budgetUsedPct + "%", budgetUsedPct>100?"#c0392b":budgetUsedPct>80?"#92680a":"#147d50"],
+                ].map(([lbl,val,clr],i)=>(
+                  <div key={lbl} style={{flex:1,padding:"8px 10px",borderRight:i<4?"1px solid #ddd":"none",textAlign:"center"}}>
+                    <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>{lbl}</div>
+                    <div style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:clr}}>{val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary Tab */}
+              {trackerTab==="summary" && (
+                <div>
+                  <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+                    <div style={{flex:1,...actHdr}}>SECTION</div>
+                    <div style={{width:110,...actHdr,textAlign:"right"}}>ESTIMATE</div>
+                    <div style={{width:110,...actHdr,textAlign:"right"}}>ACTUALS</div>
+                    <div style={{width:110,...actHdr,textAlign:"right"}}>FINALS</div>
+                    <div style={{width:110,...actHdr,textAlign:"right"}}>VARIANCE</div>
+                  </div>
                   {actSections.map((sec, si) => {
                     const estSec = estSections[si];
                     const estSecTot = estSec ? estSectionTotal(estSec) : 0;
                     const actExp = actualsSectionExpenseTotal(sec);
                     const actZoho = actualsSectionZohoTotal(sec);
+                    const sv = estSecTot - actZoho;
                     return (
-                      <tr key={si} style={{borderBottom:`1px solid ${T.borderSub}`}}>
-                        <td style={{padding:"10px 10px",fontWeight:600,color:T.text}}>{sec.num}. {sec.title}</td>
-                        <td style={{padding:"10px 10px",textAlign:"right",color:T.text}}>{fmtAED(estSecTot)}</td>
-                        <td style={{padding:"10px 10px",textAlign:"right",color:"#0066cc"}}>{fmtAED(actExp)}</td>
-                        <td style={{padding:"10px 10px",textAlign:"right",color:T.sub}}>{fmtAED(actZoho)}</td>
-                        <td style={{padding:"10px 10px",textAlign:"right"}}><ActualsVariance estimate={estSecTot} actual={actZoho}/></td>
-                      </tr>
+                      <div key={si} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
+                        <div style={{width:24,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
+                        <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
+                        <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estSecTot)}</div>
+                        <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExp)}</div>
+                        <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZoho)}</div>
+                        <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:sv>=0?"#147d50":"#c0392b"}}>{(sv>=0?"+":"")}{estFmt(sv)}</div>
+                      </div>
                     );
                   })}
-                  <tr style={{background:T.accent,color:"#fff",fontWeight:700}}>
-                    <td style={{padding:"10px 10px"}}>GRAND TOTAL</td>
-                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(estTotals.grandTotal)}</td>
-                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(actExpenseTotal)}</td>
-                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(actZohoTotal)}</td>
-                    <td style={{padding:"10px 10px",textAlign:"right"}}>{fmtAED(variance)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
+                  <div style={{display:"flex",borderTop:"2px solid #000"}}>
+                    <div style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
+                    <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
+                    <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExpenseTotal)}</div>
+                    <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZohoTotal)}</div>
+                    <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:actVariance>=0?"#147d50":"#c0392b"}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
+                  </div>
+                </div>
+              )}
 
-          {/* Detail Tab */}
-          {trackerTab==="detail" && (
-            <div style={{overflowX:"auto"}}>
-              {actSections.map((sec, si) => {
-                const estSec = estSections[si];
-                return (
-                <div key={si} style={{marginBottom:20}}>
-                  <div style={{fontSize:13,fontWeight:700,color:T.text,padding:"10px 0 6px",borderBottom:`2px solid ${T.accent}`,marginBottom:0}}>{sec.num}. {sec.title}</div>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                    <thead>
-                      <tr style={{background:T.bg}}>
-                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:T.sub,fontSize:10,width:40}}>Ref</th>
-                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:T.sub,fontSize:10,minWidth:120}}>Description</th>
-                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:90}}>Estimate</th>
-                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:90}}>Actuals</th>
-                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:100}}>Finals (Zoho)</th>
-                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:T.sub,fontSize:10,width:80}}>Variance</th>
-                        <th style={{padding:"6px 8px",textAlign:"center",fontWeight:600,color:T.sub,fontSize:10,width:70}}>Status</th>
-                        <th style={{padding:"6px 8px",textAlign:"center",fontWeight:600,color:T.sub,fontSize:10,width:30}}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
+              {/* Detail Tab */}
+              {trackerTab==="detail" && (
+                <div>
+                  {actSections.map((sec, si) => {
+                    const estSec = estSections[si];
+                    const secEstTotal = estSec ? estSectionTotal(estSec) : 0;
+                    return (
+                    <div key={si} style={{marginBottom:16}}>
+                      {/* Section header — black bar like estimates */}
+                      <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
+                        <div style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
+                        <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
+                        <div style={{width:90,textAlign:"right",padding:"0 6px",flexShrink:0}}>ESTIMATE</div>
+                        <div style={{width:90,textAlign:"right",padding:"0 6px",flexShrink:0}}>ACTUALS</div>
+                        <div style={{width:90,textAlign:"right",padding:"0 6px",flexShrink:0}}>FINALS</div>
+                        <div style={{width:80,textAlign:"right",padding:"0 6px",flexShrink:0}}>VARIANCE</div>
+                        <div style={{width:70,textAlign:"center",padding:"0 4px",flexShrink:0}}>STATUS</div>
+                        <div style={{width:24,flexShrink:0}} data-noprint></div>
+                      </div>
+                      {/* Rows */}
                       {sec.rows.map((row, ri) => {
                         const estRow = estSec?.rows[ri];
                         const estVal = estRow ? estRowTotal(estRow) : 0;
                         const expTotal = actualsRowExpenseTotal(row);
                         const zohoVal = estNum(row.zohoAmount);
+                        const rv = estVal - zohoVal;
                         const rowKey = `${si}-${ri}`;
                         const isExpanded = actualsExpandedRef.current[rowKey];
                         return (
                           <Fragment key={ri}>
-                            <tr style={{borderBottom:`1px solid ${T.borderSub}`}}>
-                              <td style={{padding:"7px 8px",color:T.muted,fontSize:11}}>{row.ref}</td>
-                              <td style={{padding:"7px 8px",color:T.text,fontSize:12}}>{row.desc}</td>
-                              <td style={{padding:"7px 8px",textAlign:"right",color:T.text,fontSize:12}}>{fmtAED(estVal)}</td>
-                              <td style={{padding:"7px 8px",textAlign:"right",color:"#0066cc",fontSize:12,fontWeight:500}}>{fmtAED(expTotal)}</td>
-                              <td style={{padding:"7px 8px",textAlign:"right"}}><ActualsCell value={row.zohoAmount} onChange={v => updateActRow(si, ri, "zohoAmount", v)} placeholder="0" style={{textAlign:"right",fontWeight:500}} /></td>
-                              <td style={{padding:"7px 8px",textAlign:"right"}}><ActualsVariance estimate={estVal} actual={zohoVal}/></td>
-                              <td style={{padding:"7px 8px",textAlign:"center"}}><ActualsStatusBadge status={row.status} onChange={v => updateActRow(si, ri, "status", v)}/></td>
-                              <td style={{padding:"7px 8px",textAlign:"center"}}><span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:14,color:T.muted,userSelect:"none"}}>{isExpanded?"▾":"▸"}</span></td>
-                            </tr>
+                            <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch"}}>
+                              <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
+                              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
+                              <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"}}>{estFmt(estVal)}</div>
+                              <div style={{width:90,flexShrink:0}}><EstCell value={String(expTotal||"")} onChange={()=>{}} align="right" style={{color:"#0066cc",cursor:"default"}} /></div>
+                              <div style={{width:90,flexShrink:0}}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
+                              <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{estVal>0||zohoVal>0?((rv>=0?"+":"") + estFmt(rv)):""}</div>
+                              <div style={{width:70,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                <span onClick={()=>{const idx=ACTUALS_STATUSES.indexOf(row.status);updateActRow(si,ri,"status",ACTUALS_STATUSES[(idx+1)%ACTUALS_STATUSES.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",background:stBg[row.status]||"transparent",color:stColors[row.status]||"#ccc",textTransform:"uppercase"}}>{row.status||"\u2014"}</span>
+                              </div>
+                              <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
+                                <span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:11,color:"#999",userSelect:"none"}}>{isExpanded?"\u25BE":"\u25B8"}</span>
+                              </div>
+                            </div>
+                            {/* Expandable expenses dropdown */}
                             {isExpanded && (
-                              <tr><td colSpan={8} style={{padding:"8px 8px 12px 32px",background:T.bg,borderBottom:`1px solid ${T.borderSub}`}}>
-                                <div style={{fontSize:11,fontWeight:600,color:T.sub,marginBottom:6}}>Expenses / Vendor Quotations</div>
+                              <div style={{padding:"6px 6px 10px 46px",background:"#fafafa",borderBottom:"1px solid #eee"}}>
+                                <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:4}}>EXPENSES / VENDOR QUOTATIONS</div>
                                 {(row.expenses||[]).map((exp, ei) => (
-                                  <div key={exp.id} style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
-                                    <ActualsCell value={exp.vendor} onChange={v => updateExpense(si, ri, ei, "vendor", v)} placeholder="Vendor" style={{width:120}} />
-                                    <ActualsCell value={exp.desc} onChange={v => updateExpense(si, ri, ei, "desc", v)} placeholder="Description" style={{flex:1,minWidth:100}} />
-                                    <ActualsCell value={exp.amount} onChange={v => updateExpense(si, ri, ei, "amount", v)} placeholder="0" style={{width:80,textAlign:"right"}} />
-                                    <button onClick={()=>deleteExpense(si, ri, ei)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:"0 4px"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                                  <div key={exp.id} style={{display:"flex",gap:0,alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
+                                    <div style={{width:120}}><EstCell value={exp.vendor} onChange={v2 => updateExpense(si, ri, ei, "vendor", v2)} style={{fontSize:9,color:"#666"}} /></div>
+                                    <div style={{flex:1,minWidth:80}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
+                                    <div style={{width:90}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
+                                    <div style={{width:24,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
+                                      <span onClick={()=>deleteExpense(si, ri, ei)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                                    </div>
                                   </div>
                                 ))}
-                                <button onClick={()=>addExpense(si, ri)} style={{background:"none",border:`1px dashed ${T.border}`,color:T.muted,fontSize:11,padding:"4px 12px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>+ Add Expense</button>
-                              </td></tr>
+                                <div onClick={()=>addExpense(si, ri)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}} data-noprint>+ Add Expense</div>
+                              </div>
                             )}
                           </Fragment>
                         );
                       })}
-                      <tr style={{background:T.bg,fontWeight:700}}>
-                        <td colSpan={2} style={{padding:"8px 10px",color:T.text,fontSize:12}}>Section Total</td>
-                        <td style={{padding:"8px 10px",textAlign:"right",color:T.text,fontSize:12}}>{fmtAED(estSec ? estSectionTotal(estSec) : 0)}</td>
-                        <td style={{padding:"8px 10px",textAlign:"right",color:"#0066cc",fontSize:12}}>{fmtAED(actualsSectionExpenseTotal(sec))}</td>
-                        <td style={{padding:"8px 10px",textAlign:"right",color:T.sub,fontSize:12}}>{fmtAED(actualsSectionZohoTotal(sec))}</td>
-                        <td style={{padding:"8px 10px",textAlign:"right"}}><ActualsVariance estimate={estSec ? estSectionTotal(estSec) : 0} actual={actualsSectionZohoTotal(sec)}/></td>
-                        <td colSpan={2}></td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      {/* Section total */}
+                      <div style={{display:"flex",justifyContent:"flex-end",borderBottom:"2px solid #000"}}>
+                        <div style={{display:"flex",gap:0,padding:"4px 0"}}>
+                          <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>TOTAL</div>
+                          <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(secEstTotal)}</div>
+                          <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"}}>{estFmt(actualsSectionExpenseTotal(sec))}</div>
+                          <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(actualsSectionZohoTotal(sec))}</div>
+                          <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionZohoTotal(sec))>=0?"#147d50":"#c0392b"}}>{(secEstTotal-actualsSectionZohoTotal(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionZohoTotal(sec))}</div>
+                          <div style={{width:70}}></div>
+                          <div style={{width:24}}></div>
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+
+                  {/* Grand total bar */}
+                  <div style={{display:"flex",background:"#000",color:"#fff",marginTop:4}}>
+                    <div style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textAlign:"right"}}>GRAND TOTAL</div>
+                    <div style={{width:90,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
+                    <div style={{width:90,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExpenseTotal)}</div>
+                    <div style={{width:90,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZohoTotal)}</div>
+                    <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
+                    <div style={{width:70}}></div>
+                    <div style={{width:24}}></div>
+                  </div>
                 </div>
-                );
-              })}
+              )}
             </div>
-          )}
+          </div>
         </div>
         );
       }
@@ -8389,12 +8413,14 @@ export default function OnnaDashboard() {
 
     if (projectSection==="Casting") {
       const castingRows = getProjectCasting(p.id);
+      const castFiles = (projectFileStore[p.id]||{}).casting||[];
+      const castLink = (projectCreativeLinks[p.id]||{}).casting||"";
       return (
         <div>
           <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
             <BtnPrimary onClick={()=>addCastingRow(p.id)}>+ Add Model</BtnPrimary>
           </div>
-          <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:24}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead><tr><TH>Agency</TH><TH>Name of Model</TH><TH>Email</TH><TH>Option</TH><TH/></tr></thead>
               <tbody>
@@ -8417,11 +8443,68 @@ export default function OnnaDashboard() {
               </tbody>
             </table>
           </div>
+          <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Casting Files</div>
+          <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload casting files or paste a Dropbox / Drive link to import.</p>
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+            <div style={{display:"flex",gap:10}}>
+              <input value={castLink} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              {castLink&&<button disabled={linkUploading} onClick={async()=>{setLinkUploading(true);try{const resp=await fetch("/api/proxy-download",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:castLink})});const data=await resp.json();if(data.error)throw new Error(data.error);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:[...((prev[p.id]||{}).casting||[]),entry]}}));}catch(e){alert("Upload failed: "+e.message);}setLinkUploading(false);}} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading…":"Upload"}</button>}
+            </div>
+          </div>
+          <UploadZone label="Upload casting files (PDF, images, comp cards)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:[...((prev[p.id]||{}).casting||[]),...ne]}}));}}/>
+          {castFiles.length>0&&(<>
+              <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:22,marginBottom:6}}>{castFiles.length} file{castFiles.length!==1?"s":""} uploaded</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
+                {castFiles.map((f,i)=>(<div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+                    <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
+                    <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"\ud83d\udcc4":f.type?.includes("image")?"\ud83d\uddbc":"\ud83d\udcce"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                      <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                    </div>
+                    <button onClick={()=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
+                    <button onClick={()=>{if(confirm("Delete V"+(i+1)+" - "+f.name+"?"))setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:((prev[p.id]||{}).casting||[]).filter(x=>x.id!==f.id)}}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                  </div>))}
+              </div>
+            </>)}
         </div>
       );
     }
 
-    if (projectSection==="Styling") return <UploadZone label="Upload styling documents (PDF, images)" files={getProjectFiles(p.id,"styling")} onAdd={f=>addProjectFiles(p.id,"styling",f)}/>;
+    if (projectSection==="Styling") {
+      const styleFiles = (projectFileStore[p.id]||{}).styling_store||[];
+      const styleLink = (projectCreativeLinks[p.id]||{}).styling||"";
+      return (
+        <div>
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Styling</div>
+          <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload styling files or paste a Dropbox / Drive link to import.</p>
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+            <div style={{display:"flex",gap:10}}>
+              <input value={styleLink} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              {styleLink&&<button disabled={linkUploading} onClick={async()=>{setLinkUploading(true);try{const resp=await fetch("/api/proxy-download",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:styleLink})});const data=await resp.json();if(data.error)throw new Error(data.error);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:[...((prev[p.id]||{}).styling_store||[]),entry]}}));}catch(e){alert("Upload failed: "+e.message);}setLinkUploading(false);}} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading…":"Upload"}</button>}
+            </div>
+          </div>
+          <UploadZone label="Upload styling documents (PDF, images, lookbooks)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:[...((prev[p.id]||{}).styling_store||[]),...ne]}}));}}/>
+          {styleFiles.length>0&&(<>
+              <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:22,marginBottom:6}}>{styleFiles.length} file{styleFiles.length!==1?"s":""} uploaded</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
+                {styleFiles.map((f,i)=>(<div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+                    <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
+                    <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"\ud83d\udcc4":f.type?.includes("image")?"\ud83d\uddbc":"\ud83d\udcce"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                      <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                    </div>
+                    <button onClick={()=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
+                    <button onClick={()=>{if(confirm("Delete V"+(i+1)+" - "+f.name+"?"))setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:((prev[p.id]||{}).styling_store||[]).filter(x=>x.id!==f.id)}}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                  </div>))}
+              </div>
+            </>)}
+        </div>
+      );
+    }
 
     // Travel section — sub-folders
     if (projectSection==="Travel") {
