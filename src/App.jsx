@@ -4865,7 +4865,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
 
       // ── Generate signing link intent ──
-      if(/\b(sign|signing|signature|send\s+for\s+sign|generate\s+(a\s+)?link|share\s+(a\s+)?(link|contract|this)|send\s+(a\s+)?(link|contract|this)|create\s+(a\s+)?(link|shareable)|get\s+(a\s+)?link|shareable\s+link)\b/i.test(input)){
+      if(/\b(sign(ing|ature)?|send\s+for\s+sign|shareable|share\s+(it|this|the|contract|link)|send\s+(it|this|the|contract|link))\b/i.test(input)||/\blink\b/i.test(input)||/\b(generate|create|make|get|give)\b.*\b(link|share)\b/i.test(input)){
         const _ctVersions=contractDocStore?.[project.id]||[];
         const _vIdx=Math.min(vIdx,_ctVersions.length-1);
         const _ver=_ctVersions[_vIdx];
@@ -7572,7 +7572,7 @@ export default function OnnaDashboard() {
                               <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
                               <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"}}>{estFmt(estVal)}</div>
-                              <div style={{width:90,flexShrink:0}}><EstCell value={String(expTotal||"")} onChange={()=>{}} align="right" style={{color:"#0066cc",cursor:"default"}} /></div>
+                              <div style={{width:90,flexShrink:0}}><EstCell value={row.actualsAmount||String(expTotal||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
                               <div style={{width:90,flexShrink:0}}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
                               <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{(rv>=0?"+":"") + estFmt(rv)}</div>
                               <div style={{width:70,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
