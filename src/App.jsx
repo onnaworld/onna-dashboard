@@ -6136,6 +6136,7 @@ export default function OnnaDashboard() {
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [showArchive,setShowArchive]         = useState(false);
   const [showUserMenu,setShowUserMenu]       = useState(false);
+  const [settingsSection,setSettingsSection] = useState("deleted");
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
@@ -6485,15 +6486,24 @@ export default function OnnaDashboard() {
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
 
   const allProjectsMerged = localProjects.filter(p=>!archivedProjects.find(a=>a.id===p.id));
+  const getEstimateRevenue = (pid) => {
+    const ests = projectEstimates?.[pid];
+    if (!ests || ests.length === 0) return null;
+    const latest = ests[ests.length - 1];
+    const secs = latest.sections || defaultSections();
+    const { grandTotal } = estCalcTotals(secs);
+    return grandTotal;
+  };
+  const getProjRevenue = (p) => { const er = getEstimateRevenue(p.id); return er !== null ? er : p.revenue; };
   const projects2026  = allProjectsMerged.filter(p=>p.year===2026);
-  const rev2026       = projects2026.reduce((a,b)=>a+b.revenue,0);
-  const profit2026    = projects2026.reduce((a,b)=>a+(b.revenue-b.cost),0);
+  const rev2026       = projects2026.reduce((a,b)=>a+getProjRevenue(b),0);
+  const profit2026    = projects2026.reduce((a,b)=>a+(getProjRevenue(b)-b.cost),0);
   const totalPipeline = localLeads.reduce((a,b)=>a+b.value,0);
   const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
   const projects      = allProjectsMerged.filter(p=>p.year===projectYear||p.client==="TEMPLATE");
-  const projRev       = projects.reduce((a,b)=>a+b.revenue,0);
-  const projProfit    = projects.reduce((a,b)=>a+(b.revenue-b.cost),0);
+  const projRev       = projects.reduce((a,b)=>a+getProjRevenue(b),0);
+  const projProfit    = projects.reduce((a,b)=>a+(getProjRevenue(b)-b.cost),0);
   const projMargin    = projRev>0?Math.round((projProfit/projRev)*100):0;
 
   const allLeadsMerged = localLeads.map(l=>leadStatusOverrides[l.id]?{...l,status:leadStatusOverrides[l.id]}:l);
@@ -8076,7 +8086,7 @@ export default function OnnaDashboard() {
   };
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
-  const currentTab = TABS.find(t=>t.id===activeTab)||TABS[0];
+  const currentTab = TABS.find(t=>t.id===activeTab)||(activeTab==="Settings"?{id:"Settings",label:"Settings"}:TABS[0]);
 
   const P = isMobile ? 16 : 28; // main padding
 
@@ -8124,33 +8134,13 @@ export default function OnnaDashboard() {
           ))}
         </nav>
         <div style={{margin:10,position:"relative"}}>
-          <button onClick={()=>setShowUserMenu(p=>!p)} style={{width:"100%",padding:"12px 14px",borderRadius:12,background:"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+          <button onClick={()=>{setActiveTab("Settings");setSelectedProject(null);}} style={{width:"100%",padding:"12px 14px",borderRadius:12,background:activeTab==="Settings"?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
             <div style={{width:30,height:30,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>E</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
               <div style={{fontSize:11,color:T.muted}}>Admin · onna</div>
             </div>
-            <svg width={10} height={10} viewBox="0 0 10 10" fill="none" style={{flexShrink:0,color:T.muted,transform:showUserMenu?"rotate(180deg)":"none",transition:"transform 0.15s"}}><path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          {showUserMenu&&(
-            <>
-              <div style={{position:"fixed",inset:0,zIndex:49}} onClick={()=>setShowUserMenu(false)}/>
-              <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,right:0,background:T.surface,borderRadius:12,border:`1px solid ${T.border}`,boxShadow:"0 4px 24px rgba(0,0,0,0.12)",zIndex:50,overflow:"hidden"}}>
-                <button onClick={()=>{setShowUserMenu(false);setShowArchive(true);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",borderBottom:`1px solid ${T.borderSub}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="none"}>
-                  <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                  View Deleted{archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
-                </button>
-                <button onClick={()=>{setShowUserMenu(false);setShowCatManager(true);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",borderBottom:`1px solid ${T.borderSub}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#f5f5f7"} onMouseOut={e=>e.currentTarget.style.background="none"}>
-                  <svg width={13} height={13} viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                  Manage Categories
-                </button>
-                <button onClick={()=>{setShowUserMenu(false);localStorage.removeItem("onna_token");setAuthed(false);}} style={{width:"100%",padding:"11px 16px",background:"none",border:"none",color:"#c0392b",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:9}} onMouseOver={e=>e.currentTarget.style.background="#fff5f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>
-                  <svg width={13} height={13} viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Sign out
-                </button>
-              </div>
-            </>
-          )}
         </div>
       </div>
 
@@ -8266,7 +8256,7 @@ export default function OnnaDashboard() {
                           <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {p.revenue.toLocaleString()}</div>
+                          <div style={{fontSize:15,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {getProjRevenue(p).toLocaleString()}</div>
                           <div style={{fontSize:10,color:T.muted,marginTop:2}}>{p.year}</div>
                         </div>
                       </div>
@@ -8633,7 +8623,7 @@ export default function OnnaDashboard() {
                         {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>{
                           const cKey = (c.company||"").trim().toLowerCase();
                           const cProjects = localProjects.filter(p=>(p.client||"").trim().toLowerCase()===cKey);
-                          const cRevenue  = cProjects.reduce((a,p)=>a+(p.revenue||0),0);
+                          const cRevenue  = cProjects.reduce((a,p)=>a+getProjRevenue(p),0);
                           return (
                             <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
@@ -8775,7 +8765,7 @@ export default function OnnaDashboard() {
                     <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Archived Projects</div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                       {archivedProjects.map(p=>{
-                        const profit=p.revenue-p.cost; const margin=Math.round((profit/p.revenue)*100);
+                        const _rev=getProjRevenue(p);const profit=_rev-p.cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
                         return (
                           <div key={p.id} style={{borderRadius:14,padding:16,background:"#fafafa",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:10,opacity:0.75}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -8786,7 +8776,7 @@ export default function OnnaDashboard() {
                               <button onClick={()=>setArchivedProjects(prev=>prev.filter(a=>a.id!==p.id))} style={{fontSize:11,color:T.link,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Restore</button>
                             </div>
                             <div style={{display:"flex",gap:14}}>
-                              <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Revenue</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>AED {p.revenue.toLocaleString()}</div></div>
+                              <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Revenue</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>AED {getProjRevenue(p).toLocaleString()}</div></div>
                               <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Margin</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>{margin}%</div></div>
                             </div>
                           </div>
@@ -8798,7 +8788,7 @@ export default function OnnaDashboard() {
 
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
                   {projects.filter(p=>!getSearch("Projects")||`${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p=>{
-                    const profit=p.revenue-p.cost; const margin=Math.round((profit/p.revenue)*100);
+                    const _rev=getProjRevenue(p);const profit=_rev-p.cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
                     return (
                       <div
                         key={p.id}
@@ -8820,7 +8810,7 @@ export default function OnnaDashboard() {
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                             <div>
                               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.04em",textTransform:"uppercase"}}>Revenue</div>
-                              <div style={{fontSize:20,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {p.revenue.toLocaleString()}</div>
+                              <div style={{fontSize:20,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {getProjRevenue(p).toLocaleString()}</div>
                             </div>
                             <div>
                               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.04em",textTransform:"uppercase"}}>Profit</div>
@@ -9092,6 +9082,118 @@ export default function OnnaDashboard() {
                 </div>
               </div>
             )}
+
+        {activeTab==="Settings"&&(
+          <div style={{display:"flex",gap:0,height:"100%",overflow:"hidden"}}>
+            {/* Settings Sidebar */}
+            <div style={{width:220,flexShrink:0,borderRight:`1px solid ${T.border}`,padding:"28px 0",display:"flex",flexDirection:"column",gap:2}}>
+              <div style={{padding:"0 20px",marginBottom:20}}>
+                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Settings</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Manage your account</div>
+              </div>
+              {[
+                {id:"deleted",label:"Deleted Items",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
+                {id:"categories",label:"Manage Categories",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
+                {id:"signout",label:"Sign Out",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>'},
+              ].map(item=>(
+                <button key={item.id} onClick={()=>{if(item.id==="signout"){localStorage.removeItem("onna_token");setAuthed(false);}else setSettingsSection(item.id);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 20px",background:settingsSection===item.id&&item.id!=="signout"?"rgba(0,0,0,0.05)":"none",border:"none",borderLeft:settingsSection===item.id&&item.id!=="signout"?`3px solid ${T.accent}`:"3px solid transparent",color:item.id==="signout"?"#c0392b":settingsSection===item.id?T.text:T.sub,fontSize:13,fontWeight:settingsSection===item.id?600:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%"}} onMouseOver={e=>{if(settingsSection!==item.id)e.currentTarget.style.background="rgba(0,0,0,0.03)";}} onMouseOut={e=>{if(settingsSection!==item.id)e.currentTarget.style.background="none";}}>
+                  <span dangerouslySetInnerHTML={{__html:item.icon}}/>
+                  {item.label}
+                  {item.id==="deleted"&&archive.length>0&&<span style={{marginLeft:"auto",background:T.borderSub,borderRadius:999,padding:"1px 7px",fontSize:10.5,color:T.sub}}>{archive.length}</span>}
+                </button>
+              ))}
+            </div>
+
+            {/* Settings Content */}
+            <div style={{flex:1,padding:28,overflowY:"auto"}}>
+              {settingsSection==="deleted"&&(
+                <div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+                    <div>
+                      <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
+                      <div style={{fontSize:12,color:T.muted,marginTop:2}}>Items are permanently removed after 30 days</div>
+                    </div>
+                    {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently delete all items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 14px"}}>Empty trash</button>}
+                  </div>
+                  {archive.length===0?(
+                    <div style={{padding:"60px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
+                  ):(
+                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects"].map(table=>{
+                      const entries=archive.filter(e=>e.table===table);
+                      if(!entries.length) return null;
+                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects"}[table]||table;
+                      return (
+                        <div key={table} style={{marginBottom:24}}>
+                          <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
+                          {entries.map(e=>{
+                            const daysLeft=Math.max(0,30-Math.floor((Date.now()-new Date(e.deletedAt).getTime())/(86400000)));
+                            return (
+                              <div key={e.id} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:10,border:`1px solid ${T.border}`,marginBottom:6,background:"#fafafa"}}>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||"Untitled"}</div>
+                                  <div style={{fontSize:11,color:T.muted,marginTop:2}}>{daysLeft} day{daysLeft!==1?"s":""} remaining</div>
+                                </div>
+                                <div style={{display:"flex",gap:6}}>
+                                  <button onClick={()=>restoreItem(e)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:6,fontSize:11,color:T.sub,cursor:"pointer",padding:"4px 10px",fontFamily:"inherit"}}>Restore</button>
+                                  <button onClick={()=>permanentlyDelete(e.id)} style={{background:"none",border:"none",fontSize:11,color:"#c0392b",cursor:"pointer",padding:"4px 8px",fontFamily:"inherit"}}>Delete</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+              {settingsSection==="categories"&&(
+                <div>
+                  <div style={{marginBottom:22}}>
+                    <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Manage Categories</div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete client and vendor categories</div>
+                  </div>
+                  {[
+                    {label:"Client Categories",type:"lead",builtin:LEAD_CATEGORIES.filter(c=>c!=="All"),custom:customLeadCats,hidden:hiddenLeadBuiltins},
+                    {label:"Vendor Categories",type:"vendor",builtin:VENDORS_CATEGORIES,custom:customVendorCats,hidden:hiddenVendorBuiltins},
+                  ].map(section=>(
+                    <div key={section.type} style={{marginBottom:28}}>
+                      <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12,paddingBottom:7,borderBottom:`1px solid ${T.border}`}}>{section.label}</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {section.builtin.filter(c=>!section.hidden.includes(c)).map(cat=>(
+                          <div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
+                            <span style={{flex:1,fontSize:13,color:T.text}}>{cat}</span>
+                            <span style={{fontSize:10,color:T.muted,background:"#f0ede8",borderRadius:999,padding:"2px 8px",fontWeight:500}}>built-in</span>
+                            <button disabled={catSaving} onClick={async()=>{if(!window.confirm('Delete "'+cat+'"? All '+(section.type==='lead'?'clients':'vendors')+' in this category will have it cleared.'))return;await deleteCat(section.type,cat);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                          </div>
+                        ))}
+                        {section.custom.map(cat=>(
+                          <div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
+                            {catEdit&&catEdit.type===section.type&&catEdit.cat===cat?(
+                              <>
+                                <input autoFocus value={catEditVal} onChange={e=>setCatEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")renameCat(section.type,cat,catEditVal);if(e.key==="Escape")setCatEdit(null);}} style={{flex:1,border:`1.5px solid ${T.accent}`,borderRadius:7,padding:"5px 8px",fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}/>
+                                <button disabled={catSaving} onClick={()=>renameCat(section.type,cat,catEditVal)} style={{background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",padding:"4px 10px",borderRadius:6,fontFamily:"inherit",opacity:catSaving?0.5:1}}>Save</button>
+                                <button onClick={()=>setCatEdit(null)} style={{background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",padding:"4px 6px",fontFamily:"inherit"}}>Cancel</button>
+                              </>
+                            ):(
+                              <>
+                                <span style={{flex:1,fontSize:13,color:T.text}}>{cat}</span>
+                                <button disabled={catSaving} onClick={()=>{setCatEdit({type:section.type,cat});setCatEditVal(cat);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Rename</button>
+                                <button disabled={catSaving} onClick={async()=>{if(!window.confirm('Delete "'+cat+'"? All '+(section.type==='lead'?'clients':'vendors')+' in this category will have it cleared.'))return;await deleteCat(section.type,cat);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                        {section.builtin.filter(c=>!section.hidden.includes(c)).length===0&&section.custom.length===0&&(
+                          <div style={{fontSize:13,color:T.muted,padding:"12px 0",textAlign:"center"}}>No categories.</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
             {notesLoading ? (
               <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>Loading…</div>
