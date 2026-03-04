@@ -4678,7 +4678,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
   // ── Vinnie split-screen card ──────────────────────────────────────────────
   const [_vinnieAddContact,_setVinnieAddContact]=useState(null);
   const _isVinnie=agent.id==="logistical";
-  const _hasVinnieCard=_isVinnie&&!isMobile&&(!!pendingConv||!!pendingLead);
+  const _hasVinnieCard=_isVinnie&&!isMobile&&((pendingConv&&!pendingConv._awaitingTypeChoice)||!!pendingLead);
   // During Q&A, read from pendingConv.entry; after Q&A, read from leadEdit
   // When collecting xContact details, show the existing record with the new contact in-progress
   const _isXContactMode=pendingConv&&pendingConv._saveAsXContact;
@@ -6007,7 +6007,7 @@ export default function OnnaDashboard() {
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
-  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[]}catch{return []}});
+  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const m=arr.map(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(m))}catch{}return m;}catch{return []}});
   const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
   const [apiLoading,setApiLoading]           = useState(true);
@@ -6324,7 +6324,7 @@ export default function OnnaDashboard() {
       api.get("/api/outreach"),
     ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
-      if (Array.isArray(projects) && projects.length > 0) { setLocalProjects(projects); try{localStorage.setItem('onna_cache_projects',JSON.stringify(projects))}catch{} }
+      if (Array.isArray(projects) && projects.length > 0) { const migrated=projects.map(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} }
       if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
       if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
