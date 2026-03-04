@@ -3324,6 +3324,46 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setMsgs([...history,{role:"assistant",content:"What would you like to create?\n\n1. Vendor\n2. Lead\n3. Outreach Tracker (lead + outreach)\n\nReply 1, 2, or 3."}]);
       return;
     }
+    // ── "update [Name]" / "open [Name]" — find existing and open card (BEFORE vendor/lead intent) ──
+    if(agent.id==="logistical"){
+      const upM=input.match(/\b(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i);
+      if(upM&&upM[2]&&upM[2].trim().length>=2&&!/\b(email|phone|name|role|company|website|category|location|notes|status|source|date|value|rate\s*card)\b/i.test(upM[2])&&!/^(vendor|supplier|lead|contact)$/i.test(upM[2].trim())){
+        const upTypeHint=upM[1]?(/vendor|supplier/i.test(upM[1])?"vendor":"lead"):null;
+        const upName=upM[2].trim();
+        setMsgs(history);setInput("");setLoading(true);setMood("thinking");
+        const found=findVendorOrLead(upName,allVendors,allLeads);
+        const lastS=lastSearchRef.current;
+        const hasRecent=lastS&&(Date.now()-lastS._ts<300000)&&(lastS.contact||lastS.name||"").toLowerCase().includes(upName.split(" ")[0].toLowerCase());
+        if(found){
+          const {record,type}=found;
+          const displayName=type==="vendor"?record.name:(record.contact||record.company);
+          const merged={...record};
+          if(hasRecent){
+            const scrape=lastS;
+            if(type==="vendor"){
+              if(!merged.email&&scrape.email)merged.email=scrape.email;
+              if(!merged.phone&&scrape.phone)merged.phone=scrape.phone;
+              if(!merged.website&&scrape.website)merged.website=scrape.website;
+              if(!merged.notes&&scrape.role)merged.notes=scrape.role;
+            }else{
+              if(!merged.email&&scrape.email)merged.email=scrape.email;
+              if(!merged.phone&&scrape.phone)merged.phone=scrape.phone;
+              if(!merged.company&&scrape.company)merged.company=scrape.company;
+              if(!merged.role&&scrape.role)merged.role=scrape.role;
+            }
+          }
+          showEntry(merged,type,record.id,false);
+          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). ${hasRecent?"Merged Outlook data. ":""}Edit below and save.`}]);
+        }else{
+          const upType=upTypeHint||"vendor";
+          const newEntry={_type:upType,...(upType==="vendor"?{name:upName,company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
+          if(hasRecent){const scrape=lastS;if(upType==="vendor"){if(scrape.email)newEntry.email=scrape.email;if(scrape.phone)newEntry.phone=scrape.phone;}else{if(scrape.email)newEntry.email=scrape.email;if(scrape.phone)newEntry.phone=scrape.phone;if(scrape.company)newEntry.company=scrape.company;}}
+          const fq=startConv(newEntry,upType,false,null);
+          setMsgs([...history,{role:"assistant",content:`No existing record for "${upName}" — creating new ${upType}. ${hasRecent?"Using Outlook data. ":""}${fq?"\n\n"+fq+" (or 'x' to skip)":"\nReview and save below."}`}]);
+        }
+        setLoading(false);setMood("idle");return;
+      }
+    }
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
     const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:vendor|supplier|lead|contact)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
     if(_isVendorIntent){
@@ -3415,51 +3455,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
       setLoading(false);setMood("idle");
       return;
-    }
-
-    // ── "update vendor/lead [Name]" — find existing or create new ─────────────
-    if(agent.id==="logistical"){
-      const upM=input.match(/\b(?:update|edit|modify|change|open|pull\s*up|show)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact)\s+)?(.+?)(?:\s+(?:record|entry|details?|info|card))?[.!?]?\s*$/i);
-      if(upM&&upM[2]&&upM[2].trim().length>=2&&!/\b(email|phone|name|role|company|website|category|location|notes|status|source|date|value|rate\s*card)\b/i.test(upM[2])&&!/^(vendor|supplier|lead|contact)$/i.test(upM[2].trim())){
-        const upTypeHint=upM[1]?(/vendor|supplier/i.test(upM[1])?"vendor":"lead"):null;
-        const upName=upM[2].trim();
-        setMsgs(history);setInput("");setLoading(true);setMood("thinking");
-        // Look up existing record
-        const found=findVendorOrLead(upName,allVendors,allLeads);
-        // Merge with last search result if available and recent (<5 min) and name matches
-        const lastS=lastSearchRef.current;
-        const hasRecent=lastS&&(Date.now()-lastS._ts<300000)&&(lastS.contact||lastS.name||"").toLowerCase().includes(upName.split(" ")[0].toLowerCase());
-        if(found){
-          const {record,type}=found;
-          const displayName=type==="vendor"?record.name:(record.contact||record.company);
-          // Merge scraped data into existing record (only fill blanks)
-          const merged={...record};
-          if(hasRecent){
-            const scrape=lastS;
-            if(type==="vendor"){
-              if(!merged.email&&scrape.email)merged.email=scrape.email;
-              if(!merged.phone&&scrape.phone)merged.phone=scrape.phone;
-              if(!merged.website&&scrape.website)merged.website=scrape.website;
-              if(!merged.notes&&scrape.role)merged.notes=scrape.role;
-            }else{
-              if(!merged.email&&scrape.email)merged.email=scrape.email;
-              if(!merged.phone&&scrape.phone)merged.phone=scrape.phone;
-              if(!merged.company&&scrape.company)merged.company=scrape.company;
-              if(!merged.role&&scrape.role)merged.role=scrape.role;
-            }
-          }
-          showEntry(merged,type,record.id,false);
-          setMsgs([...history,{role:"assistant",content:`Found ${displayName} (${type}). ${hasRecent?"Merged Outlook data. ":""}Edit below and save.`}]);
-        }else{
-          // No existing record — create new
-          const upType=upTypeHint||"vendor";
-          const newEntry=hasRecent?{...lastS,_type:upType}:{_type:upType,...(upType==="vendor"?{name:upName,company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""}:{contact:upName,company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:new Date().toISOString().split("T")[0],status:"not_contacted",notes:""})};
-          if(hasRecent){const scrape=lastS;if(upType==="vendor"){if(scrape.email)newEntry.email=scrape.email;if(scrape.phone)newEntry.phone=scrape.phone;}else{if(scrape.email)newEntry.email=scrape.email;if(scrape.phone)newEntry.phone=scrape.phone;if(scrape.company)newEntry.company=scrape.company;}}
-          const fq=startConv(newEntry,upType,false,null);
-          setMsgs([...history,{role:"assistant",content:`No existing record for "${upName}" — creating new ${upType}. ${hasRecent?"Using Outlook data. ":""}${fq?"\n\n"+fq+" (or 'x' to skip)":"\nReview and save below."}`}]);
-        }
-        setLoading(false);setMood("idle");return;
-      }
     }
 
     // ── Intent detection (Vinnie only) ────────────────────────────────────────
@@ -6007,7 +6002,7 @@ export default function OnnaDashboard() {
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
-  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const m=arr.map(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(m))}catch{}return m;}catch{return []}});
+  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const m=arr.map(p=>(p.id===1||p.id==="1")&&p.client!=="TEMPLATE"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(m))}catch{}return m;}catch{return []}});
   const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
   const [apiLoading,setApiLoading]           = useState(true);
@@ -6324,7 +6319,7 @@ export default function OnnaDashboard() {
       api.get("/api/outreach"),
     ]).then(async ([projects, leads, clients, vendors, outreach])=>{
       if (cancelled) return;
-      if (Array.isArray(projects) && projects.length > 0) { const migrated=projects.map(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} const tplP=projects.find(p=>(p.id===1||p.id==="1")&&p.client==="Columbia / IMA"); if(tplP) api.put(`/api/projects/${tplP.id}`,{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}).catch(()=>{}); }
+      if (Array.isArray(projects) && projects.length > 0) { const migrated=projects.map(p=>(p.id===1||p.id==="1")&&p.client!=="TEMPLATE"?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p); setLocalProjects(migrated); try{localStorage.setItem('onna_cache_projects',JSON.stringify(migrated))}catch{} const tplP=projects.find(p=>(p.id===1||p.id==="1")&&p.client!=="TEMPLATE"); if(tplP) api.put(`/api/projects/${tplP.id}`,{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}).catch(e=>console.warn("Template rename PUT failed:",e)); }
       if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
       if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
