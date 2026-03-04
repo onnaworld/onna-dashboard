@@ -2278,7 +2278,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -2307,6 +2307,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [ronnieTabs,setRonnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addRonnieTab=(projectId,vIdx,label)=>setRonnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const codyPendingRef=useRef(null); // null | {projectId, step:"pick_existing_or_new"} | {projectId, step:"pick_type"}
   const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
@@ -2510,6 +2511,31 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     if(pendingConv){
+      // ── Awaiting type choice (from bare "new") ──
+      if(pendingConv._awaitingTypeChoice){
+        const pick=input.trim();
+        const today=new Date().toISOString().slice(0,10);
+        setMsgs(history);setInput("");
+        if(pick==="1"||/^vendor/i.test(pick)){
+          setPendingConv(null);
+          const entry={_type:"vendor",name:"",company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""};
+          const firstQ=startConv(entry,"vendor",false,null);
+          setMsgs([...history,{role:"assistant",content:`New vendor — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+        }else if(pick==="2"||/^lead/i.test(pick)){
+          setPendingConv(null);
+          const entry={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
+          const firstQ=startConv(entry,"lead",false,null);
+          setMsgs([...history,{role:"assistant",content:`New lead — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+        }else if(pick==="3"||/^outreach/i.test(pick)){
+          setPendingConv(null);
+          const entry={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
+          const firstQ=startConv(entry,"lead",true,null);
+          setMsgs([...history,{role:"assistant",content:`New outreach tracker — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:"Please reply 1 (Vendor), 2 (Lead), or 3 (Outreach Tracker)."}]);
+        }
+        return;
+      }
       // ── Mid-Q&A search — fill missing fields from Outlook/WhatsApp ──
       const midSearchM=agent.id==="logistical"&&input.trim().match(/\b(?:search|check|look|find|scan)\s+(?:(?:my|in|on|the)\s+)?(?:outlook|whatsapp|emails?|inbox|chats?)\b/i);
       if(midSearchM){
@@ -3290,8 +3316,15 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       return;
     }
 
-    // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
+    // ── Vinnie: bare "new" / "create" / "add" with no type → ask which type ──
     const _vinInput=input.trim().replace(/\s+/g," ").replace(/^(?:hey|hi|hello|yo)?\s*(?:vinnie|vin)\s*[,.]?\s*/i,"");
+    if(agent.id==="logistical"&&/^(?:create|add|new|make|start)\s*(?:a\s+)?(?:new\s*)?(?:entry|one|record)?[.!?]?\s*$/i.test(_vinInput)){
+      setMsgs(history);setInput("");
+      setPendingConv({_awaitingTypeChoice:true,entry:null,type:null,questions:[],idx:0});
+      setMsgs([...history,{role:"assistant",content:"What would you like to create?\n\n1. Vendor\n2. Lead\n3. Outreach Tracker (lead + outreach)\n\nReply 1, 2, or 3."}]);
+      return;
+    }
+    // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
     const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:vendor|supplier|lead|contact)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
     if(_isVendorIntent){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
@@ -3811,8 +3844,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
           setLoading(false);setMood("idle");return;
         }
-        const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT)),ts:{...ESTIMATE_INIT.ts,client:project.client||"",project:project.name||""}}];
-        if(!projectEstimates?.[project.id]) setProjectEstimates(prev=>({...prev,[project.id]:estVersions}));
+        const estVersions = projectEstimates?.[project.id] || [];
+        if(estVersions.length===0){
+          setBillieCtx({projectId:project.id,pendingCreate:true});
+          setMsgs([...history,{role:"assistant",content:`No estimates for **${project.name}** yet. Want me to create a new V1?`}]);
+          setLoading(false);setMood("idle");return;
+        }
         if(estVersions.length===1){
           setBillieCtx({projectId:project.id,vIdx:0});
           const vLabel=estVersions[0].ts?.version||"V1";
@@ -3835,7 +3872,31 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         const list=estVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple estimate versions:\n\n${list}\n\nWhich version should I work on?`}]);
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple estimate versions:\n\n${list}\n\nWhich version should I work on? Or say "create new" to start a fresh estimate.`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // ── pendingCreate confirmation handler ──
+      if(billieCtx.pendingCreate){
+        const lower=input.toLowerCase();
+        if(/\b(yes|yeah|yep|sure|ok|go|create|do it|please)\b/i.test(lower)){
+          const project=localProjects?.find(p=>p.id===billieCtx.projectId);
+          if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+          const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+          ne.ts={...ne.ts,version:"PRODUCTION ESTIMATE V1",client:project.client||"",project:project.name||""};
+          setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
+          setBillieCtx({projectId:project.id,vIdx:0});
+          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].prodLogo)arr[arr.length-1].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+          setMsgs([...history,{role:"assistant",content:`Created V1 for **${project.name}**! I'm now working on it. What would you like to do? I can update header info, rows, or help you build the estimate from scratch.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        if(/\b(no|nah|cancel|nevermind|never mind|nope)\b/i.test(lower)){
+          setBillieCtx(null);
+          setMsgs([...history,{role:"assistant",content:"No worries! Let me know if you need anything else."}]);
+          setLoading(false);setMood("idle");return;
+        }
+        // Unrecognized response while pending create — re-prompt
+        setMsgs([...history,{role:"assistant",content:`Want me to create a new V1 estimate? Say **yes** to create or **no** to cancel.`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -3846,28 +3907,47 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
       if(switchProject){
-        const swVersions=projectEstimates?.[switchProject.id]||[{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT)),ts:{...ESTIMATE_INIT.ts,client:switchProject.client||"",project:switchProject.name||""}}];
-        if(!projectEstimates?.[switchProject.id]) setProjectEstimates(prev=>({...prev,[switchProject.id]:swVersions}));
-        if(swVersions.length===1){
+        const swVersions=projectEstimates?.[switchProject.id]||[];
+        if(swVersions.length===0){
+          setBillieCtx({projectId:switchProject.id,pendingCreate:true});
+          setMsgs([...history,{role:"assistant",content:`No estimates for **${switchProject.name}** yet. Want me to create a new V1?`}]);
+        }else if(swVersions.length===1){
           setBillieCtx({projectId:switchProject.id,vIdx:0});
           setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].ts?.version||"V1"}). What would you like to do?`}]);
         }else{
           setBillieCtx(null);
           const list=swVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version? Or say "create new" for a fresh estimate.`}]);
         }
         setLoading(false);setMood("idle");return;
       }
 
-      if(/\b(switch|change|different|new)\s+(project|estimate|budget)\b/i.test(input)){
+      if(/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
+        const curVersions=projectEstimates?.[projectId]||[];
+        const vNum=curVersions.length+1;
+        const vLabels=["V1","V2","V3","V4","V5"];
+        const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+        ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${vLabels[curVersions.length]||`V${vNum}`}`,client:project.client||"",project:project.name||""};
+        setProjectEstimates(prev=>({...prev,[projectId]:[...(prev[projectId]||[]),ne]}));
+        const newIdx=curVersions.length;
+        setBillieCtx({projectId,vIdx:newIdx});
+        const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[projectId]||[];if(arr[newIdx]&&!arr[newIdx].prodLogo)arr[newIdx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+        setMsgs([...history,{role:"assistant",content:`Created **${vLabels[curVersions.length]||`V${vNum}`}** for **${project.name}**! I'm now working on it. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      if(/\b(switch|change|different|new)\s+(project|budget)\b/i.test(input)){
         setBillieCtx(null);
         const list=localProjects.map(p=>`• ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's estimate should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
 
-      const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT)),ts:{...ESTIMATE_INIT.ts,client:project.client||"",project:project.name||""}}];
-      if(!projectEstimates?.[project.id]) setProjectEstimates(prev=>({...prev,[project.id]:estVersions}));
+      const estVersions = projectEstimates?.[project.id] || [];
+      if(estVersions.length===0){
+        setMsgs([...history,{role:"assistant",content:`No estimates for **${project.name}** yet. Say "create new" or use the Estimates folder to create one first!`}]);
+        setLoading(false);setMood("idle");return;
+      }
       vIdx = Math.min(vIdx, estVersions.length-1);
       const ver = estVersions[vIdx];
       const vLabel = ver.ts?.version || `V${vIdx+1}`;
@@ -6494,6 +6574,16 @@ export default function OnnaDashboard() {
 
   const restoreItem = async (entry) => {
     const {id:archiveId, table, item} = entry;
+    if (table==='estimates') {
+      const {projectId, estimate} = item;
+      setProjectEstimates(prev=>({...prev,[projectId]:[...(prev[projectId]||[]),estimate]}));
+      setArchive(prev=>{
+        const updated=prev.filter(e=>e.id!==archiveId);
+        try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
+        return updated;
+      });
+      return;
+    }
     const {id:_origId, ...fields} = item;
     const saved = await api.post(`/api/${table}`, fields);
     if (saved.id) {
@@ -6762,6 +6852,7 @@ export default function OnnaDashboard() {
                       <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{est.ts?.date||""} · AED {totalIncVat.toLocaleString(undefined,{maximumFractionDigits:0})} inc. VAT</div>
                     </div>
                     <BtnSecondary small onClick={()=>setEditingEstimate(est.id)}>Edit</BtnSecondary>
+                    <button onClick={(e)=>{e.stopPropagation();if(!window.confirm(`Delete this estimate (${est.ts?.version||"V1"})? It will be moved to the archive.`))return;archiveItem("estimates",{projectId:p.id,estimate:est});setProjectEstimates(prev=>{const arr=(prev[p.id]||[]).filter(x=>x.id!==est.id);const updated={...prev};if(arr.length===0)delete updated[p.id];else updated[p.id]=arr;return updated;});}} style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"4px 6px",borderRadius:6,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete estimate">×</button>
                   </div>
                 );
               })}
@@ -8528,6 +8619,7 @@ export default function OnnaDashboard() {
                       contractDocStore={a.id==="contracts"?contractDocStore:undefined}
                       setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
                       activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
+                      setActiveContractVersion={a.id==="contracts"?setActiveContractVersion:undefined}
                       projectEstimates={a.id==="billie"?projectEstimates:undefined}
                       setProjectEstimates={a.id==="billie"?setProjectEstimates:undefined}
                       activeEstimateVersion={a.id==="billie"?activeEstimateVersion:undefined}
@@ -9275,7 +9367,7 @@ export default function OnnaDashboard() {
               {archive.length===0?(
                 <div style={{padding:"48px 0",textAlign:"center",color:T.muted,fontSize:13}}>Archive is empty.</div>
               ):(
-                ["leads","vendors","outreach"].map(table=>{
+                ["leads","vendors","outreach","estimates"].map(table=>{
                   const entries = archive.filter(e=>e.table===table);
                   if (!entries.length) return null;
                   const label = table.charAt(0).toUpperCase()+table.slice(1);
@@ -9285,8 +9377,8 @@ export default function OnnaDashboard() {
                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
                         {entries.map(entry=>{
                           const it = entry.item;
-                          const name = it.company||it.name||"—";
-                          const sub = it.contact||it.clientName||it.category||"";
+                          const name = table==='estimates'?(it.estimate?.ts?.version||"Estimate"):(it.company||it.name||"—");
+                          const sub = table==='estimates'?(it.estimate?.ts?.project||""):(it.contact||it.clientName||it.category||"");
                           const deleted = new Date(entry.deletedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
                           return (
                             <div key={entry.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.borderSub}`}}>
