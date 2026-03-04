@@ -7083,7 +7083,7 @@ const ProjectTodoList = ({projectId,projectTodos,setProjectTodos,archivedTodos,s
           <span style={{flex:1,fontSize:13,color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",lineHeight:"1.5"}}>{t.text}</span>
           <div style={{display:"flex",gap:3,opacity:0,transition:"opacity 0.12s"}} className="todo-del">
             <button onClick={()=>setArchivedTodos(prev=>[...prev,{...t,projectId}])} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 4px",borderRadius:4,fontFamily:"inherit"}}>⊘</button>
-            <button onClick={()=>setProjectTodos(prev=>({...prev,[projectId]:(prev[projectId]||[]).filter(x=>x.id!==t.id)}))} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
+            <button onClick={()=>{archiveItem('todos',{...t,_source:"project",projectId});setProjectTodos(prev=>({...prev,[projectId]:(prev[projectId]||[]).filter(x=>x.id!==t.id)}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:0,lineHeight:1}}>×</button>
           </div>
         </div>
       ))}
@@ -7462,6 +7462,9 @@ export default function OnnaDashboard() {
   const [addContactForm,setAddContactForm]               = useState(null); // {type,name,email,phone,role}
   const [leadsView,setLeadsView]                         = useState(()=>localStorage.getItem("onna_leads_view")||"dashboard");
   useEffect(()=>{localStorage.setItem("onna_leads_view",leadsView);},[leadsView]);
+  const [dashWidgetOrder,setDashWidgetOrder]=useState(()=>{try{const c=localStorage.getItem('onna_dash_widget_order');return c?JSON.parse(c):null;}catch{return null;}});
+  useEffect(()=>{try{if(dashWidgetOrder)localStorage.setItem('onna_dash_widget_order',JSON.stringify(dashWidgetOrder));else localStorage.removeItem('onna_dash_widget_order');}catch{}},[dashWidgetOrder]);
+  const dashDragRef=useRef(null);
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
@@ -10252,6 +10255,7 @@ export default function OnnaDashboard() {
           if(_pi){if(_pi.shootName)newTI.project.name=_pi.shootName;if(_pi.shootDate)newTI.project.date=_pi.shootDate;}
           newTI.project.name=newTI.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newTI.project.name;
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newTI);return store;});
+          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setTravelItineraryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
           setActiveTIVersion(tiVersions.length);
         };
         const deleteTI = (idx) => {
@@ -10763,7 +10767,7 @@ export default function OnnaDashboard() {
                         </div>
                         <div className="todo-del" style={{display:"flex",gap:3}}>
                           <button onClick={e=>{e.stopPropagation();pushUndo('archive');setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
-                          <button onClick={e=>{e.stopPropagation();pushUndo("toggle");(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).filter(x=>x.id!==t.id)})):setTodos(prev=>prev.filter(x=>x.id!==t.id)));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
+                          <button onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).filter(x=>x.id!==t.id)})):setTodos(prev=>prev.filter(x=>x.id!==t.id)));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
                         </div>
                       </div>
                     ))}
@@ -10885,15 +10889,7 @@ export default function OnnaDashboard() {
 
               {leadsView==="dashboard"&&(()=>{
                 const STATUSES = ["not_contacted","cold","warm","open","client"];
-                /* ── Stats row ── */
-                const _statsRow = (
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
-                    <StatCard label="Projects 2026"  value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>
-                    <StatCard label="Revenue 2026"   value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>
-                    <StatCard label="Profit 2026"    value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>
-                    <StatCard label="Pipeline"       value={apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>
-                  </div>
-                );
+                /* stats computed below in widgetMap */
                 const COLORS   = {not_contacted:"#c0392b",cold:"#6e6e73",warm:"#1a56db",open:"#147d50",client:"#7c3aed"};
                 const STATUS_LABELS = OUTREACH_STATUS_LABELS;
                 const counts   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).length);
@@ -10968,37 +10964,66 @@ export default function OnnaDashboard() {
                   </div>
                 );
 
+                const DEFAULT_DASH_ORDER=["stats-0","stats-1","stats-2","stats-3","donut-0","donut-1","donut-2","remind-0","remind-1"];
+                const widgetOrder=dashWidgetOrder||DEFAULT_DASH_ORDER;
+                const widgetMap={
+                  "stats-0":<StatCard label="Projects 2026" value={projects2026.length} sub={`${projects2026.filter(p=>p.status==="Active").length} active`}/>,
+                  "stats-1":<StatCard label="Revenue 2026" value={`AED ${(rev2026/1000).toFixed(0)}k`} sub="all projects this year"/>,
+                  "stats-2":<StatCard label="Profit 2026" value={`AED ${(profit2026/1000).toFixed(0)}k`} sub={`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`}/>,
+                  "stats-3":<StatCard label="Pipeline" value={apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`} sub={`${newCount} new leads`}/>,
+                  "donut-0":<Donut title="Conversion" groups={stageGroups}/>,
+                  "donut-1":<Donut title="By Category" groups={catGroups}/>,
+                  "donut-2":<Donut title="By Location" groups={locGroups}/>,
+                  "remind-0":(
+                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px",height:"100%",boxSizing:"border-box"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                        <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
+                        <span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span>
+                      </div>
+                      {toContact.length===0
+                        ? <div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>
+                        : toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)
+                      }
+                    </div>
+                  ),
+                  "remind-1":(
+                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px",height:"100%",boxSizing:"border-box"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                        <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div>
+                        <span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span>
+                      </div>
+                      {toFollowUp.length===0
+                        ? <div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>
+                        : toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)
+                      }
+                    </div>
+                  ),
+                };
+                const getSpan=id=>id.startsWith("remind-")?(isMobile?"span 2":"span 2"):"span 1";
                 return (
-                  <div>
-                    {_statsRow}
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
-                      <Donut title="Conversion" groups={stageGroups}/>
-                      <Donut title="By Category" groups={catGroups}/>
-                      <Donut title="By Location" groups={locGroups}/>
-                    </div>
-
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
-                      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
-                          <span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span>
-                        </div>
-                        {toContact.length===0
-                          ? <div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>
-                          : toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)
-                        }
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14}}>
+                    {widgetOrder.map(id=>(
+                      <div key={id}
+                        draggable
+                        onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.5";e.currentTarget.style.cursor="grabbing";}}
+                        onDragEnd={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.cursor="grab";dashDragRef.current=null;}}
+                        onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
+                        onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                        onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
+                          const from=dashDragRef.current;if(!from||from===id)return;
+                          setDashWidgetOrder(prev=>{
+                            const order=[...(prev||DEFAULT_DASH_ORDER)];
+                            const fi=order.indexOf(from),ti=order.indexOf(id);
+                            if(fi<0||ti<0)return prev;
+                            order.splice(fi,1);order.splice(ti,0,from);
+                            return order;
+                          });
+                        }}
+                        style={{gridColumn:getSpan(id),cursor:"grab"}}
+                      >
+                        {widgetMap[id]}
                       </div>
-                      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div>
-                          <span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span>
-                        </div>
-                        {toFollowUp.length===0
-                          ? <div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>
-                          : toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)
-                        }
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 ); })()}
 
