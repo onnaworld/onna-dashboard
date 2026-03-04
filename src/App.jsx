@@ -2907,6 +2907,16 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
               // No domain match — treat as raw input
               e.email=_formatVal("email",inp2);
             }
+          }else if(q.key==="website"){
+            const inp2=input.trim();
+            if(conv._websiteOptions){
+              const pickNum=parseInt(inp2);
+              if(pickNum>=1&&pickNum<=conv._websiteOptions.length){e.website=conv._websiteOptions[pickNum-1];}
+              else{const pickMatch=conv._websiteOptions.find(o=>o.toLowerCase().includes(inp2.toLowerCase()));e.website=pickMatch||_formatVal("website",inp2);}
+              delete conv._websiteOptions;
+            }else{
+              e.website=_formatVal("website",inp2);
+            }
           }else{
             e[q.key]=_formatVal(q.key,input.trim());
             // Persist custom location to localStorage for future dropdown use
@@ -3042,6 +3052,60 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           }else{
             setPendingConv({...conv,entry:e,idx:next});
             setMsgs([...history,{role:"assistant",content:`Couldn't find ${searchQuery}'s email in Outlook.\n\n${nextQ.q} (or 'x' to skip)`}]);
+          }
+        }else if(nextQ.key==="website"&&agent.id==="logistical"){
+          // Auto-search for website using email domains, last search data, and company name
+          const ls=lastSearchRef.current;
+          const allDoms=[...(ls?._domains||[])].filter(d=>!/onna/i.test(d));
+          const allEm=[...(ls?._allEmails||[])].filter(em=>!/onna/i.test(em));
+          const compClean=(e.company||e.name||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+          // Extract unique domains from emails
+          const emailDoms=[...new Set(allEm.map(em=>(em.split("@")[1]||"").toLowerCase()).filter(d=>d&&!/gmail|yahoo|hotmail|outlook|icloud|aol|protonmail|live|msn|me\.com/i.test(d)))];
+          // Combine all domain sources
+          const allCandidates=[...new Set([...allDoms,...emailDoms])];
+          // Build website URLs from domains
+          const websites=[];
+          for(const d of allCandidates){
+            const clean=d.replace(/^www\./i,"");
+            if(clean)websites.push("www."+clean);
+          }
+          // Also try company name as domain if not already covered
+          if(compClean&&!websites.some(w=>w.replace(/[^a-z0-9]/g,"").includes(compClean))){
+            websites.push("www."+compClean+".com");
+          }
+          // Score by relevance to company/contact name
+          const _scoreWebsite=(w)=>{
+            let s=0;const wClean=w.toLowerCase().replace(/[^a-z0-9]/g,"");
+            if(compClean&&(wClean.includes(compClean)||compClean.includes(w.split(".").filter(p=>p!=="www"&&p!=="com"&&p!=="org"&&p!=="net"&&p!=="co"&&p!=="uk"&&p!=="io")[0]||"")))s+=10;
+            const nameParts=(e.contact||e.name||"").toLowerCase().split(/\s+/);
+            nameParts.forEach(p=>{if(p.length>=3&&wClean.includes(p))s+=5;});
+            // Penalize generic/unrelated domains
+            if(/google|microsoft|apple|facebook|twitter|linkedin|instagram/i.test(w))s-=10;
+            return s;
+          };
+          const unique=[...new Set(websites)];
+          unique.sort((a,b)=>_scoreWebsite(b)-_scoreWebsite(a));
+          if(unique.length===1&&_scoreWebsite(unique[0])>=10){
+            // High-confidence single match — auto-fill
+            e.website=unique[0];
+            let skipIdx=next+1;
+            while(skipIdx<conv.questions.length&&e[conv.questions[skipIdx].key])skipIdx++;
+            if(skipIdx>=conv.questions.length){
+              setPendingConv(null);
+              showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+              setMsgs([...history,{role:"assistant",content:`Found website: ${unique[0]}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+            }else{
+              setPendingConv({...conv,entry:e,idx:skipIdx});
+              setMsgs([...history,{role:"assistant",content:`Found website: ${unique[0]}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
+            }
+          }else if(unique.length>0){
+            // Multiple options — let user choose
+            setPendingConv({...conv,entry:e,idx:next,_websiteOptions:unique});
+            const optList=unique.map((o,i)=>`${i+1}. ${o}`).join("\n");
+            setMsgs([...history,{role:"assistant",content:`Found possible websites:\n\n${optList}\n\nReply with the number, type the correct website, or 'x' to skip.`}]);
+          }else{
+            setPendingConv({...conv,entry:e,idx:next});
+            setMsgs([...history,{role:"assistant",content:nextQ.q+" (or 'x' to skip)"}]);
           }
         }else{
           setPendingConv({...conv,entry:e,idx:next});
@@ -3821,8 +3885,10 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setLoading(false);return;
     }
 
-    // ── Ronnie: live risk assessment handler ────────────────────────────────────
+    // ── Ronnie: live risk assessment handler ─────────────────────────────────────────────────────────────────────────
     if(agent.id==="researcher"&&riskAssessmentStore&&setRiskAssessmentStore){
+
+      // ── Step 0: No context — ask for project ──
       if(!ronnieCtx){
         if(!localProjects?.length){
           setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
@@ -3831,43 +3897,172 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const lower=input.toLowerCase();
         const project = localProjects.find(p=>lower.includes(p.name.toLowerCase()));
         if(!project){
-          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}`}]);
           setLoading(false);setMood("idle");return;
         }
-        const raVersions = riskAssessmentStore?.[project.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
-        if(raVersions.length===1){
-          setRonnieCtx({projectId:project.id,vIdx:0});
-          const vLabel=raVersions[0].label||"Version 1";
-          addRonnieTab(project.id,0,`${project.name} · ${vLabel}`);
-          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on the risk assessment for **${project.name}** (${vLabel}). What would you like to do? I can add risks, review what's missing, or update any section.`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        // Project found — check existing labels
+        const raLabels=riskAssessmentStore?.[project.id]||[];
+        if(raLabels.length===0){
+          // No labels yet — ask to create
+          setRonnieCtx({projectId:project.id,_step:"create_label"});
+          setMsgs([...history,{role:"assistant",content:`**${project.name}** has no risk assessments yet. What should I call this one? (e.g. Shoot Day, Recce Day, Pre-Production)`}]);
+          setLoading(false);setMood("idle");return;
         }
-        // Multiple versions — try to match version in same message
-        const verMatch=lower.match(/\bversion\s*(\d+)\b/i);
-        let matchIdx=-1;
-        if(verMatch){
-          const verNum=parseInt(verMatch[1]);
-          matchIdx=raVersions.findIndex(v=>(v.label||"").toLowerCase().includes(`version ${verNum}`));
-          if(matchIdx<0&&verNum>=1&&verNum<=raVersions.length) matchIdx=verNum-1;
+        // Has labels — try matching one in the message
+        const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
+        if(matchedLabel>=0){
+          setRonnieCtx({projectId:project.id,vIdx:matchedLabel,_step:"pick_version"});
+          const revs=raLabels[matchedLabel].revisions||[];
+          if(revs.length===0){
+            // No versions yet — auto-create V1 and start editing
+            const {revisions:_r,finalRevision:_f,...snap}=raLabels[matchedLabel];
+            const v1={label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};
+            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[matchedLabel].revisions=[v1];store[project.id]=arr;return store;});
+            setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+            addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${raLabels[matchedLabel].label} \u00b7 V1`);
+            setMsgs([...history,{role:"assistant",content:`Working on **${project.name}** \u2014 **${raLabels[matchedLabel].label} (V1)**. What would you like to do?`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          const latestRev=revs[revs.length-1];
+          setMsgs([...history,{role:"assistant",content:`**${raLabels[matchedLabel].label}** has ${revs.length} version${revs.length>1?"s":""}:\n\n${revs.map((r,i)=>`\u2022 ${r.label}${r.isFinal?" (Final)":""}`).join("\n")}\n\nWork on the latest (**${latestRev.label}**) or **create new version**?`}]);
+          setLoading(false);setMood("idle");return;
         }
-        if(matchIdx<0){
-          const labelMatch=raVersions.findIndex(v=>v.label && lower.includes(v.label.toLowerCase()));
-          if(labelMatch>=0) matchIdx=labelMatch;
-        }
-        if(matchIdx>=0){
-          setRonnieCtx({projectId:project.id,vIdx:matchIdx});
-          const vLabel=raVersions[matchIdx].label||`Version ${matchIdx+1}`;
-          addRonnieTab(project.id,matchIdx,`${project.name} · ${vLabel}`);
-          const _v=raVersions[matchIdx];const _hasData=_v.shootName||_v.sections?.some(s=>s.rows?.length);
-          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the risk assessment data from before. What would you like to do?`:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        const list=raVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple versions:\n\n${list}\n\nWhich version should I work on?`}]);
+        // No label matched — show list + option to create
+        setRonnieCtx({projectId:project.id,_step:"pick_label"});
+        const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has these risk assessments:\n\n${list}\n\nWhich one should I work on, or say **create new** for a new one?`}]);
         setLoading(false);setMood("idle");return;
       }
 
+      // ── Multi-step flow handler ──
+      if(ronnieCtx._step){
+        const lower=input.toLowerCase();
+        const project=localProjects?.find(p=>p.id===ronnieCtx.projectId);
+        if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
+        const raLabels=riskAssessmentStore?.[project.id]||[];
+
+        // ── Step: create_label — waiting for label name ──
+        if(ronnieCtx._step==="create_label"){
+          const labelName=input.trim();
+          if(!labelName||labelName.length<1){
+            setMsgs([...history,{role:"assistant",content:"Give me a name for this risk assessment (e.g. Shoot Day, Recce Day)."}]);
+            setLoading(false);setMood("idle");return;
+          }
+          // Create new label with V1
+          const newLabel={id:Date.now(),label:labelName,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT)),revisions:[],finalRevision:null};
+          const {revisions:_r,finalRevision:_f,...snap}=newLabel;
+          newLabel.revisions=[{label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))}];
+          setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newLabel);return store;});
+          const newIdx=raLabels.length;
+          setRonnieCtx({projectId:project.id,vIdx:newIdx});
+          addRonnieTab(project.id,newIdx,`${project.name} \u00b7 ${labelName} \u00b7 V1`);
+          setMsgs([...history,{role:"assistant",content:`\u2713 Created **${labelName}** (V1) for **${project.name}**. I'm ready to work on it \u2014 tell me what risks to add, or ask me to review what's missing.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+
+        // ── Step: pick_label — waiting for label selection ──
+        if(ronnieCtx._step==="pick_label"){
+          // Check for "create new"
+          if(/\b(create|new|add)\b/i.test(lower)&&/\b(new|create|add|risk|assessment|ra)\b/i.test(lower)){
+            setRonnieCtx({...ronnieCtx,_step:"create_label"});
+            setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment? (e.g. Shoot Day, Recce Day)"}]);
+            setLoading(false);setMood("idle");return;
+          }
+          // Try matching a label
+          const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
+          if(matchedLabel<0){
+            const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
+            setMsgs([...history,{role:"assistant",content:`I didn't catch which one. Pick a risk assessment:\n\n${list}\n\nOr say **create new**.`}]);
+            setLoading(false);setMood("idle");return;
+          }
+          // Label found — go to version selection
+          const ver=raLabels[matchedLabel];
+          const revs=ver.revisions||[];
+          if(revs.length===0){
+            // No versions — auto-create V1 and start
+            const {revisions:_r2,finalRevision:_f2,...snap2}=ver;
+            const v1={label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap2))};
+            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[matchedLabel].revisions=[v1];store[project.id]=arr;return store;});
+            setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+            addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${ver.label} \u00b7 V1`);
+            setMsgs([...history,{role:"assistant",content:`Working on **${project.name}** \u2014 **${ver.label} (V1)**. What would you like to do?`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          setRonnieCtx({projectId:project.id,vIdx:matchedLabel,_step:"pick_version"});
+          const latestRev=revs[revs.length-1];
+          setMsgs([...history,{role:"assistant",content:`**${ver.label}** has ${revs.length} version${revs.length>1?"s":""}:\n\n${revs.map(r=>`\u2022 ${r.label}${r.isFinal?" (Final)":""}`).join("\n")}\n\nWork on the latest (**${latestRev.label}**) or **create new version**?`}]);
+          setLoading(false);setMood("idle");return;
+        }
+
+        // ── Step: pick_version — waiting for version selection ──
+        if(ronnieCtx._step==="pick_version"){
+          const ver=raLabels[ronnieCtx.vIdx];
+          if(!ver){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That label no longer exists. Let's start over."}]);setLoading(false);setMood("idle");return;}
+          const revs=ver.revisions||[];
+
+          // "create new" / "new version"
+          if(/\b(create|new)\s*(version|v\d+|one)?\b/i.test(lower)){
+            const latestData=revs.length>0?JSON.parse(JSON.stringify(revs[revs.length-1].data)):(() => {const {revisions:_r3,finalRevision:_f3,...s}=ver;return JSON.parse(JSON.stringify(s));})();
+            const newRevLabel=`V${revs.length+1}`;
+            const newRev={label:newRevLabel,savedAt:Date.now(),isFinal:false,data:latestData};
+            // Copy latest revision data into top-level fields for editing
+            setRiskAssessmentStore(prev=>{
+              const store=JSON.parse(JSON.stringify(prev));
+              const arr=store[project.id]||[];
+              const entry=arr[ronnieCtx.vIdx];
+              // Copy data to top-level
+              const keys=["shootName","shootDate","locations","crewOnSet","timing","productionLogo","agencyLogo","clientLogo","sections","conductIntro","conductItems","waiverIntro","waiverItems","emergencyItems"];
+              keys.forEach(k=>{if(latestData[k]!==undefined)entry[k]=latestData[k];});
+              entry.revisions=[...(entry.revisions||[]),newRev];
+              store[project.id]=arr;return store;
+            });
+            setRonnieCtx({projectId:project.id,vIdx:ronnieCtx.vIdx});
+            addRonnieTab(project.id,ronnieCtx.vIdx,`${project.name} \u00b7 ${ver.label} \u00b7 ${newRevLabel}`);
+            setMsgs([...history,{role:"assistant",content:`\u2713 Created **${newRevLabel}** of **${ver.label}** (built from ${revs.length>0?revs[revs.length-1].label:"V1"}). I'm ready to work on it.`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+
+          // "latest" / specific version match / "yes" / V1/V2
+          const vMatch=lower.match(/\bv(\d+)\b/i);
+          let pickIdx=-1;
+          if(vMatch){
+            const vNum=parseInt(vMatch[1]);
+            pickIdx=revs.findIndex(r=>r.label&&r.label.toLowerCase()===`v${vNum}`);
+            if(pickIdx<0&&vNum>=1&&vNum<=revs.length) pickIdx=vNum-1;
+          }
+          if(pickIdx<0&&(/\b(latest|last|current|yes|yep|sure|ok|okay)\b/i.test(lower))){
+            pickIdx=revs.length-1;
+          }
+          if(pickIdx<0){
+            // Try label match
+            pickIdx=revs.findIndex(r=>r.label&&lower.includes(r.label.toLowerCase()));
+          }
+          if(pickIdx<0){
+            setMsgs([...history,{role:"assistant",content:`Which version? Say **latest**, a specific version (e.g. V1), or **create new**.`}]);
+            setLoading(false);setMood("idle");return;
+          }
+          // Load selected revision data into top-level for editing
+          const selRev=revs[pickIdx];
+          setRiskAssessmentStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));
+            const arr=store[project.id]||[];
+            const entry=arr[ronnieCtx.vIdx];
+            const keys=["shootName","shootDate","locations","crewOnSet","timing","productionLogo","agencyLogo","clientLogo","sections","conductIntro","conductItems","waiverIntro","waiverItems","emergencyItems"];
+            keys.forEach(k=>{if(selRev.data[k]!==undefined)entry[k]=selRev.data[k];});
+            store[project.id]=arr;return store;
+          });
+          setRonnieCtx({projectId:project.id,vIdx:ronnieCtx.vIdx});
+          addRonnieTab(project.id,ronnieCtx.vIdx,`${project.name} \u00b7 ${ver.label} \u00b7 ${selRev.label}`);
+          setMsgs([...history,{role:"assistant",content:`Working on **${project.name}** \u2014 **${ver.label} (${selRev.label})**. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+
+        // Unknown step — reset
+        setRonnieCtx(null);setLoading(false);setMood("idle");return;
+      }
+
+      // ── Ready state: editing ──
       let {projectId,vIdx}=ronnieCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
@@ -3875,40 +4070,88 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
       if(switchProject){
-        const swVersions=riskAssessmentStore?.[switchProject.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
-        if(swVersions.length===1){
-          setRonnieCtx({projectId:switchProject.id,vIdx:0});
-          addRonnieTab(switchProject.id,0,`${switchProject.name} · ${swVersions[0].label||"Version 1"}`);
-          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
+        // Reset to project selection for the new project
+        const raLabels=riskAssessmentStore?.[switchProject.id]||[];
+        if(raLabels.length===0){
+          setRonnieCtx({projectId:switchProject.id,_step:"create_label"});
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has no risk assessments yet. What should I call this one?`}]);
         }else{
-          setRonnieCtx(null);
-          const list=swVersions.map((v,i)=>`• ${v.label||`Version ${i+1}`}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
+          setRonnieCtx({projectId:switchProject.id,_step:"pick_label"});
+          const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has these risk assessments:\n\n${list}\n\nWhich one, or **create new**?`}]);
         }
         setLoading(false);setMood("idle");return;
       }
 
       if(/\b(switch|change|different|new)\s+(project|risk\s*assess)\b/i.test(input)){
         setRonnieCtx(null);
-        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        const list=localProjects.map(p=>`\u2022 ${p.name}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
         setLoading(false);setMood("idle");return;
       }
 
-      // Logo intent — detect "add agency/client/production logo" with attachment
+      // "new label" / "new risk assessment" for current project (not switching project)
+      if(/\b(create|new|add)\s+(label|risk\s*assess|ra|assessment)\b/i.test(input)&&!/\b(version|v\d+)\b/i.test(input)){
+        setRonnieCtx({projectId,_step:"create_label"});
+        setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment?"}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // "switch label" / "different label"
+      if(/\b(switch|change|different)\s+(label|assessment|ra)\b/i.test(input)){
+        const raLabels=riskAssessmentStore?.[project.id]||[];
+        if(raLabels.length<=1){
+          setMsgs([...history,{role:"assistant",content:"This project only has one risk assessment. Say **create new** to add another."}]);
+          setLoading(false);setMood("idle");return;
+        }
+        setRonnieCtx({projectId,_step:"pick_label"});
+        const list=raLabels.map(v=>`\u2022 ${v.label||"Untitled"}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Which risk assessment?\n\n${list}\n\nOr **create new**.`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Logo intent
       const logoMatch=input.match(/\b(agency|client|production)\s*(logo|image|jpeg|jpg|png|pic|photo|branding)\b/i);
       if(logoMatch&&curAttachments&&curAttachments.length>0){
         const logoType=logoMatch[1].toLowerCase();
         const logoKey=logoType==="agency"?"agencyLogo":logoType==="client"?"clientLogo":"productionLogo";
         const imgData=curAttachments[0].dataUrl;
-        const raVersions_l=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        const raVersions_l=riskAssessmentStore?.[project.id]||[];
         const vIdx_l=Math.min(vIdx,raVersions_l.length-1);
-        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];arr[vIdx_l][logoKey]=imgData;store[project.id]=arr;return store;});
-        setMsgs([...history,{role:"assistant",content:`\u2713 ${logoType.charAt(0).toUpperCase()+logoType.slice(1)} logo updated on the risk assessment! You can see it in the document preview.`}]);
+        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[vIdx_l][logoKey]=imgData;store[project.id]=arr;return store;});
+        setMsgs([...history,{role:"assistant",content:`\u2713 ${logoType.charAt(0).toUpperCase()+logoType.slice(1)} logo updated on the risk assessment!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-      // Export / PDF intent — generate directly from riskAssessmentStore data
+      // "Mark as final" / "create final" intent
+      if(/\b(mark|create|set|make|save)\s+(as\s+)?final\b/i.test(input)||/\bfinal\s+(version|revision|copy)\b/i.test(input)){
+        const raVersions_f=riskAssessmentStore?.[project.id]||[];
+        const vIdx_f=Math.min(vIdx,raVersions_f.length-1);
+        const ver_f=raVersions_f[vIdx_f];
+        const revs=ver_f.revisions||[];
+        const {revisions:_r,finalRevision:_fr,...dataSnapshot}=ver_f;
+        const newRev={label:`V${revs.length+1} (Final)`,savedAt:Date.now(),isFinal:true,data:JSON.parse(JSON.stringify(dataSnapshot))};
+        const updatedRevs=revs.map(r=>({...r,isFinal:false}));
+        updatedRevs.push(newRev);
+        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[vIdx_f].revisions=updatedRevs;arr[vIdx_f].finalRevision=updatedRevs.length-1;store[project.id]=arr;return store;});
+        setMsgs([...history,{role:"assistant",content:`\u2713 **${ver_f.label||"Version "+(vIdx_f+1)}** \u2014 saved as **V${updatedRevs.length} (Final)**. This version will be used for PDF export. \ud83d\udccc`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      // "Save revision" / "save as V2"
+      if(/\b(save|snapshot)\s+(as\s+)?(v\d+|new\s+version|new\s+revision|revision)\b/i.test(input)){
+        const raVersions_s=riskAssessmentStore?.[project.id]||[];
+        const vIdx_s=Math.min(vIdx,raVersions_s.length-1);
+        const ver_s=raVersions_s[vIdx_s];
+        const revs=ver_s.revisions||[];
+        const {revisions:_r2,finalRevision:_fr2,...dataSnapshot2}=ver_s;
+        const newRev={label:`V${revs.length+1}`,savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(dataSnapshot2))};
+        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[vIdx_s].revisions=[...(arr[vIdx_s].revisions||[]),newRev];store[project.id]=arr;return store;});
+        setMsgs([...history,{role:"assistant",content:`\u2713 Saved as **V${revs.length+1}** of ${ver_s.label||"Version "+(vIdx_s+1)}. You can continue editing.`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      // Export / PDF intent
       if(/\b(export|pdf|download|print)\b/i.test(input)&&/\b(risk|assessment|pdf|export|download|print|document|doc)\b/i.test(input)){
         const raVersions_ex=riskAssessmentStore?.[project.id]||[{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
         const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
@@ -3918,7 +4161,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const raData_ex=hasFinal_ex?{...ver_ex.revisions[finalIdx_ex].data,label:ver_ex.label}:ver_ex;
         printRiskAssessmentPDF(raData_ex);
         const _exLabel=hasFinal_ex?` (${ver_ex.revisions[finalIdx_ex].label})`:" (working copy)";
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment${_exLabel} — save it as PDF from there! 🔬`}]);
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment${_exLabel} \u2014 save it as PDF from there! \ud83d\udd2c`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -3930,9 +4173,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       // Build risk assessment snapshot
       let snap = `Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
       if(ver.sections?.length) snap += "Risk Sections:\n" + ver.sections.map((s,si)=>`  ${si+1}. ${s.title}:\n` + s.rows.map((r,ri)=>`    [row ${ri}] ${r[0]||"?"} | Level: ${r[1]||"?"} | At Risk: ${r[2]||"?"} | Mitigation: ${r[3]||"(empty)"}`).join("\n")).join("\n") + "\n";
-      if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map(c=>`  • ${c.label} ${c.text}`).join("\n") + "\n";
+      if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map(c=>`  \u2022 ${c.label} ${c.text}`).join("\n") + "\n";
       if(ver.waiverItems?.length) snap += "Liability Waiver:\n" + ver.waiverItems.map(w=>`  ${w.label} ${w.text}`).join("\n") + "\n";
-      if(ver.emergencyItems?.length) snap += "Emergency Plan:\n" + ver.emergencyItems.map(e=>`  • ${e.label} ${e.text}`).join("\n") + "\n";
+      if(ver.emergencyItems?.length) snap += "Emergency Plan:\n" + ver.emergencyItems.map(e=>`  \u2022 ${e.label} ${e.text}`).join("\n") + "\n";
 
       const ronnieSystem = buildRonnieSystem(project, ver, vLabel, snap);
 
@@ -3963,10 +4206,24 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const patch = JSON.parse(jsonMatch[1].trim());
             applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            // Auto-sync to latest revision
+            setTimeout(()=>{
+              setRiskAssessmentStore(prev=>{
+                const store=JSON.parse(JSON.stringify(prev));
+                const arr=store[project.id]||[];
+                const entry=arr[vIdx];
+                if(entry&&entry.revisions?.length>0){
+                  const {revisions:_r,finalRevision:_f,...snap}=entry;
+                  entry.revisions[entry.revisions.length-1].data=JSON.parse(JSON.stringify(snap));
+                  entry.revisions[entry.revisions.length-1].savedAt=Date.now();
+                }
+                store[project.id]=arr;return store;
+              });
+            },100);
             const _revCount=(raVersions[vIdx]?.revisions||[]).length;
-            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Risk assessment updated.",_ronnieSavePrompt:true,_ronnieSaveMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
+            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"\u2713 Risk assessment updated.",_ronnieSavePrompt:true,_ronnieSaveMeta:{projectId:project.id,vIdx,revCount:_revCount}}]);
           }catch(pe){
-            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n\u26a0\ufe0f Could not parse patch: "+pe.message}]);
           }
         }else{
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
@@ -8526,11 +8783,11 @@ export default function OnnaDashboard() {
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Tab</div>
-                <Sel value={selectedTodo._source==="project"?"project-"+selectedTodo.projectId:selectedTodo.tab==="personal"?"personal":"onna"} onChange={v=>{const oldSource=selectedTodo._source;if(v==="onna"||v==="personal"){const u={...selectedTodo,tab:v==="onna"?"onna":"personal",_source:"general",subType:selectedTodo.subType};setSelectedTodo(u);if(oldSource==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));setTodos(prev=>[...prev,u]);}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}else if(v.startsWith("project-")){const pid=Number(v.replace("project-",""));const u={...selectedTodo,_source:"project",projectId:pid};setSelectedTodo(u);if(oldSource==="project"&&selectedTodo.projectId!==pid){setProjectTodos(prev=>{const updated={...prev};updated[selectedTodo.projectId]=(updated[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id);updated[pid]=[...(updated[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}];return updated;});}else if(oldSource!=="project"){setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}]}));}}}} options={[{value:"onna",label:"ONNA"},{value:"personal",label:"Personal"},...allProjectsMerged.filter(p=>p.status==="Active").map(p=>({value:"project-"+p.id,label:p.name}))]}/>
+                <Sel value={selectedTodo._source==="project"?"project":selectedTodo.tab==="personal"?"personal":"onna"} onChange={v=>{const oldSource=selectedTodo._source;if(v==="onna"||v==="personal"){const u={...selectedTodo,tab:v==="onna"?"onna":"personal",_source:"general",subType:selectedTodo.subType};setSelectedTodo(u);if(oldSource==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));setTodos(prev=>[...prev,u]);}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}else if(v==="project"){const firstActive=allProjectsMerged.find(p=>p.status==="Active");if(!firstActive)return;const pid=selectedTodo._source==="project"?selectedTodo.projectId:firstActive.id;const u={...selectedTodo,_source:"project",projectId:pid};setSelectedTodo(u);if(oldSource!=="project"){setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}]}));}}}} options={[{value:"onna",label:"ONNA"},{value:"personal",label:"Personal"},{value:"project",label:"Projects"}]}/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={selectedTodo.subType==="later"?"later":"now"} onChange={v=>{const u={...selectedTodo,subType:v==="later"?"later":undefined};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?{...x,subType:u.subType}:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={[{value:"now",label:"Now"},{value:"later",label:"Later"}]}/>
+                <Sel value={selectedTodo._source==="project"?String(selectedTodo.projectId):(selectedTodo.subType==="later"?"later":"now")} onChange={v=>{if(selectedTodo._source==="project"){const pid=Number(v);if(pid===selectedTodo.projectId)return;const u={...selectedTodo,projectId:pid};setSelectedTodo(u);setProjectTodos(prev=>{const updated={...prev};updated[selectedTodo.projectId]=(updated[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id);updated[pid]=[...(updated[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}];return updated;});}else{const u={...selectedTodo,subType:v==="later"?"later":undefined};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={selectedTodo._source==="project"?allProjectsMerged.filter(p=>p.status==="Active").map(p=>({value:String(p.id),label:p.name})):[{value:"now",label:"Now"},{value:"later",label:"Later"}]}/>
               </div>
             </div>
             <div style={{marginBottom:22}}>
