@@ -1559,6 +1559,8 @@ const initOutreach = []; // populated from DB on load
 const savedCallSheets = {};
 const savedRiskAssessments = {};
 
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623";
+
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
   {id:"Agents",    label:"AGENTS",    starColor:_PURPLE},
@@ -1591,7 +1593,6 @@ const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${
 
 // ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
 const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623";
 function _DotEyes({y=42,spread=13,size=5,color="#1a1a1a"}){return<><circle cx={50-spread} cy={y} r={size} fill={color}/><circle cx={50+spread} cy={y} r={size} fill={color}/></>;}
 function _SquintEyes({y=43,spread=13}){return<><path d={`M ${50-spread-6} ${y} Q ${50-spread} ${y-7} ${50-spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/><path d={`M ${50+spread-6} ${y} Q ${50+spread} ${y-7} ${50+spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/></>;}
 function _OpenMouth({y=62}){return<><rect x="38" y={y} width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy={y+10} rx="9" ry="5" fill="#e8697a"/></>;}
