@@ -2483,7 +2483,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
   // ── RONNIE (Risk Assessment) ──
   if (agentId === "researcher" && riskAssessmentStore && setRiskAssessmentStore) {
-    const raVersions = riskAssessmentStore[projectId] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+    const raVersions = riskAssessmentStore[projectId] || [];
+    if (!raVersions.length) return null;
     const raIdx = Math.min(activeRAVersion||0, raVersions.length - 1);
     const raData = raVersions[raIdx] || raVersions[0];
     const {update:raU, set:raSet} = makeDocUpdater(projectId, raIdx, setRiskAssessmentStore, RISK_ASSESSMENT_INIT, "Version 1");
@@ -4717,22 +4718,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         // Has labels — try matching one in the message
         const matchedLabel=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
         if(matchedLabel>=0){
-          setRonnieCtx({projectId:project.id,_labelIdx:matchedLabel,_step:"pick_version"});
-          const revs=raLabels[matchedLabel].revisions||[];
-          if(revs.length===0){
-            // No versions yet — auto-create V1 and start editing
-            const {revisions:_r,finalRevision:_f,...snap}=raLabels[matchedLabel];
-            const v1={label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};
-            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[matchedLabel].revisions=[v1];store[project.id]=arr;return store;});
-            setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
-            if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
-            addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${raLabels[matchedLabel].label} \u00b7 V1`);
-            setMsgs([...history,{role:"assistant",content:`Working on ${project.name} \u2014 ${raLabels[matchedLabel].label} (V1). What would you like to do?`}]);
-            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-          }
-          const latestRev=revs[revs.length-1];
-          setMsgs([...history,{role:"assistant",content:`${raLabels[matchedLabel].label} has ${revs.length} version${revs.length>1?"s":""}:\n\n${revs.map((r,i)=>`\u2022 ${r.label}${r.isFinal?" (Final)":""}`).join("\n")}\n\nWork on the latest (${latestRev.label}) or create new version?`}]);
-          setLoading(false);setMood("idle");return;
+          setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+          if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
+          addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${raLabels[matchedLabel].label}`);
+          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} \u2014 ${raLabels[matchedLabel].label}. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         // No label matched — show list + option to create
         setRonnieCtx({projectId:project.id,_step:"pick_label"});
@@ -4937,33 +4927,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-      // "Mark as final" / "create final" intent
-      if(/\b(mark|create|set|make|save)\s+(as\s+)?final\b/i.test(input)||/\bfinal\s+(version|revision|copy)\b/i.test(input)){
-        const raVersions_f=riskAssessmentStore?.[project.id]||[];
-        const vIdx_f=Math.min(vIdx,raVersions_f.length-1);
-        const ver_f=raVersions_f[vIdx_f];
-        const revs=ver_f.revisions||[];
-        const {revisions:_r,finalRevision:_fr,...dataSnapshot}=ver_f;
-        const newRev={label:`V${revs.length+1} (Final)`,savedAt:Date.now(),isFinal:true,data:JSON.parse(JSON.stringify(dataSnapshot))};
-        const updatedRevs=revs.map(r=>({...r,isFinal:false}));
-        updatedRevs.push(newRev);
-        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[vIdx_f].revisions=updatedRevs;arr[vIdx_f].finalRevision=updatedRevs.length-1;store[project.id]=arr;return store;});
-        setMsgs([...history,{role:"assistant",content:`\u2713 ${ver_f.label||"Version "+(vIdx_f+1)} \u2014 saved as V${updatedRevs.length} (Final). This version will be used for PDF export. \ud83d\udccc`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      // "Save revision" / "save as V2"
-      if(/\b(save|snapshot)\s+(as\s+)?(v\d+|new\s+version|new\s+revision|revision)\b/i.test(input)){
-        const raVersions_s=riskAssessmentStore?.[project.id]||[];
-        const vIdx_s=Math.min(vIdx,raVersions_s.length-1);
-        const ver_s=raVersions_s[vIdx_s];
-        const revs=ver_s.revisions||[];
-        const {revisions:_r2,finalRevision:_fr2,...dataSnapshot2}=ver_s;
-        const newRev={label:`V${revs.length+1}`,savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(dataSnapshot2))};
-        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[vIdx_s].revisions=[...(arr[vIdx_s].revisions||[]),newRev];store[project.id]=arr;return store;});
-        setMsgs([...history,{role:"assistant",content:`\u2713 Saved as V${revs.length+1} of ${ver_s.label||"Version "+(vIdx_s+1)}. You can continue editing.`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
 
       // Handle "yes, export" confirmation after missing fields warning
       const lastMsg = history[history.length-1];
@@ -5725,35 +5688,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const isBudgetMsg=agent.id==="billie"&&m.role==="assistant"&&/AED|subtotal|total|contingency|agency fee/i.test(m.content);
         return(<div key={i}>
           <_AgentBubble msg={m}/>
-          {m._ronnieSavePrompt&&!loading&&(
-            <div style={{display:"flex",gap:6,marginTop:-4,marginBottom:8,paddingLeft:4,flexWrap:"wrap"}}>
-              <button onClick={()=>{
-                const meta=m._ronnieSaveMeta;if(!meta)return;
-                const raVs=riskAssessmentStore?.[meta.projectId]||[];
-                const v=raVs[meta.vIdx];if(!v)return;
-                const revs=v.revisions||[];
-                const {revisions:_r,finalRevision:_f,...snap}=v;
-                const newRev={label:`V${revs.length+1}`,savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};
-                setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[meta.projectId]||[];arr[meta.vIdx].revisions=[...(arr[meta.vIdx].revisions||[]),newRev];store[meta.projectId]=arr;return store;});
-                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_ronnieSavePrompt:false}:pm).concat([{role:"assistant",content:`✓ Saved as V${revs.length+1}. You can continue editing the working copy.`}]));
-              }} style={{fontSize:10,fontWeight:600,color:"#1a4a80",background:"#d8eaf8",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>Save as V{(m._ronnieSaveMeta?.revCount||0)+1}</button>
-              <button onClick={()=>{
-                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_ronnieSavePrompt:false}:pm));
-              }} style={{fontSize:10,fontWeight:600,color:"#555",background:"#f0f0f0",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>Keep editing</button>
-              <button onClick={()=>{
-                const meta=m._ronnieSaveMeta;if(!meta)return;
-                const raVs=riskAssessmentStore?.[meta.projectId]||[];
-                const v=raVs[meta.vIdx];if(!v)return;
-                const revs=v.revisions||[];
-                const {revisions:_r,finalRevision:_f,...snap}=v;
-                const newRev={label:`V${revs.length+1} (Final)`,savedAt:Date.now(),isFinal:true,data:JSON.parse(JSON.stringify(snap))};
-                const updatedRevs=(v.revisions||[]).map(r=>({...r,isFinal:false}));
-                updatedRevs.push(newRev);
-                setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[meta.projectId]||[];arr[meta.vIdx].revisions=updatedRevs;arr[meta.vIdx].finalRevision=updatedRevs.length-1;store[meta.projectId]=arr;return store;});
-                setMsgs(prev=>prev.map((pm,pi)=>pi===i?{...pm,_ronnieSavePrompt:false}:pm).concat([{role:"assistant",content:`✓ Saved as V${revs.length+1} (Final). This version will be used for PDF export. 📌`}]));
-              }} style={{fontSize:10,fontWeight:600,color:"#fff",background:"#1a4a80",border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>✓ Save as Final</button>
-            </div>
-          )}
           {isBudgetMsg&&!loading&&(
             <div style={{display:"flex",gap:6,marginTop:-3,marginBottom:8,paddingLeft:4}}>
               <button onClick={()=>{
@@ -8811,15 +8745,19 @@ export default function OnnaDashboard() {
       }
 
       if (documentsSubSection==="risk") {
-        const raVersions = riskAssessmentStore[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}];
+        const raVersions = riskAssessmentStore[p.id] || [];
         const raIdx = Math.min(activeRAVersion, raVersions.length - 1);
         const raData = raVersions[raIdx] || raVersions[0];
-        const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
-        const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || [{id:Date.now(),label:"Version 1",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}]; arr.push({id:newId,label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
+        const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`Version ${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
         const deleteRAVersion = (idx) => { if(typeof pushUndo==="function")pushUndo("delete RA version"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
         // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
         const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
+
+        if (!raVersions.length) {
+          return (<div>{docBack}<div style={{textAlign:"center",padding:"60px 20px"}}><div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:8}}>No Risk Assessments</div><div style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Create one here or ask Ronnie to build it for you.</div><button onClick={addRAVersion} style={{padding:"8px 20px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${T.accent}`,fontFamily:"inherit",background:T.accent,color:"#fff"}}>+ New Risk Assessment</button></div></div>);
+        }
 
         return (
           <div>
@@ -8833,26 +8771,6 @@ export default function OnnaDashboard() {
             </div>
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder={`Version ${raIdx+1}`}/></div>
 
-            {(raData.revisions||[]).length>0&&(
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:10,fontWeight:600,color:T.muted,letterSpacing:0.5,marginBottom:6,textTransform:"uppercase"}}>Saved Revisions</div>
-                <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-                  {(raData.revisions||[]).map((rev,ri)=>(
-                    <div key={ri} style={{display:"flex",alignItems:"center",gap:0}}>
-                      <button onClick={()=>{if(window.confirm(`Restore ${rev.label} to the working copy? Current changes will be overwritten.`)){raSet(d=>{const {revisions,finalRevision,...rest}=d;return{...rest,...JSON.parse(JSON.stringify(rev.data)),revisions:d.revisions,finalRevision:d.finalRevision};});}}} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:rev.isFinal?700:500,cursor:"pointer",border:rev.isFinal?`2px solid ${T.accent}`:`1px solid ${T.border}`,fontFamily:"inherit",background:rev.isFinal?T.accent:"transparent",color:rev.isFinal?"#fff":T.sub,transition:"all 0.12s"}}>{rev.label}{rev.isFinal?" ✓":""}</button>
-                      <button onClick={()=>{if(!window.confirm(`Delete revision ${rev.label}?`))return;raSet(d=>{const revs=[...(d.revisions||[])];revs.splice(ri,1);let fi=d.finalRevision;if(fi===ri)fi=null;else if(fi!=null&&fi>ri)fi--;return{...d,revisions:revs,finalRevision:fi};});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete revision">×</button>
-                    </div>
-                  ))}
-                  <button onClick={()=>{const {revisions:_r,finalRevision:_f,...snap}=raData;const revs=raData.revisions||[];const newRev={label:`V${revs.length+1}`,savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};raSet(d=>({...d,revisions:[...(d.revisions||[]),newRev]}));}} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ Save V{(raData.revisions||[]).length+1}</button>
-                  {(raData.revisions||[]).length>0&&!raData.revisions?.some(r=>r.isFinal)&&(
-                    <button onClick={()=>{const {revisions:_r,finalRevision:_f,...snap}=raData;const revs=raData.revisions||[];const newRev={label:`V${revs.length+1} (Final)`,savedAt:Date.now(),isFinal:true,data:JSON.parse(JSON.stringify(snap))};const updatedRevs=revs.map(r=>({...r,isFinal:false}));updatedRevs.push(newRev);raSet(d=>({...d,revisions:updatedRevs,finalRevision:updatedRevs.length-1}));}} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",border:`1px solid ${T.accent}`,fontFamily:"inherit",background:T.accent,color:"#fff"}}>✓ Mark as Final</button>
-                  )}
-                </div>
-                {raData.finalRevision!=null&&raData.revisions?.[raData.finalRevision]&&(
-                  <div style={{fontSize:10,color:T.accent,marginTop:4,fontWeight:600}}>✓ Final: {raData.revisions[raData.finalRevision].label} — this version will be used for PDF export</div>
-                )}
-              </div>
-            )}
             <div id="onna-ra-print" style={{background:"#fff",padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
