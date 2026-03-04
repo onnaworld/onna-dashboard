@@ -525,6 +525,89 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
   setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
 }
 
+// ─── CARRIE (CASTING) HELPERS ────────────────────────────────────────────────
+function buildCarrieSystem(project, snapshot, vendorSummary) {
+  return `You are Casting Carrie, a casting coordinator for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live casting database.
+
+CRITICAL: You ALREADY HAVE the full casting data below. NEVER ask the user to paste, share, or provide casting details — you can see everything. Just act on their request immediately.
+
+You are viewing: "${project.name}"
+
+CURRENT CASTING STATE:
+${snapshot}
+
+VENDOR DATABASE (name|category|email|phone):
+${vendorSummary || "(empty)"}
+
+THE USER:
+- The user is Emily Lucas, Senior Producer at ONNA. Phone: +971 585 608 616, Email: emily@onnaproduction.com
+
+INSTRUCTIONS:
+- When the user asks to ADD models/talent, output a JSON patch inside a \`\`\`json code block:
+  {"addRows": [{"tableId": <number>, "rows": [{"agency":"...","name":"...","email":"...","option":"First Option","notes":"...","link":"..."}]}]}
+- When the user asks to UPDATE existing models, output:
+  {"updateRows": [{"tableId": <number>, "rowId": <number>, "fields": {"name":"...","email":"..."}}]}
+- When the user asks to add a new casting table:
+  {"addTable": {"title": "..."}}
+- When the user asks to export PDF:
+  {"action": "exportPDF"}
+- When the user asks to export CSV:
+  {"action": "exportCSV"}
+- You can combine multiple operations in one JSON block (e.g. addRows + updateRows).
+- Only output JSON for write intents. For read-only questions (e.g. "what models do we have?", "what's missing?"), answer in plain text with NO JSON block.
+- For casting brief generation, respond in plain text with a formatted brief — no JSON needed.
+- When a name matches a vendor/agency in the database above, auto-fill their details and mention it.
+- When asked "what's missing?" or similar, scan all casting tables and list which fields are empty.
+- NEVER say you don't have access to data or need the user to share information. You have FULL access.
+- Be warm, concise and professional.
+
+RESPONSE STYLE:
+- Use bullet points for lists and summaries
+- Keep responses short and scannable — no walls of text
+- Lead with the action taken or answer, then details
+- Use **bold** for key names, fields, and labels
+- Tone: warm, confident, professional — never robotic
+- When confirming changes, summarise what was updated in a quick bullet list`;
+}
+
+function applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectCasting) {
+  const tables = JSON.parse(JSON.stringify(getProjectCastingTables(projectId)));
+
+  // Update existing rows
+  if (patch.updateRows && Array.isArray(patch.updateRows)) {
+    patch.updateRows.forEach(ur => {
+      const tbl = tables.find(t => t.id === ur.tableId);
+      if (tbl) {
+        const row = tbl.rows.find(r => r.id === ur.rowId);
+        if (row) Object.assign(row, ur.fields);
+      }
+    });
+  }
+
+  // Add new rows
+  if (patch.addRows && Array.isArray(patch.addRows)) {
+    patch.addRows.forEach(ar => {
+      const tbl = tables.find(t => t.id === ar.tableId);
+      if (tbl && ar.rows) {
+        ar.rows.forEach(r => {
+          tbl.rows.push({ id: Date.now() + Math.floor(Math.random() * 10000), agency: r.agency || "", name: r.name || "", email: r.email || "", option: r.option || "First Option", notes: r.notes || "", link: r.link || "", headshot: null });
+        });
+      }
+    });
+  }
+
+  // Add new table
+  if (patch.addTable) {
+    tables.push({ id: Date.now(), title: patch.addTable.title || "Untitled", rows: [] });
+  }
+
+  setProjectCasting(prev => ({ ...prev, [projectId]: tables }));
+
+  // Return action if present
+  if (patch.action) return { action: patch.action };
+  return null;
+}
+
 // ─── BILLIE (ESTIMATE) HELPERS ───────────────────────────────────────────────
 function buildBillieSystem(project, estData, versionLabel, estSnapshot) {
   return `You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live estimate database.
@@ -1753,7 +1836,7 @@ const initOutreach = []; // populated from DB on load
 const savedCallSheets = {};
 const savedRiskAssessments = {};
 
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#F2877B";
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
@@ -1933,6 +2016,28 @@ function _Finn({mood="idle",bob=0}){
     {thinking&&<ellipse cx="17" cy="22" rx="4" ry="6" fill="rgba(100,200,200,0.55)"/>}
   </svg>;
 }
+function _Carrie({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_CORAL}/>
+    <_Cheeks color="rgba(240,130,120,0.25)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Clapperboard accessory */}
+    <rect x="69" y="8" width="24" height="20" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
+    <rect x="69" y="4" width="24" height="8" rx="2" fill="#1a1a1a"/>
+    <line x1="73" y1="4" x2="77" y2="12" stroke="white" strokeWidth="1.5"/>
+    <line x1="79" y1="4" x2="83" y2="12" stroke="white" strokeWidth="1.5"/>
+    <line x1="85" y1="4" x2="89" y2="12" stroke="white" strokeWidth="1.5"/>
+    <line x1="72" y1="18" x2="90" y2="18" stroke={_CORAL} strokeWidth="2"/>
+    <line x1="72" y1="22" x2="86" y2="22" stroke="#aaa" strokeWidth="1.3"/>
+    <path d="M 74 44 Q 78 30 79 18" stroke={_CORAL} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 74 44 Q 78 30 79 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {thinking&&<ellipse cx="17" cy="32" rx="4" ry="6" fill="rgba(240,130,120,0.55)"/>}
+  </svg>;
+}
 const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
    system:`You are Vendor Vinnie, a contact assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database. When you collect contact details, a save modal appears in the dashboard UI and the user saves the record straight to the database. Everything is real and connected.
@@ -1992,6 +2097,10 @@ NEVER say you cannot save data or need external tools. You have FULL access. Use
    system:`You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You help track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Track an expense...",
    intro:"Hey! I'm Finance Finn 🧾 I'm connected to your live budget tracker — I can log expenses, update Zoho amounts, flag overruns, and help you keep actuals vs estimates in check. Which project should I work on?"},
+  {id:"carrie",name:"Casting Carrie",title:"Casting",emoji:"🎬",color:_CORAL,border:"#c46050",accent:"#7a2a1a",bg:"#fff5f3",textColor:"#3d1008",tagBg:"#fdd8d0",Blob:_Carrie,
+   system:`You are Casting Carrie, a casting coordinator for ONNA. You are connected to live casting table data and can read and update it directly. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Add casting details...",
+   intro:"Hi! I'm Casting Carrie 🎬 I'm connected to your live casting tables — tell me to add models, update details, search agencies, generate briefs, or export to PDF/CSV. Which project should I work on?"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -2652,7 +2761,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,projectActuals,setProjectActuals,onFullWidthChange,isMobile,pushUndo}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onFullWidthChange,isMobile,pushUndo}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -2685,12 +2794,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const codyPendingRef=useRef(null); // null | {projectId, step:"pick_existing_or_new"} | {projectId, step:"pick_type"} | {projectId, step:"pick_name", typeId}
   const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const [finnCtx,setFinnCtx]=useState(()=>{try{const s=localStorage.getItem('onna_finn_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [carrieCtx,setCarrieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_carrie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx);
-  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="finn"?finnCtx?.projectId : null;
+  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
+  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="finn"?finnCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);
   },[active, isMobile]);
@@ -2712,6 +2822,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="finn"){try{if(finnCtx)localStorage.setItem('onna_finn_ctx',JSON.stringify(finnCtx));else localStorage.removeItem('onna_finn_ctx');}catch{}}},[finnCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="carrie"){try{if(carrieCtx)localStorage.setItem('onna_carrie_ctx',JSON.stringify(carrieCtx));else localStorage.removeItem('onna_carrie_ctx');}catch{}}},[carrieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
@@ -4344,6 +4455,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
             applyConniePatch(patch, project.id, vIdx, csVersions, setCallSheetStore);
+            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Call sheet updated."}]);
           }catch(pe){
@@ -4693,6 +4805,105 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setLoading(false);return;
     }
 
+    // ── Carrie: live casting handler ─────────────────────────────────────────────────────────────────────────
+    if(agent.id==="carrie"&&projectCasting&&setProjectCasting){
+
+      if(!carrieCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const project = fuzzyMatchProject(localProjects,input);
+        if(!project){
+          const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's casting should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        setCarrieCtx({projectId:project.id});
+        setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on casting for **${project.name}**. I can see all your casting data. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      const lower=input.toLowerCase();
+      if(/\b(switch|change|different|new)\s+(project|casting)\b/i.test(input)){
+        setCarrieCtx(null);
+        const list=localProjects.map(p=>`• ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's casting should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return;
+      }
+      const switchProject=fuzzyMatchProject(localProjects,input,carrieCtx.projectId);
+      if(switchProject){
+        setCarrieCtx({projectId:switchProject.id});
+        setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}**. I can see all the casting data. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      const {projectId}=carrieCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setCarrieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      const castingTables = getProjectCastingTables(projectId);
+      let snap = `Project: ${project.name}\nCasting Tables:\n`;
+      castingTables.forEach(t => {
+        snap += `  [tableId:${t.id}] "${t.title}" — ${t.rows.length} model(s)\n`;
+        t.rows.forEach(r => {
+          snap += `    [rowId:${r.id}] agency:${r.agency||"(empty)"} | name:${r.name||"(empty)"} | email:${r.email||"(empty)"} | option:${r.option||"(empty)"} | notes:${r.notes||"(empty)"} | link:${r.link||"(empty)"}\n`;
+        });
+      });
+
+      let vendorSummary = "";
+      if (vendorsProp && vendorsProp.length > 0) {
+        vendorSummary = vendorsProp.map(v => `${v.name||""}|${v.category||""}|${v.email||""}|${v.phone||""}`).join("\n");
+      }
+
+      const carrieSystem = buildCarrieSystem(project, snap, vendorSummary);
+      const castCols = [{key:"agency",label:"Agency"},{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"option",label:"Option"},{key:"notes",label:"Notes"},{key:"link",label:"Link"}];
+
+      try{
+        const carrieIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            if(mi===0) return{role:m.role,content:carrieIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:carrieSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            const result = applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectCasting);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+
+            if (result && result.action === "exportPDF") {
+              const updatedTables = getProjectCastingTables(projectId);
+              exportCastingPDF(updatedTables, castCols, "Casting");
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Casting PDF exported."}]);
+            } else if (result && result.action === "exportCSV") {
+              const updatedTables = getProjectCastingTables(projectId);
+              const allRows = updatedTables.flatMap(t=>t.rows.map(r=>({...r,table:t.title})));
+              const cols = [{key:"table",label:"Table"},...castCols];
+              downloadCSV(allRows, cols, "Casting.csv");
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Casting CSV exported."}]);
+            } else {
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Casting table updated."}]);
+            }
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
     // ── Ronnie: live risk assessment handler ─────────────────────────────────────────────────────────────────────────
     if(agent.id==="researcher"&&riskAssessmentStore&&setRiskAssessmentStore){
 
@@ -4935,6 +5146,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const preSnapshot = existingReview ? existingReview.preSnapshot : JSON.parse(JSON.stringify(ver));
             const newMarkers = buildPatchMarkers(patch, ver);
             applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
+            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
             if(newMarkers.size > 0){
               // Merge with any existing unresolved markers
               const mergedMarkers = existingReview ? [...new Set([...existingReview.markers, ...newMarkers])] : [...newMarkers];
@@ -5225,6 +5437,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(arr[cc.vIdx]){const ct=arr[cc.vIdx];ct.fieldValues={};ct.fieldConfirmed={};ct.generalTermsEdits={};ct.sigNames={};ct.signatures={};ct.prodLogo=null;ct.signingStatus="not_sent";ct.signingToken=null;}
           store[cc.projectId]=arr;return store;
         });
+        setTimeout(()=>syncProjectInfoToDocs(cc.projectId),100);
         setMsgs([...history,{role:"assistant",content:"All edits have been cleared — the contract is back to a blank slate. Ready to fill it in again!"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -5295,6 +5508,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
             applyCodyPatch(patch, project.id, vIdx, ctVersions, setContractDocStore);
+            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Contract updated."}]);
           }catch(pe){
