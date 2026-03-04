@@ -3074,8 +3074,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 const deptHasMarker = cpr && cpr.markers.some(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":"));
                 return (<Fragment key={di}><tr><td colSpan={6} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>✓</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>✕</button></>}</div></td></tr>
                 {dept.crew.map((cr,ci) => (<tr key={ci} style={{background:"#fff",borderBottom:"1px solid #f5f5f5"}}><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder="Name"/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder="Phone"/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder="Email"/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600}} placeholder="Time"/></td><td><CSXbtn onClick={()=>rmCrew(di,ci)}/></td></tr>))}
-                <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>
-                );})}</tbody>
+                <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>);})}</tbody>
               </table>
               <CSAddBtn onClick={addDept} label="Add Department"/>
             </div>
@@ -11286,10 +11285,10 @@ export default function OnnaDashboard() {
                   {archive.length===0?(
                     <div style={{padding:"60px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
                   ):(
-                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects"].map(table=>{
+                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects","callSheets","riskAssessments","contracts","clients"].map(table=>{
                       const entries=archive.filter(e=>e.table===table);
                       if(!entries.length) return null;
-                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects"}[table]||table;
+                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects",callSheets:"Call Sheets",riskAssessments:"Risk Assessments",contracts:"Contracts",clients:"Clients"}[table]||table;
                       return (
                         <div key={table} style={{marginBottom:24}}>
                           <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
@@ -11298,7 +11297,7 @@ export default function OnnaDashboard() {
                             return (
                               <div key={e.id} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:10,border:`1px solid ${T.border}`,marginBottom:6,background:"#fafafa"}}>
                                 <div style={{flex:1,minWidth:0}}>
-                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||"Untitled"}</div>
+                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||e.item?.callSheet?.label||e.item?.riskAssessment?.label||e.item?.contract?.label||e.item?.label||"Untitled"}</div>
                                   <div style={{fontSize:11,color:T.muted,marginTop:2}}>{daysLeft} day{daysLeft!==1?"s":""} remaining</div>
                                 </div>
                                 <div style={{display:"flex",gap:6}}>
