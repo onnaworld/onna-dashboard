@@ -6141,12 +6141,10 @@ export default function OnnaDashboard() {
       outreach: JSON.parse(JSON.stringify(outreach)),
       vendors: JSON.parse(JSON.stringify(vendors)),
       localProjects: JSON.parse(JSON.stringify(localProjects)),
-      dashNotesList: JSON.parse(JSON.stringify(dashNotesList)),
       archivedTodos: JSON.parse(JSON.stringify(archivedTodos)),
-      notes: JSON.parse(JSON.stringify(notes)),
     });
     if (undoStack.current.length > 50) undoStack.current.shift();
-  }, [todos, projectTodos, outreach, vendors, localProjects, dashNotesList, archivedTodos, notes]);
+  }, [todos, projectTodos, outreach, vendors, localProjects, archivedTodos]);
 
   const performUndo = useCallback(() => {
     if (undoStack.current.length === 0) return;
@@ -6156,9 +6154,7 @@ export default function OnnaDashboard() {
     setOutreach(snap.outreach);
     setVendors(snap.vendors);
     setLocalProjects(snap.localProjects);
-    setDashNotesList(snap.dashNotesList);
     setArchivedTodos(snap.archivedTodos);
-    setNotes(snap.notes);
   }, []);
 
   useEffect(() => {
