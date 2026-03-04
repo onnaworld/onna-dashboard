@@ -807,56 +807,72 @@ RESPONSE STYLE:
 - When confirming changes, summarise what was updated in a quick bullet list`;
 }
 
-function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRiskAssessmentStore) {
-  const versions = [...currentVersions];
-  const ver = { ...versions[versionIdx] };
+function applyRonniePatch(patch, projectId, versionIdx, _currentVersions, setRiskAssessmentStore) {
+  setRiskAssessmentStore(prev => {
+    const store = JSON.parse(JSON.stringify(prev));
+    const versions = store[projectId] || JSON.parse(JSON.stringify(_currentVersions));
+    const ver = versions[versionIdx];
+    if (!ver) return store;
 
-  // Merge scalar fields
-  const scalars = ["label","shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
-  scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
+    // Merge scalar fields
+    const scalars = ["label","shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
+    scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
 
-  // Replace array fields wholesale
-  if (patch.conductItems) ver.conductItems = patch.conductItems;
-  if (patch.waiverItems) ver.waiverItems = patch.waiverItems;
-  if (patch.emergencyItems) ver.emergencyItems = patch.emergencyItems;
+    // Replace array fields wholesale
+    if (patch.conductItems) ver.conductItems = patch.conductItems;
+    if (patch.waiverItems) ver.waiverItems = patch.waiverItems;
+    if (patch.emergencyItems) ver.emergencyItems = patch.emergencyItems;
 
-  // Merge sections by title (case-insensitive)
-  if (patch.sections && Array.isArray(patch.sections)) {
-    const existing = ver.sections ? ver.sections.map(s => ({ ...s, rows: s.rows.map(r => [...r]) })) : [];
-    let nextId = existing.reduce((max, s) => Math.max(max, s.id || 0), 0) + 1;
-    patch.sections.forEach(ps => {
-      const sIdx = existing.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
-      if (sIdx >= 0) {
-        if (ps.deleteSection) { existing.splice(sIdx, 1); return; }
-        if (ps.deleteRows && Array.isArray(ps.deleteRows)) {
-          [...ps.deleteRows].sort((a,b)=>b-a).forEach(i=>{ if(i>=0&&i<existing[sIdx].rows.length) existing[sIdx].rows.splice(i,1); });
+    // Merge sections by title (case-insensitive)
+    if (patch.sections && Array.isArray(patch.sections)) {
+      const existing = ver.sections ? ver.sections.map(s => ({ ...s, rows: s.rows.map(r => [...r]) })) : [];
+      let nextId = existing.reduce((max, s) => Math.max(max, s.id || 0), 0) + 1;
+      patch.sections.forEach(ps => {
+        const sIdx = existing.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
+        if (sIdx >= 0) {
+          if (ps.deleteSection) { existing.splice(sIdx, 1); return; }
+          if (ps.deleteRows && Array.isArray(ps.deleteRows)) {
+            [...ps.deleteRows].sort((a,b)=>b-a).forEach(i=>{ if(i>=0&&i<existing[sIdx].rows.length) existing[sIdx].rows.splice(i,1); });
+          }
+          if (ps.updateRows && Array.isArray(ps.updateRows)) {
+            ps.updateRows.forEach(u=>{ if(u.index>=0&&u.index<existing[sIdx].rows.length&&u.row) existing[sIdx].rows[u.index]=u.row; });
+          }
+          if (ps.rows) existing[sIdx].rows = [...existing[sIdx].rows, ...ps.rows];
+          if (ps.replaceAllRows && Array.isArray(ps.replaceAllRows)) existing[sIdx].rows = ps.replaceAllRows;
+          if (ps.cols) existing[sIdx].cols = ps.cols;
+        } else {
+          existing.push({ id: nextId++, title: ps.title, cols: ps.cols || ["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"], rows: ps.rows || [] });
         }
-        if (ps.updateRows && Array.isArray(ps.updateRows)) {
-          ps.updateRows.forEach(u=>{ if(u.index>=0&&u.index<existing[sIdx].rows.length&&u.row) existing[sIdx].rows[u.index]=u.row; });
-        }
-        if (ps.rows) existing[sIdx].rows = [...existing[sIdx].rows, ...ps.rows];
-        if (ps.replaceAllRows && Array.isArray(ps.replaceAllRows)) existing[sIdx].rows = ps.replaceAllRows;
-        if (ps.cols) existing[sIdx].cols = ps.cols;
-      } else {
-        existing.push({ id: nextId++, title: ps.title, cols: ps.cols || ["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"], rows: ps.rows || [] });
-      }
-    });
-    ver.sections = existing;
-  }
+      });
+      ver.sections = existing;
+    }
 
-  versions[versionIdx] = ver;
-  setRiskAssessmentStore(prev => ({ ...prev, [projectId]: versions }));
+    versions[versionIdx] = ver;
+    store[projectId] = versions;
+    return store;
+  });
 }
 
 // ─── RONNIE INLINE REVIEW HELPERS ────────────────────────────────────────────
 
-function buildPatchMarkers(patch, preSections) {
+function buildPatchMarkers(patch, preVer) {
   const markers = new Set();
   const scalars = ["label","shootName","shootDate","locations","crewOnSet","timing","conductIntro","waiverIntro"];
   scalars.forEach(k => { if (patch[k] !== undefined) markers.add("scalar:"+k); });
-  ["conductItems","waiverItems","emergencyItems"].forEach(k => { if (patch[k]) markers.add("array:"+k); });
+  // Per-item diffing for conduct/waiver/emergency arrays
+  ["conductItems","waiverItems","emergencyItems"].forEach(k => {
+    if (!patch[k]) return;
+    const oldArr = (preVer && preVer[k]) || [];
+    const newArr = patch[k];
+    const maxLen = Math.max(oldArr.length, newArr.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i >= oldArr.length) { markers.add("arrayItem:"+k+":"+i); continue; } // new item
+      if (i >= newArr.length) { markers.add("arrayItem:"+k+":"+i); continue; } // deleted item
+      if (JSON.stringify(oldArr[i]) !== JSON.stringify(newArr[i])) { markers.add("arrayItem:"+k+":"+i); } // changed item
+    }
+  });
   if (patch.sections && Array.isArray(patch.sections)) {
-    const existing = preSections || [];
+    const existing = (preVer && preVer.sections) || [];
     patch.sections.forEach(ps => {
       const sIdx = existing.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
       if (sIdx >= 0) {
@@ -880,6 +896,12 @@ function revertMarker(marker, preSnapshot, projectId, vIdx, setStore) {
     const ver = arr[vIdx]; if (!ver) return store;
     if (marker.startsWith("scalar:")) {
       const k = marker.slice(7); ver[k] = preSnapshot[k] !== undefined ? preSnapshot[k] : "";
+    } else if (marker.startsWith("arrayItem:")) {
+      const parts = marker.split(":"); const k = parts[1]; const idx = parseInt(parts[2],10);
+      const oldArr = preSnapshot[k] ? JSON.parse(JSON.stringify(preSnapshot[k])) : [];
+      if (!ver[k]) ver[k] = [];
+      if (idx < oldArr.length) { ver[k][idx] = oldArr[idx]; } // revert to original
+      else { ver[k].splice(idx, 1); } // was a new item, remove it
     } else if (marker.startsWith("array:")) {
       const k = marker.slice(6); ver[k] = preSnapshot[k] ? JSON.parse(JSON.stringify(preSnapshot[k])) : [];
     } else if (marker.startsWith("newSection:")) {
@@ -2516,7 +2538,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
           <div onClick={()=>raSet(d=>({...d,sections:[...d.sections,{id:Date.now(),title:"NEW SECTION",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],rows:[["","","",""]]}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS,textAlign:"center",marginTop:12,padding:6}}>+ Add Risk Section</div>
           {raSectionHdr("PROFESSIONAL CODE OF CONDUCT")}
           {(()=>{const marked=hasMarker("scalar:conductIntro"); return <div style={{padding:"8px 12px",...(marked?hlStyle:{})}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/>{marked&&<span><button onClick={()=>acceptMarker("scalar:conductIntro")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:conductIntro")} style={reviewBtnStyle("decline")}>✕</button></span>}</div>;})()}
-          {(()=>{const arrMarked=hasMarker("array:conductItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:conductItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:conductItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete conduct item");raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
+          <div style={{padding:"8px 12px"}}>{(raData.conductItems||[]).map((item,i)=>{const itemMarked=hasMarker("arrayItem:conductItems:"+i); return (<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4,...(itemMarked?{...hlStyle,borderRadius:4,padding:"2px 4px"}:{})}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div>{itemMarked?<span style={{display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptMarker("arrayItem:conductItems:"+i)} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("arrayItem:conductItems:"+i)} style={reviewBtnStyle("decline")}>✕</button></span>:<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete conduct item");raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>}</div>);})}<div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
           {raSectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
           {(()=>{const marked=hasMarker("scalar:waiverIntro"); return <div style={{padding:"8px 12px",...(marked?hlStyle:{})}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/>{marked&&<span><button onClick={()=>acceptMarker("scalar:waiverIntro")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:waiverIntro")} style={reviewBtnStyle("decline")}>✕</button></span>}</div>;})()}
           {(()=>{const arrMarked=hasMarker("array:waiverItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:waiverItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:waiverItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete waiver item");raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
@@ -5004,7 +5026,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             // Use the ORIGINAL pre-snapshot if there's already a pending review (preserves revert baseline)
             const existingReview = ronniePendingReview && ronniePendingReview.projectId===project.id && ronniePendingReview.vIdx===vIdx ? ronniePendingReview : null;
             const preSnapshot = existingReview ? existingReview.preSnapshot : JSON.parse(JSON.stringify(ver));
-            const newMarkers = buildPatchMarkers(patch, ver.sections);
+            const newMarkers = buildPatchMarkers(patch, ver);
             applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
             if(newMarkers.size > 0){
               // Merge with any existing unresolved markers
