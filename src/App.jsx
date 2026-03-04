@@ -2110,7 +2110,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"40px 40px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-12}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
                   <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                 </div>
@@ -2184,7 +2184,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
             <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-            <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-12}}>
+            <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
               <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
               <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
             </div>
@@ -4082,7 +4082,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         return(<div key={i}>
           <_AgentBubble msg={m}/>
           {isBudgetMsg&&!loading&&(
-            <div style={{display:"flex",gap:6,marginTop:-12,marginBottom:8,paddingLeft:4}}>
+            <div style={{display:"flex",gap:6,marginTop:-8,marginBottom:8,paddingLeft:4}}>
               <button onClick={()=>{
                 const w=window.open("","_blank");
                 if(!w)return;
@@ -4189,7 +4189,7 @@ const printCallSheetPDF = (cs) => {
   const LS = "letter-spacing:1.5px;";
   const secTitle = `font-size:10px;font-weight:800;${LS}text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;`;
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-  const logos = `<div style="padding:40px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-12px">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
+  const logos = `<div style="padding:40px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-8px">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
   const venueHTML = (cs.venueRows||[]).map(r=>`<div style="display:flex;align-items:flex-start;margin-bottom:5px;gap:8px"><div style="min-width:95px;font-size:9px;font-weight:700;color:#888;${LS}text-transform:uppercase">${e(r.label)}</div><div style="flex:1;font-size:11px">${e(r.value)}</div></div>`).join("");
   const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
   const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
@@ -4244,7 +4244,7 @@ const printRiskAssessmentPDF = (ra) => {
   const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
   const LS = "letter-spacing:1.5px;";
   const logoImg = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-12px">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
+  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center;margin-top:-8px">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
   const metaHTML = [{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10px;font-weight:700;${LS}min-width:100px">${l}</span><span style="font-size:10px;letter-spacing:0.5px">${e(ra[k])}</span></div>`).join("");
   const sectionsHTML = (ra.sections||[]).map((sec,si)=>{
     const cols=sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
@@ -6227,7 +6227,7 @@ export default function OnnaDashboard() {
                 <div style={{padding:"40px 40px 0"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                     <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-12}}>
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
                       <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                       <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                     </div>
@@ -6461,7 +6461,7 @@ export default function OnnaDashboard() {
             <div id="onna-ra-print" style={{background:"#fff",padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-12}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-8}}>
                   <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
                 </div>
@@ -7652,7 +7652,7 @@ export default function OnnaDashboard() {
                             <div style={{height:3,borderRadius:999,background:T.borderSub}}><div style={{width:`${margin}%`,height:"100%",borderRadius:999,background:T.accent}}/></div>
                           </div>
                         </div>
-                        <div style={{display:"flex",gap:8,marginTop:-12}}>
+                        <div style={{display:"flex",gap:8,marginTop:-8}}>
                           <button
                             onClick={e=>{e.stopPropagation();setArchivedProjects(prev=>[...prev,p]);}}
                             style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"7px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:500,transition:"all 0.12s"}}
