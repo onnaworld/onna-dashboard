@@ -5676,7 +5676,7 @@ const exportCastingPDF = (tables, columns, title) => {
       cv.getContext("2d").drawImage(logoImg, 0, 0); const dataUrl = cv.toDataURL("image/png");
       const tablesHTML = tables.map(t => {
         const thead = `<tr>${columns.map(c=>`<th>${c.label}</th>`).join("")}</tr>`;
-        const tbody = (t.rows||[]).map(r=>`<tr>${columns.map(c=>`<td>${r[c.key]??''}</td>`).join("")}</tr>`).join("");
+        const tbody = (t.rows||[]).map(r=>`<tr>${columns.map(c=>{const v=r[c.key]??'';if(c.key==='link'&&v&&(v.startsWith('http://')||v.startsWith('https://')))return `<td><a href="${v}" target="_blank" style="color:#1565C0;text-decoration:underline">${v}</a></td>`;return `<td>${v}</td>`;}).join("")}</tr>`).join("");
         return `<div class="sec">${t.title||title}</div><table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
       }).join("");
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
@@ -5692,7 +5692,8 @@ const exportCastingPDF = (tables, columns, title) => {
   td{padding:7px 11px;border-bottom:1px solid #eee;vertical-align:top;}
   tr:nth-child(even) td{background:#fafafa;}
   .ftr{margin-top:36px;padding-top:10px;border-top:1px solid #e0e0e0;font-size:7.5pt;color:#aaa;display:flex;justify-content:space-between;}
-  @media print{body{padding:15mm 12mm;}@page{margin:0;size:A4;}}
+  a{color:#1565C0;text-decoration:underline;}
+  @media print{body{padding:12mm 15mm;}@page{margin:0;size:A4 landscape;}}
 </style>
 <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
 </head><body>
@@ -8829,11 +8830,11 @@ export default function OnnaDashboard() {
                         <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
                           {row._editLink?(
                             <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                              <input autoFocus value={row._linkDraft||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"_linkDraft",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){updateCastingRow(p.id,table.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,table.id,row.id,"_editLink",false);}if(e.key==="Escape")updateCastingRow(p.id,table.id,row.id,"_editLink",false);}} placeholder="https://..." style={{width:140,padding:"4px 7px",borderRadius:6,border:`1px solid ${T.accent}`,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
-                              <button onClick={()=>{updateCastingRow(p.id,table.id,row.id,"link",row._linkDraft||"");updateCastingRow(p.id,table.id,row.id,"_editLink",false);}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
+                              <input autoFocus value={row._linkDraft||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"_linkDraft",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,link:r._linkDraft||"",_editLink:false}:r)}:t)};});}if(e.key==="Escape")updateCastingRow(p.id,table.id,row.id,"_editLink",false);}} placeholder="https://..." style={{width:140,padding:"4px 7px",borderRadius:6,border:`1px solid ${T.accent}`,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
+                              <button onClick={()=>{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,link:r._linkDraft||"",_editLink:false}:r)}:t)};});}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
                             </div>
                           ):(
-                            <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{updateCastingRow(p.id,table.id,row.id,"_editLink",true);updateCastingRow(p.id,table.id,row.id,"_linkDraft",row.link||"");}}} onContextMenu={e=>{e.preventDefault();updateCastingRow(p.id,table.id,row.id,"_editLink",true);updateCastingRow(p.id,table.id,row.id,"_linkDraft",row.link||"");}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>📎</span>
+                            <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}}} onContextMenu={e=>{e.preventDefault();setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>📎</span>
                           )}
                         </td>
                         <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,table.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
