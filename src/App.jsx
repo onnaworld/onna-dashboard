@@ -6880,7 +6880,7 @@ export default function OnnaDashboard() {
   const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeCSVersion,setActiveCSVersion]             = useState(0);
   const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Risk Assessment",...d[k]}];}});return d;}catch{return {}}});
-  const [activeRAVersion,setActiveRAVersion]             = useState(0);
+  const [activeRAVersion,setActiveRAVersion]             = useState(null);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
   const [activeContractVersion,setActiveContractVersion] = useState(null);
   const [ctTypeModalOpen,setCtTypeModalOpen]             = useState(false);
@@ -8546,18 +8546,29 @@ export default function OnnaDashboard() {
       );
 
       // Back button for all document sub-sections
-      const docBack = <button onClick={()=>setDocumentsSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
+      const docBack = <button onClick={()=>{setDocumentsSubSection(null);setActiveRAVersion(null);setActiveContractVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
 
       if (documentsSubSection==="callsheet") {
         // Versioned call sheets — array of {id, label, ...CALLSHEET_INIT}
-        const csVersions = callSheetStore[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+        const csVersions = callSheetStore[p.id] || [];
+        if(csVersions.length===0){
+          const createFirstCS = (name) => {
+            const newId = Date.now();
+            const newCS = {id:newId,label:name,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
+            newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
+            setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));store[p.id]=[newCS];return store;});
+            setActiveCSVersion(0);
+            const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];if(arr[0]&&!arr[0].productionLogo){arr[0].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+          };
+          return (<div>{docBack}<div style={{textAlign:"center",padding:"60px 20px"}}><div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:8}}>No call sheets yet</div><div style={{fontSize:12,color:T.sub,marginBottom:20}}>Create your first call sheet for this project.</div><input id="new-cs-name-input" placeholder="e.g. Shoot Day 1, Recce Day" style={{padding:"8px 14px",borderRadius:9,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:220,marginBottom:12,textAlign:"center"}} onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){createFirstCS(e.target.value.trim());}}}/><br/><button onClick={()=>{const inp=document.getElementById("new-cs-name-input");const name=inp?.value?.trim()||"Day 1";createFirstCS(name);}} style={{padding:"8px 20px",borderRadius:9,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",fontFamily:"inherit",background:T.accent,color:"#fff",transition:"all 0.12s"}}>Create Call Sheet</button></div></div>);
+        }
         const csIdx = Math.min(activeCSVersion, csVersions.length - 1);
         const csData = csVersions[csIdx] || csVersions[0];
 
         const csU = (path, val) => {
           setCallSheetStore(prev => {
             const store = JSON.parse(JSON.stringify(prev));
-            const arr = store[p.id] || [{id:Date.now(),label:"Day 1",...JSON.parse(JSON.stringify(CALLSHEET_INIT))}];
+            const arr = store[p.id] || [];
             const idx = Math.min(csIdx, arr.length - 1);
             const d = arr[idx];
             const k = path.split("."); let o = d;
@@ -8878,30 +8889,60 @@ export default function OnnaDashboard() {
 
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name}${arr.length?" - New":""}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const deleteRA = (idx) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
+
+        // ── List view: no RA selected ──
+        if (activeRAVersion === null || raVersions.length === 0) {
+          return (
+            <div>
+              {docBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Risk Assessments</div>
+                <button onClick={addRAVersion} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Risk Assessment</button>
+              </div>
+              {raVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No risk assessments yet. Click "+ New Risk Assessment" to get started, or ask Ronnie to build one for you.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {raVersions.map((ra,i)=>{
+                  const sectionCount=(ra.sections||[]).length;
+                  const filledFields=[ra.shootName,ra.shootDate,ra.locations,ra.crewOnSet,ra.timing].filter(Boolean).length;
+                  return(
+                    <div key={ra.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveRAVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>RA</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:sectionCount>0?"#e8f5e9":"#f5f5f5",color:sectionCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{sectionCount} section{sectionCount!==1?"s":""} · {filledFields}/5 fields</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{ra.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{ra.shootDate||"No date set"}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>deleteRA(i)} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // ── Detail view: editing a specific RA ──
         const raIdx = Math.min(activeRAVersion, raVersions.length - 1);
         const raData = raVersions[raIdx] || raVersions[0];
+        if(!raData) { setActiveRAVersion(null); return null; }
         const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
         const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} - New`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); setActiveRAVersion(raVersions.length); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRA = (idx) => { if(typeof pushUndo==="function")pushUndo("delete risk assessment"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if (arr.length <= 1) return store; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(v => Math.min(v, raVersions.length - 2)); };
         // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
         const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
-
-        if (!raVersions.length) {
-          return (<div>{docBack}<div style={{textAlign:"center",padding:"60px 20px"}}><div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:8}}>No Risk Assessments</div><div style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Create one here or ask Ronnie to build it for you.</div><button onClick={addRAVersion} style={{padding:"8px 20px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${T.accent}`,fontFamily:"inherit",background:T.accent,color:"#fff"}}>+ New Risk Assessment</button></div></div>);
-        }
 
         return (
           <div>
             {docBack}
-            {raVersions.length>1&&(<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:10}}>
-              {raVersions.map((v,i) => (<div key={v.id} style={{display:"flex",alignItems:"center",gap:0}}><button onClick={()=>setActiveRAVersion(i)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:raIdx===i?600:500,cursor:"pointer",border:`1px solid ${raIdx===i?T.accent:T.border}`,fontFamily:"inherit",background:raIdx===i?T.accent:"transparent",color:raIdx===i?"#fff":T.sub,transition:"all 0.12s"}}>{v.label||"Untitled"}</button><button onClick={()=>deleteRA(i)} style={{background:"none",border:"none",color:T.muted,fontSize:13,cursor:"pointer",padding:"0 3px",marginLeft:-2}} title="Delete">×</button></div>))}
-              <button onClick={addRAVersion} style={{padding:"5px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ New</button>
-            </div>)}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={()=>setActiveRAVersion(null)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.sub}}>‹ Back to Risk Assessments</button>
                 <div style={{fontSize:11,color:T.muted}}>Label: <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:200}} placeholder="Risk Assessment"/></div>
-                {raVersions.length===1&&<button onClick={addRAVersion} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px dashed ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.muted}}>+ New</button>}
               </div>
               <BtnExport onClick={()=>{const el=document.getElementById("onna-ra-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>');doc.close();doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}}>Export PDF</BtnExport>
             </div>
