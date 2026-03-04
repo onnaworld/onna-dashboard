@@ -62,8 +62,12 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
-  const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:30,maxWidth:120,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:100,height:30,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  const readFile = f => { if(!f||!f.type.startsWith("image/"))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  const handleFile = e => { readFile(e.target.files[0]); };
+  const onDrop = e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor="#ccc"; readFile(e.dataTransfer.files[0]); };
+  const onDragOver = e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor="#666"; };
+  const onDragLeave = e => { e.preventDefault(); e.currentTarget.style.borderColor="#ccc"; };
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}} onDragOver={e=>{e.preventDefault();e.stopPropagation();}} onDrop={e=>{e.preventDefault();e.stopPropagation();readFile(e.dataTransfer.files[0]);}}><img src={image} alt={label} style={{maxHeight:30,maxWidth:120,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click or drag to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} style={{width:120,height:30,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
@@ -1720,24 +1724,34 @@ function levenshtein(a,b){
   return dp[a.length][b.length];
 }
 function findSimilar(name,allVendors,allLeads){
-  if(!name)return null;
+  const all=findAllSimilar(name,allVendors,allLeads);
+  return all.length?all[0]:null;
+}
+function findAllSimilar(name,allVendors,allLeads){
+  if(!name)return[];
   const q=name.toLowerCase().trim();
-  if(q.length<2)return null;
+  if(q.length<2)return[];
   const thresh=Math.max(2,Math.floor(q.length*0.28));
   const _m=(a,b)=>a===b||(a.length>=3&&b.length>=3&&(a.includes(b)||b.includes(a)))||levenshtein(a,b)<=thresh;
+  const results=[];
+  const seen=new Set();
   for(const v of(allVendors||[])){
     const vn=(v.name||"").toLowerCase().trim();
     const vc=(v.company||"").toLowerCase().trim();
-    if((vn&&vn===q)||(vc&&vc===q))return{record:v,type:"vendor",exact:true};
-    if((vn&&_m(q,vn))||(vc&&_m(q,vc)))return{record:v,type:"vendor",exact:false};
+    const key="v_"+v.id;
+    if(seen.has(key))continue;
+    if((vn&&vn===q)||(vc&&vc===q)){seen.add(key);results.push({record:v,type:"vendor",exact:true});}
+    else if((vn&&_m(q,vn))||(vc&&_m(q,vc))){seen.add(key);results.push({record:v,type:"vendor",exact:false});}
   }
   for(const l of(allLeads||[])){
     const lc=(l.contact||"").toLowerCase().trim();
     const lco=(l.company||"").toLowerCase().trim();
-    if((lc&&lc===q)||(lco&&lco===q))return{record:l,type:"lead",exact:true};
-    if((lc&&_m(q,lc))||(lco&&_m(q,lco)))return{record:l,type:"lead",exact:false};
+    const key="l_"+l.id;
+    if(seen.has(key))continue;
+    if((lc&&lc===q)||(lco&&lco===q)){seen.add(key);results.push({record:l,type:"lead",exact:true});}
+    else if((lc&&_m(q,lc))||(lco&&_m(q,lco))){seen.add(key);results.push({record:l,type:"lead",exact:false});}
   }
-  return null;
+  return results;
 }
 function parseQuickEntry(text){
   if(text.length>300||text.includes("\n"))return null;
@@ -2398,6 +2412,16 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     setPendingConv({entry,type,saveAsOutreach:asOutreach,updateId,questions:qs,idx:0});
     return qs[0].q;
   };
+  // Helper: build duplicate prompt message from array of matches
+  const _dupMsg=(matches,queryName)=>{
+    const _label=(m)=>m.type==="vendor"?(m.record.name||m.record.company):(m.record.contact||m.record.company);
+    if(matches.length===1){
+      const m=matches[0];
+      return `"${queryName}" looks similar to an existing ${m.type}: "${_label(m)}".\n1. Update "${_label(m)}"\n2. Add as new contact on "${_label(m)}"\n3. None of these — create separate entry\n\nReply 1, 2, or 3.`;
+    }
+    const list=matches.map((m,i)=>`${i+1}. ${_label(m)} (${m.type})`).join("\n");
+    return `"${queryName}" looks similar to existing entries:\n\n${list}\n\nReply with a number to select, or "${matches.length+1}" to create a separate new entry.`;
+  };
   const saveLead=async()=>{
     setSaving(true);
     try{
@@ -2547,13 +2571,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             setPendingConv(null);
             if(!conv.updateId){
               const eName=conv.type==="vendor"?e.name:(e.contact||"");
-              const eCompany=conv.type==="vendor"?(e.notes||""):(e.company||"");
-              const compSim=findSimilar(eName,allVendors,allLeads);
-              const companySim=!compSim&&eCompany?findSimilar(eCompany,allVendors,allLeads):null;
-              if(companySim&&!companySim.exact){
-                const existName=companySim.type==="vendor"?companySim.record.name:(companySim.record.contact||companySim.record.company);
-                setPendingDuplicate({entry:{...e,_type:conv.type},similar:companySim,saveAsOutreach:conv.saveAsOutreach||false});
-                setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed a similar existing ${dupSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+              const eCompany=e.company||"";
+              const catDupMatches=[...findAllSimilar(eName,allVendors,allLeads),...(eCompany?findAllSimilar(eCompany,allVendors,allLeads):[])];
+              const seenC=new Set();const catDedup=catDupMatches.filter(m=>{const k=m.type+"_"+m.record.id;if(seenC.has(k))return false;seenC.add(k);return true;});
+              if(catDedup.length>0){
+                const queryName=eName||eCompany;
+                setPendingDuplicate({entry:{...e,_type:conv.type},matches:catDedup,saveAsOutreach:conv.saveAsOutreach||false});
+                setMsgs([...history,{role:"assistant",content:`All filled in! But I found similar entries.\n\n${_dupMsg(catDedup,queryName)}`}]);
               }else{
                 showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
                 setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
@@ -2667,41 +2691,42 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       if(!conv.updateId&&(q?.key==="name"||q?.key==="company"||q?.key==="contact")&&!isSkip){
         const val=e[q.key]||"";
         if(val){
-          const inlineSim=findSimilar(val,allVendors,allLeads);
-          if(inlineSim){
-            const existName=inlineSim.type==="vendor"?(inlineSim.record.name||inlineSim.record.company):(inlineSim.record.contact||inlineSim.record.company);
-            if(inlineSim.exact){
-              // Exact match — offer to update or add contact
-              setPendingConv(null);
-              const merged={...inlineSim.record,...e};
-              setPendingDuplicate({entry:{...e,_type:conv.type},similar:inlineSim,saveAsOutreach:conv.saveAsOutreach||false,_remainingConv:{...conv,entry:e,idx:conv.idx+1}});
-              setMsgs([...history,{role:"assistant",content:`"${val}" already exists as a ${inlineSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
-              return;
-            }else{
-              // Fuzzy match
-              setPendingConv(null);
-              setPendingDuplicate({entry:{...e,_type:conv.type},similar:inlineSim,saveAsOutreach:conv.saveAsOutreach||false,_remainingConv:{...conv,entry:e,idx:conv.idx+1}});
-              setMsgs([...history,{role:"assistant",content:`Heads up — "${val}" looks similar to an existing ${inlineSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
-              return;
-            }
+          const inlineMatches=findAllSimilar(val,allVendors,allLeads);
+          if(inlineMatches.length>0){
+            setPendingConv(null);
+            setPendingDuplicate({entry:{...e,_type:conv.type},matches:inlineMatches,saveAsOutreach:conv.saveAsOutreach||false,_remainingConv:{...conv,entry:e,idx:conv.idx+1}});
+            setMsgs([...history,{role:"assistant",content:_dupMsg(inlineMatches,val)}]);
+            return;
           }
         }
       }
       const next=conv.idx+1;
       if(next>=conv.questions.length){
         setPendingConv(null);
+        // If this Q&A was collecting details for an xContact (option 2), save it now
+        if(conv._saveAsXContact){
+          const xc=conv._saveAsXContact;
+          const existing=getXContacts(xc.type,xc.id);
+          const nc={name:e.contact||e.name||"",role:e.role||"",email:e.email||"",phone:e.phone||""};
+          const updated=[...existing,nc];
+          setXContacts(xc.type,xc.id,updated);
+          showEntry({...xc.record,_xContacts:updated},xc.type,xc.id,conv.saveAsOutreach||false);
+          setMsgs([...history,{role:"assistant",content:`Added ${nc.name||"new contact"} as a contact on ${xc.existName}. Review the card below.`}]);
+          return;
+        }
         // Company-based duplicate detection for new entries
         if(!conv.updateId){
           const eName=conv.type==="vendor"?e.name:(e.contact||"");
           const eCompany=e.company||"";
-          // Check name and company against existing records
-          const nameSim=findSimilar(eName,allVendors,allLeads);
-          const companySim=!nameSim&&eCompany?findSimilar(eCompany,allVendors,allLeads):null;
-          const dupSim=nameSim||companySim;
-          if(dupSim){
-            const existName=dupSim.type==="vendor"?(dupSim.record.name||dupSim.record.company):(dupSim.record.contact||dupSim.record.company);
-            setPendingDuplicate({entry:{...e,_type:conv.type},similar:dupSim,saveAsOutreach:conv.saveAsOutreach||false});
-            setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed ${dupSim.exact?"an existing":"a similar"} ${dupSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+          const nameMatches=findAllSimilar(eName,allVendors,allLeads);
+          const compMatches=nameMatches.length===0&&eCompany?findAllSimilar(eCompany,allVendors,allLeads):[];
+          const allDupMatches=[...nameMatches,...compMatches];
+          // Deduplicate by id+type
+          const seenIds=new Set();const dedupMatches=allDupMatches.filter(m=>{const k=m.type+"_"+m.record.id;if(seenIds.has(k))return false;seenIds.add(k);return true;});
+          if(dedupMatches.length>0){
+            const queryName=eName||eCompany;
+            setPendingDuplicate({entry:{...e,_type:conv.type},matches:dedupMatches,saveAsOutreach:conv.saveAsOutreach||false});
+            setMsgs([...history,{role:"assistant",content:`All filled in! But I found similar entries.\n\n${_dupMsg(dedupMatches,queryName)}`}]);
           }else{
             showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
             setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
@@ -2775,32 +2800,74 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Pending duplicate confirmation (must come before vendor/lead intent handlers) ──
     const _dupState=_pendingDupRef.current||pendingDuplicate;
     if(_dupState&&agent.id==="logistical"){
-      const {entry,similar,saveAsOutreach:dupSaveAsOutreach}=_dupState;
-      const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
+      const {entry,matches:dupMatches,similar,saveAsOutreach:dupSaveAsOutreach}=_dupState;
+      // Support both old (similar) and new (matches) format
+      const allMatches=dupMatches||(similar?[similar]:[]);
       const pick=input.trim();
+      const pickNum=parseInt(pick);
+      setMsgs(history);setInput("");setLoading(false);
+
+      // ── Phase 1: Multiple matches — user picks which one ──
+      if(allMatches.length>1&&!_dupState._selectedMatch){
+        const noneIdx=allMatches.length+1;
+        if(pickNum>=1&&pickNum<=allMatches.length){
+          // User selected a match — now ask what to do with it
+          const sel=allMatches[pickNum-1];
+          const selName=sel.type==="vendor"?(sel.record.name||sel.record.company):(sel.record.contact||sel.record.company);
+          setPendingDuplicate({..._dupState,_selectedMatch:sel});
+          setMsgs([...history,{role:"assistant",content:`Selected: "${selName}" (${sel.type}).\n1. Update existing entry\n2. Add as new contact on this card\n3. None of these — create separate entry\n\nReply 1, 2, or 3.`}]);
+        }else if(pickNum===noneIdx||/^(no|none|nope|new|different|create|separate)\b/i.test(pick)){
+          // "None of these" — create new
+          const qname=entry._type==="vendor"?entry.name:entry.contact;
+          const rc=_dupState._remainingConv;
+          setPendingDuplicate(null);
+          if(rc&&rc.idx<rc.questions.length){
+            setPendingConv(rc);
+            setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"}. Continuing…\n\n${rc.questions[rc.idx].q} (or 'x' to skip)`}]);
+          }else{
+            const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
+            setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
+          }
+        }else{
+          // Invalid — re-show list
+          const queryName=entry.contact||entry.name||entry.company||"";
+          setMsgs([...history,{role:"assistant",content:_dupMsg(allMatches,queryName)}]);
+        }
+        setMood("idle");return;
+      }
+
+      // ── Phase 2: Single match or match already selected — pick action ──
+      const chosen=_dupState._selectedMatch||allMatches[0];
+      if(!chosen){setPendingDuplicate(null);setMood("idle");return;}
+      const existName=chosen.type==="vendor"?(chosen.record.name||chosen.record.company):(chosen.record.contact||chosen.record.company);
       const is1=/^(1|yes|yep|yeah|sure|correct|right|that'?s? ?(them|him|her|it)?|update|them)\b/i.test(pick);
       const is2=/^(2|add\s*contact|add\s*new\s*contact|add\s*to)\b/i.test(pick);
       const is3=/^(3|no|nope|new|different|create|separate)\b/i.test(pick);
-      setMsgs(history);setInput("");setLoading(false);
       if(is1){
-        // Merge: keep existing data, only fill in non-empty new values
-        const merged={...similar.record};
+        const merged={...chosen.record};
         for(const[k,v]of Object.entries(entry)){if(v&&k!=="_type"&&typeof v==="string"?v.trim():v)merged[k]=v;}
         setPendingDuplicate(null);
-        const fq1=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
+        const fq1=startConv(merged,chosen.type,dupSaveAsOutreach||false,chosen.record.id);
         setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'x' to skip)`:`Updating ${existName} — review below.`}]);
       }else if(is2){
-        const xType=similar.type;
-        const xId=similar.record.id;
-        const existing=getXContacts(xType,xId);
-        const newContact={name:entry.contact||entry.name||"",role:entry.role||"",email:entry.email||"",phone:entry.phone||""};
-        existing.push(newContact);
-        setXContacts(xType,xId,existing);
+        const contactName=entry.contact||entry.name||"new contact";
         setPendingDuplicate(null);
-        // Show the existing record card so user can review
-        showEntry({...similar.record,_xContacts:getXContacts(xType,xId)},xType,xId,dupSaveAsOutreach||false);
-        const contactLabel=newContact.name&&newContact.name!==existName?newContact.name:"new contact";
-        setMsgs([...history,{role:"assistant",content:`Added ${contactLabel} as a contact on ${existName}. Review the card below.`}]);
+        const xContactFields=chosen.type==="vendor"
+          ?[["email","Email address?"],["phone","Phone number?"],["role","Their role or title?"]]
+          :[["role","Their role or title?"],["email","Email address?"],["phone","Phone number?"]];
+        const xQs=xContactFields.filter(([k])=>!entry[k]).map(([k,q])=>({key:k,q}));
+        if(xQs.length>0){
+          const convData={entry:{...entry},type:chosen.type,saveAsOutreach:dupSaveAsOutreach||false,updateId:chosen.record.id,questions:xQs,idx:0,_saveAsXContact:{type:chosen.type,id:chosen.record.id,record:chosen.record,existName}};
+          setPendingConv(convData);
+          setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}. Let me get their details.\n\n${xQs[0].q} (or 'x' to skip)`}]);
+        }else{
+          const existing=getXContacts(chosen.type,chosen.record.id);
+          const nc={name:contactName,role:entry.role||"",email:entry.email||"",phone:entry.phone||""};
+          const updated=[...existing,nc];
+          setXContacts(chosen.type,chosen.record.id,updated);
+          showEntry({...chosen.record,_xContacts:updated},chosen.type,chosen.record.id,dupSaveAsOutreach||false);
+          setMsgs([...history,{role:"assistant",content:`Added ${contactName} as a contact on ${existName}. Review the card below.`}]);
+        }
       }else if(is3){
         const qname=entry._type==="vendor"?entry.name:entry.contact;
         const rc=_dupState._remainingConv;
@@ -2813,7 +2880,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
         }
       }else{
-        setMsgs([...history,{role:"assistant",content:`I found a similar existing ${similar.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+        setMsgs([...history,{role:"assistant",content:`Selected: "${existName}" (${chosen.type}).\n1. Update existing entry\n2. Add as new contact on this card\n3. None of these — create separate entry\n\nReply 1, 2, or 3.`}]);
       }
       setMood("idle");return;
     }
@@ -2888,15 +2955,11 @@ Fields: {"name":"","company":"","category":"","email":"","phone":"","website":""
         const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
         const entry={...parsed,_type:"vendor",company:parsed.company||"",location:parsed.location||"Dubai, UAE"};
         const vname=entry.name||"this vendor";
-        const sim=findSimilar(vname,allVendors,allLeads)||(entry.company?findSimilar(entry.company,allVendors,allLeads):null);
-        if(sim&&!sim.exact){
-          const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
-          setPendingDuplicate({entry,similar:sim,saveAsOutreach:false});
-          setMsgs([...history,{role:"assistant",content:`Got it — ${vname}. I found a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
-        }else if(sim?.exact){
-          const merged={...sim.record,...entry};
-          const fq=startConv(merged,"vendor",false,sim.record.id);
-          setMsgs([...history,{role:"assistant",content:fq?`${vname} exists — merging. ${fq} (or 'x' to skip)`:`${vname} exists — merging. Review below.`}]);
+        const vMatches=[...findAllSimilar(vname,allVendors,allLeads),...(entry.company?findAllSimilar(entry.company,allVendors,allLeads):[])];
+        const seenV=new Set();const vDedup=vMatches.filter(m=>{const k=m.type+"_"+m.record.id;if(seenV.has(k))return false;seenV.add(k);return true;});
+        if(vDedup.length>0){
+          setPendingDuplicate({entry,matches:vDedup,saveAsOutreach:false});
+          setMsgs([...history,{role:"assistant",content:`Got it — ${vname}.\n\n${_dupMsg(vDedup,vname)}`}]);
         }else{
           const firstQ=startConv(entry,"vendor",false,null);
           if(firstQ){
@@ -3060,11 +3123,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Found ${l.contact||l.name||findQuery}!\n📧 ${l.email||"—"}  📱 ${l.phone||"—"}\n🏢 ${l.company||"—"}  💼 ${l.role||"—"}${fqf?"\n\n"+fqf+" (or 'x' to skip)":"\n\nReview and save below."}`}]);
         // Default — check for duplicates (name then company)
         }else{
-          const sim=findSimilar(l.contact||l.name||"",allVendors,allLeads)||(l.company?findSimilar(l.company,allVendors,allLeads):null);
-          if(sim&&!sim.exact){
-            const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
-            setPendingDuplicate({entry:{...l,_type:findType},similar:sim,saveAsOutreach:false});
-            setMsgs([...history,{role:"assistant",content:`Found info for ${l.contact||l.name||findQuery}. I noticed a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+          const searchDupM=[...findAllSimilar(l.contact||l.name||"",allVendors,allLeads),...(l.company?findAllSimilar(l.company,allVendors,allLeads):[])];
+          const seenS=new Set();const searchDedup=searchDupM.filter(m=>{const k=m.type+"_"+m.record.id;if(seenS.has(k))return false;seenS.add(k);return true;});
+          if(searchDedup.length>0){
+            const qn=l.contact||l.name||findQuery;
+            setPendingDuplicate({entry:{...l,_type:findType},matches:searchDedup,saveAsOutreach:false});
+            setMsgs([...history,{role:"assistant",content:`Found info for ${qn}.\n\n${_dupMsg(searchDedup,qn)}`}]);
           }else{
             const foundEntry={...l,_type:findType};
             const fqf=startConv(foundEntry,findType,false,null);
@@ -3080,15 +3144,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     if(quickEntry){
       const qname=quickEntry._type==="vendor"?quickEntry.name:quickEntry.contact;
       const qcompany=quickEntry.company||"";
-      const sim=findSimilar(qname,allVendors,allLeads)||(qcompany?findSimilar(qcompany,allVendors,allLeads):null);
-      if(sim&&!sim.exact){
-        const existName=sim.type==="vendor"?sim.record.name:(sim.record.contact||sim.record.company);
-        setPendingDuplicate({entry:quickEntry,similar:sim,saveAsOutreach:false});
-        setMsgs([...history,{role:"assistant",content:`Heads up — I found a similar existing ${sim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
-      }else if(sim?.exact){
-        const merged={...sim.record,...quickEntry};
-        const fqe=startConv(merged,sim.type,false,sim.record.id);
-        setMsgs([...history,{role:"assistant",content:fqe?`${qname} exists — merging.\n\n${fqe} (or 'x' to skip)`:`${qname} exists — merging. Review below.`}]);
+      const qkMatches=[...findAllSimilar(qname,allVendors,allLeads),...(qcompany?findAllSimilar(qcompany,allVendors,allLeads):[])];
+      const seenQ=new Set();const qkDedup=qkMatches.filter(m=>{const k=m.type+"_"+m.record.id;if(seenQ.has(k))return false;seenQ.add(k);return true;});
+      if(qkDedup.length>0){
+        setPendingDuplicate({entry:quickEntry,matches:qkDedup,saveAsOutreach:false});
+        setMsgs([...history,{role:"assistant",content:_dupMsg(qkDedup,qname||qcompany)}]);
       }else{
         const fqn=startConv(quickEntry,quickEntry._type,false,null);
         setMsgs([...history,{role:"assistant",content:fqn?`Got it!\n\n${fqn} (or 'x' to skip)`:`Got it. Review and save below.`}]);
@@ -3846,7 +3906,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
                   const updated=(_cardEntry._xContacts||[]).filter((_,j)=>j!==i);
                   if(pendingConv){setPendingConv(prev=>({...prev,entry:{...prev.entry,_xContacts:updated}}));}
                   else{setLeadEdit(p=>({...p,_xContacts:updated}));}
-                }} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:"#86868b",cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>\u00d7</button>
+                }} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:"#86868b",cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
               </div>
             ))}
             {_vinnieAddContact&&(
@@ -4706,6 +4766,7 @@ export default function OnnaDashboard() {
             clone2.querySelectorAll("button").forEach(b=>b.remove());
             clone2.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
             clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
+            clone2.style.cssText="background:#fff;border-radius:0;padding:0;box-shadow:none;";
             const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
             const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
             idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
@@ -5058,7 +5119,8 @@ export default function OnnaDashboard() {
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{}}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState([]);
   const [archivedTodos,setArchivedTodos]     = useState([]);
-  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');return s?JSON.parse(s):[]}catch(e){return []}});
+  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab?t:["later","longterm"].includes(t.subType)?{...t,tab:"personal"}:{...t,tab:"onna"})}catch(e){return []}});
+  const [todoDragId,setTodoDragId] = useState(null);
   const [newTodo,setNewTodo]         = useState("");
   const [todoFilter,setTodoFilter]   = useState("todo");
   const [selectedTodo,setSelectedTodo] = useState(null);
@@ -5343,15 +5405,17 @@ export default function OnnaDashboard() {
   const projectTodosFlat = allProjectTodosFlat.filter(t=>!archivedTodos.find(a=>a.id===t.id));
   const allTodos = [...generalTodos,...projectTodosFlat];
   const filteredTodos = allTodos.filter(t=>{
-    if (todoFilter==="todo") return t._source==="general" && !["later","longterm"].includes(t.subType);
-    if (todoFilter==="general") return t._source==="general" && ["later","longterm"].includes(t.subType);
-    if (todoFilter==="general-later") return t._source==="general" && t.subType==="later";
-    if (todoFilter==="general-longterm") return t._source==="general" && t.subType==="longterm";
+    if (todoFilter==="todo") return t._source==="general" && t.tab==="onna";
+    if (todoFilter==="todo-now") return t._source==="general" && t.tab==="onna" && !t.subType;
+    if (todoFilter==="todo-later") return t._source==="general" && t.tab==="onna" && t.subType==="later";
+    if (todoFilter==="general") return t._source==="general" && t.tab==="personal";
+    if (todoFilter==="general-now") return t._source==="general" && t.tab==="personal" && !t.subType;
+    if (todoFilter==="general-later") return t._source==="general" && t.tab==="personal" && t.subType==="later";
     if (todoFilter==="project") return t._source==="project";
     if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-",""));
     return true;
   });
-  const todoTopFilter = todoFilter==="todo"?"todo":todoFilter.startsWith("general")||todoFilter==="general"?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
+  const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("general")?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
   const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
   const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
@@ -6989,20 +7053,40 @@ export default function OnnaDashboard() {
                   {/* Title row */}
                   <div style={{padding:"13px 16px 0",background:"#fafafa",borderBottom:`1px solid ${T.borderSub}`}}>
                     <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
-                      <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>To-Do</span>
+                      <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>ONNA</span>
                       <span style={{fontSize:11,color:T.muted}}>{allTodos.filter(t=>!t.done).length} open</span>
                     </div>
-                    {/* Top-level filter tabs */}
+                    {/* Top-level filter tabs with drag-and-drop targets */}
                     <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
-                      {[["todo","To Do"],["general","General"],["project","Projects"]].map(([val,label])=>(
-                        <button key={val} onClick={()=>setTodoFilter(val)} style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
+                      {[["todo","ONNA"],["general","Personal"],["project","Projects"]].map(([val,label])=>(
+                        <button key={val} onClick={()=>setTodoFilter(val)}
+                          onDragOver={e=>{if(val!=="project"){e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}}
+                          onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                          onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId||val==="project")return;const targetTab=val==="todo"?"onna":"personal";setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:targetTab,subType:undefined}:t));setTodoFilter(val);}}
+                          style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
                       ))}
                     </div>
-                    {/* Sub-filter row — General only */}
+                    {/* Sub-filter row — ONNA */}
+                    {todoTopFilter==="todo"&&(
+                      <div style={{display:"flex",gap:5,paddingBottom:10}}>
+                        {[["todo","All"],["todo-now","Now"],["todo-later","Later"]].map(([val,label])=>(
+                          <button key={val} onClick={()=>setTodoFilter(val)}
+                            onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
+                            onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="todo-later"?"later":undefined;setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType}:t));setTodoFilter(val);}}
+                            style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
+                        ))}
+                      </div>
+                    )}
+                    {/* Sub-filter row — Personal */}
                     {todoTopFilter==="general"&&(
                       <div style={{display:"flex",gap:5,paddingBottom:10}}>
-                        {[["general","All"],["general-later","Later"],["general-longterm","Long Term"]].map(([val,label])=>(
-                          <button key={val} onClick={()=>setTodoFilter(val)} style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
+                        {[["general","All"],["general-now","Now"],["general-later","Later"]].map(([val,label])=>(
+                          <button key={val} onClick={()=>setTodoFilter(val)}
+                            onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
+                            onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                            onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="general-later"?"later":undefined;setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"personal",subType}:t));setTodoFilter(val);}}
+                            style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
                         ))}
                       </div>
                     )}
@@ -7018,7 +7102,7 @@ export default function OnnaDashboard() {
                   {/* Task list — shows ~5 items then scrolls */}
                   <div style={{padding:"6px 12px",overflowY:"auto",maxHeight:215}}>
                     {filteredTodos.map(t=>(
-                      <div key={t.id} className="todo-item" style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}>
+                      <div key={t.id} className="todo-item" draggable={t._source==="general"} onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,cursor:t._source==="general"?"grab":"default"}}>
                         <button onClick={e=>{e.stopPropagation();(t._source==="project"?setProjectTodos(prev=>({...prev,[t.projectId]:(prev[t.projectId]||[]).map(x=>x.id===t.id?{...x,done:!x.done}:x)})):setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x)));}} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:2,transition:"all 0.12s"}}>
                           {t.done&&<span style={{color:"#fff",fontSize:9,lineHeight:1,fontWeight:700}}>✓</span>}
                         </button>
@@ -7037,8 +7121,8 @@ export default function OnnaDashboard() {
                   </div>
                   {/* Add input */}
                   <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa"}}>
-                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="general-later"?"Add later task…":todoFilter==="general-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                    <button onClick={()=>{if(newTodo.trim()){const subType=todoFilter==="general-later"?"later":todoFilter==="general-longterm"?"longterm":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
+                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"||todoFilter==="general-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                    <button onClick={()=>{if(newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
                   </div>
                 </div>
               </div>
