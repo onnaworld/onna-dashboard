@@ -5819,8 +5819,7 @@ const printCallSheetPDF = (cs) => {
   }).join("");
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
   const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
-  const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
-  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
   const weatherFields = `<div style="padding:10px 32px 4px"><div style="${secTitle}">WEATHER</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:10px">${cs.weatherHigh?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHigh)} °C / °F</div>`:""}${cs.weatherLow?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLow)} °C / °F</div>`:""}${cs.weatherRealFeelHigh?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHigh)} °C / °F</div>`:""}${cs.weatherRealFeelLow?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLow)} °C / °F</div>`:""}</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:10px">${cs.weatherSunrise?`<div><strong style="font-size:9px;${LS}color:#888">SUNRISE: </strong>${e(cs.weatherSunrise)}</div>`:""}${cs.weatherSunset?`<div><strong style="font-size:9px;${LS}color:#888">SUNSET: </strong>${e(cs.weatherSunset)}</div>`:""}${cs.weatherBlueHour?`<div><strong style="font-size:9px;${LS}color:#888">BLUE HOUR: </strong>${e(cs.weatherBlueHour)}</div>`:""}</div></div>`;
@@ -7054,10 +7053,11 @@ export default function OnnaDashboard() {
   const [outlookError,setOutlookError]     = useState("");
 
   // ── Agents state ──────────────────────────────────────────────────────────────
-  const [agentActiveIdx,setAgentActiveIdx] = useState(null);
+  const [agentActiveIdx,_setAgentActiveIdx] = useState(null);
   const [agentHoverIdx,setAgentHoverIdx]   = useState(null);
   const [agentPage,setAgentPage]           = useState(0);
   const AGENTS_PER_PAGE=4;
+  const setAgentActiveIdx=idx=>{_setAgentActiveIdx(idx);if(idx!==null)setAgentPage(Math.floor(idx/AGENTS_PER_PAGE));};
   const [agentWantsFullWidth,setAgentWantsFullWidth] = useState(false);
   const agentConstellationRef              = useRef(null);
 
@@ -10250,9 +10250,10 @@ export default function OnnaDashboard() {
           <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"auto":useWideLayout?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
             <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"auto",overflowY:"hidden",gap:8,padding:"14px 12px 10px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:6,padding:"10px 20px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
-              {/* Prev arrow */}
-              {useWideLayout&&<button onClick={()=>{const prev=(agentActiveIdx-1+AGENT_DEFS.length)%AGENT_DEFS.length;setAgentActiveIdx(prev);}} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
-              {AGENT_DEFS.map((a,i)=>{
+              {/* Prev page arrow */}
+              {(useWideLayout||isMobile)&&<button onClick={()=>setAgentPage(p=>(p-1+Math.ceil(AGENT_DEFS.length/AGENTS_PER_PAGE))%Math.ceil(AGENT_DEFS.length/AGENTS_PER_PAGE))} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
+              {AGENT_DEFS.slice(agentPage*AGENTS_PER_PAGE,(agentPage+1)*AGENTS_PER_PAGE).map((a)=>{
+                const i=AGENT_DEFS.indexOf(a);
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
                 return(
@@ -10267,8 +10268,8 @@ export default function OnnaDashboard() {
                   <span style={{fontSize:isMobile?9:useWideLayout?9:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase",whiteSpace:"nowrap"}}>{a.name}</span>
                 </button>
               );})}
-              {/* Next arrow */}
-              {useWideLayout&&<button onClick={()=>{const next=(agentActiveIdx+1)%AGENT_DEFS.length;setAgentActiveIdx(next);}} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
+              {/* Next page arrow */}
+              {(useWideLayout||isMobile)&&<button onClick={()=>setAgentPage(p=>(p+1)%Math.ceil(AGENT_DEFS.length/AGENTS_PER_PAGE))} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
             <div style={{flex:useWideLayout?undefined:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
