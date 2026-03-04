@@ -2278,7 +2278,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,contractDocStore,setContractDocStore,activeContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,onFullWidthChange,isMobile}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -2885,16 +2885,17 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
                 const firstName=(contactName.split(" ")[0]||"").toLowerCase();
                 const lastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
                 const domain=matchDomains[0]||(matchEmails[0]||"").split("@")[1]||"";
-                const suggestions=[];
+                // Real scraped emails first, then pattern suggestions
+                const suggestions=[...matchEmails];
                 if(domain){
-                  if(firstName)suggestions.push(firstName+"@"+domain);
-                  if(firstName&&lastName)suggestions.push(firstName+"."+lastName+"@"+domain);
-                  if(firstName&&lastName)suggestions.push(firstName[0]+"."+lastName+"@"+domain);
-                  if(firstName&&lastName)suggestions.push(firstName[0]+lastName+"@"+domain);
-                  if(lastName)suggestions.push(lastName+"@"+domain);
+                  const patterns=[];
+                  if(firstName)patterns.push(firstName+"@"+domain);
+                  if(firstName&&lastName)patterns.push(firstName+"."+lastName+"@"+domain);
+                  if(firstName&&lastName)patterns.push(firstName[0]+"."+lastName+"@"+domain);
+                  if(firstName&&lastName)patterns.push(firstName[0]+lastName+"@"+domain);
+                  if(lastName)patterns.push(lastName+"@"+domain);
+                  patterns.forEach(p=>{if(!suggestions.includes(p))suggestions.push(p);});
                 }
-                // Add any actual found emails at that domain
-                matchEmails.forEach(me=>{if(!suggestions.includes(me))suggestions.push(me)});
                 // Deduplicate
                 const unique=[...new Set(suggestions)];
                 if(unique.length){
@@ -3004,22 +3005,13 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           if(bestLead)lastSearchRef.current={...bestLead,_type:conv.type,_query:searchQuery,_ts:Date.now()};
           // Also fill phone if available
           if(!e.phone&&bestPhone)e.phone=_formatVal("phone",bestPhone);
-          // Score emails by relevance to the contact name + company
+          // Only show REAL scraped emails — no generated guesses
           const contactName=searchQuery;
           const firstName=(contactName.split(" ")[0]||"").toLowerCase();
           const lastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
           const compClean=(e.company||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-          // Generate likely patterns from company domain
-          const matchDom=allDoms.filter(d=>compClean&&(d.replace(/[^a-z0-9]/g,"").includes(compClean)||compClean.includes(d.split(".")[0].replace(/[^a-z0-9]/g,""))));
-          const domain=matchDom[0]||allFoundEmails.map(em=>em.split("@")[1]).find(d=>d&&compClean&&d.replace(/[^a-z0-9]/g,"").includes(compClean))||(compClean?compClean+".com":"");
-          const suggestions=[...allFoundEmails];
-          if(domain&&firstName){
-            const patterns=[firstName+"@"+domain];
-            if(lastName){patterns.push(firstName+"."+lastName+"@"+domain,firstName[0]+"."+lastName+"@"+domain,firstName[0]+lastName+"@"+domain);}
-            patterns.forEach(p=>{if(!suggestions.includes(p))suggestions.push(p);});
-          }
-          // Deduplicate
-          const unique=[...new Set(suggestions)];
+          // Deduplicate real emails only
+          const unique=[...new Set(allFoundEmails)];
           // Score each email: higher = more likely to belong to this contact
           const _scoreEmail=(em)=>{
             let s=0;const local=em.split("@")[0].toLowerCase();const dom=em.split("@")[1]||"";
@@ -3069,10 +3061,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
             const clean=d.replace(/^www\./i,"");
             if(clean)websites.push("www."+clean);
           }
-          // Also try company name as domain if not already covered
-          if(compClean&&!websites.some(w=>w.replace(/[^a-z0-9]/g,"").includes(compClean))){
-            websites.push("www."+compClean+".com");
-          }
+          // Only use real scraped domains — no guesses
           // Score by relevance to company/contact name
           const _scoreWebsite=(w)=>{
             let s=0;const wClean=w.toLowerCase().replace(/[^a-z0-9]/g,"");
@@ -3975,6 +3964,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const v1={label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap))};
             setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[matchedLabel].revisions=[v1];store[project.id]=arr;return store;});
             setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+            if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
             addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${raLabels[matchedLabel].label} \u00b7 V1`);
             setMsgs([...history,{role:"assistant",content:`Working on **${project.name}** \u2014 **${raLabels[matchedLabel].label} (V1)**. What would you like to do?`}]);
             setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -4011,6 +4001,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newLabel);return store;});
           const newIdx=raLabels.length;
           setRonnieCtx({projectId:project.id,vIdx:newIdx});
+          if(setActiveRAVersion)setActiveRAVersion(newIdx);
           addRonnieTab(project.id,newIdx,`${project.name} \u00b7 ${labelName} \u00b7 V1`);
           setMsgs([...history,{role:"assistant",content:`\u2713 Created **${labelName}** (V1) for **${project.name}**. I'm ready to work on it \u2014 tell me what risks to add, or ask me to review what's missing.`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -4040,6 +4031,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const v1={label:"V1",savedAt:Date.now(),isFinal:false,data:JSON.parse(JSON.stringify(snap2))};
             setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[matchedLabel].revisions=[v1];store[project.id]=arr;return store;});
             setRonnieCtx({projectId:project.id,vIdx:matchedLabel});
+            if(setActiveRAVersion)setActiveRAVersion(matchedLabel);
             addRonnieTab(project.id,matchedLabel,`${project.name} \u00b7 ${ver.label} \u00b7 V1`);
             setMsgs([...history,{role:"assistant",content:`Working on **${project.name}** \u2014 **${ver.label} (V1)**. What would you like to do?`}]);
             setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -4073,6 +4065,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               store[project.id]=arr;return store;
             });
             setRonnieCtx({projectId:project.id,vIdx:ronnieCtx.vIdx});
+            if(setActiveRAVersion)setActiveRAVersion(ronnieCtx.vIdx);
             addRonnieTab(project.id,ronnieCtx.vIdx,`${project.name} \u00b7 ${ver.label} \u00b7 ${newRevLabel}`);
             setMsgs([...history,{role:"assistant",content:`\u2713 Created **${newRevLabel}** of **${ver.label}** (built from ${revs.length>0?revs[revs.length-1].label:"V1"}). I'm ready to work on it.`}]);
             setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -4108,6 +4101,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             store[project.id]=arr;return store;
           });
           setRonnieCtx({projectId:project.id,vIdx:ronnieCtx.vIdx});
+          if(setActiveRAVersion)setActiveRAVersion(ronnieCtx.vIdx);
           addRonnieTab(project.id,ronnieCtx.vIdx,`${project.name} \u00b7 ${ver.label} \u00b7 ${selRev.label}`);
           setMsgs([...history,{role:"assistant",content:`Working on **${project.name}** \u2014 **${ver.label} (${selRev.label})**. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -4641,7 +4635,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         <div style={{flex:agent.id==="billie"?"0 0 60%":"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion}
-            riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion}
+            riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
             contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}
             projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}/>
         </div>
@@ -4675,9 +4669,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         {ronnieTabs.map((tab,i)=>{
           const isActive=ronnieCtx&&ronnieCtx.projectId===tab.projectId&&ronnieCtx.vIdx===tab.vIdx;
           return(
-            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setRonnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to **${tab.label}**.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #6a9eca":"1px solid #e0e0e0",background:isActive?"#f3f8ff":"#f5f5f7",color:isActive?"#1a4a80":"#6e6e73",borderBottom:isActive?"2px solid #6a9eca":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setRonnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});if(setActiveRAVersion)setActiveRAVersion(tab.vIdx);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to **${tab.label}**.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #6a9eca":"1px solid #e0e0e0",background:isActive?"#f3f8ff":"#f5f5f7",color:isActive?"#1a4a80":"#6e6e73",borderBottom:isActive?"2px solid #6a9eca":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
               <span>{tab.label}</span>
-              <span onClick={e=>{e.stopPropagation();setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to **${switchTo.label}**.`}]);}else{setRonnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
+              <span onClick={e=>{e.stopPropagation();setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveRAVersion)setActiveRAVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to **${switchTo.label}**.`}]);}else{setRonnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           );
         })}
@@ -5810,6 +5804,7 @@ export default function OnnaDashboard() {
   const [todoFilter,setTodoFilter]   = useState("todo");
   const [selectedTodo,setSelectedTodo] = useState(null);
   const [pendingProjectTask,setPendingProjectTask] = useState(null);
+  const [pendingDragToProject,setPendingDragToProject] = useState(null);
   const addTodoFromInput = (text) => {
     if (!text) return;
     const tab = todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;
@@ -7779,9 +7774,9 @@ export default function OnnaDashboard() {
                     <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
                       {[["todo","ONNA"],["general","Personal"],["project","Projects"]].map(([val,label])=>(
                         <button key={val} onClick={()=>setTodoFilter(val)}
-                          onDragOver={e=>{if(val!=="project"){e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}}
+                          onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                           onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                          onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId||val==="project")return;const targetTab=val==="todo"?"onna":"personal";setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:targetTab,subType:undefined}:t));setTodoFilter(val);}}
+                          onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task)setPendingDragToProject(task);return;}const targetTab=val==="todo"?"onna":"personal";setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:targetTab,subType:undefined}:t));setTodoFilter(val);}}
                           style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
                       ))}
                     </div>
@@ -8529,6 +8524,7 @@ export default function OnnaDashboard() {
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
                       setRiskAssessmentStore={a.id==="researcher"?setRiskAssessmentStore:undefined}
                       activeRAVersion={a.id==="researcher"?activeRAVersion:undefined}
+                      setActiveRAVersion={a.id==="researcher"?setActiveRAVersion:undefined}
                       contractDocStore={a.id==="contracts"?contractDocStore:undefined}
                       setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
                       activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
@@ -8859,6 +8855,25 @@ export default function OnnaDashboard() {
               ))}
             </div>
             <button onClick={()=>setPendingProjectTask(null)} style={{marginTop:14,width:"100%",padding:"8px 0",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── DRAG TO PROJECT PICKER ── */}
+      {pendingDragToProject&&(
+        <div className="modal-bg" onClick={()=>setPendingDragToProject(null)}>
+          <div style={{borderRadius:16,padding:24,width:340,maxWidth:"90vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>Move to Project</div>
+            <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Which project should "{pendingDragToProject.text}" go under?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto"}}>
+              {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(
+                <button key={p.id} onClick={()=>{setTodos(prev=>prev.filter(t=>t.id!==pendingDragToProject.id));setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:pendingDragToProject.id,text:pendingDragToProject.text,done:pendingDragToProject.done,details:pendingDragToProject.details||""}]}));setPendingDragToProject(null);setTodoFilter("project");}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
+                  <div>{p.name}</div>
+                  <div style={{fontSize:10,opacity:0.7,marginTop:1}}>{p.client}</div>
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setPendingDragToProject(null)} style={{marginTop:14,width:"100%",padding:"8px 0",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
           </div>
         </div>
       )}
