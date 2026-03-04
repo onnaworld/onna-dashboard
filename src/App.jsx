@@ -6355,7 +6355,7 @@ export default function OnnaDashboard() {
   const totalPipeline = localLeads.reduce((a,b)=>a+b.value,0);
   const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active");
-  const projects      = allProjectsMerged.filter(p=>p.year===projectYear);
+  const projects      = allProjectsMerged.filter(p=>p.year===projectYear||p.client==="TEMPLATE");
   const projRev       = projects.reduce((a,b)=>a+b.revenue,0);
   const projProfit    = projects.reduce((a,b)=>a+(b.revenue-b.cost),0);
   const projMargin    = projRev>0?Math.round((projProfit/projRev)*100):0;
