@@ -63,7 +63,7 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
   const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:36,maxWidth:140,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:120,height:40,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:44,maxWidth:180,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:140,height:44,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
@@ -669,8 +669,15 @@ function applyRonniePatch(patch, projectId, versionIdx, currentVersions, setRisk
     patch.sections.forEach(ps => {
       const sIdx = existing.findIndex(s => s.title.toUpperCase() === ps.title.toUpperCase());
       if (sIdx >= 0) {
-        // Append new rows to existing section
+        if (ps.deleteSection) { existing.splice(sIdx, 1); return; }
+        if (ps.deleteRows && Array.isArray(ps.deleteRows)) {
+          [...ps.deleteRows].sort((a,b)=>b-a).forEach(i=>{ if(i>=0&&i<existing[sIdx].rows.length) existing[sIdx].rows.splice(i,1); });
+        }
+        if (ps.updateRows && Array.isArray(ps.updateRows)) {
+          ps.updateRows.forEach(u=>{ if(u.index>=0&&u.index<existing[sIdx].rows.length&&u.row) existing[sIdx].rows[u.index]=u.row; });
+        }
         if (ps.rows) existing[sIdx].rows = [...existing[sIdx].rows, ...ps.rows];
+        if (ps.replaceAllRows && Array.isArray(ps.replaceAllRows)) existing[sIdx].rows = ps.replaceAllRows;
         if (ps.cols) existing[sIdx].cols = ps.cols;
       } else {
         existing.push({ id: nextId++, title: ps.title, cols: ps.cols || ["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"], rows: ps.rows || [] });
@@ -839,14 +846,25 @@ The Commissionee irrevocably and unconditionally assign to us Commissioner of al
 The Commissioner agrees that the Commissionee may use the Commissioned Content for portfolio purposes to promote his/her catalogue of work in print, digital or online platforms. Any such use is subject to the prior written approval of the Commissioner, which will not unreasonably be withheld, but which will not extend to: i) any use prior to first use by the Commissioner ii) any use which implies any relationship with the Commissioner beyond that set out in this Agreement.
 
 Payment Terms:
+
 In consideration of the supply and assignment of the Commissioned Content by the Commissionee, the Commissioner shall pay to the Commissionee the Fee. No expenses or disbursements incurred by the Commissionee shall be payable by the Commissioner unless agreed by the Commissioner in writing in advance. The Commissionee may invoice the Commissioner at any time after delivery of the Commissioned Content to the Commissioner and the Commissioner shall pay each invoice which is properly due within 60 days of the date on which the invoice is received.
+
 Unless otherwise indicated in the Head Terms, the Fee is exclusive of VAT, which, if applicable, the Commissionee shall add to its invoices at the appropriate rate.
+
 The Commissioner shall have the right to deduct and withhold from any payments due to the Commissionee all withholding and/or other taxes, contributions, or other payments required to be deducted, withheld, or paid by the Commissioner per any applicable present or future law or governmental rule or regulation. If the Commissioner does not deduct or withhold such taxes or other payments, the Commissionee shall immediately pay (whether on demand to the Commissioner or to the relevant authority) any and all such taxes, contributions, or other payments, together with all penalties, charges, and interest relating to the foregoing, and the Commissionee indemnifies the Commissioner and shall keep the Commissioner fully and effectually indemnified from and against any liability or expense in connection with such taxes or other payments (save to the extent that such recovery is prohibited by law).
+
 If: (i) the Commissioner makes any payment or incurs any charge at the Commissionee’s request for the Commissionee’s account (which the Commissioner is not obliged to do); or (ii) the Commissionee incurs any charges with the Commissioner, causes any damage to the Commissioner’s materials, property, or accommodation, or causes the Commissioner to incur or bear any costs in connection with the Commissionee losing, or failing to return on request, the Commissioner’s property or third-party property for which the Commissioner has financial responsibility (e.g., a security pass, vehicle-associated penalties); the Commissioner shall have the right to recoup any and all such payments or charges by deducting them from any compensation payable to the Commissionee per this Agreement. Any petty cash advances not repaid or correctly accounted for will be deducted from the Fee and/or any other payments due to the Commissionee.
 
-Parties Relationship/Tax/Social Security Contributions: The relationship between the Commissionee and the Commissioner will be that of independent contractor and nothing in this Agreement shall render the Commissionee an employee, worker, agent, or partner of the Commissioner and the Commissionee shall not, save as expressly provided in this Agreement, hold itself out as such. Accordingly: (a) the Commissionee shall be solely responsible for all taxes, social security contributions, and other contributions and fringes due in respect of the Commissionee’s Services provided hereunder and the Commissionee indemnifies the Commissioner for any sum which the Commissionee is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions, and fringes to the fullest extent permitted by applicable law and which arises as a result of the Commissionee’s services provided under this Agreement; (b) the Commissionee will be fully responsible for and agrees to indemnify the Commissioner against all costs, claims, damages, or expenses incurred by the Commissioner, or for which the Commissioner may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by the Commissionee or any third party against the Commissioner in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of relevant working hours legislation); and (c) the Commissionee will comply with the legislation in force, in particular with respect to relevant labor law and safety, as well as with the provisions of this Agreement. In no circumstances shall Commissioner be liable for or Commissionee be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
+Parties Relationship/Tax/Social Security Contributions:
 
-Confidentiality: If in connection with the Services or the subject matter of this Agreement, the Commissionee at any time receives or has access to at any confidential information (including without limitation concerning the business, affairs, products, plans, designs, business relationships or finances) of the Commissioner or Client or of any of the Commissioner or Client’s Group Companies, affiliates or partners (together Confidential Information):
+The relationship between the Commissionee and the Commissioner will be that of independent contractor and nothing in this Agreement shall render the Commissionee an employee, worker, agent, or partner of the Commissioner and the Commissionee shall not, save as expressly provided in this Agreement, hold itself out as such. Accordingly:
+(a) the Commissionee shall be solely responsible for all taxes, social security contributions, and other contributions and fringes due in respect of the Commissionee’s Services provided hereunder and the Commissionee indemnifies the Commissioner for any sum which the Commissionee is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions, and fringes to the fullest extent permitted by applicable law and which arises as a result of the Commissionee’s services provided under this Agreement;
+(b) the Commissionee will be fully responsible for and agrees to indemnify the Commissioner against all costs, claims, damages, or expenses incurred by the Commissioner, or for which the Commissioner may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by the Commissionee or any third party against the Commissioner in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of relevant working hours legislation); and
+(c) the Commissionee will comply with the legislation in force, in particular with respect to relevant labor law and safety, as well as with the provisions of this Agreement. In no circumstances shall Commissioner be liable for or Commissionee be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
+
+Confidentiality:
+
+If in connection with the Services or the subject matter of this Agreement, the Commissionee at any time receives or has access to at any confidential information (including without limitation concerning the business, affairs, products, plans, designs, business relationships or finances) of the Commissioner or Client or of any of the Commissioner or Client’s Group Companies, affiliates or partners (together Confidential Information):
 the Commissionee will use such Confidential Information only as necessary to perform the Services;
 the Commissionee will keep such Confidential Information secure, using precautions no less rigorous than those taken to preserve its own confidential information;
 the Commissionee will not disclose the Confidential Information to any third party except with the prior written approval of the Commissioner (and shall ensure that any such disclosure is subject to obligations of confidentiality and non-use equivalent to those in this Agreement). The Commissionee will be liable for any subsequent disclosure or misuse of the Confidential Information by any such person; and
@@ -854,7 +872,9 @@ the Commissionee will return to the Commissioner, and delete from its systems, a
 
 and each such obligation shall survive termination of this Agreement however caused. The Commissionee may disclose Confidential Information as required by law, provided that the Commissionee notifies the Commissioner as early as possible prior to any such disclosure in order to enable the Commissioner to take steps to preserve the continued confidence of the Confidential Information.
 
-Warranties: The Commissionee agrees, undertakes, represents and warrants to the Commissioner that:
+Warranties:
+
+The Commissionee agrees, undertakes, represents and warrants to the Commissioner that:
 the Commissioned Content will be its original work and will not be copied wholly or substantially from any other work or material or any other source;
 the Commissionee is the sole legal and beneficial owner of all intellectual property rights in the Commissioned Content and has right to enter into this Agreement and to grant the licences granted herein;
 the exploitation by the Commissioner of the rights granted herein will not infringe or violate the rights of any third party;
@@ -867,18 +887,25 @@ Commissionee shall not engage any person to serve in any capacity or incur any c
 Commissionee shall not (i) accept or pay any consideration (other than consideration paid by Commissioner to Comissionee under this Agreement) or gratuity in exchange for the inclusion of material in the Commissioned Content or (ii) accept, any money, services, goods or other valuable consideration for the inclusion of any plug, reference, product identification or other matter within the Commissioned Content or any element thereof
 Comissionee (i) will comply with the  all anti-bribery and/or corruption laws (including, without limitation, the United Kingdom Bribery Act 2010 and the U.S. Foreign Corrupt Practices Act, both as amended from time to time, and any other applicable anti-corruption laws; and (ii) you have not and will not directly or indirectly make any payment(s) or give anything of value to any government employee or official with respect to the Services, or any activity related thereto for the purpose of influencing and decision and/or action of such government employee or official in their official capacity.
 
-Indemnity & Insurance:The Commissionee shall indemnify and hold the Commissioner harmless from all claims and all direct, indirect or consequential liabilities (including loss of profits, loss of business, depletion of goodwill and similar losses), costs, proceedings, damages and expenses (including legal and other professional fees and expenses) awarded against, or incurred or paid by, the Commissioner as a result of or in connection with any breach by Commissionee of its obligations, representations and/or warranties under this Agreement. The Commissionee shall maintain in force during the period of this Agreement adequate insurance cover with reputable insurers acceptable to Commissioner, including but not limited to health and personal accident insurance in respect of Commissionee, and equipment insurance in respect of any equipment hired to Commissionee for the production of the Commissioned Content.
+Indemnity & Insurance:
 
-Termination: The Commissioner may terminate this Agreement by written notice if:
+The Commissionee shall indemnify and hold the Commissioner harmless from all claims and all direct, indirect or consequential liabilities (including loss of profits, loss of business, depletion of goodwill and similar losses), costs, proceedings, damages and expenses (including legal and other professional fees and expenses) awarded against, or incurred or paid by, the Commissioner as a result of or in connection with any breach by Commissionee of its obligations, representations and/or warranties under this Agreement. The Commissionee shall maintain in force during the period of this Agreement adequate insurance cover with reputable insurers acceptable to Commissioner, including but not limited to health and personal accident insurance in respect of Commissionee, and equipment insurance in respect of any equipment hired to Commissionee for the production of the Commissioned Content.
+
+Termination:
+
+The Commissioner may terminate this Agreement by written notice if:
 the Commissionee is deemed unable to perform or commits a breach of its obligations under this Agreement and (if such breach shall be capable of remedy) fails to remedy it within seven (7) days of receipt of notice requiring it to do so;
 the Commissionee goes into compulsory or voluntary liquidation, suspends or threatens to suspend its business operations or offering, goes into administration or becomes bankrupt;
 the Commissionee is convicted of a criminal offence or engages in or is party to any action or arrangement which may detrimentally affect the reputation of the Commissioner;
 the Commissionee is incapacitated (including by reason of illness or accident) or otherwise prevented from providing the Services for a period of more than two weeks;
 the Commissioner may terminate at its convenience for any other reason up to three weeks prior to the commencement of Commissionee’s engagement (e.g. Shoot date) under this Agreement.
 
-Force Majeure: In the event that due to circumstances beyond either of the parties’ control (including but not limited to war, act of public enemy, terrorism , riot, civil commotion, union strike, labour conditions, fire, casualty, accident, volcanic ash, act of God, epidemic or pandemic (including without limitation COVID-19) judicial order or enactment, act of government, failure of technical facilities, inability to secure necessary location or filming permits, licences or releases, necessary visas or work permits, essential commodities, necessary equipment or personnel or adequate transportation, incapacity or death of key personnel or subjects; withdrawal of funding for the Commissioned Content by the Client; or the Client refusing to approve Commissionee’s engagement in respect of the Commissioned Content (each an Event of Force Majeure) the Services for which Commisionee been engaged is prevented, delayed or interrupted Commissionee shall be entitled by written notice to suspend Commissionee’s engagement with immediate effect for the period of the interruption and such additional period as Agency may require to resume the production of the Commissioned Content or to terminate Comissionee’s engagement with no liability for payment of the Fee.
+Force Majeure:
+
+In the event that due to circumstances beyond either of the parties’ control (including but not limited to war, act of public enemy, terrorism , riot, civil commotion, union strike, labour conditions, fire, casualty, accident, volcanic ash, act of God, epidemic or pandemic (including without limitation COVID-19) judicial order or enactment, act of government, failure of technical facilities, inability to secure necessary location or filming permits, licences or releases, necessary visas or work permits, essential commodities, necessary equipment or personnel or adequate transportation, incapacity or death of key personnel or subjects; withdrawal of funding for the Commissioned Content by the Client; or the Client refusing to approve Commissionee’s engagement in respect of the Commissioned Content (each an Event of Force Majeure) the Services for which Commisionee been engaged is prevented, delayed or interrupted Commissionee shall be entitled by written notice to suspend Commissionee’s engagement with immediate effect for the period of the interruption and such additional period as Agency may require to resume the production of the Commissioned Content or to terminate Comissionee’s engagement with no liability for payment of the Fee.
 
 Miscellaneous:
+
 This Agreement contains the whole agreement between the parties and supersedes any prior written or oral agreement between them in relation to its subject matter, and the parties confirm that they have not entered into this Agreement in reliance on any representations that are not expressly incorporated into this Agreement.
 No variation of this Agreement shall be valid unless it is in writing and signed by or on behalf of each of the parties.
 No whole or partial waiver of any breach of this Agreement shall be held to be a waiver of any other or any subsequent breach. The whole or partial failure of either party to enforce at any time the provisions of this Agreement shall in no way be construed to be a waiver of such provisions nor in any way affect the validity of this Agreement or any part of it or the right of either party to enforce subsequently each and every provision. No waiver shall be effective unless in writing.
@@ -898,14 +925,25 @@ The Commissionee and the Individual each irrevocably and unconditionally assign 
 Subject to the Commissioner’s prior written approval (not to be unreasonably withheld), the Commissionee and the Individual may use the Commissioned Content for portfolio purposes to promote their catalogue of work in print, digital or online platforms, provided that: (i) no use is made prior to first use by the Commissioner; and (ii) no use implies any relationship with the Commissioner beyond that set out in this Agreement.
 
 Payment Terms:
+
 In consideration of the supply and assignment of the Commissioned Content by the Commissionee, the Commissioner shall pay to the Commissionee the Fee. No expenses or disbursements incurred by the Commissionee shall be payable by the Commissioner unless agreed by the Commissioner in writing in advance. The Commissionee may invoice the Commissioner at any time after delivery of the Commissioned Content to the Commissioner and the Commissioner shall pay each invoice which is properly due within 60 days of the date on which the invoice is received.
+
 Unless otherwise indicated in the Head Terms, the Fee is exclusive of VAT, which, if applicable, the Commissionee shall add to its invoices at the appropriate rate.
+
 The Commissioner shall have the right to deduct and withhold from any payments due to the Commissionee all withholding and/or other taxes, contributions, or other payments required to be deducted, withheld, or paid by the Commissioner per any applicable present or future law or governmental rule or regulation. If the Commissioner does not deduct or withhold such taxes or other payments, the Commissionee shall immediately pay (whether on demand to the Commissioner or to the relevant authority) any and all such taxes, contributions, or other payments, together with all penalties, charges, and interest relating to the foregoing, and the Commissionee indemnifies the Commissioner and shall keep the Commissioner fully and effectually indemnified from and against any liability or expense in connection with such taxes or other payments (save to the extent that such recovery is prohibited by law).
+
 If: (i) the Commissioner makes any payment or incurs any charge at the Commissionee’s or Individual’s request for the Commissionee’s or Individual’s account (which the Commissioner is not obliged to do); or (ii) the Commissionee or Individual incur any charges with the Commissioner, causes any damage to the Commissioner’s materials, property, or accommodation, or causes the Commissioner to incur or bear any costs in connection with the Commissionee or Individual losing, or failing to return on request, the Commissioner’s property or third-party property for which the Commissioner has financial responsibility (e.g., a security pass, vehicle-associated penalties); the Commissioner shall have the right to recoup any and all such payments or charges by deducting them from any compensation payable to the Commissionee per this Agreement. Any petty cash advances not repaid or correctly accounted for will be deducted from the Fee and/or any other payments due to the Commissionee.
 
-Parties Relationship/Tax/Social Security Contributions: The relationship between the Commissionee and the Commissioner will be that of independent contractor and nothing in this Agreement shall render the Commissionee or Individual an employee, worker, agent, or partner of the Commissioner and neither the Commissionee nor Individual shall, save as expressly provided in this Agreement, hold themselves out as such. Accordingly: (a) the Commissionee shall be solely responsible for all taxes, social security contributions, and other contributions and fringes due in respect of the Commissionee’s and Individual’s Services provided hereunder and the Commissionee indemnifies the Commissioner for any sum which the Commissionee is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions, and fringes to the fullest extent permitted by applicable law and which arises as a result of the Commissionee’s or Individual’s services provided under this Agreement; (b) the Commissionee will be fully responsible for and agrees to indemnify the Commissioner against all costs, claims, damages, or expenses incurred by the Commissioner, or for which the Commissioner may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by the Commissionee, Individual or any third party against the Commissioner in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of relevant working hours legislation); and (c) the Commissionee will comply with the legislation in force, in particular with respect to relevant labor law and safety, as well as with the provisions of this Agreement, and shall ensure the Individual’s compliance with the same. In no circumstances shall Commissioner be liable for or Commissionee/Individual be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
+Parties Relationship/Tax/Social Security Contributions:
 
-Confidentiality: If in connection with the Services or the subject matter of this Agreement, the Commissionee and/or Individual at any time receives or has access to at any confidential information (including without limitation concerning the business, affairs, products, plans, designs, business relationships or finances) of the Commissioner or Client or of any of the Commissioner or Client’s Group Companies, affiliates or partners (together Confidential Information):
+The relationship between the Commissionee and the Commissioner will be that of independent contractor and nothing in this Agreement shall render the Commissionee or Individual an employee, worker, agent, or partner of the Commissioner and neither the Commissionee nor Individual shall, save as expressly provided in this Agreement, hold themselves out as such. Accordingly:
+(a) the Commissionee shall be solely responsible for all taxes, social security contributions, and other contributions and fringes due in respect of the Commissionee’s and Individual’s Services provided hereunder and the Commissionee indemnifies the Commissioner for any sum which the Commissionee is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions, and fringes to the fullest extent permitted by applicable law and which arises as a result of the Commissionee’s or Individual’s services provided under this Agreement;
+(b) the Commissionee will be fully responsible for and agrees to indemnify the Commissioner against all costs, claims, damages, or expenses incurred by the Commissioner, or for which the Commissioner may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by the Commissionee, Individual or any third party against the Commissioner in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of relevant working hours legislation); and
+(c) the Commissionee will comply with the legislation in force, in particular with respect to relevant labor law and safety, as well as with the provisions of this Agreement, and shall ensure the Individual’s compliance with the same. In no circumstances shall Commissioner be liable for or Commissionee/Individual be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
+
+Confidentiality:
+
+If in connection with the Services or the subject matter of this Agreement, the Commissionee and/or Individual at any time receives or has access to at any confidential information (including without limitation concerning the business, affairs, products, plans, designs, business relationships or finances) of the Commissioner or Client or of any of the Commissioner or Client’s Group Companies, affiliates or partners (together Confidential Information):
 they shall use such Confidential Information only as necessary to perform the Services;
 they shall keep such Confidential Information secure, using precautions no less rigorous than those taken to preserve its own confidential information;
 they shall not disclose the Confidential Information to any third party except with the prior written approval of the Commissioner (and shall ensure that any such disclosure is subject to obligations of confidentiality and non-use equivalent to those in this Agreement). The Commissionee will be liable for any subsequent disclosure or misuse of the Confidential Information by any such person; and
@@ -913,7 +951,9 @@ they shall will return to the Commissioner, and delete from its systems, all Con
 
 and each such obligation shall survive termination of this Agreement however caused. The Commissionee may disclose Confidential Information as required by law, provided that the Commissionee notifies the Commissioner as early as possible prior to any such disclosure in order to enable the Commissioner to take steps to preserve the continued confidence of the Confidential Information.
 
-Warranties: The Commissionee agrees, undertakes, represents and warrants, and shall procure that the Individual agrees, undertakes, represents and warrants to the Commissioner that:
+Warranties:
+
+The Commissionee agrees, undertakes, represents and warrants, and shall procure that the Individual agrees, undertakes, represents and warrants to the Commissioner that:
 the Commissioned Content will be their original work and will not be copied wholly or substantially from any other work or material or any other source;
 the Commissionee is the sole legal and beneficial owner of all intellectual property rights in the Commissioned Content and has right to enter into this Agreement and to grant the licences granted herein;
 the exploitation by the Commissioner of the rights granted herein will not infringe or violate the rights of any third party;
@@ -926,18 +966,25 @@ Commissionee nor Individual shall engage any person to serve in any capacity or 
 Commissionee nor Individual shall (i) accept or pay any consideration (other than consideration paid by Commissioner to Commissionee under this Agreement) or gratuity in exchange for the inclusion of material in the Commissioned Content or (ii) accept, any money, services, goods or other valuable consideration for the inclusion of any plug, reference, product identification or other matter within the Commissioned Content or any element thereof
 Commissionee and Individual (i) will comply with the  all anti-bribery and/or corruption laws (including, without limitation, the United Kingdom Bribery Act 2010 and the U.S. Foreign Corrupt Practices Act, both as amended from time to time, and any other applicable anti-corruption laws; and (ii) will not directly or indirectly make any payment(s) or give anything of value to any government employee or official with respect to the Services, or any activity related thereto for the purpose of influencing and decision and/or action of such government employee or official in their official capacity.
 
-Indemnity & Insurance: The Commissionee and the Individual shall jointly and severally indemnify and hold the Commissioner harmless from and against all claims and all direct, indirect or consequential liabilities (including loss of profits, loss of business, depletion of goodwill and similar losses), costs, proceedings, damages and expenses (including legal and other professional fees and expenses) arising out of or in connection with any breach by the Commissionee or the Individual of their obligations, representations and/or warranties under this Agreement. The Commissionee shall maintain in force during the period of this Agreement adequate insurance cover with reputable insurers acceptable to Commissioner, including but not limited to health and personal accident insurance in respect of Individual, and equipment insurance in respect of any equipment hired to Commissionee for the production of the Commissioned Content.
+Indemnity & Insurance:
 
-Termination: The Commissioner may terminate this Agreement by written notice if:
+The Commissionee and the Individual shall jointly and severally indemnify and hold the Commissioner harmless from and against all claims and all direct, indirect or consequential liabilities (including loss of profits, loss of business, depletion of goodwill and similar losses), costs, proceedings, damages and expenses (including legal and other professional fees and expenses) arising out of or in connection with any breach by the Commissionee or the Individual of their obligations, representations and/or warranties under this Agreement. The Commissionee shall maintain in force during the period of this Agreement adequate insurance cover with reputable insurers acceptable to Commissioner, including but not limited to health and personal accident insurance in respect of Individual, and equipment insurance in respect of any equipment hired to Commissionee for the production of the Commissioned Content.
+
+Termination:
+
+The Commissioner may terminate this Agreement by written notice if:
 the Commissionee or Individual is deemed unable to perform or commits a breach of its obligations under this Agreement and (if such breach shall be capable of remedy) fails to remedy it within seven (7) days of receipt of notice requiring it to do so;
 the Commissionee goes into compulsory or voluntary liquidation, suspends or threatens to suspend its business operations or offering, goes into administration or becomes bankrupt;
 the Commissionee or Individual is convicted of a criminal offence or engages in or is party to any action or arrangement which may detrimentally affect the reputation of the Commissioner;
 the Commissionee or Individual is incapacitated (including by reason of illness or accident) or otherwise prevented from providing the Services for a period of more than two weeks;
 the Commissioner may terminate at its convenience for any other reason up to three weeks prior to the commencement of Commissionee’s engagement (e.g. Shoot date) under this Agreement.
 
-Force Majeure: In the event that due to circumstances beyond either of the parties’ control (including but not limited to war, act of public enemy, terrorism , riot, civil commotion, union strike, labour conditions, fire, casualty, accident, volcanic ash, act of God, epidemic or pandemic (including without limitation COVID-19) judicial order or enactment, act of government, failure of technical facilities, inability to secure necessary location or filming permits, licences or releases, necessary visas or work permits, essential commodities, necessary equipment or personnel or adequate transportation, incapacity or death of key personnel or subjects; withdrawal of funding for the Commissioned Content by the Client; or the Client refusing to approve Commissionee’s engagement in respect of the Commissioned Content (each an Event of Force Majeure) the Services for which Commisionee been engaged is prevented, delayed or interrupted Commissioner shall be entitled by written notice to suspend Talent’s engagement with immediate effect for the period of the interruption and such additional period as Agency may require to resume the production of the Campaign or to terminate Talent’s engagement with no liability for payment of the Fee.
+Force Majeure:
+
+In the event that due to circumstances beyond either of the parties’ control (including but not limited to war, act of public enemy, terrorism , riot, civil commotion, union strike, labour conditions, fire, casualty, accident, volcanic ash, act of God, epidemic or pandemic (including without limitation COVID-19) judicial order or enactment, act of government, failure of technical facilities, inability to secure necessary location or filming permits, licences or releases, necessary visas or work permits, essential commodities, necessary equipment or personnel or adequate transportation, incapacity or death of key personnel or subjects; withdrawal of funding for the Commissioned Content by the Client; or the Client refusing to approve Commissionee’s engagement in respect of the Commissioned Content (each an Event of Force Majeure) the Services for which Commisionee been engaged is prevented, delayed or interrupted Commissioner shall be entitled by written notice to suspend Talent’s engagement with immediate effect for the period of the interruption and such additional period as Agency may require to resume the production of the Campaign or to terminate Talent’s engagement with no liability for payment of the Fee.
 
 Miscellaneous:
+
 This Agreement contains the whole agreement between the parties and supersedes any prior written or oral agreement between them in relation to its subject matter, and the parties confirm that they have not entered into this Agreement in reliance on any representations that are not expressly incorporated into this Agreement.
 No variation of this Agreement shall be valid unless it is in writing and signed by or on behalf of each of the parties.
 No whole or partial waiver of any breach of this Agreement shall be held to be a waiver of any other or any subsequent breach. The whole or partial failure of either party to enforce at any time the provisions of this Agreement shall in no way be construed to be a waiver of such provisions nor in any way affect the validity of this Agreement or any part of it or the right of either party to enforce subsequently each and every provision. No waiver shall be effective unless in writing.
@@ -961,6 +1008,7 @@ Definitions:
 "Services" the services to be provided by the Talent pursuant to the Agreement, as described in the Commercial Terms. "Term" has the meaning set out in clause 2 of the General Conditions.
 
 Interpretation:
+
 A reference to a statute or statutory provision is a reference to it as amended, extended or re-enacted from time to time. A reference to a statute or statutory provision includes any subordinate legislation made from time to time under that statute or statutory provision.
 Any words following the terms including, include, in particular, for example or any similar expression shall be construed as illustrative and shall not limit the sense of the words, description, definition, phrase or term preceding those terms.
 A reference to writing or written includes email.
@@ -1066,9 +1114,15 @@ GENERAL
 
 Subcontracting. The Talent may not subcontract any or all of its rights or obligations under the Agreement without the prior written consent of the Agency, and the Services shall not be fulfilled unless performed by the Talent personally. If the Agency consents to any subcontracting by the Agent, the Agent shall remain responsible for all acts and omissions of its subcontractors as if they were its own.
 
-Parties Relationship: The relationship between Talent and Agency will be that of independent contractor and nothing in this Agreement shall render Talent an employee, worker, agent or partner of Agency and Talent shall not, save as expressly provided in this Agreement, hold themselves out as such. Accordingly: (a) Talent shall be solely responsible for all taxes, social security contributions and other contributions and fringes due in respect of the services provided hereunder and shall indemnify Agency for any sum which Agency is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions and fringes to the fullest extent permitted by Applicable Law and which arises as a result of the services provided under this Agreement; (b) Talent will be fully responsible for and agrees to indemnify Agency against all costs, claims, damages or expenses incurred by Agency, or for which Agency may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by Talent or any third party against Agency in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of applicable working hours legislation). All sums payable to Talent under this Agreement are fully inclusive of any applicable Value Added Tax, sales tax or similar tax; and (c) Talent shall ensure and guarantee compliance with the legislation in force, in particular with respect to applicable labor law and safety, as well as with the provisions of this Agreement. In no circumstances shall Agency be liable for or Talent be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
+Parties Relationship:
+
+The relationship between Talent and Agency will be that of independent contractor and nothing in this Agreement shall render Talent an employee, worker, agent or partner of Agency and Talent shall not, save as expressly provided in this Agreement, hold themselves out as such. Accordingly:
+(a) Talent shall be solely responsible for all taxes, social security contributions and other contributions and fringes due in respect of the services provided hereunder and shall indemnify Agency for any sum which Agency is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions and fringes to the fullest extent permitted by Applicable Law and which arises as a result of the services provided under this Agreement;
+(b) Talent will be fully responsible for and agrees to indemnify Agency against all costs, claims, damages or expenses incurred by Agency, or for which Agency may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by Talent or any third party against Agency in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of applicable working hours legislation). All sums payable to Talent under this Agreement are fully inclusive of any applicable Value Added Tax, sales tax or similar tax; and
+(c) Talent shall ensure and guarantee compliance with the legislation in force, in particular with respect to applicable labor law and safety, as well as with the provisions of this Agreement. In no circumstances shall Agency be liable for or Talent be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
 
 Confidentiality
+
 Talent undertakes that it shall not disclose to any person the existence of this Agreement and details of its terms, or any confidential information concerning the business, affairs, customers, clients or suppliers of Agency or Brand or of any member of the group to which Agency or Brand belongs, including but not limited to, except as permitted by clause 11.3(b).
 Each party may disclose the other party’s confidential information and/or the existence and terms of this Agreement:
 to its employees, officers, representatives, subcontractors or advisers who need to know such information for the purposes of carrying out the party’s obligations under the Agreement. Each party shall ensure that its employees, officers, representatives, subcontractors or advisers to whom it discloses the other party’s confidential information comply with this clause 11.2; and
@@ -1084,6 +1138,7 @@ Entire Agreement. The Agreement constitutes the entire agreement between the par
 Variation. No variation of the Agreement shall be effective unless it is in writing and signed by the parties (or their authorised representatives).
 
 Waiver
+
 A waiver of any right or remedy under the Agreement or by law is only effective if given in writing and shall not be deemed a waiver of any subsequent right or remedy.
 A failure or delay by a party to exercise any right or remedy provided under the Agreement or by law shall not constitute a waiver of that or any other right or remedy, nor shall it prevent or restrict any further exercise of that or any other right or remedy. No single or partial exercise of any right or remedy provided under the Agreement or by law shall prevent or restrict the further exercise of that or any other right or remedy.
 
@@ -1113,6 +1168,7 @@ Definitions:
 "Term" has the meaning set out in clause 2 of the General Conditions.
 
 Interpretation:
+
 A reference to a statute or statutory provision is a reference to it as amended, extended or re-enacted from time to time. A reference to a statute or statutory provision includes any subordinate legislation made from time to time under that statute or statutory provision.
 Any words following the terms including, include, in particular, for example or any similar expression shall be construed as illustrative and shall not limit the sense of the words, description, definition, phrase or term preceding those terms.
 A reference to writing or written includes email.
@@ -1218,9 +1274,15 @@ GENERAL
 
 Subcontracting. The PSC and Talent may not subcontract any or all of their rights or obligations under the Agreement without the prior written consent of the Agency, and the Services shall not be fulfilled unless performed by the Talent personally. If the Agency consents to any subcontracting by the PSC/Talent, the PSC and Talent shall remain responsible for all acts and omissions of its subcontractors as if they were its own.
 
-Parties Relationship: The relationship between PSC/Talent and Agency will be that of independent contractor and nothing in this Agreement shall render PSC or Talent an employee, worker, agent or partner of Agency and PSC nor Talent shall, save as expressly provided in this Agreement, hold themselves out as such. Accordingly: (a) PSC shall be solely responsible for all taxes, social security contributions and other contributions and fringes due in respect of the services provided hereunder and shall indemnify Agency for any sum which Agency is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions and fringes to the fullest extent permitted by Applicable Law and which arises as a result of the services provided under this Agreement; (b) PSC and Talent will be fully responsible for and agrees to indemnify Agency against all costs, claims, damages or expenses incurred by Agency, or for which Agency may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by PSC or Talent or any third party against Agency in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of applicable working hours legislation). All sums payable to PSC under this Agreement are fully inclusive of any applicable Value Added Tax, sales tax or similar tax; and (c) Talent shall ensure and guarantee compliance with the legislation in force, in particular with respect to applicable labor law and safety, as well as with the provisions of this Agreement. In no circumstances shall Agency be liable for or PSC/Talent be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
+Parties Relationship:
+
+The relationship between PSC/Talent and Agency will be that of independent contractor and nothing in this Agreement shall render PSC or Talent an employee, worker, agent or partner of Agency and PSC nor Talent shall, save as expressly provided in this Agreement, hold themselves out as such. Accordingly:
+(a) PSC shall be solely responsible for all taxes, social security contributions and other contributions and fringes due in respect of the services provided hereunder and shall indemnify Agency for any sum which Agency is required to pay to a relevant authority by way of income tax or social security contributions and other taxes, contributions and fringes to the fullest extent permitted by Applicable Law and which arises as a result of the services provided under this Agreement;
+(b) PSC and Talent will be fully responsible for and agrees to indemnify Agency against all costs, claims, damages or expenses incurred by Agency, or for which Agency may become liable, with respect to any liability for any employment-related claim or any claim based on employee or worker status brought by PSC or Talent or any third party against Agency in connection with this Agreement (including without limitation any claim relating to holiday pay or in respect of applicable working hours legislation). All sums payable to PSC under this Agreement are fully inclusive of any applicable Value Added Tax, sales tax or similar tax; and
+(c) Talent shall ensure and guarantee compliance with the legislation in force, in particular with respect to applicable labor law and safety, as well as with the provisions of this Agreement. In no circumstances shall Agency be liable for or PSC/Talent be entitled to any employment benefits, including but not limited to medical insurance, paid leave, end-of-service benefits as a result of this Agreement.
 
 Confidentiality
+
 PSC undertakes and shall procure that Talent undertakes that it shall not disclose to any person the existence of thisAgreement and details of its terms, or any confidential information concerning the business, affairs, customers, clients or suppliers of Agency or Brand or of any member of the group to which Agency or Brand belongs, including but not limited to, except as permitted by clause 12.3(b).
 Each party may disclose the other party’s confidential information and/or the existence and terms of this Agreement:
 to its employees, officers, representatives, subcontractors or advisers who need to know such information for the purposes of carrying out the party’s obligations under the Agreement. Each party shall ensure that its employees, officers, representatives, subcontractors or advisers to whom it discloses the other party’s confidential information comply with this clause 12.3; and
@@ -1236,6 +1298,7 @@ Entire Agreement. The Agreement constitutes the entire agreement between the par
 Variation. No variation of the Agreement shall be effective unless it is in writing and signed by the parties (or their authorised representatives).
 
 Waiver
+
 A waiver of any right or remedy under the Agreement or by law is only effective if given in writing and shall not be deemed a waiver of any subsequent right or remedy.
 A failure or delay by a party to exercise any right or remedy provided under the Agreement or by law shall not constitute a waiver of that or any other right or remedy, nor shall it prevent or restrict any further exercise of that or any other right or remedy. No single or partial exercise of any right or remedy provided under the Agreement or by law shall prevent or restrict the further exercise of that or any other right or remedy.
 
@@ -1779,7 +1842,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
         </div>
       </div>
 
-      <div ref={printRef} style={{ padding:"24px 32px" }}>
+      <div ref={printRef} style={{ padding:"32px 40px" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
           <CSLogoSlot label="Production Logo" image={prodLogo} onUpload={logoSet} onRemove={()=>logoSet(null)} />
         </div>
@@ -2025,14 +2088,12 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Call Sheet — {csData.label||`Day ${csIdx+1}`}</div>
         <div style={{padding:0,fontFamily:CS_FONT}}>
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
-            <div style={{padding:"32px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-              <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
-                <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
+            <div style={{padding:"32px 40px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
               </div>
+              <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
             </div>
-            <div style={{height:5,background:"#000",margin:"0 32px"}}/>
             <div style={{textAlign:"center",padding:"20px 32px 4px"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div></div>
             <div style={{padding:"8px 32px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
               <div>
@@ -2100,7 +2161,6 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"32px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
             <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-            <div style={{display:"flex",gap:16,alignItems:"center"}}><CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/><CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/></div>
           </div>
           <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
           <div style={{textAlign:"center",fontFamily:RA_FONT,fontSize:12,fontWeight:700,letterSpacing:RA_LS_HDR,textTransform:"uppercase",marginBottom:16}}>RISK ASSESSMENT</div>
@@ -2142,7 +2202,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Contract — {ctData.label||`Contract ${ctIdx+1}`} ({ctContract.short})</div>
         <div style={{padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}><CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/></div>
-          <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+          <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
           <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
           {ctContract.headTermsLabel && (<><div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctContract.headTermsLabel}</span></div>{ctContract.fields.map((field) => (<div key={field.key} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}><div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span></div><div style={{flex:1,padding:"8px 12px"}}><CSEditField value={ctGetVal(field.key)} onChange={v=>ctSetVal(field.key,v)} isPlaceholder={!ctGetVal(field.key) || ctGetVal(field.key)===field.defaultValue} placeholder={field.label} style={{fontSize:10,letterSpacing:CT_LS}}/></div></div>))}</>)}
           {ctContract.sigLeft && (<><div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:32}}>SIGNATURE</div><div style={{display:"flex",borderBottom:"1px solid #eee",marginTop:0}}>{[{side:"left",label:ctContract.sigLeft},{side:"right",label:ctContract.sigRight}].map(({side,label})=>(<div key={side} style={{flex:1,padding:"12px",borderRight:side==="left"?"1px solid #eee":"none"}}><div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{label}</div><div style={{marginBottom:8}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span><SignaturePad value={(ctData.signatures||{})[side]||""} onChange={v=>ctSet(d=>({...d,signatures:{...(d.signatures||{}), [side]:v}}))} height={60}/></div>{["name","date"].map(f=>(<div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}><span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:80}}>{f==="name"?"Print Name:":"Date:"}</span><div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}><CSEditField value={(ctData.sigNames||{})[`${side}_${f}`]||""} onChange={v=>ctSet(d=>({...d,sigNames:{...(d.sigNames||{}), [`${side}_${f}`]:v}}))} placeholder={f==="name"?"Print name...":"Date..."} style={{fontSize:10}}/></div></div>))}</div>))}</div></>)}
@@ -2722,7 +2782,10 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         existing.push(newContact);
         setXContacts(xType,xId,existing);
         setPendingDuplicate(null);
-        setMsgs([...history,{role:"assistant",content:`Added ${newContact.name||"new contact"} as a contact on ${existName}.`}]);
+        // Show the existing record card so user can review
+        showEntry({...similar.record,_xContacts:getXContacts(xType,xId)},xType,xId,dupSaveAsOutreach||false);
+        const contactLabel=newContact.name&&newContact.name!==existName?newContact.name:"new contact";
+        setMsgs([...history,{role:"assistant",content:`Added ${contactLabel} as a contact on ${existName}. Review the card below.`}]);
       }else if(is3){
         const qname=entry._type==="vendor"?entry.name:entry.contact;
         const rc=_dupState._remainingConv;
@@ -3676,6 +3739,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
   };
 
   // ── Vinnie split-screen card ──────────────────────────────────────────────
+  const [_vinnieAddContact,_setVinnieAddContact]=useState(null);
   const _isVinnie=agent.id==="logistical";
   const _hasVinnieCard=_isVinnie&&!isMobile&&(!!pendingConv||!!pendingLead);
   // During Q&A, read from pendingConv.entry; after Q&A, read from leadEdit
@@ -3965,8 +4029,8 @@ const printCallSheetPDF = (cs) => {
   const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
   const LS = "letter-spacing:1.5px;";
   const secTitle = `font-size:10px;font-weight:800;${LS}text-transform:uppercase;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;`;
-  const logoImg = (src) => src ? `<img src="${src}" style="max-height:36px;max-width:140px;object-fit:contain"/>` : "";
-  const logos = `<div style="padding:32px 32px 18px;display:flex;justify-content:space-between;align-items:center">${logoImg(cs.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(cs.agencyLogo)}${logoImg(cs.clientLogo)}</div></div>`;
+  const logoImg = (src) => src ? `<img src="${src}" style="max-height:44px;max-width:180px;object-fit:contain"/>` : "";
+  const logos = `<div style="padding:32px 40px 0"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(cs.productionLogo)}</div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div></div>`;
   const venueHTML = (cs.venueRows||[]).map(r=>`<div style="display:flex;align-items:flex-start;margin-bottom:5px;gap:8px"><div style="min-width:95px;font-size:9px;font-weight:700;color:#888;${LS}text-transform:uppercase">${e(r.label)}</div><div style="flex:1;font-size:11px">${e(r.value)}</div></div>`).join("");
   const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
   const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
@@ -4020,8 +4084,8 @@ const printRiskAssessmentPDF = (ra) => {
   const e = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
   const LS = "letter-spacing:1.5px;";
-  const logoImg = (src) => src ? `<img src="${src}" style="max-height:36px;max-width:140px;object-fit:contain"/>` : "";
-  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}<div style="display:flex;gap:16px;align-items:center">${logoImg(ra.agencyLogo)}${logoImg(ra.clientLogo)}</div></div>`;
+  const logoImg = (src) => src ? `<img src="${src}" style="max-height:44px;max-width:180px;object-fit:contain"/>` : "";
+  const logos = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoImg(ra.productionLogo)}</div>`;
   const metaHTML = [{l:"SHOOT NAME:",k:"shootName"},{l:"SHOOT DATE:",k:"shootDate"},{l:"LOCATIONS:",k:"locations"},{l:"CREW ON SET:",k:"crewOnSet"},{l:"TIMING:",k:"timing"}].map(({l,k})=>`<div style="display:flex;gap:6px;margin-bottom:2px"><span style="font-size:10px;font-weight:700;${LS}min-width:100px">${l}</span><span style="font-size:10px;letter-spacing:0.5px">${e(ra[k])}</span></div>`).join("");
   const sectionsHTML = (ra.sections||[]).map((sec,si)=>{
     const cols=sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"];
@@ -4589,7 +4653,7 @@ export default function OnnaDashboard() {
             clone2.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
             clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
             const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:15mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
             idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
           }
           setSignSubmitted(true);
@@ -4602,7 +4666,7 @@ export default function OnnaDashboard() {
     const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
     return (
       <div style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print{display:none!important}body{background:#fff!important}@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`}</style>
+        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print{display:none!important}body{background:#fff!important}@page{margin:15mm 0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`}</style>
         {!_printMode && <div className="sign-header-bar" style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
           <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
           <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
@@ -4959,35 +5023,39 @@ export default function OnnaDashboard() {
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
+    const LOGO_VER = "v2-cropped"; // bump to force re-apply default logo to all docs
+    const alreadyApplied = localStorage.getItem('onna_logo_ver') === LOGO_VER;
     const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
     logoImg.onload = () => {
       try {
         const cv = document.createElement("canvas"); cv.width = logoImg.naturalWidth; cv.height = logoImg.naturalHeight;
         cv.getContext("2d").drawImage(logoImg, 0, 0); const dataUrl = cv.toDataURL("image/png");
-        // Call sheets — set productionLogo if missing
+        const force = !alreadyApplied;
+        // Call sheets
         setCallSheetStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo) { doc.productionLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo || force) { doc.productionLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
-        // Risk assessments — set productionLogo if missing
+        // Risk assessments
         setRiskAssessmentStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo) { doc.productionLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo || force) { doc.productionLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
-        // Contracts — set prodLogo if missing
+        // Contracts
         setContractDocStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo) { doc.prodLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
-        // Estimates — set prodLogo if missing
+        // Estimates
         setProjectEstimates(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo) { doc.prodLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
+        localStorage.setItem('onna_logo_ver', LOGO_VER);
       } catch {}
     };
     logoImg.src = "/onna-default-logo.png";
@@ -5999,14 +6067,12 @@ export default function OnnaDashboard() {
               <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
 
                 {/* TOP BAR */}
-                <div style={{padding:"32px 32px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                  <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                    <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
-                    <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
+                <div style={{padding:"32px 40px 0"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
                   </div>
+                  <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
                 </div>
-                <div style={{height:5,background:"#000",margin:"0 32px"}}/>
 
                 <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
                   <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div>
@@ -6234,10 +6300,6 @@ export default function OnnaDashboard() {
             <div id="onna-ra-print" style={{background:"#fff",padding:"32px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={raData.productionLogo} onUpload={v=>raU("productionLogo",v)} onRemove={()=>raU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center"}}>
-                  <CSLogoSlot label="Agency Logo" image={raData.agencyLogo} onUpload={v=>raU("agencyLogo",v)} onRemove={()=>raU("agencyLogo",null)}/>
-                  <CSLogoSlot label="Client Logo" image={raData.clientLogo} onUpload={v=>raU("clientLogo",v)} onRemove={()=>raU("clientLogo",null)}/>
-                </div>
               </div>
               <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
               <div style={{textAlign:"center",fontFamily:RA_FONT,fontSize:12,fontWeight:700,letterSpacing:RA_LS_HDR,textTransform:"uppercase",marginBottom:16}}>RISK ASSESSMENT</div>
@@ -6469,11 +6531,11 @@ export default function OnnaDashboard() {
             )}
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={ctData.label||""} onChange={e=>ctU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:220}} placeholder={ctContract.label}/></div>
 
-            <div id="onna-ct-print" style={{background:"#fff",padding:"48px 40px 32px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+            <div id="onna-ct-print" style={{background:"#fff",padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/>
               </div>
-              <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+              <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
               <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:12}}>{ctContract.title}</div>
               {(p.name || ctData.label) && <div style={{fontFamily:CT_FONT,fontSize:9,color:"#1a1a1a",letterSpacing:CT_LS,marginBottom:14}}>{p.name && <span>Project: {p.name}</span>}{p.name && ctData.label && <span style={{margin:"0 6px"}}>|</span>}{ctData.label && <span>{ctData.label}</span>}</div>}
 
