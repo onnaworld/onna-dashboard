@@ -3176,8 +3176,63 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         const xQs=xContactFields.filter(([k])=>!entry[k]).map(([k,q])=>({key:k,q}));
         if(xQs.length>0){
           const convData={entry:{...entry},type:chosen.type,saveAsOutreach:dupSaveAsOutreach||false,updateId:chosen.record.id,questions:xQs,idx:0,_saveAsXContact:{type:chosen.type,id:chosen.record.id,record:chosen.record,existName}};
-          setPendingConv(convData);
-          setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}. Let me get their details.\n\n${xQs[0].q} (or 'x' to skip)`}]);
+          // If first xContact question is email, auto-search Outlook first
+          if(xQs[0].key==="email"&&contactName){
+            setPendingConv(convData);
+            setLoading(true);setMood("thinking");
+            setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}. Searching Outlook for their email…`}]);
+            const xSearchTerms=[contactName];
+            if(entry.company&&entry.company.toLowerCase()!==contactName.toLowerCase())xSearchTerms.push(entry.company);
+            if(existName&&existName.toLowerCase()!==contactName.toLowerCase()&&(!entry.company||existName.toLowerCase()!==entry.company.toLowerCase()))xSearchTerms.push(existName);
+            let xAllEmails=[];let xAllDoms=[];let xBestLead={};let xBestPhone="";
+            for(const term of xSearchTerms){
+              const sr=await searchViaExt(term);
+              if(sr.ok&&sr.lead){
+                const sl=_stripOwn(sr.lead);
+                if(sl.email&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(sl.email)&&!/onna/i.test(sl.email))xAllEmails.push(sl.email);
+                if(sl._allEmails)sl._allEmails.filter(em=>!/onna/i.test(em)&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(em)).forEach(em=>xAllEmails.push(em));
+                if(sl._domains)sl._domains.filter(d=>!/onna/i.test(d)).forEach(d=>xAllDoms.push(d));
+                if(!xBestPhone&&sl.phone&&/\d{4,}/.test(sl.phone)&&!/onna/i.test(sl.phone))xBestPhone=sl.phone;
+                if(!xBestLead.email)xBestLead=sl;
+              }
+            }
+            setLoading(false);setMood("idle");
+            if(xBestLead)lastSearchRef.current={...xBestLead,_type:chosen.type,_query:contactName,_ts:Date.now()};
+            const xEntry={...convData.entry};
+            if(!xEntry.phone&&xBestPhone)xEntry.phone=_formatVal("phone",xBestPhone);
+            const xUniqueEmails=[...new Set(xAllEmails)];
+            const xFirstName=(contactName.split(" ")[0]||"").toLowerCase();
+            const xLastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
+            const xCompClean=(entry.company||existName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+            const _xScoreEm=(em)=>{let s=0;const loc=em.split("@")[0].toLowerCase();const dom=em.split("@")[1]||"";if(xFirstName&&loc.includes(xFirstName))s+=10;if(xLastName&&loc.includes(xLastName))s+=8;if(xCompClean&&dom.replace(/[^a-z0-9]/g,"").includes(xCompClean))s+=5;if(/^(info|hello|contact|admin|office|sales|support|team|enquiries|bookings|studio)@/i.test(em))s-=4;return s;};
+            xUniqueEmails.sort((a,b)=>_xScoreEm(b)-_xScoreEm(a));
+            if(xUniqueEmails.length===1&&_xScoreEm(xUniqueEmails[0])>=15){
+              xEntry.email=_formatVal("email",xUniqueEmails[0]);
+              let skipIdx=1;while(skipIdx<xQs.length&&xEntry[xQs[skipIdx].key])skipIdx++;
+              if(skipIdx>=xQs.length){
+                setPendingConv(null);
+                const existing=getXContacts(chosen.type,chosen.record.id);
+                const nc={name:contactName,role:xEntry.role||"",email:xEntry.email||"",phone:xEntry.phone||""};
+                const updated=[...existing,nc];
+                setXContacts(chosen.type,chosen.record.id,updated);
+                showEntry({...chosen.record,_xContacts:updated},chosen.type,chosen.record.id,dupSaveAsOutreach||false);
+                setMsgs([...history,{role:"assistant",content:`Found email: ${xUniqueEmails[0]}. Added ${contactName} as a contact on ${existName}. Review below.`}]);
+              }else{
+                setPendingConv({...convData,entry:xEntry,idx:skipIdx});
+                setMsgs([...history,{role:"assistant",content:`Found email: ${xUniqueEmails[0]}\n\n${xQs[skipIdx].q} (or 'x' to skip)`}]);
+              }
+            }else if(xUniqueEmails.length>0){
+              setPendingConv({...convData,entry:xEntry,idx:0,_emailOptions:xUniqueEmails});
+              const optList=xUniqueEmails.map((o,i)=>`${i+1}. ${o}`).join("\n");
+              setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}.\n\nFound possible emails:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
+            }else{
+              setPendingConv({...convData,entry:xEntry});
+              setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}. Couldn't find their email in Outlook.\n\n${xQs[0].q} (or 'x' to skip)`}]);
+            }
+          }else{
+            setPendingConv(convData);
+            setMsgs([...history,{role:"assistant",content:`Adding ${contactName} as a contact on ${existName}. Let me get their details.\n\n${xQs[0].q} (or 'x' to skip)`}]);
+          }
         }else{
           const existing=getXContacts(chosen.type,chosen.record.id);
           const nc={name:contactName,role:entry.role||"",email:entry.email||"",phone:entry.phone||""};
@@ -5526,7 +5581,14 @@ export default function OnnaDashboard() {
                   {(() => { const canSubmit = !!(signVendorSig && signVendorName.trim() && signVendorDate.trim()); return <button onClick={submitVendorSig} disabled={signSubmitting || !canSubmit} style={{padding:"12px 36px",borderRadius:10,background:canSubmit?"#1a5a30":"#999",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:canSubmit?"pointer":"not-allowed",fontFamily:"inherit",opacity:signSubmitting?0.6:1,width:isMobile?"100%":"auto",transition:"background 0.2s"}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>; })()}
                 </div>}
                 {_printMode && <div className="no-print" style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
-                  <button onClick={()=>window.print()} style={{padding:"12px 36px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Download as PDF</button>
+                  <button onClick={()=>{
+                    const el=document.getElementById("onna-sign-print");if(!el)return;
+                    const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll(".no-print").forEach(b=>b.remove());clone.querySelectorAll(".sign-success-banner").forEach(b=>b.remove());
+                    clone.style.borderRadius="0";clone.style.boxShadow="none";
+                    const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+                    const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+                    idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+                  }} style={{padding:"12px 36px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Download as PDF</button>
                 </div>}
               </div>
             );
@@ -5747,6 +5809,20 @@ export default function OnnaDashboard() {
   const [newTodo,setNewTodo]         = useState("");
   const [todoFilter,setTodoFilter]   = useState("todo");
   const [selectedTodo,setSelectedTodo] = useState(null);
+  const [pendingProjectTask,setPendingProjectTask] = useState(null);
+  const addTodoFromInput = (text) => {
+    if (!text) return;
+    const tab = todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;
+    const subType = todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;
+    if (todoFilter.startsWith("project-")) {
+      const pid = Number(todoFilter.replace("project-",""));
+      setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));
+    } else if (todoTopFilter==="project") {
+      setPendingProjectTask(text);
+    } else {
+      setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);
+    }
+  };
   const [dashNotesList,setDashNotesList] = useState(()=>{try{const s=localStorage.getItem('onna_notes_list');return s?JSON.parse(s):[]}catch{return []}});
   const [dashSelectedNoteId,setDashSelectedNoteId] = useState(null);
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
@@ -7760,12 +7836,12 @@ export default function OnnaDashboard() {
                         </div>
                       </div>
                     ))}
-                    {(()=>{const emptyCount=Math.max(0,5-filteredTodos.length);return emptyCount>0?Array.from({length:emptyCount}).map((_,i)=>(<div key={`empty-${i}`} style={{padding:"4px 6px",borderBottom:`1px solid ${T.borderSub}`}}><input placeholder="New task…" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){const text=e.target.value.trim();const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);}e.target.value="";}}} onBlur={e=>{if(e.target.value.trim()){const text=e.target.value.trim();const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);}e.target.value="";}}} style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"transparent",border:"none",color:T.text,fontSize:13,fontFamily:"inherit",outline:"none"}} /></div>)):null;})()}
+                    {(()=>{const emptyCount=Math.max(0,5-filteredTodos.length);return emptyCount>0?Array.from({length:emptyCount}).map((_,i)=>(<div key={`empty-${i}`} style={{padding:"4px 6px",borderBottom:`1px solid ${T.borderSub}`}}><input placeholder="New task…" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){addTodoFromInput(e.target.value.trim());e.target.value="";}}} onBlur={e=>{if(e.target.value.trim()){addTodoFromInput(e.target.value.trim());e.target.value="";}}} style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"transparent",border:"none",color:T.text,fontSize:13,fontFamily:"inherit",outline:"none"}} /></div>)):null;})()}
                   </div>
                   {/* Add input — shown when 5+ tasks */}
                   <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa",flexShrink:0}}>
-                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"||todoFilter==="general-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                    <button onClick={()=>{if(newTodo.trim()){const tab=todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;const subType=todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;if(todoFilter.startsWith("project-")){const pid=Number(todoFilter.replace("project-",""));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text:newTodo.trim(),done:false,details:""}]}));}else{setTodos(prev=>[...prev,{id:Date.now(),text:newTodo.trim(),done:false,type:"general",tab:tab||"onna",subType,details:""}]);}setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
+                    <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"||todoFilter==="general-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                    <button onClick={()=>{if(newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
                   </div>
                 </div>
               </div>
@@ -8764,6 +8840,25 @@ export default function OnnaDashboard() {
                 }}>Save Changes</BtnPrimary>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PROJECT PICKER POPUP ── */}
+      {pendingProjectTask&&(
+        <div className="modal-bg" onClick={()=>setPendingProjectTask(null)}>
+          <div style={{borderRadius:16,padding:24,width:340,maxWidth:"90vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>Select Project</div>
+            <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Which project should this task go under?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto"}}>
+              {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(
+                <button key={p.id} onClick={()=>{setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:Date.now(),text:pendingProjectTask,done:false,details:""}]}));setPendingProjectTask(null);}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
+                  <div>{p.name}</div>
+                  <div style={{fontSize:10,opacity:0.7,marginTop:1}}>{p.client}</div>
+                </button>
+              ))}
+            </div>
+            <button onClick={()=>setPendingProjectTask(null)} style={{marginTop:14,width:"100%",padding:"8px 0",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
           </div>
         </div>
       )}
