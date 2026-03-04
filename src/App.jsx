@@ -7568,24 +7568,10 @@ export default function OnnaDashboard() {
                             {/* Expandable expenses dropdown — aligned with master row columns */}
                             {isExpanded && (
                               <div style={{background:"#fafafa",borderBottom:"1px solid #eee"}}>
-                                {/* Expense header row */}
-                                <div style={{display:"flex",alignItems:"center",borderBottom:"1px solid #e8e8e8"}}>
-                                  <div style={{width:40,flexShrink:0}}></div>
-                                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888"}}>VENDOR / DESCRIPTION</div>
-                                  <div style={{width:90,flexShrink:0}}></div>
-                                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",textAlign:"right"}}>AMOUNT</div>
-                                  <div style={{width:90,flexShrink:0}}></div>
-                                  <div style={{width:80,flexShrink:0}}></div>
-                                  <div style={{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",textAlign:"center"}}>STATUS</div>
-                                  <div style={{width:24,flexShrink:0}}></div>
-                                </div>
                                 {(row.expenses||[]).map((exp, ei) => (
                                   <div key={exp.id} style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
                                     <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center"}}>{"\u2514"}</div>
-                                    <div style={{flex:1,display:"flex",gap:0,minWidth:0}}>
-                                      <div style={{width:100,flexShrink:0}}><EstCell value={exp.vendor} onChange={v2 => updateExpense(si, ri, ei, "vendor", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                      <div style={{flex:1,minWidth:60}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                    </div>
+                                    <div style={{flex:1,minWidth:0}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
                                     <div style={{width:90,flexShrink:0}}></div>
                                     <div style={{width:90,flexShrink:0}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
                                     <div style={{width:90,flexShrink:0}}></div>
