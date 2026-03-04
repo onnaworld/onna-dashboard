@@ -4746,16 +4746,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`**${project.name}** doesn't have any contracts yet. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
-        if(ctVersions.length===1){
-          setCodyCtx({projectId:project.id,vIdx:0});
-          if(setActiveContractVersion) setActiveContractVersion(0);
-          const vLabel=ctVersions[0].label||"Version 1";
-          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on the contract for **${project.name}** (${vLabel}). What would you like to do? I can fill in contract fields, switch contract types, or review what's missing.`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
         codyPendingRef.current={projectId:project.id,step:"pick_existing_or_new"};
         const list=ctVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`**${project.name}** has ${ctVersions.length} contracts:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
+        setMsgs([...history,{role:"assistant",content:`**${project.name}** has ${ctVersions.length} contract${ctVersions.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
         setLoading(false);setMood("idle");return;
       }
 
@@ -7545,21 +7538,43 @@ export default function OnnaDashboard() {
                                 <span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:11,color:"#999",userSelect:"none"}}>{isExpanded?"\u25BE":"\u25B8"}</span>
                               </div>
                             </div>
-                            {/* Expandable expenses dropdown */}
+                            {/* Expandable expenses dropdown — aligned with master row columns */}
                             {isExpanded && (
-                              <div style={{padding:"6px 6px 10px 46px",background:"#fafafa",borderBottom:"1px solid #eee"}}>
-                                <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:4}}>EXPENSES / VENDOR QUOTATIONS</div>
+                              <div style={{background:"#fafafa",borderBottom:"1px solid #eee"}}>
+                                {/* Expense header row */}
+                                <div style={{display:"flex",alignItems:"center",borderBottom:"1px solid #e8e8e8"}}>
+                                  <div style={{width:40,flexShrink:0}}></div>
+                                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888"}}>VENDOR / DESCRIPTION</div>
+                                  <div style={{width:90,flexShrink:0}}></div>
+                                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",textAlign:"right"}}>AMOUNT</div>
+                                  <div style={{width:90,flexShrink:0}}></div>
+                                  <div style={{width:80,flexShrink:0}}></div>
+                                  <div style={{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",textAlign:"center"}}>STATUS</div>
+                                  <div style={{width:24,flexShrink:0}}></div>
+                                </div>
                                 {(row.expenses||[]).map((exp, ei) => (
-                                  <div key={exp.id} style={{display:"flex",gap:0,alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
-                                    <div style={{width:120}}><EstCell value={exp.vendor} onChange={v2 => updateExpense(si, ri, ei, "vendor", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                    <div style={{flex:1,minWidth:80}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                    <div style={{width:90}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
-                                    <div style={{width:24,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
+                                  <div key={exp.id} style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
+                                    <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center"}}>{"\u2514"}</div>
+                                    <div style={{flex:1,display:"flex",gap:0,minWidth:0}}>
+                                      <div style={{width:100,flexShrink:0}}><EstCell value={exp.vendor} onChange={v2 => updateExpense(si, ri, ei, "vendor", v2)} style={{fontSize:9,color:"#666"}} /></div>
+                                      <div style={{flex:1,minWidth:60}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
+                                    </div>
+                                    <div style={{width:90,flexShrink:0}}></div>
+                                    <div style={{width:90,flexShrink:0}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
+                                    <div style={{width:90,flexShrink:0}}></div>
+                                    <div style={{width:80,flexShrink:0}}></div>
+                                    <div style={{width:70,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                      <span onClick={()=>{const sts=["","Pending","Paid","Unpaid"];const idx=sts.indexOf(exp.status||"");updateExpense(si,ri,ei,"status",sts[(idx+1)%sts.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",textTransform:"uppercase",background:({"":"transparent",Pending:"#fff8e8",Paid:"#edfaf3",Unpaid:"#fff3f0"})[exp.status||""]||"transparent",color:({"":"#ccc",Pending:"#92680a",Paid:"#147d50",Unpaid:"#c0392b"})[exp.status||""]||"#ccc"}}>{exp.status||"\u2014"}</span>
+                                    </div>
+                                    <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
                                       <span onClick={()=>deleteExpense(si, ri, ei)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                                     </div>
                                   </div>
                                 ))}
-                                <div onClick={()=>addExpense(si, ri)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}} data-noprint>+ Add Expense</div>
+                                <div style={{display:"flex"}}>
+                                  <div style={{width:40,flexShrink:0}}></div>
+                                  <div onClick={()=>addExpense(si, ri)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}} data-noprint>+ Add Expense</div>
+                                </div>
                               </div>
                             )}
                           </Fragment>
