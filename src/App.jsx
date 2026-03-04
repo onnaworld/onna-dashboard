@@ -553,9 +553,7 @@ function buildConniePatchMarkers(patch, preVer) {
   if (patch.departments && Array.isArray(patch.departments)) {
     patch.departments.forEach(pd => {
       (pd.crew||[]).forEach(pc => {
-        markers.add("cs:crew:"+pd.name.toUpperCase()+":"+pc.role.toUpperCase());
-      });
-    });
+        markers.add("cs:crew:"+pd.name.toUpperCase()+":"+pc.role.toUpperCase()); }); });
   }
   return markers;
 }
@@ -661,8 +659,7 @@ function applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectC
       const tbl = tables.find(t => t.id === ar.tableId);
       if (tbl && ar.rows) {
         ar.rows.forEach(r => {
-          tbl.rows.push({ id: Date.now() + Math.floor(Math.random() * 10000), agency: r.agency || "", name: r.name || "", email: r.email || "", option: r.option || "First Option", notes: r.notes || "", link: r.link || "", headshot: null });
-        });
+          tbl.rows.push({ id: Date.now() + Math.floor(Math.random() * 10000), agency: r.agency || "", name: r.name || "", email: r.email || "", option: r.option || "First Option", notes: r.notes || "", link: r.link || "", headshot: null }); });
       }
     });
   }
@@ -1874,6 +1871,40 @@ const parseICS = (text) => {
 const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Travel","Locations","Casting","Styling","Schedule"];
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
+// ─── URL ROUTING HELPERS ───────────────────────────────────────────────────
+const TAB_SLUGS = {Dashboard:"dashboard",Agents:"agents",Vendors:"vendors",Clients:"clients",Projects:"projects",Resources:"resources",Notes:"notes",Settings:"settings"};
+const SLUG_TO_TAB = Object.fromEntries(Object.entries(TAB_SLUGS).map(([k,v])=>[v,k]));
+const SECTION_SLUGS = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s,s.toLowerCase()]));
+const SLUG_TO_SECTION = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s.toLowerCase(),s]));
+
+const buildPath = (tab, projectId, section, subSection) => {
+  if (tab==="Projects" && projectId) {
+    let path = `/projects/${projectId}`;
+    if (section && section!=="Home") {
+      path += `/${SECTION_SLUGS[section]||section.toLowerCase()}`;
+      if (subSection) path += `/${subSection}`;
+    }
+    return path;
+  }
+  return `/${TAB_SLUGS[tab]||tab.toLowerCase()}`;
+};
+
+const parseURL = (pathname, projectList) => {
+  const parts = pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
+  if (parts.length===0) return {tab:null};
+  if (parts[0]==="projects") {
+    if (parts.length===1) return {tab:"Projects"};
+    const pid = parts[1];
+    const proj = projectList.find(p=>String(p.id)===pid);
+    if (!proj) return {tab:"Projects"};
+    const section = parts[2] ? (SLUG_TO_SECTION[parts[2]]||null) : "Home";
+    const subSection = parts[3]||null;
+    return {tab:"Projects",project:proj,section:section||"Home",subSection};
+  }
+  const tab = SLUG_TO_TAB[parts[0]];
+  return tab ? {tab} : {tab:null};
+};
+
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
   bg:       "#f5f5f7",
@@ -2802,8 +2833,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>AED {estFmt(totalIncVat * (advPct / 100))}</span>
               </div>
-            );
-          })()}
+            ); })()}
           <div style={{marginTop:12}}>
             <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,marginBottom:4}}>NOTES:</div>
             <EstCell value={ts.notes || ""} onChange={v=>tsSet("notes",v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
@@ -2938,8 +2968,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                 if (isMainTitle) return <div key={i} style={{fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:8,textAlign:"center"}}>{trimmed}</div>;
                 if (isHeading) return <div key={i} style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",marginTop:10,marginBottom:2}}>{trimmed}</div>;
                 return <div key={i} style={{fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,lineHeight:1.5,marginBottom:1}}>{trimmed}</div>;
-              });
-            })()}
+              }); })()}
           </div>
           <div data-noprint="1" style={{marginTop:12,padding:"8px 0",borderTop:"1px solid #eee"}}>
             <div style={{fontFamily:EST_F,fontSize:9,color:"#999",letterSpacing:EST_LS,marginBottom:4}}>Edit Terms & Conditions:</div>
@@ -3041,7 +3070,12 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <div style={csSecTitle}>CONTACTS</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr><td style={{...csTh,width:"17%"}}>ROLE</td><td style={{...csTh,width:"15%"}}>NAME</td><td style={{...csTh,width:"16%"}}>MOBILE</td><td style={{...csTh,width:"30%"}}>EMAIL</td><td style={{...csTh,width:"8%",textAlign:"right",paddingRight:8}}>CALL TIME</td><td style={{...csTh,width:22}}></td></tr></thead>
-                <tbody>{csData.departments.map((dept,di) => { const deptHasMarker = cpr && cpr.markers.some(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")); return (<Fragment key={di}><tr><td colSpan={6} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>✓</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>✕</button></>}</div></td></tr>{dept.crew.map((cr,ci) => (<tr key={ci} style={{background:"#fff",borderBottom:"1px solid #f5f5f5"}}><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder="Name"/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder="Phone"/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder="Email"/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600}} placeholder="Time"/></td><td><CSXbtn onClick={()=>rmCrew(di,ci)}/></td></tr>))}<tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>);})</tbody>
+                <tbody>{csData.departments.map((dept,di) => {
+                const deptHasMarker = cpr && cpr.markers.some(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":"));
+                return (<Fragment key={di}><tr><td colSpan={6} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>✓</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>✕</button></>}</div></td></tr>
+                {dept.crew.map((cr,ci) => (<tr key={ci} style={{background:"#fff",borderBottom:"1px solid #f5f5f5"}}><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder="Name"/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder="Phone"/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder="Email"/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600}} placeholder="Time"/></td><td><CSXbtn onClick={()=>rmCrew(di,ci)}/></td></tr>))}
+                <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>
+                );})}</tbody>
               </table>
               <CSAddBtn onClick={addDept} label="Add Department"/>
             </div>
@@ -3145,8 +3179,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 <CSEditField value={raData[k]||""} onChange={v=>raU(k,v)} isPlaceholder={!raData[k]} placeholder={`Enter ${l.toLowerCase().replace(":","")}` } style={{fontSize:10,letterSpacing:RA_LS}}/>
                 {marked&&<button onClick={()=>acceptMarker("scalar:"+k)} style={reviewBtnStyle("accept")} title="Accept">✓</button>}
                 {marked&&<button onClick={()=>declineMarker("scalar:"+k)} style={reviewBtnStyle("decline")} title="Revert">✕</button>}
-              </div>);
-            })}
+              </div>); })}
           </div>
           {(raData.sections||[]).map((sec,si) => {
             const secUp = sec.title.toUpperCase();
@@ -3168,11 +3201,9 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                   <button onClick={()=>acceptMarker("row:"+secUp+":"+ri)} style={reviewBtnStyle("accept")} title="Accept">✓</button>
                   <button onClick={()=>declineMarker("row:"+secUp+":"+ri)} style={reviewBtnStyle("decline")} title="Revert">✕</button>
                 </div>):(<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete row");raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}));}} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>)}
-              </div>);
-            })}
+              </div>); })}
             <div onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:[...s.rows,(s.cols||["","","",""]).map(()=>"")]}:s)}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 6px",letterSpacing:RA_LS,marginTop:2}}>+ Add Row</div>
-          </div>);
-          })}
+          </div>); })}
           <div onClick={()=>raSet(d=>({...d,sections:[...d.sections,{id:Date.now(),title:"NEW SECTION",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],rows:[["","","",""]]}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS,textAlign:"center",marginTop:12,padding:6}}>+ Add Risk Section</div>
           {raSectionHdr("PROFESSIONAL CODE OF CONDUCT")}
           {(()=>{const marked=hasMarker("scalar:conductIntro"); return <div style={{padding:"8px 12px",...(marked?hlStyle:{})}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/>{marked&&<span><button onClick={()=>acceptMarker("scalar:conductIntro")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:conductIntro")} style={reviewBtnStyle("decline")}>✕</button></span>}</div>;})()}
@@ -3253,8 +3284,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   // 3. Any word from input matches a word in project name or client (partial)
   const wordMatch = candidates.find(p => {
     const pWords = `${p.name} ${p.client || ""}`.toLowerCase().split(/[\s\/,]+/).filter(w=>w.length>=2);
-    return words.some(w => pWords.some(pw => pw.includes(w) || w.includes(pw)));
-  });
+    return words.some(w => pWords.some(pw => pw.includes(w) || w.includes(pw))); });
   if (wordMatch) return wordMatch;
   // 4. Levenshtein distance <= 2 for typo tolerance
   const _ed = (a,b) => { const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>i); for(let j=1;j<=n;j++){let pv=d[0];d[0]=j;for(let i=1;i<=m;i++){const t=d[i];d[i]=a[i-1]===b[j-1]?pv:1+Math.min(pv,d[i],d[i-1]);pv=t;}} return d[m]; };
@@ -4782,6 +4812,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const csVersions=callSheetStore?.[proj.id]||[];
           const newCS={id:Date.now(),label:nameInput,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
           newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");
+          const _pi1=(projectInfoRef.current||{})[proj.id];
+          if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;if(_pi1.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi1.shootLocation;}}
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});
           const newIdx=csVersions.length;
           setConnieCtx({projectId:proj.id,vIdx:newIdx});
@@ -4919,8 +4951,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const emptyCrew=[];
           (csData_ex.departments||[]).forEach(d=>{
             const unfilled=d.crew.filter(c=>!c.name);
-            if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`);
-          });
+            if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`); });
           if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
 
           if(missing.length>0){
@@ -4929,8 +4960,16 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
         }
 
-        printCallSheetPDF(csData_ex);
-        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there! 📋"}]);
+        const _csEl=document.getElementById("onna-cs-print");
+        if(_csEl){
+          const _csClone=_csEl.cloneNode(true);_csClone.querySelectorAll("button").forEach(b=>b.remove());_csClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const _csDoc=iframe.contentDocument;_csDoc.open();_csDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_csDoc.close();
+          _csDoc.body.appendChild(_csDoc.adoptNode(_csClone));setTimeout(()=>{_csDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        }else{
+          printCallSheetPDF(csData_ex);
+        }
+        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -4949,8 +4988,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(emptyScheduleRows.length) missing.push(`Schedule — ${emptyScheduleRows.length} empty row${emptyScheduleRows.length>1?"s":""}`);
         (csData_m.departments||[]).forEach(d=>{
           const unfilled=d.crew.filter(c=>!c.name);
-          if(unfilled.length) missing.push(`${d.name} — ${unfilled.map(c=>c.role).join(", ")}`);
-        });
+          if(unfilled.length) missing.push(`${d.name} — ${unfilled.map(c=>c.role).join(", ")}`); });
         if(missing.length===0){
           setMsgs([...history,{role:"assistant",content:"Everything looks filled in! You're good to export. 🎉"}]);
         }else{
@@ -5083,7 +5121,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const nameInput=input.trim();
         if(!nameInput){setMsgs([...history,{role:"assistant",content:"Please enter a name for this estimate."}]);setLoading(false);setMood("idle");return;}
         const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
-        ne.ts={...ne.ts,version:nameInput,client:project.client||"",project:project.name||""};
+        const _pi5=(projectInfoRef.current||{})[project.id];ne.ts={...ne.ts,version:nameInput,client:project.client||"",project:_pi5?.shootName||project.name||"",usage:_pi5?.usage||ne.ts.usage,shootDate:_pi5?.shootDate||ne.ts.shootDate,location:_pi5?.shootLocation||ne.ts.location};
         setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
         const newIdx=(projectEstimates?.[project.id]||[]).length;
         setBillieCtx({projectId:project.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);
@@ -5161,9 +5199,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const el=document.getElementById("onna-est-print");
         if(el){
           const clone=el.cloneNode(true);clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());clone.querySelectorAll('textarea').forEach(n=>n.remove());clone.querySelectorAll('button').forEach(n=>n.remove());clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
-          const w=window.open("","_blank");
-          w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:0;size:A4;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:15mm 12mm;}.page-break{page-break-before:always}}'+PRINT_CLEANUP_CSS+'</style></head><body>');
-          w.document.write(clone.innerHTML);w.document.write("</body></html>");w.document.close();setTimeout(()=>{w.document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());w.print();},500);
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{background:#fff;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:40px 40px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
+          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
           setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the estimate now — save it as PDF from there!"}]);
         }else{
           setMsgs([...history,{role:"assistant",content:"No estimate is currently open to export. Make sure you're viewing the estimate first!"}]);
@@ -5304,8 +5342,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             snap += `    [secIdx:${si},rowIdx:${ri}] ${r.ref||""}: ${r.desc||"(empty)"} | zohoAmount:${r.zohoAmount||"0"} | status:${r.status||"(none)"} | expenses(${(r.expenses||[]).length}): AED ${estFmt(rExp)}\n`;
             (r.expenses||[]).forEach((e, ei) => {
               snap += `      [expenseIdx:${ei}] vendor:${e.vendor||""} amount:${e.amount||"0"} date:${e.date||""} note:${e.note||""}\n`;
-            });
-          });
+            }); });
         } else {
           snap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — (no expenses yet)\n`;
         }
@@ -5402,8 +5439,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         snap += `  [tableId:${t.id}] "${t.title}" — ${t.rows.length} model(s)\n`;
         t.rows.forEach(r => {
           snap += `    [rowId:${r.id}] agency:${r.agency||"(empty)"} | name:${r.name||"(empty)"} | email:${r.email||"(empty)"} | option:${r.option||"(empty)"} | notes:${r.notes||"(empty)"} | link:${r.link||"(empty)"}\n`;
-        });
-      });
+        }); });
 
       let vendorSummary = "";
       if (vendorsProp && vendorsProp.length > 0) {
@@ -5509,6 +5545,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const raLabels=riskAssessmentStore?.[project.id]||[];
         const newRA={id:Date.now(),label:labelName,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
         newRA.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
+        const _pi3=(projectInfoRef.current||{})[project.id];
+        if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;if(_pi3.crewOnSet)newRA.crewOnSet=_pi3.crewOnSet;}
         setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newRA);return store;});
         const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];const idx=arr.length-1;if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
         const newIdx=raLabels.length;
@@ -5554,8 +5592,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
       const lastMsg_ex = history[history.length-1];
       if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
-        printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg_ex._pendingExport.label}) \u2014 save it as PDF from there! \ud83d\udd2c`}]);
+        {const _raEl=document.getElementById("onna-ra-print");if(_raEl){const _raClone=_raEl.cloneNode(true);_raClone.querySelectorAll("button").forEach(b=>b.remove());_raClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const _raDoc=iframe.contentDocument;_raDoc.open();_raDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raDoc.close();_raDoc.body.appendChild(_raDoc.adoptNode(_raClone));setTimeout(()=>{_raDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}else{printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);}}
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg_ex._pendingExport.label}) \u2014 save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
       // Export / PDF intent (before fuzzyMatch to avoid false project switches)
@@ -5574,8 +5612,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         (ver_ex.sections||[]).forEach(s=>{
           const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);
           if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);
-          s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);});
-        });
+          s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);}); });
         if(!(ver_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
         if(!(ver_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
         if(!(ver_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
@@ -5584,8 +5621,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
           setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
         }
-        printRiskAssessmentPDF(ver_ex);
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} \u2014 save it as PDF from there! \ud83d\udd2c`}]);
+        {const _raEl=document.getElementById("onna-ra-print");if(_raEl){const _raClone=_raEl.cloneNode(true);_raClone.querySelectorAll("button").forEach(b=>b.remove());_raClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const _raDoc=iframe.contentDocument;_raDoc.open();_raDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raDoc.close();_raDoc.body.appendChild(_raDoc.adoptNode(_raClone));setTimeout(()=>{_raDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}else{printRiskAssessmentPDF(ver_ex);}}
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} — save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -5777,7 +5814,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setContractDocStore(prev=>{
             const store=JSON.parse(JSON.stringify(prev));
             const arr=store[pid]||[];
-            arr.push({id:Date.now(),label,contractType:typeId,fieldValues:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
+            const _pi7=(projectInfoRef.current||{})[pid];const _cfv={};if(_pi7?.usage)_cfv.usage=_pi7.usage;if((typeId==="talent"||typeId==="talent_psc")&&_pi7?.shootLocation)_cfv.venue=_pi7.shootLocation;if((typeId==="talent"||typeId==="talent_psc")&&_pi7?.shootName)_cfv.campaign=_pi7.shootName;arr.push({id:Date.now(),label,contractType:typeId,fieldValues:_cfv,generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
             const logoImg=new Image();logoImg.crossOrigin="anonymous";
             logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setContractDocStore(prev2=>{const s=JSON.parse(JSON.stringify(prev2));if(s[pid]&&s[pid][newIdx]&&!s[pid][newIdx].prodLogo)s[pid][newIdx].prodLogo=dataUrl;return s;});}catch{}};
             logoImg.src="/onna-default-logo.png";
@@ -6332,8 +6369,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span>{tab.label}</span>
               <span onClick={e=>{e.stopPropagation();setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setConnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
-          );
-        })}
+          ); })}
         <div onClick={()=>{setConnieCtx(null);setMsgs(prev=>[...prev,{role:"assistant",content:"Which project's call sheet should I open?"}]);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
       </div>
     )}
@@ -6348,8 +6384,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span>{tab.label}</span>
               <span onClick={e=>{e.stopPropagation();setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveRAVersion)setActiveRAVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setRonnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
-          );
-        })}
+          ); })}
         <div onClick={()=>{setRonnieCtx(null);setMsgs(prev=>[...prev,{role:"assistant",content:"Which project's risk assessment should I open?"}]);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
       </div>
     )}
@@ -6588,8 +6623,7 @@ const exportCastingPDF = (tables, columns, title) => {
           const thead = `<tr><th style="width:70px">Photo</th>${columns.map(c=>`<th>${c.label}</th>`).join("")}</tr>`;
           const tbody = pageRows.map(r=>`<tr><td style="width:70px">${r.headshot?`<img src="${r.headshot}" style="width:56px;height:56px;border-radius:6px;object-fit:cover"/>`:''}</td>${columns.map(c=>{const v=r[c.key]??'';if(c.key==='link'&&v){const href=v.startsWith('http')?v:'https://'+v;return `<td><a href="${href}" target="_blank" style="text-decoration:none;color:#1565C0;font-size:9pt" title="${v}">&#x1F4CE; Link to Portfolio</a></td>`;}if(c.key==='link')return `<td></td>`;return `<td>${v}</td>`;}).join("")}</tr>`).join("");
           return `${pi===0?`<div class="sec">${t.title||title}</div>`:''}${pi>0?'<div class="page-break"></div>':''}<table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
-        }).join("");
-      }).join("");
+        }).join(""); }).join("");
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -7080,7 +7114,11 @@ export default function OnnaDashboard() {
   };
 
   // ── These two must live before the early return to satisfy Rules of Hooks ──
-  const [activeTab,setActiveTab] = useState(()=>localStorage.getItem("onna_tab")||"Dashboard");
+  const [activeTab,setActiveTab] = useState(()=>{
+    const parsed = parseURL(window.location.pathname, []);
+    if (parsed.tab) return parsed.tab;
+    return localStorage.getItem("onna_tab")||"Dashboard";
+  });
   useEffect(()=>{localStorage.setItem("onna_tab",activeTab);},[activeTab]);
 
   // Auto-logout after 30 min inactivity (only active while authed)
@@ -7115,8 +7153,7 @@ export default function OnnaDashboard() {
       .then(r => r.json())
       .then(data => {
         if (data.error) setSignError(data.error);
-        else setSignData(data);
-      })
+        else setSignData(data); })
       .catch(err => setSignError(err.message))
       .finally(() => setSignLoading(false));
   }, [_signToken]);
@@ -7287,8 +7324,7 @@ export default function OnnaDashboard() {
                   }} style={{padding:"12px 36px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Download as PDF</button>
                 </div>}
               </div>
-            );
-          })()}
+            ); })()}
         </div>
       </div>
     );
@@ -7905,6 +7941,77 @@ export default function OnnaDashboard() {
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
 
   const allProjectsMerged = localProjects.filter(p=>!archivedProjects.find(a=>a.id===p.id));
+
+  // ── URL routing: restore state from URL on mount & handle popstate ──────
+  const urlInitDone = useRef(false);
+  useEffect(()=>{
+    if (urlInitDone.current) return;
+    urlInitDone.current = true;
+    const parsed = parseURL(window.location.pathname, allProjectsMerged);
+    if (parsed.tab) setActiveTab(parsed.tab);
+    if (parsed.project) {
+      setSelectedProject(parsed.project);
+      if (parsed.section) setProjectSection(parsed.section);
+      if (parsed.subSection) {
+        const sec = parsed.section;
+        if (sec==="Creative") setCreativeSubSection(parsed.subSection);
+        else if (sec==="Budget") setBudgetSubSection(parsed.subSection);
+        else if (sec==="Documents") setDocumentsSubSection(parsed.subSection);
+        else if (sec==="Schedule") setScheduleSubSection(parsed.subSection);
+        else if (sec==="Travel") setTravelSubSection(parsed.subSection);
+      }
+    }
+    window.history.replaceState({tab:parsed.tab||activeTab,projectId:parsed.project?.id||null,section:parsed.section||null,subSection:parsed.subSection||null}, "", window.location.pathname);
+  },[allProjectsMerged.length>0]); // run once projects are loaded
+
+  useEffect(()=>{
+    const onPopState = (e) => {
+      const state = e.state;
+      if (state) {
+        setActiveTab(state.tab||"Dashboard");
+        if (state.tab==="Projects" && state.projectId) {
+          const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
+          setSelectedProject(proj||null);
+          setProjectSection(state.section||"Home");
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+          if (state.subSection && proj) {
+            const sec = state.section;
+            if (sec==="Creative") setCreativeSubSection(state.subSection);
+            else if (sec==="Budget") setBudgetSubSection(state.subSection);
+            else if (sec==="Documents") setDocumentsSubSection(state.subSection);
+            else if (sec==="Schedule") setScheduleSubSection(state.subSection);
+            else if (sec==="Travel") setTravelSubSection(state.subSection);
+          }
+        } else {
+          setSelectedProject(null);
+          setProjectSection("Home");
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+        }
+      } else {
+        const parsed = parseURL(window.location.pathname, allProjectsMerged);
+        setActiveTab(parsed.tab||"Dashboard");
+        if (parsed.project) {
+          setSelectedProject(parsed.project);
+          setProjectSection(parsed.section||"Home");
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+          if (parsed.subSection) {
+            const sec = parsed.section;
+            if (sec==="Creative") setCreativeSubSection(parsed.subSection);
+            else if (sec==="Budget") setBudgetSubSection(parsed.subSection);
+            else if (sec==="Documents") setDocumentsSubSection(parsed.subSection);
+            else if (sec==="Schedule") setScheduleSubSection(parsed.subSection);
+            else if (sec==="Travel") setTravelSubSection(parsed.subSection);
+          }
+        } else {
+          setSelectedProject(null);
+          setProjectSection("Home");
+        }
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return ()=>window.removeEventListener("popstate", onPopState);
+  },[allProjectsMerged]);
+
   const revenueCache = useMemo(()=>{
     const cache={};
     allProjectsMerged.forEach(p=>{
@@ -7979,8 +8086,7 @@ export default function OnnaDashboard() {
     if (todoFilter==="general-now") return t._source==="general" && t.tab==="personal" && !t.subType;
     if (todoFilter==="general-later") return t._source==="general" && t.tab==="personal" && t.subType==="later";
     if (todoFilter==="project") return t._source==="project";
-    if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-",""));
-    return true;
+    if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-","")); return true;
   });
   const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("general")?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
@@ -8184,8 +8290,7 @@ export default function OnnaDashboard() {
       const numMatch = line.match(/^(\d+)\.\s(.*)$/);
       if (numMatch) { out.push(<div key={i} style={{display:"flex",gap:6,marginBottom:1.5}}><span style={{flexShrink:0,minWidth:16,textAlign:"right",marginTop:2}}>{numMatch[1]}.</span><span style={{lineHeight:1.55}}>{fmtInline(numMatch[2])}</span></div>); return; }
       if (!line.trim()) { out.push(<div key={i} style={{height:5}}/>); return; }
-      out.push(<div key={i} style={{lineHeight:1.6,marginBottom:1}}>{fmtInline(line)}</div>);
-    });
+      out.push(<div key={i} style={{lineHeight:1.6,marginBottom:1}}>{fmtInline(line)}</div>); });
     if (inTable) flushTable("end");
     return out;
   };
@@ -8263,11 +8368,17 @@ export default function OnnaDashboard() {
 
   const changeTab = tab => {
     setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+    pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&notes.length===0&&!notesLoading) {
       setNotesLoading(true);
       api.get("/api/notes").then(data=>{ setNotes(Array.isArray(data)?data:[]); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
     }
+  };
+
+  const pushNav = (tab, project, section, subSection) => {
+    const path = buildPath(tab, project?.id||null, section||null, subSection||null);
+    window.history.pushState({tab,projectId:project?.id||null,section:section||null,subSection:subSection||null}, "", path);
   };
 
   // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
@@ -8399,6 +8510,31 @@ export default function OnnaDashboard() {
       setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
       return;
     }
+    if (table==='callSheets') {
+      const {projectId, callSheet} = item;
+      setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(callSheet);return s;});
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='riskAssessments') {
+      const {projectId, riskAssessment} = item;
+      setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(riskAssessment);return s;});
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='contracts') {
+      const {projectId, contract} = item;
+      setContractDocStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(contract);return s;});
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
+    if (table==='clients') {
+      const {id:_cId, ...clientFields} = item;
+      const saved = await api.post('/api/clients', clientFields);
+      if (saved.id) setLocalClients(prev=>[...prev,saved]);
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
     const {id:_origId, ...fields} = item;
     const saved = await api.post(`/api/${table}`, fields);
     if (saved.id) {
@@ -8455,6 +8591,18 @@ export default function OnnaDashboard() {
       </div>
     );
 
+    const uploadFromLink = (url, category) => {
+      setLinkUploading(true);setLinkUploadProgress(0);
+      const xhr=new XMLHttpRequest();
+      xhr.open("POST","/api/proxy-download");
+      xhr.setRequestHeader("Content-Type","application/json");
+      xhr.upload.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(Math.round((e.loaded/e.total)*50));};
+      xhr.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(50+Math.round((e.loaded/e.total)*50));else setLinkUploadProgress(75);};
+      xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(data.error)throw new Error(data.error);setLinkUploadProgress(100);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),entry]}}));setTimeout(()=>{setLinkUploading(false);setLinkUploadProgress(null);},800);}catch(e){alert("Upload failed: "+e.message);setLinkUploading(false);setLinkUploadProgress(null);}};
+      xhr.onerror=()=>{alert("Upload failed: network error");setLinkUploading(false);setLinkUploadProgress(null);};
+      xhr.send(JSON.stringify({url}));
+    };
+
     if (projectSection==="Home") return (
       <div>
         {/* Editable project header */}
@@ -8502,7 +8650,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -8510,12 +8658,11 @@ export default function OnnaDashboard() {
                 </div>
                 <span style={{marginLeft:"auto",color:T.muted,fontSize:14,flexShrink:0}}>›</span>
               </div>
-            );
-          })}
+            ); })}
         </div>
         {/* Delete project */}
         <div style={{marginTop:40,paddingTop:20,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end"}}>
-          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This cannot be undone.`))return;await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
+          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This will be moved to trash.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
         </div>
       </div>
     );
@@ -8559,24 +8706,12 @@ export default function OnnaDashboard() {
         </div>
       );
 
-      // Sub-section file manager
-      const uploadFromLink = (url, category) => {
-        setLinkUploading(true);setLinkUploadProgress(0);
-        const xhr=new XMLHttpRequest();
-        xhr.open("POST","/api/proxy-download");
-        xhr.setRequestHeader("Content-Type","application/json");
-        xhr.upload.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(Math.round((e.loaded/e.total)*50));};
-        xhr.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(50+Math.round((e.loaded/e.total)*50));else setLinkUploadProgress(75);};
-        xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(data.error)throw new Error(data.error);setLinkUploadProgress(100);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),entry]}}));setTimeout(()=>{setLinkUploading(false);setLinkUploadProgress(null);},800);}catch(e){alert("Upload failed: "+e.message);setLinkUploading(false);setLinkUploadProgress(null);}};
-        xhr.onerror=()=>{alert("Upload failed: network error");setLinkUploading(false);setLinkUploadProgress(null);};
-        xhr.send(JSON.stringify({url}));
-      };
       const renderFileManager = (category, label, linkKey) => {
         const files = category==="moodboards"?moodFiles:briefFiles;
         const link = (projectCreativeLinks[p.id]||{})[linkKey]||"";
         return (
           <div>
-            <button onClick={()=>{setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
+            <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Creative</button>
             <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>{label}</div>
             <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload versioned files or paste a Dropbox / Drive link to import.</p>
             <div style={{marginBottom:18}}>
@@ -8605,7 +8740,7 @@ export default function OnnaDashboard() {
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Creative assets for this project.</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
             {[["moodboard","Moodboard","🎨",moodFiles],["brief","Brief","📋",briefFiles]].map(([key,label,emoji,files])=>(
-              <div key={key} onClick={()=>setCreativeSubSection(key)} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={key} onClick={()=>{setCreativeSubSection(key);pushNav("Projects",p,"Creative",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
                   <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
@@ -8632,7 +8767,7 @@ export default function OnnaDashboard() {
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Budget management for this project.</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
             {[["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`],["invoices","Invoices & Receipts","🧾","Upload invoices & receipts"]].map(([key,label,emoji,desc])=>(
-              <div key={key} onClick={()=>setBudgetSubSection(key)} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={key} onClick={()=>{setBudgetSubSection(key);pushNav("Projects",p,"Budget",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
                   <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
@@ -8783,8 +8918,7 @@ export default function OnnaDashboard() {
                         <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZoho)}</div>
                         <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:sv>=0?"#147d50":"#c0392b"}}>{(sv>=0?"+":"")}{estFmt(sv)}</div>
                       </div>
-                    );
-                  })}
+                    ); })}
                   <div style={{display:"flex",borderTop:"2px solid #000"}}>
                     <div style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
                     <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
@@ -8866,8 +9000,7 @@ export default function OnnaDashboard() {
                               </div>
                             )}
                           </Fragment>
-                        );
-                      })}
+                        ); })}
                       {/* Section total */}
                       <div style={{display:"flex",justifyContent:"flex-end",borderBottom:"2px solid #000"}}>
                         <div style={{display:"flex",gap:0,padding:"4px 0"}}>
@@ -8881,8 +9014,7 @@ export default function OnnaDashboard() {
                         </div>
                       </div>
                     </div>
-                    );
-                  })}
+                    ); })}
 
                   {/* Grand total bar */}
                   <div style={{display:"flex",background:"#000",color:"#fff",marginTop:4}}>
@@ -8921,7 +9053,7 @@ export default function OnnaDashboard() {
         const filteredQuotes = quoteSearchTerm.trim() ? quoteFiles.filter(f=>f.name.toLowerCase().includes(quoteSearchTerm.trim().toLowerCase())) : quoteFiles;
         return (
         <div>
-          <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Quotations</div>
           <p style={{fontSize:13,color:T.sub,marginBottom:16}}>Upload vendor quotations here, paste a Dropbox / Drive link to import, or click a file to preview.</p>
           <div style={{marginBottom:18}}>
@@ -8989,7 +9121,7 @@ export default function OnnaDashboard() {
         const filteredInv = invoiceSearchTerm.trim() ? invFiles.filter(f=>f.name.toLowerCase().includes(invoiceSearchTerm.trim().toLowerCase())) : invFiles;
         return (
         <div>
-          <button onClick={()=>{setBudgetSubSection(null);setInvoiceTab("invoices");setInvoiceSearchTerm("");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Invoices & Receipts</div>
           <div style={{display:"flex",gap:6,marginBottom:18}}>
             {[["invoices","Invoices"],["receipts","Receipts"]].map(([key,label])=>(
@@ -9058,10 +9190,10 @@ export default function OnnaDashboard() {
       }
       return (
         <div>
-          <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
+          <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
             <div style={{fontSize:18,fontWeight:700,color:T.text}}>Estimates</div>
-            <BtnPrimary onClick={()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:p.name||""};setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===ne.id);if(idx>=0&&!arr[idx].prodLogo)arr[idx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";}}>+ New Estimate</BtnPrimary>
+            <BtnPrimary onClick={()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi6=(projectInfoRef.current||{})[p.id];ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:_pi6?.shootName||p.name||"",usage:_pi6?.usage||ne.ts.usage,shootDate:_pi6?.shootDate||ne.ts.shootDate,location:_pi6?.shootLocation||ne.ts.location};setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===ne.id);if(idx>=0&&!arr[idx].prodLogo)arr[idx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";}}>+ New Estimate</BtnPrimary>
           </div>
           {estimates.length===0?<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>:(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -9083,8 +9215,7 @@ export default function OnnaDashboard() {
                       <button onClick={()=>{if(!window.confirm(`Delete this estimate (${est.ts?.version||"V1"})? It will be moved to the archive.`))return;archiveItem("estimates",{projectId:p.id,estimate:est});setProjectEstimates(prev=>{const arr=(prev[p.id]||[]).filter(x=>x.id!==est.id);const updated={...prev};if(arr.length===0)delete updated[p.id];else updated[p.id]=arr;return updated;});}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
                     </div>
                   </div>
-                );
-              })}
+                ); })}
             </div>
           )}
         </div>
@@ -9103,7 +9234,7 @@ export default function OnnaDashboard() {
       if (!documentsSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           {DOC_CARDS.map(c=>(
-            <div key={c.key} onClick={()=>setDocumentsSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+            <div key={c.key} onClick={()=>{setDocumentsSubSection(c.key);pushNav("Projects",p,"Documents",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -9115,7 +9246,7 @@ export default function OnnaDashboard() {
       );
 
       // Back button for all document sub-sections
-      const docBack = <button onClick={()=>{setDocumentsSubSection(null);setActiveRAVersion(null);setActiveContractVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
+      const docBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
 
       if (documentsSubSection==="callsheet") {
         const csVersions = callSheetStore[p.id] || [];
@@ -9123,10 +9254,12 @@ export default function OnnaDashboard() {
           const newId = Date.now();
           const newCS = {id:newId,label:`V${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
           newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
+          const _pi2=(projectInfoRef.current||{})[p.id];
+          if(_pi2){if(_pi2.shootName)newCS.shootName=_pi2.shootName;if(_pi2.shootDate)newCS.date=_pi2.shootDate;if(_pi2.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi2.shootLocation;}}
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
         };
-        const deleteCS = (idx) => { setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
+        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to trash."))return; const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
 
         // ── List view: no call sheet selected ──
         if (activeCSVersion === null || csVersions.length === 0) {
@@ -9156,8 +9289,7 @@ export default function OnnaDashboard() {
                         <button onClick={()=>deleteCS(i)} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
                       </div>
                     </div>
-                  );
-                })}
+                  ); })}
               </div>
             </div>
           );
@@ -9460,8 +9592,8 @@ export default function OnnaDashboard() {
 
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRA = (idx) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to trash."))return; const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
         if (activeRAVersion === null || raVersions.length === 0) {
@@ -9491,8 +9623,7 @@ export default function OnnaDashboard() {
                         <button onClick={()=>deleteRA(i)} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
                       </div>
                     </div>
-                  );
-                })}
+                  ); })}
               </div>
             </div>
           );
@@ -9597,7 +9728,7 @@ export default function OnnaDashboard() {
             setContractDocStore(prev => {
               const store = JSON.parse(JSON.stringify(prev));
               const arr = store[p.id] || [];
-              arr.push({id:Date.now(),label:CONTRACT_TYPE_LABELS[typeId]||typeId,contractType:typeId,fieldValues:{},fieldConfirmed:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
+              const _pi8=(projectInfoRef.current||{})[p.id];const _cfv2={};if(_pi8?.usage)_cfv2.usage=_pi8.usage;if((typeId==="talent"||typeId==="talent_psc")&&_pi8?.shootLocation)_cfv2.venue=_pi8.shootLocation;if((typeId==="talent"||typeId==="talent_psc")&&_pi8?.shootName)_cfv2.campaign=_pi8.shootName;arr.push({id:Date.now(),label:CONTRACT_TYPE_LABELS[typeId]||typeId,contractType:typeId,fieldValues:_cfv2,fieldConfirmed:{},generalTermsEdits:{},sigNames:{},signatures:{},prodLogo:null,signingStatus:"not_sent",signingToken:null});
               // Load default logo as data URL
               const newIdx = arr.length - 1;
               const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
@@ -9609,7 +9740,8 @@ export default function OnnaDashboard() {
             setCtTypeModalOpen(false);
           };
           const deleteContract = (idx) => {
-            if (!confirm("Delete this contract?")) return;
+            if (!confirm("Delete this contract? This will be moved to trash.")) return;
+            const ctData=JSON.parse(JSON.stringify((contractDocStore[p.id]||[])[idx])); if(ctData)archiveItem('contracts',{projectId:p.id,contract:ctData});
             setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
           };
           const checkSigningStatus = async (idx) => {
@@ -9896,8 +10028,7 @@ export default function OnnaDashboard() {
                             <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
                               <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
                             </td>
-                          );
-                        })}
+                          ); })}
                         <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
                           <select value={row.option||"First Option"} onChange={e=>updateCastingRow(p.id,table.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
                             <option>First Option</option><option>Second Option</option><option>Confirmed</option><option>Released</option>
@@ -10011,7 +10142,7 @@ export default function OnnaDashboard() {
         <div>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
             {TRAVEL_CARDS.map(c=>(
-              <div key={c.key} onClick={()=>setTravelSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <div key={c.key} onClick={()=>{setTravelSubSection(c.key);pushNav("Projects",p,"Travel",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
                 <span style={{fontSize:28}}>{c.emoji}</span>
                 <div>
                   <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -10030,7 +10161,7 @@ export default function OnnaDashboard() {
         </div>
       );
 
-      const travelBack = <button onClick={()=>setTravelSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Travel</button>;
+      const travelBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Travel</button>;
       const tc = TRAVEL_CARDS.find(c=>c.key===travelSubSection);
 
       return (
@@ -10053,7 +10184,7 @@ export default function OnnaDashboard() {
       if (!scheduleSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
           {SCHED_CARDS.map(c=>(
-            <div key={c.key} onClick={()=>setScheduleSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+            <div key={c.key} onClick={()=>{setScheduleSubSection(c.key);pushNav("Projects",p,"Schedule",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -10064,7 +10195,7 @@ export default function OnnaDashboard() {
         </div>
       );
 
-      const schedBack = <button onClick={()=>setScheduleSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Schedule</button>;
+      const schedBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Schedule</button>;
 
       if (scheduleSubSection==="production") return (
         <div>
@@ -10148,7 +10279,7 @@ export default function OnnaDashboard() {
           ))}
         </nav>
         <div style={{margin:10,position:"relative"}}>
-          <button onClick={()=>{setActiveTab("Settings");setSelectedProject(null);}} style={{width:"100%",padding:"12px 14px",borderRadius:12,background:activeTab==="Settings"?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+          <button onClick={()=>{setActiveTab("Settings");setSelectedProject(null);pushNav("Settings",null,null,null);}} style={{width:"100%",padding:"12px 14px",borderRadius:12,background:activeTab==="Settings"?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:`1px solid rgba(0,0,0,0.07)`,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
             <div style={{width:30,height:30,borderRadius:"50%",background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>E</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,color:T.text}}>Emily</div>
@@ -10246,15 +10377,13 @@ export default function OnnaDashboard() {
                                 </div>
                               )}
                             </div>
-                          );
-                        })}
+                          ); })}
                       </div>
                       {gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Loading events…</div>}
                       {!gcalToken&&!gcalLoading&&<div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:T.muted}}>Connect Google Calendar to see your events here</div>}
                     </div>
                   </div>
-                );
-              })()}
+                ); })()}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
                 <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
@@ -10264,7 +10393,7 @@ export default function OnnaDashboard() {
                   </div>
                   <div style={{overflowY:"auto",maxHeight:480}}>
                     {activeProjects.map((p,i)=>(
-                      <div key={p.id} onClick={()=>{setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");}} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <div key={p.id} onClick={()=>{setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                         <div>
                           <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,fontWeight:500}}>{p.client}</div>
                           <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
@@ -10412,13 +10541,11 @@ export default function OnnaDashboard() {
                             <div style={{fontSize:10,color:T.muted,marginTop:4,opacity:0.6}}>{source}</div>
                           </div>
                         </div>
-                      );
-                    })}
+                      ); })}
                   </div>
                 </div>
               </div>
-            );
-          })()}
+            ); })()}
 
           {/* ══ VENDORS ══ */}
           {activeTab==="Vendors"&&(
@@ -10581,8 +10708,7 @@ export default function OnnaDashboard() {
                       </div>
                     </div>
                   </div>
-                );
-              })()}
+                ); })()}
 
               {leadsView==="leads"&&(
                 <div>
@@ -10643,7 +10769,7 @@ export default function OnnaDashboard() {
                                 <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
                                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                                   <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0}}>Client</span>
-                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}?`))return;await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}? This will be moved to trash.`))return;archiveItem('clients',c);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
                                 </div>
                               </div>
                               {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:2,fontWeight:500}}>{c.name}</div>}
@@ -10664,8 +10790,7 @@ export default function OnnaDashboard() {
                                 {c.notes&&<div style={{fontSize:11.5,color:T.muted,marginTop:4,fontStyle:"italic"}}>{c.notes}</div>}
                               </div>
                             </div>
-                          );
-                        })}
+                          ); })}
                       </div>
                   }
                 </div>
@@ -10723,12 +10848,12 @@ export default function OnnaDashboard() {
             if (selectedProject) return (
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
-                  <button onClick={()=>{setSelectedProject(null);setProjectSection("Home");setEditingEstimate(null);setGeneratedContract("");setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
-                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>{setProjectSection("Home");setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
+                  {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
@@ -10793,8 +10918,7 @@ export default function OnnaDashboard() {
                               <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Margin</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>{margin}%</div></div>
                             </div>
                           </div>
-                        );
-                      })}
+                        ); })}
                     </div>
                   </div>
                 )}
@@ -10811,7 +10935,7 @@ export default function OnnaDashboard() {
                         className="proj-card"
                         style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",cursor:"grab"}}
                       >
-                        <div onClick={()=>{setSelectedProject(p);setProjectSection("Home");}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer"}}>
+                        <div onClick={()=>{setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                             <div>
                               <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:3,fontWeight:500}}>{p.client}</div>
@@ -10856,7 +10980,7 @@ export default function OnnaDashboard() {
                           </button>
                           )}
                           {p.client!=="TEMPLATE"&&<button
-                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This cannot be undone.`))return;await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
+                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This will be moved to trash.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
                             style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"7px 11px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:13,cursor:"pointer",transition:"all 0.12s"}}
                             onMouseOver={e=>{e.currentTarget.style.background="#fff0f0";e.currentTarget.style.borderColor="#fdc5c5";e.currentTarget.style.color="#c0392b";}}
                             onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.borderSub;e.currentTarget.style.color=T.muted;}}
@@ -10864,13 +10988,11 @@ export default function OnnaDashboard() {
                           >×</button>}
                         </div>
                       </div>
-                    );
-                  })}
+                    ); })}
                   {projects.length===0&&<div style={{gridColumn:"span 3",padding:52,textAlign:"center",color:T.muted,fontSize:13,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`}}>No projects for {projectYear}.</div>}
                 </div>
               </div>
-            );
-          })()}
+            ); })()}
 
           {/* ══ RESOURCES ══ */}
           {activeTab==="Resources"&&(
@@ -11184,11 +11306,9 @@ export default function OnnaDashboard() {
                                   <button onClick={()=>permanentlyDelete(e.id)} style={{background:"none",border:"none",fontSize:11,color:"#c0392b",cursor:"pointer",padding:"4px 8px",fontFamily:"inherit"}}>Delete</button>
                                 </div>
                               </div>
-                            );
-                          })}
+                            ); })}
                         </div>
-                      );
-                    })
+                      ); })
                   )}
                 </div>
               )}
@@ -12028,12 +12148,10 @@ export default function OnnaDashboard() {
                               <button onClick={()=>restoreItem(entry)} style={{background:"#edfaf3",border:"none",color:"#147d50",padding:"5px 12px",borderRadius:7,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Restore</button>
                               <button onClick={()=>{if(window.confirm(`Permanently delete ${name}?`))permanentlyDelete(entry.id);}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0,flexShrink:0}}>×</button>
                             </div>
-                          );
-                        })}
+                          ); })}
                       </div>
                     </div>
-                  );
-                })
+                  ); })
               )}
             </div>
           </div>
