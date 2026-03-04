@@ -384,6 +384,10 @@ const estCalcTotals = (sections) => {
   return { subtotal, feesTotal, grandTotal: subtotal + feesTotal };
 };
 
+// ─── PRINT CLEANUP: strip browser headers/footers & extension injections ───
+const PRINT_CLEANUP_CSS = `[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]{display:none!important;visibility:hidden!important;height:0!important;width:0!important;overflow:hidden!important;position:absolute!important;pointer-events:none!important;}`;
+const PRINT_CLEANUP_SCRIPT = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},100);};<\/script>`;
+
 // ─── ACTUALS TRACKER HELPERS ────────────────────────────────────────────────
 const buildActualsFromEstimate = (estimateSections) => {
   const secs = estimateSections || defaultSections();
@@ -4574,10 +4578,27 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(jsonMatch){
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            const existingCReview = conniePendingReview && conniePendingReview.projectId===project.id && conniePendingReview.vIdx===vIdx ? conniePendingReview : null;
+            const preSnapshot = existingCReview ? existingCReview.preSnapshot : JSON.parse(JSON.stringify(ver));
+            const newMarkers = buildConniePatchMarkers(patch, ver);
             applyConniePatch(patch, project.id, vIdx, csVersions, setCallSheetStore);
             setTimeout(()=>syncProjectInfoToDocs(project.id),100);
-            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Call sheet updated."}]);
+            if(newMarkers.size > 0){
+              const mergedMarkers = existingCReview ? [...new Set([...existingCReview.markers, ...newMarkers])] : [...newMarkers];
+              setConniePendingReview({ preSnapshot, markers: mergedMarkers, projectId: project.id, vIdx });
+              setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"
+
+Review the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
+            } else if (existingCReview && existingCReview.markers.length > 0) {
+              setMsgs([...history,{role:"assistant",content:(cleanText||"Done.")+"
+
+You still have pending changes to review on the left."}]);
+            } else {
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"
+
+":"")+ "✓ Call sheet updated."}]);
+            }
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -5984,7 +6005,7 @@ const exportToPDF = (content, title) => {
   .ftr{margin-top:36px;padding-top:10px;border-top:1px solid #e0e0e0;font-size:7.5pt;color:#aaa;display:flex;justify-content:space-between;}
   @media print{body{padding:15mm 12mm;}@page{margin:0;size:A4;}}
 </style>
-<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
+${PRINT_CLEANUP_SCRIPT}
 </head><body>
 <div class="hdr">
   <div><div class="logo">onna</div><div class="doc-label">${title}</div></div>
@@ -6166,7 +6187,7 @@ const exportCastingPDF = (tables, columns, title) => {
   .page-break{page-break-before:always;margin-top:0;}
   @media print{body{padding:10mm 12mm;}@page{margin:0;size:A4 landscape;}.page-break{page-break-before:always;}}
 </style>
-<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};</script>
+${PRINT_CLEANUP_SCRIPT}
 </head><body>
 <div class="hdr">
   <div><img src="${dataUrl}" alt="ONNA"/></div>
@@ -7027,6 +7048,7 @@ export default function OnnaDashboard() {
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
   const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
+  const localProjectsRef                      = useRef([]);
   const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const seenClient=new Set();const deduped=arr.filter(p=>{const k=(p.client||"").trim().toLowerCase();if(seenClient.has(k))return false;seenClient.add(k);return true;}).map(p=>/columbia|ima/i.test(p.client||"")?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{}return deduped;}catch{return []}});
   const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
@@ -7155,6 +7177,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
   useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
+  useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
   const syncProjectInfoToDocs = (pid) => {
@@ -7207,11 +7230,13 @@ export default function OnnaDashboard() {
       return changed?{...prev,[pid]:next}:prev;
     });
     // Budget Estimates
+    const proj = (localProjectsRef.current||[]).find(p=>p.id===pid);
     setProjectEstimates(prev=>{
       const arr=prev[pid]; if(!arr||!arr.length) return prev;
       let changed=false;
       const next=arr.map(est=>{
         const ts={...(est.ts||ESTIMATE_INIT.ts)};
+        if(proj&&proj.client && ts.client!==proj.client){ts.client=proj.client;changed=true;}
         if(info.shootName && ts.project!==info.shootName){ts.project=info.shootName;changed=true;}
         if(info.usage && ts.usage!==info.usage){ts.usage=info.usage;changed=true;}
         if(info.shootDate && ts.shootDate!==info.shootDate){ts.shootDate=info.shootDate;changed=true;}
