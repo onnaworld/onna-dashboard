@@ -2541,9 +2541,9 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
           <div style={{padding:"8px 12px"}}>{(raData.conductItems||[]).map((item,i)=>{const itemMarked=hasMarker("arrayItem:conductItems:"+i); return (<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4,...(itemMarked?{...hlStyle,borderRadius:4,padding:"2px 4px"}:{})}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div>{itemMarked?<span style={{display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptMarker("arrayItem:conductItems:"+i)} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("arrayItem:conductItems:"+i)} style={reviewBtnStyle("decline")}>✕</button></span>:<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete conduct item");raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>}</div>);})}<div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
           {raSectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
           {(()=>{const marked=hasMarker("scalar:waiverIntro"); return <div style={{padding:"8px 12px",...(marked?hlStyle:{})}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/>{marked&&<span><button onClick={()=>acceptMarker("scalar:waiverIntro")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("scalar:waiverIntro")} style={reviewBtnStyle("decline")}>✕</button></span>}</div>;})()}
-          {(()=>{const arrMarked=hasMarker("array:waiverItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:waiverItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:waiverItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete waiver item");raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
+          <div style={{padding:"8px 12px"}}>{(raData.waiverItems||[]).map((item,i)=>{const itemMarked=hasMarker("arrayItem:waiverItems:"+i); return (<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4,...(itemMarked?{...hlStyle,borderRadius:4,padding:"2px 4px"}:{})}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div>{itemMarked?<span style={{display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptMarker("arrayItem:waiverItems:"+i)} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("arrayItem:waiverItems:"+i)} style={reviewBtnStyle("decline")}>✕</button></span>:<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete waiver item");raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>}</div>);})}<div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
           {raSectionHdr("EMERGENCY RESPONSE PLAN")}
-          {(()=>{const arrMarked=hasMarker("array:emergencyItems"); return <div style={{padding:"8px 12px",...(arrMarked?{...hlStyle,position:"relative"}:{})}}>{arrMarked&&<div style={{display:"flex",gap:2,position:"absolute",right:12,top:8}}><button onClick={()=>acceptMarker("array:emergencyItems")} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("array:emergencyItems")} style={reviewBtnStyle("decline")}>✕</button></div>}{(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/hospital/i.test(item.label)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete emergency item");raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>;})()}
+          <div style={{padding:"8px 12px"}}>{(raData.emergencyItems||[]).map((item,i)=>{const itemMarked=hasMarker("arrayItem:emergencyItems:"+i); return (<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4,...(itemMarked?{...hlStyle,borderRadius:4,padding:"2px 4px"}:{})}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/hospital/i.test(item.label)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div>{itemMarked?<span style={{display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptMarker("arrayItem:emergencyItems:"+i)} style={reviewBtnStyle("accept")}>✓</button><button onClick={()=>declineMarker("arrayItem:emergencyItems:"+i)} style={reviewBtnStyle("decline")}>✕</button></span>:<div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete emergency item");raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>}</div>);})}<div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div></div>
           <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:RA_FONT,fontSize:9,letterSpacing:RA_LS_HDR,color:"#000"}}><div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
         </div>
       </div>
@@ -4989,9 +4989,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       // Build risk assessment snapshot
       let snap = `Label: ${ver.label||"(empty)"} | Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
       if(ver.sections?.length) snap += "Risk Sections:\n" + ver.sections.map((s,si)=>`  ${si+1}. ${s.title}:\n` + s.rows.map((r,ri)=>`    [row ${ri}] ${r[0]||"?"} | Level: ${r[1]||"?"} | At Risk: ${r[2]||"?"} | Mitigation: ${r[3]||"(empty)"}`).join("\n")).join("\n") + "\n";
-      if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map(c=>`  \u2022 ${c.label} ${c.text}`).join("\n") + "\n";
-      if(ver.waiverItems?.length) snap += "Liability Waiver:\n" + ver.waiverItems.map(w=>`  ${w.label} ${w.text}`).join("\n") + "\n";
-      if(ver.emergencyItems?.length) snap += "Emergency Plan:\n" + ver.emergencyItems.map(e=>`  \u2022 ${e.label} ${e.text}`).join("\n") + "\n";
+      if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map((c,ci)=>`  [item ${ci}] ${c.label} ${c.text}`).join("\n") + "\n";
+      if(ver.waiverItems?.length) snap += "Liability Waiver:\n" + ver.waiverItems.map((w,wi)=>`  [item ${wi}] ${w.label} ${w.text}`).join("\n") + "\n";
+      if(ver.emergencyItems?.length) snap += "Emergency Plan:\n" + ver.emergencyItems.map((e,ei)=>`  [item ${ei}] ${e.label} ${e.text}`).join("\n") + "\n";
 
       const ronnieSystem = buildRonnieSystem(project, ver, vLabel, snap);
 
@@ -6970,58 +6970,75 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
+  const infoSyncRef = useRef({});
   useEffect(()=>{
     Object.entries(projectInfo).forEach(([pid,info])=>{
       if(!info) return;
+      const sig = JSON.stringify(info);
       // Call Sheets: shootName, date, venueRows LOCATIONS
       const csArr = callSheetStore?.[pid];
       if(csArr&&csArr.length>0){
-        let changed=false;
-        const next=JSON.parse(JSON.stringify(csArr));
-        next.forEach(cs=>{
-          if(info.shootName && !cs.shootName){cs.shootName=info.shootName;changed=true;}
-          if(info.shootDate && !cs.date){cs.date=info.shootDate;changed=true;}
-          if(info.shootLocation && cs.venueRows){
-            const locRow=cs.venueRows.find(r=>r.label==="LOCATIONS");
-            if(locRow&&!locRow.value){locRow.value=info.shootLocation;changed=true;}
-          }
-        });
-        if(changed) setCallSheetStore(prev=>({...prev,[pid]:next}));
+        const csKey = `cs_${pid}_${csArr.length}`;
+        const prevSig = infoSyncRef.current[csKey];
+        if(prevSig!==sig){
+          let changed=false;
+          const next=JSON.parse(JSON.stringify(csArr));
+          next.forEach(cs=>{
+            if(info.shootName && !cs.shootName){cs.shootName=info.shootName;changed=true;}
+            if(info.shootDate && !cs.date){cs.date=info.shootDate;changed=true;}
+            if(info.shootLocation && cs.venueRows){
+              const locRow=cs.venueRows.find(r=>r.label==="LOCATIONS");
+              if(locRow&&!locRow.value){locRow.value=info.shootLocation;changed=true;}
+            }
+          });
+          infoSyncRef.current[csKey]=sig;
+          if(changed) setCallSheetStore(prev=>({...prev,[pid]:next}));
+        }
       }
       // Risk Assessments: shootName, shootDate, locations, crewOnSet
       const raArr = riskAssessmentStore?.[pid];
       if(raArr&&raArr.length>0){
-        let changed=false;
-        const next=JSON.parse(JSON.stringify(raArr));
-        next.forEach(ra=>{
-          if(info.shootName && !ra.shootName){ra.shootName=info.shootName;changed=true;}
-          if(info.shootDate && !ra.shootDate){ra.shootDate=info.shootDate;changed=true;}
-          if(info.shootLocation && !ra.locations){ra.locations=info.shootLocation;changed=true;}
-          if(info.crewOnSet && !ra.crewOnSet){ra.crewOnSet=info.crewOnSet;changed=true;}
-        });
-        if(changed) setRiskAssessmentStore(prev=>({...prev,[pid]:next}));
+        const raKey = `ra_${pid}_${raArr.length}`;
+        const prevSig = infoSyncRef.current[raKey];
+        if(prevSig!==sig){
+          let changed=false;
+          const next=JSON.parse(JSON.stringify(raArr));
+          next.forEach(ra=>{
+            if(info.shootName && !ra.shootName){ra.shootName=info.shootName;changed=true;}
+            if(info.shootDate && !ra.shootDate){ra.shootDate=info.shootDate;changed=true;}
+            if(info.shootLocation && !ra.locations){ra.locations=info.shootLocation;changed=true;}
+            if(info.crewOnSet && !ra.crewOnSet){ra.crewOnSet=info.crewOnSet;changed=true;}
+          });
+          infoSyncRef.current[raKey]=sig;
+          if(changed) setRiskAssessmentStore(prev=>({...prev,[pid]:next}));
+        }
       }
       // Contracts: date, usage, venue, campaign (talent types)
       const ctArr = contractDocStore?.[pid];
       if(ctArr&&ctArr.length>0){
-        let changed=false;
-        const next=JSON.parse(JSON.stringify(ctArr));
-        next.forEach(ct=>{
-          const type=ct.contractType||"commission_se";
-          const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
-          if(!typeDef) return;
-          const fv=ct.fieldValues||{};
-          const isDefault=(key)=>{const f=typeDef.fields.find(fd=>fd.key===key);return !fv[key]||fv[key]===f?.defaultValue;};
-          if(info.shootDate && isDefault("date")){fv.date=info.shootDate;changed=true;}
-          if(info.usage && isDefault("usage")){fv.usage=info.usage;changed=true;}
-          if((type==="talent"||type==="talent_psc")&&info.shootLocation&&isDefault("venue")){fv.venue=info.shootLocation;changed=true;}
-          if((type==="talent"||type==="talent_psc")&&info.shootName&&isDefault("campaign")){fv.campaign=info.shootName;changed=true;}
-          ct.fieldValues=fv;
-        });
-        if(changed) setContractDocStore(prev=>({...prev,[pid]:next}));
+        const ctKey = `ct_${pid}_${ctArr.length}`;
+        const prevSig = infoSyncRef.current[ctKey];
+        if(prevSig!==sig){
+          let changed=false;
+          const next=JSON.parse(JSON.stringify(ctArr));
+          next.forEach(ct=>{
+            const type=ct.contractType||"commission_se";
+            const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
+            if(!typeDef) return;
+            const fv=ct.fieldValues||{};
+            const isDefault=(key)=>{const f=typeDef.fields.find(fd=>fd.key===key);return !fv[key]||fv[key]===f?.defaultValue;};
+            if(info.shootDate && isDefault("date")){fv.date=info.shootDate;changed=true;}
+            if(info.usage && isDefault("usage")){fv.usage=info.usage;changed=true;}
+            if((type==="talent"||type==="talent_psc")&&info.shootLocation&&isDefault("venue")){fv.venue=info.shootLocation;changed=true;}
+            if((type==="talent"||type==="talent_psc")&&info.shootName&&isDefault("campaign")){fv.campaign=info.shootName;changed=true;}
+            ct.fieldValues=fv;
+          });
+          infoSyncRef.current[ctKey]=sig;
+          if(changed) setContractDocStore(prev=>({...prev,[pid]:next}));
+        }
       }
     });
-  },[projectInfo]);
+  },[projectInfo,callSheetStore,riskAssessmentStore,contractDocStore]);
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
