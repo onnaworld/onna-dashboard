@@ -63,7 +63,7 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
   const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:60,maxWidth:200,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:120,height:40,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{maxHeight:36,maxWidth:140,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} style={{width:120,height:40,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ccc")}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
@@ -82,6 +82,301 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
 
 const CSXbtn = ({ onClick, size = 16 }) => <button onClick={onClick} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:size,padding:"0 3px",lineHeight:1,transition:"color 0.15s"}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>×</button>;
 const CSAddBtn = ({ onClick, label }) => <button onClick={onClick} style={{background:"none",border:"1px dashed #ddd",borderRadius:3,padding:"3px 12px",fontSize:9,color:"#aaa",cursor:"pointer",fontFamily:CS_FONT,letterSpacing:0.5,marginTop:4}} onMouseEnter={e=>{e.target.style.borderColor="#999";e.target.style.color="#666";}} onMouseLeave={e=>{e.target.style.borderColor="#ddd";e.target.style.color="#aaa";}}>+ {label}</button>;
+
+// ─── BUDGET CONNIE (ESTIMATE) CONSTANTS ──────────────────────────────────────
+const EST_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+const EST_LS = 0.5;
+const EST_LS_HDR = 1.5;
+const EST_YELLOW = "#FFF9C4";
+const estFmt = (n) => { const v = parseFloat(n); return isNaN(v) ? "" : v.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+const estNum = (n) => { const v = parseFloat(String(n).replace(/,/g, "")); return isNaN(v) ? 0 : v; };
+
+const EstHl = ({ text, style = {} }) => {
+  if (!text) return null;
+  const parts = String(text).split(/(\[.*?\])/g);
+  return <span style={style}>{parts.map((p, i) => p.startsWith("[") && p.endsWith("]")
+    ? <span key={i} style={{ background: EST_YELLOW, borderRadius: 2, padding: "0 2px" }}>{p}</span>
+    : <span key={i}>{p}</span>)}</span>;
+};
+
+const EstCell = ({ value, onChange, style = {}, align = "left" }) => {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value);
+  useEffect(() => { setTemp(value); }, [value]);
+  const commit = () => { setEditing(false); onChange(temp); };
+  const autoR = useCallback((el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, []);
+  if (editing) {
+    const long = (temp || "").length > 50;
+    if (long) return <textarea ref={el => autoR(el)} autoFocus value={temp}
+      onChange={e => { setTemp(e.target.value); autoR(e.target); }} onBlur={commit}
+      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } }}
+      style={{ fontFamily: EST_F, fontSize: 10, letterSpacing: EST_LS, border: "none", outline: "none",
+        background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "4px 6px",
+        textAlign: align, resize: "none", overflow: "hidden", lineHeight: 1.5, ...style }} />;
+    return <input autoFocus value={temp} onChange={e => setTemp(e.target.value)}
+      onBlur={commit} onKeyDown={e => e.key === "Enter" && commit()}
+      style={{ fontFamily: EST_F, fontSize: 10, letterSpacing: EST_LS, border: "none", outline: "none",
+        background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "4px 6px",
+        textAlign: align, ...style }} />;
+  }
+  return <div onClick={() => { setTemp(value); setEditing(true); }}
+    style={{ fontFamily: EST_F, fontSize: 10, letterSpacing: EST_LS, cursor: "text", padding: "4px 6px",
+      minHeight: 18, textAlign: align, whiteSpace: "pre-wrap", transition: "all .1s", ...style }}
+    onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
+    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+    {value ? <EstHl text={value} /> : <span style={{ color: "#ccc" }}>&mdash;</span>}
+  </div>;
+};
+
+const EstSignaturePad = ({ value, onChange }) => {
+  const canvasRef = useRef(null);
+  const wrapRef = useRef(null);
+  const drawing = useRef(false);
+  const clear = () => { const c=canvasRef.current; if(c) c.getContext("2d").clearRect(0,0,c.width,c.height); onChange(""); };
+  const getPos = (e) => {
+    const c=canvasRef.current; const r=c.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    const scaleX=c.width/r.width; const scaleY=c.height/r.height;
+    return {x:(t.clientX-r.left)*scaleX, y:(t.clientY-r.top)*scaleY};
+  };
+  const startDraw = (e) => { e.preventDefault(); drawing.current=true; const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+  const moveDraw = (e) => { if(!drawing.current)return; e.preventDefault(); const ctx=canvasRef.current.getContext("2d"); const p=getPos(e); ctx.lineWidth=2; ctx.lineCap="round"; ctx.strokeStyle="#1a1a1a"; ctx.lineTo(p.x,p.y); ctx.stroke(); };
+  const endDraw = (e) => { if(!drawing.current)return; e&&e.preventDefault(); drawing.current=false; const c=canvasRef.current; if(c) onChange(c.toDataURL("image/png")); };
+  useEffect(()=>{
+    const c=canvasRef.current; const w=wrapRef.current; if(!c||!w)return;
+    const resize=()=>{ const rect=w.getBoundingClientRect(); c.width=Math.round(rect.width); c.height=80; if(value){const img=new Image();img.onload=()=>c.getContext("2d").drawImage(img,0,0,c.width,80);img.src=value;} };
+    resize(); window.addEventListener("resize",resize); return ()=>window.removeEventListener("resize",resize);
+  },[]);
+  if(value) return <div style={{position:"relative",height:80,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid #ddd",borderRadius:2,background:"#fafafa"}}><img src={value} alt="" style={{maxHeight:76,maxWidth:"100%"}}/><button onClick={clear} style={{position:"absolute",top:4,right:4,background:"#d32f2f",color:"#fff",border:"none",borderRadius:4,fontSize:10,padding:"3px 10px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>Clear</button></div>;
+  return <div ref={wrapRef} style={{position:"relative"}}><canvas ref={canvasRef} width={600} height={80} onMouseDown={startDraw} onMouseMove={moveDraw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={moveDraw} onTouchEnd={endDraw} style={{width:"100%",height:80,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",cursor:"crosshair",display:"block",touchAction:"none"}}/><button onClick={clear} style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",borderRadius:4,fontSize:10,padding:"3px 10px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>Clear</button></div>;
+};
+
+const OnnaEstLogo = () => <span style={{ fontFamily:"'Didot','Playfair Display',Georgia,serif",fontSize:30,fontWeight:400,letterSpacing:1,color:"#000" }}>onna</span>;
+
+const defaultSections = () => [
+  { id:1, num:"1", title:"PHOTOGRAPY FEES", rows:[
+    {ref:"1A",desc:"PHOTOGRAPHER DAY RATE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"1B",desc:"PHOTOGRAPHER RECCE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"1C",desc:"USAGE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"1D",desc:"1ST ASSISTANT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"1E",desc:"2ND ASSISTANT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"1F",desc:"DIGI TECH",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"1G",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:2, num:"2", title:"PHOTOGRAPHY EQUIPMENT", rows:[
+    {ref:"2A",desc:"CAMERA EQUIPMENT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2B",desc:"LIGHTING EQUIPMENT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2C",desc:"FILM",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2D",desc:"FILM PROCESSING",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2E",desc:"STORAGE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2F",desc:"COURIERS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2G",desc:"EQUIPMENT TRANSPORTATION",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2H",desc:"EQUIPMENT CARNET",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2I",desc:"EQUIPMENT SHIPPING",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"2J",desc:"CUSTOMS PAPERWORK",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:3, num:"3", title:"STILLS POST PRODUCTION", rows:[
+    {ref:"3A",desc:"RETOUCH",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:4, num:"4", title:"VIDEO CREW", rows:[
+    {ref:"4A",desc:"DIRECTOR",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4B",desc:"DOP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4C",desc:"1ST AD",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4D",desc:"1ST AC",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4E",desc:"2ND AC",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4F",desc:"STEADICAM OPERATOR",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4G",desc:"GAFFER",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4H",desc:"SPARK",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4I",desc:"DIT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4J",desc:"VTO",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4K",desc:"KEY GRIP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4L",desc:"BEST BOY GRIP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4M",desc:"SOUND ENGINEER",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4N",desc:"DRONE OPERATOR",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"4O",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:5, num:"5", title:"VIDEO EQUIPMENT", rows:[
+    {ref:"5A",desc:"MOTION CAMERA PACKAGE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5B",desc:"GRIP & LIGHTING",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5C",desc:"FILM",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5D",desc:"FILM PROCESSING",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5E",desc:"STORAGE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5F",desc:"EQUIPMENT TRANSPORTATION",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5G",desc:"EQUIPMENT CARNET",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"5H",desc:"EQUIPMENT SHIPPING",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:6, num:"6", title:"VIDEO POST-PRODUCTION", rows:[
+    {ref:"6A",desc:"EDIT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"6B",desc:"GRADE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"6C",desc:"SOUND DESIGN",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"6D",desc:"LIBRARY MUSIC",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"6E",desc:"STOCK FOOTAGE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"6F",desc:"VFX",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:7, num:"7", title:"STYLING", rows:[
+    {ref:"7A",desc:"STYLIST - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7B",desc:"STYLIST - PREP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7C",desc:"1ST ASSISTANT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7D",desc:"1ST ASSISTANT - PREP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7E",desc:"WARDROBE ALLOWANCE ADULTS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7F",desc:"WARDROBE ALLOWANCE CHILDS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7G",desc:"STYLING EQUIPMENT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7H",desc:"SEAMSTRESS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7I",desc:"FITTING BACKGROUND",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7J",desc:"SELPHY PRINTER",notes:"ON REQUEST ONLY",days:"0",qty:"0",rate:"0"},
+    {ref:"7K",desc:"SELPHY PRINTER CONSUMABLES",notes:"ON REQUEST ONLY",days:"0",qty:"0",rate:"0"},
+    {ref:"7L",desc:"COLLECTION TRANSPORTATION",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7M",desc:"STYLIST TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7N",desc:"ASSISTANT TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"7O",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:8, num:"8", title:"HAIR & MAKEUP", rows:[
+    {ref:"8A",desc:"HMUA",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"8B",desc:"HMUA TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"8C",desc:"MUA ASSISTANT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"8D",desc:"MUA ASSISTANT TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"8E",desc:"MANICURIST",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"8F",desc:"HMU SET UP & EQ",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"8G",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:9, num:"9", title:"TALENT", rows:[
+    {ref:"9A",desc:"CASTING DIRECTOR",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9B",desc:"STUDIO RENTAL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9C",desc:"ADULT MODELS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9D",desc:"CHILD MODELS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9E",desc:"FIT MODELS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9F",desc:"ADULT TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9G",desc:"CHILD TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9H",desc:"USAGE BUYOUT - ADULT",notes:"ON REQUEST",days:"0",qty:"0",rate:"0"},
+    {ref:"9I",desc:"USAGE BUYOUT - CHILD",notes:"ON REQUEST",days:"0",qty:"0",rate:"0"},
+    {ref:"9J",desc:"MODEL TRAVEL EXPENSES",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"9K",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:10, num:"10", title:"PROPS & SET", rows:[
+    {ref:"10A",desc:"SET DESIGNER - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10B",desc:"SET DESIGNER - PREP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10C",desc:"PROP MASTER - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10D",desc:"PROP MASTER - PREP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10E",desc:"ART ASSISTANT - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10F",desc:"ART ASSISTANT - PREP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10G",desc:"ON SET HELPER - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10H",desc:"PROPS BUDGET",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10I",desc:"EXPERIENTIAL PROPS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10J",desc:"BACKDROPS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10K",desc:"TRUCK RENTAL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10L",desc:"PROPS CLEARANCE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"10M",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:11, num:"11", title:"PRODUCTION", rows:[
+    {ref:"11A",desc:"PRODUCER",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11B",desc:"PRODUCER PREP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11C",desc:"PRODUCTION MANAGER",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11D",desc:"PRODUCTION COORDINATOR",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11E",desc:"RUNNER",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11F",desc:"FIXER",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11G",desc:"SET MEDIC",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11H",desc:"SECURITY",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"11J",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:12, num:"12", title:"PRODUCTION EXPENSES", rows:[
+    {ref:"12A",desc:"PRODUCTION KIT",notes:"",days:"0",qty:"0",rate:"1500"},
+    {ref:"12B",desc:"PREPROD EXPENSES",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:13, num:"13", title:"CATERING", rows:[
+    {ref:"13A",desc:"CATERING - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"13B",desc:"CATERING - RECCE/FITTING",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"13C",desc:"CATERING - TRAVEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"13D",desc:"CRAFT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"13E",desc:"COFFEES/REFRESHMENTS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"13F",desc:"DINNERS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"13G",desc:"TALENT RIDER",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:14, num:"14", title:"VEHICLES", rows:[
+    {ref:"14A",desc:"VEHICLE RENTAL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"14B",desc:"TAXI ALLOWANCE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"14C",desc:"PARKING, TOLL & FUEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"14D",desc:"OVERTIME",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:15, num:"15", title:"LOCATIONS", rows:[
+    {ref:"15A",desc:"STUDIO HIRE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15B",desc:"COVE PAINTING",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15C",desc:"LOCATION HIRE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15D",desc:"LOCATION MANAGER - SHOOT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15E",desc:"LOCATION MANAGER - SCOUT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15F",desc:"LOCATION ASSISTANT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15G",desc:"LOCATION EXPENSES",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15H",desc:"BASE CAMP",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15I",desc:"UNIT GEAR",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15J",desc:"WIFI RENTAL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"15K",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:16, num:"16", title:"PERMITS", rows:[
+    {ref:"16A",desc:"DFTC PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"16B",desc:"DRONE PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"16C",desc:"CAR/DRIVING PERMITS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"16D",desc:"OPEN SEA PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:17, num:"17", title:"TRAVEL", rows:[
+    {ref:"17A",desc:"AIRPORT TRANSFERS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17B",desc:"FLIGHTS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17C",desc:"FLIGHTS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17D",desc:"HOTEL",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17E",desc:"EXCESS BAGGAGE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17F",desc:"VISAS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17G",desc:"TRAVEL AGENT FEE",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17H",desc:"PER DIEMS",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"17I",desc:"FLIGHT CONTINGENCY",notes:"",days:"0",qty:"0",rate:"0"},
+  ]},
+  { id:18, num:"18", title:"PRODUCTION FEES", isFees:true, rows:[
+    {ref:"18A",desc:"INSURANCE",notes:"3%",days:"0",qty:"0",rate:"0"},
+    {ref:"18B",desc:"GENERAL FEES & BANK CHARGES",notes:"1%",days:"0",qty:"0",rate:"0"},
+    {ref:"18D",desc:"PRODUCTION FEE",notes:"10%",days:"0",qty:"0",rate:"0"},
+  ]},
+];
+
+const EST_SA_FIELDS = [
+  {label:"Commencement Date", defaultValue:"[Date]"},
+  {label:"Client", defaultValue:"[Name of Company] a company registered in [Country] under number [License Number] whose registered office is at [Address]"},
+  {label:'Client Representative "The Brand"', defaultValue:"Name: [Client Name]\nEmail: [Client Email]\nTelephone: [Client Mobile]"},
+  {label:"Campaign", defaultValue:"[Name of Shoot]"},
+  {label:"Deliverables", defaultValue:"[Outline Deliverables]\n\nApproval Items\n[Directors Storyboard - note revision rounds]\n[Directors Treatment - note revision rounds]\n[Locations - note rounds]\n[Casting - note rounds]\n[Wardrobe rounds - note rounds]\n[Set Design - note rounds]\n[Timing Plans & Production Schedules]\n[Edits - note rounds]\n[Sound Design - note rounds]\n[Grade - note rounds]"},
+  {label:"Timetable for Production Services", defaultValue:"[Proposed Shoot Dates]\n[Delivery Dates & Formats]\n[Date for completion of the Production Services]\n[Proposed Airdate]"},
+  {label:"Production Services", defaultValue:"[Pay and source locations]\n[Maintain all necessary insurance for locations - Public Liability insurance]\n[Pay and source all necessary equipment]\n[Pay and source all necessary technical crew]\n[Produce the shoot on the day, with assistants to support]\n[Pay and source photographers / directors]\n[Pay and source all necessary Hair & Makeup]\n[Pay and source all necessary stylists & assistants]\n[Pay for travel & Accommodation]\n[Pay and source all necessary post-production crew, extending to sound designers, editors, and graders on the agreed post-production schedule]"},
+  {label:"Usage", defaultValue:"[Usage Terms]"},
+  {label:"Milestones", defaultValue:"[Pre-production dates]\n[Post-production dates]"},
+  {label:"Key Individuals", defaultValue:"[Insert names of any personnel who are key to production services]\nDirector\nProducer\nOther"},
+  {label:"Fee", defaultValue:"[Fee]"},
+  {label:"Invoicing Terms", defaultValue:"75% Advance Payment before shoot 25% Remaining agreed fee billed on 30 days after the shoot.\nOverages may be agreed with Client Representative in writing and billed as an overage after the shoot.\nInterest of 2% per month will be applied to all past due invoices, if applicable."},
+];
+
+const DEFAULT_TCS = `GENERAL TERMS & CONDITIONS\n\nONNA FILM TV RADIO PRODUCTION SERVICES LLC & Subsidiary ONNA STUDIOS LTD (\u201cONNA\u201d). Client acknowledges and agrees that the Production Estimate is subject to the following terms and conditions:\n\nPAYMENTS & INVOICES\nClient will advance 75% of all expenses upon signing the Production Estimate no less than 5 days prior to the first day of the Shoot. Client\u2019s failure to pay the advance when due will delay the production and may result in cancellation. If ONNA is paying the photographer and/or talent the advance shall include 100% of the estimated photographer and/or talent fees, as applicable. The balance of all fees and expenses will be invoiced upon completion of the production and payment shall be due within 30 days of client\u2019s receipt of ONNA\u2019s final invoice. Any and all billing procedures must be clarified and approved in advance by ONNA. If Client does not notify ONNA of any disputes within 5 business days of receiving an invoice, the amounts provided for in the invoice shall be considered final and binding on Client. Due to the extra time required for post production, the post production invoice may be sent separately. Client shall be responsible for any increase in cost due to applicable exchange rate fluctuations and the final invoice will be adjusted accordingly. Certain costs provided for in this Production Estimate may be subject to tax based upon applicable laws, rules and/or regulations. If tax was not previously noted in the estimate, such amount shall be added to the final invoice. Interest of 2% per month will be applied to all past due invoices, if applicable. Client is responsible for paying all costs of collection including penalties, interest and reasonable legal fees and court costs. Client is responsible for all payments required under the Production Estimate, whether or not Client uses the resulting deliverables. Final delivery, all rights and usage are subject to the full and final payment of all monies provided for in the Production Estimate.\n\nPRODUCTION COSTS & OVERAGES\nThis Production Estimate is based on information received as of the date of the Production Estimate. The actual and final costs may differ from the Production Estimate and some items may be reallocated based upon production needs. The amount of the Service Charge provided for in the Production Estimate is a minimum amount due in connection with this Project, and shall not decrease for any underages. Overages are subject to the Client\u2019s approval and are subject to Service Charge and VAT. Client must have a representative to approve all changes and overages, if any, that may occur during production.\nThis Production Estimate is based on a 10 hour day. Quoted fees do not include overtime unless otherwise noted in the Production Estimate. In the event that the production extends beyond 10 hours, ONNA may charge overtime for crew at the rate of 1.5 times their hourly rate. In the event that the production extends beyond 12 hours, ONNA may charge overtime for crew at the rate of 2 times their hourly rate. All additional overtime incurred will be reflected on the final invoice upon the wrap of the job. This Production Estimate does not include any agency or client travel, unless otherwise noted in the Production Estimate. Back-up receipts for third-party and other costs can only be provided if requested before the confirmation of the provision of the Services. If back-up receipts are required, there will be an accountancy charge of 1.5% of the Fee. ONNA will keep all props, wardrobe, and other things used in the provision of the Services unless specified otherwise in writing before the provision of the Services. If, in the reasonable opinion of ONNA, extra insurance is required because of the value or nature of any props, wardrobes, and things used in the provision of the Services, ONNA may require the Client to pay for additional insurance. Any additional filming, including b-roll, BTS, reality filming or any other production taking place on set must be pre-approved by ONNA in writing and may result in additional costs, expenses and fees.\n\nINDEMNITY\nClient acknowledges that the creative concept was provided by Client or others engaged directly by Client and except as provided for in the Production Estimate, Client shall be responsible for obtaining all third party rights, clearances and/or releases, including with respect to talent body art, background architecture, artwork, signage or similar items appearing in the images and/or videos and ensuring that all final deliverables comply with Client\u2019s requirements, including all legal requirements. Client will indemnify and hold ONNA and its principals, employees, agents, representatives, attorneys, successors and assigns, harmless against any and all third party claims, liabilities, damages, costs, fees and expenses including reasonable attorney fees and expenses related to failure to obtain clearances for any third-party intellectual property, personal or other proprietary rights, including copyrighted or trademarked work, and for negligent acts or omissions by Client and others engaged by Client in connection with the production. Neither party shall be liable to the other for any speculative, consequential, incidental and/or punitive damages hereunder.\n\nTALENT\nClient shall be responsible to engage and pay all models and talent (including all fees, late fees, penalties and/or interest due for failure to comply with applicable laws, rules and/or regulations and confirming with agency if a chaperone is required). Client shall be responsible for all workers\u2019 compensation insurance coverage applicable to all such models and talent. If model or talent is under the age of 18, Client must notify ONNA in advance and Client is responsible for confirming with agency if a chaperone is required to be on set. If ONNA handles payments to talent, all related charges shall be billed to Client.\n\nLICENSE\nClient shall be responsible to comply with the provisions of the photographer and/or talent agreements including with respect to any renewals or extensions of usage. Client shall notify and engage ONNA at least 30 days in advance to extend any usage referenced in the Production Estimate. Client shall provide ONNA with all high-resolution final layouts and images. Client acknowledges and agrees that, after the Estimated Delivery Date, ONNA has the right to use the Materials in any manner that promotes ONNA.\n\nCANCELLATION & POSTPONMENT\nClient may not cancel this job without paying 100% of all production fees and expenses as provided for in the Production Estimate, including those necessary to cancel and/or reschedule the shoot, due to weather, force majeure events and additional costs and expenses.\n\nMISCELLANEOUS\nThe Client specifically agrees not to circumvent or bypass ONNA with respect to the provision of the Services. To give effect to this clause, the Client agrees that it will negotiate all future bookings for any member of the crew directly with ONNA in advance in writing and any costs shall be the responsibility of Client.\n\nINSURANCE\nIf Client wishes to pursue any additional non-appearance, cancellation, weather, special risks, talent or similar insurance, the costs of additional insurance shall be an expense to the Client. Any deducible and/or co-insurance in the policy shall be the responsibility of the Client. Small losses or claims that are less than the amount of the deductible will be added to the final invoice.\n\nCREDIT\nClient shall grant right to use the content on their website. For editorial jobs, Client shall grant ONNA the right to use the content on their website and social media as @onnaproduction.\n\nGOVERNING LAW\nThis Agreement will be governed by and construed in accordance with the laws in force in the Emirate of Dubai and the parties irrevocably submit to the non-exclusive jurisdiction of the courts of the Emirate of Dubai.`;
+
+const ESTIMATE_INIT = {
+  ts: { version:"PRODUCTION ESTIMATE V1", date:"[Date]", client:"[Client]", project:"[Project]",
+    attention:"[Attention]", photographer:"[Photographer / Director]",
+    deliverables:"[TBC]", deadlines:"[TBC]", usage:"[Usage Terms]", shootDate:"[Shoot Date]",
+    shootDays:"[1 SHOOT DAY]", shootHours:"[BASED ON A 10 HOUR SHOOT DAY]",
+    location:"[DUBAI]", payment:"[75% ADVANCE, 25% UPON COMPLETION (30 DAYS FROM INVOICE)]",
+    notes:"" },
+  sections: null,
+  saFields: null,
+  tcsText: null,
+  saSigs: {},
+};
+
+// ─── ESTIMATE CALC HELPERS ───────────────────────────────────────────────────
+const estRowTotal = (r) => { const d=estNum(r.days)||1; const q=estNum(r.qty)||1; const rt=estNum(r.rate); return d*q*rt; };
+const estSectionTotal = (s) => s.rows.reduce((sum,r)=>sum+estRowTotal(r),0);
+const estCalcTotals = (sections) => {
+  const subtotal = sections.filter(s=>!s.isFees).reduce((sum,s)=>sum+estSectionTotal(s),0);
+  const feesTotal = sections.filter(s=>s.isFees).reduce((sum,s)=>
+    s.rows.reduce((rsum, row) => {
+      const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+      if (pctMatch) return rsum + subtotal * (parseFloat(pctMatch[1]) / 100);
+      return rsum + estRowTotal(row);
+    }, 0) + sum, 0);
+  return { subtotal, feesTotal, grandTotal: subtotal + feesTotal };
+};
 
 const CALLSHEET_INIT = {
   shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"",
@@ -189,49 +484,75 @@ CURRENT ESTIMATE STATE:
 ${estSnapshot}
 
 INSTRUCTIONS:
-- When the user asks to ADD, UPDATE, or CHANGE line items, header fields, or notes, output a JSON patch inside a \`\`\`json code block.
-- For header fields: {"header":{"client":"...","project":"...","date":"...","photographer":"...","deliverables":"...","deadlines":"...","usageTerms":"...","shootDate":"...","shootLocation":"...","paymentTerms":"..."}}
-- For line items (merge by cat number): {"lineItems":[{"cat":"1","name":"Photography Fees","aed":5000},{"cat":"4","name":"Video Crew","aed":51000}]}
-- For notes: {"notes":"..."}
-- Only output JSON for write intents. For read-only questions (e.g. "what's the total?", "show me the budget"), answer in plain text with NO JSON block.
-- When updating line items, merge by category number (cat field). If the cat exists, update it. If it's new, append it.
-- Always show dual currency: AED and USD (fixed rate: 1 USD = 3.67 AED, i.e. 1 AED = 0.27 USD).
-- Default Agency Fee: 15% on production subtotal (goes in cat 18).
-- Default Contingency: 10% on production subtotal (can be added as separate line).
+- When the user asks to ADD, UPDATE, or CHANGE rows, header fields, or notes, output a JSON patch inside a \`\`\`json code block.
+- For top sheet fields: {"ts": {"client":"...","date":"...","project":"...","photographer":"...","deliverables":"...","deadlines":"...","usage":"...","shootDate":"...","location":"...","payment":"..."}}
+- For row updates by ref: {"rows": {"1A": {"rate":"5000","days":"2"}, "4B": {"desc":"DOP","rate":"3000"}}}
+- To add a row: {"addRow": {"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}}
+- To remove a row: {"removeRow": "4P"}
+- For notes: {"notes": "..."}
+- Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
+- Each row has: ref (e.g. "1A"), desc, notes, days, qty, rate. Total = days × qty × rate.
+- Section 18 (Production Fees) rows with a % in notes auto-calculate from subtotal.
+- Always show dual currency: AED and USD (fixed rate: 1 AED = 0.27 USD).
 - Be warm, concise and professional.
 - NEVER say you don't have access to data, can't see the estimate, or need the user to share information. You have FULL access.`;
 }
 
 function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProjectEstimates) {
-  const versions = [...currentVersions];
-  const ver = { ...versions[versionIdx] };
+  const versions = JSON.parse(JSON.stringify(currentVersions));
+  const ver = versions[versionIdx];
+  const sections = ver.sections || defaultSections();
 
-  // Merge header fields
-  if (patch.header) {
-    Object.keys(patch.header).forEach(k => {
-      if (patch.header[k] !== undefined) ver[k] = patch.header[k];
-    });
+  // Merge top sheet fields
+  if (patch.ts) {
+    ver.ts = { ...(ver.ts || {}), ...patch.ts };
   }
 
-  // Merge scalar fields directly (for convenience)
-  const scalars = ["version","date","client","project","attention","photographer","deliverables","deadlines","usageTerms","agreedRounds","shootDate","shootDays","shootHours","shootLocation","paymentTerms"];
-  scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
+  // Merge notes into ts.notes
+  if (patch.notes !== undefined) {
+    if (!ver.ts) ver.ts = {};
+    ver.ts.notes = patch.notes;
+  }
 
-  // Merge notes
-  if (patch.notes !== undefined) ver.notes = patch.notes;
-
-  // Merge lineItems by cat (case-insensitive cat match)
-  if (patch.lineItems && Array.isArray(patch.lineItems)) {
-    const existing = ver.lineItems ? ver.lineItems.map(li => ({ ...li })) : [];
-    patch.lineItems.forEach(pli => {
-      const idx = existing.findIndex(li => String(li.cat) === String(pli.cat));
-      if (idx >= 0) {
-        existing[idx] = { ...existing[idx], ...pli };
-      } else {
-        existing.push(pli);
+  // Update rows by ref
+  if (patch.rows) {
+    Object.entries(patch.rows).forEach(([ref, updates]) => {
+      for (const sec of sections) {
+        const row = sec.rows.find(r => r.ref === ref);
+        if (row) { Object.assign(row, updates); break; }
       }
     });
-    ver.lineItems = existing;
+    ver.sections = sections;
+  }
+
+  // Add row to section
+  if (patch.addRow) {
+    const { section: secNum, ...rowData } = patch.addRow;
+    const sec = sections.find(s => s.id === secNum || s.num === String(secNum));
+    if (sec) {
+      const nextRef = sec.num + String.fromCharCode(65 + sec.rows.length);
+      sec.rows.push({ ref: nextRef, desc: "", notes: "", days: "0", qty: "0", rate: "0", ...rowData });
+      ver.sections = sections;
+    }
+  }
+
+  // Remove row by ref
+  if (patch.removeRow) {
+    for (const sec of sections) {
+      const idx = sec.rows.findIndex(r => r.ref === patch.removeRow);
+      if (idx >= 0 && sec.rows.length > 1) { sec.rows.splice(idx, 1); break; }
+    }
+    ver.sections = sections;
+  }
+
+  // Merge SA fields
+  if (patch.saFields) {
+    ver.saFields = { ...(ver.saFields || {}), ...patch.saFields };
+  }
+
+  // Replace T&Cs text
+  if (patch.tcsText !== undefined) {
+    ver.tcsText = patch.tcsText;
   }
 
   versions[versionIdx] = ver;
@@ -701,36 +1022,6 @@ const initVendors = [{"id":1,"name":"Alva East/West/Coachworks","category":"Loca
 const initOutreach = []; // populated from DB on load
 const savedCallSheets = {"Columbia / IMA — Ramadan Activation 2026":"SHOOT NAME: Columbia Ramadan Activation 2026"};
 const savedRiskAssessments = {"Columbia / IMA — Ramadan Activation 2026":"SHOOT NAME: Columbia Ramadan Activation 2026"};
-const initColumbiaEstimate = {
-  version:"V1", date:"18/02/2026", client:"IMA", project:"COLUMBIA RAMADAN 2026 ACTIVATION",
-  attention:"Freya Morris <freya.morris@ima.global>", photographer:"NATHAN EVANS / FRNDZ STUDIO",
-  deliverables:"VIDEOS & STILLS", deadlines:"25TH FEB / MARCH 12",
-  usageTerms:"12 months, global, digital, and social. Plus retail POS and OOH in Dubai.",
-  agreedRounds:"2 ROUNDS OF FEEDBACK", shootDate:"21ST FEBRUARY / 7TH MARCH",
-  shootDays:"2 SHOOT DAYS", shootHours:"BASED ON A 10 HOUR SHOOT DAY [3PM - 1AM]",
-  shootLocation:"RAS AL KAIMAH", paymentTerms:"75% ADVANCE, 25% UPON COMPLETION (30 DAYS FROM INVOICE)",
-  lineItems:[
-    {cat:"1", name:"Photography Fees",       aed:25200},
-    {cat:"2", name:"Photography Equipment",  aed:7500},
-    {cat:"3", name:"Stills Post Production", aed:8000},
-    {cat:"4", name:"Video Crew",             aed:51000},
-    {cat:"5", name:"Video Equipment",        aed:13200},
-    {cat:"6", name:"Video Post-Production",  aed:28000},
-    {cat:"7", name:"Styling",                aed:0},
-    {cat:"8", name:"Hair & Makeup",          aed:0},
-    {cat:"9", name:"Talent",                 aed:0},
-    {cat:"10",name:"Props & Set",            aed:0},
-    {cat:"11",name:"Production",             aed:21000},
-    {cat:"12",name:"Production Expenses",    aed:9000},
-    {cat:"13",name:"Catering",               aed:5000},
-    {cat:"14",name:"Vehicles",               aed:6000},
-    {cat:"15",name:"Locations",              aed:0},
-    {cat:"16",name:"Permits",                aed:0},
-    {cat:"17",name:"Travel",                 aed:0},
-    {cat:"18",name:"Production Fees",        aed:22607},
-  ],
-  notes:"SHOOT HOURS ARE BASED ON A 10 HOUR SHOOT DAY UNLESS OTHERWISE AGREED.\nEXCHANGE RATE CALCULATED AT 1 AED = 0.27 USD",
-};
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD"},
@@ -942,19 +1233,20 @@ function levenshtein(a,b){
 function findSimilar(name,allVendors,allLeads){
   if(!name)return null;
   const q=name.toLowerCase().trim();
+  if(q.length<2)return null;
   const thresh=Math.max(2,Math.floor(q.length*0.28));
+  const _m=(a,b)=>a===b||(a.length>=3&&b.length>=3&&(a.includes(b)||b.includes(a)))||levenshtein(a,b)<=thresh;
   for(const v of(allVendors||[])){
     const vn=(v.name||"").toLowerCase().trim();
     const vc=(v.company||"").toLowerCase().trim();
-    if(vn&&vn===q)return{record:v,type:"vendor",exact:true};
-    if(vc&&vc===q)return{record:v,type:"vendor",exact:true};
-    if(vn&&levenshtein(q,vn)<=thresh)return{record:v,type:"vendor",exact:false};
-    if(vc&&levenshtein(q,vc)<=thresh)return{record:v,type:"vendor",exact:false};
+    if((vn&&vn===q)||(vc&&vc===q))return{record:v,type:"vendor",exact:true};
+    if((vn&&_m(q,vn))||(vc&&_m(q,vc)))return{record:v,type:"vendor",exact:false};
   }
   for(const l of(allLeads||[])){
-    const ln=(l.contact||l.company||"").toLowerCase().trim();if(!ln)continue;
-    if(ln===q)return{record:l,type:"lead",exact:true};
-    if(levenshtein(q,ln)<=thresh)return{record:l,type:"lead",exact:false};
+    const lc=(l.contact||"").toLowerCase().trim();
+    const lco=(l.company||"").toLowerCase().trim();
+    if((lc&&lc===q)||(lco&&lco===q))return{record:l,type:"lead",exact:true};
+    if((lc&&_m(q,lc))||(lco&&_m(q,lco)))return{record:l,type:"lead",exact:false};
   }
   return null;
 }
@@ -1002,6 +1294,282 @@ function _AgentBubble({msg}){
     </div>
   </div>;
 }
+// ─── EstimateView — shared BudgetConnie rendering ─────────────────────────────
+function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
+  const [estTab, setEstTab] = useState("topsheet");
+  const [showAll, setShowAll] = useState(false);
+  const printRef = useRef(null);
+
+  const ts = estData.ts || ESTIMATE_INIT.ts;
+  const sections = estData.sections || defaultSections();
+  const saFields = estData.saFields || (() => { const init = {}; EST_SA_FIELDS.forEach((f,i) => { init[i] = f.defaultValue; }); return init; })();
+  const tcsText = estData.tcsText || DEFAULT_TCS;
+  const saSigs = estData.saSigs || {};
+
+  const tsSet = (k, v) => onSet(d => ({...d, ts: {...(d.ts||ESTIMATE_INIT.ts), [k]: v}}));
+  const updateRow = (si,ri,field,val) => {
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      secs[si].rows[ri][field] = val;
+      return {...d, sections: secs};
+    });
+  };
+  const addRow = (si) => {
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      const sec = secs[si];
+      const nextRef = sec.num + String.fromCharCode(65 + sec.rows.length);
+      sec.rows.push({ref:nextRef,desc:"",notes:"",days:"0",qty:"0",rate:"0"});
+      return {...d, sections: secs};
+    });
+  };
+  const removeRow = (si, ri) => {
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      if (secs[si].rows.length > 1) secs[si].rows.splice(ri, 1);
+      return {...d, sections: secs};
+    });
+  };
+
+  const { subtotal, feesTotal, grandTotal } = estCalcTotals(sections);
+
+  const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
+  const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
+
+  const doPrint = () => { const el=printRef.current; if(!el)return; const w=window.open("","_blank");
+    w.document.write('<html><head><title>ONNA Estimate</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:20px 30px;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page-break{page-break-before:always}}</style></head><body>');
+    w.document.write(el.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>w.print(),500); };
+  const exportPDF = (all = false) => {
+    if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
+    else doPrint();
+  };
+
+  return (
+    <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
+      <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
+        {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
+        <div style={{ marginLeft:"auto",display:"flex" }}>
+          <div onClick={()=>exportPDF(false)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:"#000",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+            onMouseEnter={e=>{e.target.style.background="#000";e.target.style.color="#fff"}} onMouseLeave={e=>{e.target.style.background="#fff";e.target.style.color="#000"}}>EXPORT PAGE</div>
+          <div onClick={()=>exportPDF(true)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+            onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>EXPORT ALL</div>
+        </div>
+      </div>
+
+      <div ref={printRef} style={{ padding:"24px 32px" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
+          <OnnaEstLogo />
+        </div>
+        <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
+
+        {(estTab === "topsheet" || showAll) && <>
+          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>
+            <EstCell value={ts.version} onChange={v=>tsSet("version",v)} style={{fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center"}} />
+          </div>
+          <div style={{marginBottom:10}}>
+            {[["DATE:",ts.date,"date"],["CLIENT:",ts.client,"client"],["ATTENTION:",ts.attention,"attention"],["PROJECT:",ts.project,"project"],["PHOTOGRAPHER / DIRECTOR:",ts.photographer,"photographer"],["DELIVERABLES:",ts.deliverables,"deliverables"],["DEADLINES:",ts.deadlines,"deadlines"],["USAGE TERMS:",ts.usage,"usage"],["SHOOT DATE:",ts.shootDate,"shootDate"],["NUMBER OF SHOOT DAYS:",ts.shootDays,"shootDays"],["SHOOT HOURS:",ts.shootHours,"shootHours"],["SHOOT LOCATION:",ts.location,"location"],["PAYMENT TERMS:",ts.payment,"payment"]].map(([lbl,val,key])=>
+              <div key={key} style={{display:"flex",gap:4,marginBottom:0,minHeight:20,alignItems:"baseline"}}>
+                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,minWidth:190,flexShrink:0}}>{lbl}</span>
+                <EstCell value={val} onChange={v=>tsSet(key,v)} style={{letterSpacing:EST_LS}} />
+              </div>
+            )}
+          </div>
+          <div style={{borderTop:"2px solid #000",marginTop:8}}>
+            <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+              <div style={{flex:1,...hdr}}>CATEGORY</div>
+              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL AED</div>
+              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL USD</div>
+            </div>
+            {sections.map((sec)=>{const t=estSectionTotal(sec);return(
+              <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
+                <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
+                <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
+                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
+                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*exchangeRate)}</div>
+              </div>
+            );})}
+            <div style={{display:"flex",borderTop:"2px solid #000"}}>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal)}</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal*exchangeRate)}</div>
+            </div>
+            <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>VAT (5%)</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*0.05)}</div>
+              <div style={{width:100}}></div>
+            </div>
+            <div style={{display:"flex",borderBottom:"2px solid #000"}}>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*0.05)}</div>
+              <div style={{width:100}}></div>
+            </div>
+          </div>
+          {(() => {
+            const pctMatch = (ts.payment || "").match(/(\d+)%/);
+            const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
+            const totalIncVat = grandTotal + grandTotal * 0.05;
+            return (
+              <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
+                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
+                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>AED {estFmt(totalIncVat * (advPct / 100))}</span>
+              </div>
+            );
+          })()}
+          <div style={{marginTop:12}}>
+            <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,marginBottom:4}}>NOTES:</div>
+            <EstCell value={ts.notes || ""} onChange={v=>tsSet("notes",v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
+          </div>
+        </>}
+
+        {(estTab === "estimates" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
+          {sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
+            const isFeesSection = sec.isFees;
+            const subtotalRow = isFeesSection ? (
+              <div style={{borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:12,display:"flex",justifyContent:"flex-end"}}>
+                <div style={{display:"flex",gap:0,padding:"6px 0"}}>
+                  <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>SUBTOTAL</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>AED {estFmt(subtotal)}</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>USD {estFmt(subtotal*exchangeRate)}</div>
+                  <div style={{width:24}}></div>
+                </div>
+              </div>
+            ) : null;
+            const getRowDisplay = (row) => {
+              let tot = estRowTotal(row);
+              let autoCalc = false;
+              if (isFeesSection && row.notes) {
+                const pctMatch = row.notes.match(/(\d+(?:\.\d+)?)%/);
+                if (pctMatch) { tot = subtotal * (parseFloat(pctMatch[1]) / 100); autoCalc = true; }
+              }
+              return { tot, autoCalc };
+            };
+            const feeSectionTotal = isFeesSection
+              ? sec.rows.reduce((sum, row) => {
+                  const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                  if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
+                  return sum + estRowTotal(row);
+                }, 0)
+              : secTot;
+            return(
+            <div key={sec.id}>
+              {subtotalRow}
+              <div style={{marginBottom:12}}>
+              <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 8px",textTransform:"uppercase",alignItems:"center"}}>
+                <span style={{marginRight:8}}>{sec.num}</span><span>{sec.title}</span>
+                <div style={{flex:1}}></div>
+                <span style={{fontSize:9,...hdr,background:"transparent",color:"#fff",border:"none",padding:0}}>NOTES</span>
+                <span style={{width:50,textAlign:"center",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>DAYS</span>
+                <span style={{width:40,textAlign:"center",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>QTY</span>
+                <span style={{width:90,textAlign:"right",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>UNIT PRICE AED</span>
+                <span style={{width:90,textAlign:"right",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>TOTAL AED</span>
+                <span style={{width:90,textAlign:"right",...hdr,background:"transparent",color:"#fff",border:"none",padding:"0 4px"}}>TOTAL USD</span>
+                <span style={{width:24}}></span>
+              </div>
+              {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);return(
+                <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch"}}>
+                  <div style={{width:40,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
+                  <div style={{flex:1}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
+                  <div style={{width:120}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
+                  <div style={{width:50}}><EstCell value={row.days} onChange={v=>updateRow(si,ri,"days",v)} align="center" /></div>
+                  <div style={{width:40}}><EstCell value={row.qty} onChange={v=>updateRow(si,ri,"qty",v)} align="center" /></div>
+                  <div style={{width:90}}>{autoCalc
+                    ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
+                    : <EstCell value={row.rate} onChange={v=>updateRow(si,ri,"rate",v)} align="right" />}</div>
+                  <div style={{width:90,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot)}</div>
+                  <div style={{width:90,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*exchangeRate)}</div>
+                  <div style={{width:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span onClick={()=>removeRow(si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span></div>
+                </div>);})}
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <div onClick={()=>addRow(si)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}}>+ Add Line</div>
+                <div style={{display:"flex",gap:0}}>
+                  <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"4px 8px",letterSpacing:EST_LS}}>TOTAL</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal)}</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*exchangeRate)}</div>
+                  <div style={{width:24}}></div>
+                </div>
+              </div>
+              </div>
+            </div>);})}
+          <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
+            <div style={{width:300}}>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
+                <span>GRAND TOTAL</span><span>AED {estFmt(grandTotal)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
+                <span>VAT (5%)</span><span>AED {estFmt(grandTotal*0.05)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
+                <span>TOTAL INC. VAT</span><span>AED {estFmt(grandTotal + grandTotal*0.05)}</span></div>
+            </div>
+          </div>
+        </>}
+
+        {(estTab === "services" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
+          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:20}}>PRODUCTION SERVICES AGREEMENT</div>
+          {EST_SA_FIELDS.map((f,i)=>(
+            <div key={i} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}>
+              <div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
+                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:500,letterSpacing:EST_LS}}>{f.label}</span></div>
+              <div style={{flex:1,padding:"8px 12px"}}>
+                <EstCell value={saFields[i]} onChange={v=>onSet(d=>({...d,saFields:{...(d.saFields||saFields),[i]:v}}))} /></div>
+            </div>
+          ))}
+          <div style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666",marginTop:12,padding:"0 12px"}}>
+            This Commercial Term Sheet and including the General Terms and Conditions (together the "Agreement") together constitute an agreement under which the Supplier agrees to provide the Commissioner with certain production services.
+          </div>
+          <div style={{background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24}}>SIGNATURE</div>
+          <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
+            {[{side:"left",label:"Signed by an authorised representative for and on behalf of ONNA"},
+              {side:"right",label:"Signed by an authorised representative for and on behalf of [Client]"}].map(s=>(
+              <div key={s.side} style={{flex:1,padding:12,borderRight:s.side==="left"?"1px solid #eee":"none"}}>
+                <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,marginBottom:12}}>{s.label}</div>
+                <div style={{marginBottom:8}}>
+                  <span style={{fontFamily:EST_F,fontSize:10,fontWeight:500,letterSpacing:EST_LS,display:"block",marginBottom:4}}>Signature:</span>
+                  <EstSignaturePad value={saSigs[s.side+"_sig"]||""} onChange={v=>onSet(d=>({...d,saSigs:{...(d.saSigs||{}),[s.side+"_sig"]:v}}))} />
+                </div>
+                {["Print Name:","Date:"].map(lbl=>(
+                  <div key={lbl} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline"}}>
+                    <span style={{fontFamily:EST_F,fontSize:10,fontWeight:500,letterSpacing:EST_LS,minWidth:80}}>{lbl}</span>
+                    <div style={{flex:1,borderBottom:"1px solid #ccc",minHeight:20}}>
+                      <EstCell value={saSigs[s.side+"_"+lbl]||""} onChange={v=>onSet(d=>({...d,saSigs:{...(d.saSigs||{}),[s.side+"_"+lbl]:v}}))} /></div>
+                  </div>))}
+              </div>))}
+          </div>
+        </>}
+
+        {(estTab === "tcs" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
+          <div style={{marginTop:8}}>
+            {(() => {
+              const headings = ["GENERAL TERMS & CONDITIONS","PAYMENTS & INVOICES","PRODUCTION COSTS & OVERAGES","INDEMNITY","TALENT","LICENSE","CANCELLATION & POSTPONMENT","MISCELLANEOUS","INSURANCE","CREDIT","GOVERNING LAW"];
+              const lines = tcsText.split("\n");
+              return lines.map((line, i) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={i} style={{height:4}} />;
+                const isMainTitle = trimmed === "GENERAL TERMS & CONDITIONS";
+                const isHeading = headings.some(h => trimmed.startsWith(h));
+                if (isMainTitle) return <div key={i} style={{fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:8,textAlign:"center"}}>{trimmed}</div>;
+                if (isHeading) return <div key={i} style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",marginTop:10,marginBottom:2}}>{trimmed}</div>;
+                return <div key={i} style={{fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,lineHeight:1.5,marginBottom:1}}>{trimmed}</div>;
+              });
+            })()}
+          </div>
+          <div style={{marginTop:12,padding:"8px 0",borderTop:"1px solid #eee"}}>
+            <div style={{fontFamily:EST_F,fontSize:9,color:"#999",letterSpacing:EST_LS,marginBottom:4}}>Edit Terms & Conditions:</div>
+            <textarea value={tcsText} onChange={e=>onSet(d=>({...d,tcsText:e.target.value}))}
+              style={{width:"100%",boxSizing:"border-box",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,lineHeight:1.5,color:"#1a1a1a",border:"1px solid #eee",padding:12,minHeight:200,resize:"vertical",outline:"none",background:"#fff",whiteSpace:"pre-wrap"}}
+              onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7"}}
+              onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff"}} />
+          </div>
+        </>}
+
+        <div style={{marginTop:40,display:"flex",justifyContent:"space-between",fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+          <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+          <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── AgentDocPreview — live editable document preview for split-pane ────────
 function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion}) {
   if (!projectId) return null;
@@ -1164,91 +1732,15 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
   // ── BILLIE (Estimate) ──
   if (agentId === "billie" && projectEstimates && setProjectEstimates) {
-    const estVersions = projectEstimates[projectId] || [{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:"",project:""}];
+    const estVersions = projectEstimates[projectId] || [{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT))}];
     const estIdx = Math.min(activeEstimateVersion||0, estVersions.length - 1);
     const estData = estVersions[estIdx] || estVersions[0];
-    const {update:estU, set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, {...initColumbiaEstimate,client:"",project:""}, "V1");
-
-    const subtotal = (estData.lineItems||[]).filter(l=>l.cat!=="18").reduce((a,b)=>a+Number(b.aed||0),0);
-    const fees = (estData.lineItems||[]).filter(l=>l.cat==="18").reduce((a,b)=>a+Number(b.aed||0),0);
-    const total = subtotal+fees; const vat=total*0.05; const grand=total+vat;
-
-    const EST_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
-    const EST_LS = 0.5; const EST_LS_HDR = 1.5;
+    const {set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, JSON.parse(JSON.stringify(ESTIMATE_INIT)), "V1");
 
     return (
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
-        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Estimate — {estData.version||`V${estIdx+1}`}</div>
-        <div style={{padding:"32px 40px",fontFamily:EST_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-            <span style={{fontFamily:"'Didot','Playfair Display',Georgia,serif",fontSize:30,fontWeight:400,letterSpacing:1,color:"#000"}}>onna</span>
-          </div>
-          <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
-          <div style={{textAlign:"center",fontFamily:EST_FONT,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>
-            <CSEditField value={estData.version||"PRODUCTION ESTIMATE V1"} onChange={v=>estU("version",v)} bold style={{fontSize:12,letterSpacing:EST_LS_HDR}} placeholder="PRODUCTION ESTIMATE V1"/>
-          </div>
-          <div style={{marginBottom:16}}>
-            {[["DATE:",estData.date,"date"],["CLIENT:",estData.client,"client"],["PROJECT:",estData.project,"project"],
-              ["ATTENTION:",estData.attention,"attention"],["PHOTOGRAPHER / DIRECTOR:",estData.photographer,"photographer"],
-              ["DELIVERABLES:",estData.deliverables,"deliverables"],["DEADLINES:",estData.deadlines,"deadlines"],
-              ["USAGE TERMS:",estData.usageTerms,"usageTerms"],["SHOOT DATE:",estData.shootDate,"shootDate"],
-              ["SHOOT LOCATION:",estData.shootLocation,"shootLocation"],["PAYMENT TERMS:",estData.paymentTerms,"paymentTerms"]].map(([lbl,val,key])=>
-              <div key={key} style={{display:"flex",gap:6,minHeight:20,alignItems:"baseline",marginBottom:2}}>
-                <span style={{fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS,minWidth:180,flexShrink:0}}>{lbl}</span>
-                <CSEditField value={val||""} onChange={v=>estU(key,v)} isPlaceholder={!val} placeholder={lbl.replace(":","").toLowerCase()} style={{fontSize:10,letterSpacing:EST_LS}}/>
-              </div>)}
-          </div>
-          {/* Line Items */}
-          <div style={{borderTop:"2px solid #000"}}>
-            <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_FONT,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"4px 8px",textTransform:"uppercase"}}>
-              <span style={{width:30}}>#</span><span style={{flex:1}}>CATEGORY</span>
-              <span style={{width:100,textAlign:"right"}}>AED</span>
-              <span style={{width:100,textAlign:"right"}}>USD</span>
-              <span style={{width:24}}/>
-            </div>
-            {(estData.lineItems||[]).map((li,idx)=>(
-              <div key={li.cat+"-"+idx} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"center"}}>
-                <div style={{width:30,padding:"4px 6px",fontFamily:EST_FONT,fontSize:9,color:"#999"}}>{li.cat}</div>
-                <div style={{flex:1}}><CSEditField value={li.name||""} onChange={v=>estSet(d=>({...d,lineItems:d.lineItems.map((l,i)=>i===idx?{...l,name:v}:l)}))} style={{fontSize:10,letterSpacing:EST_LS}} placeholder="Category name"/></div>
-                <div style={{width:100,padding:"4px 6px"}}>
-                  <input type="number" value={li.aed||0} onChange={e=>estSet(d=>({...d,lineItems:d.lineItems.map((l,i)=>i===idx?{...l,aed:Number(e.target.value)}:l)}))} style={{width:"100%",fontFamily:EST_FONT,fontSize:10,textAlign:"right",border:"none",outline:"none",background:"transparent",padding:"2px 0"}} onFocus={e=>{e.target.style.background="#FFFDE7";}} onBlur={e=>{e.target.style.background="transparent";}}/>
-                </div>
-                <div style={{width:100,padding:"4px 6px",fontFamily:EST_FONT,fontSize:10,textAlign:"right",color:"#999"}}>{li.aed?(Number(li.aed)*0.27).toLocaleString(undefined,{maximumFractionDigits:2}):"—"}</div>
-                <div style={{width:24,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <CSXbtn onClick={()=>estSet(d=>({...d,lineItems:d.lineItems.filter((_,i)=>i!==idx)}))} size={13}/>
-                </div>
-              </div>
-            ))}
-            <div style={{padding:"4px 6px"}}>
-              <CSAddBtn onClick={()=>estSet(d=>{const nextCat=String(Math.max(0,...d.lineItems.map(l=>Number(l.cat)||0))+1);return{...d,lineItems:[...d.lineItems,{cat:nextCat,name:"",aed:0}]};})} label="Add Line"/>
-            </div>
-          </div>
-          {/* Totals */}
-          <div style={{borderTop:"2px solid #000",marginTop:8}}>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
-              <span>SUBTOTAL</span><span>AED {total.toLocaleString()}</span>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_FONT,fontSize:10,letterSpacing:EST_LS,color:"#666",borderTop:"1px solid #eee"}}>
-              <span>VAT (5%)</span><span>AED {vat.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
-              <span>GRAND TOTAL</span><span>AED {grand.toLocaleString(undefined,{maximumFractionDigits:2})}</span>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_FONT,fontSize:10,letterSpacing:EST_LS,color:"#666"}}>
-              <span>USD TOTAL</span><span>${(grand*0.27).toLocaleString(undefined,{maximumFractionDigits:0})}</span>
-            </div>
-          </div>
-          {/* Notes */}
-          <div style={{marginTop:16}}>
-            <div style={{fontFamily:EST_FONT,fontSize:10,fontWeight:700,letterSpacing:EST_LS,marginBottom:4}}>NOTES:</div>
-            <CSEditTextarea value={estData.notes||""} onChange={v=>estU("notes",v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}}/>
-          </div>
-          {/* Footer */}
-          <div style={{marginTop:40,display:"flex",justifyContent:"space-between",fontFamily:EST_FONT,fontSize:9,letterSpacing:EST_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
-            <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
-            <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
-          </div>
-        </div>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Estimate — {estData.ts?.version||`V${estIdx+1}`}</div>
+        <EstimateView estData={estData} onSet={estSet} />
       </div>
     );
   }
@@ -1319,6 +1811,16 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     try{window.chrome.runtime.sendMessage(_loganExtId,{type:"FIND_CONTACT",query,source:source||"auto"},res=>{clearTimeout(timer);if(window.chrome.runtime.lastError)resolve({ok:false,error:window.chrome.runtime.lastError.message});else resolve(res||{ok:false,error:"No response"});});}
     catch(e){clearTimeout(timer);resolve({ok:false,error:e.message});}
   });
+  // Strip own-domain (onna) data from search results so user's own email/info doesn't leak into contacts
+  const _stripOwn=(lead)=>{
+    if(!lead)return lead;
+    const l={...lead};
+    if(l.email&&/onna/i.test(l.email))l.email="";
+    if(l.phone&&/onna/i.test(l.phone))l.phone="";
+    if(l._allEmails)l._allEmails=l._allEmails.filter(e=>!/onna/i.test(e));
+    if(l._domains)l._domains=l._domains.filter(d=>!/onna/i.test(d));
+    return l;
+  };
 
   const _LEAD_CATS_BASE=["Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
   const _VENDOR_CATS_BASE=["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
@@ -1465,10 +1967,10 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           const srcM=input.trim().match(/\b(outlook|whatsapp)\b/i);
           const result=await searchViaExt(searchName,srcM?srcM[1].toLowerCase():undefined);
           if(result.ok&&result.lead){
-            const l=result.lead;
-            // Filter out Outlook UI artifacts
+            const l=_stripOwn(result.lead);
+            // Filter out Outlook UI artifacts and own-domain emails
             const _junk=/^(unread|inbox|focused|drafts?|sent|junk|archive|deleted|starred|flagged|all mail|spam|trash|important|none|null|undefined|n\/a)$/i;
-            const _clean=(v)=>v&&typeof v==="string"&&v.trim()&&!_junk.test(v.trim())?v.trim():"";
+            const _clean=(v)=>v&&typeof v==="string"&&v.trim()&&!_junk.test(v.trim())&&!/onna/i.test(v.trim())?v.trim():"";
             lastSearchRef.current={...l,_type:conv.type,_query:searchName,_ts:Date.now()};
             const e={...conv.entry};
             const filled=[];
@@ -1509,7 +2011,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           const retryType=pendingConv.type||"lead";
           const result=await searchViaExt(retryName);
           if(result.ok&&result.lead){
-            const l=result.lead;
+            const l=_stripOwn(result.lead);
             if(retryType==="vendor"&&!l.name)l.name=l.contact||retryName;
             lastSearchRef.current={...l,_type:retryType,_query:retryName,_ts:Date.now()};
             const foundEntry={...l,_type:retryType};
@@ -1549,7 +2051,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
               if(companySim&&!companySim.exact){
                 const existName=companySim.type==="vendor"?companySim.record.name:(companySim.record.contact||companySim.record.company);
                 setPendingDuplicate({entry:{...e,_type:conv.type},similar:companySim,saveAsOutreach:conv.saveAsOutreach||false});
-                setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed a similar existing ${companySim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+                setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed a similar existing ${dupSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
               }else{
                 showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
                 setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
@@ -1659,20 +2161,45 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           }
         }
       }
+      // ── Inline duplicate check after name/company/contact is answered ──
+      if(!conv.updateId&&(q?.key==="name"||q?.key==="company"||q?.key==="contact")&&!isSkip){
+        const val=e[q.key]||"";
+        if(val){
+          const inlineSim=findSimilar(val,allVendors,allLeads);
+          if(inlineSim){
+            const existName=inlineSim.type==="vendor"?(inlineSim.record.name||inlineSim.record.company):(inlineSim.record.contact||inlineSim.record.company);
+            if(inlineSim.exact){
+              // Exact match — offer to update or add contact
+              setPendingConv(null);
+              const merged={...inlineSim.record,...e};
+              setPendingDuplicate({entry:{...e,_type:conv.type},similar:inlineSim,saveAsOutreach:conv.saveAsOutreach||false,_remainingConv:{...conv,entry:e,idx:conv.idx+1}});
+              setMsgs([...history,{role:"assistant",content:`"${val}" already exists as a ${inlineSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+              return;
+            }else{
+              // Fuzzy match
+              setPendingConv(null);
+              setPendingDuplicate({entry:{...e,_type:conv.type},similar:inlineSim,saveAsOutreach:conv.saveAsOutreach||false,_remainingConv:{...conv,entry:e,idx:conv.idx+1}});
+              setMsgs([...history,{role:"assistant",content:`Heads up — "${val}" looks similar to an existing ${inlineSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+              return;
+            }
+          }
+        }
+      }
       const next=conv.idx+1;
       if(next>=conv.questions.length){
         setPendingConv(null);
         // Company-based duplicate detection for new entries
         if(!conv.updateId){
           const eName=conv.type==="vendor"?e.name:(e.contact||"");
-          const eCompany=conv.type==="vendor"?(e.notes||""):(e.company||"");
-          // Check company/name against existing records (beyond what findSimilar already caught by name)
-          const compSim=findSimilar(eName,allVendors,allLeads);
-          const companySim=!compSim&&eCompany?findSimilar(eCompany,allVendors,allLeads):null;
-          if(companySim&&!companySim.exact){
-            const existName=companySim.type==="vendor"?companySim.record.name:(companySim.record.contact||companySim.record.company);
-            setPendingDuplicate({entry:{...e,_type:conv.type},similar:companySim,saveAsOutreach:conv.saveAsOutreach||false});
-            setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed a similar existing ${companySim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+          const eCompany=e.company||"";
+          // Check name and company against existing records
+          const nameSim=findSimilar(eName,allVendors,allLeads);
+          const companySim=!nameSim&&eCompany?findSimilar(eCompany,allVendors,allLeads):null;
+          const dupSim=nameSim||companySim;
+          if(dupSim){
+            const existName=dupSim.type==="vendor"?(dupSim.record.name||dupSim.record.company):(dupSim.record.contact||dupSim.record.company);
+            setPendingDuplicate({entry:{...e,_type:conv.type},similar:dupSim,saveAsOutreach:conv.saveAsOutreach||false});
+            setMsgs([...history,{role:"assistant",content:`All filled in! But I noticed ${dupSim.exact?"an existing":"a similar"} ${dupSim.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
           }else{
             showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
             setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
@@ -1682,10 +2209,107 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
           setMsgs([...history,{role:"assistant",content:"All filled in! Review everything below and hit Save ✓"}]);
         }
       }else{
-        setPendingConv({...conv,entry:e,idx:next});
-        setMsgs([...history,{role:"assistant",content:conv.questions[next].q+" (or 'x' to skip)"}]);
+        // When advancing to email question and company/name is known, search Outlook first
+        const nextQ=conv.questions[next];
+        const searchQuery=e.contact||e.name||"";
+        if(nextQ.key==="email"&&searchQuery&&agent.id==="logistical"){
+          setLoading(true);setMood("thinking");
+          setMsgs([...history,{role:"assistant",content:`Searching Outlook for ${searchQuery}'s email…`}]);
+          const sr=await searchViaExt(searchQuery);
+          setLoading(false);setMood("idle");
+          const sl=sr.ok?_stripOwn(sr.lead||{}):{};
+          // Collect real emails from search (filter onna + junk)
+          const realEmail=sl.email&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(sl.email)&&!/onna/i.test(sl.email)?sl.email:"";
+          const allEm=(sl._allEmails||[]).filter(em=>!/onna/i.test(em)&&/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(em));
+          const doms=(sl._domains||[]).filter(d=>!/onna/i.test(d));
+          if(sl)lastSearchRef.current={...sl,_type:conv.type,_query:searchQuery,_ts:Date.now()};
+          // If we found a direct email, fill it in and skip
+          if(realEmail){
+            e.email=_formatVal("email",realEmail);
+            // Also fill phone if available
+            if(!e.phone&&sl.phone&&/\d{4,}/.test(sl.phone)&&!/onna/i.test(sl.phone))e.phone=_formatVal("phone",sl.phone);
+            let skipIdx=next+1;
+            while(skipIdx<conv.questions.length&&e[conv.questions[skipIdx].key])skipIdx++;
+            if(skipIdx>=conv.questions.length){
+              setPendingConv(null);
+              showEntry(e,conv.type,conv.updateId,conv.saveAsOutreach);
+              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${realEmail}\n\nAll filled in! Review everything below and hit Save ✓`}]);
+            }else{
+              setPendingConv({...conv,entry:e,idx:skipIdx});
+              setMsgs([...history,{role:"assistant",content:`Found ${searchQuery}'s email: ${realEmail}\n\n${conv.questions[skipIdx].q} (or 'x' to skip)`}]);
+            }
+          }else{
+            // No direct email found — suggest patterns from company domain
+            const contactName=searchQuery;
+            const firstName=(contactName.split(" ")[0]||"").toLowerCase();
+            const lastName=(contactName.split(" ").slice(1).join(" ")||"").toLowerCase().replace(/\s+/g,"");
+            const compClean=(e.company||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+            const matchDom=doms.filter(d=>compClean&&(d.replace(/[^a-z0-9]/g,"").includes(compClean)||compClean.includes(d.split(".")[0].replace(/[^a-z0-9]/g,""))));
+            const domain=matchDom[0]||allEm.map(em=>em.split("@")[1]).find(d=>d&&compClean&&d.replace(/[^a-z0-9]/g,"").includes(compClean))||(compClean?compClean+".com":"");
+            const suggestions=[...allEm];
+            if(domain&&firstName){
+              const patterns=[firstName+"@"+domain];
+              if(lastName){patterns.push(firstName+"."+lastName+"@"+domain,firstName[0]+"."+lastName+"@"+domain,firstName[0]+lastName+"@"+domain,lastName+"@"+domain);}
+              patterns.forEach(p=>{if(!suggestions.includes(p))suggestions.push(p);});
+            }
+            const unique=[...new Set(suggestions)];
+            if(unique.length){
+              setPendingConv({...conv,entry:e,idx:next,_emailOptions:unique});
+              const optList=unique.map((o,i)=>`${i+1}. ${o}`).join("\n");
+              setMsgs([...history,{role:"assistant",content:`Couldn't find an exact email for ${searchQuery}. Here are possibilities:\n\n${optList}\n\nReply with the number, type the correct email, or 'x' to skip.`}]);
+            }else{
+              setPendingConv({...conv,entry:e,idx:next});
+              setMsgs([...history,{role:"assistant",content:`Couldn't find ${searchQuery}'s email in Outlook.\n\n${nextQ.q} (or 'x' to skip)`}]);
+            }
+          }
+        }else{
+          setPendingConv({...conv,entry:e,idx:next});
+          setMsgs([...history,{role:"assistant",content:nextQ.q+" (or 'x' to skip)"}]);
+        }
       }
       return;
+    }
+
+    // ── Pending duplicate confirmation (must come before vendor/lead intent handlers) ──
+    if(pendingDuplicate&&agent.id==="logistical"){
+      const {entry,similar,saveAsOutreach:dupSaveAsOutreach}=pendingDuplicate;
+      const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
+      const pick=input.trim();
+      const is1=/^(1|yes|yep|yeah|sure|correct|right|that'?s? ?(them|him|her|it)?|update|them)\b/i.test(pick);
+      const is2=/^(2|add\s*contact|add\s*new\s*contact|add\s*to)\b/i.test(pick);
+      const is3=/^(3|no|nope|new|different|create|separate)\b/i.test(pick);
+      setMsgs(history);setInput("");setLoading(false);
+      if(is1){
+        // Merge: keep existing data, only fill in non-empty new values
+        const merged={...similar.record};
+        for(const[k,v]of Object.entries(entry)){if(v&&k!=="_type"&&typeof v==="string"?v.trim():v)merged[k]=v;}
+        setPendingDuplicate(null);
+        const fq1=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
+        setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'x' to skip)`:`Updating ${existName} — review below.`}]);
+      }else if(is2){
+        const xType=similar.type;
+        const xId=similar.record.id;
+        const existing=getXContacts(xType,xId);
+        const newContact={name:entry.contact||entry.name||"",role:entry.role||"",email:entry.email||"",phone:entry.phone||""};
+        existing.push(newContact);
+        setXContacts(xType,xId,existing);
+        setPendingDuplicate(null);
+        setMsgs([...history,{role:"assistant",content:`Added ${newContact.name||"new contact"} as a contact on ${existName}.`}]);
+      }else if(is3){
+        const qname=entry._type==="vendor"?entry.name:entry.contact;
+        const rc=pendingDuplicate._remainingConv;
+        setPendingDuplicate(null);
+        if(rc&&rc.idx<rc.questions.length){
+          setPendingConv(rc);
+          setMsgs([...history,{role:"assistant",content:`New entry for ${qname||"this contact"}. Continuing…\n\n${rc.questions[rc.idx].q} (or 'x' to skip)`}]);
+        }else{
+          const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
+          setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
+        }
+      }else{
+        setMsgs([...history,{role:"assistant",content:`I found a similar existing ${similar.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
+      }
+      setMood("idle");return;
     }
 
     // ── Meeting Minnie: check emails + calendar ───────────────────────────────
@@ -1827,40 +2451,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       return;
     }
 
-    // ── Pending duplicate confirmation ────────────────────────────────────────
-    if(pendingDuplicate&&agent.id==="logistical"){
-      const {entry,similar,saveAsOutreach:dupSaveAsOutreach}=pendingDuplicate;
-      const existName=similar.type==="vendor"?similar.record.name:(similar.record.contact||similar.record.company);
-      const pick=input.trim();
-      const is1=/^(1|yes|yep|yeah|sure|correct|right|that'?s? ?(them|him|her|it)?|update|them)\b/i.test(pick);
-      const is2=/^(2|add\s*contact|add\s*new\s*contact|add\s*to)\b/i.test(pick);
-      const is3=/^(3|no|nope|new|different|create|separate)\b/i.test(pick);
-      setMsgs(history);setInput("");
-      if(is1){
-        const merged={...similar.record,...entry};
-        setPendingDuplicate(null);
-        const fq1=startConv(merged,similar.type,dupSaveAsOutreach||false,similar.record.id);
-        setMsgs([...history,{role:"assistant",content:fq1?`Updating ${existName}. ${fq1} (or 'x' to skip)`:`Updating ${existName} — review below.`}]);
-      }else if(is2){
-        const xType=similar.type;
-        const xId=similar.record.id;
-        const existing=getXContacts(xType,xId);
-        const newContact={name:entry.contact||entry.name||"",role:entry.role||"",email:entry.email||"",phone:entry.phone||""};
-        existing.push(newContact);
-        setXContacts(xType,xId,existing);
-        setPendingDuplicate(null);
-        setMsgs([...history,{role:"assistant",content:`Added ${newContact.name||"new contact"} as a contact on ${existName}.`}]);
-      }else if(is3){
-        const qname=entry._type==="vendor"?entry.name:entry.contact;
-        setPendingDuplicate(null);
-        const fq2=startConv(entry,entry._type,dupSaveAsOutreach||false,null);
-        setMsgs([...history,{role:"assistant",content:fq2?`New entry for ${qname||"this contact"}.\n\n${fq2} (or 'x' to skip)`:`New entry for ${qname||"this contact"} — review below.`}]);
-      }else{
-        setMsgs([...history,{role:"assistant",content:`I found a similar existing ${similar.type}: "${existName}".\n1. Update existing entry\n2. Add as new contact on this card\n3. Create separate new entry\n\nReply 1, 2, or 3.`}]);
-      }
-      setMood("idle");return;
-    }
-
     // ── "update vendor/lead [Name]" — find existing or create new ─────────────
     if(agent.id==="logistical"){
       const upM=input.match(/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:(vendor|supplier|lead|contact))\s+(.+?)(?:\s+(?:record|entry|details?|info))?[.!?]?\s*$/i);
@@ -1928,7 +2518,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setMsgs([...history,{role:"assistant",content:`Searching your ${sourceLabel} for "${findQuery}"…`}]);
       const result=await searchViaExt(findQuery,findSource);
       if(result.ok&&result.lead){
-        const l=result.lead;
+        const l=_stripOwn(result.lead);
         if(wantsVendor&&!l.name)l.name=l.contact||findQuery;
         lastSearchRef.current={...l,_type:findType,_query:findQuery,_ts:Date.now()};
         // If user explicitly said "update" → find existing record and merge scraped data
@@ -2291,29 +2881,30 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
           setLoading(false);setMood("idle");return;
         }
-        const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:project.client||"",project:project.name||""}];
+        const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT)),ts:{...ESTIMATE_INIT.ts,client:project.client||"",project:project.name||""}}];
         if(!projectEstimates?.[project.id]) setProjectEstimates(prev=>({...prev,[project.id]:estVersions}));
         if(estVersions.length===1){
           setBillieCtx({projectId:project.id,vIdx:0});
-          const vLabel=estVersions[0].version||"V1";
-          const _hasData=estVersions[0].lineItems?.some(li=>li.aed>0);
-          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the estimate data from before. What would you like to update?`:`Got it — I'm now working on the estimate for **${project.name}** (${vLabel}). What would you like to do? I can update header info, line items, or help you build an estimate from scratch.`}]);
+          const vLabel=estVersions[0].ts?.version||"V1";
+          const _sec0=estVersions[0].sections||defaultSections();
+          const _hasData=_sec0.some(s=>s.rows.some(r=>estNum(r.rate)>0));
+          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on **${project.name}** (${vLabel}). I still have all the estimate data from before. What would you like to update?`:`Got it — I'm now working on the estimate for **${project.name}** (${vLabel}). What would you like to do? I can update header info, rows, or help you build an estimate from scratch.`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         const vMatch=lower.match(/\bv(\d+)\b/i);
         let vIdx=-1;
-        if(vMatch) vIdx=estVersions.findIndex(v=>(v.version||"").toLowerCase()===`v${vMatch[1]}`);
+        if(vMatch) vIdx=estVersions.findIndex(v=>(v.ts?.version||"").toLowerCase().includes(`v${vMatch[1]}`));
         if(vIdx<0){
-          const labelMatch=estVersions.findIndex(v=>v.version && lower.includes(v.version.toLowerCase()));
+          const labelMatch=estVersions.findIndex(v=>v.ts?.version && lower.includes(v.ts.version.toLowerCase()));
           if(labelMatch>=0) vIdx=labelMatch;
         }
         if(vIdx>=0){
           setBillieCtx({projectId:project.id,vIdx});
-          const vLabel=estVersions[vIdx].version||`V${vIdx+1}`;
+          const vLabel=estVersions[vIdx].ts?.version||`V${vIdx+1}`;
           setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on **${project.name}** (${vLabel}). What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        const list=estVersions.map((v,i)=>`• ${v.version||`V${i+1}`}`).join("\n");
+        const list=estVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`**${project.name}** has multiple estimate versions:\n\n${list}\n\nWhich version should I work on?`}]);
         setLoading(false);setMood("idle");return;
       }
@@ -2325,14 +2916,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       const lower=input.toLowerCase();
       const switchProject=localProjects.find(p=>p.id!==projectId && lower.includes(p.name.toLowerCase()));
       if(switchProject){
-        const swVersions=projectEstimates?.[switchProject.id]||[{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:switchProject.client||"",project:switchProject.name||""}];
+        const swVersions=projectEstimates?.[switchProject.id]||[{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT)),ts:{...ESTIMATE_INIT.ts,client:switchProject.client||"",project:switchProject.name||""}}];
         if(!projectEstimates?.[switchProject.id]) setProjectEstimates(prev=>({...prev,[switchProject.id]:swVersions}));
         if(swVersions.length===1){
           setBillieCtx({projectId:switchProject.id,vIdx:0});
-          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].version||"V1"}). What would you like to do?`}]);
+          setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}** (${swVersions[0].ts?.version||"V1"}). What would you like to do?`}]);
         }else{
           setBillieCtx(null);
-          const list=swVersions.map((v,i)=>`• ${v.version||`V${i+1}`}`).join("\n");
+          const list=swVersions.map((v,i)=>`• ${v.ts?.version||`V${i+1}`}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`**${switchProject.name}** has multiple versions:\n\n${list}\n\nWhich version?`}]);
         }
         setLoading(false);setMood("idle");return;
@@ -2345,20 +2936,32 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
-      const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),version:"V1",...JSON.parse(JSON.stringify(initColumbiaEstimate)),client:project.client||"",project:project.name||""}];
+      const estVersions = projectEstimates?.[project.id] || [{id:Date.now(),...JSON.parse(JSON.stringify(ESTIMATE_INIT)),ts:{...ESTIMATE_INIT.ts,client:project.client||"",project:project.name||""}}];
       if(!projectEstimates?.[project.id]) setProjectEstimates(prev=>({...prev,[project.id]:estVersions}));
       vIdx = Math.min(vIdx, estVersions.length-1);
       const ver = estVersions[vIdx];
-      const vLabel = ver.version || `V${vIdx+1}`;
+      const vLabel = ver.ts?.version || `V${vIdx+1}`;
+      const vSections = ver.sections || defaultSections();
+      const vTs = ver.ts || ESTIMATE_INIT.ts;
 
-      let snap = `Version: ${ver.version||"V1"} | Date: ${ver.date||"(empty)"} | Client: ${ver.client||"(empty)"} | Project: ${ver.project||"(empty)"}\n`;
-      snap += `Photographer: ${ver.photographer||"(empty)"} | Deliverables: ${ver.deliverables||"(empty)"}\n`;
-      snap += `Shoot Date: ${ver.shootDate||"(empty)"} | Days: ${ver.shootDays||"(empty)"} | Hours: ${ver.shootHours||"(empty)"} | Location: ${ver.shootLocation||"(empty)"}\n`;
-      snap += `Payment: ${ver.paymentTerms||"(empty)"}\n`;
-      if(ver.lineItems?.length) snap += "Line Items:\n" + ver.lineItems.map(li=>`  Cat ${li.cat}: ${li.name} — AED ${(li.aed||0).toLocaleString()}`).join("\n") + "\n";
-      const subtotal = (ver.lineItems||[]).reduce((s,li)=>s+(li.aed||0),0);
-      snap += `Subtotal: AED ${subtotal.toLocaleString()} | VAT (5%): AED ${(subtotal*0.05).toLocaleString()} | Total: AED ${(subtotal*1.05).toLocaleString()}\n`;
-      if(ver.notes) snap += `Notes: ${ver.notes}\n`;
+      let snap = `Version: ${vTs.version||"V1"} | Date: ${vTs.date||"(empty)"} | Client: ${vTs.client||"(empty)"} | Project: ${vTs.project||"(empty)"}\n`;
+      snap += `Photographer: ${vTs.photographer||"(empty)"} | Deliverables: ${vTs.deliverables||"(empty)"}\n`;
+      snap += `Shoot Date: ${vTs.shootDate||"(empty)"} | Days: ${vTs.shootDays||"(empty)"} | Hours: ${vTs.shootHours||"(empty)"} | Location: ${vTs.location||"(empty)"}\n`;
+      snap += `Payment: ${vTs.payment||"(empty)"}\n`;
+      snap += "Sections:\n";
+      vSections.forEach(sec => {
+        const secT = estSectionTotal(sec);
+        if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0)) {
+          snap += `  ${sec.num}. ${sec.title} — AED ${estFmt(secT)}\n`;
+          sec.rows.forEach(r => {
+            const rt = estRowTotal(r);
+            if (rt > 0) snap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate} = AED ${estFmt(rt)}\n`;
+          });
+        }
+      });
+      const { subtotal, feesTotal, grandTotal: gt } = estCalcTotals(vSections);
+      snap += `Subtotal: AED ${estFmt(subtotal)} | Fees: AED ${estFmt(feesTotal)} | Grand Total: AED ${estFmt(gt)} | VAT: AED ${estFmt(gt*0.05)} | Total inc VAT: AED ${estFmt(gt*1.05)}\n`;
+      if(vTs.notes) snap += `Notes: ${vTs.notes}\n`;
 
       const billieSystem = buildBillieSystem(project, ver, vLabel, snap);
 
@@ -2560,7 +3163,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         if(el){
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contract</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);doc.close();
           doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
           setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the contract now — save it as PDF from there! 📝"}]);
         }else{
@@ -2696,7 +3299,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         <div style={{flex:1,overflowY:"auto",padding:"0 20px 20px"}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px 14px",marginBottom:_cardIsEditable?20:0}}>
             {_cardType==="vendor"?<>
-              {_cf("Name","name",true)}
+              {_cf("Name","name")}
+              {_cf("Company","company")}
               {_cf("Category","category",false,_VENDOR_CATS)}
               {_cf("Email","email",false,null,"email")}
               {_cf("Phone","phone",false,null,"tel")}
@@ -3038,24 +3642,6 @@ const exportTablePDF = (rows, columns, title) => {
   const tbody = rows.map(r=>`<tr>${columns.map(c=>`<td>${r[c.key]??''}</td>`).join("")}</tr>`).join("");
   exportToPDF(`<div class="sec">${title}</div><table><thead>${thead}</thead><tbody>${tbody}</tbody></table>`, title);
 };
-
-const buildEstimateHTML = (est) => {
-  const sub  = est.lineItems.filter(l=>l.cat!=="18").reduce((a,b)=>a+Number(b.aed),0);
-  const fees = est.lineItems.filter(l=>l.cat==="18").reduce((a,b)=>a+Number(b.aed),0);
-  const total = sub+fees; const vat=total*0.05; const grand=total+vat; const advance=grand*0.5;
-  const metaRows=[["Date",est.date],["Client",est.client],["Project",est.project],["Attention",est.attention],["Photographer / Director",est.photographer],["Deliverables",est.deliverables],["Deadlines",est.deadlines],["Shoot Date",est.shootDate],["Shoot Location",est.shootLocation],["Usage Terms",est.usageTerms],["Payment Terms",est.paymentTerms]].filter(([,v])=>v);
-  return `<div class="meta">${metaRows.map(([k,v])=>`<div class="ml"><label>${k}</label>${v}</div>`).join("")}</div>
-<table><thead><tr><th style="width:38px">#</th><th>Category</th><th class="right">AED</th><th class="right">USD</th></tr></thead><tbody>
-${est.lineItems.map(li=>`<tr><td style="color:#999">${li.cat}</td><td><strong>${li.name}</strong></td><td class="right">${Number(li.aed)>0?"AED "+Number(li.aed).toLocaleString():"—"}</td><td class="right" style="color:#888">${Number(li.aed)>0?"$"+(Number(li.aed)*0.27).toLocaleString(undefined,{maximumFractionDigits:2}):"—"}</td></tr>`).join("")}
-<tr class="sub"><td colspan="2"><strong>SUBTOTAL</strong></td><td class="right"><strong>AED ${total.toLocaleString()}</strong></td><td class="right" style="color:#888">$${(total*0.27).toLocaleString(undefined,{maximumFractionDigits:0})}</td></tr>
-<tr class="vat"><td colspan="2">VAT (5%)</td><td class="right">AED ${vat.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td></td></tr>
-<tr class="grand"><td colspan="2">GRAND TOTAL</td><td class="right">AED ${grand.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td class="right">$${(grand*0.27).toLocaleString(undefined,{maximumFractionDigits:0})}</td></tr>
-<tr class="adv"><td colspan="2">50% ADVANCE PAYMENT</td><td class="right">AED ${advance.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td></td></tr>
-</tbody></table>
-${est.notes?`<div class="note">${est.notes}</div>`:""}
-<div class="sigs"><div><div class="sig">Signed for and on behalf of ONNA</div><div class="sig2">Print Name &amp; Date</div></div><div><div class="sig">Signed for and on behalf of ${est.client||"Client"}</div><div class="sig2">Print Name &amp; Date</div></div></div>`;
-};
-
 const buildDocHTML = (text) => {
   if (!text) return "<p>No content generated.</p>";
   const lines=text.split("\n"); let html=""; let i=0;
@@ -3085,13 +3671,6 @@ const buildContractHTML = (text) => {
     else html+=`<p>${t}</p>`;
   });
   return `<div>${html}</div><div class="sigs"><div><div class="sig">Signed for and on behalf of ONNA</div><div class="sig2">Print Name &amp; Date</div></div><div><div class="sig">Signed by Commissionee / Supplier</div><div class="sig2">Print Name &amp; Date</div></div></div>`;
-};
-
-const generateEstimateText = (est, sub, fees, total, vat, grand, advance) => {
-  const lines = [`PRODUCTION ESTIMATE ${est.version}  DATE: ${est.date}`,`CLIENT: ${est.client}  PROJECT: ${est.project}`,`ATTENTION: ${est.attention}`,`PHOTOGRAPHER/DIRECTOR: ${est.photographer}`,`DELIVERABLES: ${est.deliverables}`,`DEADLINES: ${est.deadlines}`,`USAGE TERMS: ${est.usageTerms}`,`SHOOT DATE: ${est.shootDate}`,`SHOOT LOCATION: ${est.shootLocation}`,`PAYMENT TERMS: ${est.paymentTerms}`,``];
-  (est.lineItems||[]).forEach(li=>lines.push(`${li.cat}  ${li.name}  AED ${Number(li.aed).toLocaleString()}  $${(Number(li.aed)*0.27).toFixed(2)}`));
-  lines.push(``,`SUB TOTAL  AED ${sub.toLocaleString()}`,`VAT (5%)  AED ${vat.toFixed(2)}`,`GRAND TOTAL  AED ${grand.toFixed(2)}`,`50% ADVANCE  AED ${advance.toFixed(2)}`,``,`NOTES:`,est.notes||"");
-  return lines.join("\n");
 };
 
 // ─── SHARED UI COMPONENTS ─────────────────────────────────────────────────────
@@ -3541,6 +4120,8 @@ export default function OnnaDashboard() {
   const [signVendorSig, setSignVendorSig] = useState("");
   const [signSubmitting, setSignSubmitting] = useState(false);
 
+  const _printMode = _urlParams.get("print") === "1";
+  useEffect(() => { if (_printMode) document.title = "\u200B"; }, [_printMode]);
   useEffect(() => {
     if (!_signToken) return;
     setSignLoading(true);
@@ -3560,19 +4141,28 @@ export default function OnnaDashboard() {
       if (!signVendorSig || !signVendorName.trim() || !signVendorDate.trim()) { alert("Please fill in your signature, name, and date before submitting."); return; }
       setSignSubmitting(true);
       try {
-        const resp = await fetch("/api/sign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: _signToken, sigName: signVendorName, sigDate: signVendorDate, signature: signVendorSig }) });
+        // Capture the rendered contract HTML BEFORE submitting (so contract is still visible)
+        let renderedHtml = "";
+        const el = document.getElementById("onna-sign-print");
+        if (el) {
+          const clone = el.cloneNode(true);
+          clone.querySelectorAll("button").forEach(b=>b.remove());
+          clone.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
+          clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
+          renderedHtml = clone.outerHTML;
+        }
+        const resp = await fetch("/api/sign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: _signToken, sigName: signVendorName, sigDate: signVendorDate, signature: signVendorSig, renderedHtml }) });
         const data = await resp.json();
         if (data.ok) {
-          // Auto-generate PDF before showing success state (so contract is still visible)
-          const el = document.getElementById("onna-sign-print");
+          // Auto-generate PDF from the captured HTML
           if (el) {
-            const clone = el.cloneNode(true);
-            clone.querySelectorAll("button").forEach(b=>b.remove());
-            clone.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
-            clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
+            const clone2 = el.cloneNode(true);
+            clone2.querySelectorAll("button").forEach(b=>b.remove());
+            clone2.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
+            clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
             const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Signed Contract</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
-            idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+            idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
           }
           setSignSubmitted(true);
         }
@@ -3584,43 +4174,46 @@ export default function OnnaDashboard() {
     const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
     return (
       <div style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}`}</style>
-        <div style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
+        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print{display:none!important}body{background:#fff!important}@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`}</style>
+        {!_printMode && <div className="sign-header-bar" style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
           <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
           <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
-        </div>
+        </div>}
         <div style={{maxWidth:860,margin:"20px auto",padding:"0 14px"}}>
           {signLoading && <div style={{textAlign:"center",padding:60,color:"#888"}}>Loading contract...</div>}
           {signError && <div style={{textAlign:"center",padding:60,color:"#c0392b"}}>{signError}</div>}
-          {signData && signData.status === "signed" && !signSubmitted && (
+          {signData && signData.status === "signed" && !signSubmitted && !_printMode && (
             <div style={{background:"#fff",borderRadius:14,padding:"40px 24px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
               <div style={{fontSize:28,marginBottom:12}}>✓</div>
               <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>This contract has been signed</div>
               <div style={{fontSize:13,color:"#888"}}>Signed on {signData.signedAt ? new Date(signData.signedAt).toLocaleDateString() : "N/A"}</div>
             </div>
           )}
-          {signSubmitted && (
+          {signSubmitted && !_printMode && (
             <div style={{background:"#fff",borderRadius:14,padding:"40px 24px",textAlign:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
               <div style={{fontSize:28,marginBottom:12}}>✓</div>
               <div style={{fontSize:18,fontWeight:600,color:"#1a5a30",marginBottom:8}}>Signature submitted successfully</div>
               <div style={{fontSize:13,color:"#888"}}>Thank you. You may now close this page.</div>
             </div>
           )}
-          {signData && signData.status !== "signed" && !signSubmitted && (() => {
+          {signData && (signData.status !== "signed" || _printMode) && !signSubmitted && (() => {
             const snap = signData.contractSnapshot || {};
             const ctType = signData.ct || signData.contractType || snap.contractType || snap.activeType || "commission_se";
             const ctDef = CONTRACT_DOC_TYPES.find(c=>c.id===ctType) || CONTRACT_DOC_TYPES[0];
             const fv = snap.fieldValues || snap.fv || {};
             const getVal = (key) => fv[key] || fv[`${ctType}_${key}`] || ctDef.fields.find(f=>f.key===key)?.defaultValue || "";
             const generalTerms = (snap.generalTermsEdits||{}).custom || snap.gte || (snap.generalTermsEdits||{})[ctType] || GENERAL_TERMS_DOC[ctType] || "";
+            // In print mode, use stored vendor signature data
+            const vs = (_printMode && signData.vendorSig) || {};
+            const printVendorSig = vs.signature || "";
+            const printVendorName = vs.sigName || "";
+            const printVendorDate = vs.sigDate || "";
             return (
-              <div id="onna-sign-print" style={{background:"#fff",borderRadius:14,padding:isMobile?"20px 16px":"32px 40px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
-                {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:60,maxWidth:200,objectFit:"contain",marginBottom:8}}/>}
-                <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
-                <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:isMobile?10:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:4}}>{ctDef.title}</div>
-                {signData.projectName && <div style={{textAlign:"center",fontSize:11,color:"#888",marginBottom:4,letterSpacing:0.5}}>Project: {signData.projectName}</div>}
-                {signData.label && <div style={{textAlign:"center",fontSize:13,fontWeight:600,color:"#1d1d1f",marginBottom:16}}>{signData.label}</div>}
-                {!signData.projectName && !signData.label && <div style={{marginBottom:16}}/>}
+              <div id="onna-sign-print" style={{background:"#fff",borderRadius:14,padding:isMobile?"28px 16px 20px":"48px 40px 32px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+                {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:36,maxWidth:140,objectFit:"contain",marginBottom:4}}/>}
+                <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+                <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:isMobile?10:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:12}}>{ctDef.title}</div>
+                {(signData.projectName || signData.label) && <div style={{fontFamily:CT_FONT,fontSize:9,color:"#1a1a1a",letterSpacing:CT_LS,marginBottom:14}}>{signData.projectName && <span>Project: {signData.projectName}</span>}{signData.projectName && signData.label && <span style={{margin:"0 6px"}}>|</span>}{signData.label && <span>{signData.label}</span>}</div>}
 
                 {/* Head Terms (read-only) */}
                 {ctDef.headTermsLabel && (<>
@@ -3665,28 +4258,46 @@ export default function OnnaDashboard() {
                         </div>
                       ))}
                     </div>
-                    {/* Right side (Vendor) - editable */}
+                    {/* Right side (Vendor) */}
                     <div style={{flex:1,padding:"12px"}}>
                       <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigRight}</div>
                       <div style={{marginBottom:8}}>
                         <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
-                        <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={80}/>
+                        {_printMode ? (
+                          <div style={{height:80,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            {printVendorSig ? <img src={printVendorSig} alt="" style={{maxHeight:76,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
+                          </div>
+                        ) : <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={80}/>}
                       </div>
-                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
-                        <input value={signVendorName} onChange={e=>setSignVendorName(e.target.value)} placeholder="Print name..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
-                      </div>
-                      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Date:</span>
-                        <input value={signVendorDate} onChange={e=>setSignVendorDate(e.target.value)} placeholder="Date..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
-                      </div>
+                      {_printMode ? (<>
+                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{printVendorName || "—"}</span>
+                        </div>
+                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Date:</span>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{printVendorDate || "—"}</span>
+                        </div>
+                      </>) : (<>
+                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
+                          <input value={signVendorName} onChange={e=>setSignVendorName(e.target.value)} placeholder="Print name..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
+                        </div>
+                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
+                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Date:</span>
+                          <input value={signVendorDate} onChange={e=>setSignVendorDate(e.target.value)} placeholder="Date..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
+                        </div>
+                      </>)}
                     </div>
                   </div>
                 </div>
 
-                <div style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
+                {!_printMode && <div style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
                   {(() => { const canSubmit = !!(signVendorSig && signVendorName.trim() && signVendorDate.trim()); return <button onClick={submitVendorSig} disabled={signSubmitting || !canSubmit} style={{padding:"12px 36px",borderRadius:10,background:canSubmit?"#1a5a30":"#999",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:canSubmit?"pointer":"not-allowed",fontFamily:"inherit",opacity:signSubmitting?0.6:1,width:isMobile?"100%":"auto",transition:"background 0.2s"}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>; })()}
-                </div>
+                </div>}
+                {_printMode && <div className="no-print" style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
+                  <button onClick={()=>window.print()} style={{padding:"12px 36px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Download as PDF</button>
+                </div>}
               </div>
             );
           })()}
@@ -3803,7 +4414,7 @@ export default function OnnaDashboard() {
   const [ctTypeModalOpen,setCtTypeModalOpen]             = useState(false);
   const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
   const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
-  const [projectEstimates,setProjectEstimates]           = useState({1:[{...initColumbiaEstimate,id:1,version:"V1"}]});
+  const [projectEstimates,setProjectEstimates]           = useState(()=>{try{const s=localStorage.getItem('onna_estimates');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
   const [projectNotes,setProjectNotes]                   = useState({});
   const [editingEstimate,setEditingEstimate]             = useState(null);
@@ -3916,6 +4527,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
 
   // ── Google Calendar state ─────────────────────────────────────────────────
   const [gcalToken,setGcalToken]     = useState(()=>{try{const t=localStorage.getItem('onna_gcal_token'),e=localStorage.getItem('onna_gcal_exp');if(t&&e&&Date.now()<Number(e))return t;}catch{}return null;});
@@ -4757,58 +5369,26 @@ export default function OnnaDashboard() {
         </div>
       );
 
-      // Estimates sub-section (existing estimates code below)
+      // Estimates sub-section
       if (budgetSubSection!=="estimates") return null;
       if (editingEstimate) {
-        const est      = editingEstimate;
-        const subtotal = est.lineItems.filter(l=>l.cat!=="18").reduce((a,b)=>a+Number(b.aed),0);
-        const fees     = est.lineItems.filter(l=>l.cat==="18").reduce((a,b)=>a+Number(b.aed),0);
-        const total    = subtotal+fees; const vat=total*0.05; const grand=total+vat; const advance=grand*0.5;
+        const estIdx = estimates.findIndex(e => e.id === editingEstimate);
+        if (estIdx < 0) { setEditingEstimate(null); return null; }
+        const est = estimates[estIdx];
+        const estSetFn = (fn) => {
+          setProjectEstimates(prev => {
+            const arr = JSON.parse(JSON.stringify(prev[p.id] || []));
+            arr[estIdx] = fn(arr[estIdx]);
+            return {...prev, [p.id]: arr};
+          });
+        };
         return (
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
               <button onClick={()=>setEditingEstimate(null)} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Back</button>
-              <span style={{fontSize:12,color:T.muted}}>Editing {est.version}</span>
-              <div style={{marginLeft:"auto",display:"flex",gap:8}}>
-                <BtnSecondary onClick={()=>navigator.clipboard.writeText(generateEstimateText(est,subtotal,fees,total,vat,grand,advance))}>Copy</BtnSecondary>
-                <BtnExport onClick={()=>exportToPDF(buildEstimateHTML(est),`Production Estimate ${est.version} — ${est.project||p.name}`)}>Export PDF</BtnExport>
-                <BtnPrimary onClick={()=>{const id=Date.now();const nextV=versionLabels[estimates.length]||`V${estimates.length+1}`;setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{...est,id,version:nextV}]}));setEditingEstimate(null);}}>Save as {versionLabels[estimates.length]||`V${estimates.length+1}`}</BtnPrimary>
-              </div>
+              <span style={{fontSize:12,color:T.muted}}>{est.ts?.version||`V${estIdx+1}`}</span>
             </div>
-            <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,padding:20,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                {[["Date","date"],["Client","client"],["Project","project"],["Attention","attention"],["Photographer / Director","photographer"],["Deliverables","deliverables"],["Deadlines","deadlines"],["Usage Terms","usageTerms"],["Shoot Date","shootDate"],["Shoot Location","shootLocation"],["Payment Terms","paymentTerms"]].map(([label,key])=>(
-                  <div key={key}>
-                    <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:5,fontWeight:500}}>{label}</div>
-                    <input value={est[key]||""} onChange={e=>setEditingEstimate(prev=>({...prev,[key]:e.target.value}))} style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,marginBottom:16,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-              <table style={{width:"100%",borderCollapse:"collapse"}}>
-                <thead><tr><TH>#</TH><TH>Category</TH><TH>AED</TH><TH>USD (×0.27)</TH></tr></thead>
-                <tbody>
-                  {est.lineItems.map((li,idx)=>(
-                    <tr key={li.cat} style={{background:idx%2===0?"transparent":"#fafafa"}}>
-                      <TD muted>{li.cat}</TD><TD bold>{li.name}</TD>
-                      <td style={{padding:"9px 14px",borderBottom:`1px solid ${T.borderSub}`}}>
-                        <input type="number" value={li.aed} onChange={e=>setEditingEstimate(prev=>({...prev,lineItems:prev.lineItems.map((l,i)=>i===idx?{...l,aed:Number(e.target.value)}:l)}))} style={{width:120,padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                      </td>
-                      <TD muted>{li.aed?(li.aed*0.27).toLocaleString(undefined,{maximumFractionDigits:2}):"—"}</TD>
-                    </tr>
-                  ))}
-                  <tr style={{background:"#f5f5f7"}}><td colSpan={2} style={{padding:"11px 14px",fontSize:12.5,fontWeight:600,color:T.text,borderTop:`1px solid ${T.border}`}}>SUBTOTAL</td><TD bold>AED ${total.toLocaleString()}</TD><TD muted>${(total*0.27).toLocaleString(undefined,{maximumFractionDigits:0})}</TD></tr>
-                  <tr><td colSpan={2} style={{padding:"11px 14px",fontSize:12.5,color:T.sub}}>VAT (5%)</td><TD muted>AED ${vat.toLocaleString(undefined,{maximumFractionDigits:2})}</TD><TD muted/></tr>
-                  <tr style={{background:T.accent}}><td colSpan={2} style={{padding:"11px 14px",fontSize:13,fontWeight:700,color:"#fff"}}>GRAND TOTAL</td><td style={{padding:"11px 14px",fontSize:13,fontWeight:700,color:"#fff"}}>AED ${grand.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td style={{padding:"11px 14px",fontSize:12,color:"rgba(255,255,255,0.7)"}}>${(grand*0.27).toLocaleString(undefined,{maximumFractionDigits:0})}</td></tr>
-                  <tr style={{background:"#f5f5f7"}}><td colSpan={2} style={{padding:"11px 14px",fontSize:12.5,color:T.sub}}>50% ADVANCE</td><TD muted>AED ${advance.toLocaleString(undefined,{maximumFractionDigits:2})}</TD><TD muted/></tr>
-                </tbody>
-              </table>
-            </div>
-            <div>
-              <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:6,fontWeight:500}}>Notes</div>
-              <textarea value={est.notes||""} onChange={e=>setEditingEstimate(prev=>({...prev,notes:e.target.value}))} rows={3} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none"}}/>
-            </div>
+            <EstimateView estData={est} onSet={estSetFn} />
           </div>
         );
       }
@@ -4817,22 +5397,22 @@ export default function OnnaDashboard() {
           <button onClick={()=>{setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
             <div style={{fontSize:18,fontWeight:700,color:T.text}}>Estimates</div>
-            <BtnPrimary onClick={()=>setEditingEstimate({...initColumbiaEstimate,id:null,version:versionLabels[estimates.length]||`V${estimates.length+1}`,client:p.client,project:p.name})}>+ New Estimate</BtnPrimary>
+            <BtnPrimary onClick={()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:p.name||""};setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));setEditingEstimate(ne.id);}}>+ New Estimate</BtnPrimary>
           </div>
           {estimates.length===0?<div style={{padding:52,textAlign:"center",color:T.muted,fontSize:13,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`}}>No estimates yet — click above to create one.</div>:(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {estimates.map(est=>{
-                const sub=est.lineItems?.reduce((a,b)=>a+Number(b.aed),0)||0; const vat=sub*0.05; const grand=sub+vat;
+              {estimates.map((est)=>{
+                const secs = est.sections || defaultSections();
+                const { grandTotal: gt } = estCalcTotals(secs);
+                const totalIncVat = gt + gt * 0.05;
                 return (
                   <div key={est.id} style={{display:"flex",alignItems:"center",gap:14,padding:"16px 20px",borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                    <span style={{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:6,background:"#f5f5f7",color:T.sub,border:`1px solid ${T.border}`}}>{est.version}</span>
+                    <span style={{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:6,background:"#f5f5f7",color:T.sub,border:`1px solid ${T.border}`}}>{est.ts?.version||"V1"}</span>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{est.project||p.name}</div>
-                      <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{est.date} · AED ${grand.toLocaleString(undefined,{maximumFractionDigits:0})} inc. VAT</div>
+                      <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{est.ts?.project||p.name}</div>
+                      <div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{est.ts?.date||""} · AED {totalIncVat.toLocaleString(undefined,{maximumFractionDigits:0})} inc. VAT</div>
                     </div>
-                    <BtnSecondary small onClick={()=>setEditingEstimate({...est})}>Edit</BtnSecondary>
-                    <BtnSecondary small onClick={()=>navigator.clipboard.writeText(generateEstimateText(est,sub,0,sub,vat,grand,grand*0.5))}>Copy</BtnSecondary>
-                    <BtnExport onClick={()=>exportToPDF(buildEstimateHTML(est),`Production Estimate ${est.version} — ${est.project||p.name}`)}>PDF</BtnExport>
+                    <BtnSecondary small onClick={()=>setEditingEstimate(est.id)}>Edit</BtnSecondary>
                   </div>
                 );
               })}
@@ -5298,7 +5878,7 @@ export default function OnnaDashboard() {
                   const el=document.getElementById("onna-ct-print");if(!el)return;
                   const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
                   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-                  const idoc=iframe.contentDocument;idoc.open();idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contract</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:\'Avenir\',\'Avenir Next\',\'Nunito Sans\',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}}</style></head><body></body></html>');idoc.close();
+                  const idoc=iframe.contentDocument;idoc.open();idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:\'Avenir\',\'Avenir Next\',\'Nunito Sans\',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}}</style></head><body></body></html>');idoc.close();
                   idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
                 },500); },100);
                 alert("Vendor signature merged! PDF export opening...");
@@ -5378,8 +5958,9 @@ export default function OnnaDashboard() {
           try {
             const resolvedTerms = (ctData.generalTermsEdits||{}).custom || GENERAL_TERMS_DOC[activeContractType] || "";
             const fieldLabels = {};
-            ctContract.fields.forEach(f => { fieldLabels[f.key] = f.label; });
-            const snapshot = { fieldValues: ctData.fieldValues || {}, generalTermsEdits: { custom: resolvedTerms }, sigNames: ctData.sigNames || {}, signatures: ctData.signatures || {}, prodLogo: ctData.prodLogo || null, contractType: activeContractType, fieldLabels };
+            const resolvedFieldValues = {};
+            ctContract.fields.forEach(f => { fieldLabels[f.key] = f.label; resolvedFieldValues[f.key] = ctGetVal(f.key); });
+            const snapshot = { fieldValues: resolvedFieldValues, generalTermsEdits: { custom: resolvedTerms }, sigNames: ctData.sigNames || {}, signatures: ctData.signatures || {}, prodLogo: ctData.prodLogo || null, contractType: activeContractType, fieldLabels };
             const resp = await fetch("/api/sign", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` }, body: JSON.stringify({ contractSnapshot: snapshot, projectName: p.name, contractType: activeContractType, label: ctData.label || ctContract.label }) });
             const data = await resp.json();
             if (data.url) {
@@ -5395,7 +5976,7 @@ export default function OnnaDashboard() {
           const el=document.getElementById("onna-ct-print");if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ctContract.title}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:6mm 0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
+          const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}</style></head><body></body></html>`);idoc.close();
           idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
 
@@ -5424,12 +6005,13 @@ export default function OnnaDashboard() {
             )}
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={ctData.label||""} onChange={e=>ctU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:220}} placeholder={ctContract.label}/></div>
 
-            <div id="onna-ct-print" style={{background:"#fff",padding:"32px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+            <div id="onna-ct-print" style={{background:"#fff",padding:"48px 40px 32px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/>
               </div>
               <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
-              <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:24}}>{ctContract.title}</div>
+              <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:12}}>{ctContract.title}</div>
+              {(p.name || ctData.label) && <div style={{fontFamily:CT_FONT,fontSize:9,color:"#1a1a1a",letterSpacing:CT_LS,marginBottom:14}}>{p.name && <span>Project: {p.name}</span>}{p.name && ctData.label && <span style={{margin:"0 6px"}}>|</span>}{ctData.label && <span>{ctData.label}</span>}</div>}
 
               {ctContract.headTermsLabel && (<>
                 <div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}>
