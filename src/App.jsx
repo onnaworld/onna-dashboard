@@ -1786,8 +1786,6 @@ function ShotListConnie({ initialProject, initialScenes, onChangeProject, onChan
         {["all", "stills", "motion"].map(v => (
           <div key={v} onClick={() => setView(v)} style={{ fontFamily: F, fontSize: 8, fontWeight: view === v ? 700 : 400, letterSpacing: LS, padding: "10px 12px", cursor: "pointer", background: view === v ? "#eee" : "#f5f5f5", color: view === v ? "#000" : "#999", textTransform: "uppercase", borderLeft: "1px solid #ddd" }}>{v}</div>
         ))}
-        <div onClick={undo} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, padding: "10px 12px", cursor: "pointer", background: "#f5f5f5", color: "#999", borderLeft: "1px solid #ddd" }}
-          onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f5f5f5"}>{"\u21A9"}</div>
         <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
           onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
       </div>
@@ -13333,7 +13331,7 @@ export default function OnnaDashboard() {
               <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
                 <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{cpsShareTitle}</div>
                 <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <input readOnly value={cpsShareUrl} style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#333",background:"#fff"}}/>
+                  <a href={cpsShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{cpsShareUrl}</a>
                   <button onClick={()=>{navigator.clipboard.writeText(`${cpsShareTitle}\n${cpsShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
                   <button onClick={()=>setCpsShareUrl(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit",padding:"0 4px"}}>Close</button>
                 </div>
