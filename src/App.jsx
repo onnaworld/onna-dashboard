@@ -11326,6 +11326,7 @@ export default function OnnaDashboard() {
   const [activeShotListVersion,setActiveShotListVersion] = useState(null);
   const [storyboardStore,setStoryboardStore]             = useState(()=>{try{const s=localStorage.getItem('onna_storyboards');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
+  const [postProdStore,setPostProdStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_postprod');return s?JSON.parse(s):{}}catch{return {}}});
   const [fittingStore,setFittingStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_fittings');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeFittingVersion,setActiveFittingVersion]   = useState(null);
   const [fitShareLoading,setFitShareLoading]             = useState(false);
@@ -11572,6 +11573,7 @@ export default function OnnaDashboard() {
   },[cpsStore,activeCPSVersion,selectedProject]); // eslint-disable-line
   useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{}},[shotListStore]);
   useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_postprod',JSON.stringify(postProdStore))}catch{}},[postProdStore]);
   useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
   useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{}},[castingDeckStore]);
@@ -12655,7 +12657,7 @@ export default function OnnaDashboard() {
       "Casting":        {emoji:"🎭",count:`${getProjectCastingTables(p.id).reduce((a,t)=>a+t.rows.length,0)} models`},
       "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
       "Travel":         {emoji:"✈️",count:"Flights, hotels & logistics"},
-      "Schedule":       {emoji:"📒",count:"CPS, Shotlist & Storyboard"},
+      "Schedule":       {emoji:"📒",count:"CPS, Shotlist, Storyboard & Post-Production"},
     };
 
     // mini stat card used in project sections
@@ -15275,6 +15277,7 @@ export default function OnnaDashboard() {
         {key:"cps",        emoji:"🎬", label:"CPS"},
         {key:"shotlist",   emoji:"📷", label:"Shot List"},
         {key:"storyboard", emoji:"🎨", label:"Storyboard"},
+        {key:"postprod",   emoji:"🎞️", label:"Post-Production"},
       ];
 
       if (!scheduleSubSection) return (
@@ -15564,6 +15567,87 @@ export default function OnnaDashboard() {
                 onChangeFrames={frames => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].frames = frames; return s; })}
               />
             </div>
+          </div>
+        );
+      }
+
+      if (scheduleSubSection==="postprod") {
+        const ppData = postProdStore[p.id] || { deliverables: [], notes: "" };
+        const updatePP = (fn) => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (!s[p.id]) s[p.id] = { deliverables: [], notes: "" }; fn(s[p.id]); return s; });
+        const addDeliverable = () => updatePP(d => d.deliverables.push({ id: Date.now(), name: "", type: "Video", status: "Not Started", assignee: "", dueDate: "", notes: "" }));
+        const updateDeliverable = (id, key, val) => updatePP(d => { const item = d.deliverables.find(x => x.id === id); if (item) item[key] = val; });
+        const deleteDeliverable = (id) => { if (!confirm("Delete this deliverable?")) return; updatePP(d => { d.deliverables = d.deliverables.filter(x => x.id !== id); }); };
+        const STATUS_COLORS = { "Not Started": { bg: "#f5f5f5", text: "#999" }, "In Progress": { bg: "#FFF3E0", text: "#E65100" }, "In Review": { bg: "#E3F2FD", text: "#1565C0" }, "Revisions": { bg: "#FCE4EC", text: "#C62828" }, "Approved": { bg: "#E8F5E9", text: "#2E7D32" }, "Delivered": { bg: "#111", text: "#fff" } };
+        const STATUSES = ["Not Started", "In Progress", "In Review", "Revisions", "Approved", "Delivered"];
+        const TYPES = ["Video", "Stills", "Audio", "Graphics", "Animation", "Color Grade", "VFX", "Other"];
+        const total = ppData.deliverables.length;
+        const completed = ppData.deliverables.filter(d => d.status === "Approved" || d.status === "Delivered").length;
+
+        return (
+          <div>
+            {schedBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontSize:16,fontWeight:700,color:T.text}}>Post-Production</div>
+              <button onClick={addDeliverable} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Add Deliverable</button>
+            </div>
+            {total > 0 && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20}}>
+                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Total</div>
+                  <div style={{fontSize:20,fontWeight:700,color:T.text}}>{total}</div>
+                </div>
+                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Completed</div>
+                  <div style={{fontSize:20,fontWeight:700,color:"#2e7d32"}}>{completed}</div>
+                </div>
+                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Progress</div>
+                  <div style={{fontSize:20,fontWeight:700,color:T.text}}>{total > 0 ? Math.round((completed / total) * 100) : 0}%</div>
+                </div>
+              </div>
+            )}
+            {ppData.deliverables.length === 0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No deliverables yet. Click "+ Add Deliverable" to get started.</div></div>}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {ppData.deliverables.map(del => {
+                const sc = STATUS_COLORS[del.status] || STATUS_COLORS["Not Started"];
+                return (
+                  <div key={del.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 18px",borderLeft:`4px solid ${sc.text}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+                      <input value={del.name||""} onChange={e=>updateDeliverable(del.id,"name",e.target.value)} placeholder="Deliverable name" style={{flex:1,minWidth:180,fontSize:13,fontWeight:600,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid transparent`,padding:"2px 0",fontFamily:"inherit",outline:"none"}} onFocus={e=>e.target.style.borderBottomColor=T.accent} onBlur={e=>e.target.style.borderBottomColor="transparent"}/>
+                      <select value={del.type||"Video"} onChange={e=>updateDeliverable(del.id,"type",e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${T.border}`,fontSize:11,fontFamily:"inherit",color:T.text,background:T.surface,cursor:"pointer"}}>
+                        {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <select value={del.status||"Not Started"} onChange={e=>updateDeliverable(del.id,"status",e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${sc.text}`,fontSize:11,fontWeight:600,fontFamily:"inherit",color:sc.text,background:sc.bg,cursor:"pointer"}}>
+                        {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <button onClick={()=>deleteDeliverable(del.id)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4,flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>×</button>
+                    </div>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Assignee:</span>
+                        <input value={del.assignee||""} onChange={e=>updateDeliverable(del.id,"assignee",e.target.value)} placeholder="—" style={{fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none",width:120}}/>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Due:</span>
+                        <input type="date" value={del.dueDate||""} onChange={e=>updateDeliverable(del.id,"dueDate",e.target.value)} style={{fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none"}}/>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:4,flex:1,minWidth:150}}>
+                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Notes:</span>
+                        <input value={del.notes||""} onChange={e=>updateDeliverable(del.id,"notes",e.target.value)} placeholder="—" style={{flex:1,fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none"}}/>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {ppData.deliverables.length > 0 && (
+              <div style={{marginTop:20,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+                <div style={{padding:"10px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
+                  <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Post-Production Notes</span>
+                </div>
+                <textarea value={ppData.notes||""} onChange={e=>updatePP(d=>{d.notes=e.target.value;})} placeholder="General post-production notes, revision history, delivery specs..." style={{width:"100%",minHeight:80,padding:"12px 18px",fontSize:13,color:T.text,background:"transparent",border:"none",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.6}}/>
+              </div>
+            )}
           </div>
         );
       }
