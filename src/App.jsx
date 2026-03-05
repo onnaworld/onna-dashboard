@@ -157,6 +157,7 @@ const DietaryTagSelect = ({value,onChange}) => {
 const DIETARY_INIT = {
   project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",cateringContact:"[Catering Company / Contact]"},
   people:[{id:1,name:"[Name]",role:"[Role]",department:"[Department]",dietary:"None",allergies:"",notes:""}],
+  menu:[{id:1,category:"Starters",items:""}],
 };
 
 // ─── BUDGET CONNIE (ESTIMATE) CONSTANTS ──────────────────────────────────────
@@ -3404,7 +3405,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onFullWidthChange,isMobile,pushUndo,projectInfoRef}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onFullWidthChange,isMobile,pushUndo,projectInfoRef}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -3428,6 +3429,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [attachments,setAttachments]=useState([]);
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
   const [conniePending,setConniePending]=useState(null); // {projectId, step:"pick_name"|"pick_existing_or_new"}
+  const [connieDietPending,setConnieDietPending]=useState(null); // {type:"confirm_add_cs", name, dietary, vendorMatch:{name,email,phone}|null, projectId}
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
@@ -5054,6 +5056,162 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
+      // ── Dietary commands (local pre-flight) ─────────────────────────────────
+      const matchDietaryTag = (inp) => {
+        const lo = inp.trim().toLowerCase();
+        const map = {"none":"None","vegetarian":"Vegetarian","veg":"Vegetarian","vegan":"Vegan",
+          "halal":"Halal","kosher":"Kosher","gluten free":"Gluten-Free","gluten-free":"Gluten-Free",
+          "gf":"Gluten-Free","dairy free":"Dairy-Free","dairy-free":"Dairy-Free","df":"Dairy-Free",
+          "nut allergy":"Nut Allergy","nut":"Nut Allergy","shellfish":"Shellfish Allergy",
+          "shellfish allergy":"Shellfish Allergy","pescatarian":"Pescatarian","pesce":"Pescatarian",
+          "other":"Other"};
+        return map[lo] || DIETARY_TAGS.find(t=>t.toLowerCase()===lo) || null;
+      };
+
+      // Check 0: Handle pending "add to call sheet?" confirmation
+      if(connieDietPending){
+        const isYes=/\b(yes|yep|sure|go ahead|do it|confirm|ok|okay|yeah|yea)\b/i.test(input);
+        const isNo=/\b(no|nope|nah|cancel|never\s*mind|skip)\b/i.test(input);
+        if(isYes){
+          const {name:cdpName,dietary:cdpDietary,vendorMatch:cdpVendor,projectId:cdpProjId}=connieDietPending;
+          // Add crew to call sheet
+          const csVersions_dp=callSheetStore?.[cdpProjId]||[];
+          const dpVIdx=Math.min(vIdx,csVersions_dp.length-1);
+          const crewEntry={role:cdpName,name:cdpName};
+          if(cdpVendor){if(cdpVendor.email)crewEntry.email=cdpVendor.email;if(cdpVendor.phone)crewEntry.phone=cdpVendor.phone;}
+          applyConniePatch({departments:[{name:"PRODUCTION & LOCATION",crew:[crewEntry]}]},cdpProjId,dpVIdx,csVersions_dp,setCallSheetStore);
+          // Add to dietary list
+          setDietaryStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));
+            let arr=store[cdpProjId]||[];
+            if(arr.length===0){
+              const newDiet={id:Date.now(),label:"Dietary List 1",...JSON.parse(JSON.stringify(DIETARY_INIT))};
+              newDiet.project.name=project.name||"";newDiet.people=[];
+              arr=[newDiet];
+            }
+            const d=arr[arr.length-1];
+            d.people.push({id:Date.now()+Math.random(),name:cdpName,role:"",department:"PRODUCTION & LOCATION",dietary:cdpDietary,allergies:"",notes:""});
+            arr[arr.length-1]=d;store[cdpProjId]=arr;return store;
+          });
+          const vendorNote=cdpVendor?` I also pulled their contact details from the database (${cdpVendor.email||"no email"}${cdpVendor.phone?", "+cdpVendor.phone:""}).`:"";
+          setConnieDietPending(null);
+          setMsgs([...history,{role:"assistant",content:`Done! I've added ${cdpName} to the call sheet and set their dietary to ${cdpDietary}.${vendorNote}`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        if(isNo){
+          setConnieDietPending(null);
+          setMsgs([...history,{role:"assistant",content:"No problem!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+      }
+
+      // Check 1: "Sync dietary with call sheet"
+      if(/sync\s+(dietary|dietaries|diet)/i.test(input)||(/sync/i.test(input)&&/(call\s*sheet|cs)/i.test(input)&&/(dietary|diet)/i.test(input))){
+        const dietArr=dietaryStore?.[projectId]||[];
+        if(dietArr.length===0){
+          setMsgs([...history,{role:"assistant",content:"No dietary lists found for this project. Create one first in the Documents tab, or ask me to add a dietary for someone and I'll create one automatically."}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const csVersions_ds=callSheetStore?.[projectId]||[];
+        if(csVersions_ds.length===0){
+          setMsgs([...history,{role:"assistant",content:"No call sheets found for this project. Create a call sheet first."}]);
+          setLoading(false);setMood("idle");return;
+        }
+        const latestCS=csVersions_ds[csVersions_ds.length-1];
+        const pulled=[];
+        (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
+        setDietaryStore(prev=>{
+          const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[arr.length-1];
+          if(latestCS.shootName)d.project.name=latestCS.shootName;
+          if(latestCS.date)d.project.date=latestCS.date;
+          const csParts=(latestCS.shootName||"").split(" | ");
+          if(csParts.length>=2)d.project.client=csParts[0].trim();
+          const csNames=new Set(pulled.map(pr=>pr.name));
+          const existingMap={};
+          d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});
+          const newPeople=[];let addedCount=0;
+          pulled.forEach(pr=>{
+            const existing=existingMap[pr.name];
+            if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}
+            else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});addedCount++;}
+          });
+          d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});
+          d.people=newPeople;
+          arr[arr.length-1]=d;store[projectId]=arr;return store;
+        });
+        const addedCount=pulled.filter(pr=>{const dietPeople=(dietaryStore?.[projectId]||[])[(dietaryStore?.[projectId]||[]).length-1]?.people||[];return !dietPeople.some(dp=>dp.name&&dp.name.trim().toLowerCase()===pr.name);}).length;
+        setMsgs([...history,{role:"assistant",content:`Synced dietary list with call sheet! Added ${addedCount} new crew member${addedCount!==1?"s":""}, updated project info.`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      // Check 2: "Add dietary for [name] as [type]" / "set [name] dietary to [type]" / "[name] is [type]" / "mark [name] as [type]"
+      const dietAddPatterns=[
+        /(?:add|set)\s+dietar(?:y|ies)\s+(?:for\s+)?(.+?)\s+(?:as|to)\s+(.+)/i,
+        /set\s+(.+?)\s+dietar(?:y|ies)\s+(?:as|to)\s+(.+)/i,
+        /mark\s+(.+?)\s+(?:as|dietary\s+(?:as|to))\s+(.+)/i,
+        /(.+?)\s+is\s+(vegetarian|vegan|halal|kosher|gluten[- ]free|dairy[- ]free|nut(?:\s+allergy)?|shellfish(?:\s+allergy)?|pescatarian|none|other|gf|df|veg|pesce)\s*$/i,
+      ];
+      let dietNameMatch=null,dietTypeMatch=null;
+      for(const pat of dietAddPatterns){
+        const m=input.match(pat);
+        if(m){dietNameMatch=m[1].trim();dietTypeMatch=matchDietaryTag(m[2]);if(dietTypeMatch)break;dietNameMatch=null;dietTypeMatch=null;}
+      }
+      if(dietNameMatch&&dietTypeMatch){
+        const dietArr=dietaryStore?.[projectId]||[];
+        // Auto-create dietary list if none exists
+        if(dietArr.length===0){
+          const newDiet={id:Date.now(),label:"Dietary List 1",...JSON.parse(JSON.stringify(DIETARY_INIT))};
+          newDiet.project.name=project.name||"";newDiet.people=[];
+          const csVersions_dc=callSheetStore?.[projectId]||[];
+          if(csVersions_dc.length>0){const lcs=csVersions_dc[csVersions_dc.length-1];if(lcs.shootName)newDiet.project.name=lcs.shootName;if(lcs.date)newDiet.project.date=lcs.date;}
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[projectId])store[projectId]=[];store[projectId].push(newDiet);return store;});
+        }
+        const latestDiet=(dietArr.length>0)?dietArr[dietArr.length-1]:null;
+        const nameLower=dietNameMatch.toLowerCase();
+        // Search dietary people first
+        if(latestDiet){
+          const existIdx=(latestDiet.people||[]).findIndex(pr=>pr.name&&pr.name.trim().toLowerCase()===nameLower);
+          if(existIdx>=0){
+            setDietaryStore(prev=>{
+              const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[arr.length-1];
+              d.people[existIdx].dietary=dietTypeMatch;
+              arr[arr.length-1]=d;store[projectId]=arr;return store;
+            });
+            setMsgs([...history,{role:"assistant",content:`Updated ${latestDiet.people[existIdx].name}'s dietary to ${dietTypeMatch}.`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+        }
+        // Search call sheet crew
+        const csVersions_dc2=callSheetStore?.[projectId]||[];
+        if(csVersions_dc2.length>0){
+          const latestCS2=csVersions_dc2[csVersions_dc2.length-1];
+          let csCrewMatch=null;
+          (latestCS2.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim().toLowerCase()===nameLower)csCrewMatch={name:cr.name.trim(),role:cr.role||"",department:dept.name||""};});});
+          if(csCrewMatch){
+            setDietaryStore(prev=>{
+              const store=JSON.parse(JSON.stringify(prev));let arr=store[projectId]||[];
+              if(arr.length===0){const nd={id:Date.now(),label:"Dietary List 1",...JSON.parse(JSON.stringify(DIETARY_INIT))};nd.project.name=project.name||"";nd.people=[];arr=[nd];}
+              const d=arr[arr.length-1];
+              d.people.push({id:Date.now()+Math.random(),name:csCrewMatch.name,role:csCrewMatch.role,department:csCrewMatch.department,dietary:dietTypeMatch,allergies:"",notes:""});
+              arr[arr.length-1]=d;store[projectId]=arr;return store;
+            });
+            setMsgs([...history,{role:"assistant",content:`Added ${csCrewMatch.name} to the dietary list as ${dietTypeMatch}.`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+        }
+        // Search vendor database
+        const vendorMatch=(vendorsProp||[]).find(v=>v.name&&v.name.trim().toLowerCase()===nameLower);
+        if(vendorMatch){
+          setConnieDietPending({type:"confirm_add_cs",name:dietNameMatch,dietary:dietTypeMatch,vendorMatch:{name:vendorMatch.name,email:vendorMatch.email||"",phone:vendorMatch.phone||""},projectId});
+          setMsgs([...history,{role:"assistant",content:`${dietNameMatch} isn't added as crew. I found ${vendorMatch.name} in the database — email: ${vendorMatch.email||"N/A"}, mobile: ${vendorMatch.phone||"N/A"}. Do you want me to add them to the call sheet?`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        // Not found anywhere
+        setConnieDietPending({type:"confirm_add_cs",name:dietNameMatch,dietary:dietTypeMatch,vendorMatch:null,projectId});
+        setMsgs([...history,{role:"assistant",content:`${dietNameMatch} isn't added as crew. Do you want me to add them to the call sheet?`}]);
+        setLoading(false);setMood("idle");return;
+      }
+
       // Allow switching: if user mentions a different project name, reset context
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
@@ -5181,6 +5339,18 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
         }else{
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        // Post-response export trigger: if user asked to export but platform check missed it
+        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+          const _csEl3=document.getElementById("onna-cs-print");
+          if(_csEl3){
+            const _csClone3=_csEl3.cloneNode(true);_csClone3.querySelectorAll("button").forEach(b=>b.remove());_csClone3.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone3.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
+            const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+            const _d3=iframe.contentDocument;_d3.open();_d3.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d3.close();
+            _d3.body.appendChild(_d3.adoptNode(_csClone3));setTimeout(()=>{_d3.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+          }else{
+            const _csV3=callSheetStore?.[project.id]||[];const _vi3=Math.min(vIdx,_csV3.length-1);if(_vi3>=0&&_csV3[_vi3])printCallSheetPDF(_csV3[_vi3]);
+          }
         }
         setMood("excited");setTimeout(()=>setMood("idle"),2500);
       }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
@@ -5854,6 +6024,18 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
         }else{
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        // Post-response export trigger: if user asked to export but platform check missed it
+        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+          const _raEl3=document.getElementById("onna-ra-print");
+          if(_raEl3){
+            const _raClone3=_raEl3.cloneNode(true);_raClone3.querySelectorAll("button").forEach(b=>b.remove());_raClone3.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+            const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+            const _raDoc3=iframe.contentDocument;_raDoc3.open();_raDoc3.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raDoc3.close();
+            _raDoc3.body.appendChild(_raDoc3.adoptNode(_raClone3));setTimeout(()=>{_raDoc3.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+          }else{
+            const _raV3=riskAssessmentStore?.[project.id]||[];const _rvi3=Math.min(vIdx,_raV3.length-1);if(_rvi3>=0&&_raV3[_rvi3])printRiskAssessmentPDF(_raV3[_rvi3]);
+          }
         }
         setMood("excited");setTimeout(()=>setMood("idle"),2500);
       }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
@@ -8052,6 +8234,109 @@ export default function OnnaDashboard() {
     return ()=>{ cancelled=true; };
   },[authed]);
 
+
+  // ── Cross-device sync via API ─────────────────────────────────────────────
+  const SYNC_KEYS = [
+    "onna_notes_list","onna_todos","onna_ptodos","onna_callsheets",
+    "onna_riskassessments","onna_contracts_doc","onna_travel_itineraries",
+    "onna_dietaries","onna_estimates","onna_project_info","onna_creative_links",
+    "onna_lead_cats","onna_lead_locs","onna_vendor_cats","onna_vendor_locs",
+    "onna_hidden_lead_cats","onna_hidden_vendor_cats",
+    "onna_dash_widget_order","onna_dash_widget_sizes","onna_archive"
+  ];
+  const SYNC_TITLE = "__ONNA_SYNC__";
+  const syncNoteIdRef = useRef(null);
+  const syncTimerRef = useRef(null);
+  const syncLoadedRef = useRef(false);
+
+  const gatherSyncData = useCallback(() => {
+    const data = {};
+    SYNC_KEYS.forEach(k => {
+      try { const v = localStorage.getItem(k); if (v) data[k] = JSON.parse(v); } catch {}
+    });
+    data._syncTs = Date.now();
+    return data;
+  }, []);
+
+  const applySyncData = useCallback((remote) => {
+    if (!remote || typeof remote !== "object") return;
+    SYNC_KEYS.forEach(k => {
+      if (remote[k] !== undefined && remote[k] !== null) {
+        try { localStorage.setItem(k, JSON.stringify(remote[k])); } catch {}
+      }
+    });
+    // Update React state from synced localStorage
+    try {
+      if (remote.onna_notes_list) setDashNotesList(remote.onna_notes_list);
+      if (remote.onna_todos) setTodos(remote.onna_todos.map(t => t.tab ? t : ["later","longterm"].includes(t.subType) ? {...t, tab:"personal"} : {...t, tab:"onna"}));
+      if (remote.onna_ptodos) setProjectTodos(remote.onna_ptodos);
+      if (remote.onna_callsheets) setCallSheetStore(remote.onna_callsheets);
+      if (remote.onna_riskassessments) setRiskAssessmentStore(remote.onna_riskassessments);
+      if (remote.onna_contracts_doc) setContractDocStore(remote.onna_contracts_doc);
+      if (remote.onna_travel_itineraries) setTravelItineraryStore(remote.onna_travel_itineraries);
+      if (remote.onna_dietaries) setDietaryStore(remote.onna_dietaries);
+      if (remote.onna_estimates) setProjectEstimates(remote.onna_estimates);
+      if (remote.onna_project_info) setProjectInfo(remote.onna_project_info);
+      if (remote.onna_creative_links) setProjectCreativeLinks(remote.onna_creative_links);
+      if (remote.onna_lead_cats) setCustomLeadCats(remote.onna_lead_cats);
+      if (remote.onna_lead_locs) setCustomLeadLocs(remote.onna_lead_locs);
+      if (remote.onna_vendor_cats) setCustomVendorCats(remote.onna_vendor_cats);
+      if (remote.onna_vendor_locs) setCustomVendorLocs(remote.onna_vendor_locs);
+      if (remote.onna_hidden_lead_cats) setHiddenLeadBuiltins(remote.onna_hidden_lead_cats);
+      if (remote.onna_hidden_vendor_cats) setHiddenVendorBuiltins(remote.onna_hidden_vendor_cats);
+      if (remote.onna_dash_widget_order) setDashWidgetOrder(remote.onna_dash_widget_order);
+      if (remote.onna_dash_widget_sizes) setDashWidgetSizes(remote.onna_dash_widget_sizes);
+      if (remote.onna_archive) setArchive(remote.onna_archive);
+    } catch {}
+  }, []); // eslint-disable-line
+
+  const pushSync = useCallback(() => {
+    if (!authed || !syncLoadedRef.current) return;
+    clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        const payload = JSON.stringify(gatherSyncData());
+        if (syncNoteIdRef.current) {
+          await api.put("/api/notes/" + syncNoteIdRef.current, { title: SYNC_TITLE, content: payload, updated_at: new Date().toISOString() });
+        } else {
+          const saved = await api.post("/api/notes", { title: SYNC_TITLE, content: payload });
+          if (saved && saved.id) syncNoteIdRef.current = saved.id;
+        }
+      } catch {}
+    }, 2000);
+  }, [authed, gatherSyncData]);
+
+  // Load sync data on auth
+  useEffect(() => {
+    if (!authed || syncLoadedRef.current) return;
+    (async () => {
+      try {
+        const allNotes = await api.get("/api/notes");
+        if (!Array.isArray(allNotes)) return;
+        const syncNote = allNotes.find(n => n.title === SYNC_TITLE);
+        if (syncNote) {
+          syncNoteIdRef.current = syncNote.id;
+          try {
+            const remote = JSON.parse(syncNote.content);
+            const localTs = parseInt(localStorage.getItem("onna_sync_ts") || "0", 10);
+            if (remote._syncTs && remote._syncTs > localTs) {
+              applySyncData(remote);
+              try { localStorage.setItem("onna_sync_ts", String(remote._syncTs)); } catch {}
+            }
+          } catch {}
+        }
+      } catch {}
+      syncLoadedRef.current = true;
+    })();
+  }, [authed, applySyncData]);
+
+  // Auto-push sync when key data changes (debounced)
+  useEffect(() => {
+    if (!syncLoadedRef.current) return;
+    pushSync();
+    try { localStorage.setItem("onna_sync_ts", String(Date.now())); } catch {}
+  }, [dashNotesList, todos, projectTodos, callSheetStore, riskAssessmentStore, contractDocStore, travelItineraryStore, dietaryStore, projectEstimates, projectInfo, projectCreativeLinks, customLeadCats, customLeadLocs, customVendorCats, customVendorLocs, dashWidgetOrder, dashWidgetSizes, archive, pushSync]);
+
   const projStatusColor = {Active:"#147d50","In Review":"#92680a",Completed:T.muted};
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
 
@@ -8488,7 +8773,7 @@ export default function OnnaDashboard() {
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
       notesFetchedRef.current=true;
       if(notes.length===0)setNotesLoading(true);
-      api.get("/api/notes").then(data=>{ if(Array.isArray(data)&&data.length)setNotes(data); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
+      api.get("/api/notes").then(data=>{ if(Array.isArray(data)&&data.length)setNotes(data.filter(n=>n.title!=="__ONNA_SYNC__")); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
     }
   };
 
@@ -10306,6 +10591,24 @@ export default function OnnaDashboard() {
                   {(dietData.people||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No crew listed — click Sync from Call Sheet or + ADD ROW</div>}
                 </div>
 
+                {/* Menu */}
+                <div style={{padding:"14px 32px",marginBottom:16}}>
+                  <div style={{display:"flex",background:"#000",padding:"4px 8px",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase"}}>MENU</span>
+                    <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];if(!d.menu)d.menu=[];d.menu.push({id:Date.now(),category:"",items:""});arr[dietIdx]=d;store[p.id]=arr;return store;});}} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD SECTION</span>
+                  </div>
+                  {(dietData.menu||[]).map((m,mi)=>(
+                    <div key={m.id} style={{borderBottom:"1px solid #f0f0f0",padding:"8px 0"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                        <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu=(d.menu||[]).filter((_,j)=>j!==mi);arr[dietIdx]=d;store[p.id]=arr;return store;});}} style={{cursor:"pointer",fontSize:10,color:"#ddd",flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+                        <input value={m.category} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu[mi].category=v;arr[dietIdx]=d;store[p.id]=arr;return store;});}} placeholder="e.g. Starters, Mains, Desserts, Drinks" style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",background:"transparent",border:"none",outline:"none",color:"#000",padding:0,width:"100%"}}/>
+                      </div>
+                      <textarea value={m.items} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu[mi].items=v;arr[dietIdx]=d;store[p.id]=arr;return store;});}} placeholder="List menu items here..." rows={3} style={{fontFamily:CS_FONT,fontSize:10,color:"#333",background:"#fafafa",border:"1px solid #eee",borderRadius:4,padding:"6px 8px",width:"100%",boxSizing:"border-box",resize:"vertical",outline:"none",lineHeight:1.6}}/>
+                    </div>
+                  ))}
+                  {(dietData.menu||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 8px",fontStyle:"italic",borderBottom:"1px solid #f0f0f0"}}>No menu added yet — click + ADD SECTION above</div>}
+                </div>
+
                 {/* Footer */}
                 <div style={{padding:"0 32px 32px"}}>
                   <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
@@ -11795,6 +12098,8 @@ export default function OnnaDashboard() {
                       localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn"||a.id==="carrie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
                       vendors={(a.id==="compliance"||a.id==="carrie")?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
+                      dietaryStore={a.id==="compliance"?dietaryStore:undefined}
+                      setDietaryStore={a.id==="compliance"?setDietaryStore:undefined}
                       riskAssessmentStore={a.id==="researcher"?riskAssessmentStore:undefined}
                       setRiskAssessmentStore={a.id==="researcher"?setRiskAssessmentStore:undefined}
                       activeRAVersion={a.id==="researcher"?activeRAVersion:undefined}
