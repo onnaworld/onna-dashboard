@@ -3287,7 +3287,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 <tbody>{csData.departments.map((dept,di) => {
                 const deptHasMarker = cpr && cpr.markers.some(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":"));
                 return (<Fragment key={di}><tr><td colSpan={7} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>{"✓"}</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>{"✕"}</button></>}</div></td></tr>
-                {dept.crew.map((cr,ci) => (<tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab"}}><td style={{padding:"3px 2px",fontSize:10,color:"#ddd",width:16}}>{"\u2630"}</td><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder=""/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",whiteSpace:"nowrap"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600,textAlign:"right"}} placeholder=""/></td></tr<td style={{width:14,padding:0}}><button onClick={()=>rmCrew(di,ci)} style={{background:"none",border:"none",color:"transparent",cursor:"pointer",fontSize:10,padding:"0 2px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="transparent")}>×</button></td>>))}
+                {dept.crew.map((cr,ci) => (<tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab"}}><td style={{padding:"3px 2px",fontSize:10,color:"#ddd",width:16}}>{"\u2630"}</td><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder=""/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",whiteSpace:"nowrap"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600,textAlign:"right"}} placeholder=""/></td><td style={{width:14,padding:0}}><button onClick={()=>rmCrew(di,ci)} style={{background:"none",border:"none",color:"transparent",cursor:"pointer",fontSize:10,padding:"0 2px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="transparent")}>×</button></td></tr>))}
                 <tr style={{background:"#fff"}}><td colSpan={7} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>);})}</tbody>
               </table>
               <CSAddBtn onClick={addDept} label="Add Department"/>
@@ -5091,6 +5091,27 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Which dietaries would you like to work on?\n\n${list}`}]);setLoading(false);setMood("idle");return;
         }
 
+        // Export intent without context — find the right call sheet and export
+        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+          // Find the first project that has call sheet data
+          let expProj=null;let expIdx=-1;
+          for(const p of localProjects){
+            const csv=callSheetStore?.[p.id]||[];
+            if(csv.length>0){expProj=p;expIdx=csv.length===1?0:csv.length-1;break;}
+          }
+          if(expProj){
+            const csv=callSheetStore[expProj.id];
+            const csData=csv[expIdx];
+            setConnieCtx({projectId:expProj.id,vIdx:expIdx});
+            addConnieTab(expProj.id,expIdx,`${expProj.name} · ${csData.label||"Day 1"}`);
+            printCallSheetPDF(csData);
+            setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          setMsgs([...history,{role:"assistant",content:"No call sheets found to export. Pick a project first and I'll create one!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+
         // Try to match a project name in this message
         const lower=input.toLowerCase();
         const num=parseInt(input.trim(),10);
@@ -5909,6 +5930,28 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
           setLoading(false);setMood("idle");return;
         }
+
+        // Export intent without context — find the right RA and export
+        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+          let expProj=null;let expIdx=-1;
+          for(const p of localProjects){
+            const rav=riskAssessmentStore?.[p.id]||[];
+            if(rav.length>0){expProj=p;expIdx=rav.length===1?0:rav.length-1;break;}
+          }
+          if(expProj){
+            const rav=riskAssessmentStore[expProj.id];
+            const raData=rav[expIdx];
+            setRonnieCtx({projectId:expProj.id,vIdx:expIdx});
+            if(setActiveRAVersion)setActiveRAVersion(expIdx);
+            addRonnieTab(expProj.id,expIdx,`${expProj.name} · ${raData.label||"Untitled"}`);
+            printRiskAssessmentPDF(raData);
+            setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          setMsgs([...history,{role:"assistant",content:"No risk assessments found to export. Pick a project first and I'll create one!"}]);
+          setLoading(false);setMood("idle");return;
+        }
+
         const lower=input.toLowerCase();
         const num=parseInt(input.trim(),10);
         let project=null;
@@ -6785,7 +6828,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             onRonnieReviewDone={(meta)=>{
               setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — changes saved."}]);
             }}
-            connieMode={agent.id==="compliance"&&connieCtx?._mode||null}
+            connieMode={agent.id==="compliance"?(connieCtx&&connieCtx._mode)||null:null}
             dietaryStore={dietaryStore} setDietaryStore={setDietaryStore}
             onDietarySelect={(idx)=>{if(onNavigateToDoc){const proj=localProjects?.find(p=>p.id===docProjectId);if(proj){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}}
             projectInfoRef={projectInfoRef}/>
@@ -6980,11 +7023,10 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
 </div>`;
-  const printScript = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});window.print();};<\/script>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}${printScript}</body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}</body></html>`;
   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
   const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-  setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},10000);
+  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},1000);},300);
 };
 
 // ─── RISK ASSESSMENT PDF EXPORT (mirrors on-screen layout exactly) ───────────
@@ -7019,11 +7061,10 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
 <div style="padding:8px 12px">${emergencyHTML}</div>
 <div style="margin-top:60px;display:flex;justify-content:space-between;font-size:9px;${LS}color:#000"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
 </div>`;
-  const printScript = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});window.print();};<\/script>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}${printScript}</body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}</body></html>`;
   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
   const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-  setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},10000);
+  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},1000);},300);
 };
 
 // ─── ACTUALS STATUS CONSTANTS ────────────────────────────────────────────────
@@ -11807,8 +11848,9 @@ export default function OnnaDashboard() {
                         }}
                         style={{gridColumn:"span "+span,position:"relative"}}
                       >
-                        {widgetMap[id]}
-                        <div style={{position:"absolute",top:8,right:8,display:"flex",gap:4,zIndex:10}}>
+                        <div style={{position:"relative"}}>
+                          {widgetMap[id]}
+                          <div style={{position:"absolute",top:10,right:10,display:"flex",gap:4,zIndex:10}}>
                           <div
                             draggable="true"
                             onDragStart={e=>{
@@ -11822,11 +11864,10 @@ export default function OnnaDashboard() {
                               document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});
                             }}
                             title="Drag to reorder"
-                            style={{width:28,height:28,borderRadius:8,background:"#fff",border:"1.5px solid #ccc",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:"#555",transition:"all 0.15s",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.18)"}}
-                            onMouseEnter={e=>{e.currentTarget.style.background="#1d1d1f";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#1d1d1f";}}
-                            onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#555";e.currentTarget.style.borderColor="#ccc";}}
+                            style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.25)"}}
                           >{"☰"}</div>
-                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title={"Width: "+span+"/"+maxCols+" — click to resize"} style={{width:28,height:28,borderRadius:8,background:"#fff",border:"1.5px solid #ccc",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:"#555",transition:"all 0.15s",boxShadow:"0 2px 8px rgba(0,0,0,0.18)",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.background="#1d1d1f";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#1d1d1f";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#555";e.currentTarget.style.borderColor="#ccc";}}>{"⤢"}</button>
+                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title={"Width: "+span+"/"+maxCols+" — click to resize"} style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",boxShadow:"0 2px 8px rgba(0,0,0,0.25)",fontFamily:"inherit"}}>{"⤢"}</button>
+                          </div>
                         </div>
                       </div>
                       );
