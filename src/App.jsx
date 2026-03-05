@@ -9863,6 +9863,7 @@ export default function OnnaDashboard() {
   const [activeShotListVersion,setActiveShotListVersion] = useState(null);
   const [cpsShareUrl,setCpsShareUrl]                     = useState(null);
   const [cpsShareLoading,setCpsShareLoading]             = useState(false);
+  const [cpsShareTabs,setCpsShareTabs]                   = useState(new Set(["schedule","timeline","calendar"]));
   const cpsRef                                           = useRef(null);
   const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
@@ -11202,11 +11203,12 @@ export default function OnnaDashboard() {
         {(()=>{
           const projNotes=dashNotesList.filter(n=>n.projectId===p.id).sort((a,b)=>b.updatedAt-a.updatedAt);
           return (
-            <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:24,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-              <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",gap:8,background:"#fafafa"}}>
+            <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:24,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",maxHeight:400}}>
+              <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",gap:8,background:"#fafafa",flexShrink:0}}>
                 <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>Notes</span>
                 <button onClick={()=>{const n={id:Date.now(),title:`${p.client||"Client"} | ${p.name||"Project"}`,content:"",updatedAt:Date.now(),projectId:p.id};setDashNotesList(prev=>[n,...prev]);}} style={{padding:"3px 10px",borderRadius:7,background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New</button>
               </div>
+              <div style={{flex:1,overflowY:"auto"}}>
               {projNotes.length===0&&<div style={{padding:"20px 18px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet. Click + New to add one.</div>}
               {projNotes.map(note=>(
                 <div key={note.id} style={{borderBottom:`1px solid ${T.borderSub}`}}>
@@ -11219,11 +11221,12 @@ export default function OnnaDashboard() {
                   {dashSelectedNoteId===note.id&&(
                     <div style={{padding:"0 18px 14px"}}>
                       <input value={note.title||""} onChange={e=>setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,title:e.target.value,updatedAt:Date.now()}:n))} placeholder="Note title" style={{width:"100%",fontSize:12,fontWeight:600,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"6px 0",marginBottom:8,fontFamily:"inherit",outline:"none"}}/>
-                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onBlur={e=>setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:e.currentTarget.innerHTML,updatedAt:Date.now()}:n))} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
+                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onInput={e=>setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:e.currentTarget.innerHTML,updatedAt:Date.now()}:n))} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
                     </div>
                   )}
                 </div>
               ))}
+              </div>
             </div>
           );
         })()}
@@ -13328,13 +13331,17 @@ export default function OnnaDashboard() {
         const cpsBack = <button onClick={()=>setActiveCPSVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to CPS list</button>;
 
         const cpsShareTitle = `ONNA | ${cpsData.label || "Creative Production Schedule"}`;
-        const sendCpsShare = async (mode) => {
+        const existingToken = cpsData.shareToken || null;
+        const displayShareUrl = cpsShareUrl || (existingToken ? `https://app.onna.world/api/cps-share?token=${encodeURIComponent(existingToken)}` : null);
+        const sendCpsShare = async () => {
+          if (cpsShareTabs.size === 0) return;
           setCpsShareLoading(true);
           try {
-            if (cpsRef.current) await cpsRef.current.share(mode);
+            if (cpsRef.current) await cpsRef.current.share([...cpsShareTabs], existingToken);
           } catch (err) { alert("Error: " + err.message); }
           setCpsShareLoading(false);
         };
+        const toggleShareTab = (t) => setCpsShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
 
         return (
           <div>
@@ -13344,20 +13351,24 @@ export default function OnnaDashboard() {
                 <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CPS</span>
                 <input value={cpsData.label||""} onChange={e=>{setCpsStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][cpsIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                <button onClick={()=>sendCpsShare("all")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#1976D2",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5,opacity:cpsShareLoading?0.6:1}}>{cpsShareLoading?"Generating\u2026":"Share All Pages"}</button>
-                <button onClick={()=>sendCpsShare("schedule")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#333",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:cpsShareLoading?0.6:1}}>Share Schedule</button>
-                <button onClick={()=>sendCpsShare("timeline")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#333",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:cpsShareLoading?0.6:1}}>Share Timeline</button>
-                <button onClick={()=>sendCpsShare("calendar")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#333",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:cpsShareLoading?0.6:1}}>Share Calendar</button>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                {["schedule","timeline","calendar"].map(t => (
+                  <label key={t} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:cpsShareTabs.has(t)?"#1565C0":"#999",cursor:"pointer",userSelect:"none"}}>
+                    <input type="checkbox" checked={cpsShareTabs.has(t)} onChange={()=>toggleShareTab(t)} style={{accentColor:"#1976D2"}}/>
+                    {t.charAt(0).toUpperCase()+t.slice(1)}
+                  </label>
+                ))}
+                <button onClick={sendCpsShare} disabled={cpsShareLoading||cpsShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(cpsShareLoading||cpsShareTabs.size===0)?0.5:1}}>
+                  {cpsShareLoading ? "Generating\u2026" : existingToken ? "Update Link" : "Generate Link"}
+                </button>
               </div>
             </div>
-            {cpsShareUrl && (
+            {displayShareUrl && (
               <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
                 <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{cpsShareTitle}</div>
                 <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <a href={cpsShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{cpsShareUrl}</a>
-                  <button onClick={()=>{navigator.clipboard.writeText(`${cpsShareTitle}\n${cpsShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
-                  <button onClick={()=>setCpsShareUrl(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit",padding:"0 4px"}}>Close</button>
+                  <a href={displayShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${cpsShareTitle}\n${displayShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
                 </div>
               </div>
             )}
@@ -13368,7 +13379,7 @@ export default function OnnaDashboard() {
                 initialPhases={cpsData.phases}
                 onChangeProject={proj => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].project = proj; return s; })}
                 onChangePhases={phases => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].phases = phases; return s; })}
-                onShareUrl={url => setCpsShareUrl(url)}
+                onShareUrl={(url, token, id) => { setCpsShareUrl(url); setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][cpsIdx]) { s[p.id][cpsIdx].shareToken = token; s[p.id][cpsIdx].shareResourceId = id; } return s; }); }}
               />
             </div>
           </div>
@@ -14446,7 +14457,7 @@ export default function OnnaDashboard() {
                       pushUndo={pushUndo}
                       projectInfoRef={projectInfoRef}
                       onOpenDuplicateCS={a.id==="compliance"?(pid)=>{setCsDuplicateModal({origin:"connie",projectId:pid});setCsDuplicateSearch("");}:undefined}
-                      onArchiveCallSheet={a.id==="compliance"?archiveItem:undefined}
+                      onArchiveCallSheet={(a.id==="compliance"||a.id==="researcher")?archiveItem:undefined}
                     />
                   ))}
                 </div>
