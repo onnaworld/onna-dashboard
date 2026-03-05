@@ -552,6 +552,7 @@ INSTRUCTIONS:
 - When the user asks to ADD or UPDATE crew, schedule, venues, or any call sheet field, output a JSON patch inside a \`\`\`json code block.
 - For scalar fields: {"shootName":"...","date":"..."}
 - For departments/crew (merge by role, case-insensitive): {"departments":[{"name":"MOTION","crew":[{"role":"GAFFER","name":"Elie Kolko","mobile":"+971...","email":"elie@x.com"}]}]}
+- IMPORTANT: When updating an existing crew member, you MUST use their EXACT current role name as it appears in the call sheet. The system matches by role name. If the user wants to RENAME a role (e.g. "change Local Producer to Producer"), first update the person using the EXISTING role name, then include the new role: {"departments":[{"name":"PRODUCTION & LOCATION","crew":[{"role":"LOCAL PRODUCER","name":"Emily Lucas","mobile":"+971 585 608 616"}]}]} — the platform will update that row in place.
 - For schedule: {"schedule":[{time,activity,notes},...]} (full array replacement)
 - For venueRows: {"venueRows":[{label,value},...]} (full array replacement)
 - Only output JSON for write intents. For read-only questions (e.g. "what's missing?", "show me the schedule"), answer in plain text with NO JSON block.
@@ -3114,7 +3115,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const acceptAllC = () => { finishCReview(); };
       const declineAllC = () => { if(!cpr) return; cpr.markers.forEach(m => revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore)); finishCReview(); };
       const cRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
-      const cHL = {background:"#FFF8E1",borderRadius:3,padding:"1px 4px",margin:"-1px -4px",outline:"2px solid #FFB300",outlineOffset:0};
+      const cHL = {background:"#FFF8E1",borderRadius:3,padding:"1px 3px",margin:"-1px -3px",boxShadow:"0 0 0 2px #FFB300"};
     const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
     const csData = csVersions[csIdx] || csVersions[0];
     const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
@@ -3162,15 +3163,15 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* SHOOT */}
             <div style={{padding:"14px 32px 8px"}}>
               <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SHOOT{hasCM("cs:venueRows")&&<span><button onClick={()=>acceptCM("cs:venueRows")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:venueRows")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-              {csData.venueRows.map((row,i) => (<div key={i} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8}}><div style={{minWidth:95}}><CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/></div><div style={{flex:1,fontSize:11}}><CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/></div><CSXbtn onClick={()=>rmVenueRow(i)}/></div>))}
+              {csData.venueRows.map((row,i) => (<div key={i} style={{display:"flex",alignItems:"center",marginBottom:5,gap:8}} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}}><div style={{cursor:"grab",color:"#ccc",fontSize:10,padding:"0 2px",userSelect:"none"}}>☰</div><div style={{minWidth:95}}><CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/></div><div style={{flex:1,fontSize:11}}><span style={hasCM("cs:venueRows")?cHL:{}}><CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/></span></div>{hasCM("cs:venueRows")&&<><button onClick={()=>acceptCM("cs:venueRows")} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>declineCM("cs:venueRows")} style={cRevBtn("decline")}>{"\u2715"}</button></>}<CSXbtn onClick={()=>rmVenueRow(i)}/></div>))}
               <CSAddBtn onClick={addVenueRow} label="Add Row"/>
             </div>
             {/* SCHEDULE */}
             <div style={{padding:"10px 32px"}}>
               <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SCHEDULE{hasCM("cs:schedule")&&<span><button onClick={()=>acceptCM("cs:schedule")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:schedule")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
-                <thead><tr style={{background:csDeptBg}}><td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td><td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td><td style={{...csTh,background:csDeptBg}}>NOTES</td><td style={{width:24,background:csDeptBg}}></td></tr></thead>
-                <tbody>{csData.schedule.map((row,i) => (<tr key={i} style={{borderBottom:"1px solid #f0f0f0",background:"#fff"}}><td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}><CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder placeholder="00:00" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}><CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder placeholder="Activity" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11}}><CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/></td><td><CSXbtn onClick={()=>rmScheduleRow(i)}/></td></tr>))}</tbody>
+                <thead><tr style={{background:csDeptBg}}><td style={{width:16,background:csDeptBg}}></td><td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td><td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td><td style={{...csTh,background:csDeptBg}}>NOTES</td><td style={{width:36,background:csDeptBg}}></td></tr></thead>
+                <tbody>{csData.schedule.map((row,i) => (<tr key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:hasCM("cs:schedule")?"#FFF8E1":"#fff",cursor:"grab"}}><td style={{padding:"4px 2px 4px 0",fontSize:10,color:"#ccc",width:16}}>{"\u2630"}</td><td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}><CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder placeholder="00:00" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}><CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder placeholder="Activity" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11}}><CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/></td>{hasCM("cs:schedule")?<td style={{width:36}}><button onClick={()=>acceptCM("cs:schedule")} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>declineCM("cs:schedule")} style={cRevBtn("decline")}>{"\u2715"}</button></td>:<td style={{width:20}}><CSXbtn onClick={()=>rmScheduleRow(i)}/></td>}</tr>))}</tbody>
               </table>
               <CSAddBtn onClick={addScheduleRow} label="Add Row"/>
             </div>
@@ -3178,11 +3179,11 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"10px 32px"}}>
               <div style={csSecTitle}>CONTACTS</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
-                <thead><tr><td style={{...csTh,width:"17%"}}>ROLE</td><td style={{...csTh,width:"15%"}}>NAME</td><td style={{...csTh,width:"16%"}}>MOBILE</td><td style={{...csTh,width:"30%"}}>EMAIL</td><td style={{...csTh,width:"8%",textAlign:"right",paddingRight:8}}>CALL TIME</td><td style={{...csTh,width:22}}></td></tr></thead>
+                <thead><tr><td style={{width:16}}></td><td style={{...csTh,width:"18%"}}>ROLE</td><td style={{...csTh,width:"17%"}}>NAME</td><td style={{...csTh,width:"17%"}}>MOBILE</td><td style={{...csTh,width:"30%"}}>EMAIL</td><td style={{...csTh,textAlign:"right",paddingRight:8}}>CALL TIME</td></tr></thead>
                 <tbody>{csData.departments.map((dept,di) => {
                 const deptHasMarker = cpr && cpr.markers.some(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":"));
                 return (<Fragment key={di}><tr><td colSpan={6} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>{"✓"}</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>{"✕"}</button></>}</div></td></tr>
-                {dept.crew.map((cr,ci) => (<tr key={ci} style={{background:"#fff",borderBottom:"1px solid #f5f5f5"}}><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder="Name"/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder="Phone"/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder="Email"/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600}} placeholder="Time"/></td><td><CSXbtn onClick={()=>rmCrew(di,ci)}/></td></tr>))}
+                {dept.crew.map((cr,ci) => (<tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab"}}><td style={{padding:"3px 2px",fontSize:10,color:"#ddd",width:16}}>{"\u2630"}</td><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder=""/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600,textAlign:"right"}} placeholder=""/></td></tr>))}
                 <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>);})}</tbody>
               </table>
               <CSAddBtn onClick={addDept} label="Add Department"/>
@@ -11296,9 +11297,11 @@ export default function OnnaDashboard() {
                 };
                 return (
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14}}>
-                    {widgetOrder.map(id=>(
+                    {widgetOrder.map(id=>{
+                      const span=Math.min(sizes[id]||1,maxCols);
+                      return (
                       <div key={id} data-wid={id}
-                        onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!==id)e.currentTarget.style.outline="2px solid "+T.accent;}}
+                        onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!==id){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="-2px";}}}
                         onDragLeave={e=>{e.currentTarget.style.outline="none";}}
                         onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
                           const from=dashDragRef.current;if(!from||from===id)return;
@@ -11310,21 +11313,32 @@ export default function OnnaDashboard() {
                             return order;
                           });
                         }}
-                        style={{gridColumn:"span "+Math.min(sizes[id]||1,maxCols),position:"relative"}}
+                        style={{gridColumn:"span "+span,position:"relative"}}
                       >
                         {widgetMap[id]}
-                        <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4,zIndex:3}}>
-                          <span
-                            draggable={true}
-                            onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.setData("text/plain",id);e.dataTransfer.effectAllowed="move";const wEl=e.currentTarget.closest("[data-wid]");if(wEl)wEl.style.opacity="0.4";}}
-                            onDragEnd={e=>{document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";});dashDragRef.current=null;}}
+                        <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3,zIndex:3}}>
+                          <div
+                            draggable="true"
+                            onDragStart={e=>{
+                              dashDragRef.current=id;
+                              e.dataTransfer.setData("application/x-dash-widget",id);
+                              e.dataTransfer.effectAllowed="move";
+                              setTimeout(()=>{const w=document.querySelector('[data-wid="'+id+'"]');if(w)w.style.opacity="0.35";},0);
+                            }}
+                            onDragEnd={e=>{
+                              dashDragRef.current=null;
+                              document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});
+                            }}
                             title="Drag to reorder"
-                            style={{width:24,height:24,borderRadius:6,background:"rgba(0,0,0,0.06)",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.muted,opacity:0.5,transition:"opacity 0.15s",userSelect:"none"}}
-                            onMouseEnter={e=>{e.currentTarget.style.opacity="1";}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.5";}}>\u2630</span>
-                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title="Resize widget" style={{width:24,height:24,borderRadius:6,background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.muted,opacity:0.5,transition:"opacity 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.5";}}>\u21D4</button>
+                            style={{width:26,height:26,borderRadius:7,background:T.surface,border:"1px solid "+T.border,cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.muted,opacity:0.6,transition:"opacity 0.15s",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}
+                            onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}}
+                            onMouseLeave={e=>{e.currentTarget.style.opacity="0.6";e.currentTarget.style.background=T.surface;e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border;}}
+                          >{"☰"}</div>
+                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title={"Width: "+span+"/"+maxCols+" — click to resize"} style={{width:26,height:26,borderRadius:7,background:T.surface,border:"1px solid "+T.border,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.muted,opacity:0.6,transition:"opacity 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.6";e.currentTarget.style.background=T.surface;e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border;}}>{"⤢"}</button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ); })()}
 
