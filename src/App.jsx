@@ -37,8 +37,8 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
     const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height;const ctx=c.getContext("2d");
     ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
     if(hasLH){
-      const contentH=c.height-LH_H;const scaleY=contentH/pgImg.height;
-      ctx.drawImage(pgImg,0,LH_H,pgImg.width*scaleY,contentH);
+      const contentH=c.height-LH_H;const s=contentH/pgImg.height;const scaledW=pgImg.width*s;
+      ctx.drawImage(pgImg,0,LH_H,scaledW,contentH);
       const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,10,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,10+lh+6);ctx.lineTo(c.width-40,10+lh+6);ctx.stroke();
     }else{ctx.drawImage(pgImg,0,0);}
     const pg=po[i]||{};const sOX=pg.signOffsetX!=null?pg.signOffsetX:(signOffsetX||0);const sOY=pg.signOffset!=null?pg.signOffset:(signOffset||0);const stOX=pg.stampOffsetX!=null?pg.stampOffsetX:(stampOffsetX||0);const stOY=pg.stampOffset!=null?pg.stampOffset:(stampOffset||0);
@@ -55,7 +55,7 @@ const exportDocPreview=(preview,originalDoc,pageIndex)=>{
   const doExport=(orient)=>{
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
     const idoc=iframe.contentDocument||iframe.contentWindow.document;
-    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;height:100vh;display:flex;align-items:center;justify-content:center;}div:last-child{page-break-after:auto;}img{max-width:100%;max-height:100vh;object-fit:contain;display:block;}@media print{@page{margin:0;size:A4 ${orient};}}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}@media print{@page{margin:0;size:A4 ${orient};}}@media screen{div{page-break-after:always;}}div{width:100%;height:100%;overflow:hidden;page-break-inside:avoid;break-inside:avoid;}img{width:100%;height:100%;object-fit:contain;display:block;}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
     setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
   };
   const srcPage=(originalDoc&&originalDoc.pages&&originalDoc.pages[pageIndex||0])||pages[0];
