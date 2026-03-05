@@ -2424,7 +2424,7 @@ ${PRINT_CLEANUP_CSS}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                         <div style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, color: "#999", letterSpacing: 0.5 }}>LOCATION {idx + 1}</div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <div onClick={() => { const i = LOC_STATUSES.indexOf(loc.status); updateLoc(loc.id, "status", LOC_STATUSES[(i + 1) % LOC_STATUSES.length]); }}
+                          <div data-loc-status={loc.status} data-loc-idx={idx} onClick={() => { const i = LOC_STATUSES.indexOf(loc.status); updateLoc(loc.id, "status", LOC_STATUSES[(i + 1) % LOC_STATUSES.length]); }}
                             style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, background: sr.bg, color: sr.text, padding: "3px 8px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{loc.status}</div>
                           <button data-hide="1" onClick={() => deleteLoc(loc.id)}
                             style={{ background: "none", border: "none", color: "#ddd", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
@@ -10998,6 +10998,8 @@ export default function OnnaDashboard() {
   const [cpsShareLoading,setCpsShareLoading]             = useState(false);
   const [cpsShareTabs,setCpsShareTabs]                   = useState(new Set(["schedule","timeline","calendar"]));
   const cpsRef                                           = useRef(null);
+  const cpsAutoSyncTimer                                 = useRef(null);
+  const [cpsAutoSyncing,setCpsAutoSyncing]               = useState(false);
   const [locDeckStore,setLocDeckStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_loc_decks');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeLocDeckVersion,setActiveLocDeckVersion]   = useState(null);
   const [locShareUrl,setLocShareUrl]                     = useState(null);
@@ -11197,6 +11199,23 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{}},[cpsStore]);
+  // Auto-sync CPS share link when content changes (debounced 5s)
+  useEffect(()=>{
+    if(!selectedProject||activeCPSVersion==null)return;
+    const pid=selectedProject.id;
+    const cpsData=(cpsStore[pid]||[])[activeCPSVersion];
+    if(!cpsData||!cpsData.shareToken||!cpsData.shareResourceId)return;
+    if(cpsAutoSyncTimer.current)clearTimeout(cpsAutoSyncTimer.current);
+    cpsAutoSyncTimer.current=setTimeout(async()=>{
+      try{
+        if(!cpsRef.current)return;
+        setCpsAutoSyncing(true);
+        await cpsRef.current.share([...cpsShareTabs],cpsData.shareToken,cpsData.shareResourceId);
+        setCpsAutoSyncing(false);
+      }catch{setCpsAutoSyncing(false);}
+    },5000);
+    return()=>{if(cpsAutoSyncTimer.current)clearTimeout(cpsAutoSyncTimer.current);};
+  },[cpsStore,activeCPSVersion,selectedProject]); // eslint-disable-line
   useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{}},[shotListStore]);
   useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
   useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
@@ -14749,6 +14768,8 @@ export default function OnnaDashboard() {
                 <button onClick={sendCpsShare} disabled={cpsShareLoading||cpsShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(cpsShareLoading||cpsShareTabs.size===0)?0.5:1}}>
                   {cpsShareLoading ? "Generating\u2026" : existingToken ? "Update Link" : "Generate Link"}
                 </button>
+                {existingToken&&cpsAutoSyncing&&<span style={{fontSize:10,color:"#1976D2",fontWeight:500,display:"inline-flex",alignItems:"center",gap:4}}>Syncing\u2026</span>}
+                {existingToken&&!cpsAutoSyncing&&displayShareUrl&&<span style={{fontSize:10,color:"#4caf50",fontWeight:500}}>Auto-sync on</span>}
               </div>
             </div>
             {displayShareUrl && (
