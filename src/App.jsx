@@ -2860,11 +2860,12 @@ const FitCard = ({ src, status, onAdd, onRemove, onStatus }) => {
   );
 };
 
-function FittingConnie({ initialProject, initialTalent, initialFittings, onChangeProject, onChangeTalent, onChangeFittings }) {
+const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProject, initialTalent, initialFittings, onChangeProject, onChangeTalent, onChangeFittings, onShareUrl }, fwdRef) {
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   const LS = 0.5;
   const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "", stylist: "", agencyLogo: null, clientLogo: null });
   const [tab, setTab] = useState("confirmed");
+  const [printTabs, setPrintTabs] = useState(null);
   const printRef = useRef(null);
 
   const [talent, setTalentRaw] = useState(() => initialTalent || [mkFitTalent(), mkFitTalent()]);
@@ -2949,7 +2950,7 @@ function FittingConnie({ initialProject, initialTalent, initialFittings, onChang
   };
   const fitPrintViaIframe = (clone) => {
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:1123px;height:794px;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
@@ -2957,17 +2958,63 @@ function FittingConnie({ initialProject, initialTalent, initialFittings, onChang
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
 body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm;overflow:hidden}
+#fit-wrap{transform-origin:top left}
 @media print{@page{size:landscape;margin:0}}
 ${PRINT_CLEANUP_CSS}
-</style></head><body></body></html>`);
+</style></head><body><div id="fit-wrap"></div></body></html>`);
     idoc.close();
-    idoc.body.appendChild(idoc.adoptNode(clone));
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+    const wrap = idoc.getElementById("fit-wrap");
+    wrap.appendChild(idoc.adoptNode(clone));
+    setTimeout(() => {
+      const pageW = 1123, pageH = 794;
+      const contentH = wrap.scrollHeight;
+      const contentW = wrap.scrollWidth;
+      const scaleX = Math.min(1, pageW / contentW);
+      const scaleY = Math.min(1, pageH / contentH);
+      const scale = Math.min(scaleX, scaleY);
+      if (scale < 1) wrap.style.transform = `scale(${scale})`;
+      iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 400);
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;
     fitPrintViaIframe(fitCleanClone(el));
   };
+  const exportAllPDF = () => {
+    setPrintTabs(new Set(["confirmed","options"]));
+    setTimeout(() => {
+      const el = printRef.current; if (!el) { setPrintTabs(null); return; }
+      fitPrintViaIframe(fitCleanClone(el));
+      setTimeout(() => setPrintTabs(null), 100);
+    }, 200);
+  };
+
+  /* Share: capture rendered HTML, POST to /api/fit-share, returns a live URL */
+  const generateSharePage = async (modes, existingToken, existingResourceId) => {
+    const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["confirmed","options"] : modes ? [modes] : ["confirmed","options"]);
+    setPrintTabs(new Set(tabsArr));
+    await new Promise(r => setTimeout(r, 300));
+    const el = printRef.current; if (!el) { setPrintTabs(null); return; }
+    const clone = fitCleanClone(el);
+    clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
+    clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+    const html = clone.innerHTML;
+    setPrintTabs(null);
+    if (!html) return;
+    try {
+      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
+      if (existingToken) body.token = existingToken;
+      if (existingResourceId) body.resourceId = existingResourceId;
+      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await resp.json();
+      if (data.url) {
+        if (onShareUrl) onShareUrl(data.url, data.token, data.id);
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
+      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { alert("Error generating link: " + err.message); }
+  };
+
+  useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
   const row2Has = curFit && curFit.images.slice(4, 8).some(Boolean);
 
@@ -2981,11 +3028,13 @@ ${PRINT_CLEANUP_CSS}
         <div style={{ flex: 1 }} />
         <div onClick={syncApproved} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#f5f5f5", color: "#666", textTransform: "uppercase", borderLeft: "1px solid #ddd" }}
           onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f5f5f5"}>SYNC APPROVED</div>
-        <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
-          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
+        <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
+          onMouseEnter={e => e.target.style.background = "#555"} onMouseLeave={e => e.target.style.background = "#333"}>EXPORT PAGE</div>
+        <div onClick={exportAllPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
+          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT ALL</div>
       </div>
 
-      <div ref={printRef} data-fit-print="1" style={{ padding: "10px 12px" }}>
+      <div ref={printRef} data-fit-print="1" style={{ padding: "8px 10px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
           <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>FITTING DECK</div>
@@ -2997,7 +3046,7 @@ ${PRINT_CLEANUP_CSS}
           </div>
         </div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
-        <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 6, flexWrap: "wrap", justifyContent: "space-between" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["STYLIST", "stylist", "Stylist"]].map(([lbl, key, ph]) => (
             <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}:</span>
@@ -3006,11 +3055,11 @@ ${PRINT_CLEANUP_CSS}
           ))}
         </div>
 
-        {tab === "confirmed" && (
+        {(tab === "confirmed" || (printTabs && printTabs.has("confirmed"))) && (
           <div>
             {talent.map((t, ti) => (
-              <div key={t.id} style={{ marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "4px 8px", justifyContent: "space-between" }}>
+              <div key={t.id} style={{ marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>TALENT {ti + 1}</span>
                     <FitInp value={t.name} onChange={v => updateTalent(t.id, "name", v)} placeholder="Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: 140 }} />
@@ -3021,7 +3070,7 @@ ${PRINT_CLEANUP_CSS}
                     <button onClick={() => deleteTalent(t.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: "8px 0" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, padding: "4px 0" }}>
                   {t.looks.map((look, li) => {
                     const sr = FIT_STATUS_C[look.status] || FIT_STATUS_C["Pending"];
                     const isDropHere = dropLookAt && dropLookAt.tid === t.id && dropLookAt.lidx === li && dragLook.current && !(dragLook.current.tid === t.id && dragLook.current.lidx === li);
@@ -3035,13 +3084,13 @@ ${PRINT_CLEANUP_CSS}
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0", background: "#f8f8f8", cursor: "grab", borderBottom: "1px solid #eee" }}>
                           <span style={{ fontFamily: F, fontSize: 8, color: "#ccc", letterSpacing: 2 }}>{"≡"}</span>
                         </div>
-                        <div style={{ aspectRatio: "3/4", background: "#f8f8f8", position: "relative" }}>
+                        <div style={{ aspectRatio: "1/1", background: "#f8f8f8", position: "relative" }}>
                           <FitImgSlot src={look.image} h="100%" onAdd={files => setLookImg(t.id, look.id, files)} onRemove={() => rmLookImg(t.id, look.id)} />
-                          <div onClick={() => { const i = FIT_STATUSES.indexOf(look.status); updateLook(t.id, look.id, "status", FIT_STATUSES[(i + 1) % FIT_STATUSES.length]); }}
+                          <div data-fit-status={look.status} onClick={() => { const i = FIT_STATUSES.indexOf(look.status); updateLook(t.id, look.id, "status", FIT_STATUSES[(i + 1) % FIT_STATUSES.length]); }}
                             style={{ position: "absolute", top: 4, right: 4, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: sr.bg, color: sr.text, padding: "2px 6px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{look.status}</div>
                           <button data-hide="1" onClick={() => deleteLook(t.id, look.id)} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.4)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"×"}</button>
                         </div>
-                        <div style={{ padding: "4px 6px" }}>
+                        <div style={{ padding: "2px 4px" }}>
                           <FitInp value={look.name} onChange={v => updateLook(t.id, look.id, "name", v)} placeholder={"Look " + (li + 1)} style={{ fontSize: 9, fontWeight: 700, padding: "0 0 2px 0", borderBottom: "1px solid #eee", marginBottom: 2 }} />
                           <FitInp value={look.description} onChange={v => updateLook(t.id, look.id, "description", v)} placeholder="Description" style={{ fontSize: 8, color: "#999", padding: 0 }} />
                         </div>
@@ -3058,7 +3107,9 @@ ${PRINT_CLEANUP_CSS}
           </div>
         )}
 
-        {tab === "options" && (
+        {printTabs && printTabs.has("options") && printTabs.has("confirmed") && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>FITTING OPTIONS</span></div>}
+
+        {(tab === "options" || (printTabs && printTabs.has("options"))) && (
           <div>
             <div data-hide="1" style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
               {fittings.map((fit, idx) => {
@@ -3073,41 +3124,45 @@ ${PRINT_CLEANUP_CSS}
               })}
               <div onClick={addFitting} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, padding: "4px 12px", cursor: "pointer", borderRadius: 2, border: "1px dashed #ccc", color: "#999" }}>+ ADD</div>
             </div>
-            {curFit && (
-              <div>
+            {/* In print mode, render ALL fittings; in normal mode, render only selected */}
+            {(printTabs ? fittings : (curFit ? [curFit] : [])).map((fit, fi) => {
+              const r2 = fit.images.slice(4, 8).some(Boolean);
+              return (
+              <div key={fit.id} style={fi > 0 ? {marginTop:16} : {}}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4 }}>
-                  <FitInp value={curFit.talentName} onChange={v => updateFit(curFit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: 18, fontWeight: 700, padding: 0, width: 280 }} />
+                  <FitInp value={fit.talentName} onChange={v => updateFit(fit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: 18, fontWeight: 700, padding: 0, width: 280 }} />
                   <div style={{ flex: 1, display: "flex", gap: 14 }}>
                     <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>LOOK </span>
-                      <FitInp value={curFit.lookName} onChange={v => updateFit(curFit.id, "lookName", v)} placeholder="Look 1" style={{ display: "inline", width: 80 }} /></div>
+                      <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look 1" style={{ display: "inline", width: 80 }} /></div>
                     <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>NOTES </span>
-                      <FitInp value={curFit.notes} onChange={v => updateFit(curFit.id, "notes", v)} placeholder="Fitting notes..." style={{ color: "#666", display: "inline", width: 220 }} /></div>
+                      <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Fitting notes..." style={{ color: "#666", display: "inline", width: 220 }} /></div>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: row2Has ? 8 : 0 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: r2 ? 8 : 0 }}>
                   {[0,1,2,3].map(n => (
-                    <FitCard key={n} src={curFit.images[n]} status={(curFit.imageStatuses||{})[n] || "none"}
-                      onAdd={files => setFitImg(curFit.id, n, files)} onRemove={() => rmFitImg(curFit.id, n)}
-                      onStatus={s => updateFit(curFit.id, "imageStatuses", { ...(curFit.imageStatuses||{}), [n]: s })} />
+                    <FitCard key={n} src={fit.images[n]} status={(fit.imageStatuses||{})[n] || "none"}
+                      onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
+                      onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })} />
                   ))}
                 </div>
-                {row2Has && (
+                {r2 && (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                     {[4,5,6,7].map(n => (
-                      <FitCard key={n} src={curFit.images[n]} status={(curFit.imageStatuses||{})[n] || "none"}
-                        onAdd={files => setFitImg(curFit.id, n, files)} onRemove={() => rmFitImg(curFit.id, n)}
-                        onStatus={s => updateFit(curFit.id, "imageStatuses", { ...(curFit.imageStatuses||{}), [n]: s })} />
+                      <FitCard key={n} src={fit.images[n]} status={(fit.imageStatuses||{})[n] || "none"}
+                        onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
+                        onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })} />
                     ))}
                   </div>
                 )}
               </div>
-            )}
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
-}
+});
 
 function buildConnieSystem(project, csData, versionLabel, csSnapshot, vendorSummary, leadsSummary) {
   return `You are Call Sheet Connie, a production coordinator for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live call sheet database.
@@ -5365,19 +5420,19 @@ RESPONSE STYLE:
 - Sign off as the ONNA team.`,
    placeholder:"Create new meeting...",
    intro:"Hi! I'm Meeting Minnie 📅 Here's what I can do:\n\n1️⃣ **Schedule Meeting** — Paste a meeting request and I'll find available slots\n2️⃣ **Check Calendar** — See what's coming up and spot conflicts\n3️⃣ **Draft Reply** — I'll write a professional response with time options\n\nWhat do you need?"},
-  {id:"billie",name:"Budget Billie",title:"Budgets",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
-   system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default.
+  {id:"billie",name:"Budget Billie",title:"Budgets & Expenses",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
+   system:`You are Budget Billie, ONNA's production budget and expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. You also track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance.
 
 You have THREE capabilities:
-1. BUILD BUDGET — Create a full line-item budget from shoot details (type, days, crew, location).
-2. EDIT ESTIMATE — Update rates, add/remove line items, adjust markup and contingency.
-3. REVIEW & EXPORT — Check totals, flag issues, export to PDF.
+1. BUILD & EDIT BUDGET — Create line-item estimates, update rates, add/remove items, adjust markup and contingency.
+2. LOG EXPENSES — Track actuals, add costs, update Zoho amounts, categorise spend.
+3. REVIEW & COMPARE — Actuals vs estimates, flag overruns, check variance, export to PDF.
 
 When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
 
 Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
-   placeholder:"Add budget details...",
-   intro:"Hey! I'm Budget Billie 💰 Here's what I can do:\n\n1️⃣ **Build Budget** — Give me shoot details and I'll create a full line-item budget\n2️⃣ **Edit Estimate** — Update rates, add line items, adjust markup\n3️⃣ **Review & Export** — Check totals, flag issues, export to PDF\n\nFirst, which project should I work on?"},
+   placeholder:"Budget or expense details...",
+   intro:"Hey! I'm Budget Billie 💰 Here's what I can do:\n\n1️⃣ **Build & Edit Budget** — Create estimates, update rates, adjust markup\n2️⃣ **Log Expenses** — Track actuals, add costs, update Zoho amounts\n3️⃣ **Review & Compare** — Actuals vs estimates, flag overruns, export\n\nFirst, which project should I work on?"},
   {id:"contracts",name:"Contract Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
    system:`You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are connected to live contract data and can read and update it directly.
 
@@ -5391,19 +5446,6 @@ When a user greets you or says hi/hello, introduce yourself and list these three
 NEVER say you cannot save data or need external tools. You have FULL access. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add contract details...",
    intro:"I'm Contract Cody 📝 Here's what I can do:\n\n1️⃣ **Live Contracts** — Fill in fields, switch types, review & export your project contracts\n2️⃣ **Generate Documents** — Draft waivers, NDAs, agreements & more from scratch\n3️⃣ **Sign & Stamp** — Upload a PDF or generate a doc, then add signature, stamp & letterhead\n\nWhat do you need?"},
-  {id:"finn",name:"Finance Finn",title:"Expenses",emoji:"🧾",color:_TEAL,border:"#5aA8A8",accent:"#1a6060",bg:"#f0fafa",textColor:"#0a3030",tagBg:"#c8eee8",Blob:_Finn,
-   system:`You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You help track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance.
-
-You have THREE capabilities:
-1. LOG EXPENSES — Add costs, update Zoho amounts, categorise spend.
-2. TRACK ACTUALS — Compare actuals vs estimates, flag overruns.
-3. REVIEW BUDGET — Summarise spend, check variance, spot issues.
-
-When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
-
-Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
-   placeholder:"Track an expense...",
-   intro:"Hey! I'm Finance Finn 🧾 Here's what I can do:\n\n1️⃣ **Log Expenses** — Add costs, update Zoho amounts, categorise spend\n2️⃣ **Track Actuals** — Compare actuals vs estimates, flag overruns\n3️⃣ **Review Budget** — Summarise spend, check variance, spot issues\n\nFirst, which project should I work on?"},
   {id:"carrie",name:"Casting Carrie",title:"Casting",emoji:"🎬",color:_CORAL,border:"#c46050",accent:"#7a2a1a",bg:"#fff5f3",textColor:"#3d1008",tagBg:"#fdd8d0",Blob:_Carrie,
    system:`You are Casting Carrie, a casting coordinator for ONNA. You are connected to live casting table data and can read and update it directly.
 
@@ -6334,7 +6376,15 @@ function fuzzyMatchProject(projects, input, excludeId) {
 
 function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onArchiveCallSheet}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
-  const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
+  const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true};
+  const _buildIntro=()=>{
+    if(!_needsProj[agent.id]||!/which project/i.test(intro))return intro;
+    const activeProjs=(localProjects||[]).filter(pr=>pr.status!=="Completed"&&pr.name&&!/^TEMPLATE/i.test(pr.name));
+    if(activeProjs.length===0)return intro;
+    return intro+"\n\n"+activeProjs.map((pr,i)=>`${i+1}. **${pr.client||""}** — ${pr.name}`).join("\n");
+  };
+  const _introWithProjects=_buildIntro();
+  const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant")p[0]={role:"assistant",content:_introWithProjects};return p;}return[{role:"assistant",content:_introWithProjects}];}catch{return[{role:"assistant",content:_introWithProjects}];}});
   const [input,_setInput]       =useState("");
   const _inputRef=useRef("");
   const setInput=(v)=>{_inputRef.current=v;_setInput(v);};
@@ -6372,7 +6422,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');const p=s?JSON.parse(s):null;if(p&&(p.pendingCreate||p.pendingVersion)){localStorage.removeItem('onna_billie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx}
   const [billieTabs,setBillieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_billie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addBillieTab=(projectId,vIdx,label)=>setBillieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
-  const [finnCtx,setFinnCtx]=useState(()=>{try{const s=localStorage.getItem('onna_finn_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [finnCtx,setFinnCtx]=useState(null); // unused — merged into Billie
   const [carrieCtx,setCarrieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_carrie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
@@ -6381,8 +6431,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
-  const docProjectId = agent.id==="compliance"?(connieDietMode||connieCtx?.projectId) : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="finn"?finnCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : null;
+  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx);
+  const docProjectId = agent.id==="compliance"?(connieDietMode||connieCtx?.projectId) : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);
   },[active, isMobile]);
@@ -6403,7 +6453,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
-  useEffect(()=>{if(agent.id==="finn"){try{if(finnCtx)localStorage.setItem('onna_finn_ctx',JSON.stringify(finnCtx));else localStorage.removeItem('onna_finn_ctx');}catch{}}},[finnCtx,agent.id]);
+  
   useEffect(()=>{if(agent.id==="carrie"){try{if(carrieCtx)localStorage.setItem('onna_carrie_ctx',JSON.stringify(carrieCtx));else localStorage.removeItem('onna_carrie_ctx');}catch{}}},[carrieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
@@ -6587,7 +6637,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     const input=_inputRef.current;
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
-      const fresh=[{role:"assistant",content:intro}];
+      const fresh=[{role:"assistant",content:_introWithProjects}];
       setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
@@ -6609,14 +6659,20 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         compliance:{1:"Let's edit a call sheet. Which project should I work on?",2:"I'll review what's missing. Which project should I work on?",3:"Let's manage dietary requirements. Which project should I work on?"},
         researcher:{1:"I'll help add risks. Which project should I work on?",2:"I'll review the assessment. Which project should I work on?",3:"I'll generate a risk report. Which project should I work on?"},
         minnie:{1:"Paste a meeting request email and I'll find available time slots for you.",2:"Let me check your calendar. What date or week are you looking at?",3:"Paste the meeting request and I'll draft a professional reply with three time options."},
-        billie:{1:"I'll build a budget. Which project should I work on?",2:"I'll help edit the estimate. Which project should I work on?",3:"I'll review and export. Which project should I work on?"},
-        finn:{1:"I'll log an expense. Which project should I work on?",2:"I'll track actuals vs estimates. Which project should I work on?",3:"I'll review the budget. Which project should I work on?"},
+        billie:{1:"I'll work on the budget. Which project should I work on?",2:"I'll help track expenses. Which project should I work on?",3:"I'll compare actuals vs estimates. Which project should I work on?"},
+
         carrie:{1:"I'll add talent. Which project should I work on?",2:"I'll search agencies or generate a brief. Which project should I work on?",3:"I'll review casting and export. Which project should I work on?"},
         contracts:{1:"Let's work on a live contract. Which project should I work on?",2:"Sure! Describe the document you need — for example:\n\n• \"Draft an NDA for a freelance editor\"\n• \"Create a liability waiver for a night shoot in RAK\"\n• \"Write a release form for talent appearing in a commercial\"\n\nWhat would you like me to draft?",3:"Upload a PDF using the 📎 button below, or ask me to generate a document first — then I can add your signature, company stamp, and ONNA letterhead.\n\nTry: \"Create a liability waiver\" → then \"Sign and stamp this\""},
       };
       const agentResp=_responses[agent.id];
       if(agentResp&&agentResp[n]){
-        setMsgs([...history,{role:"assistant",content:agentResp[n]}]);
+        let reply=agentResp[n];
+        if(_needsProject[agent.id]&&/which project/i.test(reply)){
+          const activeProjs=(localProjects||[]).filter(pr=>pr.status!=="Completed"&&pr.name&&!/^TEMPLATE/i.test(pr.name));
+          if(activeProjs.length>0) reply+="\n\n"+activeProjs.map((pr,i)=>`${i+1}. **${pr.client||""}** — ${pr.name}`).join("\n");
+          else reply+="\n\nNo active projects found. Create one first in the Projects section.";
+        }
+        setMsgs([...history,{role:"assistant",content:reply}]);
         setInput("");setLoading(false);return;
       }
     }
@@ -8485,6 +8541,62 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setLoading(false);setMood("idle");return;
       }
 
+      // ── Detect expense/actuals intent → route to actuals handler ──
+      const _isExpenseIntent = /\b(expense|actual|actuals|zoho|spend|spent|cost|paid|invoice|invoiced|overrun|variance|log\s+.*(expense|cost|payment)|track\s+.*(actual|spend|expense)|status.*(paid|pending|invoiced))\b/i.test(input);
+      if(_isExpenseIntent&&projectActuals&&setProjectActuals){
+        const actSections = projectActuals[project.id] || [];
+        let actSnap = `Project: ${project.name}\nSections:\n`;
+        actSections.forEach((sec, si) => {
+          const secExpTotal = actualsSectionExpenseTotal(sec);
+          const secZoho = actualsSectionZohoTotal(sec);
+          if (secExpTotal > 0 || secZoho > 0 || sec.rows.some(r => (r.expenses||[]).length > 0 || estNum(r.zohoAmount) > 0)) {
+            actSnap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — Expenses: AED ${estFmt(secExpTotal)} | Zoho: AED ${estFmt(secZoho)}\n`;
+            sec.rows.forEach((r, ri) => {
+              const rExp = actualsRowExpenseTotal(r);
+              actSnap += `    [secIdx:${si},rowIdx:${ri}] ${r.ref||""}: ${r.desc||"(empty)"} | zohoAmount:${r.zohoAmount||"0"} | status:${r.status||"(none)"} | expenses(${(r.expenses||[]).length}): AED ${estFmt(rExp)}\n`;
+              (r.expenses||[]).forEach((e, ei) => {
+                actSnap += `      [expenseIdx:${ei}] vendor:${e.vendor||""} amount:${e.amount||"0"} date:${e.date||""} note:${e.note||""}\n`;
+              }); });
+          } else {
+            actSnap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — (no expenses yet)\n`;
+          }
+        });
+        const grandExp = actualsGrandExpenseTotal(actSections);
+        const grandZoho = actualsGrandZohoTotal(actSections);
+        actSnap += `Grand Total Expenses: AED ${estFmt(grandExp)} | Grand Total Zoho: AED ${estFmt(grandZoho)}\n`;
+        let estTotals = "";
+        const _estVers = projectEstimates?.[project.id] || [];
+        if (_estVers.length > 0) {
+          const latestEst = _estVers[_estVers.length - 1];
+          const _estSecs = latestEst.sections || [];
+          const { subtotal: _sub, feesTotal: _fees, grandTotal: estGT } = estCalcTotals(_estSecs);
+          estTotals = `Estimate Grand Total: AED ${estFmt(estGT)} | Subtotal: AED ${estFmt(_sub)} | Fees: AED ${estFmt(_fees)}\nVariance (Estimate - Actuals): AED ${estFmt(estGT - grandExp)}`;
+        }
+        const _expSystem = buildFinnSystem(project, actSnap, estTotals);
+        try{
+          const billieIntro = intro;
+          const apiMessages=history.map((m,mi)=>{
+            if(m.role==="assistant"){if(mi===0) return{role:m.role,content:billieIntro};return{role:m.role,content:typeof m.content==="string"?m.content:""};}
+            return{role:m.role,content:m.content};
+          });
+          const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:_expSystem,messages:apiMessages})});
+          if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+          const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+          while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+          const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+          if(jsonMatch){
+            try{
+              const patch = JSON.parse(jsonMatch[1].trim());
+              applyFinnPatch(patch, project.id, projectActuals, setProjectActuals);
+              const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Budget tracker updated."}]);
+            }catch(pe){setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);}
+          }else{setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);}
+          setMood("excited");setTimeout(()=>setMood("idle"),2500);
+        }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+        setLoading(false);return;
+      }
+
       const estVersions = projectEstimates?.[project.id] || [];
       if(estVersions.length===0){
         setMsgs([...history,{role:"assistant",content:`No estimates for ${project.name} yet. Say "create new" or use the Estimates folder to create one first!`}]);
@@ -8544,110 +8656,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
             const msg = patch.saveAsVersion ? `✓ Saved as new version: ${patch.saveAsVersion}` : "✓ Estimate updated.";
             setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+msg}]);
-          }catch(pe){
-            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
-          }
-        }else{
-          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
-        }
-        setMood("excited");setTimeout(()=>setMood("idle"),2500);
-      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
-      setLoading(false);return;
-    }
-
-    // ── Finn: live actuals/expense handler ───────────────────────────────────────────────────────────────────────────
-    if(agent.id==="finn"&&projectActuals&&setProjectActuals){
-
-      if(!finnCtx){
-        if(!localProjects?.length){
-          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
-          setLoading(false);setMood("idle");return;
-        }
-        const num=parseInt(input.trim(),10);
-        const project = (num>=1&&num<=localProjects.length)?localProjects[num-1]:fuzzyMatchProject(localProjects,input);
-        if(!project){
-          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's expenses should I work on?\n\n${list}\n\nPick a number or name.`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        setFinnCtx({projectId:project.id});
-        setMsgs([...history,{role:"assistant",content:`Got it — I'm now tracking expenses for **${project.name}**. I can see all your actuals data. What would you like to do?`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      const lower=input.toLowerCase();
-      if(/\b(switch|change|different|new)\s+(project|budget)\b/i.test(input)){
-        setFinnCtx(null);
-        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Sure! Which project's expenses should I work on?\n\n${list}`}]);
-        setLoading(false);setMood("idle");return;
-      }
-      const switchProject=fuzzyMatchProject(localProjects,input,finnCtx.projectId);
-      if(switchProject){
-        setFinnCtx({projectId:switchProject.id});
-        setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}**. I can see all the actuals data. What would you like to do?`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      const {projectId}=finnCtx;
-      let project=localProjects?.find(p=>p.id===projectId);
-      if(!project){setFinnCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
-
-      const actSections = projectActuals[projectId] || [];
-      let snap = `Project: ${project.name}\nSections:\n`;
-      actSections.forEach((sec, si) => {
-        const secExpTotal = actualsSectionExpenseTotal(sec);
-        const secZoho = actualsSectionZohoTotal(sec);
-        if (secExpTotal > 0 || secZoho > 0 || sec.rows.some(r => (r.expenses||[]).length > 0 || estNum(r.zohoAmount) > 0)) {
-          snap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — Expenses: AED ${estFmt(secExpTotal)} | Zoho: AED ${estFmt(secZoho)}\n`;
-          sec.rows.forEach((r, ri) => {
-            const rExp = actualsRowExpenseTotal(r);
-            snap += `    [secIdx:${si},rowIdx:${ri}] ${r.ref||""}: ${r.desc||"(empty)"} | zohoAmount:${r.zohoAmount||"0"} | status:${r.status||"(none)"} | expenses(${(r.expenses||[]).length}): AED ${estFmt(rExp)}\n`;
-            (r.expenses||[]).forEach((e, ei) => {
-              snap += `      [expenseIdx:${ei}] vendor:${e.vendor||""} amount:${e.amount||"0"} date:${e.date||""} note:${e.note||""}\n`;
-            }); });
-        } else {
-          snap += `  [secIdx:${si}] ${sec.num||si+1}. ${sec.title} — (no expenses yet)\n`;
-        }
-      });
-      const grandExp = actualsGrandExpenseTotal(actSections);
-      const grandZoho = actualsGrandZohoTotal(actSections);
-      snap += `Grand Total Expenses: AED ${estFmt(grandExp)} | Grand Total Zoho: AED ${estFmt(grandZoho)}\n`;
-
-      let estTotals = "";
-      if (projectEstimates) {
-        const estVersions = projectEstimates[projectId] || [];
-        if (estVersions.length > 0) {
-          const latestEst = estVersions[estVersions.length - 1];
-          const estSections = latestEst.sections || [];
-          const { subtotal, feesTotal, grandTotal: estGT } = estCalcTotals(estSections);
-          estTotals = `Estimate Grand Total: AED ${estFmt(estGT)} | Subtotal: AED ${estFmt(subtotal)} | Fees: AED ${estFmt(feesTotal)}\nVariance (Estimate - Actuals): AED ${estFmt(estGT - grandExp)}`;
-        }
-      }
-
-      const finnSystem = buildFinnSystem(project, snap, estTotals);
-
-      try{
-        const finnIntro = intro;
-        const apiMessages=history.map((m,mi)=>{
-          if(m.role==="assistant"){
-            if(mi===0) return{role:m.role,content:finnIntro};
-            return{role:m.role,content:typeof m.content==="string"?m.content:""};
-          }
-          return{role:m.role,content:m.content};
-        });
-        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:finnSystem,messages:apiMessages})});
-        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
-        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
-        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
-
-        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
-        if(jsonMatch){
-          try{
-            const patch = JSON.parse(jsonMatch[1].trim());
-            applyFinnPatch(patch, projectId, projectActuals, setProjectActuals);
-            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Budget tracker updated."}]);
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
@@ -9981,9 +9989,9 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         compliance:[{label:"✏️ Edit Call Sheet",value:"1"},{label:"✅ Review & Check",value:"2"},{label:"🍽️ Dietary & Catering",value:"3"}],
         researcher:[{label:"⚠️ Add Risks",value:"1"},{label:"✅ Review Assessment",value:"2"},{label:"📄 Generate Report",value:"3"}],
         minnie:[{label:"📅 Schedule Meeting",value:"1"},{label:"📆 Check Calendar",value:"2"},{label:"✉️ Draft Reply",value:"3"}],
-        billie:[{label:"💰 Build Budget",value:"1"},{label:"✏️ Edit Estimate",value:"2"},{label:"📊 Review & Export",value:"3"}],
+        billie:[{label:"💰 Build & Edit Budget",value:"1"},{label:"💳 Log Expenses",value:"2"},{label:"📊 Review & Compare",value:"3"}],
         contracts:[{label:"📋 Live Contracts",value:"1"},{label:"✍️ Generate Document",value:"2"},{label:"🖊️ Sign & Stamp",value:"3"}],
-        finn:[{label:"💳 Log Expenses",value:"1"},{label:"📈 Track Actuals",value:"2"},{label:"📊 Review Budget",value:"3"}],
+
         carrie:[{label:"🎭 Add Talent",value:"1"},{label:"🔍 Search & Brief",value:"2"},{label:"📄 Review & Export",value:"3"}],
       };
       const bubbles=_bubbleMap[agent.id];
@@ -11069,6 +11077,9 @@ export default function OnnaDashboard() {
   const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
   const [fittingStore,setFittingStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_fittings');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeFittingVersion,setActiveFittingVersion]   = useState(null);
+  const [fitShareLoading,setFitShareLoading]             = useState(false);
+  const [fitShareTabs,setFitShareTabs]                   = useState(new Set(["confirmed","options"]));
+  const fitDeckRef                                       = useRef(null);
   const [cpsShareUrl,setCpsShareUrl]                     = useState(null);
   const [cpsShareLoading,setCpsShareLoading]             = useState(false);
   const [cpsShareTabs,setCpsShareTabs]                   = useState(new Set(["schedule","timeline","calendar"]));
@@ -14167,6 +14178,14 @@ export default function OnnaDashboard() {
         setLocShareLoading(false);
       };
       const toggleLocShareTab = (t) => setLocShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+      const locShareLinks = locData.shareLinks || [];
+      const createNewLocLink = async () => {
+        if (locShareTabs.size === 0) return;
+        setLocShareLoading(true);
+        try { if (locDeckRef.current) await locDeckRef.current.share([...locShareTabs], null, null); }
+        catch (err) { alert("Error: " + err.message); }
+        setLocShareLoading(false);
+      };
 
       return (
         <div>
@@ -14186,6 +14205,9 @@ export default function OnnaDashboard() {
               <button onClick={sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
                 {locShareLoading ? "Generating\u2026" : existingLocToken ? "Update Link" : "Generate Link"}
               </button>
+              {existingLocToken && <button onClick={createNewLocLink} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
+                + New Link
+              </button>}
             </div>
           </div>
           {displayLocShareUrl && (
@@ -14194,6 +14216,21 @@ export default function OnnaDashboard() {
               <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                 <a href={displayLocShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayLocShareUrl}</a>
                 <button onClick={()=>{navigator.clipboard.writeText(`${locShareTitle}\n${displayLocShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+              </div>
+            </div>
+          )}
+          {locShareLinks.length > 0 && (
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.muted,marginBottom:6}}>Link History</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {locShareLinks.map((link, li) => (
+                  <div key={li} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:8,background:T.surface,border:`1px solid ${T.border}`}}>
+                    <span style={{fontSize:10,fontWeight:700,color:"#fff",background:T.accent,borderRadius:4,padding:"2px 8px",flexShrink:0}}>V{li+1}</span>
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:11,color:"#1565C0",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.url}</a>
+                    <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{new Date(link.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
+                    <button onClick={()=>{navigator.clipboard.writeText(link.url);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Copy</button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -14213,7 +14250,7 @@ export default function OnnaDashboard() {
               onChangeProject={proj => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].project = proj; return s; })}
               onChangeLocations={locs => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].locations = locs; return s; })}
               onChangeDetails={dets => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].details = dets; return s; })}
-              onShareUrl={(url, token, id) => { setLocShareUrl(url); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][locIdx]) { s[p.id][locIdx].shareToken = token; s[p.id][locIdx].shareResourceId = id; } return s; }); }}
+              onShareUrl={(url, token, id) => { setLocShareUrl(url); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][locIdx]) { s[p.id][locIdx].shareToken = token; s[p.id][locIdx].shareResourceId = id; if (!s[p.id][locIdx].shareLinks) s[p.id][locIdx].shareLinks = []; s[p.id][locIdx].shareLinks.push({ url, token, resourceId: id, createdAt: new Date().toISOString() }); } return s; }); }}
             />
           </div>
         </div>
@@ -14417,58 +14454,94 @@ export default function OnnaDashboard() {
 
         const fitBack = <button onClick={()=>setActiveFittingVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Fitting Decks</button>;
 
-        const fitShareUrl = fitData.shareToken ? `https://app.onna.world/api/cps-share?token=${encodeURIComponent(fitData.shareToken)}` : null;
-        const generateFitLink = async () => {
-          const fitEl = document.querySelector("[data-fit-print]");
-          if (!fitEl) return;
-          const clone = fitEl.cloneNode(true);
-          clone.querySelectorAll('[data-hide]').forEach(n => n.remove());
-          clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
-          clone.querySelectorAll('input').forEach(inp => { if (!inp.value||!inp.value.trim()) inp.style.display='none'; else { const s=document.createElement('span');s.textContent=inp.value;s.style.cssText=inp.style.cssText;s.style.border='none';s.style.background='none';inp.replaceWith(s); } });
-          clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
-          try {
-            const body = { html: clone.innerHTML, projectName: fitData.project?.name || "", mode: "fitting" };
-            if (fitData.shareToken) body.token = fitData.shareToken;
-            if (fitData.shareResourceId) body.resourceId = fitData.shareResourceId;
-            const resp = await fetch("/api/cps-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-            const data = await resp.json();
-            if (data.url) {
-              setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][fitIdx]) { s[p.id][fitIdx].shareToken = data.token; s[p.id][fitIdx].shareResourceId = data.id; } return s; });
-              await navigator.clipboard.writeText(data.url).catch(() => {});
-              alert("Link copied to clipboard!\n\n" + data.url);
-            } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-          } catch (err) { alert("Error generating link: " + err.message); }
+        const fitShareTitle = `ONNA | ${fitData.label || "Fitting Deck"}`;
+        const existingFitToken = fitData.shareToken || null;
+        const displayFitShareUrl = existingFitToken ? `https://app.onna.world/api/fit-share?token=${encodeURIComponent(existingFitToken)}` : null;
+        const fitShareLinks = fitData.shareLinks || [];
+        const sendFitShare = async () => {
+          if (fitShareTabs.size === 0) return;
+          setFitShareLoading(true);
+          try { if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], existingFitToken, fitData.shareResourceId); }
+          catch (err) { alert("Error: " + err.message); }
+          setFitShareLoading(false);
+        };
+        const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+        const createNewFitLink = async () => {
+          if (fitShareTabs.size === 0) return;
+          setFitShareLoading(true);
+          try { if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], null, null); }
+          catch (err) { alert("Error: " + err.message); }
+          setFitShareLoading(false);
         };
 
         return (
           <div>
             {fitBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>FITTING</span>
+                <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <button onClick={generateFitLink} style={{padding:"5px 16px",borderRadius:8,background:fitShareUrl?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  {fitShareUrl ? "Update Link" : "Generate Link"}
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                {["confirmed","options"].map(t => (
+                  <label key={t} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:fitShareTabs.has(t)?"#1565C0":"#999",cursor:"pointer",userSelect:"none"}}>
+                    <input type="checkbox" checked={fitShareTabs.has(t)} onChange={()=>toggleFitShareTab(t)} style={{accentColor:"#1976D2"}}/>
+                    {t === "confirmed" ? "Confirmed" : "Options"}
+                  </label>
+                ))}
+                <button onClick={sendFitShare} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingFitToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
+                  {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Update Link" : "Generate Link"}
                 </button>
+                {existingFitToken && <button onClick={createNewFitLink} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
+                  + New Link
+                </button>}
               </div>
             </div>
-            {fitShareUrl && (
+            {displayFitShareUrl && (
               <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{fitShareTitle}</div>
                 <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <a href={fitShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{fitShareUrl}</a>
-                  <button onClick={()=>{navigator.clipboard.writeText(fitShareUrl);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                  <a href={displayFitShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayFitShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${fitShareTitle}\n${displayFitShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
+            {fitShareLinks.length > 0 && (
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.muted,marginBottom:6}}>Link History</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {fitShareLinks.map((link, li) => (
+                    <div key={li} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:8,background:T.surface,border:`1px solid ${T.border}`}}>
+                      <span style={{fontSize:10,fontWeight:700,color:"#fff",background:T.accent,borderRadius:4,padding:"2px 8px",flexShrink:0}}>V{li+1}</span>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:11,color:"#1565C0",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.url}</a>
+                      <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{new Date(link.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
+                      <button onClick={()=>{navigator.clipboard.writeText(link.url);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Copy</button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
             <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
               <FittingConnie
+                ref={fitDeckRef}
                 initialProject={fitData.project}
                 initialTalent={fitData.talent}
                 initialFittings={fitData.fittings}
                 onChangeProject={proj => setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][fitIdx].project = proj; return s; })}
                 onChangeTalent={tal => setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][fitIdx].talent = tal; return s; })}
                 onChangeFittings={fits => setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][fitIdx].fittings = fits; return s; })}
+                onShareUrl={(url, token, id) => {
+                  setFittingStore(prev => {
+                    const s = JSON.parse(JSON.stringify(prev));
+                    if (s[p.id] && s[p.id][fitIdx]) {
+                      s[p.id][fitIdx].shareToken = token;
+                      s[p.id][fitIdx].shareResourceId = id;
+                      if (!s[p.id][fitIdx].shareLinks) s[p.id][fitIdx].shareLinks = [];
+                      s[p.id][fitIdx].shareLinks.push({ url, token, resourceId: id, createdAt: new Date().toISOString() });
+                    }
+                    return s;
+                  });
+                }}
               />
             </div>
           </div>
@@ -16026,8 +16099,8 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn"||a.id==="carrie")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="finn"||a.id==="carrie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
                       vendors={(a.id==="compliance"||a.id==="carrie")?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       dietaryStore={a.id==="compliance"?dietaryStore:undefined}
@@ -16040,12 +16113,12 @@ export default function OnnaDashboard() {
                       setContractDocStore={a.id==="contracts"?setContractDocStore:undefined}
                       activeContractVersion={a.id==="contracts"?activeContractVersion:undefined}
                       setActiveContractVersion={a.id==="contracts"?setActiveContractVersion:undefined}
-                      projectEstimates={(a.id==="billie"||a.id==="finn")?projectEstimates:undefined}
-                      setProjectEstimates={(a.id==="billie"||a.id==="finn")?setProjectEstimates:undefined}
+                      projectEstimates={a.id==="billie"?projectEstimates:undefined}
+                      setProjectEstimates={a.id==="billie"?setProjectEstimates:undefined}
                       activeEstimateVersion={a.id==="billie"?activeEstimateVersion:undefined}
                       setActiveEstimateVersion={a.id==="billie"?setActiveEstimateVersion:undefined}
-                      projectActuals={a.id==="finn"?projectActuals:undefined}
-                      setProjectActuals={a.id==="finn"?setProjectActuals:undefined}
+                      projectActuals={a.id==="billie"?projectActuals:undefined}
+                      setProjectActuals={a.id==="billie"?setProjectActuals:undefined}
                       projectCasting={a.id==="carrie"?projectCasting:undefined}
                       setProjectCasting={a.id==="carrie"?setProjectCasting:undefined}
                       getProjectCastingTables={a.id==="carrie"?getProjectCastingTables:undefined}
