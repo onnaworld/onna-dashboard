@@ -822,6 +822,7 @@ const cpsDefaultPhases = () => [
 ];
 
 const CPSConnie = React.forwardRef(function CPSConnieInner({ initialProject, initialPhases, onChangeProject, onChangePhases, onShareUrl }, fwdRef) {
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [project, setProjectRaw] = useState(() => initialProject || {
     name: "[Project Name]", client: "[Client Name]", startDate: "[Start Date]", deliveryDate: "[Delivery Date]", producer: "[Producer]"
   });
@@ -1748,6 +1749,7 @@ const newShot = (id, scene) => ({
 
 /* ======= MAIN COMPONENT ======= */
 function ShotListConnie({ initialProject, initialScenes, onChangeProject, onChangeScenes }) {
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [project, setProjectRaw] = useState(() => initialProject || {
     name: "[Project Name]", client: "[Client Name]", date: "[Date]", director: "[Director]", dop: "[DOP]"
   });
@@ -2793,6 +2795,7 @@ const SB_FIELDS = [
 ];
 
 function StoryboardConnie({ initialProject, initialFrames, onChangeProject, onChangeFrames }) {
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [frames, setFramesRaw] = useState(() => initialFrames || [
     mkFrame(), mkFrame(), mkFrame(), mkFrame(),
     mkFrame(), mkFrame(), mkFrame(), mkFrame(),
