@@ -18,7 +18,7 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
   const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
   const po=pageOffsets||{};
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
-  const LH_PAD=220;
+  const LH_PAD=90;
   const result=[];const total=doc.pages.length;
   for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
@@ -27,7 +27,7 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
     const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height+pad;const ctx=c.getContext("2d");
     ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
     ctx.drawImage(pgImg,0,pad);
-    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,45,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,45+lh+12);ctx.lineTo(c.width-40,45+lh+12);ctx.stroke();}
+    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,12,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,12+lh+8);ctx.lineTo(c.width-40,12+lh+8);ctx.stroke();}
     const pg=po[i]||{};const sOX=pg.signOffsetX!=null?pg.signOffsetX:(signOffsetX||0);const sOY=pg.signOffset!=null?pg.signOffset:(signOffset||0);const stOX=pg.stampOffsetX!=null?pg.stampOffsetX:(stampOffsetX||0);const stOY=pg.stampOffset!=null?pg.stampOffset:(stampOffset||0);
     if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80*(signScale||1),sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60+sOX,c.height-180+sOY,sw,sh);}
     if(wantStamp&&appliesTo(stampPages,i,total)&&stampImg){const sth=120*(stampScale||1),stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw+stOX,c.height-180+stOY,stw,sth);}
@@ -712,6 +712,7 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
   const [phases, setPhasesRaw] = useState(() => initialPhases || cpsDefaultPhases());
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [tab, setTab] = useState("timeline");
+  const [printAll, setPrintAll] = useState(false);
   const printRef = useRef(null);
 
   /* Undo system */
@@ -817,14 +818,7 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
     if (name) addPhase(name.toUpperCase());
   };
 
-  const exportPDF = () => {
-    const el = printRef.current; if (!el) return;
-    /* Clone content and sanitise: remove extension-injected elements & fix positioning */
-    const clone = el.cloneNode(true);
-    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"]').forEach(n=>n.remove());
-    /* Remove any iframes or shadow hosts injected by extensions */
-    clone.querySelectorAll('iframe,[style*="z-index: 2147483647"],[style*="z-index:2147483647"]').forEach(n=>n.remove());
-    const html = clone.innerHTML;
+  const sanitiseAndPrint = (html) => {
     let fontRules = "";
     try { for (const sheet of document.styleSheets) { try { for (const rule of sheet.cssRules) { if (rule.cssText && rule.cssText.startsWith("@font-face")) fontRules += rule.cssText + "\n"; } } catch(e){} } } catch(e){}
     const w = window.open("", "_blank");
@@ -835,8 +829,27 @@ ${fontRules}
 body{margin:0;padding:12mm;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;overflow:hidden}
 *{box-sizing:border-box}
 div[style*="position: relative"]{overflow:hidden}
+.page-break{page-break-before:always}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>`);
     w.document.write(html); w.document.write("</body></html>"); w.document.close(); setTimeout(() => w.print(), 600);
+  };
+  const cleanClone = (el) => {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"]').forEach(n=>n.remove());
+    clone.querySelectorAll('iframe,[style*="z-index: 2147483647"],[style*="z-index:2147483647"]').forEach(n=>n.remove());
+    return clone;
+  };
+  const exportPDF = () => {
+    const el = printRef.current; if (!el) return;
+    sanitiseAndPrint(cleanClone(el).innerHTML);
+  };
+  const exportAllPDF = () => {
+    setPrintAll(true);
+    setTimeout(() => {
+      const el = printRef.current; if (!el) { setPrintAll(false); return; }
+      sanitiseAndPrint(cleanClone(el).innerHTML);
+      setTimeout(() => setPrintAll(false), 100);
+    }, 200);
   };
 
   /* Stats */
@@ -873,9 +886,13 @@ div[style*="position: relative"]{overflow:hidden}
           onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f5f5f5"}>
           {"\u21A9"} UNDO
         </div>
-        <div onClick={exportPDF} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
+        <div onClick={exportPDF} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
+          onMouseEnter={e => e.target.style.background = "#555"} onMouseLeave={e => e.target.style.background = "#333"}>
+          EXPORT PAGE
+        </div>
+        <div onClick={exportAllPDF} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
           onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>
-          EXPORT PDF
+          EXPORT ALL
         </div>
       </div>
 
@@ -3755,7 +3772,7 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const signCY=natH-180+(po.signOffset!=null?po.signOffset:(config.signOffset||0));
   const stampCX=natW-60-stampW+(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0));
   const stampCY=natH-180+(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0));
-  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=45,LH_PAD=220;
+  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=12,LH_PAD=90;
   const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
   useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
   const onMouseDown=useCallback((target,e)=>{
@@ -3787,7 +3804,7 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const resizeHandle=(target)=><div onMouseDown={e=>onResizeDown(target,e)} style={{position:"absolute",right:-3,bottom:-3,width:10,height:10,cursor:"nwse-resize",background:"#0066cc",borderRadius:2,border:"1px solid #fff",zIndex:5}}/>;
   const padPx=showLetter?LH_PAD*scale:0;
   return <div ref={containerRef} style={{position:"relative",maxWidth:480,borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",background:"#fafafa",marginBottom:8,userSelect:"none"}}>
-    {showLetter&&<div style={{height:padPx,background:"#fff",position:"relative",width:"100%"}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto",zIndex:1,pointerEvents:"none"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+12)*scale,height:Math.max(1,2.5*scale),background:"#000",zIndex:1,pointerEvents:"none"}}/></div>}
+    {showLetter&&<div style={{height:padPx,background:"#fff",position:"relative",width:"100%"}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto",zIndex:1,pointerEvents:"none"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+8)*scale,height:Math.max(1,2.5*scale),background:"#000",zIndex:1,pointerEvents:"none"}}/></div>}
     <img src={pageImg} alt="page" onLoad={onBgLoad} style={{width:"100%",height:"auto",display:"block"}} draggable={false}/>
     {showSign&&<div id="_dpd_overlay_sign" style={{position:"absolute",left:signCX*scale,top:signCY*scale+padPx,zIndex:2}}><img src="/SIGN.png" alt="signature" draggable={false} onLoad={e=>setSignAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("sign",e)} style={{height:signH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("sign")}</div>}
     {showStamp&&<div id="_dpd_overlay_stamp" style={{position:"absolute",left:stampCX*scale,top:stampCY*scale+padPx,zIndex:2}}><img src="/STAMP.png" alt="stamp" draggable={false} onLoad={e=>setStampAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("stamp",e)} style={{height:stampH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("stamp")}</div>}
