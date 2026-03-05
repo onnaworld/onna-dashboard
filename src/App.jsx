@@ -868,7 +868,7 @@ ${PRINT_CLEANUP_CSS}
   const exportAllPDF = () => {
     setPrintTabs(new Set(["schedule","timeline","calendar"]));
     setTimeout(() => {
-      const el = printRef.current; if (!el) { setPrintAll(false); return; }
+      const el = printRef.current; if (!el) { setPrintTabs(null); return; }
       printViaIframe(cleanClone(el));
       setTimeout(() => setPrintTabs(null), 100);
     }, 200);
@@ -886,7 +886,7 @@ ${PRINT_CLEANUP_CSS}
       setPrintTabs(new Set(["schedule","timeline","calendar"]));
       await new Promise(r => setTimeout(r, 250));
       html = captureHtml();
-      setPrintAll(false);
+      setPrintTabs(null);
     } else {
       const prevTab = tab;
       setTab(mode);
