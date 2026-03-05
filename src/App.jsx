@@ -18,7 +18,7 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
   const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
   const po=pageOffsets||{};
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
-  const LH_PAD=180;
+  const LH_PAD=220;
   const result=[];const total=doc.pages.length;
   for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
@@ -38,10 +38,15 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
 
 // ─── Export doc preview pages to print/PDF ──────────────────────────────────
 const exportDocPreview=(preview)=>{
-  const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-  const idoc=iframe.contentDocument||iframe.contentWindow.document;
-  const detectImg=new Image();detectImg.src=preview.pages[0];const orient=detectImg.naturalWidth>detectImg.naturalHeight?"landscape":"portrait";idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;}div:last-child{page-break-after:auto;}img{width:100%;height:auto;display:block;}@media print{@page{margin:0;size:A4 ${orient};}}</style></head><body>${preview.pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
-  setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
+  const detectImg=new Image();detectImg.src=preview.pages[0];
+  const doExport=(orient)=>{
+    const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+    const idoc=iframe.contentDocument||iframe.contentWindow.document;
+    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;}div:last-child{page-break-after:auto;}img{width:100%;height:auto;display:block;}@media print{@page{margin:0;size:A4 ${orient};}}</style></head><body>${preview.pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+    setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
+  };
+  if(detectImg.naturalWidth>0){doExport(detectImg.naturalWidth>detectImg.naturalHeight?"landscape":"portrait");}
+  else{detectImg.onload=()=>doExport(detectImg.naturalWidth>detectImg.naturalHeight?"landscape":"portrait");}
 };
 
 // ─── CALL SHEET TEMPLATE ─────────────────────────────────────────────────────
@@ -3733,7 +3738,7 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const signCY=natH-180+(po.signOffset!=null?po.signOffset:(config.signOffset||0));
   const stampCX=natW-60-stampW+(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0));
   const stampCY=natH-180+(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0));
-  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=45,LH_PAD=180;
+  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=45,LH_PAD=220;
   const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
   useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
   const onMouseDown=useCallback((target,e)=>{
@@ -7294,8 +7299,32 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
                 cfg.wantLetterhead=arr.length>0||!isRemove;
               }else{cfg.wantLetterhead=isAdd;if(isAdd&&!cfg.letterPages)cfg.letterPages="first";}
             }
-            if(/\b(sign|signature)\b/i.test(input)){cfg.wantSign=isAdd;if(isAdd&&!cfg.signPages)cfg.signPages="last";}
-            if(/\b(stamp|seal)\b/i.test(input)){cfg.wantStamp=isAdd;if(isAdd&&!cfg.stampPages)cfg.stampPages="last";}
+            if(/\b(sign|signature)\b/i.test(input)){
+              if(isAdd&&targetPage!=null){
+                let cur=cfg.signPages||"last";let arr=[];const tot=cfg.originalDoc.pages.length;
+                if(cur==="all")arr=Array.from({length:tot},(_,i)=>i);else if(cur==="first")arr=[0];else if(cur==="last")arr=[tot-1];else if(Array.isArray(cur))arr=[...cur];else if(typeof cur==="number")arr=[cur];
+                if(!arr.includes(targetPage))arr.push(targetPage);
+                cfg.signPages=arr.length===tot?"all":arr.length===1?arr[0]:arr;cfg.wantSign=true;
+              }else if(isRemove&&targetPage!=null){
+                let cur=cfg.signPages||"last";let arr=[];const tot=cfg.originalDoc.pages.length;
+                if(cur==="all")arr=Array.from({length:tot},(_,i)=>i);else if(cur==="first")arr=[0];else if(cur==="last")arr=[tot-1];else if(Array.isArray(cur))arr=[...cur];else if(typeof cur==="number")arr=[cur];
+                arr=arr.filter(p=>p!==targetPage);
+                if(arr.length===0){cfg.wantSign=false;}else{cfg.signPages=arr.length===tot?"all":arr.length===1?arr[0]:arr;}
+              }else{cfg.wantSign=isAdd;if(isAdd&&!cfg.signPages)cfg.signPages="last";}
+            }
+            if(/\b(stamp|seal)\b/i.test(input)){
+              if(isAdd&&targetPage!=null){
+                let cur=cfg.stampPages||"last";let arr=[];const tot=cfg.originalDoc.pages.length;
+                if(cur==="all")arr=Array.from({length:tot},(_,i)=>i);else if(cur==="first")arr=[0];else if(cur==="last")arr=[tot-1];else if(Array.isArray(cur))arr=[...cur];else if(typeof cur==="number")arr=[cur];
+                if(!arr.includes(targetPage))arr.push(targetPage);
+                cfg.stampPages=arr.length===tot?"all":arr.length===1?arr[0]:arr;cfg.wantStamp=true;
+              }else if(isRemove&&targetPage!=null){
+                let cur=cfg.stampPages||"last";let arr=[];const tot=cfg.originalDoc.pages.length;
+                if(cur==="all")arr=Array.from({length:tot},(_,i)=>i);else if(cur==="first")arr=[0];else if(cur==="last")arr=[tot-1];else if(Array.isArray(cur))arr=[...cur];else if(typeof cur==="number")arr=[cur];
+                arr=arr.filter(p=>p!==targetPage);
+                if(arr.length===0){cfg.wantStamp=false;}else{cfg.stampPages=arr.length===tot?"all":arr.length===1?arr[0]:arr;}
+              }else{cfg.wantStamp=isAdd;if(isAdd&&!cfg.stampPages)cfg.stampPages="last";}
+            }
           }
           const newSignPages=_parsePageTarget(input,"sign");
           const newStampPages=_parsePageTarget(input,"stamp");
@@ -13024,23 +13053,41 @@ export default function OnnaDashboard() {
                 );
 
 
-                const statWidgets={"stats-0":{label:"Projects 2026",value:projects2026.length,sub:`${projects2026.filter(p=>p.status==="Active").length} active`},"stats-1":{label:"Revenue 2026",value:`AED ${(rev2026/1000).toFixed(0)}k`,sub:"all projects this year"},"stats-2":{label:"Profit 2026",value:`AED ${(profit2026/1000).toFixed(0)}k`,sub:`${rev2026?Math.round((profit2026/rev2026)*100):0}% margin`},"stats-3":{label:"Pipeline",value:apiLoading?"—":`AED ${(totalPipeline/1000).toFixed(0)}k`,sub:`${newCount} new leads`}};
-                const donutWidgets={"donut-0":{title:"Conversion",groups:stageGroups},"donut-1":{title:"By Category",groups:catGroups},"donut-2":{title:"By Location",groups:locGroups}};
 
                 return (
                   <div>
                     {/* Stats Row */}
-                    {/* Stats Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
+                      {[{label:"Projects 2026",value:projects2026.length,sub:projects2026.filter(p=>p.status==="Active").length+" active"},{label:"Revenue 2026",value:"AED "+(rev2026/1000).toFixed(0)+"k",sub:"all projects this year"},{label:"Profit 2026",value:"AED "+(profit2026/1000).toFixed(0)+"k",sub:(rev2026?Math.round((profit2026/rev2026)*100):0)+"% margin"},{label:"Pipeline",value:apiLoading?"\u2014":"AED "+(totalPipeline/1000).toFixed(0)+"k",sub:newCount+" new leads"}].map((s,i)=>(
+                        <div key={i} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
+                          <div style={{fontSize:11,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase",color:T.muted,marginBottom:10}}>{s.label}</div>
+                          <div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:s.sub?4:0}}>{s.value}</div>
+                          {s.sub&&<div style={{fontSize:12,color:T.sub}}>{s.sub}</div>}
+                        </div>
+                      ))}
                     </div>
                     {/* Donuts Row */}
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22,alignItems:"start"}}>
+                      <Donut title="Conversion" groups={stageGroups}/>
+                      <Donut title="By Category" groups={catGroups}/>
+                      <Donut title="By Location" groups={locGroups}/>
                     </div>
                     {/* Reminders Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
-                      {remindOrder.map(id=>{
-                        return null;
-                      })}
+                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
+                          <span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span>
+                        </div>
+                        {toContact.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>:toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)}
+                      </div>
+                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div>
+                          <span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span>
+                        </div>
+                        {toFollowUp.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>:toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)}
+                      </div>
                     </div>
                   </div>
                 ); })()}
