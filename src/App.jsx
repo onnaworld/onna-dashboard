@@ -3217,6 +3217,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const finishCReview = () => { if(setConniePendingReview) setConniePendingReview(null); if(onConnieReviewDone) onConnieReviewDone(); };
       const acceptCM = (m) => { if(!setConniePendingReview||!cpr) return; const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
       const declineCM = (m) => { if(!setConniePendingReview||!cpr) return; revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore); const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
+      const acceptCMs = (...ms) => { if(!setConniePendingReview||!cpr) return; const s=new Set(ms); const next = cpr.markers.filter(x=>!s.has(x)); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
+      const declineCMs = (...ms) => { if(!setConniePendingReview||!cpr) return; ms.forEach(m=>revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore)); const s=new Set(ms); const next = cpr.markers.filter(x=>!s.has(x)); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
       const acceptAllC = () => { if(!cpr) return; finishCReview(); };
       const declineAllC = () => { if(!cpr) return; cpr.markers.forEach(m => revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore)); finishCReview(); };
       const cRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
@@ -3310,8 +3312,8 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"10px 32px 14px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>WEATHER{(hasCM("cs:scalar:weatherSummary")||hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC")||hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherSunrise")||hasCM("cs:weatherHourly"))&&<span><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&acceptCM(m));}} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&declineCM(m));}} style={cRevBtn("decline")}>{"\u2715"}</button></span>}</div>
               <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,display:"flex",alignItems:"center",gap:2}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></span>{hasCM("cs:scalar:weatherSummary")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:weatherSummary")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSummary")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
-                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><span style={hasCM("cs:scalar:weatherHighC")?cHL:{}}><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherHighC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherHighC");acceptCM("cs:scalar:weatherHighF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherHighC");declineCM("cs:scalar:weatherHighF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><span style={hasCM("cs:scalar:weatherLowC")?cHL:{}}><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherLowC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherLowC");acceptCM("cs:scalar:weatherLowF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherLowC");declineCM("cs:scalar:weatherLowF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherHighC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F{hasCM("cs:scalar:weatherHighC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0,marginLeft:4}}><button onClick={()=>acceptCMs("cs:scalar:weatherHighC","cs:scalar:weatherHighF")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCMs("cs:scalar:weatherHighC","cs:scalar:weatherHighF")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherLowC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F{hasCM("cs:scalar:weatherLowC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0,marginLeft:4}}><button onClick={()=>acceptCMs("cs:scalar:weatherLowC","cs:scalar:weatherLowF")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCMs("cs:scalar:weatherLowC","cs:scalar:weatherLowF")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
                 <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><span style={hasCM("cs:scalar:weatherRealFeelHighC")?cHL:{}}><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherRealFeelHighC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherRealFeelHighC");acceptCM("cs:scalar:weatherRealFeelHighF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherRealFeelHighC");declineCM("cs:scalar:weatherRealFeelHighF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
@@ -5180,6 +5182,27 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
       // Export / PDF intent — uses exact same DOM clone as BtnExport button
       if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+        // Check for missing fields first
+        const csVersions_ex=callSheetStore?.[project.id]||[];
+        const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
+        const csData_ex=csVersions_ex[vIdx_ex];
+        if(!csData_ex){setMsgs([...history,{role:"assistant",content:"No call sheet found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
+        const missing=[];
+        if(!csData_ex.shootName) missing.push("Shoot Name");
+        if(!csData_ex.date) missing.push("Date");
+        if(!csData_ex.dayNumber) missing.push("Day Number");
+        if(!csData_ex.productionContacts) missing.push("Production Contacts");
+        const emptyVenues=(csData_ex.venueRows||[]).filter(v=>!v.value).map(v=>v.label);
+        if(emptyVenues.length) missing.push(...emptyVenues.map(v=>`Venue: ${v}`));
+        const emptySchedule=(csData_ex.schedule||[]).filter(s=>!s.time&&!s.activity).length;
+        if(emptySchedule===(csData_ex.schedule||[]).length&&emptySchedule>0) missing.push("Schedule (all rows empty)");
+        const emptyCrew=[];
+        (csData_ex.departments||[]).forEach(d=>{const unfilled=d.crew.filter(c=>!c.name);if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`);});
+        if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
+        if(missing.length>0){
+          setMsgs([...history,{role:"assistant",content:`⚠️ Are you sure you want to export? You're missing information on this call sheet.\n\nSay "yes" to export anyway, or ask me "what's missing" for a full breakdown.`,_pendingExport:{csData:csData_ex}}]);
+          setLoading(false);setMood("idle");return;
+        }
         const el=document.getElementById("onna-cs-print");
         if(el){
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
@@ -6052,6 +6075,27 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
       // Export / PDF intent — uses exact same DOM clone as BtnExport
       if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+        // Check for missing fields first
+        const raVersions_ex=riskAssessmentStore?.[project.id]||[];
+        const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
+        const ver_ex=raVersions_ex[vIdx_ex];
+        if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
+        const _missing=[];
+        if(!ver_ex.shootName) _missing.push("Shoot Name");
+        if(!ver_ex.shootDate) _missing.push("Shoot Date");
+        if(!ver_ex.locations) _missing.push("Locations");
+        if(!ver_ex.crewOnSet) _missing.push("Crew on Set");
+        if(!ver_ex.timing) _missing.push("Timing");
+        if(!(ver_ex.sections||[]).length) _missing.push("Risk Sections (none added)");
+        (ver_ex.sections||[]).forEach(s=>{const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);});});
+        if(!(ver_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
+        if(!(ver_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
+        if(!(ver_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
+        if(_missing.length>0){
+          const warnMsg=`Before exporting, I noticed the following fields are missing or incomplete:\n\n${_missing.map(m=>`- ${m}`).join("\n")}\n\nAre you sure you want to export as-is? Type **"yes, export"** to proceed, or let me know what you'd like to fill in first.`;
+          setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
+          setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
+        }
         const _raEl=document.getElementById("onna-ra-print");
         if(_raEl){
           const _raC=_raEl.cloneNode(true);_raC.querySelectorAll("button").forEach(b=>b.remove());_raC.querySelectorAll("input[type=file]").forEach(b=>b.remove());
