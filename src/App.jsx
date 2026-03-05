@@ -11599,16 +11599,15 @@ export default function OnnaDashboard() {
       );
     }
 
-    // Schedule section — sub-nav with Production Schedule, Pre-Production, Post-Production
+    // Schedule section — Creative Production Schedule + Shot List
     if (projectSection==="Schedule") {
       const SCHED_CARDS = [
-        {key:"production",    emoji:"🎬", label:"Production Schedule"},
-        {key:"preproduction", emoji:"📝", label:"Pre-Production"},
-        {key:"postproduction",emoji:"🎞️", label:"Post-Production"},
+        {key:"cps",      emoji:"🎬", label:"Creative Production Schedule"},
+        {key:"shotlist",  emoji:"📷", label:"Shot List"},
       ];
 
       if (!scheduleSubSection) return (
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           {SCHED_CARDS.map(c=>(
             <div key={c.key} onClick={()=>{setScheduleSubSection(c.key);pushNav("Projects",p,"Schedule",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
@@ -11623,30 +11622,89 @@ export default function OnnaDashboard() {
 
       const schedBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Schedule</button>;
 
-      if (scheduleSubSection==="production") return (
-        <div>
-          {schedBack}
-          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Production Schedule</div>
-          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Key dates, shoot schedule, and production timeline.</p>
-          <textarea value={projectNotes[p.id+"_prodsched"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_prodsched"]:e.target.value}))} rows={16} placeholder="Add production schedule, shoot days, key dates…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
-        </div>
-      );
+      if (scheduleSubSection==="cps") {
+        const cpsVersions = cpsStore[p.id] || [];
+        const addCPSNew = () => {
+          const newId = Date.now();
+          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", startDate: "[Start Date]", deliveryDate: "[Delivery Date]", producer: "[Producer]" };
+          const newCPS = { id: newId, label: `V${cpsVersions.length+1}`, project: proj, phases: cpsDefaultPhases() };
+          setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newCPS); return store; });
+        };
+        const deleteCPS = (idx) => {
+          if (!confirm("Delete this CPS? This will be moved to trash.")) return;
+          const cpsData = JSON.parse(JSON.stringify((cpsStore[p.id]||[])[idx]));
+          if (cpsData) archiveItem('cps', { projectId: p.id, cps: cpsData });
+          setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
+          setActiveCPSVersion(null);
+        };
 
-      if (scheduleSubSection==="preproduction") return (
-        <div>
-          {schedBack}
-          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Pre-Production</div>
-          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Planning notes, recces, meetings, and preparation tasks.</p>
-          <textarea value={projectNotes[p.id+"_preprod"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_preprod"]:e.target.value}))} rows={16} placeholder="Add pre-production notes, planning tasks, meeting notes…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
-        </div>
-      );
+        // List view
+        if (activeCPSVersion === null || cpsVersions.length === 0) {
+          return (
+            <div>
+              {schedBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Creative Production Schedule</div>
+                <button onClick={addCPSNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New CPS</button>
+              </div>
+              {cpsVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No schedules yet. Click "+ New CPS" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {cpsVersions.map((cps,i) => {
+                  const totalTasks = (cps.phases||[]).reduce((s,ph) => s + (ph.tasks||[]).length, 0);
+                  const completeTasks = (cps.phases||[]).reduce((s,ph) => s + (ph.tasks||[]).filter(t=>t.status==="Complete").length, 0);
+                  const pct = totalTasks > 0 ? Math.round((completeTasks/totalTasks)*100) : 0;
+                  return (
+                    <div key={cps.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveCPSVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CPS</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:pct>0?"#e8f5e9":"#f5f5f5",color:pct>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{totalTasks} tasks · {pct}% complete</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{cps.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{cps.project?.name||"No project name"}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>deleteCPS(i)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>×</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
 
-      if (scheduleSubSection==="postproduction") return (
+        // Detail view — render CPSConnie
+        const cpsIdx = activeCPSVersion;
+        const cpsData = cpsVersions[cpsIdx];
+        if (!cpsData) { setActiveCPSVersion(null); return null; }
+
+        const cpsBack = <button onClick={()=>setActiveCPSVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to CPS list</button>;
+
+        return (
+          <div>
+            {cpsBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <input value={cpsData.label||""} onChange={e=>{setCpsStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][cpsIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+            </div>
+            <CPSConnie
+              initialProject={cpsData.project}
+              initialPhases={cpsData.phases}
+              onChangeProject={proj => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].project = proj; return s; })}
+              onChangePhases={phases => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].phases = phases; return s; })}
+            />
+          </div>
+        );
+      }
+
+      if (scheduleSubSection==="shotlist") return (
         <div>
           {schedBack}
-          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Post-Production</div>
-          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Edit notes, delivery specs, feedback rounds, and post timeline.</p>
-          <textarea value={projectNotes[p.id+"_postprod"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_postprod"]:e.target.value}))} rows={16} placeholder="Add post-production notes, edit feedback, delivery specs…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Shot List</div>
+          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Camera setups, shot descriptions, angles, and lens notes.</p>
+          <textarea value={projectNotes[p.id+"_shotlist"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_shotlist"]:e.target.value}))} rows={16} placeholder="Add shot descriptions, camera setups, angles, lenses…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
         </div>
       );
 
