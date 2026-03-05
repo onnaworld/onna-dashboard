@@ -5003,15 +5003,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
       const _csLastMsg = history[history.length-1];
       if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input)){
-        const _csEl2=document.getElementById("onna-cs-print");
-        if(_csEl2){
-          const _csClone2=_csEl2.cloneNode(true);_csClone2.querySelectorAll("button").forEach(b=>b.remove());_csClone2.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone2.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
-          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const _csDoc2=iframe.contentDocument;_csDoc2.open();_csDoc2.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_csDoc2.close();
-          _csDoc2.body.appendChild(_csDoc2.adoptNode(_csClone2));setTimeout(()=>{_csDoc2.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-        }else{
-          printCallSheetPDF(_csLastMsg._pendingExport.csData);
-        }
+        printCallSheetPDF(_csLastMsg._pendingExport.csData);
         setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -5021,6 +5013,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const csVersions_ex=callSheetStore?.[project.id]||[];
         const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
         const csData_ex=csVersions_ex[vIdx_ex];
+        if(!csData_ex){setMsgs([...history,{role:"assistant",content:"No call sheet found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
 
         // Gather missing fields
         const missing=[];
@@ -5043,15 +5036,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
 
-        const _csEl=document.getElementById("onna-cs-print");
-        if(_csEl){
-          const _csClone=_csEl.cloneNode(true);_csClone.querySelectorAll("button").forEach(b=>b.remove());_csClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
-          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const _csDoc=iframe.contentDocument;_csDoc.open();_csDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_csDoc.close();
-          _csDoc.body.appendChild(_csDoc.adoptNode(_csClone));setTimeout(()=>{_csDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-        }else{
-          printCallSheetPDF(csData_ex);
-        }
+        printCallSheetPDF(csData_ex);
         setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -5339,18 +5324,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
         }else{
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
-        }
-        // Post-response export trigger: if user asked to export but platform check missed it
-        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
-          const _csEl3=document.getElementById("onna-cs-print");
-          if(_csEl3){
-            const _csClone3=_csEl3.cloneNode(true);_csClone3.querySelectorAll("button").forEach(b=>b.remove());_csClone3.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone3.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
-            const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const _d3=iframe.contentDocument;_d3.open();_d3.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d3.close();
-            _d3.body.appendChild(_d3.adoptNode(_csClone3));setTimeout(()=>{_d3.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-          }else{
-            const _csV3=callSheetStore?.[project.id]||[];const _vi3=Math.min(vIdx,_csV3.length-1);if(_vi3>=0&&_csV3[_vi3])printCallSheetPDF(_csV3[_vi3]);
-          }
         }
         setMood("excited");setTimeout(()=>setMood("idle"),2500);
       }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
@@ -5878,7 +5851,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
       const lastMsg_ex = history[history.length-1];
       if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
-        {const _raEl=document.getElementById("onna-ra-print");if(_raEl){const _raClone=_raEl.cloneNode(true);_raClone.querySelectorAll("button").forEach(b=>b.remove());_raClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const _raDoc=iframe.contentDocument;_raDoc.open();_raDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raDoc.close();_raDoc.body.appendChild(_raDoc.adoptNode(_raClone));setTimeout(()=>{_raDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}else{printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);}}
+        printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);
         setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg_ex._pendingExport.label}) \u2014 save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -5907,7 +5880,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
           setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
         }
-        {const _raEl=document.getElementById("onna-ra-print");if(_raEl){const _raClone=_raEl.cloneNode(true);_raClone.querySelectorAll("button").forEach(b=>b.remove());_raClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const _raDoc=iframe.contentDocument;_raDoc.open();_raDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raDoc.close();_raDoc.body.appendChild(_raDoc.adoptNode(_raClone));setTimeout(()=>{_raDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);}else{printRiskAssessmentPDF(ver_ex);}}
+        printRiskAssessmentPDF(ver_ex);
         setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} — save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -6024,18 +5997,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
         }else{
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
-        }
-        // Post-response export trigger: if user asked to export but platform check missed it
-        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
-          const _raEl3=document.getElementById("onna-ra-print");
-          if(_raEl3){
-            const _raClone3=_raEl3.cloneNode(true);_raClone3.querySelectorAll("button").forEach(b=>b.remove());_raClone3.querySelectorAll("input[type=file]").forEach(b=>b.remove());
-            const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const _raDoc3=iframe.contentDocument;_raDoc3.open();_raDoc3.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Avenir,sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raDoc3.close();
-            _raDoc3.body.appendChild(_raDoc3.adoptNode(_raClone3));setTimeout(()=>{_raDoc3.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-          }else{
-            const _raV3=riskAssessmentStore?.[project.id]||[];const _rvi3=Math.min(vIdx,_raV3.length-1);if(_rvi3>=0&&_raV3[_rvi3])printRiskAssessmentPDF(_raV3[_rvi3]);
-          }
         }
         setMood("excited");setTimeout(()=>setMood("idle"),2500);
       }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
@@ -10493,17 +10454,19 @@ export default function OnnaDashboard() {
           });
         };
 
+        const [dietaryTab,setDietaryTab] = useState("dietary");
         // Summary counts
         const dietCounts={};
         (dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
         const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
         const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
 
-        const dietExportPDF = () => {
-          const el=document.getElementById("onna-diet-print");if(!el)return;
+        const dietExportPDF = (elId,orient) => {
+          const _eid=elId||"onna-diet-print";const _ori=orient||"landscape";
+          const el=document.getElementById(_eid);if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
           const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4 landscape;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4 ${_ori};}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
           doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
 
@@ -10512,13 +10475,16 @@ export default function OnnaDashboard() {
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
               <button onClick={()=>setActiveDietaryVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Dietary Lists</button>
               <div style={{flex:1}}/>
-              <button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>
-              <BtnExport onClick={dietExportPDF}>Export PDF</BtnExport>
+              {dietaryTab==="dietary"&&<button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>}
+              <BtnExport onClick={()=>dietExportPDF(dietaryTab==="menu"?"onna-menu-print":"onna-diet-print",dietaryTab==="menu"?"portrait":"landscape")}>Export PDF</BtnExport>
             </div>
             <div style={{marginBottom:12}}>
               <input value={dietData.label||""} onChange={e=>dietU("label",e.target.value)} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,width:"100%"}} placeholder="Dietary List Name"/>
             </div>
-            <div id="onna-diet-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
+            <div style={{display:"flex",gap:0,marginBottom:18,borderBottom:`1px solid ${T.border}`}}>
+              {[{id:"dietary",label:"Dietary"},{id:"menu",label:"Menu"}].map(tab=><button key={tab.id} onClick={()=>setDietaryTab(tab.id)} style={{padding:"8px 18px",fontSize:12,fontWeight:dietaryTab===tab.id?700:500,color:dietaryTab===tab.id?T.text:T.muted,background:"none",border:"none",borderBottom:dietaryTab===tab.id?`2px solid ${T.text}`:"2px solid transparent",cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{tab.label}</button>)}
+            </div>
+            {dietaryTab==="dietary"&&<div id="onna-diet-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
               <div style={{maxWidth:1123,margin:"0 auto",background:"#FFFFFF"}}>
                 {/* Header */}
                 <div style={{padding:"40px 40px 0"}}>
@@ -10591,24 +10557,6 @@ export default function OnnaDashboard() {
                   {(dietData.people||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No crew listed — click Sync from Call Sheet or + ADD ROW</div>}
                 </div>
 
-                {/* Menu */}
-                <div style={{padding:"14px 32px",marginBottom:16}}>
-                  <div style={{display:"flex",background:"#000",padding:"4px 8px",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase"}}>MENU</span>
-                    <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];if(!d.menu)d.menu=[];d.menu.push({id:Date.now(),category:"",items:""});arr[dietIdx]=d;store[p.id]=arr;return store;});}} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD SECTION</span>
-                  </div>
-                  {(dietData.menu||[]).map((m,mi)=>(
-                    <div key={m.id} style={{borderBottom:"1px solid #f0f0f0",padding:"8px 0"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                        <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu=(d.menu||[]).filter((_,j)=>j!==mi);arr[dietIdx]=d;store[p.id]=arr;return store;});}} style={{cursor:"pointer",fontSize:10,color:"#ddd",flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
-                        <input value={m.category} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu[mi].category=v;arr[dietIdx]=d;store[p.id]=arr;return store;});}} placeholder="e.g. Starters, Mains, Desserts, Drinks" style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",background:"transparent",border:"none",outline:"none",color:"#000",padding:0,width:"100%"}}/>
-                      </div>
-                      <textarea value={m.items} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu[mi].items=v;arr[dietIdx]=d;store[p.id]=arr;return store;});}} placeholder="List menu items here..." rows={3} style={{fontFamily:CS_FONT,fontSize:10,color:"#333",background:"#fafafa",border:"1px solid #eee",borderRadius:4,padding:"6px 8px",width:"100%",boxSizing:"border-box",resize:"vertical",outline:"none",lineHeight:1.6}}/>
-                    </div>
-                  ))}
-                  {(dietData.menu||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 8px",fontStyle:"italic",borderBottom:"1px solid #f0f0f0"}}>No menu added yet — click + ADD SECTION above</div>}
-                </div>
-
                 {/* Footer */}
                 <div style={{padding:"0 32px 32px"}}>
                   <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
@@ -10617,7 +10565,45 @@ export default function OnnaDashboard() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>}
+            {dietaryTab==="menu"&&<div id="onna-menu-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
+              <div style={{maxWidth:800,margin:"0 auto",background:"#FFFFFF"}}>
+                <div style={{padding:"40px 40px 0"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <CSLogoSlot label="Production Logo" image={dietData.productionLogo} onUpload={v=>dietU("productionLogo",v)} onRemove={()=>dietU("productionLogo",null)}/>
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3}}>
+                      <CSLogoSlot label="Agency Logo" image={dietData.agencyLogo} onUpload={v=>dietU("agencyLogo",v)} onRemove={()=>dietU("agencyLogo",null)}/>
+                      <CSLogoSlot label="Client Logo" image={dietData.clientLogo} onUpload={v=>dietU("clientLogo",v)} onRemove={()=>dietU("clientLogo",null)}/>
+                    </div>
+                  </div>
+                </div>
+                <div style={{padding:"20px 40px 10px",textAlign:"center"}}>
+                  <div style={{fontFamily:CS_FONT,fontSize:22,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:"#000"}}>MENU</div>
+                  <div style={{fontFamily:CS_FONT,fontSize:10,color:"#666",marginTop:4,letterSpacing:0.5}}>{dietData.project?.name||""}{dietData.project?.date?" \u2014 "+dietData.project.date:""}</div>
+                </div>
+                <div style={{padding:"14px 40px",marginBottom:16}}>
+                  <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                    <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];if(!d.menu)d.menu=[];d.menu.push({id:Date.now(),category:"",items:""});arr[dietIdx]=d;store[p.id]=arr;return store;});}} style={{fontFamily:CS_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:0.5,fontWeight:600}} onMouseEnter={e=>e.target.style.color="#000"} onMouseLeave={e=>e.target.style.color="#999"}>+ ADD SECTION</span>
+                  </div>
+                  {(dietData.menu||[]).map((m,mi)=>(
+                    <div key={m.id} style={{marginBottom:18}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                        <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu=(d.menu||[]).filter((_,j)=>j!==mi);arr[dietIdx]=d;store[p.id]=arr;return store;});}} style={{cursor:"pointer",fontSize:10,color:"#ddd",flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>\u00d7</span>
+                        <input value={m.category} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu[mi].category=v;arr[dietIdx]=d;store[p.id]=arr;return store;});}} placeholder="e.g. Starters, Mains, Desserts, Drinks" style={{fontFamily:CS_FONT,fontSize:11,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",background:"transparent",border:"none",outline:"none",color:"#000",padding:0,width:"100%",borderBottom:"1px solid #eee",paddingBottom:4}}/>
+                      </div>
+                      <textarea value={m.items} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.menu[mi].items=v;arr[dietIdx]=d;store[p.id]=arr;return store;});}} placeholder="List menu items here..." rows={4} style={{fontFamily:CS_FONT,fontSize:10,color:"#333",background:"#fafafa",border:"1px solid #eee",borderRadius:4,padding:"8px 10px",width:"100%",boxSizing:"border-box",resize:"vertical",outline:"none",lineHeight:1.7}}/>
+                    </div>
+                  ))}
+                  {(dietData.menu||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:10,color:"#ccc",letterSpacing:0.5,padding:"24px 8px",fontStyle:"italic",textAlign:"center"}}>No menu added yet \u2014 click + ADD SECTION above</div>}
+                </div>
+                <div style={{padding:"0 40px 40px"}}>
+                  <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+                    <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>}
           </div>
         );
       }
