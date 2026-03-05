@@ -5271,9 +5271,9 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 </div>
               </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
-                <div style={{display:"flex",alignItems:"center",gap:2,position:"relative",...(hasCM("cs:scalar:weatherSunrise")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/>{hasCM("cs:scalar:weatherSunrise")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:weatherSunrise")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSunrise")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-                <div style={{display:"flex",alignItems:"center",gap:2,justifyContent:"center",position:"relative",...(hasCM("cs:scalar:weatherSunset")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/>{hasCM("cs:scalar:weatherSunset")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:weatherSunset")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSunset")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-                <div style={{display:"flex",alignItems:"center",gap:2,justifyContent:"flex-end",position:"relative",...(hasCM("cs:scalar:weatherBlueHour")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/>{hasCM("cs:scalar:weatherBlueHour")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:weatherBlueHour")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherBlueHour")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherSunrise")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
+                <div style={{display:"flex",alignItems:"center",gap:2,justifyContent:"center",...(hasCM("cs:scalar:weatherSunset")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
+                <div style={{display:"flex",alignItems:"center",gap:2,justifyContent:"flex-end",...(hasCM("cs:scalar:weatherBlueHour")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
               </div>
               </div>
             {/* INVOICING */}
@@ -9514,7 +9514,8 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onArchive})
 
   const updateContent = () => {
     if (!selectedNote||!editorRef.current) return;
-    setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:editorRef.current.innerHTML,updatedAt:Date.now()}:n));
+    const html=editorRef.current.innerHTML;
+    setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:html,updatedAt:Date.now()}:n));
   };
   const updateTitle = (val) => {
     setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,title:val,updatedAt:Date.now()}:n));
