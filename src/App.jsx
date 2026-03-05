@@ -1102,6 +1102,7 @@ div[style*="position: relative"]{overflow:hidden}
         </>}
 
         {/* ═══ TIMELINE TAB ═══ */}
+        {printAll && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CPS_F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>TIMELINE</span></div>}
         {(tab === "timeline" || printAll) && (() => {
           /* Parse dates from tasks to build timeline */
           const parseDate = (str) => {
@@ -1288,6 +1289,7 @@ div[style*="position: relative"]{overflow:hidden}
         })()}
 
         {/* ═══ CALENDAR TAB ═══ */}
+        {printAll && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CPS_F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>CALENDAR</span></div>}
         {(tab === "calendar" || printAll) && (() => {
           const parseDate = (str) => {
             if (!str || str.startsWith("[")) return null;
