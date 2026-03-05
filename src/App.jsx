@@ -951,7 +951,7 @@ div[style*="position: relative"]{overflow:hidden}
         </div>
 
         {/* \u2550\u2550\u2550 SCHEDULE TAB \u2550\u2550\u2550 */}
-        {tab === "schedule" && <>
+        {(tab === "schedule" || printAll) && <>
         {/* Progress bar */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -1102,7 +1102,7 @@ div[style*="position: relative"]{overflow:hidden}
         </>}
 
         {/* ═══ TIMELINE TAB ═══ */}
-        {tab === "timeline" && (() => {
+        {(tab === "timeline" || printAll) && (() => {
           /* Parse dates from tasks to build timeline */
           const parseDate = (str) => {
             if (!str || str.startsWith("[")) return null;
@@ -1288,7 +1288,7 @@ div[style*="position: relative"]{overflow:hidden}
         })()}
 
         {/* ═══ CALENDAR TAB ═══ */}
-        {tab === "calendar" && (() => {
+        {(tab === "calendar" || printAll) && (() => {
           const parseDate = (str) => {
             if (!str || str.startsWith("[")) return null;
             const parts = str.split("/");
@@ -1586,10 +1586,24 @@ function _applyRevert(ver, marker, preSnapshot) {
     const k = marker.slice(13); if(!ver.emergency) ver.emergency={}; ver.emergency[k] = preSnapshot.emergency?.[k] || "";
   } else if (marker.startsWith("cs:invoicing.")) {
     const k = marker.slice(13); if(!ver.invoicing) ver.invoicing={}; ver.invoicing[k] = preSnapshot.invoicing?.[k] || "";
-  } else if (marker === "cs:schedule" || marker.startsWith("cs:scheduleRow:")) {
+  } else if (marker === "cs:schedule") {
     ver.schedule = preSnapshot.schedule ? JSON.parse(JSON.stringify(preSnapshot.schedule)) : [];
-  } else if (marker === "cs:venueRows" || marker.startsWith("cs:venueRow:")) {
+  } else if (marker.startsWith("cs:scheduleRow:")) {
+    const ri = parseInt(marker.split(":")[2],10);
+    if(!isNaN(ri)) {
+      const preSchedule = preSnapshot.schedule ? JSON.parse(JSON.stringify(preSnapshot.schedule)) : [];
+      if(ri < preSchedule.length && ri < (ver.schedule||[]).length) ver.schedule[ri] = preSchedule[ri];
+      else if(ri >= preSchedule.length && ri < (ver.schedule||[]).length) ver.schedule.splice(ri,1);
+    }
+  } else if (marker === "cs:venueRows") {
     ver.venueRows = preSnapshot.venueRows ? JSON.parse(JSON.stringify(preSnapshot.venueRows)) : [];
+  } else if (marker.startsWith("cs:venueRow:")) {
+    const label = marker.slice(12);
+    const preRow = (preSnapshot.venueRows||[]).find(r=>r.label.toUpperCase()===label);
+    const curIdx = (ver.venueRows||[]).findIndex(r=>r.label.toUpperCase()===label);
+    if(preRow && curIdx>=0) ver.venueRows[curIdx] = JSON.parse(JSON.stringify(preRow));
+    else if(!preRow && curIdx>=0) ver.venueRows.splice(curIdx,1);
+    else if(preRow && curIdx<0) { /* row was removed, restore it */ if(!ver.venueRows) ver.venueRows=[]; ver.venueRows.push(JSON.parse(JSON.stringify(preRow))); }
   } else if (marker === "cs:emergencyNumbers") {
     ver.emergencyNumbers = preSnapshot.emergencyNumbers ? JSON.parse(JSON.stringify(preSnapshot.emergencyNumbers)) : [];
   } else if (marker.startsWith("cs:crew:")) {
@@ -4181,7 +4195,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const dietUpdatePerson=(i,key,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietAddPerson=()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietDeletePerson=(i)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[projectId]=arr;return store;});};
-      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found.");return;}const latestCS=csVersions[csVersions.length-1];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();const csNames=new Set(pulled.map(pr=>pr.name));const existingMap={};d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});const newPeople=[];pulled.forEach(pr=>{const existing=existingMap[pr.name];if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}});d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});d.people=newPeople;arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=prompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){alert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();const csNames=new Set(pulled.map(pr=>pr.name));const existingMap={};d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});const newPeople=[];pulled.forEach(pr=>{const existing=existingMap[pr.name];if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}});d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});d.people=newPeople;arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
@@ -4396,7 +4410,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* PROTOCOL */}
             <div style={{padding:"10px 32px 10px 48px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>PROTOCOL ON SET{hasCM("cs:scalar:protocol")&&<span><button onClick={()=>acceptCM("cs:scalar:protocol")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:protocol")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
             {/* EMERGENCY */}
-            <div style={{padding:"10px 32px 10px 48px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4,position:"relative",...(hasCM("cs:scalar:emergencyDialPrefix")?cHL:{})}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold isPlaceholder alwaysYellow style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/>{hasCM("cs:scalar:emergencyDialPrefix")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} isPlaceholder alwaysYellow style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold isPlaceholder alwaysYellow style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",...(hasCM("cs:emergency.hospital")?cHL:{})}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} isPlaceholder alwaysYellow style={{fontSize:11}}/>{hasCM("cs:emergency.hospital")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",...(hasCM("cs:emergency.police")?cHL:{})}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} isPlaceholder alwaysYellow style={{fontSize:11}}/>{hasCM("cs:emergency.police")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
+            <div style={{padding:"10px 32px 10px 48px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4,position:"relative",...(hasCM("cs:scalar:emergencyDialPrefix")?cHL:{})}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold isPlaceholder alwaysYellow style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/>{hasCM("cs:scalar:emergencyDialPrefix")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,position:"relative",...(hasCM("cs:emergencyNumbers")?cHL:{})}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} isPlaceholder alwaysYellow style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold isPlaceholder alwaysYellow style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",...(hasCM("cs:emergency.hospital")?cHL:{})}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} isPlaceholder alwaysYellow style={{fontSize:11}}/>{hasCM("cs:emergency.hospital")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",...(hasCM("cs:emergency.police")?cHL:{})}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} isPlaceholder alwaysYellow style={{fontSize:11}}/>{hasCM("cs:emergency.police")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
             {/* FOOTER */}
             <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
           </div>
@@ -7277,6 +7291,33 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
         return null;
       };
+      // ── Handle pending page selection for multi-page doc ──
+      if(codyPendingRef.current&&codyPendingRef.current.step==="doc_page_select"){
+        const p=codyPendingRef.current;codyPendingRef.current=null;
+        setMsgs(history);setInput("");setLoading(true);setMood("talking");
+        try{
+          const allPages=/\b(all|every|both)\s+page/i.test(input);
+          const signPages=_parsePageTarget(input,"sign");
+          const stampPages=_parsePageTarget(input,"stamp");
+          const letterPages=_parsePageTarget(input,"letter");
+          // Generic page target (no per-element keyword) applies to all requested elements
+          let genericPage=null;
+          if(!signPages&&!stampPages&&!letterPages&&!allPages){
+            const pgM=input.match(/\bpage\s+(\d+(?:\s*(?:and|,|&)\s*\d+)*)\b/i);
+            if(pgM){const nums=pgM[1].match(/\d+/g).map(n=>parseInt(n,10)-1);genericPage=nums.length===1?nums[0]:nums;}
+            else if(/\b(first|1st)\s+page/i.test(input))genericPage="first";
+            else if(/\b(last|final)\s+page/i.test(input))genericPage="last";
+          }
+          const resolve=(specific,generic,fallback)=>allPages?"all":(specific!=null?specific:(generic!=null?generic:fallback));
+          const cfg={originalDoc:p.doc,wantSign:p.wantSign,wantStamp:p.wantStamp,wantLetterhead:p.wantLetterhead,signPages:p.wantSign?resolve(signPages,genericPage,"last"):undefined,stampPages:p.wantStamp?resolve(stampPages,genericPage,"last"):undefined,letterPages:p.wantLetterhead?resolve(letterPages,genericPage,"first"):undefined,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
+          const result=await processDocSignStamp(p.doc,cfg);
+          codyDocConfigRef.current=cfg;
+          const actions=[p.wantLetterhead?"company letterhead":null,p.wantSign?"signature":null,p.wantStamp?"company stamp":null].filter(Boolean).join(", ");
+          setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions} to your document.\n\nYou can adjust: "Move signature up/down" \u00b7 "Add letterhead to page 2" \u00b7 "Apply to all pages" \u00b7 Or drag to reposition`,_docPreview:result,_docConfig:cfg}]);
+          setCodyUploadedDoc(null);setMood("excited");setTimeout(()=>setMood("idle"),2500);
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Oops: ${err.message}`}]);setMood("idle");}
+        setLoading(false);return;
+      }
       // ── Adjustment intent (move up/down, change pages) ──
       const isAdjust=codyDocConfigRef.current&&(/\bmove\b.*\b(up|higher|down|lower)\b/i.test(input)||/\b(all|every|both)\s+page/i.test(input)||/\bpage\s+\d+/i.test(input)||/\b(first|1st|last|final|second|third|fourth|fifth|2nd|3rd|4th|5th)\s+page/i.test(input)||/\b(add|remove|include|exclude)\b.*\b(letterhead|company letter|signature|sign|stamp|seal)\b/i.test(input)||/\b(letterhead|company letter|signature|sign|stamp|seal)\b.*\b(to|from|on)\s+(page\s+\d+|all|every|both|first|last)\b/i.test(input));
       if(isAdjust){
@@ -7371,13 +7412,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const wantStamp=/\b(stamp|seal)\b/i.test(input);
         const wantLetterhead=/\b(letterhead|company letter)/i.test(input);
         if(wantSign||wantStamp||wantLetterhead){
+          const allPages=/\b(all|every|both)\s+page/i.test(input);
+          const signPages=_parsePageTarget(input,"sign");
+          const stampPages=_parsePageTarget(input,"stamp");
+          const letterPages=_parsePageTarget(input,"letter");
+          const hasPageSpec=allPages||signPages!==null||stampPages!==null||letterPages!==null;
+          const isMulti=codyUploadedDoc.pages.length>1;
+          // Multi-page doc with no page specification: prompt user
+          if(isMulti&&!hasPageSpec){
+            const items=[wantLetterhead?"letterhead":null,wantSign?"signature":null,wantStamp?"stamp":null].filter(Boolean);
+            codyPendingRef.current={step:"doc_page_select",wantSign,wantStamp,wantLetterhead,doc:codyUploadedDoc};
+            const pgCount=codyUploadedDoc.pages.length;
+            setMsgs([...history,{role:"user",content:input},{role:"assistant",content:`This document has ${pgCount} pages. Which pages should I apply ${items.join(" and ")} to?\n\n• "All pages"\n• "Page 1" or "Page 1 and 3"\n• "Letterhead all pages, sign last page"\n• Or specify per element`}]);
+            setInput("");setLoading(false);setMood("idle");return;
+          }
           setMsgs(history);setInput("");setLoading(true);setMood("talking");
           try{
-            const signPages=_parsePageTarget(input,"sign")||(wantSign?"last":undefined);
-            const stampPages=_parsePageTarget(input,"stamp")||(wantStamp?"last":undefined);
-            const letterPages=_parsePageTarget(input,"letter")||(wantLetterhead?"first":undefined);
-            const allPages=/\b(all|every|both)\s+page/i.test(input);
-            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign?"all":signPages,stampPages:allPages&&wantStamp?"all":stampPages,letterPages:allPages&&wantLetterhead?"all":letterPages,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
+            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign?"all":(signPages||(wantSign?"last":undefined)),stampPages:allPages&&wantStamp?"all":(stampPages||(wantStamp?"last":undefined)),letterPages:allPages&&wantLetterhead?"all":(letterPages||(wantLetterhead?"first":undefined)),signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
             const result=await processDocSignStamp(codyUploadedDoc,cfg);
             codyDocConfigRef.current=cfg;
             const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
@@ -8015,8 +8066,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
   </>);
 
   function _renderAgentChat() { return (<>
+    {/* Connie mode toggle: Call Sheet / Dietary */}
+    {agent.id==="compliance"&&(connieTabs.length>0||connieDietMode)&&(
+      <div style={{display:"flex",alignItems:"center",gap:0,padding:"0 12px",background:"#f0f0f2",borderBottom:"1px solid #e5e5ea",flexShrink:0}}>
+        <button onClick={()=>{if(connieDietMode){const lastTab=connieTabs[connieTabs.length-1];if(lastTab){setConnieDietMode(null);setConnieCtx({projectId:lastTab.projectId,vIdx:lastTab.vIdx});}else{setConnieDietMode(null);}}}} style={{padding:"6px 14px",fontSize:11,fontWeight:!connieDietMode?700:500,color:!connieDietMode?"#7a1a30":"#86868b",background:"none",border:"none",borderBottom:!connieDietMode?"2px solid #c47090":"2px solid transparent",cursor:"pointer",fontFamily:"inherit"}}>Call Sheets</button>
+        <button onClick={()=>{if(!connieDietMode){const pid=connieCtx?.projectId||connieTabs[connieTabs.length-1]?.projectId;if(pid){setConnieDietMode(pid);setConnieCtx(null);}}}} style={{padding:"6px 14px",fontSize:11,fontWeight:connieDietMode?700:500,color:connieDietMode?"#7a1a30":"#86868b",background:"none",border:"none",borderBottom:connieDietMode?"2px solid #c47090":"2px solid transparent",cursor:"pointer",fontFamily:"inherit"}}>Dietaries</button>
+      </div>
+    )}
     {/* Connie tab bar */}
-    {agent.id==="compliance"&&connieTabs.length>0&&(
+    {agent.id==="compliance"&&connieTabs.length>0&&!connieDietMode&&(
       <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
         {connieTabs.map((tab,i)=>{
           const isActive=connieCtx&&connieCtx.projectId===tab.projectId&&connieCtx.vIdx===tab.vIdx;
