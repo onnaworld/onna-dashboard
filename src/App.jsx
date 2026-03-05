@@ -11605,7 +11605,7 @@ export default function OnnaDashboard() {
                         style={{gridColumn:"span "+span,position:"relative"}}
                       >
                         {widgetMap[id]}
-                        <div style={{position:"absolute",top:6,right:6,display:"flex",gap:3,zIndex:3}}>
+                        <div style={{position:"absolute",top:8,right:8,display:"flex",gap:4,zIndex:10}}>
                           <div
                             draggable="true"
                             onDragStart={e=>{
@@ -11619,11 +11619,11 @@ export default function OnnaDashboard() {
                               document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});
                             }}
                             title="Drag to reorder"
-                            style={{width:26,height:26,borderRadius:7,background:T.surface,border:"1px solid "+T.border,cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.muted,opacity:0.6,transition:"opacity 0.15s",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}
-                            onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}}
-                            onMouseLeave={e=>{e.currentTarget.style.opacity="0.6";e.currentTarget.style.background=T.surface;e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border;}}
+                            style={{width:28,height:28,borderRadius:8,background:"#fff",border:"1.5px solid #ccc",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:"#555",transition:"all 0.15s",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.18)"}}
+                            onMouseEnter={e=>{e.currentTarget.style.background="#1d1d1f";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#1d1d1f";}}
+                            onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#555";e.currentTarget.style.borderColor="#ccc";}}
                           >{"☰"}</div>
-                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title={"Width: "+span+"/"+maxCols+" — click to resize"} style={{width:26,height:26,borderRadius:7,background:T.surface,border:"1px solid "+T.border,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:T.muted,opacity:0.6,transition:"opacity 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.6";e.currentTarget.style.background=T.surface;e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border;}}>{"⤢"}</button>
+                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title={"Width: "+span+"/"+maxCols+" — click to resize"} style={{width:28,height:28,borderRadius:8,background:"#fff",border:"1.5px solid #ccc",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,color:"#555",transition:"all 0.15s",boxShadow:"0 2px 8px rgba(0,0,0,0.18)",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#555";e.currentTarget.style.borderColor="#ccc";}}>{"⤢"}</button>
                         </div>
                       </div>
                       );
