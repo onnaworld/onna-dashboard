@@ -10645,6 +10645,24 @@ const BtnExport = ({children,onClick}) => (
   <button onClick={onClick} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>⬇ {children}</button>
 );
 
+// ─── SOP Markdown renderer ────────────────────────────────────────────────────
+const renderSopMarkdown = (md) => {
+  if(!md) return "";
+  return md.split(/\n{2,}/).map(block=>{
+    block=block.trim();
+    if(!block) return "";
+    const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const inline=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+    if(/^###\s/.test(block)) return `<h3 style="font-size:14px;font-weight:700;color:${T.text};margin:12px 0 4px">${inline(block.replace(/^###\s/,""))}</h3>`;
+    if(/^##\s/.test(block)) return `<h2 style="font-size:15px;font-weight:700;color:${T.text};margin:14px 0 4px">${inline(block.replace(/^##\s/,""))}</h2>`;
+    if(/^#\s/.test(block)) return `<h1 style="font-size:17px;font-weight:700;color:${T.text};margin:16px 0 6px">${inline(block.replace(/^#\s/,""))}</h1>`;
+    const lines=block.split("\n");
+    if(lines.every(l=>/^[-*]\s/.test(l))) return `<ul style="margin:6px 0;padding-left:18px;color:${T.sub};font-size:13px;line-height:1.7">${lines.map(l=>"<li>"+inline(l.replace(/^[-*]\s/,""))+"</li>").join("")}</ul>`;
+    if(lines.every(l=>/^\d+\.\s/.test(l))) return `<ol style="margin:6px 0;padding-left:18px;color:${T.sub};font-size:13px;line-height:1.7">${lines.map(l=>"<li>"+inline(l.replace(/^\d+\.\s/,""))+"</li>").join("")}</ol>`;
+    return `<p style="margin:6px 0;color:${T.sub};font-size:13px;line-height:1.7">${inline(block.replace(/\n/g," "))}</p>`;
+  }).join("");
+};
+
 // ─── AI DOC PANEL ─────────────────────────────────────────────────────────────
 const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
   const key = `${project.client} — ${project.name}`;
@@ -11325,7 +11343,13 @@ export default function OnnaDashboard() {
   const [locShareLoading,setLocShareLoading]             = useState(false);
   const [locShareTabs,setLocShareTabs]                   = useState(new Set(["overview","detail"]));
   const locDeckRef                                       = useRef(null);
-  const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
+  const [castingDeckStore,setCastingDeckStore]           = useState(()=>{try{const s=localStorage.getItem('onna_casting_decks');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeCastingDeckVersion,setActiveCastingDeckVersion] = useState(null);
+  const [castDeckShareUrl,setCastDeckShareUrl]           = useState(null);
+  const [castDeckShareLoading,setCastDeckShareLoading]   = useState(false);
+  const [castDeckShareTabs,setCastDeckShareTabs]         = useState(new Set(["confirmed","options"]));
+  const castDeckRef                                       = useRef(null);
+  const [castingSubSection,setCastingSubSection]         = useState(null);  const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
   const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
   const [dietaryStore,setDietaryStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_dietaries');return s?JSON.parse(s):{}}catch{return {}}});
@@ -11386,6 +11410,16 @@ export default function OnnaDashboard() {
   const [showArchive,setShowArchive]         = useState(false);
   const [showUserMenu,setShowUserMenu]       = useState(false);
   const [settingsSection,setSettingsSection] = useState("deleted");
+
+  // ── SOP state ───────────────────────────────────────────────────────────────
+  const [sops,setSops] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_sops')||'[]');}catch{return [];}});
+  const [sopEditId,setSopEditId] = useState(null);
+  const [sopDraft,setSopDraft] = useState({title:"",content:"",category:"agent",agent:""});
+  const [sopAddOpen,setSopAddOpen] = useState(false);
+  const [sopPreview,setSopPreview] = useState(false);
+  const [sopFilter,setSopFilter] = useState("all");
+  useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{}},[sops]);
+
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
@@ -11540,6 +11574,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
   useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
   useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{}},[castingDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{}},[dietaryStore]);
@@ -11983,7 +12018,7 @@ export default function OnnaDashboard() {
           const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
           setSelectedProject(proj||null);
           setProjectSection(state.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
           if (state.subSection && proj) {
             const sec = state.section;
             if (sec==="Creative") setCreativeSubSection(state.subSection);
@@ -11995,7 +12030,7 @@ export default function OnnaDashboard() {
         } else {
           setSelectedProject(null);
           setProjectSection("Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
         }
       } else {
         const parsed = parseURL(window.location.pathname, allProjectsMerged);
@@ -12003,7 +12038,7 @@ export default function OnnaDashboard() {
         if (parsed.project) {
           setSelectedProject(parsed.project);
           setProjectSection(parsed.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
           if (parsed.subSection) {
             const sec = parsed.section;
             if (sec==="Creative") setCreativeSubSection(parsed.subSection);
@@ -12377,7 +12412,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
@@ -12720,7 +12755,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -14495,8 +14530,189 @@ export default function OnnaDashboard() {
       const castFiles = (projectFileStore[p.id]||{}).casting||[];
       const castLink = (projectCreativeLinks[p.id]||{}).casting||"";
       const castCols = [{key:"agency",label:"Agency"},{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"option",label:"Option"},{key:"notes",label:"Notes"},{key:"link",label:"Link"}];
+
+      const CASTING_CARDS = [
+        {key:"tables", emoji:"\ud83d\udcdd", label:"Casting Tables"},
+        {key:"deck",   emoji:"\ud83c\udfac", label:"Casting Deck"},
+        {key:"files",  emoji:"\ud83d\udcc1", label:"Files & Uploads"},
+      ];
+
+      if (!castingSubSection) return (
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
+          {CASTING_CARDS.map(c=>(
+            <div key={c.key} onClick={()=>{setCastingSubSection(c.key);pushNav("Projects",p,"Casting",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <span style={{fontSize:28}}>{c.emoji}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Open {c.label.toLowerCase()}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+
+      const castingBack = <button onClick={()=>{setCastingSubSection(null);setActiveCastingDeckVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"\u2039"} Back to Casting</button>;
+
+      if (castingSubSection==="deck") {
+        const castDeckVersions = castingDeckStore[p.id] || [];
+        const addCastDeckNew = () => {
+          const newId = Date.now();
+          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", director: "[Director]" };
+          const newDeck = { id: newId, label: `V${castDeckVersions.length+1}`, project: proj, confirmed: CAST_INIT().confirmed, options: CAST_INIT().options };
+          setCastingDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newDeck); return store; });
+        };
+
+        if (activeCastingDeckVersion == null) return (
+          <div>
+            {castingBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontSize:18,fontWeight:700,color:T.text}}>Casting Deck</div>
+              <button onClick={addCastDeckNew} style={{background:T.accent,color:"#fff",border:"none",padding:"8px 20px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Version</button>
+            </div>
+            {castDeckVersions.length===0 ? <div style={{textAlign:"center",padding:40,color:T.muted,fontSize:14}}>No casting deck versions yet. Create one to get started.</div>
+            : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {castDeckVersions.map((v,i)=>(
+                <div key={v.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}} onClick={()=>setActiveCastingDeckVersion(i)}>
+                  <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 10px"}}>{v.label||`V${i+1}`}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:600,color:T.text}}>{v.project?.name||"Untitled"}</div>
+                    <div style={{fontSize:12,color:T.muted}}>{(v.confirmed||[]).reduce((a,r)=>(a+(r.talent||[]).length),0)} confirmed, {(v.options||[]).reduce((a,r)=>(a+(r.talent||r.entries||[]).length),0)} options</div>
+                  </div>
+                  <button onClick={e=>{e.stopPropagation();if(confirm("Delete this casting deck version?"))setCastingDeckStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id].splice(i,1);return s;});}} style={{background:"none",border:"none",color:T.muted,fontSize:18,cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                </div>
+              ))}
+            </div>}
+          </div>
+        );
+
+        const castIdx = activeCastingDeckVersion;
+        const castData = castDeckVersions[castIdx];
+        if (!castData) { setActiveCastingDeckVersion(null); return null; }
+
+        const existingCastToken = castData.shareToken;
+        const existingCastResourceId = castData.shareResourceId;
+        const displayCastShareUrl = castDeckShareUrl || (castData.shareLinks && castData.shareLinks.length > 0 ? castData.shareLinks[castData.shareLinks.length-1].url : null);
+        const castShareTitle = `${castData.project?.name || "Casting Deck"} - Casting Deck`;
+
+        const sendCastShare = async () => {
+          if (castDeckShareTabs.size === 0) return;
+          setCastDeckShareLoading(true);
+          try { if (castDeckRef.current) await castDeckRef.current.share([...castDeckShareTabs], existingCastToken, existingCastResourceId); }
+          catch (err) { alert("Error: " + err.message); }
+          setCastDeckShareLoading(false);
+        };
+        const toggleCastShareTab = (t) => setCastDeckShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
+        const castShareLinks = castData.shareLinks || [];
+        const createNewCastLink = async () => {
+          if (castDeckShareTabs.size === 0) return;
+          setCastDeckShareLoading(true);
+          try { if (castDeckRef.current) await castDeckRef.current.share([...castDeckShareTabs], null, null); }
+          catch (err) { alert("Error: " + err.message); }
+          setCastDeckShareLoading(false);
+        };
+
+        return (
+          <div>
+            {castingBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CASTING</span>
+                <input value={castData.label||""} onChange={e=>{setCastingDeckStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][castIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                {["confirmed","options"].map(t => (
+                  <label key={t} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:castDeckShareTabs.has(t)?"#1565C0":"#999",cursor:"pointer",userSelect:"none"}}>
+                    <input type="checkbox" checked={castDeckShareTabs.has(t)} onChange={()=>toggleCastShareTab(t)} style={{accentColor:"#1976D2"}}/>
+                    {t.charAt(0).toUpperCase()+t.slice(1)}
+                  </label>
+                ))}
+                <button onClick={sendCastShare} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingCastToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
+                  {castDeckShareLoading ? "Generating\u2026" : existingCastToken ? "Update Link" : "Generate Link"}
+                </button>
+                {existingCastToken && <button onClick={createNewCastLink} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
+                  + New Link
+                </button>}
+              </div>
+            </div>
+            {displayCastShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{castShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={displayCastShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayCastShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${castShareTitle}\n${displayCastShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
+            {castShareLinks.length > 0 && (
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.muted,marginBottom:6}}>Link History</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {castShareLinks.map((link, li) => (
+                    <div key={li} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:8,background:T.surface,border:`1px solid ${T.border}`}}>
+                      <span style={{fontSize:10,fontWeight:700,color:"#fff",background:T.accent,borderRadius:4,padding:"2px 8px",flexShrink:0}}>V{li+1}</span>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:11,color:"#1565C0",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.url}</a>
+                      <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{new Date(link.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
+                      <button onClick={()=>{navigator.clipboard.writeText(link.url);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Copy</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{overflowX:"auto",marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}}>
+              <CastingConnie
+                ref={castDeckRef}
+                initialProject={castData.project}
+                initialConfirmed={castData.confirmed}
+                initialOptions={castData.options}
+                onChangeProject={proj => setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][castIdx].project = proj; return s; })}
+                onChangeConfirmed={conf => setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][castIdx].confirmed = conf; return s; })}
+                onChangeOptions={opts => setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][castIdx].options = opts; return s; })}
+                onShareUrl={(url, token, id) => { setCastDeckShareUrl(url); setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][castIdx]) { s[p.id][castIdx].shareToken = token; s[p.id][castIdx].shareResourceId = id; if (!s[p.id][castIdx].shareLinks) s[p.id][castIdx].shareLinks = []; s[p.id][castIdx].shareLinks.push({ url, token, resourceId: id, createdAt: new Date().toISOString() }); } return s; }); }}
+              />
+            </div>
+          </div>
+        );
+      }
+
+      if (castingSubSection==="files") {
+        return (
+          <div>
+            {castingBack}
+            <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Casting Files</div>
+            <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload casting files or paste a Dropbox / Drive link to import.</p>
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+              <div style={{display:"flex",gap:10}}>
+                <input value={castLink} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                {castLink&&<button disabled={linkUploading} onClick={()=>uploadFromLink(castLink,"casting")} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading\u2026":"Upload"}</button>}
+              </div>
+              {linkUploadProgress!==null&&<div style={{marginTop:8}}><div style={{height:6,borderRadius:3,background:"#e5e5ea",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:linkUploadProgress===100?"#34c759":T.accent,width:`${linkUploadProgress}%`,transition:"width 0.3s ease"}}/></div><div style={{fontSize:11,color:T.muted,marginTop:4}}>{linkUploadProgress===100?"Complete!":linkUploadProgress<50?"Sending\u2026":"Downloading\u2026"} {linkUploadProgress}%</div></div>}
+            </div>
+            <UploadZone label="Upload casting files (PDF, images, comp cards)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:[...((prev[p.id]||{}).casting||[]),...ne]}}));}}/>
+            {castFiles.length>0&&(()=>{const filteredCast=castFileSearchTerm.trim()?castFiles.filter(f=>f.name.toLowerCase().includes(castFileSearchTerm.trim().toLowerCase())):castFiles;return<>
+                <input value={castFileSearchTerm} onChange={e=>setCastFileSearchTerm(e.target.value)} placeholder="Search casting files\u2026" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginTop:16,marginBottom:8,boxSizing:"border-box"}}/>
+                <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:6,marginBottom:6}}>{filteredCast.length} file{filteredCast.length!==1?"s":""}{castFileSearchTerm.trim()?" found":" uploaded"}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
+                  {filteredCast.map((f,i)=>(<div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
+                      <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"\ud83d\udcc4":f.type?.includes("image")?"\ud83d\uddbc":"\ud83d\udcce"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB \u00b7 {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                      </div>
+                      <button onClick={()=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
+                      <button onClick={()=>{if(confirm("Delete V"+(i+1)+" - "+f.name+"?"))setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:((prev[p.id]||{}).casting||[]).filter(x=>x.id!==f.id)}}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>\u00d7</button>
+                    </div>))}
+                </div>
+              </>;})()}
+          </div>
+        );
+      }
+
+      /* Default: tables sub-section */
       return (
         <div>
+          {castingSubSection==="tables"&&castingBack}
           {castingTables.map(table=>(
             <div key={table.id} style={{marginBottom:32}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
@@ -14506,11 +14722,11 @@ export default function OnnaDashboard() {
                 <button onClick={()=>downloadCSV(table.rows,castCols,table.title+".csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
                 <button onClick={()=>exportCastingPDF([{title:table.title,rows:table.rows}],castCols,table.title)} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
                 <BtnPrimary onClick={()=>addCastingRow(p.id,table.id)}>+ Add Model</BtnPrimary>
-                {castingTables.length>1&&<button onClick={()=>removeCastingTable(p.id,table.id)} style={{background:"none",border:`1px solid ${T.border}`,color:"#c0392b",padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>× Delete Table</button>}
+                {castingTables.length>1&&<button onClick={()=>removeCastingTable(p.id,table.id)} style={{background:"none",border:`1px solid ${T.border}`,color:"#c0392b",padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>\u00d7 Delete Table</button>}
               </div>
               <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:8}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr><TH style={{width:64}}/><TH>Agency</TH><TH>Name</TH><TH>Email</TH><TH>Option</TH><TH>Notes</TH><TH style={{width:36,textAlign:"center"}}>📎</TH><TH style={{width:30}}/></tr></thead>
+                  <thead><tr><TH style={{width:64}}/><TH>Agency</TH><TH>Name</TH><TH>Email</TH><TH>Option</TH><TH>Notes</TH><TH style={{width:36,textAlign:"center"}}>\ud83d\udcce</TH><TH style={{width:30}}/></tr></thead>
                   <tbody>
                     {table.rows.length===0?<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:T.muted,fontSize:13}}>No models added yet.</td></tr>
                     :table.rows.map(row=>(
@@ -14519,7 +14735,7 @@ export default function OnnaDashboard() {
                           {row.headshot?(
                             <div style={{position:"relative",width:56,height:56}}>
                               <img src={row.headshot} alt="" style={{width:56,height:56,borderRadius:8,objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}}/>
-                              <button onClick={()=>updateCastingRow(p.id,table.id,row.id,"headshot",null)} style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>×</button>
+                              <button onClick={()=>updateCastingRow(p.id,table.id,row.id,"headshot",null)} style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>\u00d7</button>
                             </div>
                           ):(
                             <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent;}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith("image/"))return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);}} style={{width:56,height:56,borderRadius:8,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"#ccc",background:"#fafafa"}}>+</div>
@@ -14560,10 +14776,10 @@ export default function OnnaDashboard() {
                               <button onClick={()=>{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,link:r._linkDraft||"",_editLink:false}:r)}:t)};});}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
                             </div>
                           ):(
-                            <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}}} onContextMenu={e=>{e.preventDefault();setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>📎</span>
+                            <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}}} onContextMenu={e=>{e.preventDefault();setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>\ud83d\udcce</span>
                           )}
                         </td>
-                        <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,table.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
+                        <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,table.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>\u00d7</button></td>
                       </tr>
                     ))}
                   </tbody>
@@ -14578,33 +14794,6 @@ export default function OnnaDashboard() {
               <button onClick={()=>{const allRows=castingTables.flatMap(t=>t.rows.map(r=>({...r,table:t.title})));const cols=[{key:"table",label:"Table"},...castCols];downloadCSV(allRows,cols,"Casting.csv");}} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"10px 18px",borderRadius:10,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Export All CSV</button>
             </>}
           </div>
-          <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>Casting Files</div>
-          <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload casting files or paste a Dropbox / Drive link to import.</p>
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
-            <div style={{display:"flex",gap:10}}>
-              <input value={castLink} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-              {castLink&&<button disabled={linkUploading} onClick={()=>uploadFromLink(castLink,"casting")} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading…":"Upload"}</button>}
-            </div>
-            {linkUploadProgress!==null&&<div style={{marginTop:8}}><div style={{height:6,borderRadius:3,background:"#e5e5ea",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:linkUploadProgress===100?"#34c759":T.accent,width:`${linkUploadProgress}%`,transition:"width 0.3s ease"}}/></div><div style={{fontSize:11,color:T.muted,marginTop:4}}>{linkUploadProgress===100?"Complete!":linkUploadProgress<50?"Sending…":"Downloading…"} {linkUploadProgress}%</div></div>}
-          </div>
-          <UploadZone label="Upload casting files (PDF, images, comp cards)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:[...((prev[p.id]||{}).casting||[]),...ne]}}));}}/>
-          {castFiles.length>0&&(()=>{const filteredCast=castFileSearchTerm.trim()?castFiles.filter(f=>f.name.toLowerCase().includes(castFileSearchTerm.trim().toLowerCase())):castFiles;return<>
-              <input value={castFileSearchTerm} onChange={e=>setCastFileSearchTerm(e.target.value)} placeholder="Search casting files…" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginTop:16,marginBottom:8,boxSizing:"border-box"}}/>
-              <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:6,marginBottom:6}}>{filteredCast.length} file{filteredCast.length!==1?"s":""}{castFileSearchTerm.trim()?" found":" uploaded"}</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
-                {filteredCast.map((f,i)=>(<div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
-                    <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
-                    <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"\ud83d\udcc4":f.type?.includes("image")?"\ud83d\uddbc":"\ud83d\udcce"}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
-                      <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
-                    </div>
-                    <button onClick={()=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
-                    <button onClick={()=>{if(confirm("Delete V"+(i+1)+" - "+f.name+"?"))setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:((prev[p.id]||{}).casting||[]).filter(x=>x.id!==f.id)}}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
-                  </div>))}
-              </div>
-            </>;})()}
         </div>
       );
     }
@@ -16026,7 +16215,7 @@ export default function OnnaDashboard() {
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
@@ -16441,6 +16630,7 @@ export default function OnnaDashboard() {
               {[
                 {id:"deleted",label:"Deleted Items",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"categories",label:"Manage Categories",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
+                {id:"sop",label:"SOPs",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2"/><path d="M5 4h4M5 7h4M5 10h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"signout",label:"Sign Out",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>'},
               ].map(item=>(
                 <button key={item.id} onClick={()=>{if(item.id==="signout"){localStorage.removeItem("onna_token");setAuthed(false);}else setSettingsSection(item.id);}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 20px",background:settingsSection===item.id&&item.id!=="signout"?"rgba(0,0,0,0.05)":"none",border:"none",borderLeft:settingsSection===item.id&&item.id!=="signout"?`3px solid ${T.accent}`:"3px solid transparent",color:item.id==="signout"?"#c0392b":settingsSection===item.id?T.text:T.sub,fontSize:13,fontWeight:settingsSection===item.id?600:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%"}} onMouseOver={e=>{if(settingsSection!==item.id)e.currentTarget.style.background="rgba(0,0,0,0.03)";}} onMouseOut={e=>{if(settingsSection!==item.id)e.currentTarget.style.background="none";}}>
@@ -16545,6 +16735,125 @@ export default function OnnaDashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {settingsSection==="sop"&&(
+                <div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+                    <div>
+                      <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Standard Operating Procedures</div>
+                      <div style={{fontSize:12,color:T.muted,marginTop:2}}>Agent guides and production workflows</div>
+                    </div>
+                    <BtnPrimary onClick={()=>{setSopAddOpen(true);setSopEditId(null);setSopDraft({title:"",content:"",category:"agent",agent:""});setSopPreview(false);}}>+ New SOP</BtnPrimary>
+                  </div>
+
+                  {/* Filter tabs */}
+                  <div style={{display:"flex",gap:6,marginBottom:20}}>
+                    {[{id:"all",label:"All"},{id:"agent",label:"Agent Guides"},{id:"workflow",label:"Workflows"}].map(f=>(
+                      <button key={f.id} onClick={()=>setSopFilter(f.id)} style={{padding:"5px 14px",borderRadius:999,background:sopFilter===f.id?T.accent:"#f5f5f7",color:sopFilter===f.id?"#fff":T.sub,border:"none",fontSize:11.5,fontWeight:sopFilter===f.id?600:500,cursor:"pointer",fontFamily:"inherit"}}>{f.label}</button>
+                    ))}
+                  </div>
+
+                  {/* Add/Edit form */}
+                  {(sopAddOpen||(sopEditId!==null&&typeof sopEditId==="number"))&&(
+                    <div style={{padding:18,borderRadius:12,border:`1.5px solid ${T.accent}`,background:"white",marginBottom:20}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:12}}>{typeof sopEditId==="number"?"Edit SOP":"New SOP"}</div>
+                      <div style={{display:"grid",gridTemplateColumns:sopDraft.category==="agent"?"1fr 1fr 1fr":"1fr 1fr",gap:10,marginBottom:12}}>
+                        <div>
+                          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Title</div>
+                          <input value={sopDraft.title} onChange={e=>setSopDraft(d=>({...d,title:e.target.value}))} placeholder="e.g. How to use Vendor Vinnie" style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
+                          <select value={sopDraft.category} onChange={e=>setSopDraft(d=>({...d,category:e.target.value,agent:e.target.value==="workflow"?"":d.agent}))} style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}>
+                            <option value="agent">Agent Guide</option>
+                            <option value="workflow">Workflow</option>
+                          </select>
+                        </div>
+                        {sopDraft.category==="agent"&&(
+                          <div>
+                            <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Agent</div>
+                            <select value={sopDraft.agent} onChange={e=>setSopDraft(d=>({...d,agent:e.target.value}))} style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}>
+                              <option value="">Select agent...</option>
+                              {AGENT_DEFS.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <button onClick={()=>setSopPreview(false)} style={{padding:"4px 12px",borderRadius:7,background:!sopPreview?"#1d1d1f":"#f5f5f7",color:!sopPreview?"#fff":T.sub,border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Write</button>
+                        <button onClick={()=>setSopPreview(true)} style={{padding:"4px 12px",borderRadius:7,background:sopPreview?"#1d1d1f":"#f5f5f7",color:sopPreview?"#fff":T.sub,border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Preview</button>
+                      </div>
+                      {sopPreview?(
+                        <div style={{minHeight:120,padding:14,borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`}} dangerouslySetInnerHTML={{__html:renderSopMarkdown(sopDraft.content)||`<span style="color:${T.muted};font-size:13px">Nothing to preview</span>`}}/>
+                      ):(
+                        <textarea value={sopDraft.content} onChange={e=>setSopDraft(d=>({...d,content:e.target.value}))} rows={8} placeholder={"# Getting Started\n\nDescribe the procedure step by step...\n\n## Steps\n\n1. First step\n2. Second step\n\n- Use **bold** for emphasis"} style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"monospace",resize:"vertical",lineHeight:"1.6"}}/>
+                      )}
+                      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
+                        <BtnSecondary onClick={()=>{setSopAddOpen(false);setSopEditId(null);setSopDraft({title:"",content:"",category:"agent",agent:""});setSopPreview(false);}}>Cancel</BtnSecondary>
+                        <BtnPrimary disabled={!sopDraft.title.trim()||!sopDraft.content.trim()} onClick={()=>{
+                          const now=new Date().toISOString();
+                          if(typeof sopEditId==="number"){
+                            setSops(prev=>prev.map(s=>s.id===sopEditId?{...s,title:sopDraft.title,content:sopDraft.content,category:sopDraft.category,agent:sopDraft.agent,updated_at:now}:s));
+                          }else{
+                            const id=Date.now();
+                            setSops(prev=>[...prev,{id,title:sopDraft.title,content:sopDraft.content,category:sopDraft.category,agent:sopDraft.agent,order:prev.length,created_at:now,updated_at:now}]);
+                          }
+                          setSopAddOpen(false);setSopEditId(null);setSopDraft({title:"",content:"",category:"agent",agent:""});setSopPreview(false);
+                        }}>{typeof sopEditId==="number"?"Save Changes":"Create SOP"}</BtnPrimary>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SOP list */}
+                  {(()=>{
+                    const filtered=sops.filter(s=>sopFilter==="all"||s.category===sopFilter);
+                    if(filtered.length===0) return (
+                      <div style={{padding:"60px 0",textAlign:"center"}}>
+                        <div style={{fontSize:32,marginBottom:8}}>📋</div>
+                        <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:4}}>No SOPs yet</div>
+                        <div style={{fontSize:12,color:T.muted,maxWidth:300,margin:"0 auto",lineHeight:1.6}}>Create agent guides for your team to learn how to use each of the 7 agents, or add production workflow documentation.</div>
+                      </div>
+                    );
+                    const agents=filtered.filter(s=>s.category==="agent");
+                    const workflows=filtered.filter(s=>s.category==="workflow");
+                    const renderGroup=(label,items)=>{
+                      if(!items.length) return null;
+                      return (
+                        <div key={label} style={{marginBottom:24}}>
+                          <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({items.length})</div>
+                          {items.map(s=>{
+                            const isExpanded=sopEditId===("view_"+s.id);
+                            const agentDef=s.agent?AGENT_DEFS.find(a=>a.id===s.agent):null;
+                            return (
+                              <div key={s.id} style={{marginBottom:6,borderRadius:12,border:`1px solid ${T.border}`,background:"#fafafa",overflow:"hidden"}}>
+                                <div onClick={()=>setSopEditId(prev=>prev===("view_"+s.id)?null:("view_"+s.id))} style={{display:"flex",alignItems:"center",padding:"12px 14px",cursor:"pointer",gap:10}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.title}</div>
+                                    <div style={{fontSize:11,color:T.muted,marginTop:2,display:"flex",alignItems:"center",gap:8}}>
+                                      {agentDef&&<span style={{background:agentDef.tagBg,color:agentDef.accent,padding:"1px 8px",borderRadius:999,fontSize:10,fontWeight:600}}>{agentDef.name}</span>}
+                                      <span>Updated {new Date(s.updated_at).toLocaleDateString()}</span>
+                                    </div>
+                                  </div>
+                                  <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
+                                    <button onClick={()=>{setSopEditId(s.id);setSopDraft({title:s.title,content:s.content,category:s.category,agent:s.agent||""});setSopAddOpen(false);setSopPreview(false);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Edit</button>
+                                    <button onClick={()=>{if(window.confirm("Delete this SOP?"))setSops(prev=>prev.filter(x=>x.id!==s.id));}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                                  </div>
+                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{transform:isExpanded?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s"}}><path d="M2 3.5L5 6.5L8 3.5" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </div>
+                                {isExpanded&&(
+                                  <div style={{padding:"0 14px 14px",borderTop:`1px solid ${T.border}`}}>
+                                    <div style={{paddingTop:12}} dangerouslySetInnerHTML={{__html:renderSopMarkdown(s.content)}}/>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    };
+                    return <>{renderGroup("Agent Guides",agents)}{renderGroup("Workflows",workflows)}</>;
+                  })()}
                 </div>
               )}
             </div>
