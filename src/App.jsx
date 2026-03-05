@@ -818,16 +818,25 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
   };
 
   const exportPDF = () => {
-    const el = printRef.current; if (!el) return; const w = window.open("", "_blank");
+    const el = printRef.current; if (!el) return;
+    /* Clone content and sanitise: remove extension-injected elements & fix positioning */
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"]').forEach(n=>n.remove());
+    /* Remove any iframes or shadow hosts injected by extensions */
+    clone.querySelectorAll('iframe,[style*="z-index: 2147483647"],[style*="z-index:2147483647"]').forEach(n=>n.remove());
+    const html = clone.innerHTML;
     let fontRules = "";
     try { for (const sheet of document.styleSheets) { try { for (const rule of sheet.cssRules) { if (rule.cssText && rule.cssText.startsWith("@font-face")) fontRules += rule.cssText + "\n"; } } catch(e){} } } catch(e){}
+    const w = window.open("", "_blank");
     w.document.write(`<html><head><title>\u00A0</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 ${fontRules}
 @page{size:landscape;margin:0}
-body{margin:0;padding:12mm;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a}
+body{margin:0;padding:12mm;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;overflow:hidden}
+*{box-sizing:border-box}
+div[style*="position: relative"]{overflow:hidden}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>`);
-    w.document.write(el.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(() => w.print(), 600);
+    w.document.write(html); w.document.write("</body></html>"); w.document.close(); setTimeout(() => w.print(), 600);
   };
 
   /* Stats */
@@ -7100,11 +7109,10 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           newRA.shootName=`${switchProject.client||""} | ${switchProject.name}`.replace(/^TEMPLATE \| /,"");
           const _pi3s=(projectInfoRef.current||{})[switchProject.id];
           if(_pi3s){if(_pi3s.shootName)newRA.shootName=_pi3s.shootName;if(_pi3s.shootDate)newRA.shootDate=_pi3s.shootDate;if(_pi3s.shootLocation)newRA.locations=_pi3s.shootLocation;if(_pi3s.crewOnSet)newRA.crewOnSet=_pi3s.crewOnSet;}
-          setRiskAssessmentStore(prev=>({...prev,[switchProject.id]:[newRA]}));
+          const _raLogo2=new Image();_raLogo2.crossOrigin="anonymous";_raLogo2.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raLogo2.naturalWidth;cv.height=_raLogo2.naturalHeight;cv.getContext("2d").drawImage(_raLogo2,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>({...prev,[switchProject.id]:[newRA]}));}};_raLogo2.onerror=()=>{setRiskAssessmentStore(prev=>({...prev,[switchProject.id]:[newRA]}));};_raLogo2.src="/onna-default-logo.png";
           setRonnieCtx({projectId:switchProject.id,vIdx:0});
           if(setActiveRAVersion)setActiveRAVersion(0);
           addRonnieTab(switchProject.id,0,`${switchProject.name} · [Untitled]`);
-          const _raLogo2=new Image();_raLogo2.crossOrigin="anonymous";_raLogo2.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raLogo2.naturalWidth;cv.height=_raLogo2.naturalHeight;cv.getContext("2d").drawImage(_raLogo2,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[switchProject.id]||[];if(arr.length>0&&!arr[arr.length-1].productionLogo)arr[arr.length-1].productionLogo=du;return s;});}catch{}};_raLogo2.src="/onna-default-logo.png";
           setMsgs([...history,{role:"assistant",content:`Created a new risk assessment for ${switchProject.name}. What would you like to do?`}]);
         }else{
           raLabels.forEach((v,i)=>{addRonnieTab(switchProject.id,i,`${switchProject.name} · ${v.label||`RA ${i+1}`}`);});
@@ -8016,7 +8024,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span onClick={e=>{e.stopPropagation();setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveRAVersion)setActiveRAVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setRonnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
-        <div onClick={()=>{const _pid=ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};newRA.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi3=(projectInfoRef.current||{})[proj.id];if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;}setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});const newIdx=(riskAssessmentStore?.[proj.id]||[]).length;setRonnieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveRAVersion)setActiveRAVersion(newIdx);addRonnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);const _raL3=new Image();_raL3.crossOrigin="anonymous";_raL3.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raL3.naturalWidth;cv.height=_raL3.naturalHeight;cv.getContext("2d").drawImage(_raL3,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[proj.id]||[];if(arr.length>0&&!arr[arr.length-1].productionLogo)arr[arr.length-1].productionLogo=du;return s;});}catch{}};_raL3.src="/onna-default-logo.png";setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new risk assessment for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+        <div onClick={()=>{const _pid=ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};newRA.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi3=(projectInfoRef.current||{})[proj.id];if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;}const _raL3=new Image();_raL3.crossOrigin="anonymous";_raL3.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raL3.naturalWidth;cv.height=_raL3.naturalHeight;cv.getContext("2d").drawImage(_raL3,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});}};_raL3.onerror=()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});};_raL3.src="/onna-default-logo.png";const newIdx=(riskAssessmentStore?.[proj.id]||[]).length;setRonnieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveRAVersion)setActiveRAVersion(newIdx);addRonnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new risk assessment for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
       </div>
     )}
 
