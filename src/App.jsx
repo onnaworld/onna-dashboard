@@ -2860,7 +2860,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
     clone.querySelectorAll('button').forEach(n=>n.remove());
     clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:40px 40px;}@media print{@page{margin:0;size:A4;}body{padding:15mm 12mm;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
+    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:20px 24px;}@media print{@page{margin:0;size:A4;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
     _d.body.appendChild(_d.adoptNode(clone));setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300); };
   const exportPDF = (all = false) => {
     if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
@@ -4997,6 +4997,62 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setConnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
+      // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
+      const _csLastMsg = history[history.length-1];
+      if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input)){
+        const _csEl2=document.getElementById("onna-cs-print");
+        if(_csEl2){
+          const _csClone2=_csEl2.cloneNode(true);_csClone2.querySelectorAll("button").forEach(b=>b.remove());_csClone2.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone2.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const _csDoc2=iframe.contentDocument;_csDoc2.open();_csDoc2.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_csDoc2.close();
+          _csDoc2.body.appendChild(_csDoc2.adoptNode(_csClone2));setTimeout(()=>{_csDoc2.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        }else{
+          printCallSheetPDF(_csLastMsg._pendingExport.csData);
+        }
+        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
+      // Export / PDF intent (before fuzzyMatch to avoid false project switches)
+      if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+        const csVersions_ex=callSheetStore?.[project.id]||[];
+        const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
+        const csData_ex=csVersions_ex[vIdx_ex];
+
+        // Gather missing fields
+        const missing=[];
+        if(!csData_ex.shootName) missing.push("Shoot Name");
+        if(!csData_ex.date) missing.push("Date");
+        if(!csData_ex.dayNumber) missing.push("Day Number");
+        if(!csData_ex.productionContacts) missing.push("Production Contacts");
+        const emptyVenues=(csData_ex.venueRows||[]).filter(v=>!v.value).map(v=>v.label);
+        if(emptyVenues.length) missing.push(...emptyVenues.map(v=>`Venue: ${v}`));
+        const emptySchedule=(csData_ex.schedule||[]).filter(s=>!s.time&&!s.activity).length;
+        if(emptySchedule===(csData_ex.schedule||[]).length&&emptySchedule>0) missing.push("Schedule (all rows empty)");
+        const emptyCrew=[];
+        (csData_ex.departments||[]).forEach(d=>{
+          const unfilled=d.crew.filter(c=>!c.name);
+          if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`); });
+        if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
+
+        if(missing.length>0){
+          setMsgs([...history,{role:"assistant",content:`⚠️ Are you sure you want to export? You're missing information on this call sheet.\n\nSay "yes" to export anyway, or ask me "what's missing" for a full breakdown.`,_pendingExport:{csData:csData_ex}}]);
+          setLoading(false);setMood("idle");return;
+        }
+
+        const _csEl=document.getElementById("onna-cs-print");
+        if(_csEl){
+          const _csClone=_csEl.cloneNode(true);_csClone.querySelectorAll("button").forEach(b=>b.remove());_csClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const _csDoc=iframe.contentDocument;_csDoc.open();_csDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_csDoc.close();
+          _csDoc.body.appendChild(_csDoc.adoptNode(_csClone));setTimeout(()=>{_csDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        }else{
+          printCallSheetPDF(csData_ex);
+        }
+        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       // Allow switching: if user mentions a different project name, reset context
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
@@ -5033,53 +5089,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setConniePending({projectId,step:"pick_name"});
         setMsgs([...history,{role:"assistant",content:`What should I call this new call sheet? (e.g. Shoot Day 2, Recce Day)`}]);
         setLoading(false);setMood("idle");return;
-      }
-
-      // Export / PDF intent — check for missing data first
-      if(/\b(export|pdf|download|print|save)\b/i.test(input)){
-        const csVersions_ex=callSheetStore?.[project.id]||[];
-        const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
-        const csData_ex=csVersions_ex[vIdx_ex];
-
-        // Check if user is confirming after a missing-data warning
-        const isConfirm=/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input);
-        const lastMsg=history.length?history[history.length-1]:null;
-        const wasWarned=lastMsg&&lastMsg.role==="assistant"&&/missing information/i.test(lastMsg.content||"");
-
-        if(!isConfirm||!wasWarned){
-          // Gather missing fields
-          const missing=[];
-          if(!csData_ex.shootName) missing.push("Shoot Name");
-          if(!csData_ex.date) missing.push("Date");
-          if(!csData_ex.dayNumber) missing.push("Day Number");
-          if(!csData_ex.productionContacts) missing.push("Production Contacts");
-          const emptyVenues=(csData_ex.venueRows||[]).filter(v=>!v.value).map(v=>v.label);
-          if(emptyVenues.length) missing.push(...emptyVenues.map(v=>`Venue: ${v}`));
-          const emptySchedule=(csData_ex.schedule||[]).filter(s=>!s.time&&!s.activity).length;
-          if(emptySchedule===(csData_ex.schedule||[]).length&&emptySchedule>0) missing.push("Schedule (all rows empty)");
-          const emptyCrew=[];
-          (csData_ex.departments||[]).forEach(d=>{
-            const unfilled=d.crew.filter(c=>!c.name);
-            if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`); });
-          if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
-
-          if(missing.length>0){
-            setMsgs([...history,{role:"assistant",content:`⚠️ Are you sure you want to export? You're missing information on this call sheet.\n\nSay "yes" to export anyway, or ask me "what's missing" for a full breakdown.`}]);
-            setLoading(false);setMood("idle");return;
-          }
-        }
-
-        const _csEl=document.getElementById("onna-cs-print");
-        if(_csEl){
-          const _csClone=_csEl.cloneNode(true);_csClone.querySelectorAll("button").forEach(b=>b.remove());_csClone.querySelectorAll("input[type=file]").forEach(b=>b.remove());_csClone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
-          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-          const _csDoc=iframe.contentDocument;_csDoc.open();_csDoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_csDoc.close();
-          _csDoc.body.appendChild(_csDoc.adoptNode(_csClone));setTimeout(()=>{_csDoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-        }else{
-          printCallSheetPDF(csData_ex);
-        }
-        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
       // "What's missing" breakdown for call sheet
