@@ -52,11 +52,13 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
 // ─── Export doc preview pages to print/PDF ──────────────────────────────────
 const exportDocPreview=(preview,originalDoc,pageIndex)=>{
   const pages=pageIndex!=null?[preview.pages[pageIndex]]:preview.pages;
+  const baseName=((originalDoc&&originalDoc.name)||"document").replace(/\.[^.]+$/,"");
+  const pdfTitle="signed_"+baseName;
   const doExport=(orient)=>{
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
     const idoc=iframe.contentDocument||iframe.contentWindow.document;
     const pw=orient==="landscape"?"297mm":"210mm",ph=orient==="landscape"?"210mm":"297mm";
-    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}@page{margin:10mm 8mm 8mm 8mm;size:${pw} ${ph};}html,body{width:100%;height:100%;}div{width:100%;height:100%;display:flex;align-items:flex-start;justify-content:center;page-break-after:always;page-break-inside:avoid;overflow:hidden;}div:last-child{page-break-after:auto;}img{max-width:100%;max-height:100%;object-fit:contain;display:block;}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+    idoc.open();idoc.write(`<!DOCTYPE html><html><head><title>${pdfTitle}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}@page{margin:10mm 8mm 8mm 8mm;size:${pw} ${ph};}html,body{width:100%;height:100%;}div{width:100%;height:100%;display:flex;align-items:flex-start;justify-content:center;page-break-after:always;page-break-inside:avoid;overflow:hidden;}div:last-child{page-break-after:auto;}img{max-width:100%;max-height:100%;object-fit:contain;display:block;}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
     setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
   };
   const srcPage=(originalDoc&&originalDoc.pages&&originalDoc.pages[pageIndex||0])||pages[0];
