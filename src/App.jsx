@@ -948,7 +948,7 @@ ${PRINT_CLEANUP_CSS}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <CpsOnnaLogo />
         </div>
-        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 12 }} />
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
 
         <div style={{ textAlign: "center", fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
           CREATIVE PRODUCTION SCHEDULE
@@ -1805,7 +1805,7 @@ ${PRINT_CLEANUP_CSS}
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
-        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 10 }} />
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ textAlign: "center", fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>SHOT LIST</div>
 
         <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
@@ -2201,7 +2201,7 @@ ${PRINT_CLEANUP_CSS}
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
-        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 10 }} />
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ textAlign: "center", fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>STORYBOARD</div>
 
         <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
@@ -9064,7 +9064,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           return(
             <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setBillieCtx({projectId:tab.projectId,vIdx:tab.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(tab.vIdx);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${_bDynLabel}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #7ab87a":"1px solid #e0e0e0",background:isActive?"#f3fff3":"#f5f5f7",color:isActive?"#1a5a1a":"#6e6e73",borderBottom:isActive?"2px solid #7ab87a":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
               <span>{_bDynLabel}</span>
-              <span onClick={e=>{e.stopPropagation();setBillieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setBillieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setBillieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
+              <span onClick={e=>{e.stopPropagation();if(!confirm("Delete this estimate? It will be moved to trash."))return;const pid=tab.projectId;const vIdx=tab.vIdx;const estData=(projectEstimates?.[pid]||[])[vIdx];if(estData&&onArchiveCallSheet)onArchiveCallSheet('estimates',{projectId:pid,estimate:JSON.parse(JSON.stringify(estData))});setProjectEstimates(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(vIdx,1);store[pid]=arr;return store;});setBillieTabs(prev=>{const next=prev.filter((_,j)=>j!==i).map(t=>t.projectId===pid&&t.vIdx>vIdx?{...t,vIdx:t.vIdx-1}:t);if(isActive){if(next.length>0){const switchTo=next[0];setBillieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Deleted and switched to ${switchTo.label}.`}]);}else{setBillieCtx(null);setMsgs(p=>[...p,{role:"assistant",content:"Estimate deleted. Pick a project to start a new one!"}]);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
         <div onClick={()=>{const _pid=billieCtx?.projectId||billieTabs[billieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi5=(projectInfoRef.current||{})[proj.id];ne.ts={...ne.ts,version:"[Untitled]",client:proj.client||"",project:_pi5?.shootName||proj.name||""};setProjectEstimates(prev=>({...prev,[proj.id]:[...(prev[proj.id]||[]),ne]}));const newIdx=(projectEstimates?.[proj.id]||[]).length;setBillieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);addBillieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new estimate for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
@@ -9927,7 +9927,7 @@ export default function OnnaDashboard() {
                   </div>
                 )}
                 {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:36,maxWidth:140,objectFit:"contain",marginBottom:4}}/>}
-                <div style={{borderBottom:"2.5px solid #000",marginBottom:20}}/>
+                <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
                 <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:isMobile?10:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:12}}>{ctDef.title}</div>
                 {(signData.projectName || signData.label) && <div style={{fontFamily:CT_FONT,fontSize:9,color:"#1a1a1a",letterSpacing:CT_LS,marginBottom:14}}>{signData.projectName && <span>Project: {signData.projectName}</span>}{signData.projectName && signData.label && <span style={{margin:"0 6px"}}>|</span>}{signData.label && <span>{signData.label}</span>}</div>}
 
@@ -14853,7 +14853,7 @@ export default function OnnaDashboard() {
                       pushUndo={pushUndo}
                       projectInfoRef={projectInfoRef}
                       onOpenDuplicateCS={a.id==="compliance"?(pid)=>{setCsDuplicateModal({origin:"connie",projectId:pid});setCsDuplicateSearch("");}:undefined}
-                      onArchiveCallSheet={(a.id==="compliance"||a.id==="researcher")?archiveItem:undefined}
+                      onArchiveCallSheet={(a.id==="compliance"||a.id==="researcher"||a.id==="billie")?archiveItem:undefined}
                     />
                   ))}
                 </div>
