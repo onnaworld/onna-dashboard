@@ -1753,20 +1753,25 @@ function ShotListConnie({ initialProject, initialScenes, onChangeProject, onChan
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;
     const clone = el.cloneNode(true);
-    /* Remove placeholder dashes */
     clone.querySelectorAll("span").forEach(span => {
       if (span.textContent === "\u2014" && span.style.color === "rgb(221, 221, 221)") span.textContent = "";
     });
-    /* Remove UI-only elements */
     clone.querySelectorAll("[data-export-hide]").forEach(el => el.remove());
-    /* Remove empty input placeholders - replace inputs with their values as text */
     clone.querySelectorAll("input").forEach(inp => {
       if (!inp.value || !inp.value.trim()) { inp.parentElement && inp.parentElement.style && (inp.style.display = "none"); }
       else { const span = document.createElement("span"); span.textContent = inp.value; span.style.cssText = inp.style.cssText; span.style.border = "none"; span.style.background = "none"; inp.replaceWith(span); }
     });
     const w = window.open("", "_blank");
-    w.document.write(`<html><head><title>ONNA Shot List</title><style>@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');@page{size:landscape;margin:10mm}body{margin:0;padding:20px;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>`);
-    w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(() => w.print(), 500);
+    w.document.write(`<html><head><title>ONNA Shot List</title><style>` +
+      `@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');` +
+      `@page{size:landscape;margin:8mm}` +
+      `body{margin:0;padding:24px 32px;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;width:100%}` +
+      `@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}` +
+      `</style></head><body>`);
+    w.document.write(clone.innerHTML);
+    w.document.write(`</body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
   };
 
   const allShots = scenes.flatMap(s => s.shots);
