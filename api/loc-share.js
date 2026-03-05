@@ -180,6 +180,36 @@ document.querySelectorAll('span').forEach(function(s){
     s.replaceWith(img);
   }
 });
+/* Interactive status cycling on shared page */
+(function(){
+  var STATUSES=["Scouted","Shortlisted","Approved","Booked"];
+  var STATUS_C={
+    "Scouted":{bg:"#f4f4f4",text:"#999",border:"#ddd"},
+    "Shortlisted":{bg:"#FFF3E0",text:"#E65100",border:"#FFB74D"},
+    "Approved":{bg:"#E8F5E9",text:"#2E7D32",border:"#A5D6A7"},
+    "Booked":{bg:"#000",text:"#fff",border:"#000"}
+  };
+  document.querySelectorAll('[data-loc-status]').forEach(function(el){
+    el.style.cursor='pointer';
+    el.title='Click to change status';
+    el.addEventListener('click',function(){
+      var cur=el.getAttribute('data-loc-status');
+      var idx=STATUSES.indexOf(cur);
+      var next=STATUSES[(idx+1)%STATUSES.length];
+      var sc=STATUS_C[next]||STATUS_C["Scouted"];
+      el.setAttribute('data-loc-status',next);
+      el.textContent=next;
+      el.style.background=sc.bg;
+      el.style.color=sc.text;
+      /* Update the parent card border */
+      var card=el.closest('[style*="border-left"]');
+      if(card){
+        card.style.borderColor=sc.border;
+        card.style.borderLeftColor=sc.border;
+      }
+    });
+  });
+})();
 </script>
 </body></html>`;
 

@@ -2476,61 +2476,57 @@ ${PRINT_CLEANUP_CSS}
                 style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, padding: "5px 12px", cursor: "pointer", borderRadius: 2, border: "1px dashed #ccc", color: "#999" }}>+ ADD</div>
             </div>
 
-            {curDetail && (
+            {/* Normal mode: show selected detail only */}
+            {!printTabs && curDetail && (() => { const det = curDetail; const idx = details.findIndex(d => d.id === det.id); return (
               <div style={{ pageBreakInside: "avoid" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, borderBottom: "2px solid #000", paddingBottom: 6 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 2 }}>LOCATION {details.findIndex(d => d.id === curDetail.id) + 1}</div>
-                    <LocInp value={curDetail.name} onChange={v => updateDet(curDetail.id, "name", v)} placeholder="Location Name"
-                      style={{ fontSize: 20, fontWeight: 700, padding: 0 }} />
+                    <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 2 }}>LOCATION {idx + 1}</div>
+                    <LocInp value={det.name} onChange={v => updateDet(det.id, "name", v)} placeholder="Location Name" style={{ fontSize: 20, fontWeight: 700, padding: 0 }} />
                   </div>
                 </div>
-
                 <div style={{ display: "flex", gap: 14, marginBottom: 10 }}>
-                  <div style={{ flex: 1.5 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>ADDRESS </span>
-                    <LocInp value={curDetail.address} onChange={v => updateDet(curDetail.id, "address", v)} placeholder="Full address"
-                      style={{ color: "#666", display: "inline", width: "80%" }} />
-                  </div>
-                  <div style={{ flex: 0.5 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>RATE </span>
-                    <LocInp value={curDetail.rate} onChange={v => updateDet(curDetail.id, "rate", v)} placeholder="AED 0,000 / day"
-                      style={{ fontWeight: 600, display: "inline", width: "70%" }} />
-                  </div>
-                  <div style={{ flex: 2 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>NOTES </span>
-                    <LocInp value={curDetail.notes} onChange={v => updateDet(curDetail.id, "notes", v)} placeholder="Pros, cons, permits, parking, power..."
-                      style={{ color: "#666", display: "inline", width: "80%" }} />
-                  </div>
+                  <div style={{ flex: 1.5 }}><span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>ADDRESS </span><LocInp value={det.address} onChange={v => updateDet(det.id, "address", v)} placeholder="Full address" style={{ color: "#666", display: "inline", width: "80%" }} /></div>
+                  <div style={{ flex: 0.5 }}><span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>RATE </span><LocInp value={det.rate} onChange={v => updateDet(det.id, "rate", v)} placeholder="AED 0,000 / day" style={{ fontWeight: 600, display: "inline", width: "70%" }} /></div>
+                  <div style={{ flex: 2 }}><span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>NOTES </span><LocInp value={det.notes} onChange={v => updateDet(det.id, "notes", v)} placeholder="Pros, cons, permits, parking, power..." style={{ color: "#666", display: "inline", width: "80%" }} /></div>
                 </div>
-
-                {/* Row 1: hero + 2 stacked */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 6, height: 240 }}>
-                  <div style={{ flex: 2 }}>
-                    <LocImgSlot src={curDetail.images[0]} h="100%"
-                      onAdd={files => setDetImage(curDetail.id, 0, files)} onRemove={() => removeDetImage(curDetail.id, 0)} />
-                  </div>
+                  <div style={{ flex: 2 }}><LocImgSlot src={det.images[0]} h="100%" onAdd={files => setDetImage(det.id, 0, files)} onRemove={() => removeDetImage(det.id, 0)} /></div>
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                    {[1, 2].map(n => (
-                      <div key={n} style={{ flex: 1 }}>
-                        <LocImgSlot src={curDetail.images[n]} h="100%"
-                          onAdd={files => setDetImage(curDetail.id, n, files)} onRemove={() => removeDetImage(curDetail.id, n)} />
-                      </div>
-                    ))}
+                    {[1, 2].map(n => (<div key={n} style={{ flex: 1 }}><LocImgSlot src={det.images[n]} h="100%" onAdd={files => setDetImage(det.id, n, files)} onRemove={() => removeDetImage(det.id, n)} /></div>))}
                   </div>
                 </div>
-
-                {/* Row 2: 4 equal */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, height: 150 }}>
-                  {[3, 4, 5, 6].map(n => (
-                    <div key={n}>
-                      <LocImgSlot src={curDetail.images[n]} h="100%"
-                        onAdd={files => setDetImage(curDetail.id, n, files)} onRemove={() => removeDetImage(curDetail.id, n)} />
-                    </div>
-                  ))}
+                  {[3, 4, 5, 6].map(n => (<div key={n}><LocImgSlot src={det.images[n]} h="100%" onAdd={files => setDetImage(det.id, n, files)} onRemove={() => removeDetImage(det.id, n)} /></div>))}
                 </div>
               </div>
-            )}
+            ); })()}
+
+            {/* Print/share mode: render ALL detail locations */}
+            {printTabs && details.map((det, idx) => (
+              <div key={det.id} style={{ pageBreakInside: "avoid", marginBottom: idx < details.length - 1 ? 24 : 0, pageBreakAfter: idx < details.length - 1 ? "always" : "auto" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, borderBottom: "2px solid #000", paddingBottom: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 2 }}>LOCATION {idx + 1}</div>
+                    <span style={{ fontFamily: CS_FONT, fontSize: 20, fontWeight: 700 }}>{det.name || ""}</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 14, marginBottom: 10 }}>
+                  <div style={{ flex: 1.5 }}><span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>ADDRESS </span><span style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, color: "#666" }}>{det.address || ""}</span></div>
+                  <div style={{ flex: 0.5 }}><span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>RATE </span><span style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, fontWeight: 600 }}>{det.rate || ""}</span></div>
+                  <div style={{ flex: 2 }}><span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999" }}>NOTES </span><span style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, color: "#666" }}>{det.notes || ""}</span></div>
+                </div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 6, height: 240 }}>
+                  <div style={{ flex: 2 }}>{det.images[0] && <img src={det.images[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 2 }} />}</div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {[1, 2].map(n => (<div key={n} style={{ flex: 1 }}>{det.images[n] && <img src={det.images[n]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 2 }} />}</div>))}
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, height: 150 }}>
+                  {[3, 4, 5, 6].map(n => (<div key={n}>{det.images[n] && <img src={det.images[n]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 2 }} />}</div>))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -11083,6 +11079,7 @@ export default function OnnaDashboard() {
   const [activeLocDeckVersion,setActiveLocDeckVersion]   = useState(null);
   const [locShareUrl,setLocShareUrl]                     = useState(null);
   const [locShareLoading,setLocShareLoading]             = useState(false);
+  const [locShareTabs,setLocShareTabs]                   = useState(new Set(["overview","detail"]));
   const locDeckRef                                       = useRef(null);
   const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
@@ -14162,12 +14159,14 @@ export default function OnnaDashboard() {
       const existingLocToken = locData.shareToken || null;
       const displayLocShareUrl = locShareUrl || (existingLocToken ? `https://app.onna.world/api/loc-share?token=${encodeURIComponent(existingLocToken)}` : null);
       const sendLocShare = async () => {
+        if (locShareTabs.size === 0) return;
         setLocShareLoading(true);
         try {
-          if (locDeckRef.current) await locDeckRef.current.share(null, existingLocToken, locData.shareResourceId);
+          if (locDeckRef.current) await locDeckRef.current.share([...locShareTabs], existingLocToken, locData.shareResourceId);
         } catch (err) { alert("Error: " + err.message); }
         setLocShareLoading(false);
       };
+      const toggleLocShareTab = (t) => setLocShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
 
       return (
         <div>
@@ -14177,8 +14176,14 @@ export default function OnnaDashboard() {
               <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>LOCATIONS</span>
               <input value={locData.label||""} onChange={e=>{setLocDeckStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][locIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <button onClick={sendLocShare} disabled={locShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:locShareLoading?0.5:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              {["overview","detail"].map(t => (
+                <label key={t} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:locShareTabs.has(t)?"#1565C0":"#999",cursor:"pointer",userSelect:"none"}}>
+                  <input type="checkbox" checked={locShareTabs.has(t)} onChange={()=>toggleLocShareTab(t)} style={{accentColor:"#1976D2"}}/>
+                  {t.charAt(0).toUpperCase()+t.slice(1)}
+                </label>
+              ))}
+              <button onClick={sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
                 {locShareLoading ? "Generating\u2026" : existingLocToken ? "Update Link" : "Generate Link"}
               </button>
             </div>
