@@ -3606,7 +3606,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const attachRef=useRef(null);
   const [codyUploadedDoc,setCodyUploadedDoc]=useState(null); // {name, type, pages:[dataUrl,...]}
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
-  const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset}
+  const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX}
 
   // ── Split-pane: detect if agent has active project context ──
   const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
@@ -6366,7 +6366,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             codyDocConfigRef.current=cfg;
             const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
             const pageNote=allPages?" on all pages":"";
-            setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions}${pageNote} to your document. Click the preview below to export as PDF.\n\nYou can adjust: "Move signature up/down" \u00b7 "Move stamp up/down" \u00b7 "Apply to all pages"`,_docPreview:result}]);
+            setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions}${pageNote} to your document. Click the preview below to export as PDF.\n\nYou can adjust: "Move signature up/down" \u00b7 "Move stamp up/down" \u00b7 "Apply to all pages" \u00b7 Or drag to reposition`,_docPreview:result,_docConfig:cfg}]);
             setCodyUploadedDoc(null);setMood("excited");setTimeout(()=>setMood("idle"),2500);
           }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't process the document: ${err.message}`}]);setMood("idle");}
           setLoading(false);return;
@@ -7032,7 +7032,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
       {msgs.map((m,i)=>(<div key={i}>
-          <_AgentBubble msg={m}/>
+          <_AgentBubble msg={m} codyDocConfigRef={codyDocConfigRef} setMsgs={setMsgs}/>
         </div>))}
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
     </div>
@@ -8050,6 +8050,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{if(dashWidgetOrder)localStorage.setItem('onna_dash_widget_order',JSON.stringify(dashWidgetOrder));else localStorage.removeItem('onna_dash_widget_order');}catch{}},[dashWidgetOrder]);
 
   const dashDragRef=useRef(null);
+  useEffect(()=>{try{localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[]);
   const [mainDashOrder,setMainDashOrder]=useState(()=>{try{const c=localStorage.getItem('onna_main_dash_order');return c?JSON.parse(c):null;}catch{return null;}});
   useEffect(()=>{try{if(mainDashOrder)localStorage.setItem('onna_main_dash_order',JSON.stringify(mainDashOrder));else localStorage.removeItem('onna_main_dash_order');}catch{}},[mainDashOrder]);
   const [outreach,setOutreach]                           = useState(initOutreach);
