@@ -29,17 +29,18 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
   const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
   const po=pageOffsets||{};
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
-  const LH_NEED=75;
+  const LH_H=75;
   const result=[];const total=doc.pages.length;
   for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
     const hasLH=wantLetterhead&&appliesTo(letterPages,i,total)&&logoImg;
-    let pad=0;
-    if(hasLH){const whiteTop=_scanWhiteTop(pgImg);pad=whiteTop>=LH_NEED?0:LH_NEED-whiteTop;}
-    const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height+pad;const ctx=c.getContext("2d");
+    const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height;const ctx=c.getContext("2d");
     ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
-    ctx.drawImage(pgImg,0,pad);
-    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,10,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,10+lh+6);ctx.lineTo(c.width-40,10+lh+6);ctx.stroke();}
+    if(hasLH){
+      const contentH=c.height-LH_H;const scaleY=contentH/pgImg.height;
+      ctx.drawImage(pgImg,0,LH_H,pgImg.width*scaleY,contentH);
+      const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,10,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,10+lh+6);ctx.lineTo(c.width-40,10+lh+6);ctx.stroke();
+    }else{ctx.drawImage(pgImg,0,0);}
     const pg=po[i]||{};const sOX=pg.signOffsetX!=null?pg.signOffsetX:(signOffsetX||0);const sOY=pg.signOffset!=null?pg.signOffset:(signOffset||0);const stOX=pg.stampOffsetX!=null?pg.stampOffsetX:(stampOffsetX||0);const stOY=pg.stampOffset!=null?pg.stampOffset:(stampOffset||0);
     if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80*(signScale||1),sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60+sOX,c.height-180+sOY,sw,sh);}
     if(wantStamp&&appliesTo(stampPages,i,total)&&stampImg){const sth=120*(stampScale||1),stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw+stOX,c.height-180+stOY,stw,sth);}
@@ -54,7 +55,7 @@ const exportDocPreview=(preview,originalDoc,pageIndex)=>{
   const doExport=(orient)=>{
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
     const idoc=iframe.contentDocument||iframe.contentWindow.document;
-    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;}div:last-child{page-break-after:auto;}img{width:100%;height:auto;display:block;}@media print{@page{margin:0;size:A4 ${orient};}}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;height:100vh;display:flex;align-items:center;justify-content:center;}div:last-child{page-break-after:auto;}img{max-width:100%;max-height:100vh;object-fit:contain;display:block;}@media print{@page{margin:0;size:A4 ${orient};}}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
     setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
   };
   const srcPage=(originalDoc&&originalDoc.pages&&originalDoc.pages[pageIndex||0])||pages[0];
@@ -11227,7 +11228,7 @@ export default function OnnaDashboard() {
                   </div>
                   {dashSelectedNoteId===note.id&&(
                     <div style={{padding:"0 18px 14px"}}>
-                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onBlur={e=>setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:e.currentTarget.innerHTML,updatedAt:Date.now()}:n))} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
+                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onBlur={e=>{const html=e.target.innerHTML;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:html,updatedAt:Date.now()}:n));}} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
                     </div>
                   )}
                 </div>
