@@ -2539,6 +2539,239 @@ ${PRINT_CLEANUP_CSS}
   );
 });
 
+/* ======= CASTING CONNIE ======= */
+let _castId = 0;
+const mkCastRole = () => ({ id: "cr" + (++_castId), name: "", description: "" });
+const mkCastEntry = () => ({ id: "ce" + (++_castId), name: "", agency: "", status: "Scouted", image: null, notes: "", email: "", phone: "" });
+const mkCastOption = () => ({ id: "co" + (++_castId), role: "", entries: [mkCastEntry(), mkCastEntry()] });
+const CAST_STATUSES = ["Scouted","Shortlisted","Approved","Booked"];
+const CAST_STATUS_C = {
+  "Scouted":{bg:"#f4f4f4",text:"#999",border:"#ddd"},
+  "Shortlisted":{bg:"#FFF3E0",text:"#E65100",border:"#FFB74D"},
+  "Approved":{bg:"#E8F5E9",text:"#2E7D32",border:"#A5D6A7"},
+  "Booked":{bg:"#000",text:"#fff",border:"#000"}
+};
+const CAST_INIT = () => ({
+  project: { name: "", client: "", date: "", director: "" },
+  confirmed: [{ id: "cr1", role: "Lead", talent: [mkCastEntry()] }],
+  options: [mkCastOption()],
+});
+
+const CastInp = ({ value, onChange, style = {}, placeholder = "", bold = false }) => {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value);
+  const commit = () => { setEditing(false); onChange(temp); };
+  if (editing) return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"100%",boxSizing:"border-box",color:style.color||"#1a1a1a"}} placeholder={placeholder}/>;
+  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"pre-wrap"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+};
+
+const CastImgSlot = ({ image, onUpload, onRemove, size = 120 }) => {
+  const ref = useRef();
+  const readFile = f => { if(!f||!f.type.startsWith("image/"))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  return <div style={{width:size,height:size,borderRadius:8,overflow:"hidden",flexShrink:0,position:"relative",background:"#f5f5f5",border:"1.5px dashed #ccc"}}>
+    {image ? <>
+      <img src={image} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>ref.current.click()}/>
+      <button onClick={onRemove} style={{position:"absolute",top:4,right:4,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+    </> : <div onClick={()=>ref.current.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="#666";}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";readFile(e.dataTransfer.files[0]);}} style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:24,color:"#ccc"}}>+</div>}
+    <input ref={ref} type="file" accept="image/*" onChange={e=>readFile(e.target.files[0])} style={{display:"none"}}/>
+  </div>;
+};
+
+const CastCard = ({ entry, onChange, onRemove, onStatusChange }) => {
+  const sc = CAST_STATUS_C[entry.status] || CAST_STATUS_C["Scouted"];
+  return (
+    <div style={{border:`2px solid ${sc.border}`,borderRadius:10,padding:14,display:"flex",gap:14,alignItems:"flex-start",background:"#fff",transition:"border-color 0.2s"}}>
+      <CastImgSlot image={entry.image} onUpload={v=>onChange("image",v)} onRemove={()=>onChange("image",null)} size={100}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+          <CastInp value={entry.name} onChange={v=>onChange("name",v)} placeholder="Talent Name" bold style={{fontSize:14}}/>
+          <button onClick={onRemove} style={{background:"none",border:"none",color:"#ccc",fontSize:16,cursor:"pointer",padding:0,lineHeight:1}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color="#ccc"}>×</button>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
+          <CastInp value={entry.agency} onChange={v=>onChange("agency",v)} placeholder="Agency" style={{fontSize:11,width:"auto",flex:1,minWidth:80}}/>
+          <CastInp value={entry.email} onChange={v=>onChange("email",v)} placeholder="Email" style={{fontSize:11,width:"auto",flex:1,minWidth:80}}/>
+          <CastInp value={entry.phone} onChange={v=>onChange("phone",v)} placeholder="Phone" style={{fontSize:11,width:"auto",flex:1,minWidth:80}}/>
+        </div>
+        <CastInp value={entry.notes} onChange={v=>onChange("notes",v)} placeholder="Notes..." style={{fontSize:10,color:"#666",width:"100%"}}/>
+        <div style={{display:"flex",gap:6,marginTop:8}} data-hide="1">
+          {CAST_STATUSES.map(s => {
+            const active = entry.status === s;
+            const ssc = CAST_STATUS_C[s];
+            return <div key={s} onClick={()=>onStatusChange(s)} style={{fontSize:9,fontWeight:700,letterSpacing:0.5,padding:"4px 10px",borderRadius:4,cursor:"pointer",background:active?ssc.bg:"#fff",color:active?ssc.text:ssc.text,border:`1.5px solid ${active?ssc.border:"#ddd"}`,transition:"all 0.15s",textTransform:"uppercase"}}>{s}</div>;
+          })}
+        </div>
+        <div data-loc-status={entry.status} style={{display:"inline-block",fontSize:9,fontWeight:700,letterSpacing:0.5,padding:"4px 10px",borderRadius:4,marginTop:6,background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,textTransform:"uppercase"}} data-print-only="1">{entry.status}</div>
+      </div>
+    </div>
+  );
+};
+
+const CastingConnie = React.forwardRef(function CastingConnie({ initialProject, initialConfirmed, initialOptions, onChangeProject, onChangeConfirmed, onChangeOptions, onShareUrl }, fwdRef) {
+  const [project, setProject] = useState(initialProject || CAST_INIT().project);
+  const [confirmed, setConfirmed] = useState(initialConfirmed || CAST_INIT().confirmed);
+  const [options, setOptions] = useState(initialOptions || CAST_INIT().options);
+  const [tab, setTab] = useState("confirmed");
+  const [printTabs, setPrintTabs] = useState(null);
+  const printRef = useRef(null);
+
+  useEffect(() => { if (onChangeProject) onChangeProject(project); }, [project]);
+  useEffect(() => { if (onChangeConfirmed) onChangeConfirmed(confirmed); }, [confirmed]);
+  useEffect(() => { if (onChangeOptions) onChangeOptions(options); }, [options]);
+
+  const updateEntry = (listSetter, roleIdx, entryIdx, field, val) => {
+    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: (r.talent||r.entries).map((e,ei) => ei===entryIdx ? {...e,[field]:val} : e)} : r));
+  };
+  const addEntryToRole = (listSetter, roleIdx) => {
+    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: [...(r.talent||r.entries), mkCastEntry()]} : r));
+  };
+  const removeEntry = (listSetter, roleIdx, entryIdx) => {
+    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: (r.talent||r.entries).filter((_,ei) => ei!==entryIdx)} : r));
+  };
+  const addRole = (listSetter) => {
+    listSetter(prev => [...prev, { id: "cr"+(++_castId), role: "", name: "", talent: [mkCastEntry()] }]);
+  };
+  const removeRole = (listSetter, roleIdx) => {
+    listSetter(prev => prev.filter((_,i)=>i!==roleIdx));
+  };
+
+  const castCleanClone = (el) => {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
+    clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
+    clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
+    clone.querySelectorAll("[data-print-only]").forEach(n => { n.style.display = ""; });
+    clone.querySelectorAll("input, textarea").forEach(inp => {
+      if (!inp.value || !inp.value.trim()) { inp.style.display = "none"; }
+      else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; s.style.outline = "none"; inp.replaceWith(s); }
+    });
+    return clone;
+  };
+
+  const castExportPDF = () => {
+    const el = printRef.current; if (!el) return;
+    const clone = castCleanClone(el);
+    const fontRules = (() => { let r=""; try{for(const s of document.styleSheets){try{for(const ru of s.cssRules){if(ru.cssText&&ru.cssText.startsWith("@font-face"))r+=ru.cssText+"\n";}}catch{}}}catch{} return r; })();
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentDocument;
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
+${fontRules}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+@media print{@page{size:landscape;margin:0}}
+</style></head><body></body></html>`);
+    idoc.close();
+    idoc.body.appendChild(idoc.adoptNode(clone));
+    const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
+    Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);});
+  };
+
+  const generateSharePage = async (modes, existingToken, existingResourceId) => {
+    const captureHtml = () => {
+      const el = printRef.current; if (!el) return null;
+      const clone = castCleanClone(el);
+      clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+      return clone.innerHTML;
+    };
+    const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["confirmed","options"] : modes ? [modes] : ["confirmed","options"]);
+    setPrintTabs(new Set(tabsArr));
+    await new Promise(r => setTimeout(r, 300));
+    const html = captureHtml();
+    setPrintTabs(null);
+    if (!html) return;
+    try {
+      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
+      if (existingToken) body.token = existingToken;
+      if (existingResourceId) body.resourceId = existingResourceId;
+      const resp = await fetch("/api/casting-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await resp.json();
+      if (data.url) {
+        if (onShareUrl) onShareUrl(data.url, data.token, data.id);
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
+      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { alert("Error generating link: " + err.message); }
+  };
+
+  useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
+
+  const showTab = (t) => !printTabs || printTabs.has(t);
+
+  const renderRoleSection = (roles, listSetter, sectionLabel) => (
+    <div>
+      {roles.map((role, ri) => (
+        <div key={role.id||ri} style={{marginBottom:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <CastInp value={role.role||role.name||""} onChange={v=>listSetter(prev=>prev.map((r,i)=>i===ri?{...r,role:v,name:v}:r))} placeholder="Role Name" bold style={{fontSize:13,letterSpacing:0.5,textTransform:"uppercase"}}/>
+            <button data-hide="1" onClick={()=>removeRole(listSetter,ri)} style={{background:"none",border:"none",color:"#ccc",fontSize:14,cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color="#ccc"}>× Remove Role</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+            {(role.talent||role.entries||[]).map((entry, ei) => (
+              <CastCard key={entry.id||ei} entry={entry}
+                onChange={(field,val)=>updateEntry(listSetter,ri,ei,field,val)}
+                onRemove={()=>removeEntry(listSetter,ri,ei)}
+                onStatusChange={s=>updateEntry(listSetter,ri,ei,"status",s)}
+              />
+            ))}
+          </div>
+          <button data-hide="1" onClick={()=>addEntryToRole(listSetter,ri)} style={{marginTop:8,background:"none",border:"1.5px dashed #ccc",color:"#999",padding:"8px 20px",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:CS_FONT}}>+ Add Talent</button>
+        </div>
+      ))}
+      <button data-hide="1" onClick={()=>addRole(listSetter)} style={{background:"none",border:"1.5px dashed #ccc",color:"#999",padding:"8px 24px",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:CS_FONT}}>+ Add {sectionLabel} Role</button>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: CS_FONT, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+        {[{ id: "confirmed", label: "CONFIRMED CAST" }, { id: "options", label: "CASTING OPTIONS" }].map(t => (
+          <div key={t.id} onClick={() => setTab(t.id)}
+            style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
+        ))}
+        <div style={{ flex: 1 }} />
+        <div onClick={castExportPDF} style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
+          onMouseEnter={e => e.target.style.background = "#555"} onMouseLeave={e => e.target.style.background = "#333"}>EXPORT PAGE</div>
+      </div>
+
+      <div ref={printRef} style={{ padding: "20px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
+        <div style={{ textAlign: "center", fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>CASTING DECK</div>
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+          {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["DIRECTOR", "director", "Director"]].map(([lbl, key, ph]) => (
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
+              <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
+              <CastInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ fontSize: 11, flex: 1, minWidth: 60 }}/>
+            </div>
+          ))}
+        </div>
+
+        {showTab("confirmed") && (
+          <div style={{ marginBottom: 24, display: (!printTabs || tab === "confirmed") ? "block" : "none" }}>
+            <div style={{ fontFamily: CS_FONT, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12, paddingBottom: 6, borderBottom: "1px solid #eee" }}>CONFIRMED CAST</div>
+            {renderRoleSection(confirmed, setConfirmed, "Confirmed")}
+          </div>
+        )}
+
+        {showTab("options") && (
+          <div style={{ display: (!printTabs || tab === "options") ? "block" : "none" }}>
+            <div style={{ fontFamily: CS_FONT, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12, paddingBottom: 6, borderBottom: "1px solid #eee" }}>CASTING OPTIONS</div>
+            {renderRoleSection(options, setOptions, "Options")}
+          </div>
+        )}
+
+        <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between", fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, color: "#000", borderTop: "2px solid #000", paddingTop: 12 }}>
+          <div><div style={{ fontWeight: 700 }}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+          <div style={{ textAlign: "right" }}><div style={{ fontWeight: 700 }}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 /* ======= STORYBOARD CONNIE ======= */
 let _sbId = 0;
 const mkFrame = () => ({
