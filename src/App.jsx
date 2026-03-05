@@ -2082,6 +2082,227 @@ ${PRINT_CLEANUP_CSS}
   );
 }
 
+
+/* ======= STORYBOARD CONNIE ======= */
+let _sbId = 0;
+const mkFrame = () => ({
+  id: "f" + (++_sbId),
+  image: null,
+  caption: "",
+  action: "",
+  dialogue: "",
+  camera: "",
+  sfx: "",
+  duration: "",
+});
+
+const SB_FIELDS = [
+  { key: "action", label: "ACTION", ph: "What happens..." },
+  { key: "dialogue", label: "DIALOGUE", ph: "What is said..." },
+  { key: "camera", label: "CAMERA", ph: "Camera notes..." },
+  { key: "sfx", label: "SFX / AUDIO", ph: "Sound effects..." },
+];
+
+function StoryboardConnie({ initialFrames, onChangeFrames }) {
+  const [frames, setFramesRaw] = useState(() => initialFrames || [
+    mkFrame(), mkFrame(), mkFrame(), mkFrame(),
+    mkFrame(), mkFrame(), mkFrame(), mkFrame(),
+  ]);
+
+  const printRef = useRef(null);
+  const dragFrom = useRef(null);
+  const [dropAt, setDropAt] = useState(null);
+
+  /* Undo */
+  const historyRef = useRef([]);
+  const pushHistory = () => {
+    historyRef.current.push(JSON.parse(JSON.stringify(frames)));
+    if (historyRef.current.length > 50) historyRef.current.shift();
+  };
+  const undo = () => { if (historyRef.current.length === 0) return; const prev = historyRef.current.pop(); setFramesRaw(prev); if (onChangeFrames) onChangeFrames(prev); };
+  const setFrames = (u) => {
+    pushHistory();
+    setFramesRaw(prev => {
+      const next = typeof u === "function" ? u(prev) : u;
+      if (onChangeFrames) onChangeFrames(next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const h = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); } };
+    window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
+  });
+
+  const sbCleanClone = (el) => {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
+    clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
+    clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
+    clone.querySelectorAll("input").forEach(inp => {
+      if (!inp.value || !inp.value.trim()) {
+        const w = inp.closest("[data-field]");
+        if (w) w.remove();
+        else inp.style.display = "none";
+      } else {
+        const s = document.createElement("span");
+        s.textContent = inp.value;
+        s.style.fontFamily = "'" + "Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+        s.style.fontSize = "8px";
+        inp.replaceWith(s);
+      }
+    });
+    return clone;
+  };
+  const sbPrintViaIframe = (clone) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentDocument;
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+@media print{@page{size:landscape;margin:0}}
+${PRINT_CLEANUP_CSS}
+</style></head><body></body></html>`);
+    idoc.close();
+    idoc.body.appendChild(idoc.adoptNode(clone));
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+  };
+  const exportPDF = () => {
+    const el = printRef.current; if (!el) return;
+    sbPrintViaIframe(sbCleanClone(el));
+  };
+
+  const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+  const LS = 0.5;
+
+  return (
+    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+        <div style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", background: "#000", color: "#fff", textTransform: "uppercase" }}>STORYBOARD</div>
+        <div style={{ flex: 1 }} />
+        <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
+          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
+      </div>
+
+      <div ref={printRef} style={{ padding: "20px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 10 }} />
+        <div style={{ textAlign: "center", fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>STORYBOARD</div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+          {frames.map((frame, idx) => {
+            const isDropTarget = dropAt === idx && dragFrom.current !== null && dragFrom.current !== idx;
+            return (
+              <div
+                key={frame.id}
+                onDragOver={(e) => { e.preventDefault(); setDropAt(idx); }}
+                onDrop={() => {
+                  const from = dragFrom.current;
+                  if (from === null || from === idx) { dragFrom.current = null; setDropAt(null); return; }
+                  setFrames((prev) => { const n = [...prev]; const [m] = n.splice(from, 1); n.splice(idx, 0, m); return n; });
+                  dragFrom.current = null;
+                  setDropAt(null);
+                }}
+                onDragLeave={() => setDropAt(null)}
+                style={{ border: isDropTarget ? "2px solid #FFD54F" : "1px solid #ddd", borderRadius: 2, background: "#fff", overflow: "hidden" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 6px", background: "#000" }}>
+                  <div
+                    draggable
+                    onDragStart={() => { dragFrom.current = idx; }}
+                    onDragEnd={() => { dragFrom.current = null; setDropAt(null); }}
+                    style={{ display: "flex", alignItems: "center", gap: 4, cursor: "grab" }}
+                  >
+                    <span style={{ fontFamily: F, fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{"\u2261"}</span>
+                    <span style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>FRAME {idx + 1}</span>
+                  </div>
+                  <button
+                    data-hide="1"
+                    onClick={() => setFrames((prev) => prev.filter((f) => f.id !== frame.id))}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 14, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}
+                  >{"\u00d7"}</button>
+                </div>
+
+                <div style={{ width: "100%", height: 150, background: "#f8f8f8", position: "relative" }}>
+                  {frame.image ? (
+                    <>
+                      <img src={frame.image} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#f0f0f0" }} />
+                      <button
+                        data-hide="1"
+                        onClick={() => setFrames((prev) => prev.map((f) => f.id === frame.id ? { ...f, image: null } : f))}
+                        style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                      >{"\u00d7"}</button>
+                    </>
+                  ) : (
+                    <label style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2 }}>
+                      <span style={{ fontSize: 20, color: "#ddd" }}>+</span>
+                      <span style={{ fontFamily: F, fontSize: 7, color: "#ccc", letterSpacing: LS }}>Click to upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (!file || !file.type.startsWith("image/")) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => setFrames((prev) => prev.map((f) => f.id === frame.id ? { ...f, image: ev.target.result } : f));
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div style={{ padding: "4px 6px" }}>
+                  <input
+                    value={frame.caption}
+                    onChange={(e) => setFrames((prev) => prev.map((f) => f.id === frame.id ? { ...f, caption: e.target.value } : f))}
+                    placeholder="Caption / description"
+                    style={{ fontFamily: F, fontSize: 8, fontWeight: 600, letterSpacing: LS, border: "none", borderBottom: "1px solid #eee", outline: "none", width: "100%", padding: "3px 0", marginBottom: 3, boxSizing: "border-box" }}
+                  />
+                  {SB_FIELDS.map((fld) => (
+                    <div key={fld.key} data-field="1" style={{ marginBottom: 2 }}>
+                      <div style={{ fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>{fld.label}</div>
+                      <input
+                        value={frame[fld.key]}
+                        onChange={(e) => setFrames((prev) => prev.map((f) => f.id === frame.id ? { ...f, [fld.key]: e.target.value } : f))}
+                        placeholder={fld.ph}
+                        style={{ fontFamily: F, fontSize: 7, letterSpacing: LS, border: "1px solid #f0f0f0", outline: "none", width: "100%", padding: "2px 4px", boxSizing: "border-box", borderRadius: 1, color: "#666" }}
+                      />
+                    </div>
+                  ))}
+                  <div data-field="1" style={{ marginBottom: 2 }}>
+                    <div style={{ fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, color: "#999" }}>DURATION</div>
+                    <input
+                      value={frame.duration}
+                      onChange={(e) => setFrames((prev) => prev.map((f) => f.id === frame.id ? { ...f, duration: e.target.value } : f))}
+                      placeholder="e.g. 3s"
+                      style={{ fontFamily: F, fontSize: 7, letterSpacing: LS, border: "1px solid #f0f0f0", outline: "none", width: "100%", padding: "2px 4px", boxSizing: "border-box", borderRadius: 1, color: "#666" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div data-hide="1" style={{ marginTop: 10 }}>
+          <div
+            onClick={() => setFrames((prev) => [...prev, mkFrame()])}
+            style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 8px", cursor: "pointer", borderRadius: 1 }}
+          >
+            <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>+ ADD FRAME</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function buildConnieSystem(project, csData, versionLabel, csSnapshot, vendorSummary, leadsSummary) {
   return `You are Call Sheet Connie, a production coordinator for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live call sheet database.
 
@@ -2211,7 +2432,7 @@ function buildConniePatchMarkers(patch, preVer) {
   if (patch.invoicing) Object.keys(patch.invoicing).forEach(k=>{ if(patch.invoicing[k]!==(preVer.invoicing?.[k]||"")) markers.add("cs:invoicing."+k); });
   if (patch.schedule && Array.isArray(patch.schedule)) { patch.schedule.forEach((_,i) => markers.add("cs:scheduleRow:"+i)); }
   if (patch.venueRows && Array.isArray(patch.venueRows)) { patch.venueRows.forEach((vr,i) => markers.add("cs:venueRow:"+vr.label.toUpperCase())); }
-  if (patch.emergencyNumbers) markers.add("cs:emergencyNumbers");
+  if (patch.emergencyNumbers) { patch.emergencyNumbers.forEach((_,i)=>markers.add("cs:emergencyNum:"+i)); }
   if (patch.departments && Array.isArray(patch.departments)) {
     patch.departments.forEach(pd => {
       (pd.crew||[]).forEach(pc => {
@@ -2249,6 +2470,11 @@ function _applyRevert(ver, marker, preSnapshot) {
     else if(preRow && curIdx<0) { /* row was removed, restore it */ if(!ver.venueRows) ver.venueRows=[]; ver.venueRows.push(JSON.parse(JSON.stringify(preRow))); }
   } else if (marker === "cs:emergencyNumbers") {
     ver.emergencyNumbers = preSnapshot.emergencyNumbers ? JSON.parse(JSON.stringify(preSnapshot.emergencyNumbers)) : [];
+  } else if (marker.startsWith("cs:emergencyNum:")) {
+    const ri = parseInt(marker.split(":")[2],10);
+    const preNums = preSnapshot.emergencyNumbers ? JSON.parse(JSON.stringify(preSnapshot.emergencyNumbers)) : [];
+    if(ri < preNums.length && ri < (ver.emergencyNumbers||[]).length) ver.emergencyNumbers[ri] = preNums[ri];
+    else if(ri >= preNums.length && ri < (ver.emergencyNumbers||[]).length) ver.emergencyNumbers.splice(ri,1);
   } else if (marker.startsWith("cs:crew:")) {
     const parts = marker.split(":"); const deptName = parts[2]; const roleName = parts[3];
     const preDept = (preSnapshot.departments||[]).find(d=>d.name.toUpperCase()===deptName);
@@ -5024,17 +5250,17 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px 48px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>WEATHER{(()=>{const wm=["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].filter(m=>hasCM(m));return wm.length>0?<span><button onClick={()=>acceptCMs(...wm)} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>declineCMs(...wm)} style={cRevBtn("decline")}>{"\u2715"}</button></span>:null;})()}</div>
-              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,position:"relative",...(hasCM("cs:scalar:weatherSummary")?cHL:{})}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/>{hasCM("cs:scalar:weatherSummary")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:weatherSummary")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSummary")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,...(hasCM("cs:scalar:weatherSummary")?cHL:{})}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
-                <div style={{display:"flex",alignItems:"center",gap:2,position:"relative",...(hasCM("cs:scalar:weatherHighC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F{hasCM("cs:scalar:weatherHighC")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCMs("cs:scalar:weatherHighC","cs:scalar:weatherHighF")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCMs("cs:scalar:weatherHighC","cs:scalar:weatherHighF")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-                <div style={{display:"flex",alignItems:"center",gap:2,position:"relative",...(hasCM("cs:scalar:weatherLowC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F{hasCM("cs:scalar:weatherLowC")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCMs("cs:scalar:weatherLowC","cs:scalar:weatherLowF")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCMs("cs:scalar:weatherLowC","cs:scalar:weatherLowF")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherHighC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherLowC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
-                <div style={{display:"flex",alignItems:"center",gap:2,position:"relative",...(hasCM("cs:scalar:weatherRealFeelHighC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F{hasCM("cs:scalar:weatherRealFeelHighC")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCMs("cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCMs("cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-                <div style={{display:"flex",alignItems:"center",gap:2,position:"relative",...(hasCM("cs:scalar:weatherRealFeelLowC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F{hasCM("cs:scalar:weatherRealFeelLowC")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCMs("cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCMs("cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherRealFeelHighC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,...(hasCM("cs:scalar:weatherRealFeelLowC")?cHL:{})}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
               {(csData.weatherHourly||[]).length>0?<div style={{marginBottom:10,...(hasCM("cs:weatherHourly")?cHL:{})}}>
-                <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"space-between"}}>HOURLY FORECAST{hasCM("cs:weatherHourly")&&<span><button onClick={()=>acceptCM("cs:weatherHourly")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:weatherHourly")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
                 <div style={{display:"flex",gap:0,width:"100%"}}>
                   {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
                     <div style={{fontWeight:700,color:"#555"}}>{h.time}</div>
@@ -5055,7 +5281,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* PROTOCOL */}
             <div style={{padding:"10px 32px 10px 48px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>PROTOCOL ON SET{hasCM("cs:scalar:protocol")&&<span><button onClick={()=>acceptCM("cs:scalar:protocol")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:protocol")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
             {/* EMERGENCY */}
-            <div style={{padding:"10px 32px 10px 48px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4,position:"relative",background:hasCM("cs:scalar:emergencyDialPrefix")?"#FFFDE7":"transparent",borderRadius:2,padding:hasCM("cs:scalar:emergencyDialPrefix")?"2px 6px":0,...(hasCM("cs:scalar:emergencyDialPrefix")?cHL:{})}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold isPlaceholder style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/>{hasCM("cs:scalar:emergencyDialPrefix")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,position:"relative",background:hasCM("cs:emergencyNumbers")?"#FFFDE7":"transparent",borderRadius:2,padding:hasCM("cs:emergencyNumbers")?"2px 6px":"2px 0",...(hasCM("cs:emergencyNumbers")?cHL:{})}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} isPlaceholder style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold isPlaceholder style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/>{hasCM("cs:emergencyNumbers")&&<span style={{display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}<CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",background:hasCM("cs:emergency.hospital")?"#FFFDE7":"transparent",...(hasCM("cs:emergency.hospital")?cHL:{})}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} isPlaceholder style={{fontSize:11}}/>{hasCM("cs:emergency.hospital")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",background:hasCM("cs:emergency.police")?"#FFFDE7":"transparent",...(hasCM("cs:emergency.police")?cHL:{})}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} isPlaceholder style={{fontSize:11}}/>{hasCM("cs:emergency.police")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
+            <div style={{padding:"10px 32px 10px 48px"}}><div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4,position:"relative",background:"#FFFDE7",borderRadius:2,padding:"2px 6px",...(hasCM("cs:scalar:emergencyDialPrefix")?cHL:{})}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold isPlaceholder alwaysYellow style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/>{hasCM("cs:scalar:emergencyDialPrefix")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,position:"relative",background:"#FFFDE7",borderRadius:2,padding:"2px 6px",...(hasCM("cs:emergencyNum:"+i)?cHL:{})}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} isPlaceholder alwaysYellow style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold isPlaceholder alwaysYellow style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/>{hasCM("cs:emergencyNum:"+i)&&<span style={{display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergencyNum:"+i)} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNum:"+i)} style={cRevBtn("decline")}>{"✕"}</button></span>}<CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",...(hasCM("cs:emergency.hospital")?cHL:{})}}><strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} isPlaceholder alwaysYellow style={{fontSize:11}}/>{hasCM("cs:emergency.hospital")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center",position:"relative",...(hasCM("cs:emergency.police")?cHL:{})}}><strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} isPlaceholder alwaysYellow style={{fontSize:11}}/>{hasCM("cs:emergency.police")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
             {/* FOOTER */}
             <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
           </div>
@@ -9869,6 +10095,8 @@ export default function OnnaDashboard() {
   const [activeCPSVersion,setActiveCPSVersion]           = useState(null);
   const [shotListStore,setShotListStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_shotlists');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeShotListVersion,setActiveShotListVersion] = useState(null);
+  const [storyboardStore,setStoryboardStore]             = useState(()=>{try{const s=localStorage.getItem('onna_storyboards');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
   const [cpsShareUrl,setCpsShareUrl]                     = useState(null);
   const [cpsShareLoading,setCpsShareLoading]             = useState(false);
   const [cpsShareTabs,setCpsShareTabs]                   = useState(new Set(["schedule","timeline","calendar"]));
@@ -10068,6 +10296,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{}},[cpsStore]);
   useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{}},[shotListStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{}},[dietaryStore]);
@@ -10381,7 +10610,7 @@ export default function OnnaDashboard() {
     "onna_dietaries","onna_estimates","onna_project_info","onna_creative_links",
     "onna_lead_cats","onna_lead_locs","onna_vendor_cats","onna_vendor_locs",
     "onna_hidden_lead_cats","onna_hidden_vendor_cats",
-    "onna_archive","onna_shotlists"
+    "onna_archive","onna_shotlists","onna_storyboards"
   ];
   const SYNC_TITLE = "__ONNA_SYNC__";
   const syncNoteIdRef = useRef(null);
@@ -13473,14 +13702,76 @@ export default function OnnaDashboard() {
         );
       }
 
-      if (scheduleSubSection==="storyboard") return (
-        <div>
-          {schedBack}
-          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Storyboard</div>
-          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Visual scene breakdowns, frame sketches, and narrative flow.</p>
-          <textarea value={projectNotes[p.id+"_storyboard"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_storyboard"]:e.target.value}))} rows={16} placeholder="Add storyboard notes, scene descriptions, visual references…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
-        </div>
-      );
+      if (scheduleSubSection==="storyboard") {
+        const sbVersions = storyboardStore[p.id] || [];
+        const addSBNew = () => {
+          const newId = Date.now();
+          const defaultFrames = [mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame()];
+          const newSB = { id: newId, label: `V${sbVersions.length+1}`, frames: defaultFrames };
+          setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSB); return store; });
+        };
+        const deleteSB = (idx) => {
+          if (!confirm("Delete this Storyboard? This will be moved to trash.")) return;
+          const sbData = JSON.parse(JSON.stringify((storyboardStore[p.id]||[])[idx]));
+          if (sbData) archiveItem('storyboard', { projectId: p.id, storyboard: sbData });
+          setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
+          setActiveStoryboardVersion(null);
+        };
+
+        if (activeStoryboardVersion === null || sbVersions.length === 0) {
+          return (
+            <div>
+              {schedBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Storyboard</div>
+                <button onClick={addSBNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Storyboard</button>
+              </div>
+              {sbVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No storyboards yet. Click "+ New Storyboard" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {sbVersions.map((sb,i) => {
+                  const totalFrames = (sb.frames||[]).length;
+                  const filledFrames = (sb.frames||[]).filter(f=>f.image||f.caption||f.action).length;
+                  return (
+                    <div key={sb.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveStoryboardVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>STORYBOARD</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:filledFrames>0?"#e8f5e9":"#f5f5f5",color:filledFrames>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{totalFrames} frames · {filledFrames} filled</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{sb.label||"Untitled"}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>deleteSB(i)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>×</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        const sbIdx = activeStoryboardVersion;
+        const sbData = sbVersions[sbIdx];
+        if (!sbData) { setActiveStoryboardVersion(null); return null; }
+
+        const sbBack = <button onClick={()=>setActiveStoryboardVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Storyboards</button>;
+
+        return (
+          <div>
+            {sbBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <input value={sbData.label||""} onChange={e=>{setStoryboardStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][sbIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+            </div>
+            <StoryboardConnie
+              initialFrames={sbData.frames}
+              onChangeFrames={frames => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].frames = frames; return s; })}
+            />
+          </div>
+        );
+      }
 
       return null;
     }
