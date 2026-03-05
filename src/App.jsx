@@ -951,7 +951,7 @@ const CPSConnie = React.forwardRef(function CPSConnieInner({ initialProject, ini
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 ${fontRules}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
@@ -962,7 +962,8 @@ ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
     idoc.close();
     idoc.body.appendChild(idoc.adoptNode(clone));
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+    const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
+    Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);});
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;
@@ -982,6 +983,7 @@ ${PRINT_CLEANUP_CSS}
       const el = printRef.current; if (!el) return null;
       const clone = cleanClone(el);
       clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); });
+      clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
       return clone.innerHTML;
     };
     const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["schedule","timeline","calendar"] : [modes]);
@@ -1865,7 +1867,7 @@ function ShotListConnie({ initialProject, initialScenes, onChangeProject, onChan
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
 body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
@@ -1874,7 +1876,8 @@ ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
     idoc.close();
     idoc.body.appendChild(idoc.adoptNode(clone));
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+    const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
+    Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);});
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;
@@ -2313,7 +2316,7 @@ const LocationsConnie = React.forwardRef(function LocationsConnieInner({ initial
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 ${fontRules}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
@@ -2323,7 +2326,8 @@ ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
     idoc.close();
     idoc.body.appendChild(idoc.adoptNode(clone));
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+    const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
+    Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);});
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;
@@ -2334,6 +2338,7 @@ ${PRINT_CLEANUP_CSS}
   const generateSharePage = async (modes, existingToken) => {
     const el = printRef.current; if (!el) return;
     const clone = cleanClone(el);
+    clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
     const html = clone.innerHTML;
     if (!html) return;
     try {
