@@ -4097,6 +4097,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
   // ── CONNIE: Dietary list view ──
   const [connieDietIdx,setConnieDietIdx]=useState(null);
+  const [connieDietTab,setConnieDietTab]=useState("dietary");
   if (agentId === "compliance" && connieMode === "dietary" && dietaryStore && setDietaryStore) {
     const dietVersions = dietaryStore[projectId] || [];
     const addDietNew = () => {
@@ -4117,14 +4118,27 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
         if(pulled.length>0)newDiet.people=pulled;
       }
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[projectId])store[projectId]=[];store[projectId].push(newDiet);return store;});
+      return dietVersions.length; // return new index
     };
     const deleteDiet = (idx) => {
-      if(!confirm("Delete this dietary list? This will be moved to trash."))return;
+      if(!confirm("Delete this dietary list?"))return;
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];arr.splice(idx,1);store[projectId]=arr;return store;});
-      if(connieDietIdx===idx)setConnieDietIdx(null);
+      if(connieDietIdx===idx)setConnieDietIdx(dietVersions.length>1?0:null);
+      else if(connieDietIdx!==null&&connieDietIdx>idx)setConnieDietIdx(connieDietIdx-1);
     };
 
-    // ── Detail view (inline) ──
+    // Auto-create if no dietary lists exist
+    if(dietVersions.length===0){
+      const newIdx=addDietNew();
+      setTimeout(()=>setConnieDietIdx(0),0);
+    }
+
+    // Auto-select first if none selected
+    if(connieDietIdx===null && dietVersions.length>0){
+      const activeIdx=dietVersions.length-1;
+      return(<div style={{overflowY:"auto",padding:20,background:"#fff",height:"100%"}}>{setTimeout(()=>setConnieDietIdx(activeIdx),0)&&null}</div>);
+    }
+
     if(connieDietIdx!==null && dietVersions.length>0){
       const dietIdx=Math.min(connieDietIdx,dietVersions.length-1);
       const dietData=dietVersions[dietIdx];
@@ -4138,76 +4152,79 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
       return(
-        <div style={{overflowY:"auto",padding:20,background:"#fff",height:"100%"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-            <button onClick={()=>setConnieDietIdx(null)} style={{background:"none",border:"none",color:"#1a56db",fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>‹ Back to Dietary Lists</button>
-            <div style={{flex:1}}/>
-            <button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:"1px solid #e5e5ea",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Sync from Call Sheet</button>
+        <div style={{overflowY:"auto",background:"#fff",height:"100%",display:"flex",flexDirection:"column"}}>
+          {/* Tab bar */}
+          <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
+            {dietVersions.map((dv,i)=>{const isActive=i===dietIdx;return(
+              <div key={dv.id} onClick={()=>setConnieDietIdx(i)} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #c47090":"1px solid #e0e0e0",background:isActive?"#fff5f7":"#f5f5f7",color:isActive?"#7a1a30":"#6e6e73",borderBottom:isActive?"2px solid #c47090":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+                <span>{dv.label||`List ${i+1}`}</span>
+                {dietVersions.length>1&&<span onClick={e=>{e.stopPropagation();deleteDiet(i);}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>&times;</span>}
+              </div>
+            );})}
+            <div onClick={()=>{const ni=addDietNew();setTimeout(()=>setConnieDietIdx(ni),0);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
           </div>
-          <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>{dietData.label||"Dietary List"}</div>
-          <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
-            <span style={{fontSize:10,fontWeight:600,background:"#e3f2fd",color:"#1565c0",padding:"3px 10px",borderRadius:6}}>TOTAL CREW: {(dietData.people||[]).length}</span>
-            <span style={{fontSize:10,fontWeight:600,background:dietTotalWithDietary>0?"#fff3e0":"#f5f5f5",color:dietTotalWithDietary>0?"#e65100":"#999",padding:"3px 10px",borderRadius:6}}>DIETARY: {dietTotalWithDietary}</span>
-            <span style={{fontSize:10,fontWeight:600,background:dietTotalWithAllergy>0?"#fce4ec":"#f5f5f5",color:dietTotalWithAllergy>0?"#c62828":"#999",padding:"3px 10px",borderRadius:6}}>ALLERGIES: {dietTotalWithAllergy}</span>
-          </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-            <thead><tr style={{background:"#1d1d1f",color:"#fff"}}>
-              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>#</th>
-              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>NAME</th>
-              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>ROLE</th>
-              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>DEPT</th>
-              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>DIETARY</th>
-              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>ALLERGIES</th>
-              <th style={{padding:"6px 8px",width:20}}></th>
-            </tr></thead>
-            <tbody>
-              {(dietData.people||[]).map((pr,i)=>(
-                <tr key={pr.id||i} style={{borderBottom:"1px solid #eee"}}>
-                  <td style={{padding:"5px 8px",color:"#999",fontSize:10}}>{i+1}</td>
-                  <td style={{padding:"5px 8px"}}><input value={pr.name||""} onChange={e=>dietUpdatePerson(i,"name",e.target.value)} placeholder="[Name]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.name||pr.name.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
-                  <td style={{padding:"5px 8px"}}><input value={pr.role||""} onChange={e=>dietUpdatePerson(i,"role",e.target.value)} placeholder="[Role]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.role||pr.role.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
-                  <td style={{padding:"5px 8px"}}><input value={pr.department||""} onChange={e=>dietUpdatePerson(i,"department",e.target.value)} placeholder="[Department]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.department||pr.department.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
-                  <td style={{padding:"5px 8px"}}><select value={pr.dietary||"None"} onChange={e=>dietUpdatePerson(i,"dietary",e.target.value)} style={{border:"none",outline:"none",fontSize:10,fontFamily:"inherit",background:pr.dietary&&pr.dietary!=="None"?"#fff3e0":"#f5f5f5",padding:"2px 6px",borderRadius:4,cursor:"pointer"}}>{["None","Vegetarian","Vegan","Halal","Kosher","Gluten-Free","Dairy-Free","Nut Allergy","Shellfish Allergy","Pescatarian","Other"].map(o=><option key={o} value={o}>{o}</option>)}</select></td>
-                  <td style={{padding:"5px 8px"}}><input value={pr.allergies||""} onChange={e=>dietUpdatePerson(i,"allergies",e.target.value)} placeholder="\u2014" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",padding:"2px 4px",borderRadius:3}}/></td>
-                  <td style={{padding:"5px 8px"}}><span onClick={()=>dietDeletePerson(i)} style={{cursor:"pointer",fontSize:11,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span></td>
-                </tr>
+          <div style={{flex:1,overflowY:"auto",padding:20}}>
+            {/* Dietary/Menu tabs */}
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+              <input value={dietData.label||""} onChange={e=>dietU("label",e.target.value)} style={{fontSize:15,fontWeight:700,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,flex:1}} placeholder="Dietary List Name"/>
+              {connieDietTab==="dietary"&&<button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:"1px solid #e5e5ea",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Sync from Call Sheet</button>}
+            </div>
+            <div style={{display:"flex",gap:0,marginBottom:14,borderBottom:"1px solid #e5e5ea"}}>
+              {[{id:"dietary",label:"Dietary"},{id:"menu",label:"Menu"}].map(tab=><button key={tab.id} onClick={()=>setConnieDietTab(tab.id)} style={{padding:"8px 18px",fontSize:12,fontWeight:connieDietTab===tab.id?700:500,color:connieDietTab===tab.id?"#1d1d1f":"#86868b",background:"none",border:"none",borderBottom:connieDietTab===tab.id?"2px solid #1d1d1f":"2px solid transparent",cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{tab.label}</button>)}
+            </div>
+            {connieDietTab==="dietary"&&<>
+              <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+                <span style={{fontSize:10,fontWeight:600,background:"#e3f2fd",color:"#1565c0",padding:"3px 10px",borderRadius:6}}>TOTAL CREW: {(dietData.people||[]).length}</span>
+                <span style={{fontSize:10,fontWeight:600,background:dietTotalWithDietary>0?"#fff3e0":"#f5f5f5",color:dietTotalWithDietary>0?"#e65100":"#999",padding:"3px 10px",borderRadius:6}}>DIETARY: {dietTotalWithDietary}</span>
+                <span style={{fontSize:10,fontWeight:600,background:dietTotalWithAllergy>0?"#fce4ec":"#f5f5f5",color:dietTotalWithAllergy>0?"#c62828":"#999",padding:"3px 10px",borderRadius:6}}>ALLERGIES: {dietTotalWithAllergy}</span>
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                <thead><tr style={{background:"#1d1d1f",color:"#fff"}}>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>#</th>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>NAME</th>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>ROLE</th>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>DEPT</th>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>DIETARY</th>
+                  <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>ALLERGIES</th>
+                  <th style={{padding:"6px 8px",width:20}}></th>
+                </tr></thead>
+                <tbody>
+                  {(dietData.people||[]).map((pr,i)=>(
+                    <tr key={pr.id||i} style={{borderBottom:"1px solid #eee"}}>
+                      <td style={{padding:"5px 8px",color:"#999",fontSize:10}}>{i+1}</td>
+                      <td style={{padding:"5px 8px"}}><input value={pr.name||""} onChange={e=>dietUpdatePerson(i,"name",e.target.value)} placeholder="[Name]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.name||pr.name.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
+                      <td style={{padding:"5px 8px"}}><input value={pr.role||""} onChange={e=>dietUpdatePerson(i,"role",e.target.value)} placeholder="[Role]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.role||pr.role.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
+                      <td style={{padding:"5px 8px"}}><input value={pr.department||""} onChange={e=>dietUpdatePerson(i,"department",e.target.value)} placeholder="[Department]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.department||pr.department.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
+                      <td style={{padding:"5px 8px"}}><select value={pr.dietary||"None"} onChange={e=>dietUpdatePerson(i,"dietary",e.target.value)} style={{border:"none",outline:"none",fontSize:10,fontFamily:"inherit",background:pr.dietary&&pr.dietary!=="None"?"#fff3e0":"#f5f5f5",padding:"2px 6px",borderRadius:4,cursor:"pointer"}}>{["None","Vegetarian","Vegan","Halal","Kosher","Gluten-Free","Dairy-Free","Nut Allergy","Shellfish Allergy","Pescatarian","Other"].map(o=><option key={o} value={o}>{o}</option>)}</select></td>
+                      <td style={{padding:"5px 8px"}}><input value={pr.allergies||""} onChange={e=>dietUpdatePerson(i,"allergies",e.target.value)} style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",padding:"2px 4px",borderRadius:3}}/></td>
+                      <td style={{padding:"5px 8px"}}><span onClick={()=>dietDeletePerson(i)} style={{cursor:"pointer",fontSize:11,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>&times;</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button onClick={dietAddPerson} style={{marginTop:8,background:"none",border:"1px dashed #ccc",borderRadius:6,padding:"5px 12px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>+ ADD ROW</button>
+            </>}
+            {connieDietTab==="menu"&&<div>
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(!d.menu)d.menu=[];d.menu.push({id:Date.now(),category:"",items:""});arr[dietIdx]=d;store[projectId]=arr;return store;});}} style={{fontSize:10,color:"#999",cursor:"pointer",fontWeight:600}} onMouseEnter={e=>e.target.style.color="#000"} onMouseLeave={e=>e.target.style.color="#999"}>+ ADD SECTION</span>
+              </div>
+              {(dietData.menu||[]).map((m,mi)=>(
+                <div key={m.id} style={{marginBottom:18}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                    <span onClick={()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.menu=(d.menu||[]).filter((_,j)=>j!==mi);arr[dietIdx]=d;store[projectId]=arr;return store;});}} style={{cursor:"pointer",fontSize:10,color:"#ddd",flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>&times;</span>
+                    <input value={m.category} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.menu[mi].category=v;arr[dietIdx]=d;store[projectId]=arr;return store;});}} placeholder="e.g. Starters, Mains, Desserts, Drinks" style={{fontSize:11,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",background:"transparent",border:"none",outline:"none",color:"#000",padding:0,width:"100%",borderBottom:"1px solid #eee",paddingBottom:4,fontFamily:"inherit"}}/>
+                  </div>
+                  <textarea value={m.items} onChange={e=>{const v=e.target.value;setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.menu[mi].items=v;arr[dietIdx]=d;store[projectId]=arr;return store;});}} placeholder="List menu items here..." rows={4} style={{fontSize:10,color:"#333",background:"#fafafa",border:"1px solid #eee",borderRadius:4,padding:"8px 10px",width:"100%",boxSizing:"border-box",resize:"vertical",outline:"none",lineHeight:1.7,fontFamily:"inherit"}}/>
+                </div>
               ))}
-            </tbody>
-          </table>
-          <button onClick={dietAddPerson} style={{marginTop:8,background:"none",border:"1px dashed #ccc",borderRadius:6,padding:"5px 12px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>+ ADD ROW</button>
+              {(dietData.menu||[]).length===0&&<div style={{fontSize:10,color:"#ccc",letterSpacing:0.5,padding:"24px 8px",fontStyle:"italic",textAlign:"center"}}>No menu added yet. Click + ADD SECTION above.</div>}
+            </div>}
+          </div>
         </div>
       );
     }
 
-    // ── List view ──
-    return (
-      <div style={{overflowY:"auto",padding:20,background:"#fff",height:"100%"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-          <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f"}}>Dietary Lists</div>
-          <button onClick={addDietNew} style={{padding:"7px 16px",borderRadius:9,background:"#c47090",color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Dietary List</button>
-        </div>
-        {dietVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:"1.5px dashed #e5e5ea",padding:44,textAlign:"center"}}><div style={{fontSize:13,color:"#86868b"}}>No dietary lists yet. Click "+ New Dietary List" to get started.</div></div>}
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {dietVersions.map((diet,i)=>{
-            const crewCount=(diet.people||[]).length;
-            const dietaryCount=(diet.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
-            return(
-              <div key={diet.id} style={{background:"#fff",border:"1px solid #e5e5ea",borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setConnieDietIdx(i)}>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                    <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>DL</span>
-                    <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:crewCount>0?"#e8f5e9":"#f5f5f5",color:crewCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{crewCount} crew · {dietaryCount} dietary</span>
-                  </div>
-                  <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f"}}>{diet.label||"Untitled"}</div>
-                  <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{diet.project?.date||"No date set"}</div>
-                </div>
-                <button onClick={e=>{e.stopPropagation();deleteDiet(i);}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
+    return <div style={{padding:20,background:"#fff",height:"100%"}}><div style={{color:"#888",fontSize:12,textAlign:"center",padding:40}}>Loading...</div></div>;
   }
 
   // ── CONNIE (Call Sheet) ──
