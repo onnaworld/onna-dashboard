@@ -14,20 +14,32 @@ const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=at
 
 // ─── SIGN / STAMP / LETTERHEAD compositing ──────────────────────────────────
 const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>res(img);img.onerror=()=>rej(new Error("Failed to load "+src));img.src=src;});
+const _scanWhiteTop=(pgImg)=>{
+  const sc=document.createElement("canvas");sc.width=pgImg.width;sc.height=pgImg.height;const sx=sc.getContext("2d");
+  sx.drawImage(pgImg,0,0);const strip=sx.getImageData(0,0,sc.width,Math.min(sc.height,300));
+  const w=strip.width,d=strip.data;
+  for(let y=0;y<strip.height;y++){
+    let hasContent=false;
+    for(let x=Math.floor(w*0.05);x<Math.floor(w*0.95);x++){const idx=(y*w+x)*4;if(d[idx]<240||d[idx+1]<240||d[idx+2]<240){hasContent=true;break;}}
+    if(hasContent)return y;
+  }
+  return strip.height;
+};
 const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages="last",stampPages="last",letterPages="first",signOffset=0,stampOffset=0,signOffsetX=0,stampOffsetX=0,signScale=1,stampScale=1,pageOffsets})=>{
   const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
   const po=pageOffsets||{};
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
-  const LH_PAD=90;
+  const LH_NEED=75;
   const result=[];const total=doc.pages.length;
   for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
     const hasLH=wantLetterhead&&appliesTo(letterPages,i,total)&&logoImg;
-    const pad=hasLH?LH_PAD:0;
+    let pad=0;
+    if(hasLH){const whiteTop=_scanWhiteTop(pgImg);pad=whiteTop>=LH_NEED?0:LH_NEED-whiteTop;}
     const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height+pad;const ctx=c.getContext("2d");
     ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
     ctx.drawImage(pgImg,0,pad);
-    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,12,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,12+lh+8);ctx.lineTo(c.width-40,12+lh+8);ctx.stroke();}
+    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,10,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,10+lh+6);ctx.lineTo(c.width-40,10+lh+6);ctx.stroke();}
     const pg=po[i]||{};const sOX=pg.signOffsetX!=null?pg.signOffsetX:(signOffsetX||0);const sOY=pg.signOffset!=null?pg.signOffset:(signOffset||0);const stOX=pg.stampOffsetX!=null?pg.stampOffsetX:(stampOffsetX||0);const stOY=pg.stampOffset!=null?pg.stampOffset:(stampOffset||0);
     if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80*(signScale||1),sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60+sOX,c.height-180+sOY,sw,sh);}
     if(wantStamp&&appliesTo(stampPages,i,total)&&stampImg){const sth=120*(stampScale||1),stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw+stOX,c.height-180+stOY,stw,sth);}
@@ -3788,7 +3800,7 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const signCY=natH-180+(po.signOffset!=null?po.signOffset:(config.signOffset||0));
   const stampCX=natW-60-stampW+(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0));
   const stampCY=natH-180+(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0));
-  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=12,LH_PAD=90;
+  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=10,LH_PAD=0;
   const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
   useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
   const onMouseDown=useCallback((target,e)=>{
@@ -3820,7 +3832,7 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const resizeHandle=(target)=><div onMouseDown={e=>onResizeDown(target,e)} style={{position:"absolute",right:-3,bottom:-3,width:10,height:10,cursor:"nwse-resize",background:"#0066cc",borderRadius:2,border:"1px solid #fff",zIndex:5}}/>;
   const padPx=showLetter?LH_PAD*scale:0;
   return <div ref={containerRef} style={{position:"relative",maxWidth:480,borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",background:"#fafafa",marginBottom:8,userSelect:"none"}}>
-    {showLetter&&<div style={{height:padPx,background:"#fff",position:"relative",width:"100%"}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto",zIndex:1,pointerEvents:"none"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+8)*scale,height:Math.max(1,2.5*scale),background:"#000",zIndex:1,pointerEvents:"none"}}/></div>}
+    {showLetter&&<div style={{height:padPx,background:"#fff",position:"relative",width:"100%"}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto",zIndex:1,pointerEvents:"none"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+6)*scale,height:Math.max(1,2.5*scale),background:"#000",zIndex:1,pointerEvents:"none"}}/></div>}
     <img src={pageImg} alt="page" onLoad={onBgLoad} style={{width:"100%",height:"auto",display:"block"}} draggable={false}/>
     {showSign&&<div id="_dpd_overlay_sign" style={{position:"absolute",left:signCX*scale,top:signCY*scale+padPx,zIndex:2}}><img src="/SIGN.png" alt="signature" draggable={false} onLoad={e=>setSignAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("sign",e)} style={{height:signH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("sign")}</div>}
     {showStamp&&<div id="_dpd_overlay_stamp" style={{position:"absolute",left:stampCX*scale,top:stampCY*scale+padPx,zIndex:2}}><img src="/STAMP.png" alt="stamp" draggable={false} onLoad={e=>setStampAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("stamp",e)} style={{height:stampH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("stamp")}</div>}
@@ -6160,6 +6172,20 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
 
+        // Switch from dietary back to call sheets
+        if(connieDietMode && (/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input) || /\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input) || /^\s*call\s*sheets?\s*$/i.test(input))) {
+          const lastTab = connieTabs[connieTabs.length-1];
+          if(lastTab) {
+            setConnieDietMode(null);
+            setConnieCtx({projectId:lastTab.projectId, vIdx:lastTab.vIdx});
+            setMsgs([...history,{role:"assistant",content:`Switched back to call sheets — ${lastTab.label}.`}]);
+          } else {
+            setConnieDietMode(null);
+            setMsgs([...history,{role:"assistant",content:"Switched to call sheets. Which project's call sheet should I work on?"}]);
+          }
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+
         // "Open dietaries" without context — show project picker
         if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\bdietar(?:y|ies)\b/i.test(input)||/\bdietar(?:y|ies)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*dietar(?:y|ies)\s*$/i.test(input)){
           setConniePending({step:"pick_dietary_project"});
@@ -6253,10 +6279,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
       if(_rm&&_rm[1]){const newLabel=_rm[1].trim();const csVersions_rn=callSheetStore?.[projectId]||[];const rIdx=Math.min(vIdx,csVersions_rn.length-1);if(rIdx>=0&&csVersions_rn[rIdx]){setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[projectId][rIdx].label=newLabel;return s;});setConnieTabs(prev=>prev.map(t=>t.projectId===projectId&&t.vIdx===rIdx?{...t,label:`${project.name} · ${newLabel}`}:t));setMsgs([...history,{role:"assistant",content:`✓ Renamed to "${newLabel}".`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;}}}
 
-      // Navigate to document list views
-      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input)||/\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
-        onNavigateToDoc(project,"Documents","callsheet");
-        setMsgs([...history,{role:"assistant",content:"Taking you to your call sheets now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      // "Show call sheets" while already in call sheet context — stay in side panel
+      if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input)||/\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*call\s*sheets?\s*$/i.test(input)){
+        setConnieDietMode(null);
+        setMsgs([...history,{role:"assistant",content:`Here's your call sheet for ${project.name}. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
       if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\bdietar(?:y|ies)\b/i.test(input)||/\bdietar(?:y|ies)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*dietar(?:y|ies)\s*$/i.test(input)){
         setConnieCtx(null);setConnieDietMode(projectId);
