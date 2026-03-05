@@ -7053,6 +7053,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
         raLabels.forEach((v,i)=>{addRonnieTab(project.id,i,`${project.name} · ${v.label||`RA ${i+1}`}`);});
+        // Backfill default logo for any RA missing it
+        const _missingLogo=raLabels.some(v=>!v.productionLogo);
+        if(_missingLogo){const _bl=new Image();_bl.crossOrigin="anonymous";_bl.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_bl.naturalWidth;cv.height=_bl.naturalHeight;cv.getContext("2d").drawImage(_bl,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];arr.forEach(r=>{if(!r.productionLogo)r.productionLogo=du;});return s;});}catch{}};_bl.src="/onna-default-logo.png";}
         const lastIdx=raLabels.length-1;
         setRonnieCtx({projectId:project.id,vIdx:lastIdx});
         if(setActiveRAVersion)setActiveRAVersion(lastIdx);
@@ -7149,6 +7152,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Created a new risk assessment for ${switchProject.name}. What would you like to do?`}]);
         }else{
           raLabels.forEach((v,i)=>{addRonnieTab(switchProject.id,i,`${switchProject.name} · ${v.label||`RA ${i+1}`}`);});
+          const _missingLogo2=raLabels.some(v=>!v.productionLogo);
+          if(_missingLogo2){const _bl2=new Image();_bl2.crossOrigin="anonymous";_bl2.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_bl2.naturalWidth;cv.height=_bl2.naturalHeight;cv.getContext("2d").drawImage(_bl2,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[switchProject.id]||[];arr.forEach(r=>{if(!r.productionLogo)r.productionLogo=du;});return s;});}catch{}};_bl2.src="/onna-default-logo.png";}
           const lastIdx=raLabels.length-1;
           setRonnieCtx({projectId:switchProject.id,vIdx:lastIdx});
           if(setActiveRAVersion)setActiveRAVersion(lastIdx);
