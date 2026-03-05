@@ -14,10 +14,11 @@ const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=at
 
 // ─── SIGN / STAMP / LETTERHEAD compositing ──────────────────────────────────
 const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>res(img);img.onerror=()=>rej(new Error("Failed to load "+src));img.src=src;});
-const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages="last",stampPages="last",letterPages="first",signOffset=0,stampOffset=0,signOffsetX=0,stampOffsetX=0,signScale=1,stampScale=1})=>{
-  const appliesTo=(rule,i,total)=>rule==="all"||(rule==="first"&&i===0)||(rule==="last"&&i===total-1)||rule===i;
+const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages="last",stampPages="last",letterPages="first",signOffset=0,stampOffset=0,signOffsetX=0,stampOffsetX=0,signScale=1,stampScale=1,pageOffsets})=>{
+  const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
+  const po=pageOffsets||{};
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
-  const LH_PAD=130;
+  const LH_PAD=180;
   const result=[];const total=doc.pages.length;
   for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
@@ -26,12 +27,10 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
     const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height+pad;const ctx=c.getContext("2d");
     ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
     ctx.drawImage(pgImg,0,pad);
-    // Letterhead (drawn in the top padding area, above original page content)
-    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,35,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,35+lh+12);ctx.lineTo(c.width-40,35+lh+12);ctx.stroke();}
-    // Signature
-    if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80*(signScale||1),sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60+(signOffsetX||0),c.height-180+(signOffset||0),sw,sh);}
-    // Stamp
-    if(wantStamp&&appliesTo(stampPages,i,total)&&stampImg){const sth=120*(stampScale||1),stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw+(stampOffsetX||0),c.height-180+(stampOffset||0),stw,sth);}
+    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,45,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,45+lh+12);ctx.lineTo(c.width-40,45+lh+12);ctx.stroke();}
+    const pg=po[i]||{};const sOX=pg.signOffsetX!=null?pg.signOffsetX:(signOffsetX||0);const sOY=pg.signOffset!=null?pg.signOffset:(signOffset||0);const stOX=pg.stampOffsetX!=null?pg.stampOffsetX:(stampOffsetX||0);const stOY=pg.stampOffset!=null?pg.stampOffset:(stampOffset||0);
+    if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80*(signScale||1),sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60+sOX,c.height-180+sOY,sw,sh);}
+    if(wantStamp&&appliesTo(stampPages,i,total)&&stampImg){const sth=120*(stampScale||1),stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw+stOX,c.height-180+stOY,stw,sth);}
     result.push(c.toDataURL("image/png"));
   }
   return{pages:result,name:doc.name};
@@ -41,7 +40,7 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
 const exportDocPreview=(preview)=>{
   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
   const idoc=iframe.contentDocument||iframe.contentWindow.document;
-  idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;}div:last-child{page-break-after:auto;}img{width:100%;height:auto;display:block;}@media print{@page{margin:0;size:A4 portrait;}}</style></head><body>${preview.pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+  const detectImg=new Image();detectImg.src=preview.pages[0];const orient=detectImg.naturalWidth>detectImg.naturalHeight?"landscape":"portrait";idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;}div:last-child{page-break-after:auto;}img{width:100%;height:auto;display:block;}@media print{@page{margin:0;size:A4 ${orient};}}</style></head><body>${preview.pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
   setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
 };
 
@@ -2859,7 +2858,7 @@ function _AgentDots({color}){
   </div>;
 }
 function DocPreviewDraggable({config,onReprocess,onExport}){
-  const appliesTo=(rule,i,total)=>rule==="all"||(rule==="first"&&i===0)||(rule==="last"&&i===total-1)||rule===i;
+  const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
   const [activePage,setActivePage]=useState(0);
   const containerRef=useRef(null);
   const [natW,setNatW]=useState(0);const [natH,setNatH]=useState(0);const [dispW,setDispW]=useState(0);
@@ -2874,9 +2873,12 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const showLetter=config.wantLetterhead&&appliesTo(config.letterPages||"first",activePage,total);
   const signH=80*sScale,signW=signH*signAR;
   const stampH=120*stScale,stampW=stampH*stampAR;
-  const signCX=60+(config.signOffsetX||0);const signCY=natH-180+(config.signOffset||0);
-  const stampCX=natW-60-stampW+(config.stampOffsetX||0);const stampCY=natH-180+(config.stampOffset||0);
-  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=35,LH_PAD=130;
+  const po=(config.pageOffsets||{})[activePage]||{};
+  const signCX=60+(po.signOffsetX!=null?po.signOffsetX:(config.signOffsetX||0));
+  const signCY=natH-180+(po.signOffset!=null?po.signOffset:(config.signOffset||0));
+  const stampCX=natW-60-stampW+(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0));
+  const stampCY=natH-180+(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0));
+  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=45,LH_PAD=180;
   const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
   useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
   const onMouseDown=useCallback((target,e)=>{
@@ -2885,12 +2887,14 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
     dragRef.current={dragging:true,target,startX:e.clientX,startY:e.clientY,origX:cx,origY:cy,mode:"drag"};
     const onMove=ev=>{if(!dragRef.current.dragging)return;const el=document.getElementById("_dpd_overlay_"+dragRef.current.target);if(el){el.style.left=(dragRef.current.origX*scale+(ev.clientX-dragRef.current.startX))+"px";el.style.top=(dragRef.current.origY*scale+(ev.clientY-dragRef.current.startY))+"px";}};
     const onUp=ev=>{if(!dragRef.current.dragging)return;dragRef.current.dragging=false;window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);
-      const dx=(ev.clientX-dragRef.current.startX)/scale;const dy=(ev.clientY-dragRef.current.startY)/scale;const t=dragRef.current.target;const newCfg={...config};
-      if(t==="sign"){let nx=(config.signOffsetX||0)+dx,ny=(config.signOffset||0)+dy;const sw=signW;const rawX=60+nx,rawY=natH-180+ny;if(rawX<0)nx=-60;if(rawX+sw>natW)nx=natW-60-sw;if(rawY<0)ny=-(natH-180);if(rawY+signH>natH)ny=signH;newCfg.signOffsetX=Math.round(nx);newCfg.signOffset=Math.round(ny);
-      }else{let nx=(config.stampOffsetX||0)+dx,ny=(config.stampOffset||0)+dy;const rawX=natW-60-stampW+nx,rawY=natH-180+ny;if(rawX<0)nx=-(natW-60-stampW);if(rawX+stampW>natW)nx=60;if(rawY<0)ny=-(natH-180);if(rawY+stampH>natH)ny=stampH;newCfg.stampOffsetX=Math.round(nx);newCfg.stampOffset=Math.round(ny);}
+      const dx=(ev.clientX-dragRef.current.startX)/scale;const dy=(ev.clientY-dragRef.current.startY)/scale;const t=dragRef.current.target;const newCfg={...config,pageOffsets:{...(config.pageOffsets||{})}};
+      const curPo={...(newCfg.pageOffsets[activePage]||{})};
+      if(t==="sign"){let nx=(po.signOffsetX!=null?po.signOffsetX:(config.signOffsetX||0))+dx,ny=(po.signOffset!=null?po.signOffset:(config.signOffset||0))+dy;const sw=signW;const rawX=60+nx,rawY=natH-180+ny;if(rawX<0)nx=-60;if(rawX+sw>natW)nx=natW-60-sw;if(rawY<0)ny=-(natH-180);if(rawY+signH>natH)ny=signH;curPo.signOffsetX=Math.round(nx);curPo.signOffset=Math.round(ny);
+      }else{let nx=(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0))+dx,ny=(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0))+dy;const rawX=natW-60-stampW+nx,rawY=natH-180+ny;if(rawX<0)nx=-(natW-60-stampW);if(rawX+stampW>natW)nx=60;if(rawY<0)ny=-(natH-180);if(rawY+stampH>natH)ny=stampH;curPo.stampOffsetX=Math.round(nx);curPo.stampOffset=Math.round(ny);}
+      newCfg.pageOffsets[activePage]=curPo;
       onReprocess(newCfg);};
     window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);
-  },[config,scale,natW,natH,signCX,signCY,stampCX,stampCY,signAR,stampAR,signH,signW,stampH,stampW,sScale,stScale,onReprocess]);
+  },[config,activePage,po,scale,natW,natH,signCX,signCY,stampCX,stampCY,signAR,stampAR,signH,signW,stampH,stampW,sScale,stScale,onReprocess]);
   const onResizeDown=useCallback((target,e)=>{
     e.preventDefault();e.stopPropagation();
     const startY=e.clientY;const origScale=target==="sign"?(config.signScale||1):(config.stampScale||1);const baseH=target==="sign"?80:120;
@@ -3232,6 +3236,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
   if (!projectId) return null;
 
   // ── CONNIE: Dietary list view ──
+  const [connieDietIdx,setConnieDietIdx]=useState(null);
   if (agentId === "compliance" && connieMode === "dietary" && dietaryStore && setDietaryStore) {
     const dietVersions = dietaryStore[projectId] || [];
     const addDietNew = () => {
@@ -3256,7 +3261,65 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     const deleteDiet = (idx) => {
       if(!confirm("Delete this dietary list? This will be moved to trash."))return;
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];arr.splice(idx,1);store[projectId]=arr;return store;});
+      if(connieDietIdx===idx)setConnieDietIdx(null);
     };
+
+    // ── Detail view (inline) ──
+    if(connieDietIdx!==null && dietVersions.length>0){
+      const dietIdx=Math.min(connieDietIdx,dietVersions.length-1);
+      const dietData=dietVersions[dietIdx];
+      if(!dietData){setConnieDietIdx(null);return null;}
+      const dietU=(path,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];const k=path.split(".");let o=d;for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=val;arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietUpdatePerson=(i,key,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietAddPerson=()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietDeletePerson=(i)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found.");return;}const latestCS=csVersions[csVersions.length-1];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();const csNames=new Set(pulled.map(pr=>pr.name));const existingMap={};d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});const newPeople=[];pulled.forEach(pr=>{const existing=existingMap[pr.name];if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}});d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});d.people=newPeople;arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
+      const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
+      const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
+      return(
+        <div style={{overflowY:"auto",padding:20,background:"#fff",height:"100%"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+            <button onClick={()=>setConnieDietIdx(null)} style={{background:"none",border:"none",color:"#1a56db",fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>\u2039 Back to Dietary Lists</button>
+            <div style={{flex:1}}/>
+            <button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:"1px solid #e5e5ea",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Sync from Call Sheet</button>
+          </div>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>{dietData.label||"Dietary List"}</div>
+          <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+            <span style={{fontSize:10,fontWeight:600,background:"#e3f2fd",color:"#1565c0",padding:"3px 10px",borderRadius:6}}>TOTAL CREW: {(dietData.people||[]).length}</span>
+            <span style={{fontSize:10,fontWeight:600,background:dietTotalWithDietary>0?"#fff3e0":"#f5f5f5",color:dietTotalWithDietary>0?"#e65100":"#999",padding:"3px 10px",borderRadius:6}}>DIETARY: {dietTotalWithDietary}</span>
+            <span style={{fontSize:10,fontWeight:600,background:dietTotalWithAllergy>0?"#fce4ec":"#f5f5f5",color:dietTotalWithAllergy>0?"#c62828":"#999",padding:"3px 10px",borderRadius:6}}>ALLERGIES: {dietTotalWithAllergy}</span>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+            <thead><tr style={{background:"#1d1d1f",color:"#fff"}}>
+              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>#</th>
+              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>NAME</th>
+              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>ROLE</th>
+              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>DEPT</th>
+              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>DIETARY</th>
+              <th style={{padding:"6px 8px",textAlign:"left",fontWeight:700,fontSize:9,letterSpacing:0.5}}>ALLERGIES</th>
+              <th style={{padding:"6px 8px",width:20}}></th>
+            </tr></thead>
+            <tbody>
+              {(dietData.people||[]).map((pr,i)=>(
+                <tr key={pr.id||i} style={{borderBottom:"1px solid #eee"}}>
+                  <td style={{padding:"5px 8px",color:"#999",fontSize:10}}>{i+1}</td>
+                  <td style={{padding:"5px 8px"}}><input value={pr.name||""} onChange={e=>dietUpdatePerson(i,"name",e.target.value)} placeholder="[Name]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.name||pr.name.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
+                  <td style={{padding:"5px 8px"}}><input value={pr.role||""} onChange={e=>dietUpdatePerson(i,"role",e.target.value)} placeholder="[Role]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.role||pr.role.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
+                  <td style={{padding:"5px 8px"}}><input value={pr.department||""} onChange={e=>dietUpdatePerson(i,"department",e.target.value)} placeholder="[Department]" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",background:(!pr.department||pr.department.startsWith("["))?"#FFFDE7":"transparent",padding:"2px 4px",borderRadius:3}}/></td>
+                  <td style={{padding:"5px 8px"}}><select value={pr.dietary||"None"} onChange={e=>dietUpdatePerson(i,"dietary",e.target.value)} style={{border:"none",outline:"none",fontSize:10,fontFamily:"inherit",background:pr.dietary&&pr.dietary!=="None"?"#fff3e0":"#f5f5f5",padding:"2px 6px",borderRadius:4,cursor:"pointer"}}>{["None","Vegetarian","Vegan","Halal","Kosher","Gluten-Free","Dairy-Free","Nut Allergy","Shellfish Allergy","Pescatarian","Other"].map(o=><option key={o} value={o}>{o}</option>)}</select></td>
+                  <td style={{padding:"5px 8px"}}><input value={pr.allergies||""} onChange={e=>dietUpdatePerson(i,"allergies",e.target.value)} placeholder="\u2014" style={{border:"none",outline:"none",fontSize:11,width:"100%",fontFamily:"inherit",padding:"2px 4px",borderRadius:3}}/></td>
+                  <td style={{padding:"5px 8px"}}><span onClick={()=>dietDeletePerson(i)} style={{cursor:"pointer",fontSize:11,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>\u00d7</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={dietAddPerson} style={{marginTop:8,background:"none",border:"1px dashed #ccc",borderRadius:6,padding:"5px 12px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>+ ADD ROW</button>
+        </div>
+      );
+    }
+
+    // ── List view ──
     return (
       <div style={{overflowY:"auto",padding:20,background:"#fff",height:"100%"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
@@ -3269,11 +3332,11 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             const crewCount=(diet.people||[]).length;
             const dietaryCount=(diet.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
             return(
-              <div key={diet.id} style={{background:"#fff",border:"1px solid #e5e5ea",borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>{if(onDietarySelect)onDietarySelect(i);}}>
+              <div key={diet.id} style={{background:"#fff",border:"1px solid #e5e5ea",borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setConnieDietIdx(i)}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                     <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>DL</span>
-                    <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:crewCount>0?"#e8f5e9":"#f5f5f5",color:crewCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{crewCount} crew · {dietaryCount} dietary</span>
+                    <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:crewCount>0?"#e8f5e9":"#f5f5f5",color:crewCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{crewCount} crew \u00b7 {dietaryCount} dietary</span>
                   </div>
                   <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f"}}>{diet.label||"Untitled"}</div>
                   <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{diet.project?.date||"No date set"}</div>
@@ -3625,14 +3688,14 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [connieDietPending,setConnieDietPending]=useState(null); // {type:"confirm_add_cs", name, dietary, vendorMatch:{name,email,phone}|null, projectId}
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addConnieTab=(projectId,vIdx,label)=>setConnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
-  const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const [ronnieCtx,setRonnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_ctx');const p=s?JSON.parse(s):null;if(p&&p._step){localStorage.removeItem('onna_ronnie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx}
   const [ronniePendingReview,setRonniePendingReview]=useState(null); // {preSnapshot, markers[], projectId, vIdx}
   const [conniePendingReview,setConniePendingReview]=useState(null); // {preSnapshot, markers[], projectId, vIdx}
   const [ronnieTabs,setRonnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addRonnieTab=(projectId,vIdx,label)=>setRonnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const codyPendingRef=useRef(null); // null | {projectId, step:"pick_existing_or_new"} | {projectId, step:"pick_type"} | {projectId, step:"pick_name", typeId}
-  const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
+  const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');const p=s?JSON.parse(s):null;if(p&&(p.pendingCreate||p.pendingVersion)){localStorage.removeItem('onna_billie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx}
   const [billieTabs,setBillieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_billie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addBillieTab=(projectId,vIdx,label)=>setBillieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [finnCtx,setFinnCtx]=useState(()=>{try{const s=localStorage.getItem('onna_finn_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
@@ -5134,6 +5197,42 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
 
+        // ── pending: pick doc type (call sheet or dietaries) ──
+        if(conniePending?.step==="pick_doc_type"){
+          const lo=input.toLowerCase();
+          const proj=localProjects.find(p=>p.id===conniePending.projectId);
+          if(!proj){setConniePending(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
+          if(/\b(call\s*sheet|cs|1)\b/i.test(lo)){
+            setConniePending(null);
+            const csVersions=callSheetStore?.[proj.id]||[];
+            if(csVersions.length===0){
+              const newCS={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
+              newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");
+              const _pi1=(projectInfoRef.current||{})[proj.id];
+              if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;if(_pi1.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi1.shootLocation;}}
+              setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});
+              setConnieCtx({projectId:proj.id,vIdx:0});setConnieDietMode(null);
+              addConnieTab(proj.id,0,`${proj.name} · [Untitled]`);
+              setMsgs([...history,{role:"assistant",content:`✓ Created a new call sheet for ${proj.name}. What would you like to do?`}]);
+            }else{
+              csVersions.forEach((v,i)=>{addConnieTab(proj.id,i,`${proj.name} · ${v.label||`Day ${i+1}`}`);});
+              const lastIdx=csVersions.length-1;
+              setConnieCtx({projectId:proj.id,vIdx:lastIdx});setConnieDietMode(null);
+              setMsgs([...history,{role:"assistant",content:`Opened ${csVersions.length} call sheet${csVersions.length>1?"s":""} for ${proj.name}. What would you like to do?`}]);
+            }
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          if(/\b(dietar(?:y|ies)|2)\b/i.test(lo)){
+            setConniePending(null);
+            setConnieCtx(null);setConnieDietMode(proj.id);
+            const dietCount=(dietaryStore?.[proj.id]||[]).length;
+            setMsgs([...history,{role:"assistant",content:`Here are ${proj.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          setMsgs([...history,{role:"assistant",content:`Which would you like to work on for ${proj.name}?\n\n1. Call Sheet\n2. Dietaries`}]);
+          setLoading(false);setMood("idle");return;
+        }
+
         // "Open dietaries" without context — show project picker
         if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\bdietar(?:y|ies)\b/i.test(input)||/\bdietar(?:y|ies)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*dietar(?:y|ies)\s*$/i.test(input)){
           setConniePending({step:"pick_dietary_project"});
@@ -5170,10 +5269,24 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         else project=fuzzyMatchProject(localProjects,input);
         if(!project){
           const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's call sheet should I work on?\n\n${list}\n\nPick a number or name.`}]);
+          setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
-        // Project matched — now resolve version
+        // If user didn't specify call sheet vs dietary, ask
+        const _wantsCS=/\b(call\s*sheet|cs)\b/i.test(input);
+        const _wantsDiet=/\bdietar(?:y|ies)\b/i.test(input);
+        if(!_wantsCS&&!_wantsDiet){
+          setConniePending({step:"pick_doc_type",projectId:project.id});
+          setMsgs([...history,{role:"assistant",content:`Which would you like to work on for ${project.name}?\n\n1. Call Sheet\n2. Dietaries`}]);
+          setLoading(false);setMood("idle");return;
+        }
+        if(_wantsDiet){
+          setConnieCtx(null);setConnieDietMode(project.id);
+          const dietCount=(dietaryStore?.[project.id]||[]).length;
+          setMsgs([...history,{role:"assistant",content:`Here are ${project.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+        }
+        // Project matched — now resolve version (call sheet)
         const csVersions = callSheetStore?.[project.id] || [];
         if(csVersions.length===0){
           // Auto-create [Untitled] call sheet
@@ -5201,6 +5314,17 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let {projectId,vIdx}=connieCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setConnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      // Close command — close doc panel without clearing chat
+      if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
+        setConnieCtx(null);setConnieDietMode(null);
+        setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Rename via chat
+      {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
+      if(_rm&&_rm[1]){const newLabel=_rm[1].trim();const csVersions_rn=callSheetStore?.[projectId]||[];const rIdx=Math.min(vIdx,csVersions_rn.length-1);if(rIdx>=0&&csVersions_rn[rIdx]){setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[projectId][rIdx].label=newLabel;return s;});setConnieTabs(prev=>prev.map(t=>t.projectId===projectId&&t.vIdx===rIdx?{...t,label:`${project.name} · ${newLabel}`}:t));setMsgs([...history,{role:"assistant",content:`✓ Renamed to "${newLabel}".`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;}}}
 
       // Navigate to document list views
       if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input)||/\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
@@ -5599,6 +5723,17 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let {projectId,vIdx}=billieCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      // Close command — close doc panel without clearing chat
+      if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
+        setBillieCtx(null);
+        setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Rename via chat
+      {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
+      if(_rm&&_rm[1]){const newLabel=_rm[1].trim();const estVersions_rn=projectEstimates?.[projectId]||[];const rIdx=Math.min(vIdx,estVersions_rn.length-1);if(rIdx>=0&&estVersions_rn[rIdx]){setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));s[projectId][rIdx].ts={...(s[projectId][rIdx].ts||{}),version:newLabel};return s;});setBillieTabs(prev=>prev.map(t=>t.projectId===projectId&&t.vIdx===rIdx?{...t,label:`${project.name} · ${newLabel}`}:t));setMsgs([...history,{role:"assistant",content:`✓ Renamed to "${newLabel}".`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;}}}
 
       // Navigate to budget list view
       if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(budgets?|estimates?)\b/i.test(input)||/\b(budgets?|estimates?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
@@ -6053,6 +6188,17 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
+      // Close command — close doc panel without clearing chat
+      if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
+        setRonnieCtx(null);
+        setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Rename via chat
+      {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
+      if(_rm&&_rm[1]){const newLabel=_rm[1].trim();const raVersions_rn=riskAssessmentStore?.[projectId]||[];const rIdx=Math.min(vIdx,raVersions_rn.length-1);if(rIdx>=0&&raVersions_rn[rIdx]){setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[projectId][rIdx].label=newLabel;return s;});setRonnieTabs(prev=>prev.map(t=>t.projectId===projectId&&t.vIdx===rIdx?{...t,label:`${project.name} · ${newLabel}`}:t));setMsgs([...history,{role:"assistant",content:`✓ Renamed to "${newLabel}".`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;}}}
+
       // Navigate to risk assessment list view
       if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(risk\s*assess)\b/i.test(input)||/\b(risk\s*assess)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
         onNavigateToDoc(project,"Documents","risk");
@@ -6264,7 +6410,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         return null;
       };
       // ── Adjustment intent (move up/down, change pages) ──
-      const isAdjust=codyDocConfigRef.current&&(/\bmove\b.*\b(up|higher|down|lower)\b/i.test(input)||/\b(all|every|both)\s+page/i.test(input)||/\bpage\s+\d+/i.test(input)||/\b(first|1st|last|final|second|third|fourth|fifth|2nd|3rd|4th|5th)\s+page/i.test(input)||/\b(add|remove|include|exclude)\b.*\b(letterhead|company letter|signature|sign|stamp|seal)\b/i.test(input));
+      const isAdjust=codyDocConfigRef.current&&(/\bmove\b.*\b(up|higher|down|lower)\b/i.test(input)||/\b(all|every|both)\s+page/i.test(input)||/\bpage\s+\d+/i.test(input)||/\b(first|1st|last|final|second|third|fourth|fifth|2nd|3rd|4th|5th)\s+page/i.test(input)||/\b(add|remove|include|exclude)\b.*\b(letterhead|company letter|signature|sign|stamp|seal)\b/i.test(input)||/\b(letterhead|company letter|signature|sign|stamp|seal)\b.*\b(to|from|on)\s+(page\s+\d+|all|every|both|first|last)\b/i.test(input));
       if(isAdjust){
         setMsgs(history);setInput("");setLoading(true);setMood("talking");
         try{
@@ -6277,10 +6423,22 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             if(/\b(stamp|seal)\b/i.test(input))cfg.stampOffset=(cfg.stampOffset||0)+80;
             else cfg.signOffset=(cfg.signOffset||0)+80;
           }
-          // Toggle add/remove overlays
+          // Toggle add/remove overlays (supports per-page: "add letterhead to page 2", "remove letterhead from page 1")
           const isAdd=/\b(add|include)\b/i.test(input);const isRemove=/\b(remove|exclude)\b/i.test(input);
           if(isAdd||isRemove){
-            if(/\b(letterhead|company letter)\b/i.test(input)){cfg.wantLetterhead=isAdd;if(isAdd&&!cfg.letterPages)cfg.letterPages="first";}
+            const pgM=input.match(/\b(?:to|from|on)\s+page\s+(\d+)\b/i);const pgIdx=pgM?parseInt(pgM[1],10)-1:null;
+            const ordM=input.match(/\b(?:to|from|on)\s+(?:the\s+)?(first|last|second|third|1st|2nd|3rd)\s+page/i);const ordIdx=ordM?({first:0,"1st":0,last:cfg.originalDoc.pages.length-1,second:1,"2nd":1,third:2,"3rd":2}[ordM[1].toLowerCase()]??null):null;
+            const targetPage=pgIdx!=null?pgIdx:ordIdx;
+            if(/\b(letterhead|company letter)\b/i.test(input)){
+              if(targetPage!=null){
+                let cur=cfg.letterPages||"first";let arr=[];const tot=cfg.originalDoc.pages.length;
+                if(cur==="all")arr=Array.from({length:tot},(_,i)=>i);else if(cur==="first")arr=[0];else if(cur==="last")arr=[tot-1];else if(Array.isArray(cur))arr=[...cur];else if(typeof cur==="number")arr=[cur];
+                if(isAdd&&!arr.includes(targetPage))arr.push(targetPage);
+                if(isRemove)arr=arr.filter(p=>p!==targetPage);
+                cfg.letterPages=arr.length===0?"first":arr.length===tot?"all":arr.length===1?arr[0]:arr;
+                cfg.wantLetterhead=arr.length>0||!isRemove;
+              }else{cfg.wantLetterhead=isAdd;if(isAdd&&!cfg.letterPages)cfg.letterPages="first";}
+            }
             if(/\b(sign|signature)\b/i.test(input)){cfg.wantSign=isAdd;if(isAdd&&!cfg.signPages)cfg.signPages="last";}
             if(/\b(stamp|seal)\b/i.test(input)){cfg.wantStamp=isAdd;if(isAdd&&!cfg.stampPages)cfg.stampPages="last";}
           }
@@ -6327,7 +6485,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const stampPages=_parsePageTarget(input,"stamp")||(wantStamp?"last":undefined);
             const letterPages=_parsePageTarget(input,"letter")||(wantLetterhead?"first":undefined);
             const allPages=/\b(all|every|both)\s+page/i.test(input);
-            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign?"all":signPages,stampPages:allPages&&wantStamp?"all":stampPages,letterPages:allPages&&wantLetterhead?"all":letterPages,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1};
+            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign?"all":signPages,stampPages:allPages&&wantStamp?"all":stampPages,letterPages:allPages&&wantLetterhead?"all":letterPages,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
             const result=await processDocSignStamp(codyUploadedDoc,cfg);
             codyDocConfigRef.current=cfg;
             const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
@@ -6976,7 +7134,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span onClick={e=>{e.stopPropagation();setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setConnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
-        <div onClick={()=>{setConnieCtx(null);setMsgs(prev=>[...prev,{role:"assistant",content:"Which project's call sheet should I open?"}]);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+        <div onClick={()=>{const _pid=connieCtx?.projectId||connieTabs[connieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newCS={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(CALLSHEET_INIT))};newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi1=(projectInfoRef.current||{})[proj.id];if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;}setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});const newIdx=(callSheetStore?.[proj.id]||[]).length;setConnieCtx({projectId:proj.id,vIdx:newIdx});setConnieDietMode(null);addConnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new call sheet for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
       </div>
     )}
 
@@ -6991,7 +7149,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span onClick={e=>{e.stopPropagation();setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveRAVersion)setActiveRAVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setRonnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
-        <div onClick={()=>{setRonnieCtx(null);setMsgs(prev=>[...prev,{role:"assistant",content:"Which project's risk assessment should I open?"}]);}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+        <div onClick={()=>{const _pid=ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};newRA.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi3=(projectInfoRef.current||{})[proj.id];if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;}setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});const newIdx=(riskAssessmentStore?.[proj.id]||[]).length;setRonnieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveRAVersion)setActiveRAVersion(newIdx);addRonnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new risk assessment for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
       </div>
     )}
 
@@ -7006,7 +7164,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span onClick={e=>{e.stopPropagation();setBillieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setBillieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setBillieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
-        <div onClick={()=>{if(billieCtx&&billieCtx.projectId){const proj=localProjects?.find(p=>p.id===billieCtx.projectId);if(proj){const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi5=(projectInfoRef.current||{})[proj.id];ne.ts={...ne.ts,version:"[Untitled]",client:proj.client||"",project:_pi5?.shootName||proj.name||""};setProjectEstimates(prev=>({...prev,[proj.id]:[...(prev[proj.id]||[]),ne]}));const newIdx=(projectEstimates?.[proj.id]||[]).length;setBillieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);addBillieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new estimate for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+        <div onClick={()=>{const _pid=billieCtx?.projectId||billieTabs[billieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi5=(projectInfoRef.current||{})[proj.id];ne.ts={...ne.ts,version:"[Untitled]",client:proj.client||"",project:_pi5?.shootName||proj.name||""};setProjectEstimates(prev=>({...prev,[proj.id]:[...(prev[proj.id]||[]),ne]}));const newIdx=(projectEstimates?.[proj.id]||[]).length;setBillieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);addBillieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new estimate for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
       </div>
     )}
 
