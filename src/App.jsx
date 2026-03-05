@@ -49,6 +49,107 @@ const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages
   return{pages:result,name:doc.name};
 };
 
+// ─── Render HTML content to A4-ratio doc pages ─────────────────────────────
+const renderHtmlToDocPages = async (htmlContent, docName) => {
+  const A4_W = 794, A4_H = 1123, MARGIN = 60, LOGO_H = 50;
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:" + A4_W + "px;height:auto;border:none;visibility:hidden;";
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentDocument || iframe.contentWindow.document;
+    const logoUrl = window.location.origin + "/onna-default-logo.png";
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head><style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Avenir','Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#222;padding:${MARGIN + LOGO_H + 20}px ${MARGIN}px ${MARGIN}px ${MARGIN}px;width:${A4_W}px;}
+      h1{font-size:22px;font-weight:700;margin-bottom:16px;text-align:center;text-transform:uppercase;letter-spacing:1px;}
+      h2{font-size:16px;font-weight:700;margin:20px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px;}
+      h3{font-size:14px;font-weight:600;margin:14px 0 6px;}
+      p{margin:8px 0;}
+      ol,ul{margin:8px 0 8px 24px;}
+      li{margin:4px 0;}
+      table{width:100%;border-collapse:collapse;margin:12px 0;}
+      th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:12px;}
+      th{background:#f5f5f5;font-weight:600;}
+      .sig-block{margin-top:40px;display:flex;justify-content:space-between;gap:40px;}
+      .sig-line{flex:1;border-top:1px solid #333;padding-top:6px;font-size:12px;}
+    </style></head><body>${htmlContent}</body></html>`);
+    idoc.close();
+    setTimeout(async () => {
+      try {
+        const body = idoc.body;
+        const totalH = Math.max(body.scrollHeight, body.offsetHeight);
+        const contentAreaH = A4_H - LOGO_H - 20; // usable area per page below logo
+        const numPages = Math.max(1, Math.ceil(totalH / contentAreaH));
+        // Reset body padding top to 0 for capture — logo is drawn separately
+        body.style.paddingTop = MARGIN + "px";
+        // Wait for reflow
+        await new Promise(r => setTimeout(r, 100));
+        const captureH = Math.max(body.scrollHeight, body.offsetHeight);
+        const pages = [];
+        const logoImg = await _loadImg(logoUrl).catch(() => null);
+        for (let p = 0; p < numPages; p++) {
+          const canvas = document.createElement("canvas");
+          canvas.width = A4_W * 2; canvas.height = A4_H * 2;
+          const ctx = canvas.getContext("2d");
+          ctx.scale(2, 2);
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, A4_W, A4_H);
+          // Draw ONNA logo + line at top
+          if (logoImg) {
+            const lh = LOGO_H * 0.7, lw = lh * (logoImg.width / logoImg.height);
+            ctx.drawImage(logoImg, MARGIN, 16, lw, lh);
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(MARGIN - 10, 16 + lh + 6); ctx.lineTo(A4_W - MARGIN + 10, 16 + lh + 6); ctx.stroke();
+          }
+          // Capture slice of body content
+          const srcY = p * contentAreaH;
+          const sliceH = Math.min(contentAreaH, captureH - srcY);
+          if (sliceH > 0) {
+            // Use html2canvas-like approach: draw iframe content via foreignObject SVG
+            const svgNS = "http://www.w3.org/2000/svg";
+            const clone = body.cloneNode(true);
+            clone.style.width = A4_W + "px";
+            clone.style.position = "absolute";
+            clone.style.top = "-" + srcY + "px";
+            clone.style.left = "0";
+            clone.style.overflow = "hidden";
+            // Serialize to SVG foreignObject
+            const serializer = new XMLSerializer();
+            const htmlStr = serializer.serializeToString(idoc.documentElement);
+            const svgStr = `<svg xmlns="${svgNS}" width="${A4_W}" height="${contentAreaH}">
+              <foreignObject width="${A4_W}" height="${contentAreaH}">
+                <html xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0;">
+                  <body style="margin:0;padding:0;overflow:hidden;">
+                    <div style="width:${A4_W}px;overflow:hidden;height:${contentAreaH}px;">
+                      <div style="margin-top:-${srcY}px;">${htmlStr.replace(/<html[^>]*>/, '<div style="width:' + A4_W + 'px;">').replace(/<\/html>/, '</div>')}</div>
+                    </div>
+                  </body>
+                </html>
+              </foreignObject>
+            </svg>`;
+            const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
+            try {
+              const img = await _loadImg(url);
+              ctx.drawImage(img, 0, LOGO_H + 20, A4_W, contentAreaH);
+            } catch (e) {
+              // Fallback: just render what we can
+            }
+            URL.revokeObjectURL(url);
+          }
+          pages.push(canvas.toDataURL("image/png"));
+        }
+        document.body.removeChild(iframe);
+        resolve({ name: docName || "Document", pages });
+      } catch (err) {
+        document.body.removeChild(iframe);
+        reject(err);
+      }
+    }, 300);
+  });
+};
+
 // ─── Export doc preview pages to print/PDF ──────────────────────────────────
 const exportDocPreview=(preview,originalDoc,pageIndex)=>{
   const pages=pageIndex!=null?[preview.pages[pageIndex]]:preview.pages;
@@ -8675,6 +8776,44 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
           setMood("excited");setTimeout(()=>setMood("idle"),2500);
         }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't adjust: ${err.message}`}]);setMood("idle");}
+        setLoading(false);return;
+      }
+      // ── AI Document Generation ──
+      const isDocGen = !codyUploadedDoc && /\b(create|draft|generate|write|make|prepare|draw\s+up)\b.*\b(waiver|nda|agreement|contract|letter|form|document|release|consent|disclaimer|memo|notice|certificate|addendum|amendment)\b/i.test(input);
+      if(isDocGen){
+        setMsgs([...history,{role:"user",content:input},{role:"assistant",content:"Drafting your document..."}]);
+        setInput("");setLoading(true);setMood("talking");
+        try{
+          const today=new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+          const docGenSystem=`You are Contract Cody, a legal document generator for ONNA FZ-LLC, UAE.
+Generate the requested document as clean HTML inside a \`\`\`html code block.
+Use professional legal language appropriate for the UAE/DIFC jurisdiction.
+Include: document title, date (${today}), all relevant clauses, signature blocks using <div class="sig-block"><div class="sig-line">Signature / Name / Date</div><div class="sig-line">Signature / Name / Date</div></div>.
+Use semantic HTML: <h1> for title, <h2> for sections, <p> for paragraphs, <ol>/<ul> for lists.
+Do NOT include <html>/<head>/<body> wrapper tags — just the inner content.
+After the HTML block, add a brief one-sentence confirmation message.`;
+          const apiMessages=[{role:"user",content:input}];
+          const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:docGenSystem,messages:apiMessages})});
+          if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p.slice(0,-1),{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+          const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+          while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"user",content:input},{role:"assistant",content:"Drafting your document...\n\n"+fullText}]);}}catch{}}}
+          // Extract HTML from response
+          const htmlMatch=fullText.match(/```html\s*([\s\S]*?)```/);
+          if(htmlMatch){
+            const html=htmlMatch[1].trim();
+            const titleMatch=html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+            const docTitle=titleMatch?titleMatch[1].replace(/<[^>]*>/g,"").trim():"Generated Document";
+            const docPages=await renderHtmlToDocPages(html,docTitle);
+            setCodyUploadedDoc(docPages);
+            const cfg={originalDoc:docPages,wantSign:false,wantStamp:false,wantLetterhead:false,signPages:"last",stampPages:"last",letterPages:"first",signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
+            codyDocConfigRef.current=cfg;
+            const cleanText=fullText.replace(/```html[\s\S]*?```/g,"").trim();
+            setMsgs([...history,{role:"user",content:input},{role:"assistant",content:(cleanText||`Here's your "${docTitle}". `)+`\n\nYou can say: "Sign and stamp this" · "Add letterhead" · Or ask me to modify it.`,_docPreview:docPages,_docConfig:cfg}]);
+          }else{
+            setMsgs([...history,{role:"user",content:input},{role:"assistant",content:fullText||"I wasn't able to generate the document. Please try again with more details."}]);
+          }
+          setMood("excited");setTimeout(()=>setMood("idle"),2500);
+        }catch(err){setMsgs([...history,{role:"user",content:input},{role:"assistant",content:`Oops! Error generating document: ${err.message}`}]);setMood("idle");}
         setLoading(false);return;
       }
       // ── New processing ──
