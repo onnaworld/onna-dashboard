@@ -4268,7 +4268,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const dietUpdatePerson=(i,key,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietAddPerson=()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietDeletePerson=(i)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[projectId]=arr;return store;});};
-      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found for this project. Create a call sheet first via the Call Sheets tab.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=prompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){alert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();const csNames=new Set(pulled.map(pr=>pr.name));const existingMap={};d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});const newPeople=[];pulled.forEach(pr=>{const existing=existingMap[pr.name];if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}});d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});d.people=newPeople;arr[dietIdx]=d;store[projectId]=arr;return store;});alert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet.`);};
+      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found for this project. Create a call sheet first via the Call Sheets tab.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=prompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){alert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));arr[dietIdx]=d;store[projectId]=arr;return store;});alert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);};
       const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
@@ -12035,27 +12035,14 @@ export default function OnnaDashboard() {
           if(pulled.length===0){alert("No crew names found in the latest call sheet.");return;}
           setDietaryStore(prev=>{
             const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
-            // Sync project info from call sheet
             if(latestCS.shootName)d.project.name=latestCS.shootName;
             if(latestCS.date)d.project.date=latestCS.date;
             const csParts=(latestCS.shootName||"").split(" | ");
             if(csParts.length>=2)d.project.client=csParts[0].trim();
-            const csNames=new Set(pulled.map(pr=>pr.name));
-            // Remove people no longer in call sheet (reflect deleted rows)
-            const existingMap = {};
-            d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});
-            // Keep existing dietary data for people still in CS, add new people
-            const newPeople = [];
-            pulled.forEach(pr=>{
-              const existing = existingMap[pr.name];
-              if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}
-              else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}
-            });
-            // Also keep people with names not matching any CS entry but that were manually added (name not blank and not placeholder)
-            d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});
-            d.people=newPeople;
+            d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));
             arr[dietIdx]=d;store[p.id]=arr;return store;
           });
+          alert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);
         };
 
         // Summary counts
