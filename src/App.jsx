@@ -4666,6 +4666,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [attachments,setAttachments]=useState([]);
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');const p=s?JSON.parse(s):null;if(p&&p._mode){localStorage.removeItem('onna_connie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
   const [connieDietMode,setConnieDietMode]=useState(null); // projectId string when dietary side panel is active
+  const [csCreateMenuConnie,setCsCreateMenuConnie]=useState(false); // local dropdown for Connie "+" button
   const [conniePending,setConniePending]=useState(null); // {projectId, step:"pick_name"|"pick_existing_or_new"}
   const [connieDietPending,setConnieDietPending]=useState(null); // {type:"confirm_add_cs", name, dietary, vendorMatch:{name,email,phone}|null, projectId}
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
@@ -8122,7 +8123,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               <span onClick={e=>{e.stopPropagation();setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setConnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
-        <div onClick={()=>{const _pid=connieCtx?.projectId||connieTabs[connieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newCS={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(CALLSHEET_INIT))};newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi1=(projectInfoRef.current||{})[proj.id];if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;}setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});const newIdx=(callSheetStore?.[proj.id]||[]).length;setConnieCtx({projectId:proj.id,vIdx:newIdx});setConnieDietMode(null);addConnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new call sheet for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+        <div style={{position:"relative",flexShrink:0}}>
+          <div onClick={()=>setCsCreateMenu(prev=>prev==="connie"?null:"connie")} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",fontFamily:"inherit"}}>+</div>
+          {csCreateMenu==="connie"&&(
+            <div style={{position:"absolute",top:32,left:0,zIndex:999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+              <div onClick={()=>{setCsCreateMenu(null);const _pid=connieCtx?.projectId||connieTabs[connieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newCS={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(CALLSHEET_INIT))};newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi1=(projectInfoRef.current||{})[proj.id];if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;}setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});const newIdx=(callSheetStore?.[proj.id]||[]).length;setConnieCtx({projectId:proj.id,vIdx:newIdx});setConnieDietMode(null);addConnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new call sheet for ${proj.name}. What would you like to do?`}]);}}}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Call Sheet</div>
+              <div onClick={()=>{setCsCreateMenu(null);setCsDuplicateModal("connie");setCsDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+            </div>
+          )}
+        </div>
       </div>
     )}
 
@@ -10505,7 +10514,7 @@ export default function OnnaDashboard() {
       "Casting":        {emoji:"🎭",count:`${getProjectCastingTables(p.id).reduce((a,t)=>a+t.rows.length,0)} models`},
       "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
       "Travel":         {emoji:"✈️",count:"Flights, hotels & logistics"},
-      "Schedule":       {emoji:"📒",count:"Production, pre & post"},
+      "Schedule":       {emoji:"📒",count:"CPS, Shotlist & Storyboard"},
     };
 
     // mini stat card used in project sections
@@ -11194,7 +11203,15 @@ export default function OnnaDashboard() {
               {docBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Call Sheets</div>
-                <button onClick={addCSNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Call Sheet</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCsCreateMenu(prev=>prev==="docs"?null:"docs")} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Call Sheet ▾</button>
+                  {csCreateMenu==="docs"&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCsCreateMenu(null);addCSNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCsCreateMenu(null);setCsDuplicateModal("docs");setCsDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {csVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No call sheets yet. Click "+ New Call Sheet" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -14641,6 +14658,98 @@ export default function OnnaDashboard() {
           </div>
         </div>
       )}
+
+      {/* Click-outside to close csCreateMenu */}
+      {csCreateMenu&&<div onClick={()=>setCsCreateMenu(null)} style={{position:"fixed",inset:0,zIndex:998}} />}
+
+      {/* ── DUPLICATE CALL SHEET MODAL ── */}
+      {csDuplicateModal&&(()=>{
+        const q=csDuplicateSearch.toLowerCase().trim();
+        // Gather all call sheets: active + archived
+        const results=[];
+        // Active
+        Object.entries(callSheetStore||{}).forEach(([pid,sheets])=>{
+          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
+          const projName=proj?.name||"Unknown Project";
+          const client=proj?.client||"";
+          (sheets||[]).forEach((cs,idx)=>{
+            const crewCount=(cs.departments||[]).reduce((sum,d)=>(d.crew||[]).length+sum,0);
+            results.push({cs,projName,client,projectId:pid,label:cs.label||"Untitled",date:cs.date||"",crewCount,source:"active"});
+          });
+        });
+        // Archived
+        (archive||[]).filter(e=>e.table==="callSheets").forEach(entry=>{
+          const it=entry.item;
+          const cs=it.callSheet||it;
+          const pid=it.projectId||"";
+          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
+          const projName=proj?.name||"Unknown Project";
+          const client=proj?.client||"";
+          const crewCount=(cs.departments||[]).reduce((sum,d)=>(d.crew||[]).length+sum,0);
+          results.push({cs,projName,client,projectId:pid,label:cs.label||"Untitled",date:cs.date||"",crewCount,source:"archived"});
+        });
+        // Filter
+        const filtered=q?results.filter(r=>[r.projName,r.client,r.label,r.cs.shootName||""].some(s=>(s||"").toLowerCase().includes(q))):results;
+        // Group by project
+        const grouped={};
+        filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
+        // Duplicate handler
+        const handleDuplicate=(r)=>{
+          const origin=csDuplicateModal;
+          const clone=JSON.parse(JSON.stringify(r.cs));
+          clone.id=Date.now();
+          clone.label="[Duplicated]";
+          if(origin==="connie"){
+            const _pid=connieCtx?.projectId||connieTabs[connieTabs.length-1]?.projectId;
+            if(_pid){
+              const proj=localProjects?.find(p=>p.id===_pid);
+              setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+              const newIdx=(callSheetStore?.[_pid]||[]).length;
+              setConnieCtx({projectId:_pid,vIdx:newIdx});setConnieDietMode(null);
+              addConnieTab(_pid,newIdx,`${proj?.name||"Project"} · [Duplicated]`);
+              setMsgs(prev=>[...prev,{role:"assistant",content:`Duplicated call sheet "${r.label}" into ${proj?.name||"this project"}. Ready to edit!`}]);
+            }
+          } else {
+            // docs origin — use selectedProject
+            const _pid=selectedProject?.id;
+            if(_pid){
+              setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+            }
+          }
+          setCsDuplicateModal(null);setCsDuplicateSearch("");
+        };
+        return(
+          <div onClick={()=>{setCsDuplicateModal(null);setCsDuplicateSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+              <div style={{padding:"20px 24px 0",flexShrink:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing Call Sheet</div>
+                  <button onClick={()=>{setCsDuplicateModal(null);setCsDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                </div>
+                <input value={csDuplicateSearch} onChange={e=>setCsDuplicateSearch(e.target.value)} placeholder="Search by project, client, or call sheet name..." autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
+              </div>
+              <div style={{overflowY:"auto",flex:1,padding:"0 24px 20px"}}>
+                {Object.keys(grouped).length===0?(
+                  <div style={{textAlign:"center",padding:"32px 0",color:"#86868b",fontSize:13}}>No call sheets found{q?" matching your search":""}.</div>
+                ):Object.entries(grouped).map(([groupKey,items])=>(
+                  <div key={groupKey} style={{marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#86868b",letterSpacing:0.5,textTransform:"uppercase",marginBottom:6,padding:"4px 0"}}>{groupKey}</div>
+                    {items.map((r,ri)=>(
+                      <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#c47090";e.currentTarget.style.background="#fff5f7";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}{r.source==="archived"?" (archived)":""}</div>
+                          <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.crewCount} crew</div>
+                        </div>
+                        <div style={{fontSize:11,color:"#c47090",fontWeight:600,flexShrink:0}}>Duplicate</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── ARCHIVE MODAL ── */}
       {showArchive&&(
