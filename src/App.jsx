@@ -978,7 +978,7 @@ ${PRINT_CLEANUP_CSS}
     }, 200);
   };
   /* Share: capture rendered HTML, POST to /api/cps-share, returns a live URL */
-  const generateSharePage = async (modes, existingToken) => {
+  const generateSharePage = async (modes, existingToken, existingResourceId) => {
     const captureHtml = () => {
       const el = printRef.current; if (!el) return null;
       const clone = cleanClone(el);
@@ -995,6 +995,7 @@ ${PRINT_CLEANUP_CSS}
     try {
       const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
+      if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/cps-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await resp.json();
       if (data.url) {
@@ -2335,7 +2336,7 @@ ${PRINT_CLEANUP_CSS}
   };
 
   /* Share: capture rendered HTML, POST to /api/loc-share, returns a live URL */
-  const generateSharePage = async (modes, existingToken) => {
+  const generateSharePage = async (modes, existingToken, existingResourceId) => {
     const el = printRef.current; if (!el) return;
     const clone = cleanClone(el);
     clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
@@ -2344,6 +2345,7 @@ ${PRINT_CLEANUP_CSS}
     try {
       const body = { html, projectName: project.name || "", mode: "locations" };
       if (existingToken) body.token = existingToken;
+      if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/loc-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await resp.json();
       if (data.url) {
@@ -2772,6 +2774,313 @@ ${PRINT_CLEANUP_CSS}
             <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>+ ADD FRAME</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ======= FITTING CONNIE ======= */
+let _fitId = 0;
+const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
+const mkFitLook = () => ({ id: "lk" + (++_fitId), name: "", description: "", notes: "", status: "Pending", image: null });
+const mkFitFitting = () => ({ id: "fit" + (++_fitId), talentName: "", lookName: "", notes: "", images: [null,null,null,null,null,null,null,null], imageStatuses: {} });
+
+const FIT_STATUSES = ["Pending", "Option", "Approved", "Pulled", "Returned"];
+const FIT_STATUS_C = {
+  "Pending": { bg: "#f4f4f4", text: "#999" }, "Option": { bg: "#FFF3E0", text: "#E65100" },
+  "Approved": { bg: "#E8F5E9", text: "#2E7D32" }, "Pulled": { bg: "#E3F2FD", text: "#1565C0" }, "Returned": { bg: "#000", text: "#fff" },
+};
+
+const FitInp = ({ value, onChange, placeholder, style = {} }) => (
+  <input value={value} onChange={e => onChange(e.target.value)}
+    onFocus={e => { if (e.target.value.startsWith("[")) e.target.select(); }} placeholder={placeholder}
+    style={{ fontFamily: "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif", fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+      background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", ...style }} />
+);
+
+const FitImgSlot = ({ src, onAdd, onRemove, h = "100%", style = {} }) => {
+  const [over, setOver] = useState(false);
+  const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+  if (src) return (
+    <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); setOver(false); if (e.dataTransfer.files.length > 0) { onRemove(); setTimeout(() => onAdd(e.dataTransfer.files), 50); } }}
+      style={{ width: "100%", height: h, position: "relative", overflow: "hidden", borderRadius: 2, border: over ? "2px solid #FFD54F" : "none", ...style }}>
+      <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={e => { e.target.style.display = "none"; }} />
+      <button data-hide="1" onClick={onRemove} style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"×"}</button>
+    </div>
+  );
+  return (
+    <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); setOver(false); if (e.dataTransfer.files.length > 0) onAdd(e.dataTransfer.files); }}
+      style={{ width: "100%", height: h, background: over ? "#FFFDE7" : "#f8f8f8", border: over ? "2px dashed #FFD54F" : "1px dashed #ddd", borderRadius: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all .15s", ...style }}>
+      <label style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <span style={{ fontSize: 18, color: over ? "#E65100" : "#ddd" }}>+</span>
+        <span style={{ fontFamily: F, fontSize: 6, color: over ? "#E65100" : "#ccc", letterSpacing: 0.5 }}>Drop or click</span>
+        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { onAdd(e.target.files); e.target.value = ""; }} />
+      </label>
+    </div>
+  );
+};
+
+const FitCard = ({ src, status, onAdd, onRemove, onStatus }) => {
+  const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
+  const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+  return (
+    <div style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff" }}>
+      <div style={{ aspectRatio: "4/5", position: "relative" }}>
+        <FitImgSlot src={src} h="100%" onAdd={onAdd} onRemove={onRemove} />
+      </div>
+      <div style={{ display: "flex", borderTop: "1px solid #eee" }}>
+        {[{ k: "approved", l: "APPROVE", c: "#2E7D32" }, { k: "shortlisted", l: "SHORTLIST", c: "#E65100" }, { k: "rejected", l: "REJECT", c: "#C62828" }].map(btn => (
+          <div key={btn.k} onClick={() => onStatus(status === btn.k ? "none" : btn.k)}
+            style={{ flex: 1, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: 0.5, padding: "4px 0", textAlign: "center", cursor: "pointer", textTransform: "uppercase",
+              background: status === btn.k ? btn.c : "#fff", color: status === btn.k ? "#fff" : btn.c,
+              borderRight: btn.k !== "rejected" ? "1px solid #f0f0f0" : "none" }}>{btn.l}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+function FittingConnie({ initialProject, initialTalent, initialFittings, onChangeProject, onChangeTalent, onChangeFittings }) {
+  const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+  const LS = 0.5;
+  const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "", stylist: "" });
+  const [tab, setTab] = useState("confirmed");
+  const printRef = useRef(null);
+
+  const [talent, setTalentRaw] = useState(() => initialTalent || [mkFitTalent(), mkFitTalent()]);
+  const [fittings, setFittingsRaw] = useState(() => initialFittings || [mkFitFitting(), mkFitFitting()]);
+  const [selFit, setSelFit] = useState(null);
+
+  const setProject = (u) => { setProjectRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeProject) onChangeProject(next); return next; }); };
+  const setTalent = (u) => { setTalentRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeTalent) onChangeTalent(next); return next; }); };
+  const setFittings = (u) => { setFittingsRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeFittings) onChangeFittings(next); return next; }); };
+
+  const curFit = fittings.find(f => f.id === selFit) || (fittings.length > 0 ? fittings[0] : null);
+  const updateTalent = (id, k, v) => setTalent(p => p.map(t => t.id === id ? { ...t, [k]: v } : t));
+  const addTalent = () => setTalent(p => [...p, mkFitTalent()]);
+  const deleteTalent = (id) => setTalent(p => p.filter(t => t.id !== id));
+  const updateLook = (tid, lid, k, v) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, [k]: v } : l) } : t));
+  const addLook = (tid) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: [...t.looks, mkFitLook()] } : t));
+  const deleteLook = (tid, lid) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.filter(l => l.id !== lid) } : t));
+  const setLookImg = (tid, lid, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, image: e.target.result } : l) } : t)); r.readAsDataURL(f); };
+  const rmLookImg = (tid, lid) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, image: null } : l) } : t));
+
+  const updateFit = (id, k, v) => setFittings(p => p.map(f => f.id === id ? { ...f, [k]: v } : f));
+  const addFitting = () => setFittings(p => [...p, mkFitFitting()]);
+  const deleteFitting = (id) => { setFittings(p => p.filter(f => f.id !== id)); if (selFit === id) setSelFit(null); };
+  const setFitImg = (fid, idx, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setFittings(p => p.map(ft => { if (ft.id !== fid) return ft; const imgs = [...ft.images]; while (imgs.length <= idx) imgs.push(null); imgs[idx] = e.target.result; return { ...ft, images: imgs }; })); r.readAsDataURL(f); };
+  const rmFitImg = (fid, idx) => setFittings(p => p.map(f => f.id === fid ? { ...f, images: f.images.map((img, i) => i === idx ? null : img) } : f));
+
+  const syncApproved = () => {
+    fittings.forEach(fit => {
+      if (!fit.talentName) return;
+      const approvedImgs = fit.images.filter((img, i) => img && (fit.imageStatuses || {})[i] === "approved");
+      if (approvedImgs.length === 0) return;
+      setTalent(prev => {
+        let found = prev.find(t => t.name.toLowerCase().trim() === fit.talentName.toLowerCase().trim());
+        if (found) {
+          return prev.map(t => {
+            if (t.id !== found.id) return t;
+            const newLooks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img }));
+            const existingImgs = t.looks.map(l => l.image).filter(Boolean);
+            const unique = newLooks.filter(nl => !existingImgs.includes(nl.image));
+            return { ...t, looks: [...t.looks.filter(l => l.image), ...unique] };
+          });
+        } else {
+          const newT = mkFitTalent();
+          newT.name = fit.talentName;
+          newT.looks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
+          return [...prev, newT];
+        }
+      });
+    });
+  };
+
+  const dragLook = useRef(null);
+  const [dropLookAt, setDropLookAt] = useState(null);
+  const handleLookDragStart = (tid, lidx) => { dragLook.current = { tid, lidx }; };
+  const handleLookDragOver = (tid, lidx, e) => { e.preventDefault(); setDropLookAt({ tid, lidx }); };
+  const handleLookDrop = (tid, lidx) => {
+    const from = dragLook.current;
+    if (!from || (from.tid === tid && from.lidx === lidx)) { dragLook.current = null; setDropLookAt(null); return; }
+    setTalent(prev => {
+      const n = JSON.parse(JSON.stringify(prev));
+      const srcT = n.find(t => t.id === from.tid);
+      const dstT = n.find(t => t.id === tid);
+      if (!srcT || !dstT) return prev;
+      const [moved] = srcT.looks.splice(from.lidx, 1);
+      dstT.looks.splice(lidx, 0, moved);
+      return n;
+    });
+    dragLook.current = null; setDropLookAt(null);
+  };
+  const handleLookDragEnd = () => { dragLook.current = null; setDropLookAt(null); };
+
+  const fitCleanClone = (el) => {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
+    clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
+    clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
+    clone.querySelectorAll("input").forEach(inp => {
+      if (!inp.value || !inp.value.trim()) inp.style.display = "none";
+      else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s); }
+    });
+    return clone;
+  };
+  const fitPrintViaIframe = (clone) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentDocument;
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+@media print{@page{size:landscape;margin:0}}
+${PRINT_CLEANUP_CSS}
+</style></head><body></body></html>`);
+    idoc.close();
+    idoc.body.appendChild(idoc.adoptNode(clone));
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+  };
+  const exportPDF = () => {
+    const el = printRef.current; if (!el) return;
+    fitPrintViaIframe(fitCleanClone(el));
+  };
+
+  const row2Has = curFit && curFit.images.slice(4, 8).some(Boolean);
+
+  return (
+    <div style={{ width: 1123, minWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+        {[{ id: "confirmed", label: "CONFIRMED LOOKS" }, { id: "options", label: "FITTING OPTIONS" }].map(t => (
+          <div key={t.id} onClick={() => { setTab(t.id); if (t.id === "options" && !selFit && fittings.length > 0) setSelFit(fittings[0].id); }}
+            style={{ fontFamily: F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
+        ))}
+        <div style={{ flex: 1 }} />
+        <div onClick={syncApproved} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#f5f5f5", color: "#666", textTransform: "uppercase", borderLeft: "1px solid #ddd" }}
+          onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f5f5f5"}>SYNC APPROVED</div>
+        <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
+          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
+      </div>
+
+      <div ref={printRef} style={{ padding: "14px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
+          <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>FITTING DECK</div>
+        </div>
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 10 }} />
+        <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+          {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["STYLIST", "stylist", "Stylist"]].map(([lbl, key, ph]) => (
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}:</span>
+              <FitInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ width: 110, borderBottom: "1px solid #eee" }} />
+            </div>
+          ))}
+        </div>
+
+        {tab === "confirmed" && (
+          <div>
+            {talent.map((t, ti) => (
+              <div key={t.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "4px 8px", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>TALENT {ti + 1}</span>
+                    <FitInp value={t.name} onChange={v => updateTalent(t.id, "name", v)} placeholder="Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: 140 }} />
+                    <FitInp value={t.role} onChange={v => updateTalent(t.id, "role", v)} placeholder="Role" style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", background: "transparent", width: 90 }} />
+                  </div>
+                  <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span onClick={() => addLook(t.id)} style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ LOOK</span>
+                    <button onClick={() => deleteTalent(t.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: "8px 0" }}>
+                  {t.looks.map((look, li) => {
+                    const sr = FIT_STATUS_C[look.status] || FIT_STATUS_C["Pending"];
+                    const isDropHere = dropLookAt && dropLookAt.tid === t.id && dropLookAt.lidx === li && dragLook.current && !(dragLook.current.tid === t.id && dragLook.current.lidx === li);
+                    return (
+                      <div key={look.id}
+                        onDragOver={e => handleLookDragOver(t.id, li, e)}
+                        onDrop={() => handleLookDrop(t.id, li)}
+                        onDragLeave={() => setDropLookAt(null)}
+                        style={{ border: isDropHere ? "2px solid #FFD54F" : "1px solid #eee", borderRadius: 2, overflow: "hidden", position: "relative" }}>
+                        <div draggable onDragStart={() => handleLookDragStart(t.id, li)} onDragEnd={handleLookDragEnd}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0", background: "#f8f8f8", cursor: "grab", borderBottom: "1px solid #eee" }}>
+                          <span style={{ fontFamily: F, fontSize: 8, color: "#ccc", letterSpacing: 2 }}>{"≡"}</span>
+                        </div>
+                        <div style={{ aspectRatio: "4/5", background: "#f8f8f8", position: "relative" }}>
+                          <FitImgSlot src={look.image} h="100%" onAdd={files => setLookImg(t.id, look.id, files)} onRemove={() => rmLookImg(t.id, look.id)} />
+                          <div onClick={() => { const i = FIT_STATUSES.indexOf(look.status); updateLook(t.id, look.id, "status", FIT_STATUSES[(i + 1) % FIT_STATUSES.length]); }}
+                            style={{ position: "absolute", top: 4, right: 4, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: sr.bg, color: sr.text, padding: "2px 6px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{look.status}</div>
+                          <button data-hide="1" onClick={() => deleteLook(t.id, look.id)} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.4)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"×"}</button>
+                        </div>
+                        <div style={{ padding: "4px 6px" }}>
+                          <FitInp value={look.name} onChange={v => updateLook(t.id, look.id, "name", v)} placeholder={"Look " + (li + 1)} style={{ fontSize: 9, fontWeight: 700, padding: "0 0 2px 0", borderBottom: "1px solid #eee", marginBottom: 2 }} />
+                          <FitInp value={look.description} onChange={v => updateLook(t.id, look.id, "description", v)} placeholder="Description" style={{ fontSize: 8, color: "#999", padding: 0 }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <div data-hide="1"><div onClick={addTalent} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 8px", cursor: "pointer", borderRadius: 1 }}
+              onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}>
+              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>+ ADD TALENT</span>
+            </div></div>
+          </div>
+        )}
+
+        {tab === "options" && (
+          <div>
+            <div data-hide="1" style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+              {fittings.map((fit, idx) => {
+                const active = curFit && curFit.id === fit.id;
+                return (
+                  <div key={fit.id} style={{ display: "flex", alignItems: "center", borderRadius: 2, border: active ? "2px solid #000" : "1px solid #ddd", overflow: "hidden" }}>
+                    <div onClick={() => setSelFit(fit.id)} style={{ fontFamily: F, fontSize: 8, fontWeight: active ? 700 : 400, letterSpacing: LS, padding: "4px 10px", cursor: "pointer", background: active ? "#000" : "#fff", color: active ? "#fff" : "#666" }}>
+                      {idx + 1}. {fit.talentName || "Untitled"}</div>
+                    <button onClick={() => deleteFitting(fit.id)} style={{ background: active ? "#333" : "#f5f5f5", border: "none", color: active ? "rgba(255,255,255,0.4)" : "#ccc", fontSize: 10, cursor: "pointer", padding: "4px 6px", lineHeight: 1 }}>{"×"}</button>
+                  </div>
+                );
+              })}
+              <div onClick={addFitting} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, padding: "4px 12px", cursor: "pointer", borderRadius: 2, border: "1px dashed #ccc", color: "#999" }}>+ ADD</div>
+            </div>
+            {curFit && (
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4 }}>
+                  <FitInp value={curFit.talentName} onChange={v => updateFit(curFit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: 18, fontWeight: 700, padding: 0, width: 280 }} />
+                  <div style={{ flex: 1, display: "flex", gap: 14 }}>
+                    <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>LOOK </span>
+                      <FitInp value={curFit.lookName} onChange={v => updateFit(curFit.id, "lookName", v)} placeholder="Look 1" style={{ display: "inline", width: 80 }} /></div>
+                    <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>NOTES </span>
+                      <FitInp value={curFit.notes} onChange={v => updateFit(curFit.id, "notes", v)} placeholder="Fitting notes..." style={{ color: "#666", display: "inline", width: 220 }} /></div>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: row2Has ? 8 : 0 }}>
+                  {[0,1,2,3].map(n => (
+                    <FitCard key={n} src={curFit.images[n]} status={(curFit.imageStatuses||{})[n] || "none"}
+                      onAdd={files => setFitImg(curFit.id, n, files)} onRemove={() => rmFitImg(curFit.id, n)}
+                      onStatus={s => updateFit(curFit.id, "imageStatuses", { ...(curFit.imageStatuses||{}), [n]: s })} />
+                  ))}
+                </div>
+                {row2Has && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                    {[4,5,6,7].map(n => (
+                      <FitCard key={n} src={curFit.images[n]} status={(curFit.imageStatuses||{})[n] || "none"}
+                        onAdd={files => setFitImg(curFit.id, n, files)} onRemove={() => rmFitImg(curFit.id, n)}
+                        onStatus={s => updateFit(curFit.id, "imageStatuses", { ...(curFit.imageStatuses||{}), [n]: s })} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5025,7 +5334,7 @@ You can fill in contract fields, switch between contract types, review what's mi
 
 NEVER say you cannot save data or need external tools. You have FULL access. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add contract details...",
-   intro:"I'm Contract Cody. I'm connected to your live contracts — tell me to fill in fields, switch contract types, review what's missing, or export to PDF. 📝"},
+   intro:"I'm Contract Cody 📝 Here's what I can do:\n\n1️⃣ **Live Contracts** — Fill in fields, switch types, review & export your project contracts\n2️⃣ **Generate Documents** — Draft waivers, NDAs, agreements & more from scratch\n3️⃣ **Sign & Stamp** — Upload a PDF or generate a doc, then add signature, stamp & letterhead\n\nWhat do you need?"},
   {id:"finn",name:"Finance Finn",title:"Expenses",emoji:"🧾",color:_TEAL,border:"#5aA8A8",accent:"#1a6060",bg:"#f0fafa",textColor:"#0a3030",tagBg:"#c8eee8",Blob:_Finn,
    system:`You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You help track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Track an expense...",
@@ -10604,6 +10913,7 @@ export default function OnnaDashboard() {
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [travelSubSection,setTravelSubSection]           = useState(null);
   const [permitsSubSection,setPermitsSubSection]         = useState(null);
+  const [stylingSubSection,setStylingSubSection]         = useState(null);
   const [linkUploading,setLinkUploading]                 = useState(false);
   const [linkUploadProgress,setLinkUploadProgress]       = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
@@ -10633,6 +10943,8 @@ export default function OnnaDashboard() {
   const [activeShotListVersion,setActiveShotListVersion] = useState(null);
   const [storyboardStore,setStoryboardStore]             = useState(()=>{try{const s=localStorage.getItem('onna_storyboards');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
+  const [fittingStore,setFittingStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_fittings');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeFittingVersion,setActiveFittingVersion]   = useState(null);
   const [cpsShareUrl,setCpsShareUrl]                     = useState(null);
   const [cpsShareLoading,setCpsShareLoading]             = useState(false);
   const [cpsShareTabs,setCpsShareTabs]                   = useState(new Set(["schedule","timeline","calendar"]));
@@ -10838,6 +11150,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{}},[cpsStore]);
   useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{}},[shotListStore]);
   useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
   useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
@@ -11152,7 +11465,7 @@ export default function OnnaDashboard() {
     "onna_dietaries","onna_estimates","onna_project_info","onna_creative_links",
     "onna_lead_cats","onna_lead_locs","onna_vendor_cats","onna_vendor_locs",
     "onna_hidden_lead_cats","onna_hidden_vendor_cats",
-    "onna_archive","onna_shotlists","onna_storyboards","onna_loc_decks"
+    "onna_archive","onna_shotlists","onna_storyboards","onna_fittings","onna_loc_decks"
   ];
   const SYNC_TITLE = "__ONNA_SYNC__";
   const syncNoteIdRef = useRef(null);
@@ -11282,7 +11595,7 @@ export default function OnnaDashboard() {
           const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
           setSelectedProject(proj||null);
           setProjectSection(state.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
           if (state.subSection && proj) {
             const sec = state.section;
             if (sec==="Creative") setCreativeSubSection(state.subSection);
@@ -11294,7 +11607,7 @@ export default function OnnaDashboard() {
         } else {
           setSelectedProject(null);
           setProjectSection("Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
         }
       } else {
         const parsed = parseURL(window.location.pathname, allProjectsMerged);
@@ -11302,7 +11615,7 @@ export default function OnnaDashboard() {
         if (parsed.project) {
           setSelectedProject(parsed.project);
           setProjectSection(parsed.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
           if (parsed.subSection) {
             const sec = parsed.section;
             if (sec==="Creative") setCreativeSubSection(parsed.subSection);
@@ -11676,7 +11989,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
@@ -12019,7 +12332,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -13704,7 +14017,7 @@ export default function OnnaDashboard() {
       const sendLocShare = async () => {
         setLocShareLoading(true);
         try {
-          if (locDeckRef.current) await locDeckRef.current.share(null, existingLocToken);
+          if (locDeckRef.current) await locDeckRef.current.share(null, existingLocToken, locData.shareResourceId);
         } catch (err) { alert("Error: " + err.message); }
         setLocShareLoading(false);
       };
@@ -13875,39 +14188,143 @@ export default function OnnaDashboard() {
     }
 
     if (projectSection==="Styling") {
-      const styleFiles = (projectFileStore[p.id]||{}).styling_store||[];
-      const styleLink = (projectCreativeLinks[p.id]||{}).styling||"";
-      return (
-        <div>
-          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Styling</div>
-          <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload styling files or paste a Dropbox / Drive link to import.</p>
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
-            <div style={{display:"flex",gap:10}}>
-              <input value={styleLink} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-              {styleLink&&<button disabled={linkUploading} onClick={()=>uploadFromLink(styleLink,"styling_store")} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading…":"Upload"}</button>}
-            </div>
-            {linkUploadProgress!==null&&<div style={{marginTop:8}}><div style={{height:6,borderRadius:3,background:"#e5e5ea",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:linkUploadProgress===100?"#34c759":T.accent,width:`${linkUploadProgress}%`,transition:"width 0.3s ease"}}/></div><div style={{fontSize:11,color:T.muted,marginTop:4}}>{linkUploadProgress===100?"Complete!":linkUploadProgress<50?"Sending…":"Downloading…"} {linkUploadProgress}%</div></div>}
-          </div>
-          <UploadZone label="Upload styling documents (PDF, images, lookbooks)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:[...((prev[p.id]||{}).styling_store||[]),...ne]}}));}}/>
-          {styleFiles.length>0&&(()=>{const filteredStyle=styleSearchTerm.trim()?styleFiles.filter(f=>f.name.toLowerCase().includes(styleSearchTerm.trim().toLowerCase())):styleFiles;return<>
-              <input value={styleSearchTerm} onChange={e=>setStyleSearchTerm(e.target.value)} placeholder="Search styling files…" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginTop:16,marginBottom:8,boxSizing:"border-box"}}/>
-              <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:6,marginBottom:6}}>{filteredStyle.length} file{filteredStyle.length!==1?"s":""}{styleSearchTerm.trim()?" found":" uploaded"}</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
-                {filteredStyle.map((f,i)=>(<div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
-                    <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
-                    <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"\ud83d\udcc4":f.type?.includes("image")?"\ud83d\uddbc":"\ud83d\udcce"}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
-                      <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
-                    </div>
-                    <button onClick={()=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
-                    <button onClick={()=>{if(confirm("Delete V"+(i+1)+" - "+f.name+"?"))setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:((prev[p.id]||{}).styling_store||[]).filter(x=>x.id!==f.id)}}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
-                  </div>))}
+      const STYLING_CARDS = [
+        {key:"fitting",  emoji:"\ud83d\udc57", label:"Fitting Deck"},
+        {key:"files",    emoji:"\ud83d\udcc1", label:"Files & Uploads"},
+      ];
+
+      if (!stylingSubSection) return (
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+          {STYLING_CARDS.map(c=>(
+            <div key={c.key} onClick={()=>{setStylingSubSection(c.key);pushNav("Projects",p,"Styling",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <span style={{fontSize:28}}>{c.emoji}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Open {c.label.toLowerCase()}</div>
               </div>
-            </>;})()}
+            </div>
+          ))}
         </div>
       );
+
+      const stylingBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>\u2039 Back to Styling</button>;
+
+      if (stylingSubSection==="fitting") {
+        const fitVersions = fittingStore[p.id] || [];
+        const addFitNew = () => {
+          const newId = Date.now();
+          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \\| /,""), client: p.client || "[Client Name]", date: "[Date]", stylist: "[Stylist]" };
+          const newFit = { id: newId, label: `V${fitVersions.length+1}`, project: proj, talent: [mkFitTalent(), mkFitTalent()], fittings: [mkFitFitting(), mkFitFitting()] };
+          setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newFit); return store; });
+        };
+        const deleteFitVersion = (idx) => {
+          if (!confirm("Delete this Fitting Deck? This will be moved to trash.")) return;
+          const fitData = JSON.parse(JSON.stringify((fittingStore[p.id]||[])[idx]));
+          if (fitData) archiveItem('fitting', { projectId: p.id, fitting: fitData });
+          setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
+          setActiveFittingVersion(null);
+        };
+
+        if (activeFittingVersion === null || fitVersions.length === 0) {
+          return (
+            <div>
+              {stylingBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Fitting Deck</div>
+                <button onClick={addFitNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Fitting Deck</button>
+              </div>
+              {fitVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No fitting decks yet. Click "+ New Fitting Deck" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {fitVersions.map((fit,i) => {
+                  const totalLooks = (fit.talent||[]).reduce((s,t) => s + (t.looks||[]).length, 0);
+                  const approvedLooks = (fit.talent||[]).reduce((s,t) => s + (t.looks||[]).filter(l=>l.status==="Approved").length, 0);
+                  return (
+                    <div key={fit.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveFittingVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>FITTING</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:approvedLooks>0?"#e8f5e9":"#f5f5f5",color:approvedLooks>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{totalLooks} looks {"·"} {approvedLooks} approved</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{fit.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{fit.project?.name||"No project name"}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>deleteFitVersion(i)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>{"×"}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        const fitIdx = activeFittingVersion;
+        const fitData = fitVersions[fitIdx];
+        if (!fitData) { setActiveFittingVersion(null); return null; }
+
+        const fitBack = <button onClick={()=>setActiveFittingVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>\u2039 Back to Fitting Decks</button>;
+
+        return (
+          <div>
+            {fitBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+            </div>
+            <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
+              <FittingConnie
+                initialProject={fitData.project}
+                initialTalent={fitData.talent}
+                initialFittings={fitData.fittings}
+                onChangeProject={proj => setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][fitIdx].project = proj; return s; })}
+                onChangeTalent={tal => setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][fitIdx].talent = tal; return s; })}
+                onChangeFittings={fits => setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][fitIdx].fittings = fits; return s; })}
+              />
+            </div>
+          </div>
+        );
+      }
+
+      if (stylingSubSection==="files") {
+        const styleFiles = (projectFileStore[p.id]||{}).styling_store||[];
+        const styleLink = (projectCreativeLinks[p.id]||{}).styling||"";
+        return (
+          <div>
+            {stylingBack}
+            <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Files & Uploads</div>
+            <p style={{fontSize:12.5,color:T.muted,marginBottom:18}}>Upload styling files or paste a Dropbox / Drive link to import.</p>
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Link</div>
+              <div style={{display:"flex",gap:10}}>
+                <input value={styleLink} onChange={e=>setProjectCreativeLinks(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling:e.target.value}}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                {styleLink&&<button disabled={linkUploading} onClick={()=>uploadFromLink(styleLink,"styling_store")} style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:linkUploading?"#999":T.accent,color:"#fff",fontSize:13,fontWeight:600,border:"none",cursor:linkUploading?"default":"pointer",flexShrink:0,fontFamily:"inherit"}}>{linkUploading?"Uploading\u2026":"Upload"}</button>}
+              </div>
+              {linkUploadProgress!==null&&<div style={{marginTop:8}}><div style={{height:6,borderRadius:3,background:"#e5e5ea",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:linkUploadProgress===100?"#34c759":T.accent,width:`${linkUploadProgress}%`,transition:"width 0.3s ease"}}/></div><div style={{fontSize:11,color:T.muted,marginTop:4}}>{linkUploadProgress===100?"Complete!":linkUploadProgress<50?"Sending\u2026":"Downloading\u2026"} {linkUploadProgress}%</div></div>}
+            </div>
+            <UploadZone label="Upload styling documents (PDF, images, lookbooks)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:[...((prev[p.id]||{}).styling_store||[]),...ne]}}));}}/>
+            {styleFiles.length>0&&(()=>{const filteredStyle=styleSearchTerm.trim()?styleFiles.filter(f=>f.name.toLowerCase().includes(styleSearchTerm.trim().toLowerCase())):styleFiles;return<>
+                <input value={styleSearchTerm} onChange={e=>setStyleSearchTerm(e.target.value)} placeholder="Search styling files\u2026" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginTop:16,marginBottom:8,boxSizing:"border-box"}}/>
+                <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:6,marginBottom:6}}>{filteredStyle.length} file{filteredStyle.length!==1?"s":""}{styleSearchTerm.trim()?" found":" uploaded"}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
+                  {filteredStyle.map((f,i)=>(<div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 8px",flexShrink:0}}>V{i+1}</span>
+                      <span style={{fontSize:15,flexShrink:0}}>{f.type?.includes("pdf")?"\ud83d\udcc4":f.type?.includes("image")?"\ud83d\uddbc":"\ud83d\udcce"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB \u00b7 {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                      </div>
+                      <button onClick={()=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click();}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>
+                      <button onClick={()=>{if(confirm("Delete V"+(i+1)+" - "+f.name+"?"))setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:((prev[p.id]||{}).styling_store||[]).filter(x=>x.id!==f.id)}}));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>{"×"}</button>
+                    </div>))}
+                </div>
+              </>;})()}
+          </div>
+        );
+      }
+
+      return null;
     }
 
     // Travel section — sub-folders
@@ -14259,7 +14676,7 @@ export default function OnnaDashboard() {
           if (cpsShareTabs.size === 0) return;
           setCpsShareLoading(true);
           try {
-            if (cpsRef.current) await cpsRef.current.share([...cpsShareTabs], existingToken);
+            if (cpsRef.current) await cpsRef.current.share([...cpsShareTabs], existingToken, cpsData.shareResourceId);
           } catch (err) { alert("Error: " + err.message); }
           setCpsShareLoading(false);
         };
@@ -15113,7 +15530,7 @@ export default function OnnaDashboard() {
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
