@@ -725,6 +725,7 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [tab, setTab] = useState("timeline");
   const [printAll, setPrintAll] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const printRef = useRef(null);
 
   /* Undo system */
@@ -838,17 +839,34 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 ${fontRules}
 @page{size:landscape;margin:0}
-body{margin:0;padding:12mm;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;overflow:hidden}
+body{margin:0;padding:12mm;padding-bottom:18mm;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;overflow:hidden}
 *{box-sizing:border-box}
 div[style*="position: relative"]{overflow:hidden}
 .page-break{page-break-before:always}
 @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>`);
-    w.document.write(html); w.document.write("</body></html>"); w.document.close(); setTimeout(() => w.print(), 600);
+    w.document.write(html); w.document.write("</body></html>"); w.document.close();
+    /* Aggressively remove any extension-injected elements from the print window */
+    setTimeout(() => {
+      try {
+        const bd = w.document.body;
+        /* Remove anything with position:fixed (extensions always use fixed positioning) */
+        bd.querySelectorAll('*').forEach(n => { try { const cs = w.getComputedStyle(n); if (cs.position === 'fixed') n.remove(); } catch(e){} });
+        /* Remove iframes, shadow hosts, elements outside our content */
+        bd.querySelectorAll('iframe,object,embed').forEach(n => n.remove());
+        /* Remove any element not inside our printRef content wrapper — the first child div is ours */
+        const contentDiv = bd.children[0];
+        if (contentDiv) { Array.from(bd.children).forEach(ch => { if (ch !== contentDiv) ch.remove(); }); }
+      } catch(e){}
+      setTimeout(() => w.print(), 400);
+    }, 200);
   };
   const cleanClone = (el) => {
     const clone = el.cloneNode(true);
+    /* Remove by known selectors */
     clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"]').forEach(n=>n.remove());
-    clone.querySelectorAll('iframe,[style*="z-index: 2147483647"],[style*="z-index:2147483647"]').forEach(n=>n.remove());
+    clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
+    /* Remove any fixed-position children (extension widgets) */
+    clone.querySelectorAll('*').forEach(n => { if (n.style && (n.style.position === 'fixed' || n.style.zIndex > 999999)) n.remove(); });
     return clone;
   };
   const exportPDF = () => {
@@ -862,6 +880,40 @@ div[style*="position: relative"]{overflow:hidden}
       sanitiseAndPrint(cleanClone(el).innerHTML);
       setTimeout(() => setPrintAll(false), 100);
     }, 200);
+  };
+  /* Generate a live shareable HTML file — opens in browser + downloads */
+  const generateSharePage = (mode) => {
+    const captureAndShare = () => {
+      const el = printRef.current; if (!el) return;
+      const clone = cleanClone(el);
+      clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); });
+      let fontRules = "";
+      try { for (const sheet of document.styleSheets) { try { for (const rule of sheet.cssRules) { if (rule.cssText && rule.cssText.startsWith("@font-face")) fontRules += rule.cssText + "\n"; } } catch(e){} } } catch(e){}
+      const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ONNA \u2014 Creative Production Schedule</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
+${fontRules}
+body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;background:#f5f5f5}
+.cps-wrap{max-width:1123px;margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden}
+.cps-inner{padding:24px 16px}
+*{box-sizing:border-box}
+.page-break{page-break-before:always;margin-top:32px;padding-top:16px;border-top:2px solid #000}
+@media print{@page{size:landscape;margin:0}body{padding:12mm;padding-bottom:18mm;background:#fff}.cps-wrap{box-shadow:none;border-radius:0}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body><div class="cps-wrap"><div class="cps-inner">${clone.innerHTML}</div></div></body></html>`;
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      const a = document.createElement("a"); a.href = url;
+      a.download = `CPS_${(project.name||"schedule").replace(/[^a-zA-Z0-9]/g,"_")}_${mode}.html`;
+      a.click();
+    };
+    if (mode === "all") {
+      setPrintAll(true);
+      setTimeout(() => { captureAndShare(); setTimeout(() => setPrintAll(false), 100); }, 200);
+    } else {
+      const prevTab = tab;
+      setTab(mode);
+      setTimeout(() => { captureAndShare(); setTab(prevTab); }, 200);
+    }
   };
 
   /* Stats */
@@ -905,6 +957,21 @@ div[style*="position: relative"]{overflow:hidden}
         <div onClick={exportAllPDF} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
           onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>
           EXPORT ALL
+        </div>
+        <div style={{ position: "relative" }}>
+          <div onClick={() => setShowShareMenu(!showShareMenu)} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: showShareMenu ? "#1565C0" : "#1976D2", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid rgba(255,255,255,0.2)" }}
+            onMouseEnter={e => e.currentTarget.style.background = "#1565C0"} onMouseLeave={e => { if (!showShareMenu) e.currentTarget.style.background = "#1976D2"; }}>
+            SHARE
+          </div>
+          {showShareMenu && <div style={{ position: "absolute", right: 0, top: "100%", background: "#fff", border: "1px solid #ddd", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", borderRadius: 2, zIndex: 100, minWidth: 180 }}>
+            {[{ label: "Share Schedule", mode: "schedule" }, { label: "Share Timeline", mode: "timeline" }, { label: "Share Calendar", mode: "calendar" }, { label: "Share All Pages", mode: "all" }].map(opt => (
+              <div key={opt.mode} onClick={() => { setShowShareMenu(false); generateSharePage(opt.mode); }}
+                style={{ fontFamily: CPS_F, fontSize: 9, letterSpacing: CPS_LS, padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #f0f0f0", color: "#333", textTransform: "uppercase" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f5f5f5"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                {opt.label}
+              </div>
+            ))}
+          </div>}
         </div>
       </div>
 
@@ -4209,7 +4276,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const dietUpdatePerson=(i,key,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietAddPerson=()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietDeletePerson=(i)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[projectId]=arr;return store;});};
-      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=prompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){alert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();const csNames=new Set(pulled.map(pr=>pr.name));const existingMap={};d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});const newPeople=[];pulled.forEach(pr=>{const existing=existingMap[pr.name];if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}});d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});d.people=newPeople;arr[dietIdx]=d;store[projectId]=arr;return store;});};
+      const dietSyncFromCS=()=>{console.log("dietSyncFromCS called",{projectId,callSheetStore:!!callSheetStore,keys:callSheetStore?Object.keys(callSheetStore):[]});const csVersions=(callSheetStore||{})[projectId]||[];console.log("csVersions",csVersions.length);if(csVersions.length===0){alert("No call sheets found for this project. Create a call sheet first via the Call Sheets tab.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=prompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){alert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();const csNames=new Set(pulled.map(pr=>pr.name));const existingMap={};d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});const newPeople=[];pulled.forEach(pr=>{const existing=existingMap[pr.name];if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}});d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});d.people=newPeople;arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
