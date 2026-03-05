@@ -17,13 +17,17 @@ const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOri
 const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages="last",stampPages="last",letterPages="first",signOffset=0,stampOffset=0,signOffsetX=0,stampOffsetX=0,signScale=1,stampScale=1})=>{
   const appliesTo=(rule,i,total)=>rule==="all"||(rule==="first"&&i===0)||(rule==="last"&&i===total-1)||rule===i;
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
+  const LH_PAD=130;
   const result=[];const total=doc.pages.length;
   for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
-    const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height;const ctx=c.getContext("2d");
-    ctx.drawImage(pgImg,0,0);
-    // Letterhead
-    if(wantLetterhead&&appliesTo(letterPages,i,total)&&logoImg){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,55,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,55+lh+10);ctx.lineTo(c.width-40,55+lh+10);ctx.stroke();}
+    const hasLH=wantLetterhead&&appliesTo(letterPages,i,total)&&logoImg;
+    const pad=hasLH?LH_PAD:0;
+    const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height+pad;const ctx=c.getContext("2d");
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);
+    ctx.drawImage(pgImg,0,pad);
+    // Letterhead (drawn in the top padding area, above original page content)
+    if(hasLH){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,35,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,35+lh+12);ctx.lineTo(c.width-40,35+lh+12);ctx.stroke();}
     // Signature
     if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80*(signScale||1),sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60+(signOffsetX||0),c.height-180+(signOffset||0),sw,sh);}
     // Stamp
@@ -2872,7 +2876,7 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
   const stampH=120*stScale,stampW=stampH*stampAR;
   const signCX=60+(config.signOffsetX||0);const signCY=natH-180+(config.signOffset||0);
   const stampCX=natW-60-stampW+(config.stampOffsetX||0);const stampCY=natH-180+(config.stampOffset||0);
-  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=55;
+  const lhH=50,lhW=lhH*logoAR,lhX=60,lhY=35,LH_PAD=130;
   const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
   useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
   const onMouseDown=useCallback((target,e)=>{
@@ -2900,11 +2904,12 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
     window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);
   },[config,scale,onReprocess]);
   const resizeHandle=(target)=><div onMouseDown={e=>onResizeDown(target,e)} style={{position:"absolute",right:-3,bottom:-3,width:10,height:10,cursor:"nwse-resize",background:"#0066cc",borderRadius:2,border:"1px solid #fff",zIndex:5}}/>;
+  const padPx=showLetter?LH_PAD*scale:0;
   return <div ref={containerRef} style={{position:"relative",maxWidth:480,borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",background:"#fafafa",marginBottom:8,userSelect:"none"}}>
+    {showLetter&&<div style={{height:padPx,background:"#fff",position:"relative",width:"100%"}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto",zIndex:1,pointerEvents:"none"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+12)*scale,height:Math.max(1,2.5*scale),background:"#000",zIndex:1,pointerEvents:"none"}}/></div>}
     <img src={pageImg} alt="page" onLoad={onBgLoad} style={{width:"100%",height:"auto",display:"block"}} draggable={false}/>
-    {showLetter&&<><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto",zIndex:1,pointerEvents:"none"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+10)*scale,height:Math.max(1,2.5*scale),background:"#000",zIndex:1,pointerEvents:"none"}}/></>}
-    {showSign&&<div id="_dpd_overlay_sign" style={{position:"absolute",left:signCX*scale,top:signCY*scale,zIndex:2}}><img src="/SIGN.png" alt="signature" draggable={false} onLoad={e=>setSignAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("sign",e)} style={{height:signH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("sign")}</div>}
-    {showStamp&&<div id="_dpd_overlay_stamp" style={{position:"absolute",left:stampCX*scale,top:stampCY*scale,zIndex:2}}><img src="/STAMP.png" alt="stamp" draggable={false} onLoad={e=>setStampAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("stamp",e)} style={{height:stampH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("stamp")}</div>}
+    {showSign&&<div id="_dpd_overlay_sign" style={{position:"absolute",left:signCX*scale,top:signCY*scale+padPx,zIndex:2}}><img src="/SIGN.png" alt="signature" draggable={false} onLoad={e=>setSignAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("sign",e)} style={{height:signH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("sign")}</div>}
+    {showStamp&&<div id="_dpd_overlay_stamp" style={{position:"absolute",left:stampCX*scale,top:stampCY*scale+padPx,zIndex:2}}><img src="/STAMP.png" alt="stamp" draggable={false} onLoad={e=>setStampAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("stamp",e)} style={{height:stampH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("stamp")}</div>}
     <div style={{padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff",borderTop:"1px solid #eee"}}>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
         {total>1&&<button onClick={()=>setActivePage(p=>Math.max(0,p-1))} disabled={activePage===0} style={{border:"1px solid #ddd",background:activePage===0?"#f5f5f5":"#fff",borderRadius:4,padding:"2px 8px",fontSize:11,cursor:activePage===0?"default":"pointer",color:activePage===0?"#ccc":"#333"}}>&#8249;</button>}
@@ -6361,7 +6366,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(newSignPages!==null)cfg.signPages=newSignPages;
           if(newStampPages!==null)cfg.stampPages=newStampPages;
           if(newLetterPages!==null)cfg.letterPages=newLetterPages;
-          if(!newSignPages&&!newStampPages&&!newLetterPages&&/\b(all|every)\s+page/i.test(input)){
+          if(!newSignPages&&!newStampPages&&!newLetterPages&&/\b(all|every|both)\s+page/i.test(input)){
             if(cfg.wantSign)cfg.signPages="all";
             if(cfg.wantStamp)cfg.stampPages="all";
             if(cfg.wantLetterhead)cfg.letterPages="all";
@@ -6372,7 +6377,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(/\bmove\b/i.test(input))desc.push("adjusted position");
           if(isAdd)desc.push("added "+((/\b(letterhead|company letter)\b/i.test(input)?"letterhead":"")+(/\b(sign|signature)\b/i.test(input)?" signature":"")+(/\b(stamp|seal)\b/i.test(input)?" stamp":"")).trim());
           if(isRemove)desc.push("removed "+((/\b(letterhead|company letter)\b/i.test(input)?"letterhead":"")+(/\b(sign|signature)\b/i.test(input)?" signature":"")+(/\b(stamp|seal)\b/i.test(input)?" stamp":"")).trim());
-          if(newSignPages!==null||newStampPages!==null||newLetterPages!==null||(/\b(all|every)\s+page/i.test(input)&&!newSignPages&&!newStampPages&&!newLetterPages))desc.push("updated page placement");
+          if(newSignPages!==null||newStampPages!==null||newLetterPages!==null||(/\b(all|every|both)\s+page/i.test(input)&&!newSignPages&&!newStampPages&&!newLetterPages))desc.push("updated page placement");
           if(!desc.length)desc.push("re-processed");
           const newMsgs=[...history];
           const lastAssistIdx=newMsgs.map((m,i)=>m.role==="assistant"?i:-1).filter(i=>i>=0).pop();
@@ -6397,8 +6402,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const signPages=_parsePageTarget(input,"sign")||(wantSign?"last":undefined);
             const stampPages=_parsePageTarget(input,"stamp")||(wantStamp?"last":undefined);
             const letterPages=_parsePageTarget(input,"letter")||(wantLetterhead?"first":undefined);
-            const allPages=/\b(all|every)\s+page/i.test(input);
-            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign&&signPages==="last"?"all":signPages,stampPages:allPages&&wantStamp&&stampPages==="last"?"all":stampPages,letterPages:allPages&&wantLetterhead&&letterPages==="first"?"all":letterPages,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1};
+            const allPages=/\b(all|every|both)\s+page/i.test(input);
+            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign?"all":signPages,stampPages:allPages&&wantStamp?"all":stampPages,letterPages:allPages&&wantLetterhead?"all":letterPages,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1};
             const result=await processDocSignStamp(codyUploadedDoc,cfg);
             codyDocConfigRef.current=cfg;
             const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
@@ -7025,7 +7030,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             }}
             connieMode={agent.id==="compliance"&&connieDietMode?"dietary":null}
             dietaryStore={dietaryStore} setDietaryStore={setDietaryStore}
-            onDietarySelect={(idx)=>{if(onNavigateToDoc){const proj=localProjects?.find(p=>p.id===docProjectId);if(proj){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}}
+            onDietarySelect={(idx)=>{setConnieDietMode(null);const proj=localProjects?.find(p=>p.id===docProjectId);if(proj&&onNavigateToDoc){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}
             projectInfoRef={projectInfoRef}/>
         </div>
         <div style={{flex:agent.id==="billie"?"0 0 40%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
@@ -10817,6 +10822,8 @@ export default function OnnaDashboard() {
           setActiveDietaryVersion(null);
         };
 
+        const [dietaryTab,setDietaryTab] = useState("dietary");
+
         // ── List view ──
         if (activeDietaryVersion === null || dietVersions.length === 0) {
           return (
@@ -10909,7 +10916,6 @@ export default function OnnaDashboard() {
           });
         };
 
-        const [dietaryTab,setDietaryTab] = useState("dietary");
         // Summary counts
         const dietCounts={};
         (dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
@@ -11638,6 +11644,7 @@ export default function OnnaDashboard() {
               {(()=>{
                 const MAIN_DEF=["calendar","projects-todos","notes"];
                 const mainOrder=mainDashOrder||MAIN_DEF;
+                const MainSwapBanner = dashSwapFrom&&["calendar","projects-todos","notes"].includes(dashSwapFrom)?<div style={{textAlign:"center",padding:"8px 0",marginBottom:8,fontSize:12,color:T.accent,fontWeight:500,background:`${T.accent}11`,borderRadius:8}}>Click another ☰ to swap positions, or click the same one to cancel</div>:null;
                 const sectionMap = {
                   "calendar": (
               <div style={{marginBottom:isMobile?12:18}}>
@@ -11869,7 +11876,7 @@ export default function OnnaDashboard() {
               </div>
                   ),
                 };
-                return mainOrder.map(k=>(<Fragment key={k}>{sectionMap[k]}</Fragment>));
+                return <>{MainSwapBanner}{mainOrder.map(k=>(<Fragment key={k}>{sectionMap[k]}</Fragment>))}</>;
               })()}
 
             </div>
