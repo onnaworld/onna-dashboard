@@ -3615,6 +3615,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const setPendingDuplicate=(v)=>{_pendingDupRef.current=v;_setPendingDuplicate(v);};
   const [attachments,setAttachments]=useState([]);
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');const p=s?JSON.parse(s):null;if(p&&p._mode){localStorage.removeItem('onna_connie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
+  const [connieDietMode,setConnieDietMode]=useState(null); // projectId string when dietary side panel is active
   const [conniePending,setConniePending]=useState(null); // {projectId, step:"pick_name"|"pick_existing_or_new"}
   const [connieDietPending,setConnieDietPending]=useState(null); // {type:"confirm_add_cs", name, dietary, vendorMatch:{name,email,phone}|null, projectId}
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
@@ -3636,8 +3637,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
-  const docProjectId = agent.id==="compliance"?connieCtx?.projectId : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="finn"?finnCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : null;
+  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
+  const docProjectId = agent.id==="compliance"?(connieDietMode||connieCtx?.projectId) : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="finn"?finnCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);
   },[active, isMobile]);
@@ -3654,7 +3655,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   },[agent.id]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
-  useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx){if(connieCtx._mode){localStorage.removeItem('onna_connie_ctx');}else{localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));}}else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
@@ -3663,7 +3664,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
-  useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&!connieCtx._mode&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
   // Remove tabs for archived/deleted projects
   useEffect(()=>{if(agent.id==="compliance"&&connieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=connieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==connieTabs.length){setConnieTabs(filtered);if(connieCtx&&!activeIds.has(connieCtx.projectId)){if(filtered.length>0){setConnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setConnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
 
@@ -5117,7 +5118,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;if(_pi1.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi1.shootLocation;}}
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});
           const newIdx=csVersions.length;
-          setConnieCtx({projectId:proj.id,vIdx:newIdx});
+          setConnieCtx({projectId:proj.id,vIdx:newIdx});setConnieDietMode(null);
           addConnieTab(proj.id,newIdx,`${proj.name} · ${nameInput}`);
           setConniePending(null);
           const _csLogo=new Image();_csLogo.crossOrigin="anonymous";_csLogo.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_csLogo.naturalWidth;cv.height=_csLogo.naturalHeight;cv.getContext("2d").drawImage(_csLogo,0,0);const du=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[proj.id]||[];if(arr.length>0&&!arr[arr.length-1].productionLogo)arr[arr.length-1].productionLogo=du;return s;});}catch{}};_csLogo.src="/onna-default-logo.png";
@@ -5142,7 +5143,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           else matchIdx=csVersions.findIndex(v=>(v.label||"").toLowerCase().includes(lower));
           if(matchIdx>=0){
             setConniePending(null);
-            setConnieCtx({projectId:proj.id,vIdx:matchIdx});
+            setConnieCtx({projectId:proj.id,vIdx:matchIdx});setConnieDietMode(null);
             addConnieTab(proj.id,matchIdx,`${proj.name} · ${csVersions[matchIdx].label||`Version ${matchIdx+1}`}`);
             setMsgs([...history,{role:"assistant",content:`Got it — working on ${proj.name} → ${csVersions[matchIdx].label||`Version ${matchIdx+1}`}. What would you like to do?`}]);
             setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -5160,7 +5161,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           else proj=fuzzyMatchProject(localProjects,input);
           if(proj){
             setConniePending(null);
-            setConnieCtx({projectId:proj.id,_mode:"dietary"});
+            setConnieCtx(null);setConnieDietMode(proj.id);
             const dietCount=(dietaryStore?.[proj.id]||[]).length;
             setMsgs([...history,{role:"assistant",content:`Here are ${proj.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
           }
@@ -5187,7 +5188,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(expProj){
             const csv=callSheetStore[expProj.id];
             const csData=csv[expIdx];
-            setConnieCtx({projectId:expProj.id,vIdx:expIdx});
+            setConnieCtx({projectId:expProj.id,vIdx:expIdx});setConnieDietMode(null);
             addConnieTab(expProj.id,expIdx,`${expProj.name} · ${csData.label||"Day 1"}`);
             printCallSheetPDF(csData);
             setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
@@ -5216,7 +5217,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
         if(csVersions.length===1){
-          setConnieCtx({projectId:project.id,vIdx:0});
+          setConnieCtx({projectId:project.id,vIdx:0});setConnieDietMode(null);
           const vLabel=csVersions[0].label||"Day 1";
           addConnieTab(project.id,0,`${project.name} · ${vLabel}`);
           const _v=csVersions[0];const _hasData=_v.shootName||_v.schedule?.some(s=>s.activity)||_v.departments?.some(d=>d.crew?.some(c=>c.name));
@@ -5241,7 +5242,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setMsgs([...history,{role:"assistant",content:"Taking you to your call sheets now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
       if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\bdietar(?:y|ies)\b/i.test(input)||/\bdietar(?:y|ies)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*dietar(?:y|ies)\s*$/i.test(input)){
-        setConnieCtx({projectId,_mode:"dietary"});
+        setConnieCtx(null);setConnieDietMode(projectId);
         const dietCount=(dietaryStore?.[projectId]||[]).length;
         setMsgs([...history,{role:"assistant",content:`Here are ${project.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
@@ -5459,7 +5460,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setConniePending({projectId:switchProject.id,step:"pick_name"});
           setMsgs([...history,{role:"assistant",content:`No call sheets for ${switchProject.name} yet. What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);
         }else if(swVersions.length===1){
-          setConnieCtx({projectId:switchProject.id,vIdx:0});
+          setConnieCtx({projectId:switchProject.id,vIdx:0});setConnieDietMode(null);
           const vl=swVersions[0].label||"Day 1";
           addConnieTab(switchProject.id,0,`${switchProject.name} · ${vl}`);
           setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${vl}). What would you like to do?`}]);
@@ -7022,7 +7023,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             onRonnieReviewDone={(meta)=>{
               setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — changes saved."}]);
             }}
-            connieMode={agent.id==="compliance"?(connieCtx&&connieCtx._mode)||null:null}
+            connieMode={agent.id==="compliance"&&connieDietMode?"dietary":null}
             dietaryStore={dietaryStore} setDietaryStore={setDietaryStore}
             onDietarySelect={(idx)=>{if(onNavigateToDoc){const proj=localProjects?.find(p=>p.id===docProjectId);if(proj){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}}
             projectInfoRef={projectInfoRef}/>
@@ -7041,7 +7042,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         {connieTabs.map((tab,i)=>{
           const isActive=connieCtx&&connieCtx.projectId===tab.projectId&&connieCtx.vIdx===tab.vIdx;
           return(
-            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setConnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${tab.label}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #c47090":"1px solid #e0e0e0",background:isActive?"#fff5f7":"#f5f5f7",color:isActive?"#7a1a30":"#6e6e73",borderBottom:isActive?"2px solid #c47090":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setConnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});setConnieDietMode(null);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${tab.label}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #c47090":"1px solid #e0e0e0",background:isActive?"#fff5f7":"#f5f5f7",color:isActive?"#7a1a30":"#6e6e73",borderBottom:isActive?"2px solid #c47090":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
               <span>{tab.label}</span>
               <span onClick={e=>{e.stopPropagation();setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setConnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
@@ -8085,7 +8086,7 @@ export default function OnnaDashboard() {
   const [dashWidgetOrder,setDashWidgetOrder]=useState(()=>{try{const c=localStorage.getItem('onna_dash_widget_order');if(!c)return null;const p=JSON.parse(c);if(Array.isArray(p)&&p.length===9&&p[0].startsWith('stats-'))return p;localStorage.removeItem('onna_dash_widget_order');return null;}catch{return null;}});
   useEffect(()=>{try{if(dashWidgetOrder)localStorage.setItem('onna_dash_widget_order',JSON.stringify(dashWidgetOrder));else localStorage.removeItem('onna_dash_widget_order');}catch{}},[dashWidgetOrder]);
 
-  const dashDragRef=useRef(null);
+  const [dashSwapFrom,setDashSwapFrom]=useState(null); // click-to-swap: stores widget id selected for swapping
   useEffect(()=>{try{localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[]);
   const [mainDashOrder,setMainDashOrder]=useState(()=>{try{const c=localStorage.getItem('onna_main_dash_order');return c?JSON.parse(c):null;}catch{return null;}});
   useEffect(()=>{try{if(mainDashOrder)localStorage.setItem('onna_main_dash_order',JSON.stringify(mainDashOrder));else localStorage.removeItem('onna_main_dash_order');}catch{}},[mainDashOrder]);
@@ -11639,34 +11640,20 @@ export default function OnnaDashboard() {
                 const mainOrder=mainDashOrder||MAIN_DEF;
                 const sectionMap = {
                   "calendar": (
-              <div data-dash-section="calendar"
-                onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!=="calendar"){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="4px";}}}
-                onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
-                  const from=dashDragRef.current;if(!from||from==="calendar")return;
-                  setMainDashOrder(prev=>{
-                    const MAIN_DEF=["calendar","projects-todos","notes"];
-                    const order=[...(prev||MAIN_DEF)];
-                    const fi=order.indexOf(from),ti=order.indexOf("calendar");
-                    if(fi<0||ti<0)return prev;
-                    order.splice(fi,1);order.splice(ti,0,from);
-                    return order;
-                  });
-                }}
-                style={{marginBottom:isMobile?12:18}}
-              >
+              <div style={{marginBottom:isMobile?12:18}}>
 <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
-                <div style={{display:"flex",gap:4}}>
-                  <div
-                    draggable="true"
-                    onDragStart={e=>{dashDragRef.current="calendar";e.dataTransfer.setData("application/x-dash-section","calendar");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="calendar"]');if(w)w.style.opacity="0.35";},0);}}
-                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
-                    title="Drag to reorder"
-                    style={{width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s"}}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
-                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
-                  >{"☰"}</div>
-                </div>
+                <div
+                  onClick={()=>{
+                    if(!dashSwapFrom){setDashSwapFrom("calendar");return;}
+                    if(dashSwapFrom==="calendar"){setDashSwapFrom(null);return;}
+                    setMainDashOrder(prev=>{const MAIN_DEF=["calendar","projects-todos","notes"];const order=[...(prev||MAIN_DEF)];const fi=order.indexOf(dashSwapFrom),ti=order.indexOf("calendar");if(fi<0||ti<0)return prev;order.splice(fi,1);order.splice(ti,0,dashSwapFrom);return order;});
+                    setDashSwapFrom(null);
+                  }}
+                  title={dashSwapFrom==="calendar"?"Click another ☰ to swap":dashSwapFrom?"Click to swap here":"Click to select, then click another to reorder"}
+                  style={{width:22,height:22,borderRadius:6,background:dashSwapFrom==="calendar"?T.accent:dashSwapFrom?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:dashSwapFrom&&dashSwapFrom!=="calendar"?`2px solid ${T.accent}`:"2px solid transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:dashSwapFrom==="calendar"?"#fff":"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s",boxSizing:"border-box"}}
+                  onMouseEnter={e=>{if(dashSwapFrom!=="calendar"){e.currentTarget.style.background=dashSwapFrom?T.accent:"rgba(0,0,0,0.1)";e.currentTarget.style.color=dashSwapFrom?"#fff":"#6e6e73";}}}
+                  onMouseLeave={e=>{if(dashSwapFrom!=="calendar"){e.currentTarget.style.background=dashSwapFrom?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)";e.currentTarget.style.color=dashSwapFrom?T.accent:"#aeaeb2";}}}
+                >{"☰"}</div>
               </div>
               {/* ── Google Calendar Widget ── */}
               {(()=>{
@@ -11744,34 +11731,20 @@ export default function OnnaDashboard() {
               </div>
                   ),
                   "projects-todos": (
-              <div data-dash-section="projects-todos"
-                onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!=="projects-todos"){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="4px";}}}
-                onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
-                  const from=dashDragRef.current;if(!from||from==="projects-todos")return;
-                  setMainDashOrder(prev=>{
-                    const MAIN_DEF=["calendar","projects-todos","notes"];
-                    const order=[...(prev||MAIN_DEF)];
-                    const fi=order.indexOf(from),ti=order.indexOf("projects-todos");
-                    if(fi<0||ti<0)return prev;
-                    order.splice(fi,1);order.splice(ti,0,from);
-                    return order;
-                  });
-                }}
-                style={{marginBottom:isMobile?12:18}}
-              >
+              <div style={{marginBottom:isMobile?12:18}}>
 <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
-                <div style={{display:"flex",gap:4}}>
-                  <div
-                    draggable="true"
-                    onDragStart={e=>{dashDragRef.current="projects-todos";e.dataTransfer.setData("application/x-dash-section","projects-todos");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="projects-todos"]');if(w)w.style.opacity="0.35";},0);}}
-                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
-                    title="Drag to reorder"
-                    style={{width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s"}}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
-                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
-                  >{"☰"}</div>
-                </div>
+                <div
+                  onClick={()=>{
+                    if(!dashSwapFrom){setDashSwapFrom("projects-todos");return;}
+                    if(dashSwapFrom==="projects-todos"){setDashSwapFrom(null);return;}
+                    setMainDashOrder(prev=>{const MAIN_DEF=["calendar","projects-todos","notes"];const order=[...(prev||MAIN_DEF)];const fi=order.indexOf(dashSwapFrom),ti=order.indexOf("projects-todos");if(fi<0||ti<0)return prev;order.splice(fi,1);order.splice(ti,0,dashSwapFrom);return order;});
+                    setDashSwapFrom(null);
+                  }}
+                  title={dashSwapFrom==="projects-todos"?"Click another ☰ to swap":dashSwapFrom?"Click to swap here":"Click to select, then click another to reorder"}
+                  style={{width:22,height:22,borderRadius:6,background:dashSwapFrom==="projects-todos"?T.accent:dashSwapFrom?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:dashSwapFrom&&dashSwapFrom!=="projects-todos"?`2px solid ${T.accent}`:"2px solid transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:dashSwapFrom==="projects-todos"?"#fff":"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s",boxSizing:"border-box"}}
+                  onMouseEnter={e=>{if(dashSwapFrom!=="projects-todos"){e.currentTarget.style.background=dashSwapFrom?T.accent:"rgba(0,0,0,0.1)";e.currentTarget.style.color=dashSwapFrom?"#fff":"#6e6e73";}}}
+                  onMouseLeave={e=>{if(dashSwapFrom!=="projects-todos"){e.currentTarget.style.background=dashSwapFrom?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)";e.currentTarget.style.color=dashSwapFrom?T.accent:"#aeaeb2";}}}
+                >{"☰"}</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
@@ -11876,34 +11849,20 @@ export default function OnnaDashboard() {
               </div>
                   ),
                   "notes": (
-              <div data-dash-section="notes"
-                onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!=="notes"){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="4px";}}}
-                onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
-                  const from=dashDragRef.current;if(!from||from==="notes")return;
-                  setMainDashOrder(prev=>{
-                    const MAIN_DEF=["calendar","projects-todos","notes"];
-                    const order=[...(prev||MAIN_DEF)];
-                    const fi=order.indexOf(from),ti=order.indexOf("notes");
-                    if(fi<0||ti<0)return prev;
-                    order.splice(fi,1);order.splice(ti,0,from);
-                    return order;
-                  });
-                }}
-                style={{marginBottom:isMobile?12:18}}
-              >
+              <div style={{marginBottom:isMobile?12:18}}>
 <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
-                <div style={{display:"flex",gap:4}}>
-                  <div
-                    draggable="true"
-                    onDragStart={e=>{dashDragRef.current="notes";e.dataTransfer.setData("application/x-dash-section","notes");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="notes"]');if(w)w.style.opacity="0.35";},0);}}
-                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
-                    title="Drag to reorder"
-                    style={{width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s"}}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
-                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
-                  >{"☰"}</div>
-                </div>
+                <div
+                  onClick={()=>{
+                    if(!dashSwapFrom){setDashSwapFrom("notes");return;}
+                    if(dashSwapFrom==="notes"){setDashSwapFrom(null);return;}
+                    setMainDashOrder(prev=>{const MAIN_DEF=["calendar","projects-todos","notes"];const order=[...(prev||MAIN_DEF)];const fi=order.indexOf(dashSwapFrom),ti=order.indexOf("notes");if(fi<0||ti<0)return prev;order.splice(fi,1);order.splice(ti,0,dashSwapFrom);return order;});
+                    setDashSwapFrom(null);
+                  }}
+                  title={dashSwapFrom==="notes"?"Click another ☰ to swap":dashSwapFrom?"Click to swap here":"Click to select, then click another to reorder"}
+                  style={{width:22,height:22,borderRadius:6,background:dashSwapFrom==="notes"?T.accent:dashSwapFrom?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:dashSwapFrom&&dashSwapFrom!=="notes"?`2px solid ${T.accent}`:"2px solid transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:dashSwapFrom==="notes"?"#fff":"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s",boxSizing:"border-box"}}
+                  onMouseEnter={e=>{if(dashSwapFrom!=="notes"){e.currentTarget.style.background=dashSwapFrom?T.accent:"rgba(0,0,0,0.1)";e.currentTarget.style.color=dashSwapFrom?"#fff":"#6e6e73";}}}
+                  onMouseLeave={e=>{if(dashSwapFrom!=="notes"){e.currentTarget.style.background=dashSwapFrom?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)";e.currentTarget.style.color=dashSwapFrom?T.accent:"#aeaeb2";}}}
+                >{"☰"}</div>
               </div>
               {/* ── Notes ── */}
               <DashNotes notes={dashNotesList} setNotes={setDashNotesList} selectedId={dashSelectedNoteId} setSelectedId={setDashSelectedNoteId} isMobile={isMobile} onArchive={archiveItem}/>
@@ -12093,35 +12052,32 @@ export default function OnnaDashboard() {
                   </div>
                 );
 
-                /* ── drag helper ── */
-                const DragHandle = ({id,type})=>(
-                  <div
-                    draggable="true"
-                    onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.setData("text/plain",id);e.dataTransfer.effectAllowed="move";e.currentTarget.closest("[data-wid]").style.opacity="0.35";}}
-                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
-                    title="Drag to reorder"
-                    style={{width:20,height:20,borderRadius:5,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s",flexShrink:0,marginLeft:6}}
-                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
-                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
-                  >{"☰"}</div>
-                );
-                const DropZone = ({id,children,style})=>(
-                  <div data-wid={id}
-                    onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!==id){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="-2px";}}}
-                    onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                    onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
-                      const from=dashDragRef.current;if(!from||from===id)return;
-                      setDashWidgetOrder(prev=>{
-                        const order=[...(prev||DEFAULT_DASH_ORDER)];
-                        const fi=order.indexOf(from),ti=order.indexOf(id);
-                        if(fi<0||ti<0)return prev;
-                        order.splice(fi,1);order.splice(ti,0,from);
-                        return order;
-                      });
-                    }}
-                    style={style}
-                  >{children}</div>
-                );
+                /* ── click-to-swap reorder ── */
+                const SwapHandle = ({id})=>{
+                  const selected = dashSwapFrom===id;
+                  const otherSelected = dashSwapFrom&&dashSwapFrom!==id;
+                  return (
+                    <div
+                      onClick={e=>{e.stopPropagation();
+                        if(!dashSwapFrom){setDashSwapFrom(id);return;}
+                        if(dashSwapFrom===id){setDashSwapFrom(null);return;}
+                        // perform swap
+                        setDashWidgetOrder(prev=>{
+                          const order=[...(prev||DEFAULT_DASH_ORDER)];
+                          const fi=order.indexOf(dashSwapFrom),ti=order.indexOf(id);
+                          if(fi<0||ti<0)return prev;
+                          order.splice(fi,1);order.splice(ti,0,dashSwapFrom);
+                          return order;
+                        });
+                        setDashSwapFrom(null);
+                      }}
+                      title={selected?"Click another widget to swap":otherSelected?"Click to swap here":"Click to select, then click another to reorder"}
+                      style={{width:22,height:22,borderRadius:6,background:selected?T.accent:otherSelected?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)",border:otherSelected?`2px solid ${T.accent}`:"2px solid transparent",cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:11,color:selected?"#fff":"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s",flexShrink:0,marginLeft:6,boxSizing:"border-box"}}
+                      onMouseEnter={e=>{if(!selected){e.currentTarget.style.background=otherSelected?T.accent:"rgba(0,0,0,0.1)";e.currentTarget.style.color=otherSelected?"#fff":"#6e6e73";}}}
+                      onMouseLeave={e=>{if(!selected){e.currentTarget.style.background=otherSelected?"rgba(0,0,0,0.08)":"rgba(0,0,0,0.04)";e.currentTarget.style.color=otherSelected?T.accent:"#aeaeb2";}}}
+                    >{"☰"}</div>
+                  );
+                };
                 const DEFAULT_DASH_ORDER=["stats-0","stats-1","stats-2","stats-3","donut-0","donut-1","donut-2","remind-0","remind-1"];
                 const wOrder=dashWidgetOrder||DEFAULT_DASH_ORDER;
                 const statsOrder=wOrder.filter(k=>k.startsWith("stats-"));
@@ -12134,18 +12090,20 @@ export default function OnnaDashboard() {
                 return (
                   <div>
                     {/* Stats Row */}
+                    {dashSwapFrom&&<div style={{textAlign:"center",padding:"8px 0",marginBottom:8,fontSize:12,color:T.accent,fontWeight:500,background:`${T.accent}11`,borderRadius:8}}>Click another ☰ to swap positions, or click the same one to cancel</div>}
+                    {/* Stats Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
-                      {statsOrder.map(id=>{const s=statWidgets[id];return s?<DropZone key={id} id={id}><div style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><div style={{fontSize:11,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase",color:T.muted}}>{s.label}</div><DragHandle id={id}/></div><div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:s.sub?4:0}}>{s.value}</div>{s.sub&&<div style={{fontSize:12,color:T.sub}}>{s.sub}</div>}</div></DropZone>:null})}
+                      {statsOrder.map(id=>{const s=statWidgets[id];return s?<div key={id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${dashSwapFrom===id?T.accent:T.border}`,boxShadow:dashSwapFrom===id?`0 0 0 2px ${T.accent}33`:"0 1px 3px rgba(0,0,0,0.05)",transition:"border 0.15s, box-shadow 0.15s"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><div style={{fontSize:11,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase",color:T.muted}}>{s.label}</div><SwapHandle id={id}/></div><div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:s.sub?4:0}}>{s.value}</div>{s.sub&&<div style={{fontSize:12,color:T.sub}}>{s.sub}</div>}</div>:null})}
                     </div>
                     {/* Donuts Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
-                      {donutOrder.map(id=>{const d=donutWidgets[id];return d?<DropZone key={id} id={id}><Donut title={d.title} groups={d.groups}/></DropZone>:null})}
+                      {donutOrder.map(id=>{const d=donutWidgets[id];return d?<div key={id} style={{border:dashSwapFrom===id?`1px solid ${T.accent}`:"1px solid transparent",borderRadius:16,boxShadow:dashSwapFrom===id?`0 0 0 2px ${T.accent}33`:"none",transition:"border 0.15s, box-shadow 0.15s"}}><div style={{display:"flex",justifyContent:"flex-end",padding:"8px 12px 0 0"}}><SwapHandle id={id}/></div><Donut title={d.title} groups={d.groups}/></div>:null})}
                     </div>
                     {/* Reminders Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                       {remindOrder.map(id=>{
-                        if(id==="remind-0") return <DropZone key={id} id={id}><div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span><DragHandle id={id}/></div></div>{toContact.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>:toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)}</div></DropZone>;
-                        if(id==="remind-1") return <DropZone key={id} id={id}><div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span><DragHandle id={id}/></div></div>{toFollowUp.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>:toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)}</div></DropZone>;
+                        if(id==="remind-0") return <div key={id} style={{borderRadius:16,background:T.surface,border:`1px solid ${dashSwapFrom===id?T.accent:T.border}`,boxShadow:dashSwapFrom===id?`0 0 0 2px ${T.accent}33`:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px",transition:"border 0.15s, box-shadow 0.15s"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span><SwapHandle id={id}/></div></div>{toContact.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>:toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)}</div>;
+                        if(id==="remind-1") return <div key={id} style={{borderRadius:16,background:T.surface,border:`1px solid ${dashSwapFrom===id?T.accent:T.border}`,boxShadow:dashSwapFrom===id?`0 0 0 2px ${T.accent}33`:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px",transition:"border 0.15s, box-shadow 0.15s"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span><SwapHandle id={id}/></div></div>{toFollowUp.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>:toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)}</div>;
                         return null;
                       })}
                     </div>
