@@ -925,7 +925,7 @@ ${PRINT_CLEANUP_CSS}
   return (
     <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: CPS_F, color: "#1a1a1a" }}>
       {/* Top bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto", overflow: showShareMenu ? "visible" : undefined, position: "relative", zIndex: showShareMenu ? 200 : undefined }}>
         {[{ id: "schedule", label: "SCHEDULE" }, { id: "timeline", label: "TIMELINE" }, { id: "calendar", label: "CALENDAR" }].map(t => (
           <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>
             {t.label}
@@ -7468,13 +7468,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
               }else{cfg.wantStamp=isAdd;if(isAdd&&!cfg.stampPages)cfg.stampPages="last";}
             }
           }
-          const newSignPages=_parsePageTarget(input,"sign");
-          const newStampPages=_parsePageTarget(input,"stamp");
-          const newLetterPages=_parsePageTarget(input,"letter");
-          if(newSignPages!==null)cfg.signPages=newSignPages;
-          if(newStampPages!==null)cfg.stampPages=newStampPages;
-          if(newLetterPages!==null)cfg.letterPages=newLetterPages;
-          if(!newSignPages&&!newStampPages&&!newLetterPages&&/\b(all|every|both)\s+page/i.test(input)){
+          if(!isAdd&&!isRemove){
+            const newSignPages=_parsePageTarget(input,"sign");
+            const newStampPages=_parsePageTarget(input,"stamp");
+            const newLetterPages=_parsePageTarget(input,"letter");
+            if(newSignPages!==null)cfg.signPages=newSignPages;
+            if(newStampPages!==null)cfg.stampPages=newStampPages;
+            if(newLetterPages!==null)cfg.letterPages=newLetterPages;
+            if(!newSignPages&&!newStampPages&&!newLetterPages&&/\b(all|every|both)\s+page/i.test(input)){
+          }
             if(cfg.wantSign)cfg.signPages="all";
             if(cfg.wantStamp)cfg.stampPages="all";
             if(cfg.wantLetterhead)cfg.letterPages="all";
