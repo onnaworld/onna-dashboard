@@ -2239,9 +2239,7 @@ ${PRINT_CLEANUP_CSS}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 6px", background: "#000" }}>
                   <div
                     draggable
-                    onDragStart={(e) => { dragFrom.current = idx; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(idx)); }}
-                    onDragEnd={() => { dragFrom.current = null; setDropAt(null); }}
-                    style={{ display: "flex", alignItems: "center", gap: 4, cursor: "grab" }}
+                    style={{ display: "flex", alignItems: "center", gap: 4,  }}
                   >
                     <span style={{ fontFamily: F, fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{"\u2261"}</span>
                     <span style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>FRAME {idx + 1}</span>
@@ -4700,7 +4698,8 @@ function DocPagePanel({pageIndex,config,onReprocess,onExport,total,appliesTo,sig
   const signCY=natH-180+(po.signOffset!=null?po.signOffset:(config.signOffset||0));
   const stampCX=natW-60-stampW+(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0));
   const stampCY=natH-180+(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0));
-  const lhH=50,lhX=60,lhY=10;
+  const LH_H=100,lhH=50,lhX=60,lhY=22;
+  const contentScale=showLetter?(natH-LH_H)/natH:1;
   const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
   useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
   const onMouseDown=useCallback((target,e)=>{
@@ -4732,9 +4731,11 @@ function DocPagePanel({pageIndex,config,onReprocess,onExport,total,appliesTo,sig
   const resizeHandle=(target)=><div onMouseDown={e=>onResizeDown(target,e)} style={{position:"absolute",right:-3,bottom:-3,width:10,height:10,cursor:"nwse-resize",background:"#0066cc",borderRadius:2,border:"1px solid #fff",zIndex:5}}/>;
   const overlays=[];
   if(showSign)overlays.push("Signature");if(showStamp)overlays.push("Stamp");if(showLetter)overlays.push("Letterhead");
-  return <div ref={containerRef} style={{position:"relative",maxWidth:480,borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",background:"#fafafa",userSelect:"none"}}>
-    <img src={pageImg} alt={"page "+(pageIndex+1)} onLoad={onBgLoad} style={{width:"100%",height:"auto",display:"block"}} draggable={false}/>
-    {showLetter&&<div style={{position:"absolute",top:0,left:0,right:0,pointerEvents:"none",zIndex:1}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+6)*scale,height:Math.max(1,2.5*scale),background:"#000"}}/></div>}
+  return <div ref={containerRef} style={{position:"relative",maxWidth:480,borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",background:"#fff",userSelect:"none"}}>
+    {showLetter?<div style={{position:"relative",width:"100%"}}><div style={{width:"100%",paddingBottom:(natH&&natW?(natH/natW*100):75)+"%"}}/>
+      <img src={pageImg} alt={"page "+(pageIndex+1)} onLoad={onBgLoad} style={{position:"absolute",top:LH_H*scale,left:0,width:(contentScale*100)+"%",height:"auto",display:"block"}} draggable={false}/>
+    </div>:<img src={pageImg} alt={"page "+(pageIndex+1)} onLoad={onBgLoad} style={{width:"100%",height:"auto",display:"block"}} draggable={false}/>}
+    {showLetter&&<div style={{position:"absolute",top:0,left:0,right:0,pointerEvents:"none",zIndex:1}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+8)*scale,height:Math.max(1,2.5*scale),background:"#000"}}/></div>}
     {showSign&&<div id={"_dpd_"+pageIndex+"_sign"} style={{position:"absolute",left:signCX*scale,top:signCY*scale,zIndex:2}}><img src="/SIGN.png" alt="signature" draggable={false} onLoad={e=>setSignAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("sign",e)} style={{height:signH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("sign")}</div>}
     {showStamp&&<div id={"_dpd_"+pageIndex+"_stamp"} style={{position:"absolute",left:stampCX*scale,top:stampCY*scale,zIndex:2}}><img src="/STAMP.png" alt="stamp" draggable={false} onLoad={e=>setStampAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("stamp",e)} style={{height:stampH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("stamp")}</div>}
     <div style={{padding:"4px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff",borderTop:"1px solid #eee"}}>
