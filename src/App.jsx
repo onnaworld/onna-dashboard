@@ -5214,8 +5214,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
 
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
-      const _csLastMsg = history[history.length-1];
-      if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input)){
+      const _csLastMsg = history[history.length-2];
+      if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|export|that's fine|thats fine|ok|okay)\b/i.test(input)){
         const _yEl=document.getElementById("onna-cs-print");
         if(_yEl){const _yC=_yEl.cloneNode(true);_yC.querySelectorAll("button").forEach(b=>b.remove());_yC.querySelectorAll("input[type=file]").forEach(b=>b.remove());_yC.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const _yF=document.createElement("iframe");_yF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_yF);const _yD=_yF.contentDocument;_yD.open();_yD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_yD.close();_yD.body.appendChild(_yD.adoptNode(_yC));setTimeout(()=>{_yF.contentWindow.focus();_yF.contentWindow.print();setTimeout(()=>document.body.removeChild(_yF),1000);},300);}
         else{printCallSheetPDF(_csLastMsg._pendingExport.csData);}
@@ -6108,7 +6108,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }
 
       // Handle "yes, export" confirmation
-      const lastMsg_ex = history[history.length-1];
+      const lastMsg_ex = history[history.length-2];
       if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
         const _ryEl=document.getElementById("onna-ra-print");
         if(_ryEl){const _ryC=_ryEl.cloneNode(true);_ryC.querySelectorAll("button").forEach(b=>b.remove());_ryC.querySelectorAll("input[type=file]").forEach(b=>b.remove());const _ryF=document.createElement("iframe");_ryF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_ryF);const _ryD=_ryF.contentDocument;_ryD.open();_ryD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_ryD.close();_ryD.body.appendChild(_ryD.adoptNode(_ryC));setTimeout(()=>{_ryF.contentWindow.focus();_ryF.contentWindow.print();setTimeout(()=>document.body.removeChild(_ryF),1000);},300);}
