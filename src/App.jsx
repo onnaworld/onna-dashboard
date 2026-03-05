@@ -5577,72 +5577,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
         const estVersions = projectEstimates?.[project.id] || [];
         if(estVersions.length===0){
-          setBillieCtx({projectId:project.id,pendingCreate:true});
-          setMsgs([...history,{role:"assistant",content:`No estimates for ${project.name} yet. What should I call this estimate? (e.g. Production Estimate V1, Client Pitch Budget)`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        if(estVersions.length===1){
+          // Auto-create [Untitled] estimate
+          const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+          const _pi5=(projectInfoRef.current||{})[project.id];ne.ts={...ne.ts,version:"[Untitled]",client:project.client||"",project:_pi5?.shootName||project.name||""};
+          setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
           setBillieCtx({projectId:project.id,vIdx:0});if(setActiveEstimateVersion)setActiveEstimateVersion(0);
-          const vLabel=estVersions[0].ts?.version||"V1";
-          const _sec0=estVersions[0].sections||defaultSections();
-          const _hasData=_sec0.some(s=>s.rows.some(r=>estNum(r.rate)>0));
-          setMsgs([...history,{role:"assistant",content:_hasData?`Got it — I'm back on ${project.name} (${vLabel}). I still have all the estimate data from before. What would you like to update?`:`Got it — I'm now working on the estimate for ${project.name} (${vLabel}). What would you like to do?`}]);
+          addBillieTab(project.id,0,`${project.name} · [Untitled]`);
+          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].prodLogo)arr[arr.length-1].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+          setMsgs([...history,{role:"assistant",content:`✓ Created a new estimate for ${project.name}. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        // Multiple versions — show numbered list
-        setBillieCtx({projectId:project.id,pendingVersion:true});
-        const list=estVersions.map((v,i)=>`${i+1}. ${v.ts?.version||`V${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`${project.name} has ${estVersions.length} estimates:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
-        setLoading(false);setMood("idle");return;
-      }
-
-      // ── pendingCreate — waiting for name ──
-      if(billieCtx.pendingCreate){
-        const lower=input.toLowerCase();
-        if(/\b(no|nah|cancel|nevermind|never mind|nope)\b/i.test(lower)){
-          setBillieCtx(null);
-          setMsgs([...history,{role:"assistant",content:"No worries! Let me know if you need anything else."}]);
-          setLoading(false);setMood("idle");return;
-        }
-        const project=localProjects?.find(p=>p.id===billieCtx.projectId);
-        if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
-        const nameInput=input.trim();
-        if(!nameInput){setMsgs([...history,{role:"assistant",content:"Please enter a name for this estimate."}]);setLoading(false);setMood("idle");return;}
-        const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
-        const _pi5=(projectInfoRef.current||{})[project.id];ne.ts={...ne.ts,version:nameInput,client:project.client||"",project:_pi5?.shootName||project.name||"",usage:_pi5?.usage||ne.ts.usage,shootDate:_pi5?.shootDate||ne.ts.shootDate,location:_pi5?.shootLocation||ne.ts.location};if(_pi5){const _sa={};EST_SA_FIELDS.forEach((_f,i)=>{_sa[i]=EST_SA_FIELDS[i].defaultValue;});if(_pi5.shootName)_sa[3]=_pi5.shootName;if(_pi5.shootDate)_sa[5]=_pi5.shootDate;if(_pi5.usage)_sa[7]=_pi5.usage;ne.saFields=_sa;}
-        setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
-        const newIdx=(projectEstimates?.[project.id]||[]).length;
-        setBillieCtx({projectId:project.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);
-        const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].prodLogo)arr[arr.length-1].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
-        setMsgs([...history,{role:"assistant",content:`✓ Created "${nameInput}" for ${project.name}! I'm now working on it. What would you like to do?`}]);
+        // 1+ estimates: open ALL as tabs, activate last
+        estVersions.forEach((v,i)=>{addBillieTab(project.id,i,`${project.name} · ${v.ts?.version||`V${i+1}`}`);});
+        const lastIdx=estVersions.length-1;
+        setBillieCtx({projectId:project.id,vIdx:lastIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(lastIdx);
+        const lastLabel=estVersions[lastIdx].ts?.version||`V${lastIdx+1}`;
+        setMsgs([...history,{role:"assistant",content:`Opened ${estVersions.length} estimate${estVersions.length>1?"s":""} for ${project.name}. Working on ${lastLabel}. What would you like to do?`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      // ── pendingVersion selection handler ──
-      if(billieCtx.pendingVersion){
-        const lower=input.toLowerCase();
-        const pvProject=localProjects?.find(p=>p.id===billieCtx.projectId);
-        if(!pvProject){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
-        const pvVersions=projectEstimates?.[pvProject.id]||[];
-        if(/\b(new|create)\b/i.test(lower)){
-          setBillieCtx({projectId:pvProject.id,pendingCreate:true});
-          setMsgs([...history,{role:"assistant",content:`What should I call this new estimate?`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        const num=parseInt(input.trim(),10);
-        let pvIdx=-1;
-        if(num>=1&&num<=pvVersions.length) pvIdx=num-1;
-        if(pvIdx<0){const vMatch=lower.match(/\bv\s*(\d+)\b/i);if(vMatch)pvIdx=pvVersions.findIndex(v=>(v.ts?.version||"").toLowerCase().includes(`v${vMatch[1]}`));}
-        if(pvIdx<0){const labelMatch=pvVersions.findIndex(v=>v.ts?.version&&lower.includes(v.ts.version.toLowerCase()));if(labelMatch>=0)pvIdx=labelMatch;}
-        if(pvIdx>=0){
-          setBillieCtx({projectId:pvProject.id,vIdx:pvIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(pvIdx);
-          const vLabel=pvVersions[pvIdx].ts?.version||`V${pvIdx+1}`;
-          setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on ${pvProject.name} (${vLabel}). What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        const pvList=pvVersions.map((v,i)=>`${i+1}. ${v.ts?.version||`V${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Pick an estimate by number/name, or say **new**.\n\n${pvList}`}]);
-        setLoading(false);setMood("idle");return;
       }
 
       let {projectId,vIdx}=billieCtx;
