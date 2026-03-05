@@ -10174,6 +10174,11 @@ export default function OnnaDashboard() {
           if(pulled.length===0){alert("No crew names found in the latest call sheet.");return;}
           setDietaryStore(prev=>{
             const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
+            // Sync project info from call sheet
+            if(latestCS.shootName)d.project.name=latestCS.shootName;
+            if(latestCS.date)d.project.date=latestCS.date;
+            const csParts=(latestCS.shootName||"").split(" | ");
+            if(csParts.length>=2)d.project.client=csParts[0].trim();
             const csNames=new Set(pulled.map(pr=>pr.name));
             // Remove people no longer in call sheet (reflect deleted rows)
             const existingMap = {};
