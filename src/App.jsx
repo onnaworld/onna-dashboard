@@ -7,6 +7,39 @@ const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,IDB_VE
 const idbGet=async(key)=>{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readonly").objectStore(IDB_STORE).get(key);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)})};
 const idbSet=async(key,val)=>{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).put(val,key);t.onsuccess=()=>res();t.onerror=()=>rej(t.error)})};
 
+// ─── PDF PAGE LOADER (pdf.js from CDN) ──────────────────────────────────────
+let _pdfjs=null;
+const ensurePdfJs=()=>{if(_pdfjs)return Promise.resolve(_pdfjs);return new Promise((res,rej)=>{if(window.pdfjsLib){_pdfjs=window.pdfjsLib;return res(_pdfjs);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";_pdfjs=window.pdfjsLib;res(_pdfjs);};s.onerror=()=>rej(new Error("Failed to load pdf.js"));document.head.appendChild(s);});};
+const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=atob(dataUrl.split(",")[1]);const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);const doc=await pdfjs.getDocument({data:arr}).promise;const pages=[];for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i);const vp=pg.getViewport({scale:2});const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;pages.push(c.toDataURL("image/png"));}return pages;};
+
+// ─── SIGN / STAMP / LETTERHEAD compositing ──────────────────────────────────
+const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>res(img);img.onerror=()=>rej(new Error("Failed to load "+src));img.src=src;});
+const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead})=>{
+  const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
+  const result=[];
+  for(let i=0;i<doc.pages.length;i++){
+    const pgImg=await _loadImg(doc.pages[i]);
+    const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height;const ctx=c.getContext("2d");
+    ctx.drawImage(pgImg,0,0);
+    // Letterhead on first page
+    if(wantLetterhead&&i===0&&logoImg){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,30,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,30+lh+10);ctx.lineTo(c.width-40,30+lh+10);ctx.stroke();}
+    // Signature on last page
+    if(wantSign&&i===doc.pages.length-1&&signImg){const sh=80,sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60,c.height-180,sw,sh);}
+    // Stamp on last page
+    if(wantStamp&&i===doc.pages.length-1&&stampImg){const sth=120,stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw,c.height-180,stw,sth);}
+    result.push(c.toDataURL("image/png"));
+  }
+  return{pages:result,name:doc.name};
+};
+
+// ─── Export doc preview pages to print/PDF ──────────────────────────────────
+const exportDocPreview=(preview)=>{
+  const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+  const idoc=iframe.contentDocument||iframe.contentWindow.document;
+  idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;}body{background:#fff;}div{page-break-after:always;}div:last-child{page-break-after:auto;}img{width:100%;height:auto;display:block;}@media print{@page{margin:0;size:A4 portrait;}}</style></head><body>${preview.pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+  setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
+};
+
 // ─── CALL SHEET TEMPLATE ─────────────────────────────────────────────────────
 const CS_FONT = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const CS_LS = 1.5;
@@ -508,7 +541,7 @@ const CALLSHEET_INIT = {
 };
 
 // ─── CONNIE HELPERS ─────────────────────────────────────────────────────────
-function buildConnieSystem(project, csData, versionLabel, csSnapshot, vendorSummary) {
+function buildConnieSystem(project, csData, versionLabel, csSnapshot, vendorSummary, leadsSummary) {
   return `You are Call Sheet Connie, a production coordinator for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live call sheet database.
 
 CRITICAL: You ALREADY HAVE the full call sheet data below. NEVER ask the user to paste, share, or provide call sheet details — you can see everything. Just act on their request immediately.
@@ -520,6 +553,9 @@ ${csSnapshot}
 
 VENDOR DATABASE (name|category|email|phone):
 ${vendorSummary || "(empty)"}
+
+CLIENT & LEADS PIPELINE (company|contact|email|phone|role|category):
+${leadsSummary || "(empty)"}
 
 THE USER:
 - The user is Emily Lucas, Senior Producer at ONNA. Phone: +971 585 608 616, Email: emily@onnaproduction.com
@@ -563,6 +599,7 @@ INSTRUCTIONS:
 - For venueRows: {"venueRows":[{label,value},...]} (full array replacement)
 - Only output JSON for write intents. For read-only questions (e.g. "what's missing?", "show me the schedule"), answer in plain text with NO JSON block.
 - When a name matches a vendor in the database above, auto-fill their email and phone, and mention: "I found [name] in the vendor database and filled in their details."
+- ALSO search the CLIENT & LEADS PIPELINE above. If a client company or contact name matches a lead, use their details. For the CLIENT department, check the leads pipeline for the client company name.
 - When asked "what's missing?" or similar, scan every department and crew slot and list which fields (name, mobile, email, callTime) are empty, grouped by department.
 - NEVER say you don't have access to data, can't see the call sheet, or need the user to share information. You have FULL access.
 - Be warm, concise and professional.
@@ -2813,6 +2850,11 @@ function _AgentBubble({msg}){
   return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
     <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
       {msg._attachments&&msg._attachments.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:msg.content?6:0}}>{msg._attachments.map((att,ai)=><img key={ai} src={att.dataUrl} alt={att.name||"attachment"} style={{maxWidth:160,maxHeight:120,borderRadius:6,objectFit:"cover",border:"1px solid rgba(255,255,255,0.2)"}}/>)}</div>}
+      {msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
+        <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
+        <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
+        <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
+      </div>}
       {msg.content}
     </div>
   </div>;
@@ -3241,12 +3283,12 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"10px 32px"}}>
               <div style={csSecTitle}>CONTACTS</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
-                <thead><tr><td style={{width:16}}></td><td style={{...csTh,width:"18%"}}>ROLE</td><td style={{...csTh,width:"17%"}}>NAME</td><td style={{...csTh,width:"17%"}}>MOBILE</td><td style={{...csTh,width:"30%"}}>EMAIL</td><td style={{...csTh,textAlign:"right",paddingRight:8}}>CALL TIME</td></tr></thead>
+                <thead><tr><td style={{width:16}}></td><td style={{...csTh,width:"18%"}}>ROLE</td><td style={{...csTh,width:"17%"}}>NAME</td><td style={{...csTh,width:"17%"}}>MOBILE</td><td style={{...csTh,width:"30%"}}>EMAIL</td><td style={{...csTh,textAlign:"right",paddingRight:8}}>CALL TIME</td><td style={{width:14}}></td></tr></thead>
                 <tbody>{csData.departments.map((dept,di) => {
                 const deptHasMarker = cpr && cpr.markers.some(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":"));
-                return (<Fragment key={di}><tr><td colSpan={6} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>{"✓"}</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>{"✕"}</button></>}</div></td></tr>
-                {dept.crew.map((cr,ci) => (<tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab"}}><td style={{padding:"3px 2px",fontSize:10,color:"#ddd",width:16}}>{"\u2630"}</td><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder=""/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600,textAlign:"right"}} placeholder=""/></td></tr>))}
-                <tr style={{background:"#fff"}}><td colSpan={6} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>);})}</tbody>
+                return (<Fragment key={di}><tr><td colSpan={7} style={{padding:0}}><div style={{background:deptHasMarker?"#2e7d32":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:"#fff"}}/><button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color="#777")}>×</button>{deptHasMarker&&<><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>acceptCM(m));}} style={{background:"#4caf50",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:4}}>{"✓"}</button><button onClick={()=>{cpr.markers.filter(m=>m.startsWith("cs:crew:"+dept.name.toUpperCase()+":")).forEach(m=>declineCM(m));}} style={{background:"#ef5350",border:"none",borderRadius:4,color:"#fff",fontSize:8,fontWeight:700,cursor:"pointer",padding:"2px 6px",marginLeft:2}}>{"✕"}</button></>}</div></td></tr>
+                {dept.crew.map((cr,ci) => (<tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab"}}><td style={{padding:"3px 2px",fontSize:10,color:"#ddd",width:16}}>{"\u2630"}</td><td style={{padding:"3px 4px",fontSize:9,color:"#666"}}><CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:"#666"}} placeholder="Role"/></td><td style={{padding:"3px 4px",fontSize:10,fontWeight:600}}><CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10}}><CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder style={{fontSize:10}} placeholder=""/></td><td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}><CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder style={{fontSize:10,color:"#1565C0"}} placeholder=""/></td><td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",whiteSpace:"nowrap"}}><CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder style={{fontSize:10,fontWeight:600,textAlign:"right"}} placeholder=""/></td></tr<td style={{width:14,padding:0}}><button onClick={()=>rmCrew(di,ci)} style={{background:"none",border:"none",color:"transparent",cursor:"pointer",fontSize:10,padding:"0 2px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="transparent")}>×</button></td>>))}
+                <tr style={{background:"#fff"}}><td colSpan={7} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr></Fragment>);})}</tbody>
               </table>
               <CSAddBtn onClick={addDept} label="Add Department"/>
             </div>
@@ -3505,6 +3547,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [carrieCtx,setCarrieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_carrie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
+  const [codyUploadedDoc,setCodyUploadedDoc]=useState(null); // {name, type, pages:[dataUrl,...]}
+  const codyDocRef=useRef(null); // file input ref for Cody doc uploads
 
   // ── Split-pane: detect if agent has active project context ──
   const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
@@ -3534,7 +3578,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
   // Seed tab from existing connieCtx on mount (so returning users see their active tab)
-  useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(agent.id==="compliance"&&connieCtx&&!connieCtx._mode&&connieTabs.length===0){const p=localProjects?.find(pr=>pr.id===connieCtx.projectId);if(p){const vs=callSheetStore?.[p.id]||[];const vLabel=(vs[connieCtx.vIdx]?.label)||`Day ${connieCtx.vIdx+1}`;addConnieTab(p.id,connieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
   // Remove tabs for archived/deleted projects
   useEffect(()=>{if(agent.id==="compliance"&&connieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=connieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==connieTabs.length){setConnieTabs(filtered);if(connieCtx&&!activeIds.has(connieCtx.projectId)){if(filtered.length>0){setConnieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setConnieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3709,7 +3753,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:intro}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -5376,8 +5420,9 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
       // Build vendor summary
       const vendorList = (vendorsProp||[]).map(v=>`${v.name}|${v.category||""}|${v.email||""}|${v.phone||""}`).join("\n");
+      const leadsList = (allLeads||[]).filter(l=>l.status==="client"||l.status==="warm"||l.status==="open").map(l=>`${l.company||""}|${l.contact||""}|${l.email||""}|${l.phone||""}|${l.role||""}|${l.category||""}`).join("\n");
 
-      const connieSystem = buildConnieSystem(project, ver, vLabel, snap, vendorList);
+      const connieSystem = buildConnieSystem(project, ver, vLabel, snap, vendorList, leadsList);
 
       // Stream response
       try{
@@ -6111,6 +6156,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setLoading(false);return;
     }
 
+    // ── Cody: sign/stamp/letterhead on uploaded document ─────────────────────
+    if(agent.id==="contracts"&&codyUploadedDoc){
+      const wantSign=/\b(sign|signature)\b/i.test(input);
+      const wantStamp=/\b(stamp|seal)\b/i.test(input);
+      const wantLetterhead=/\b(letterhead|company letter)/i.test(input);
+      if(wantSign||wantStamp||wantLetterhead){
+        setMsgs(history);setInput("");setLoading(true);setMood("talking");
+        try{
+          const result=await processDocSignStamp(codyUploadedDoc,{wantSign,wantStamp,wantLetterhead});
+          const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
+          setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions} to your document. Click the preview below to export as PDF.`,_docPreview:result}]);
+          setCodyUploadedDoc(null);setMood("excited");setTimeout(()=>setMood("idle"),2500);
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't process the document: ${err.message}`}]);setMood("idle");}
+        setLoading(false);return;
+      }
+    }
+
     // ── Cody: live contract handler ──────────────────────────────────────────
     if(agent.id==="contracts"&&contractDocStore&&setContractDocStore){
       if(!codyCtx){
@@ -6789,6 +6851,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         )}
       </div>
     )}
+    {/* uploaded doc preview for Cody */}
+    {agent.id==="contracts"&&codyUploadedDoc&&<div style={{padding:"6px 12px 0",background:"white",display:"flex",gap:6,alignItems:"center"}}>
+      <div style={{display:"flex",gap:4,alignItems:"center",background:"#f0f4ff",border:"1px solid #c8d8f0",borderRadius:8,padding:"4px 10px"}}>
+        <span style={{fontSize:16}}>📄</span>
+        <span style={{fontSize:11,fontWeight:600,color:"#333",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{codyUploadedDoc.name}</span>
+        <span style={{fontSize:10,color:"#666"}}>{codyUploadedDoc.pages.length}p</span>
+        <button onClick={()=>setCodyUploadedDoc(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}}>×</button>
+      </div>
+    </div>}
     {/* attachment previews */}
     {attachments.length>0&&<div style={{padding:"6px 12px 0",display:"flex",gap:6,flexWrap:"wrap",background:"white"}}>
       {attachments.map((att,ai)=><div key={ai} style={{position:"relative",width:48,height:48,borderRadius:6,overflow:"hidden",border:"1px solid #e5e5ea"}}>
@@ -6799,6 +6870,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     {/* inline input bar */}
     <div style={{padding:"10px 12px",background:"white",borderTop:pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"none":"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
       {(agent.id==="compliance"||agent.id==="researcher")&&<Fragment><button onClick={()=>attachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={attachRef} type="file" accept="image/*" multiple onChange={e=>{const files=Array.from(e.target.files||[]);files.forEach(f=>{const reader=new FileReader();reader.onload=ev=>{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl:ev.target.result}]);};reader.readAsDataURL(f);});e.target.value="";}} style={{display:"none"}}/></Fragment>}
+      {agent.id==="contracts"&&<Fragment><button onClick={()=>codyDocRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={codyDocRef} type="file" accept="application/pdf,.doc,.docx,image/*" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";const reader=new FileReader();reader.onload=async ev=>{const dataUrl=ev.target.result;try{if(f.type==="application/pdf"){const pages=await loadPdfPages(dataUrl);setCodyUploadedDoc({name:f.name,type:f.type,pages});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name} (${pages.length} page${pages.length>1?"s":""})`},{role:"assistant",content:`Got it! I've loaded "${f.name}" (${pages.length} page${pages.length>1?"s":""}). What would you like me to do?\n\n• "Sign this" — add signature\n• "Stamp this" — add company stamp\n• "Put on company letterhead" — add ONNA header\n• Or combine: "Sign and stamp on company letterhead"`}]);}else if(f.type.startsWith("image/")){setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`Got "${f.name}"! What would you like me to do — sign, stamp, or put on letterhead?`}]);}else{setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`I received "${f.name}". Note: I can only preview PDF and image files. For Word docs, I can still apply sign/stamp when you export.`}]);}}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load document: ${err.message}`}]);}};reader.readAsDataURL(f);}} style={{display:"none"}}/></Fragment>}
       <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} style={{background:loading||(!input.trim()&&!attachments.length)?"#e5e5ea":"#1d1d1f",border:"none",color:loading||(!input.trim()&&!attachments.length)?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||(!input.trim()&&!attachments.length)?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
