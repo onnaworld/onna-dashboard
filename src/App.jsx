@@ -832,89 +832,78 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
     if (name) addPhase(name.toUpperCase());
   };
 
-  const sanitiseAndPrint = (html) => {
-    let fontRules = "";
-    try { for (const sheet of document.styleSheets) { try { for (const rule of sheet.cssRules) { if (rule.cssText && rule.cssText.startsWith("@font-face")) fontRules += rule.cssText + "\n"; } } catch(e){} } } catch(e){}
-    const w = window.open("", "_blank");
-    w.document.write(`<html><head><title>\u00A0</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
-${fontRules}
-@page{size:landscape;margin:0}
-body{margin:0;padding:12mm;padding-bottom:18mm;font-family:'Avenir','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;overflow:hidden}
-*{box-sizing:border-box}
-div[style*="position: relative"]{overflow:hidden}
-.page-break{page-break-before:always}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>`);
-    w.document.write(html); w.document.write("</body></html>"); w.document.close();
-    /* Aggressively remove any extension-injected elements from the print window */
-    setTimeout(() => {
-      try {
-        const bd = w.document.body;
-        /* Remove anything with position:fixed (extensions always use fixed positioning) */
-        bd.querySelectorAll('*').forEach(n => { try { const cs = w.getComputedStyle(n); if (cs.position === 'fixed') n.remove(); } catch(e){} });
-        /* Remove iframes, shadow hosts, elements outside our content */
-        bd.querySelectorAll('iframe,object,embed').forEach(n => n.remove());
-        /* Remove any element not inside our printRef content wrapper — the first child div is ours */
-        const contentDiv = bd.children[0];
-        if (contentDiv) { Array.from(bd.children).forEach(ch => { if (ch !== contentDiv) ch.remove(); }); }
-      } catch(e){}
-      setTimeout(() => w.print(), 400);
-    }, 200);
-  };
+  /* Clone + sanitise: strips extension junk from a DOM clone */
   const cleanClone = (el) => {
     const clone = el.cloneNode(true);
-    /* Remove by known selectors */
-    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"]').forEach(n=>n.remove());
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
     clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
-    /* Remove any fixed-position children (extension widgets) */
-    clone.querySelectorAll('*').forEach(n => { if (n.style && (n.style.position === 'fixed' || n.style.zIndex > 999999)) n.remove(); });
     return clone;
+  };
+  /* Collect @font-face rules for SackersGothic etc */
+  const collectFontRules = () => { let r=""; try{for(const s of document.styleSheets){try{for(const ru of s.cssRules){if(ru.cssText&&ru.cssText.startsWith("@font-face"))r+=ru.cssText+"\n";}}catch(e){}}}catch(e){} return r; };
+  /* Print via hidden iframe (immune to extensions) */
+  const printViaIframe = (clone) => {
+    const fontRules = collectFontRules();
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentDocument;
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
+${fontRules}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+.page-break{page-break-before:always}
+@media print{@page{size:landscape;margin:0}}
+${PRINT_CLEANUP_CSS}
+</style></head><body></body></html>`);
+    idoc.close();
+    idoc.body.appendChild(idoc.adoptNode(clone));
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;
-    sanitiseAndPrint(cleanClone(el).innerHTML);
+    printViaIframe(cleanClone(el));
   };
   const exportAllPDF = () => {
     setPrintAll(true);
     setTimeout(() => {
       const el = printRef.current; if (!el) { setPrintAll(false); return; }
-      sanitiseAndPrint(cleanClone(el).innerHTML);
+      printViaIframe(cleanClone(el));
       setTimeout(() => setPrintAll(false), 100);
     }, 200);
   };
-  /* Generate a live shareable HTML file — opens in browser + downloads */
-  const generateSharePage = (mode) => {
-    const captureAndShare = () => {
-      const el = printRef.current; if (!el) return;
+  /* Share: capture rendered HTML, POST to /api/cps-share, returns a live URL */
+  const generateSharePage = async (mode) => {
+    const captureHtml = () => {
+      const el = printRef.current; if (!el) return null;
       const clone = cleanClone(el);
       clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); });
-      let fontRules = "";
-      try { for (const sheet of document.styleSheets) { try { for (const rule of sheet.cssRules) { if (rule.cssText && rule.cssText.startsWith("@font-face")) fontRules += rule.cssText + "\n"; } } catch(e){} } } catch(e){}
-      const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ONNA \u2014 Creative Production Schedule</title><style>
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
-${fontRules}
-body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;background:#f5f5f5}
-.cps-wrap{max-width:1123px;margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden}
-.cps-inner{padding:24px 16px}
-*{box-sizing:border-box}
-.page-break{page-break-before:always;margin-top:32px;padding-top:16px;border-top:2px solid #000}
-@media print{@page{size:landscape;margin:0}body{padding:12mm;padding-bottom:18mm;background:#fff}.cps-wrap{box-shadow:none;border-radius:0}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-</style></head><body><div class="cps-wrap"><div class="cps-inner">${clone.innerHTML}</div></div></body></html>`;
-      const blob = new Blob([htmlContent], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      const a = document.createElement("a"); a.href = url;
-      a.download = `CPS_${(project.name||"schedule").replace(/[^a-zA-Z0-9]/g,"_")}_${mode}.html`;
-      a.click();
+      return clone.innerHTML;
     };
+    let html = null;
     if (mode === "all") {
       setPrintAll(true);
-      setTimeout(() => { captureAndShare(); setTimeout(() => setPrintAll(false), 100); }, 200);
+      await new Promise(r => setTimeout(r, 250));
+      html = captureHtml();
+      setPrintAll(false);
     } else {
       const prevTab = tab;
       setTab(mode);
-      setTimeout(() => { captureAndShare(); setTab(prevTab); }, 200);
+      await new Promise(r => setTimeout(r, 250));
+      html = captureHtml();
+      setTab(prevTab);
     }
+    if (!html) return;
+    try {
+      const resp = await fetch("/api/cps-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html, projectName: project.name || "", mode }) });
+      const data = await resp.json();
+      if (data.url) {
+        await navigator.clipboard.writeText(data.url).catch(() => {});
+        alert("Link copied to clipboard!\n\n" + data.url);
+      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { alert("Error generating link: " + err.message); }
   };
 
   /* Stats */
@@ -7439,8 +7428,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           // Toggle add/remove overlays (supports per-page: "add letterhead to page 2", "remove letterhead from page 1")
           const isAdd=/\b(add|include)\b/i.test(input);const isRemove=/\b(remove|exclude)\b/i.test(input);
           if(isAdd||isRemove){
-            const pgM=input.match(/\b(?:to|from|on)\s+page\s+(\d+)\b/i);const pgIdx=pgM?parseInt(pgM[1],10)-1:null;
-            const ordM=input.match(/\b(?:to|from|on)\s+(?:the\s+)?(first|last|second|third|1st|2nd|3rd)\s+page/i);const ordIdx=ordM?({first:0,"1st":0,last:cfg.originalDoc.pages.length-1,second:1,"2nd":1,third:2,"3rd":2}[ordM[1].toLowerCase()]??null):null;
+            const pgM=input.match(/\b(?:(?:to|from|on)\s+)?page\s+(\d+)\b/i);const pgIdx=pgM?parseInt(pgM[1],10)-1:null;
+            const ordM=input.match(/\b(?:(?:to|from|on)\s+)?(?:the\s+)?(first|last|second|third|1st|2nd|3rd)\s+page/i);const ordIdx=ordM?({first:0,"1st":0,last:cfg.originalDoc.pages.length-1,second:1,"2nd":1,third:2,"3rd":2}[ordM[1].toLowerCase()]??null):null;
             const targetPage=pgIdx!=null?pgIdx:ordIdx;
             if(/\b(letterhead|company letter)\b/i.test(input)){
               if(targetPage!=null){
@@ -8974,8 +8963,15 @@ export default function OnnaDashboard() {
     return ()=>{ clearTimeout(timer); events.forEach(e=>window.removeEventListener(e, reset)); };
   },[authed]);
 
-  // ── Public signing page (bypasses login) ────────────────────────────────────
+  // ── CPS share page (bypasses login — redirects to API-served HTML) ──────────
   const _urlParams = new URLSearchParams(window.location.search);
+  const _cpsShareToken = _urlParams.get("cps") || "";
+  useEffect(() => {
+    if (_cpsShareToken) { window.location.replace(`/api/cps-share?token=${encodeURIComponent(_cpsShareToken)}`); }
+  }, [_cpsShareToken]);
+  if (_cpsShareToken) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"inherit",color:"#666"}}>Loading schedule...</div>;
+
+  // ── Public signing page (bypasses login) ────────────────────────────────────
   const _signToken = _urlParams.get("sign") || "";
   const [signData, setSignData] = useState(null);
   const [signLoading, setSignLoading] = useState(false);
@@ -12652,12 +12648,13 @@ export default function OnnaDashboard() {
     // Schedule section — Creative Production Schedule + Shot List
     if (projectSection==="Schedule") {
       const SCHED_CARDS = [
-        {key:"cps",      emoji:"🎬", label:"Creative Production Schedule"},
-        {key:"shotlist",  emoji:"📷", label:"Shot List"},
+        {key:"cps",        emoji:"🎬", label:"CPS"},
+        {key:"shotlist",   emoji:"📷", label:"Shot List"},
+        {key:"storyboard", emoji:"🎨", label:"Storyboard"},
       ];
 
       if (!scheduleSubSection) return (
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
           {SCHED_CARDS.map(c=>(
             <div key={c.key} onClick={()=>{setScheduleSubSection(c.key);pushNav("Projects",p,"Schedule",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
@@ -12755,6 +12752,15 @@ export default function OnnaDashboard() {
           <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Shot List</div>
           <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Camera setups, shot descriptions, angles, and lens notes.</p>
           <textarea value={projectNotes[p.id+"_shotlist"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_shotlist"]:e.target.value}))} rows={16} placeholder="Add shot descriptions, camera setups, angles, lenses…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
+        </div>
+      );
+
+      if (scheduleSubSection==="storyboard") return (
+        <div>
+          {schedBack}
+          <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>Storyboard</div>
+          <p style={{fontSize:13,color:T.sub,marginBottom:12}}>Visual scene breakdowns, frame sketches, and narrative flow.</p>
+          <textarea value={projectNotes[p.id+"_storyboard"]||""} onChange={e=>setProjectNotes(prev=>({...prev,[p.id+"_storyboard"]:e.target.value}))} rows={16} placeholder="Add storyboard notes, scene descriptions, visual references…" style={{width:"100%",padding:16,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.7",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}/>
         </div>
       );
 
