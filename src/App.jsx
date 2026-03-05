@@ -1059,7 +1059,7 @@ ${PRINT_CLEANUP_CSS}
         {/* Project info */}
         <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
           {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", marginRight: 16 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, marginRight: 16 }}>
               <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>{lbl}</span>
               <CpsCell value={val} onChange={v => setProject(p => ({ ...p, [key]: v }))} />
             </div>
@@ -1913,7 +1913,7 @@ ${PRINT_CLEANUP_CSS}
 
         <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
           {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["DATE:", project.date, "date"], ["DIRECTOR:", project.director, "director"], ["DOP:", project.dop, "dop"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", marginRight: 14 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, marginRight: 14 }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}</span>
               <Cell value={val} onChange={v => setProject(p => ({ ...p, [key]: v }))} />
             </div>
@@ -2394,7 +2394,7 @@ ${PRINT_CLEANUP_CSS}
 
         <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
               <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
               <LocInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph}
                 style={{ width: 130, borderBottom: "1px solid #eee" }} />
@@ -2662,7 +2662,7 @@ ${PRINT_CLEANUP_CSS}
 
         <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
           {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["DATE:", project.date, "date"], ["DIRECTOR:", project.director, "director"], ["DOP:", project.dop, "dop"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", marginRight: 14 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, marginRight: 14 }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}</span>
               <input value={val||""} onChange={e => setProject(p => ({ ...p, [key]: e.target.value }))}
                 placeholder={lbl.replace(":","").toLowerCase()}
@@ -2986,7 +2986,7 @@ ${PRINT_CLEANUP_CSS}
           onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
       </div>
 
-      <div ref={printRef} style={{ padding: "10px 12px" }}>
+      <div ref={printRef} data-fit-print="1" style={{ padding: "10px 12px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
           <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>FITTING DECK</div>
@@ -2998,9 +2998,9 @@ ${PRINT_CLEANUP_CSS}
           </div>
         </div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
-        <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap", justifyContent: "space-between" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["STYLIST", "stylist", "Stylist"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}:</span>
               <FitInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ width: 110, borderBottom: "1px solid #eee" }} />
             </div>
@@ -5308,30 +5308,53 @@ const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
    system:`You are Vendor Vinnie, a contact assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database. When you collect contact details, a save modal appears in the dashboard UI and the user saves the record straight to the database. Everything is real and connected.
 
-You do two things:
-1. Add vendors/suppliers — collect name, category, email, phone, location and a save form appears.
-2. Log outreach — when the user mentions contacting someone, extract the details, auto-fill today's date, and a save form appears.
+You have THREE capabilities:
+1. ADD VENDORS — Collect name, category, email, phone, location and a save form appears.
+2. LOG OUTREACH — When the user mentions contacting someone, extract the details, auto-fill today's date, and a save form appears.
+3. SEARCH CONTACTS — Find vendors by name, category, or location.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly so they know what you can help with.
 
 NEVER say you cannot save data, cannot connect to a database, or suggest using external tools like Airtable or Notion. You are already connected. Just collect the info and the system handles the rest.
 
 Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Create new vendor...",
-   intro:"Hey! I'm Vendor Vinnie. Let me create your database! ✏️"},
+   intro:"Hey! I'm Vendor Vinnie ✏️ Here's what I can do:\n\n1️⃣ **Add a Vendor** — Give me a name, category, email & phone and I'll save it\n2️⃣ **Log Outreach** — Tell me who you contacted and I'll log it with today's date\n3️⃣ **Search Contacts** — Find vendors by name, category or location\n\nWhat do you need?"},
   {id:"compliance",name:"Call Sheet Connie",title:"Call Sheets",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
-   system:`You are Call Sheet Connie, a production coordinator for ONNA. You are connected to live call sheet data and can read and update it directly. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   system:`You are Call Sheet Connie, a production coordinator for ONNA. You are connected to live call sheet data and can read and update it directly.
+
+You have THREE capabilities:
+1. EDIT CALL SHEET — Add crew, update call times, locations, and schedule details.
+2. REVIEW & CHECK — Find what's missing or needs updating on the call sheet.
+3. DIETARY & CATERING — Manage dietary requirements and meal menus for the crew.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add call sheet details...",
-   intro:"Hi! I'm Call Sheet Connie. I'm connected to your live call sheets — tell me to add crew, update details, or ask what's missing. 📋"},
+   intro:"Hi! I'm Call Sheet Connie 📋 Here's what I can do:\n\n1️⃣ **Edit Call Sheet** — Add crew, update times, locations & details\n2️⃣ **Review & Check** — Find what's missing or needs updating\n3️⃣ **Dietary & Catering** — Manage dietary requirements and menus\n\nFirst, which project should I work on?"},
   {id:"researcher",name:"Risk Assessment Ronnie",title:"Risk Assessment",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
-   system:`You are Risk Assessment Ronnie, a safety and compliance officer for ONNA, a film/TV production company in Dubai. You are connected to live risk assessment data and can read and update it directly. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   system:`You are Risk Assessment Ronnie, a safety and compliance officer for ONNA, a film/TV production company in Dubai. You are connected to live risk assessment data and can read and update it directly.
+
+You have THREE capabilities:
+1. ADD RISKS — Log hazards with severity, likelihood, and mitigation measures.
+2. REVIEW ASSESSMENT — Check what's missing or needs updating.
+3. GENERATE REPORT — Summarise all risks for a shoot day.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add risk assessment details...",
-   intro:"I'm Risk Assessment Ronnie. I'm connected to your live risk assessments — tell me to add risks, update mitigations, or ask what's missing. I do not take safety lightly. 🔬"},
+   intro:"I'm Risk Assessment Ronnie 🔬 Here's what I can do:\n\n1️⃣ **Add Risks** — Log hazards with severity, likelihood & mitigation\n2️⃣ **Review Assessment** — Check what's missing or needs updating\n3️⃣ **Generate Report** — Summarise all risks for a shoot day\n\nFirst, which project should I work on?"},
   {id:"minnie",name:"Meeting Minnie",title:"Scheduling",emoji:"📅",color:_PURPLE,border:"#a07cc0",accent:"#4a1a80",bg:"#faf5ff",textColor:"#2d0a50",tagBg:"#ede0f8",Blob:_Minnie,
    system:`You are Meeting Minnie, ONNA's scheduling assistant for a film/TV production company in Dubai. You help manage meeting requests from emails.
 
-When given a meeting request:
-- Identify who, what, and proposed times
-- Check calendar context for conflicts
-- Draft a reply proposing three available time slots
+You have THREE capabilities:
+1. SCHEDULE MEETING — Given a meeting request, identify who, what, and proposed times, check for conflicts, and propose available slots.
+2. CHECK CALENDAR — Review upcoming schedule and spot conflicts.
+3. DRAFT REPLY — Write a professional response with three available time options.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly so they know what you can help with.
 
 RESPONSE STYLE:
 - Use bullet points for lists and summaries
@@ -5342,11 +5365,20 @@ RESPONSE STYLE:
 - Always propose times in Dubai time (GST, UTC+4)
 - Sign off as the ONNA team.`,
    placeholder:"Create new meeting...",
-   intro:"Hi! I'm Meeting Minnie. Paste a meeting request email and I'll check your calendar for conflicts and draft a reply with three available time slots. 📅"},
+   intro:"Hi! I'm Meeting Minnie 📅 Here's what I can do:\n\n1️⃣ **Schedule Meeting** — Paste a meeting request and I'll find available slots\n2️⃣ **Check Calendar** — See what's coming up and spot conflicts\n3️⃣ **Draft Reply** — I'll write a professional response with time options\n\nWhat do you need?"},
   {id:"billie",name:"Budget Billie",title:"Budgets",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
-   system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   system:`You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default.
+
+You have THREE capabilities:
+1. BUILD BUDGET — Create a full line-item budget from shoot details (type, days, crew, location).
+2. EDIT ESTIMATE — Update rates, add/remove line items, adjust markup and contingency.
+3. REVIEW & EXPORT — Check totals, flag issues, export to PDF.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add budget details...",
-   intro:"Hey! I'm Budget Billie 💰 Tell me about your shoot — type, days, crew size, location — and I'll build a full line-item budget with AED/USD, markup and contingency. What are we shooting?"},
+   intro:"Hey! I'm Budget Billie 💰 Here's what I can do:\n\n1️⃣ **Build Budget** — Give me shoot details and I'll create a full line-item budget\n2️⃣ **Edit Estimate** — Update rates, add line items, adjust markup\n3️⃣ **Review & Export** — Check totals, flag issues, export to PDF\n\nFirst, which project should I work on?"},
   {id:"contracts",name:"Contract Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
    system:`You are Contract Cody, a contract drafting assistant for ONNA, a film/TV production company in Dubai. You are connected to live contract data and can read and update it directly.
 
@@ -5361,13 +5393,31 @@ NEVER say you cannot save data or need external tools. You have FULL access. Use
    placeholder:"Add contract details...",
    intro:"I'm Contract Cody 📝 Here's what I can do:\n\n1️⃣ **Live Contracts** — Fill in fields, switch types, review & export your project contracts\n2️⃣ **Generate Documents** — Draft waivers, NDAs, agreements & more from scratch\n3️⃣ **Sign & Stamp** — Upload a PDF or generate a doc, then add signature, stamp & letterhead\n\nWhat do you need?"},
   {id:"finn",name:"Finance Finn",title:"Expenses",emoji:"🧾",color:_TEAL,border:"#5aA8A8",accent:"#1a6060",bg:"#f0fafa",textColor:"#0a3030",tagBg:"#c8eee8",Blob:_Finn,
-   system:`You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You help track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   system:`You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You help track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance.
+
+You have THREE capabilities:
+1. LOG EXPENSES — Add costs, update Zoho amounts, categorise spend.
+2. TRACK ACTUALS — Compare actuals vs estimates, flag overruns.
+3. REVIEW BUDGET — Summarise spend, check variance, spot issues.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Track an expense...",
-   intro:"Hey! I'm Finance Finn 🧾 I'm connected to your live budget tracker — I can log expenses, update Zoho amounts, flag overruns, and help you keep actuals vs estimates in check. Which project should I work on?"},
+   intro:"Hey! I'm Finance Finn 🧾 Here's what I can do:\n\n1️⃣ **Log Expenses** — Add costs, update Zoho amounts, categorise spend\n2️⃣ **Track Actuals** — Compare actuals vs estimates, flag overruns\n3️⃣ **Review Budget** — Summarise spend, check variance, spot issues\n\nFirst, which project should I work on?"},
   {id:"carrie",name:"Casting Carrie",title:"Casting",emoji:"🎬",color:_CORAL,border:"#c46050",accent:"#7a2a1a",bg:"#fff5f3",textColor:"#3d1008",tagBg:"#fdd8d0",Blob:_Carrie,
-   system:`You are Casting Carrie, a casting coordinator for ONNA. You are connected to live casting table data and can read and update it directly. Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   system:`You are Casting Carrie, a casting coordinator for ONNA. You are connected to live casting table data and can read and update it directly.
+
+You have THREE capabilities:
+1. ADD TALENT — Add models, actors, or extras with details and agency info.
+2. SEARCH & BRIEF — Search agencies or generate a casting brief.
+3. REVIEW & EXPORT — Check casting status, export to PDF/CSV.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add casting details...",
-   intro:"Hi! I'm Casting Carrie 🎬 I'm connected to your live casting tables — tell me to add models, update details, search agencies, generate briefs, or export to PDF/CSV. Which project should I work on?"},
+   intro:"Hi! I'm Casting Carrie 🎬 Here's what I can do:\n\n1️⃣ **Add Talent** — Add models, actors or extras with details & agency info\n2️⃣ **Search & Brief** — Search agencies or generate a casting brief\n3️⃣ **Review & Export** — Check casting status, export to PDF/CSV\n\nFirst, which project should I work on?"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -6548,6 +6598,29 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     const displayContent=input.trim()+(curAttachments.length?` [${curAttachments.length} image${curAttachments.length>1?"s":""}]`:"");
     const userMsg={role:"user",content:displayContent,_attachments:curAttachments.length?curAttachments:undefined};
     const history=[...msgs,userMsg];
+
+    // ── Quick-action number replies from intro bubbles ─────────────────────────
+    const _isIntroReply=/^[123]$/.test(input.trim());
+    const _lastIsIntro=msgs.length>0&&msgs[msgs.length-1].role==="assistant"&&/Here's what I can do|What do you need\?|which project/i.test(msgs[msgs.length-1].content||"");
+    if(_isIntroReply&&_lastIsIntro){
+      const n=parseInt(input.trim(),10);
+      const _needsProject={compliance:true,researcher:true,contracts:false,billie:true,finn:true,carrie:true,logistical:false,minnie:false};
+      const _responses={
+        logistical:{1:"Tell me about the vendor — name, category, email and phone number.",2:"Who did you contact? Give me the name and what happened, and I'll log it with today's date.",3:"Who are you looking for? Give me a name, category, or location and I'll search."},
+        compliance:{1:"Let's edit a call sheet. Which project should I work on?",2:"I'll review what's missing. Which project should I work on?",3:"Let's manage dietary requirements. Which project should I work on?"},
+        researcher:{1:"I'll help add risks. Which project should I work on?",2:"I'll review the assessment. Which project should I work on?",3:"I'll generate a risk report. Which project should I work on?"},
+        minnie:{1:"Paste a meeting request email and I'll find available time slots for you.",2:"Let me check your calendar. What date or week are you looking at?",3:"Paste the meeting request and I'll draft a professional reply with three time options."},
+        billie:{1:"I'll build a budget. Which project should I work on?",2:"I'll help edit the estimate. Which project should I work on?",3:"I'll review and export. Which project should I work on?"},
+        finn:{1:"I'll log an expense. Which project should I work on?",2:"I'll track actuals vs estimates. Which project should I work on?",3:"I'll review the budget. Which project should I work on?"},
+        carrie:{1:"I'll add talent. Which project should I work on?",2:"I'll search agencies or generate a brief. Which project should I work on?",3:"I'll review casting and export. Which project should I work on?"},
+        contracts:{1:"Let's work on a live contract. Which project should I work on?",2:"Sure! Describe the document you need — for example:\n\n• \"Draft an NDA for a freelance editor\"\n• \"Create a liability waiver for a night shoot in RAK\"\n• \"Write a release form for talent appearing in a commercial\"\n\nWhat would you like me to draft?",3:"Upload a PDF using the 📎 button below, or ask me to generate a document first — then I can add your signature, company stamp, and ONNA letterhead.\n\nTry: \"Create a liability waiver\" → then \"Sign and stamp this\""},
+      };
+      const agentResp=_responses[agent.id];
+      if(agentResp&&agentResp[n]){
+        setMsgs([...history,{role:"assistant",content:agentResp[n]}]);
+        setInput("");setLoading(false);return;
+      }
+    }
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     if(pendingConv){
@@ -8952,20 +9025,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setLoading(false);return;
     }
 
-    // ── Cody: quick-action number replies ─────────────────────────────────────
-    if(agent.id==="contracts"){
-      const trimmed=input.trim();
-      if(trimmed==="1"||/^1\b/i.test(trimmed)){
-        // "Live Contracts" — let it fall through to the contract handler below
-      } else if(trimmed==="2"||/^2\b.*\b(document|generate|draft)/i.test(trimmed)){
-        setMsgs([...history,{role:"assistant",content:"Sure! Describe the document you need — for example:\n\n• \"Draft an NDA for a freelance editor\"\n• \"Create a liability waiver for a night shoot in RAK\"\n• \"Write a release form for talent appearing in a commercial\"\n\nWhat would you like me to draft?"}]);
-        setInput("");setLoading(false);return;
-      } else if(trimmed==="3"||/^3\b.*\b(sign|stamp)/i.test(trimmed)){
-        setMsgs([...history,{role:"assistant",content:"Upload a PDF using the 📎 button below, or ask me to generate a document first — then I can add your signature, company stamp, and ONNA letterhead.\n\nTry: \"Create a liability waiver\" → then \"Sign and stamp this\""}]);
-        setInput("");setLoading(false);return;
-      }
-    }
-
     // ── Cody: sign/stamp/letterhead on uploaded document ─────────────────────
     if(agent.id==="contracts"){
       // ── Parse page targets from natural language ──
@@ -9916,16 +9975,33 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         )}
       </div>
     )}
-    {/* Cody quick-action bubbles */}
-    {agent.id==="contracts"&&!loading&&!pendingConv&&msgs.length>0&&msgs[msgs.length-1].role==="assistant"&&/Here's what I can do|What do you need\?/i.test(msgs[msgs.length-1].content||"")&&(
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
-        {[{label:"📋 Live Contracts",value:"1"},{label:"✍️ Generate Document",value:"2"},{label:"🖊️ Sign & Stamp",value:"3"}].map(opt=>(
-          <button key={opt.value} type="button" onClick={()=>{setInput(opt.value);setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:12,fontWeight:600,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    )}
+    {/* Agent quick-action bubbles */}
+    {(()=>{
+      const _bubbleMap={
+        logistical:[{label:"➕ Add Vendor",value:"1"},{label:"📞 Log Outreach",value:"2"},{label:"🔍 Search Contacts",value:"3"}],
+        compliance:[{label:"✏️ Edit Call Sheet",value:"1"},{label:"✅ Review & Check",value:"2"},{label:"🍽️ Dietary & Catering",value:"3"}],
+        researcher:[{label:"⚠️ Add Risks",value:"1"},{label:"✅ Review Assessment",value:"2"},{label:"📄 Generate Report",value:"3"}],
+        minnie:[{label:"📅 Schedule Meeting",value:"1"},{label:"📆 Check Calendar",value:"2"},{label:"✉️ Draft Reply",value:"3"}],
+        billie:[{label:"💰 Build Budget",value:"1"},{label:"✏️ Edit Estimate",value:"2"},{label:"📊 Review & Export",value:"3"}],
+        contracts:[{label:"📋 Live Contracts",value:"1"},{label:"✍️ Generate Document",value:"2"},{label:"🖊️ Sign & Stamp",value:"3"}],
+        finn:[{label:"💳 Log Expenses",value:"1"},{label:"📈 Track Actuals",value:"2"},{label:"📊 Review Budget",value:"3"}],
+        carrie:[{label:"🎭 Add Talent",value:"1"},{label:"🔍 Search & Brief",value:"2"},{label:"📄 Review & Export",value:"3"}],
+      };
+      const bubbles=_bubbleMap[agent.id];
+      if(!bubbles||loading||pendingConv)return null;
+      const lastMsg=msgs.length>0?msgs[msgs.length-1]:null;
+      if(!lastMsg||lastMsg.role!=="assistant")return null;
+      if(!/Here's what I can do|What do you need\?|which project/i.test(lastMsg.content||""))return null;
+      return(
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
+          {bubbles.map(opt=>(
+            <button key={opt.value} type="button" onClick={()=>{setInput(opt.value);setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:12,fontWeight:600,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      );
+    })()}
     {/* uploaded doc preview for Cody */}
     {agent.id==="contracts"&&codyUploadedDoc&&<div style={{padding:"6px 12px 0",background:"white",display:"flex",gap:6,alignItems:"center"}}>
       <div style={{display:"flex",gap:4,alignItems:"center",background:"#f0f4ff",border:"1px solid #c8d8f0",borderRadius:8,padding:"4px 10px"}}>
@@ -14275,13 +14351,13 @@ export default function OnnaDashboard() {
         </div>
       );
 
-      const stylingBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>\u2039 Back to Styling</button>;
+      const stylingBack = <button onClick={()=>setStylingSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Styling</button>;
 
       if (stylingSubSection==="fitting") {
         const fitVersions = fittingStore[p.id] || [];
         const addFitNew = () => {
           const newId = Date.now();
-          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \\| /,""), client: p.client || "[Client Name]", date: "[Date]", stylist: "[Stylist]" };
+          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", stylist: "[Stylist]" };
           const newFit = { id: newId, label: `V${fitVersions.length+1}`, project: proj, talent: [mkFitTalent(), mkFitTalent()], fittings: [mkFitFitting(), mkFitFitting()] };
           setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newFit); return store; });
         };
@@ -14331,7 +14407,30 @@ export default function OnnaDashboard() {
         const fitData = fitVersions[fitIdx];
         if (!fitData) { setActiveFittingVersion(null); return null; }
 
-        const fitBack = <button onClick={()=>setActiveFittingVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>\u2039 Back to Fitting Decks</button>;
+        const fitBack = <button onClick={()=>setActiveFittingVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Fitting Decks</button>;
+
+        const fitShareUrl = fitData.shareToken ? `https://app.onna.world/api/cps-share?token=${encodeURIComponent(fitData.shareToken)}` : null;
+        const generateFitLink = async () => {
+          const fitEl = document.querySelector("[data-fit-print]");
+          if (!fitEl) return;
+          const clone = fitEl.cloneNode(true);
+          clone.querySelectorAll('[data-hide]').forEach(n => n.remove());
+          clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
+          clone.querySelectorAll('input').forEach(inp => { if (!inp.value||!inp.value.trim()) inp.style.display='none'; else { const s=document.createElement('span');s.textContent=inp.value;s.style.cssText=inp.style.cssText;s.style.border='none';s.style.background='none';inp.replaceWith(s); } });
+          clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+          try {
+            const body = { html: clone.innerHTML, projectName: fitData.project?.name || "", mode: "fitting" };
+            if (fitData.shareToken) body.token = fitData.shareToken;
+            if (fitData.shareResourceId) body.resourceId = fitData.shareResourceId;
+            const resp = await fetch("/api/cps-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            const data = await resp.json();
+            if (data.url) {
+              setFittingStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][fitIdx]) { s[p.id][fitIdx].shareToken = data.token; s[p.id][fitIdx].shareResourceId = data.id; } return s; });
+              await navigator.clipboard.writeText(data.url).catch(() => {});
+              alert("Link copied to clipboard!\n\n" + data.url);
+            } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
+          } catch (err) { alert("Error generating link: " + err.message); }
+        };
 
         return (
           <div>
@@ -14340,7 +14439,20 @@ export default function OnnaDashboard() {
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={generateFitLink} style={{padding:"5px 16px",borderRadius:8,background:fitShareUrl?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  {fitShareUrl ? "Update Link" : "Generate Link"}
+                </button>
+              </div>
             </div>
+            {fitShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={fitShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{fitShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(fitShareUrl);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
             <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
               <FittingConnie
                 initialProject={fitData.project}
