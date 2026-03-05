@@ -4773,7 +4773,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
 }
 
 // ─── AgentDocPreview — live editable document preview for split-pane ────────
-function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
+function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, onDeleteRA, projectInfoRef:_piRef}) {
   if (!projectId) return null;
 
   // ── CONNIE: Dietary list view ──
@@ -5077,12 +5077,13 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       <div style={{overflowY:"auto",padding:0,background:"#fff",height:"100%"}}>
         <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <span style={{display:"inline-flex",alignItems:"center",gap:4,...(hasMarker("scalar:label")?{background:"#e8f5e9",borderRadius:3,padding:"1px 4px"}:{})}}>Risk Assessment — <input value={raData.label||""} onChange={e=>raU("label",e.target.value)} placeholder="Untitled" style={{border:"none",borderBottom:"1px solid transparent",background:"transparent",fontSize:10,fontWeight:600,color:"#555",letterSpacing:1,textTransform:"uppercase",fontFamily:"inherit",padding:"0 2px",width:Math.max(80,(raData.label||"Untitled").length*7+10),outline:"none",transition:"border-color 0.2s"}} onFocus={e=>{e.target.style.borderBottomColor="#1a4a80";}} onBlur={e=>{e.target.style.borderBottomColor="transparent";}}/>{hasMarker("scalar:label")&&<><button onClick={()=>acceptMarker("scalar:label")} style={reviewBtnStyle("accept")}>{"✓"}</button><button onClick={()=>declineMarker("scalar:label")} style={reviewBtnStyle("decline")}>{"✕"}</button></>}</span>
-          {pr&&pr.markers.length>0&&(
-            <div style={{display:"flex",gap:4}}>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            {pr&&pr.markers.length>0&&<>
               <button onClick={acceptAll} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button>
               <button onClick={declineAll} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button>
-            </div>
-          )}
+            </>}
+            {onDeleteRA&&<div onClick={()=>onDeleteRA(projectId,raIdx)} style={{cursor:"pointer",fontSize:14,color:"#999",opacity:0.6,marginLeft:4,lineHeight:1}} onMouseEnter={e=>{e.currentTarget.style.opacity=1;e.currentTarget.style.color="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.opacity=0.6;e.currentTarget.style.color="#999";}} title="Delete risk assessment">×</div>}
+          </div>
         </div>
         <div style={{padding:"40px 40px",fontFamily:RA_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
@@ -5218,7 +5219,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onArchiveCallSheet}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -7997,6 +7998,15 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
                 if(arr.length===0){cfg.wantStamp=false;}else{cfg.stampPages=arr.length===tot?"all":arr.length===1?arr[0]:arr;}
               }else{cfg.wantStamp=isAdd;if(isAdd&&!cfg.stampPages)cfg.stampPages="last";}
             }
+            // No specific element mentioned (e.g. "add to page 1") — apply to all active overlays
+            const mentionsElement=/\b(letterhead|company letter|sign|signature|stamp|seal)\b/i.test(input);
+            if(!mentionsElement&&targetPage!=null){
+              const tot=cfg.originalDoc.pages.length;
+              const addToPage=(curRule,fallback)=>{let arr=[];if(curRule==="all")arr=Array.from({length:tot},(_,i)=>i);else if(curRule==="first")arr=[0];else if(curRule==="last")arr=[tot-1];else if(Array.isArray(curRule))arr=[...curRule];else if(typeof curRule==="number")arr=[curRule];else arr=[];if(isAdd&&!arr.includes(targetPage))arr.push(targetPage);if(isRemove)arr=arr.filter(p=>p!==targetPage);return arr.length===0?fallback:arr.length===tot?"all":arr.length===1?arr[0]:arr;};
+              if(cfg.wantSign){cfg.signPages=addToPage(cfg.signPages||"last","last");}
+              if(cfg.wantStamp){cfg.stampPages=addToPage(cfg.stampPages||"last","last");}
+              if(cfg.wantLetterhead){cfg.letterPages=addToPage(cfg.letterPages||"first","first");}
+            }
           }
           let newSignPages=null,newStampPages=null,newLetterPages=null;
           if(!isAdd&&!isRemove){
@@ -8682,6 +8692,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             connieMode={agent.id==="compliance"&&connieDietMode?"dietary":null}
             dietaryStore={dietaryStore} setDietaryStore={setDietaryStore}
             onDietarySelect={(idx)=>{setConnieDietMode(null);const proj=localProjects?.find(p=>p.id===docProjectId);if(proj&&onNavigateToDoc){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}
+            onDeleteRA={(pid,idx)=>{if(!confirm("Delete this risk assessment? This will be moved to trash."))return;const raData=JSON.parse(JSON.stringify((riskAssessmentStore[pid]||[])[idx]));if(raData)archiveItem('riskAssessments',{projectId:pid,riskAssessment:raData});setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(idx,1);store[pid]=arr;return store;});setRonnieCtx(null);}}
             projectInfoRef={projectInfoRef}/>
         </div>
         <div style={{flex:agent.id==="billie"?"0 0 40%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
@@ -8707,7 +8718,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           return(
             <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setConnieCtx({projectId:tab.projectId,vIdx:tab.vIdx});setConnieDietMode(null);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${tab.label}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #c47090":"1px solid #e0e0e0",background:isActive?"#fff5f7":"#f5f5f7",color:isActive?"#7a1a30":"#6e6e73",borderBottom:isActive?"2px solid #c47090":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
               <span>{tab.label}</span>
-              <span onClick={e=>{e.stopPropagation();setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setConnieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
+              <span onClick={e=>{e.stopPropagation();if(!confirm("Delete this call sheet? It will be moved to trash."))return;const pid=tab.projectId;const vIdx=tab.vIdx;const csData=(callSheetStore?.[pid]||[])[vIdx];if(csData&&onArchiveCallSheet)onArchiveCallSheet('callSheets',{projectId:pid,callSheet:JSON.parse(JSON.stringify(csData))});setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(vIdx,1);store[pid]=arr;return store;});setConnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i).map(t=>t.projectId===pid&&t.vIdx>vIdx?{...t,vIdx:t.vIdx-1}:t);if(isActive){if(next.length>0){const switchTo=next[0];setConnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});setMsgs(p=>[...p,{role:"assistant",content:`Deleted and switched to ${switchTo.label}.`}]);}else{setConnieCtx(null);setMsgs(p=>[...p,{role:"assistant",content:"Call sheet deleted. Pick a project to start a new one!"}]);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
         <div style={{flexShrink:0}}>
@@ -14422,6 +14433,7 @@ export default function OnnaDashboard() {
                       pushUndo={pushUndo}
                       projectInfoRef={projectInfoRef}
                       onOpenDuplicateCS={a.id==="compliance"?(pid)=>{setCsDuplicateModal({origin:"connie",projectId:pid});setCsDuplicateSearch("");}:undefined}
+                      onArchiveCallSheet={a.id==="compliance"?archiveItem:undefined}
                     />
                   ))}
                 </div>
