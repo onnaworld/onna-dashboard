@@ -553,7 +553,12 @@ INSTRUCTIONS:
 - When the user asks to ADD or UPDATE crew, schedule, venues, or any call sheet field, output a JSON patch inside a \`\`\`json code block.
 - For scalar fields: {"shootName":"...","date":"..."}
 - For departments/crew (merge by role, case-insensitive): {"departments":[{"name":"MOTION","crew":[{"role":"GAFFER","name":"Elie Kolko","mobile":"+971...","email":"elie@x.com"}]}]}
-- IMPORTANT: When updating an existing crew member, you MUST use their EXACT current role name as it appears in the call sheet. The system matches by role name. If the user wants to RENAME a role (e.g. "change Local Producer to Producer"), first update the person using the EXISTING role name, then include the new role: {"departments":[{"name":"PRODUCTION & LOCATION","crew":[{"role":"LOCAL PRODUCER","name":"Emily Lucas","mobile":"+971 585 608 616"}]}]} — the platform will update that row in place.
+- CRITICAL CREW RULES:
+  1. ALWAYS check the CURRENT CALL SHEET STATE above to find where a role already exists before adding crew.
+  2. Use the EXACT role name as it appears in the call sheet (e.g. if it says "LOCAL PRODUCER", use "LOCAL PRODUCER", not "PRODUCER").
+  3. If the user says a role name that doesn't EXACTLY match any existing role, ASK: "I see [existing role] in [department] — should I update that one, or add a new row?"
+  4. Never add a duplicate when an existing role could be updated.
+  5. When placing crew, put them in the CORRECT department (e.g. a Producer goes in PRODUCTION & LOCATION, not BRAND).
 - For schedule: {"schedule":[{time,activity,notes},...]} (full array replacement)
 - For venueRows: {"venueRows":[{label,value},...]} (full array replacement)
 - Only output JSON for write intents. For read-only questions (e.g. "what's missing?", "show me the schedule"), answer in plain text with NO JSON block.
@@ -626,8 +631,8 @@ function buildConniePatchMarkers(patch, preVer) {
   if (patch.weatherHourly !== undefined) markers.add("cs:weatherHourly");
   if (patch.emergency) { if(patch.emergency.hospital && patch.emergency.hospital!==(preVer.emergency?.hospital||"")) markers.add("cs:emergency.hospital"); if(patch.emergency.police && patch.emergency.police!==(preVer.emergency?.police||"")) markers.add("cs:emergency.police"); }
   if (patch.invoicing) Object.keys(patch.invoicing).forEach(k=>{ if(patch.invoicing[k]!==(preVer.invoicing?.[k]||"")) markers.add("cs:invoicing."+k); });
-  if (patch.schedule) markers.add("cs:schedule");
-  if (patch.venueRows) markers.add("cs:venueRows");
+  if (patch.schedule && Array.isArray(patch.schedule)) { patch.schedule.forEach((_,i) => markers.add("cs:scheduleRow:"+i)); }
+  if (patch.venueRows && Array.isArray(patch.venueRows)) { patch.venueRows.forEach((vr,i) => markers.add("cs:venueRow:"+vr.label.toUpperCase())); }
   if (patch.emergencyNumbers) markers.add("cs:emergencyNumbers");
   if (patch.departments && Array.isArray(patch.departments)) {
     patch.departments.forEach(pd => {
@@ -650,9 +655,9 @@ function revertConnieMarker(marker, preSnapshot, projectId, vIdx, setStore) {
       const k = marker.slice(13); if(!ver.emergency) ver.emergency={}; ver.emergency[k] = preSnapshot.emergency?.[k] || "";
     } else if (marker.startsWith("cs:invoicing.")) {
       const k = marker.slice(13); if(!ver.invoicing) ver.invoicing={}; ver.invoicing[k] = preSnapshot.invoicing?.[k] || "";
-    } else if (marker === "cs:schedule") {
+    } else if (marker === "cs:schedule" || marker.startsWith("cs:scheduleRow:")) {
       ver.schedule = preSnapshot.schedule ? JSON.parse(JSON.stringify(preSnapshot.schedule)) : [];
-    } else if (marker === "cs:venueRows") {
+    } else if (marker === "cs:venueRows" || marker.startsWith("cs:venueRow:")) {
       ver.venueRows = preSnapshot.venueRows ? JSON.parse(JSON.stringify(preSnapshot.venueRows)) : [];
     } else if (marker === "cs:emergencyNumbers") {
       ver.emergencyNumbers = preSnapshot.emergencyNumbers ? JSON.parse(JSON.stringify(preSnapshot.emergencyNumbers)) : [];
@@ -3100,8 +3105,64 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
 }
 
 // ─── AgentDocPreview — live editable document preview for split-pane ────────
-function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone}) {
+function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
   if (!projectId) return null;
+
+  // ── CONNIE: Dietary list view ──
+  if (agentId === "compliance" && connieMode === "dietary" && dietaryStore && setDietaryStore) {
+    const dietVersions = dietaryStore[projectId] || [];
+    const addDietNew = () => {
+      const newId = Date.now();
+      const newDiet = {id:newId,label:`Dietary List ${dietVersions.length+1}`,...JSON.parse(JSON.stringify(DIETARY_INIT))};
+      const _pi=(_piRef?.current||{})[projectId];
+      if(_pi){if(_pi.shootName)newDiet.project.name=_pi.shootName;if(_pi.shootDate)newDiet.project.date=_pi.shootDate;}
+      newDiet.project.name=newDiet.project.name==="[Project Name]"?`${_pi?.client||""} | ${_pi?.name||""}`.replace(/^TEMPLATE \| /,""):newDiet.project.name;
+      const csVersions = (callSheetStore||{})[projectId] || [];
+      if (csVersions.length > 0) {
+        const latestCS = csVersions[csVersions.length - 1];
+        if(latestCS.shootName)newDiet.project.name=latestCS.shootName;
+        if(latestCS.date)newDiet.project.date=latestCS.date;
+        const csParts=(latestCS.shootName||"").split(" | ");
+        if(csParts.length>=2)newDiet.project.client=csParts[0].trim();
+        const pulled = [];
+        (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:"None",allergies:"",notes:""});});});
+        if(pulled.length>0)newDiet.people=pulled;
+      }
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[projectId])store[projectId]=[];store[projectId].push(newDiet);return store;});
+    };
+    const deleteDiet = (idx) => {
+      if(!confirm("Delete this dietary list? This will be moved to trash."))return;
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];arr.splice(idx,1);store[projectId]=arr;return store;});
+    };
+    return (
+      <div style={{overflowY:"auto",padding:20,background:"#fff",height:"100%"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+          <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f"}}>Dietary Lists</div>
+          <button onClick={addDietNew} style={{padding:"7px 16px",borderRadius:9,background:"#c47090",color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Dietary List</button>
+        </div>
+        {dietVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:"1.5px dashed #e5e5ea",padding:44,textAlign:"center"}}><div style={{fontSize:13,color:"#86868b"}}>No dietary lists yet. Click "+ New Dietary List" to get started.</div></div>}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {dietVersions.map((diet,i)=>{
+            const crewCount=(diet.people||[]).length;
+            const dietaryCount=(diet.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
+            return(
+              <div key={diet.id} style={{background:"#fff",border:"1px solid #e5e5ea",borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>{if(onDietarySelect)onDietarySelect(i);}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>DL</span>
+                    <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:crewCount>0?"#e8f5e9":"#f5f5f5",color:crewCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{crewCount} crew · {dietaryCount} dietary</span>
+                  </div>
+                  <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f"}}>{diet.label||"Untitled"}</div>
+                  <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{diet.project?.date||"No date set"}</div>
+                </div>
+                <button onClick={e=>{e.stopPropagation();deleteDiet(i);}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   // ── CONNIE (Call Sheet) ──
   if (agentId === "compliance" && callSheetStore && setCallSheetStore) {
@@ -3113,10 +3174,10 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const finishCReview = () => { if(setConniePendingReview) setConniePendingReview(null); if(onConnieReviewDone) onConnieReviewDone(); };
       const acceptCM = (m) => { if(!setConniePendingReview||!cpr) return; const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
       const declineCM = (m) => { if(!setConniePendingReview||!cpr) return; revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore); const next = cpr.markers.filter(x=>x!==m); if(next.length===0){ finishCReview(); } else { setConniePendingReview({...cpr, markers:next}); } };
-      const acceptAllC = () => { finishCReview(); };
+      const acceptAllC = () => { if(!cpr) return; finishCReview(); };
       const declineAllC = () => { if(!cpr) return; cpr.markers.forEach(m => revertConnieMarker(m, cpr.preSnapshot, cpr.projectId, cpr.vIdx, setCallSheetStore)); finishCReview(); };
       const cRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
-      const cHL = {background:"#FFF8E1",borderRadius:3,padding:"1px 3px",margin:"-1px -3px",boxShadow:"0 0 0 2px #FFB300"};
+      const cHL = {borderLeft:"3px solid #1976D2",paddingLeft:4,marginLeft:-7};
     const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
     const csData = csVersions[csIdx] || csVersions[0];
     const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
@@ -3154,17 +3215,17 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             </div>
             <div style={{textAlign:"center",padding:"20px 32px 4px"}}><div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET{cpr&&cpr.markers.length>0&&<span style={{display:"flex",gap:4,marginLeft:12}}><button onClick={acceptAllC} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllC} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></span>}</div></div>
             <div style={{padding:"8px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline",position:"relative"}}>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:shootName")?cHL:{}}><CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/></span>{hasCM("cs:scalar:shootName")&&<><button onClick={()=>acceptCM("cs:scalar:shootName")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:shootName")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"absolute",left:"50%",transform:"translateX(-50%)"}}><span style={hasCM("cs:scalar:date")?cHL:{}}><span style={hasCM("cs:scalar:date")?cHL:{}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></span></span>{hasCM("cs:scalar:date")&&<><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>SHOOT DAY <span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></span></span>{hasCM("cs:scalar:dayNumber")&&<><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"relative"}}><span style={hasCM("cs:scalar:shootName")?cHL:{}}><CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/></span>{hasCM("cs:scalar:shootName")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:shootName")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:shootName")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"absolute",left:"50%",transform:"translateX(-50%)"}}><span style={hasCM("cs:scalar:date")?cHL:{}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></span>{hasCM("cs:scalar:date")&&<span style={{position:"absolute",top:0,marginLeft:4,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>SHOOT DAY <span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></span>{hasCM("cs:scalar:dayNumber")&&<span style={{marginLeft:4,display:"inline-flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
             </div>
             <div style={{padding:"0 32px 10px",textAlign:"center"}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/></div>
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
-            <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11}}><span style={csLbl}>Production On Set: </span><span style={hasCM("cs:scalar:productionContacts")?cHL:{}}><CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></span>{hasCM("cs:scalar:productionContacts")&&<><button onClick={()=>acceptCM("cs:scalar:productionContacts")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:productionContacts")} style={cRevBtn("decline")}>{"✕"}</button></>}</div>
+            <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11,position:"relative"}}><span style={csLbl}>Production On Set: </span><span style={hasCM("cs:scalar:productionContacts")?cHL:{}}><CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></span>{hasCM("cs:scalar:productionContacts")&&<span style={{position:"absolute",right:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:productionContacts")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:productionContacts")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
             {/* SHOOT */}
             <div style={{padding:"14px 32px 8px"}}>
-              <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SHOOT{hasCM("cs:venueRows")&&<span><button onClick={()=>acceptCM("cs:venueRows")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:venueRows")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
-              {csData.venueRows.map((row,i) => (<div key={i} style={{display:"flex",alignItems:"center",marginBottom:5,gap:8}} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}}><div style={{cursor:"grab",color:"#ccc",fontSize:10,padding:"0 2px",userSelect:"none"}}>☰</div><div style={{minWidth:95}}><CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/></div><div style={{flex:1,fontSize:11}}><span style={hasCM("cs:venueRows")?cHL:{}}><CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/></span></div>{hasCM("cs:venueRows")&&<><button onClick={()=>acceptCM("cs:venueRows")} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>declineCM("cs:venueRows")} style={cRevBtn("decline")}>{"\u2715"}</button></>}<CSXbtn onClick={()=>rmVenueRow(i)}/></div>))}
+              <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SHOOT</div>
+              {csData.venueRows.map((row,i) => { const vrm = "cs:venueRow:"+row.label.toUpperCase(); const vrHas = hasCM(vrm); return (<div key={i} style={{display:"flex",alignItems:"center",marginBottom:5,gap:8,position:"relative"}} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}}>{vrHas&&<div style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM(vrm)} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM(vrm)} style={cRevBtn("decline")}>{"✕"}</button></div>}<div style={{cursor:"grab",color:"#ccc",fontSize:10,padding:"0 2px",userSelect:"none"}}>☰</div><div style={{minWidth:95}}><CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/></div><div style={{flex:1,fontSize:11,...(vrHas?cHL:{})}}><CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/></div><CSXbtn onClick={()=>rmVenueRow(i)}/></div>);})}
               <CSAddBtn onClick={addVenueRow} label="Add Row"/>
             </div>
             {/* SCHEDULE */}
@@ -3172,7 +3233,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>SCHEDULE{hasCM("cs:schedule")&&<span><button onClick={()=>acceptCM("cs:schedule")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:schedule")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr style={{background:csDeptBg}}><td style={{width:16,background:csDeptBg}}></td><td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td><td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td><td style={{...csTh,background:csDeptBg}}>NOTES</td><td style={{width:36,background:csDeptBg}}></td></tr></thead>
-                <tbody>{csData.schedule.map((row,i) => (<tr key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:hasCM("cs:schedule")?"#FFF8E1":"#fff",cursor:"grab"}}><td style={{padding:"4px 2px 4px 0",fontSize:10,color:"#ccc",width:16}}>{"\u2630"}</td><td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}><CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder placeholder="00:00" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}><CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder placeholder="Activity" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11}}><CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/></td>{hasCM("cs:schedule")?<td style={{width:36}}><button onClick={()=>acceptCM("cs:schedule")} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>declineCM("cs:schedule")} style={cRevBtn("decline")}>{"\u2715"}</button></td>:<td style={{width:20}}><CSXbtn onClick={()=>rmScheduleRow(i)}/></td>}</tr>))}</tbody>
+                <tbody>{csData.schedule.map((row,i) => { const srm = "cs:scheduleRow:"+i; const srHas = hasCM(srm); return (<tr key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:srHas?"#E3F2FD":"#fff",cursor:"grab"}}><td style={{padding:"4px 2px 4px 0",fontSize:10,color:"#ccc",width:16}}>{"\u2630"}</td><td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}><CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder placeholder="00:00" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}><CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder placeholder="Activity" style={{fontSize:11,fontWeight:600}}/></td><td style={{padding:"4px 4px",fontSize:11}}><CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/></td><td style={{width:srHas?36:20}}>{srHas?<><button onClick={()=>acceptCM(srm)} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>declineCM(srm)} style={cRevBtn("decline")}>{"\u2715"}</button></>:<CSXbtn onClick={()=>rmScheduleRow(i)}/>}</td></tr>);})}</tbody>
               </table>
               <CSAddBtn onClick={addScheduleRow} label="Add Row"/>
             </div>
@@ -3230,7 +3291,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* PROTOCOL */}
             <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>PROTOCOL ON SET{hasCM("cs:scalar:protocol")&&<span><button onClick={()=>acceptCM("cs:scalar:protocol")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:protocol")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
             {/* EMERGENCY */}
-            <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST HOSPITAL: </strong><span style={hasCM("cs:emergency.hospital")?cHL:{}}><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.hospital")&&<><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST POLICE STATION: </strong><span style={hasCM("cs:emergency.police")?cHL:{}}><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.police")&&<><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></>}</div></div>
+            <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST HOSPITAL: </strong><span style={hasCM("cs:emergency.hospital")?cHL:{}}><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.hospital")&&<span style={{marginLeft:"auto",display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST POLICE STATION: </strong><span style={hasCM("cs:emergency.police")?cHL:{}}><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.police")&&<span style={{marginLeft:"auto",display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
             {/* FOOTER */}
             <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
           </div>
@@ -4962,6 +5023,30 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
 
+        // ── pending: pick project for dietary side view ──
+        if(conniePending?.step==="pick_dietary_project"){
+          const num=parseInt(input.trim(),10);
+          let proj=null;
+          if(num>=1&&num<=localProjects.length) proj=localProjects[num-1];
+          else proj=fuzzyMatchProject(localProjects,input);
+          if(proj){
+            setConniePending(null);
+            setConnieCtx({projectId:proj.id,_mode:"dietary"});
+            const dietCount=(dietaryStore?.[proj.id]||[]).length;
+            setMsgs([...history,{role:"assistant",content:`Here are ${proj.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+          }
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's dietaries? Pick a number or name.\n\n${list}`}]);
+          setLoading(false);setMood("idle");return;
+        }
+
+        // "Open dietaries" without context — show project picker
+        if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(dietar(?:y|ies))\b/i.test(input)||/\b(dietar(?:y|ies))\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)){
+          setConniePending({step:"pick_dietary_project"});
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which dietaries would you like to work on?\n\n${list}`}]);setLoading(false);setMood("idle");return;
+        }
+
         // Try to match a project name in this message
         const lower=input.toLowerCase();
         const num=parseInt(input.trim(),10);
@@ -5005,9 +5090,10 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         onNavigateToDoc(project,"Documents","callsheet");
         setMsgs([...history,{role:"assistant",content:"Taking you to your call sheets now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
-      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(dietar(?:y|ies))\b/i.test(input)||/\b(dietar(?:y|ies))\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
-        onNavigateToDoc(project,"Documents","dietaries");
-        setMsgs([...history,{role:"assistant",content:"Taking you to your dietary lists now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(dietar(?:y|ies))\b/i.test(input)||/\b(dietar(?:y|ies))\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)){
+        setConnieCtx({projectId,_mode:"dietary"});
+        const dietCount=(dietaryStore?.[projectId]||[]).length;
+        setMsgs([...history,{role:"assistant",content:`Here are ${project.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
@@ -6636,7 +6722,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             onConnieReviewDone={()=>{setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — call sheet changes saved."}]);}}
             onRonnieReviewDone={(meta)=>{
               setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — changes saved."}]);
-            }}/>
+            }}
+            connieMode={agent.id==="compliance"&&connieCtx?._mode||null}
+            dietaryStore={dietaryStore} setDietaryStore={setDietaryStore}
+            onDietarySelect={(idx)=>{if(onNavigateToDoc){const proj=localProjects?.find(p=>p.id===docProjectId);if(proj){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}}
+            projectInfoRef={projectInfoRef}/>
         </div>
         <div style={{flex:agent.id==="billie"?"0 0 40%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
@@ -6857,10 +6947,11 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
 <div style="padding:8px 12px">${emergencyHTML}</div>
 <div style="margin-top:60px;display:flex;justify-content:space-between;font-size:9px;${LS}color:#000"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
 </div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}</body></html>`;
+  const printScript = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});window.print();};<\/script>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}${printScript}</body></html>`;
   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
   const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+  setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},10000);
 };
 
 // ─── ACTUALS STATUS CONSTANTS ────────────────────────────────────────────────
@@ -8773,11 +8864,11 @@ export default function OnnaDashboard() {
   };
 
   // ── Navigate to document list view from agent chat ──────────────────────
-  const navigateToDoc = (projectObj, section, subSection) => {
+  const navigateToDoc = (projectObj, section, subSection, opts) => {
     setActiveTab("Projects");
     setSelectedProject(projectObj);
     setProjectSection(section);
-    if(section==="Documents"){ setDocumentsSubSection(subSection); setActiveCSVersion(null); setActiveDietaryVersion(null); setActiveRAVersion(null); setActiveContractVersion(null); }
+    if(section==="Documents"){ setDocumentsSubSection(subSection); setActiveCSVersion(null); setActiveDietaryVersion(opts?.dietaryIdx??null); setActiveRAVersion(null); setActiveContractVersion(null); }
     if(section==="Budget"){ setBudgetSubSection(subSection||"estimates"); }
     pushNav("Projects", projectObj, section, subSection);
     setAgentActiveIdx(null);
