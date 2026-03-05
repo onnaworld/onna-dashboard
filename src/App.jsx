@@ -11221,7 +11221,6 @@ export default function OnnaDashboard() {
                   </div>
                   {dashSelectedNoteId===note.id&&(
                     <div style={{padding:"0 18px 14px"}}>
-                      <input value={note.title||""} onChange={e=>setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,title:e.target.value,updatedAt:Date.now()}:n))} placeholder="Note title" style={{width:"100%",fontSize:12,fontWeight:600,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"6px 0",marginBottom:8,fontFamily:"inherit",outline:"none"}}/>
                       <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onInput={e=>setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:e.currentTarget.innerHTML,updatedAt:Date.now()}:n))} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
                     </div>
                   )}
