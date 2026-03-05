@@ -14,19 +14,20 @@ const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=at
 
 // ─── SIGN / STAMP / LETTERHEAD compositing ──────────────────────────────────
 const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>res(img);img.onerror=()=>rej(new Error("Failed to load "+src));img.src=src;});
-const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead})=>{
+const processDocSignStamp=async(doc,{wantSign,wantStamp,wantLetterhead,signPages="last",stampPages="last",letterPages="first",signOffset=0,stampOffset=0})=>{
+  const appliesTo=(rule,i,total)=>rule==="all"||(rule==="first"&&i===0)||(rule==="last"&&i===total-1)||rule===i;
   const [signImg,stampImg,logoImg]=await Promise.all([wantSign?_loadImg("/SIGN.png"):null,wantStamp?_loadImg("/STAMP.png"):null,wantLetterhead?_loadImg("/onna-default-logo.png"):null]);
-  const result=[];
-  for(let i=0;i<doc.pages.length;i++){
+  const result=[];const total=doc.pages.length;
+  for(let i=0;i<total;i++){
     const pgImg=await _loadImg(doc.pages[i]);
     const c=document.createElement("canvas");c.width=pgImg.width;c.height=pgImg.height;const ctx=c.getContext("2d");
     ctx.drawImage(pgImg,0,0);
-    // Letterhead on first page
-    if(wantLetterhead&&i===0&&logoImg){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,30,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,30+lh+10);ctx.lineTo(c.width-40,30+lh+10);ctx.stroke();}
-    // Signature on last page
-    if(wantSign&&i===doc.pages.length-1&&signImg){const sh=80,sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60,c.height-180,sw,sh);}
-    // Stamp on last page
-    if(wantStamp&&i===doc.pages.length-1&&stampImg){const sth=120,stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw,c.height-180,stw,sth);}
+    // Letterhead
+    if(wantLetterhead&&appliesTo(letterPages,i,total)&&logoImg){const lh=50,lw=lh*(logoImg.width/logoImg.height);ctx.drawImage(logoImg,60,30,lw,lh);ctx.strokeStyle="#000";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,30+lh+10);ctx.lineTo(c.width-40,30+lh+10);ctx.stroke();}
+    // Signature
+    if(wantSign&&appliesTo(signPages,i,total)&&signImg){const sh=80,sw=sh*(signImg.width/signImg.height);ctx.drawImage(signImg,60,c.height-180+(signOffset||0),sw,sh);}
+    // Stamp
+    if(wantStamp&&appliesTo(stampPages,i,total)&&stampImg){const sth=120,stw=sth*(stampImg.width/stampImg.height);ctx.drawImage(stampImg,c.width-60-stw,c.height-180+(stampOffset||0),stw,sth);}
     result.push(c.toDataURL("image/png"));
   }
   return{pages:result,name:doc.name};
@@ -53,7 +54,7 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
   const commit = () => { setEditing(false); onChange(temp); };
-  const showYellow = isPlaceholder;
+  const showYellow = isPlaceholder && !value;
   const autoSize = useCallback((el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, []);
   if (editing) return <textarea ref={el=>autoSize(el)} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();}}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"auto",minWidth:style.minWidth||60,maxWidth:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"inline-block",verticalAlign:"middle"}} placeholder={placeholder}/>;
   return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"pre-wrap",wordBreak:"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
@@ -3235,6 +3236,10 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
     const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
     const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
 
+    // Auto-fill Production On Set from crew with PRODUCER in role
+    const producerContacts = (csData.departments||[]).flatMap(d=>d.crew.filter(c=>c.role&&c.role.toUpperCase().includes("PRODUCER")&&c.name)).map(c=>c.name+(c.mobile?" | "+c.mobile:"")).join(" / ");
+    if(producerContacts && !csData.productionContacts) setTimeout(()=>csU("productionContacts",producerContacts),0);
+
     const csLbl = {fontSize:9,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:CS_LS};
     const csDeptBg = "#F4F4F4";
     const csSecTitle = {fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase",borderBottom:"2px solid #000",paddingBottom:5,marginBottom:10};
@@ -3261,7 +3266,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
               <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,position:"absolute",left:"50%",transform:"translateX(-50%)"}}><span style={hasCM("cs:scalar:date")?cHL:{}}><CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/></span>{hasCM("cs:scalar:date")&&<span style={{position:"absolute",top:0,marginLeft:4,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:date")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:date")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>SHOOT DAY <span style={hasCM("cs:scalar:dayNumber")?cHL:{}}><CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/></span>{hasCM("cs:scalar:dayNumber")&&<span style={{marginLeft:4,display:"inline-flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:dayNumber")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:dayNumber")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
             </div>
-            <div style={{padding:"0 32px 10px",textAlign:"center"}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/></div>
+            <div style={{padding:"0 32px 10px",textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:2}}><span style={hasCM("cs:scalar:passportNote")?cHL:{}}><CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/></span>{hasCM("cs:scalar:passportNote")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:passportNote")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:passportNote")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
             <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11,position:"relative"}}><span style={csLbl}>Production On Set: </span><span style={hasCM("cs:scalar:productionContacts")?cHL:{}}><CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></span>{hasCM("cs:scalar:productionContacts")&&<span style={{position:"absolute",right:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:productionContacts")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:productionContacts")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
             {/* SHOOT */}
@@ -3296,20 +3301,21 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             <div style={{padding:"14px 32px 10px"}}><div style={csSecTitle}>MAP</div>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
                 <span style={{fontSize:14}}>🔗</span>
-                <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
+                <span style={{flex:1,...(hasCM("cs:scalar:mapLink")?cHL:{})}}><CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/></span>
                 {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
+                {hasCM("cs:scalar:mapLink")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:mapLink")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:mapLink")} style={cRevBtn("decline")}>{"✕"}</button></span>}
               </div>
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>WEATHER{(hasCM("cs:scalar:weatherSummary")||hasCM("cs:scalar:weatherHighC")||hasCM("cs:scalar:weatherLowC")||hasCM("cs:scalar:weatherRealFeelHighC")||hasCM("cs:scalar:weatherSunrise")||hasCM("cs:weatherHourly"))&&<span><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&acceptCM(m));}} style={cRevBtn("accept")}>{"\u2713"}</button><button onClick={()=>{["cs:scalar:weatherSummary","cs:scalar:weatherHighC","cs:scalar:weatherHighF","cs:scalar:weatherLowC","cs:scalar:weatherLowF","cs:scalar:weatherRealFeelHighC","cs:scalar:weatherRealFeelHighF","cs:scalar:weatherRealFeelLowC","cs:scalar:weatherRealFeelLowF","cs:scalar:weatherSunrise","cs:scalar:weatherSunset","cs:scalar:weatherBlueHour","cs:weatherHourly"].forEach(m=>hasCM(m)&&declineCM(m));}} style={cRevBtn("decline")}>{"\u2715"}</button></span>}</div>
-              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></span></div>
+              <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,display:"flex",alignItems:"center",gap:2}}><span style={hasCM("cs:scalar:weatherSummary")?cHL:{}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></span>{hasCM("cs:scalar:weatherSummary")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:weatherSummary")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSummary")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><span style={hasCM("cs:scalar:weatherHighC")?cHL:{}}><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span></div>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><span style={hasCM("cs:scalar:weatherLowC")?cHL:{}}><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><span style={hasCM("cs:scalar:weatherHighC")?cHL:{}}><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherHighC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherHighC");acceptCM("cs:scalar:weatherHighF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherHighC");declineCM("cs:scalar:weatherHighF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>LOW: </span><span style={hasCM("cs:scalar:weatherLowC")?cHL:{}}><CSEditField value={csData.weatherLowC||""} onChange={v=>csU("weatherLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherLowF||""} onChange={v=>csU("weatherLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherLowC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherLowC");acceptCM("cs:scalar:weatherLowF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherLowC");declineCM("cs:scalar:weatherLowF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><span style={hasCM("cs:scalar:weatherRealFeelHighC")?cHL:{}}><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span></div>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><span style={hasCM("cs:scalar:weatherRealFeelLowC")?cHL:{}}><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><span style={hasCM("cs:scalar:weatherRealFeelHighC")?cHL:{}}><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherRealFeelHighC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherRealFeelHighC");acceptCM("cs:scalar:weatherRealFeelHighF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherRealFeelHighC");declineCM("cs:scalar:weatherRealFeelHighF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><span style={hasCM("cs:scalar:weatherRealFeelLowC")?cHL:{}}><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</span>{hasCM("cs:scalar:weatherRealFeelLowC")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>{acceptCM("cs:scalar:weatherRealFeelLowC");acceptCM("cs:scalar:weatherRealFeelLowF");}} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>{declineCM("cs:scalar:weatherRealFeelLowC");declineCM("cs:scalar:weatherRealFeelLowF");}} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               </div>
               {(csData.weatherHourly||[]).length>0?<div style={{marginBottom:10,...(hasCM("cs:weatherHourly")?cHL:{})}}>
                 <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"space-between"}}>HOURLY FORECAST{hasCM("cs:weatherHourly")&&<span><button onClick={()=>acceptCM("cs:weatherHourly")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:weatherHourly")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
@@ -3323,9 +3329,9 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 </div>
               </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><span style={hasCM("cs:scalar:weatherSunrise")?cHL:{}}><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></span></div>
-                <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><span style={hasCM("cs:scalar:weatherSunset")?cHL:{}}><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></span></div>
-                <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><span style={hasCM("cs:scalar:weatherBlueHour")?cHL:{}}><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></span></div>
+                <div style={{display:"flex",alignItems:"center",gap:2}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><span style={hasCM("cs:scalar:weatherSunrise")?cHL:{}}><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></span>{hasCM("cs:scalar:weatherSunrise")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:weatherSunrise")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSunrise")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,justifyContent:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><span style={hasCM("cs:scalar:weatherSunset")?cHL:{}}><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></span>{hasCM("cs:scalar:weatherSunset")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:weatherSunset")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSunset")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:2,justifyContent:"flex-end"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><span style={hasCM("cs:scalar:weatherBlueHour")?cHL:{}}><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></span>{hasCM("cs:scalar:weatherBlueHour")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:weatherBlueHour")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherBlueHour")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>
               </div>
               </div>
             {/* INVOICING */}
@@ -3333,7 +3339,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
             {/* PROTOCOL */}
             <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>PROTOCOL ON SET{hasCM("cs:scalar:protocol")&&<span><button onClick={()=>acceptCM("cs:scalar:protocol")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:protocol")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/></div>
             {/* EMERGENCY */}
-            <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST HOSPITAL: </strong><span style={hasCM("cs:emergency.hospital")?cHL:{}}><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.hospital")&&<span style={{marginLeft:"auto",display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST POLICE STATION: </strong><span style={hasCM("cs:emergency.police")?cHL:{}}><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.police")&&<span style={{marginLeft:"auto",display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
+            <div style={{padding:"10px 32px"}}><div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>NEAREST EMERGENCY SERVICES{hasCM("cs:emergencyNumbers")&&<span><button onClick={()=>acceptCM("cs:emergencyNumbers")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergencyNumbers")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{marginBottom:8}}><div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4,display:"flex",alignItems:"center",gap:2}}><span style={hasCM("cs:scalar:emergencyDialPrefix")?cHL:{}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></span>{hasCM("cs:scalar:emergencyDialPrefix")&&<span style={{display:"inline-flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:emergencyDialPrefix")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div>{csData.emergencyNumbers.map((en,i) => (<div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}><span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}><CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/></span><span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span><CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/><CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/></div>))}<CSAddBtn onClick={addEmergencyNum} label="Add"/></div><div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST HOSPITAL: </strong><span style={hasCM("cs:emergency.hospital")?cHL:{}}><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.hospital")&&<span style={{marginLeft:"auto",display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergency.hospital")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.hospital")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div><div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2,display:"flex",alignItems:"center"}}><strong>NEAREST POLICE STATION: </strong><span style={hasCM("cs:emergency.police")?cHL:{}}><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/></span>{hasCM("cs:emergency.police")&&<span style={{marginLeft:"auto",display:"flex",gap:1,flexShrink:0}}><button onClick={()=>acceptCM("cs:emergency.police")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:emergency.police")} style={cRevBtn("decline")}>{"✕"}</button></span>}</div></div>
             {/* FOOTER */}
             <div style={{borderTop:"2px solid #000",margin:"16px 32px 0",padding:"14px 0 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,fontWeight:700,letterSpacing:CS_LS,color:"#000"}}>@ONNAPRODUCTION</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>DUBAI | LONDON</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,fontWeight:600,color:"#000",letterSpacing:CS_LS}}>WWW.ONNA.WORLD</div><div style={{fontSize:9,color:"#888",letterSpacing:CS_LS}}>HELLO@ONNAPRODUCTION.COM</div></div></div>
           </div>
@@ -3549,6 +3555,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const attachRef=useRef(null);
   const [codyUploadedDoc,setCodyUploadedDoc]=useState(null); // {name, type, pages:[dataUrl,...]}
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
+  const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset}
 
   // ── Split-pane: detect if agent has active project context ──
   const hasDocCtx = (agent.id==="compliance" && !!connieCtx) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="finn" && !!finnCtx) || (agent.id==="carrie" && !!carrieCtx);
@@ -5164,41 +5171,26 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
       const _csLastMsg = history[history.length-1];
       if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input)){
-        printCallSheetPDF(_csLastMsg._pendingExport.csData);
+        const _yEl=document.getElementById("onna-cs-print");
+        if(_yEl){const _yC=_yEl.cloneNode(true);_yC.querySelectorAll("button").forEach(b=>b.remove());_yC.querySelectorAll("input[type=file]").forEach(b=>b.remove());_yC.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const _yF=document.createElement("iframe");_yF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_yF);const _yD=_yF.contentDocument;_yD.open();_yD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_yD.close();_yD.body.appendChild(_yD.adoptNode(_yC));setTimeout(()=>{_yF.contentWindow.focus();_yF.contentWindow.print();setTimeout(()=>document.body.removeChild(_yF),1000);},300);}
+        else{printCallSheetPDF(_csLastMsg._pendingExport.csData);}
         setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-      // Export / PDF intent (before fuzzyMatch to avoid false project switches)
+      // Export / PDF intent — uses exact same DOM clone as BtnExport button
       if(/\b(export|pdf|download|print|save)\b/i.test(input)){
-        const csVersions_ex=callSheetStore?.[project.id]||[];
-        const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
-        const csData_ex=csVersions_ex[vIdx_ex];
-        if(!csData_ex){setMsgs([...history,{role:"assistant",content:"No call sheet found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
-
-        // Gather missing fields
-        const missing=[];
-        if(!csData_ex.shootName) missing.push("Shoot Name");
-        if(!csData_ex.date) missing.push("Date");
-        if(!csData_ex.dayNumber) missing.push("Day Number");
-        if(!csData_ex.productionContacts) missing.push("Production Contacts");
-        const emptyVenues=(csData_ex.venueRows||[]).filter(v=>!v.value).map(v=>v.label);
-        if(emptyVenues.length) missing.push(...emptyVenues.map(v=>`Venue: ${v}`));
-        const emptySchedule=(csData_ex.schedule||[]).filter(s=>!s.time&&!s.activity).length;
-        if(emptySchedule===(csData_ex.schedule||[]).length&&emptySchedule>0) missing.push("Schedule (all rows empty)");
-        const emptyCrew=[];
-        (csData_ex.departments||[]).forEach(d=>{
-          const unfilled=d.crew.filter(c=>!c.name);
-          if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`); });
-        if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
-
-        if(missing.length>0){
-          setMsgs([...history,{role:"assistant",content:`⚠️ Are you sure you want to export? You're missing information on this call sheet.\n\nSay "yes" to export anyway, or ask me "what's missing" for a full breakdown.`,_pendingExport:{csData:csData_ex}}]);
-          setLoading(false);setMood("idle");return;
+        const el=document.getElementById("onna-cs-print");
+        if(el){
+          const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
+          const _iframe=document.createElement("iframe");_iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_iframe);
+          const _doc=_iframe.contentDocument;_doc.open();_doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_doc.close();
+          _doc.body.appendChild(_doc.adoptNode(clone));setTimeout(()=>{_doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(x=>x.remove());_iframe.contentWindow.focus();_iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(_iframe),1000);},300);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+        }else{
+          printCallSheetPDF((callSheetStore?.[project.id]||[])[Math.min(vIdx,(callSheetStore?.[project.id]||[]).length-1)]);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
         }
-
-        printCallSheetPDF(csData_ex);
-        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -5485,6 +5477,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }
         }else{
+          // Post-response export fallback: if the LLM mentioned exporting, trigger print
+          if(/\b(export|print|pdf)\b/i.test(fullText)&&/🖨️|📄|print dialog/i.test(fullText)){
+            const _prEl=document.getElementById("onna-cs-print");
+            if(_prEl){const _prC=_prEl.cloneNode(true);_prC.querySelectorAll("button").forEach(b=>b.remove());_prC.querySelectorAll("input[type=file]").forEach(b=>b.remove());_prC.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const _prF=document.createElement("iframe");_prF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_prF);const _prD=_prF.contentDocument;_prD.open();_prD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_prD.close();_prD.body.appendChild(_prD.adoptNode(_prC));setTimeout(()=>{_prF.contentWindow.focus();_prF.contentWindow.print();setTimeout(()=>document.body.removeChild(_prF),1000);},300);}
+          }
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
         }
         setMood("excited");setTimeout(()=>setMood("idle"),2500);
@@ -6044,38 +6041,32 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setMsgs([...history,{role:"assistant",content:"Taking you to your risk assessments now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
-      // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
+      // Handle "yes, export" confirmation
       const lastMsg_ex = history[history.length-1];
       if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
-        printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment (${lastMsg_ex._pendingExport.label}) \u2014 save it as PDF from there!`}]);
+        const _ryEl=document.getElementById("onna-ra-print");
+        if(_ryEl){const _ryC=_ryEl.cloneNode(true);_ryC.querySelectorAll("button").forEach(b=>b.remove());_ryC.querySelectorAll("input[type=file]").forEach(b=>b.remove());const _ryF=document.createElement("iframe");_ryF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_ryF);const _ryD=_ryF.contentDocument;_ryD.open();_ryD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_ryD.close();_ryD.body.appendChild(_ryD.adoptNode(_ryC));setTimeout(()=>{_ryF.contentWindow.focus();_ryF.contentWindow.print();setTimeout(()=>document.body.removeChild(_ryF),1000);},300);}
+        else{printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);}
+        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment — save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
-      // Export / PDF intent (before fuzzyMatch to avoid false project switches)
-      if(/\b(export|pdf|download|print|save\s*as|generate\s*(a\s*)?pdf)\b/i.test(input)){
-        const raVersions_ex=riskAssessmentStore?.[project.id]||[];
-        const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
-        const ver_ex=raVersions_ex[vIdx_ex];
-        if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
-        const _missing=[];
-        if(!ver_ex.shootName) _missing.push("Shoot Name");
-        if(!ver_ex.shootDate) _missing.push("Shoot Date");
-        if(!ver_ex.locations) _missing.push("Locations");
-        if(!ver_ex.crewOnSet) _missing.push("Crew on Set");
-        if(!ver_ex.timing) _missing.push("Timing");
-        if(!(ver_ex.sections||[]).length) _missing.push("Risk Sections (none added)");
-        (ver_ex.sections||[]).forEach(s=>{
-          const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);
-          if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);
-          s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);}); });
-        if(!(ver_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
-        if(!(ver_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
-        if(!(ver_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
-        if(_missing.length>0){
-          const warnMsg=`Before exporting, I noticed the following fields are missing or incomplete:\n\n${_missing.map(m=>`- ${m}`).join("\n")}\n\nAre you sure you want to export as-is? Type **"yes, export"** to proceed, or let me know what you'd like to fill in first.`;
-          setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
-          setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
+      // Export / PDF intent — uses exact same DOM clone as BtnExport
+      if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+        const _raEl=document.getElementById("onna-ra-print");
+        if(_raEl){
+          const _raC=_raEl.cloneNode(true);_raC.querySelectorAll("button").forEach(b=>b.remove());_raC.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+          const _raF=document.createElement("iframe");_raF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_raF);
+          const _raD=_raF.contentDocument;_raD.open();_raD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raD.close();
+          _raD.body.appendChild(_raD.adoptNode(_raC));setTimeout(()=>{_raD.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(x=>x.remove());_raF.contentWindow.focus();_raF.contentWindow.print();setTimeout(()=>document.body.removeChild(_raF),1000);},300);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
+        }else{
+          const ver_ex=(riskAssessmentStore?.[project.id]||[])[Math.min(vIdx,(riskAssessmentStore?.[project.id]||[]).length-1)];
+          if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
+          printRiskAssessmentPDF(ver_ex);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
         }
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
         printRiskAssessmentPDF(ver_ex);
         setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} — save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
@@ -6192,6 +6183,11 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n\u26a0\ufe0f Could not parse patch: "+pe.message}]);
           }
         }else{
+          // Post-response export fallback: if the LLM mentioned exporting, trigger print
+          if(/\b(export|print|pdf)\b/i.test(fullText)&&/🖨️|📄|print dialog/i.test(fullText)){
+            const _rrEl=document.getElementById("onna-ra-print");
+            if(_rrEl){const _rrC=_rrEl.cloneNode(true);_rrC.querySelectorAll("button").forEach(b=>b.remove());_rrC.querySelectorAll("input[type=file]").forEach(b=>b.remove());const _rrF=document.createElement("iframe");_rrF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_rrF);const _rrD=_rrF.contentDocument;_rrD.open();_rrD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_rrD.close();_rrD.body.appendChild(_rrD.adoptNode(_rrC));setTimeout(()=>{_rrF.contentWindow.focus();_rrF.contentWindow.print();setTimeout(()=>document.body.removeChild(_rrF),1000);},300);}
+          }
           setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
         }
         setMood("excited");setTimeout(()=>setMood("idle"),2500);
@@ -6200,19 +6196,92 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     }
 
     // ── Cody: sign/stamp/letterhead on uploaded document ─────────────────────
-    if(agent.id==="contracts"&&codyUploadedDoc){
-      const wantSign=/\b(sign|signature)\b/i.test(input);
-      const wantStamp=/\b(stamp|seal)\b/i.test(input);
-      const wantLetterhead=/\b(letterhead|company letter)/i.test(input);
-      if(wantSign||wantStamp||wantLetterhead){
+    if(agent.id==="contracts"){
+      // ── Parse page targets from natural language ──
+      const _parsePageTarget=(text,keyword)=>{
+        const kw=keyword?keyword+`[a-z]*`:"";
+        const kwAll=kw?new RegExp(kw+`\\s+(?:on\\s+)?(?:all|every)\\s+page`,"i"):null;
+        const kwFirst=kw?new RegExp(kw+`\\s+(?:on\\s+)?(?:first|1st)\\s+page`,"i"):null;
+        const kwLast=kw?new RegExp(kw+`\\s+(?:on\\s+)?(?:last|final)\\s+page`,"i"):null;
+        const kwPage=kw?new RegExp(kw+`\\s+(?:on\\s+)?page\\s+(\\d+)`,"i"):null;
+        if(kwAll&&kwAll.test(text))return"all";
+        if(kwFirst&&kwFirst.test(text))return"first";
+        if(kwLast&&kwLast.test(text))return"last";
+        if(kwPage){const m=text.match(kwPage);if(m)return parseInt(m[1],10)-1;}
+        if(/\b(all|every)\s+page/i.test(text))return"all";
+        if(/\b(first|1st)\s+page/i.test(text))return"first";
+        if(/\b(last|final)\s+page/i.test(text))return"last";
+        const ordMap={second:1,third:2,fourth:3,fifth:4,"2nd":1,"3rd":2,"4th":3,"5th":4};
+        for(const[w,idx]of Object.entries(ordMap)){if(new RegExp("\\b"+w+"\\s+page","i").test(text))return idx;}
+        const pgM=text.match(/\bpage\s+(\d+)\b/i);
+        if(pgM)return parseInt(pgM[1],10)-1;
+        return null;
+      };
+      // ── Adjustment intent (move up/down, change pages) ──
+      const isAdjust=codyDocConfigRef.current&&(/\bmove\b.*\b(up|higher|down|lower)\b/i.test(input)||/\b(all|every)\s+page/i.test(input)||/\bpage\s+\d+/i.test(input)||/\b(first|1st|last|final|second|third|fourth|fifth|2nd|3rd|4th|5th)\s+page/i.test(input));
+      if(isAdjust){
         setMsgs(history);setInput("");setLoading(true);setMood("talking");
         try{
-          const result=await processDocSignStamp(codyUploadedDoc,{wantSign,wantStamp,wantLetterhead});
-          const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
-          setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions} to your document. Click the preview below to export as PDF.`,_docPreview:result}]);
-          setCodyUploadedDoc(null);setMood("excited");setTimeout(()=>setMood("idle"),2500);
-        }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't process the document: ${err.message}`}]);setMood("idle");}
+          const cfg={...codyDocConfigRef.current};
+          if(/\bmove\b.*\b(up|higher)\b/i.test(input)){
+            if(/\b(stamp|seal)\b/i.test(input))cfg.stampOffset=(cfg.stampOffset||0)-80;
+            else cfg.signOffset=(cfg.signOffset||0)-80;
+          }
+          if(/\bmove\b.*\b(down|lower)\b/i.test(input)){
+            if(/\b(stamp|seal)\b/i.test(input))cfg.stampOffset=(cfg.stampOffset||0)+80;
+            else cfg.signOffset=(cfg.signOffset||0)+80;
+          }
+          const newSignPages=_parsePageTarget(input,"sign");
+          const newStampPages=_parsePageTarget(input,"stamp");
+          const newLetterPages=_parsePageTarget(input,"letter");
+          if(newSignPages!==null)cfg.signPages=newSignPages;
+          if(newStampPages!==null)cfg.stampPages=newStampPages;
+          if(newLetterPages!==null)cfg.letterPages=newLetterPages;
+          if(!newSignPages&&!newStampPages&&!newLetterPages&&/\b(all|every)\s+page/i.test(input)){
+            if(cfg.wantSign)cfg.signPages="all";
+            if(cfg.wantStamp)cfg.stampPages="all";
+            if(cfg.wantLetterhead)cfg.letterPages="all";
+          }
+          const result=await processDocSignStamp(cfg.originalDoc,cfg);
+          codyDocConfigRef.current=cfg;
+          const desc=[];
+          if(/\bmove\b/i.test(input))desc.push("adjusted position");
+          if(newSignPages!==null||newStampPages!==null||newLetterPages!==null||(/\b(all|every)\s+page/i.test(input)&&!newSignPages&&!newStampPages&&!newLetterPages))desc.push("updated page placement");
+          if(!desc.length)desc.push("re-processed");
+          const newMsgs=[...history];
+          const lastAssistIdx=newMsgs.map((m,i)=>m.role==="assistant"?i:-1).filter(i=>i>=0).pop();
+          if(lastAssistIdx!=null&&newMsgs[lastAssistIdx]._docPreview){
+            newMsgs[lastAssistIdx]={...newMsgs[lastAssistIdx],_docPreview:result,content:`Updated! I've ${desc.join(" and ")}. Click the preview to export.`};
+            setMsgs(newMsgs);
+          }else{
+            setMsgs([...history,{role:"assistant",content:`Done! I've ${desc.join(" and ")}. Click the preview to export.`,_docPreview:result}]);
+          }
+          setMood("excited");setTimeout(()=>setMood("idle"),2500);
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't adjust: ${err.message}`}]);setMood("idle");}
         setLoading(false);return;
+      }
+      // ── New processing ──
+      if(codyUploadedDoc){
+        const wantSign=/\b(sign|signature)\b/i.test(input);
+        const wantStamp=/\b(stamp|seal)\b/i.test(input);
+        const wantLetterhead=/\b(letterhead|company letter)/i.test(input);
+        if(wantSign||wantStamp||wantLetterhead){
+          setMsgs(history);setInput("");setLoading(true);setMood("talking");
+          try{
+            const signPages=_parsePageTarget(input,"sign")||(wantSign?"last":undefined);
+            const stampPages=_parsePageTarget(input,"stamp")||(wantStamp?"last":undefined);
+            const letterPages=_parsePageTarget(input,"letter")||(wantLetterhead?"first":undefined);
+            const allPages=/\b(all|every)\s+page/i.test(input);
+            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign&&signPages==="last"?"all":signPages,stampPages:allPages&&wantStamp&&stampPages==="last"?"all":stampPages,letterPages:allPages&&wantLetterhead&&letterPages==="first"?"all":letterPages,signOffset:0,stampOffset:0};
+            const result=await processDocSignStamp(codyUploadedDoc,cfg);
+            codyDocConfigRef.current=cfg;
+            const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
+            const pageNote=allPages?" on all pages":"";
+            setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions}${pageNote} to your document. Click the preview below to export as PDF.\n\nYou can adjust: "Move signature up/down" \u00b7 "Move stamp up/down" \u00b7 "Apply to all pages"`,_docPreview:result}]);
+            setCodyUploadedDoc(null);setMood("excited");setTimeout(()=>setMood("idle"),2500);
+          }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't process the document: ${err.message}`}]);setMood("idle");}
+          setLoading(false);return;
+        }
       }
     }
 
@@ -6913,7 +6982,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
     {/* inline input bar */}
     <div style={{padding:"10px 12px",background:"white",borderTop:pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"none":"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
       {(agent.id==="compliance"||agent.id==="researcher")&&<Fragment><button onClick={()=>attachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={attachRef} type="file" accept="image/*" multiple onChange={e=>{const files=Array.from(e.target.files||[]);files.forEach(f=>{const reader=new FileReader();reader.onload=ev=>{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl:ev.target.result}]);};reader.readAsDataURL(f);});e.target.value="";}} style={{display:"none"}}/></Fragment>}
-      {agent.id==="contracts"&&<Fragment><label style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s",display:"flex",alignItems:"center",justifyContent:"center"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎<input type="file" accept="application/pdf,.pdf,.doc,.docx,image/*" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";const isPdf=f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf");const isImg=f.type.startsWith("image/");const reader=new FileReader();reader.onload=async ev=>{const dataUrl=ev.target.result;try{if(isPdf){const pages=await loadPdfPages(dataUrl);setCodyUploadedDoc({name:f.name,type:"application/pdf",pages});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name} (${pages.length} page${pages.length>1?"s":""})`},{role:"assistant",content:`Got it! I've loaded "${f.name}" (${pages.length} page${pages.length>1?"s":""}). What would you like me to do?\n\n• "Sign this" — add signature\n• "Stamp this" — add company stamp\n• "Put on company letterhead" — add ONNA header\n• Or combine: "Sign and stamp on company letterhead"`}]);}else if(isImg){setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`Got "${f.name}"! What would you like me to do — sign, stamp, or put on letterhead?`}]);}else{setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`I received "${f.name}". Note: I can only preview PDF and image files. For Word docs, I can still apply sign/stamp when you export.`}]);}}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load document: ${err.message}`}]);}};reader.readAsDataURL(f);}} style={{display:"none"}}/></label></Fragment>}
+      {agent.id==="contracts"&&<Fragment><label style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s",display:"flex",alignItems:"center",justifyContent:"center"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎<input type="file" accept="application/pdf,.pdf,.doc,.docx,image/*" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";const isPdf=f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf");const isImg=f.type.startsWith("image/");const reader=new FileReader();reader.onload=async ev=>{const dataUrl=ev.target.result;try{if(isPdf){const pages=await loadPdfPages(dataUrl);setCodyUploadedDoc({name:f.name,type:"application/pdf",pages});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name} (${pages.length} page${pages.length>1?"s":""})`},{role:"assistant",content:`Got it! I've loaded "${f.name}" (${pages.length} page${pages.length>1?"s":""}). What would you like me to do?\n\n• "Sign this" — add signature (last page by default)\n• "Stamp all pages" — add stamp to every page\n• "Sign and stamp on company letterhead"\n• "Sign page 3" — apply to a specific page\n• After applying: "Move signature up" / "Move stamp down"`}]);}else if(isImg){setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`Got "${f.name}"! What would you like me to do — sign, stamp, or put on letterhead?`}]);}else{setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`I received "${f.name}". Note: I can only preview PDF and image files. For Word docs, I can still apply sign/stamp when you export.`}]);}}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load document: ${err.message}`}]);}};reader.readAsDataURL(f);}} style={{display:"none"}}/></label></Fragment>}
       <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} style={{background:loading||(!input.trim()&&!attachments.length)?"#e5e5ea":"#1d1d1f",border:"none",color:loading||(!input.trim()&&!attachments.length)?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||(!input.trim()&&!attachments.length)?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
     </div>
