@@ -725,7 +725,7 @@ const CPSConnie = React.forwardRef(function CPSConnieInner({ initialProject, ini
   const [phases, setPhasesRaw] = useState(() => initialPhases || cpsDefaultPhases());
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [tab, setTab] = useState("timeline");
-  const [printAll, setPrintAll] = useState(false);
+  const [printTabs, setPrintTabs] = useState(null); // null=normal, Set of tabs to force-render
   const printRef = useRef(null);
 
   /* Undo system */
@@ -866,11 +866,11 @@ ${PRINT_CLEANUP_CSS}
     printViaIframe(cleanClone(el));
   };
   const exportAllPDF = () => {
-    setPrintAll(true);
+    setPrintTabs(new Set(["schedule","timeline","calendar"]));
     setTimeout(() => {
       const el = printRef.current; if (!el) { setPrintAll(false); return; }
       printViaIframe(cleanClone(el));
-      setTimeout(() => setPrintAll(false), 100);
+      setTimeout(() => setPrintTabs(null), 100);
     }, 200);
   };
   /* Share: capture rendered HTML, POST to /api/cps-share, returns a live URL */
@@ -883,7 +883,7 @@ ${PRINT_CLEANUP_CSS}
     };
     let html = null;
     if (mode === "all") {
-      setPrintAll(true);
+      setPrintTabs(new Set(["schedule","timeline","calendar"]));
       await new Promise(r => setTimeout(r, 250));
       html = captureHtml();
       setPrintAll(false);
@@ -1003,7 +1003,7 @@ ${PRINT_CLEANUP_CSS}
         </div>
 
         {/* \u2550\u2550\u2550 SCHEDULE TAB \u2550\u2550\u2550 */}
-        {(tab === "schedule" || printAll) && <>
+        {(tab === "schedule" || (printTabs && printTabs.has("schedule"))) && <>
         {/* Progress bar */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -1154,8 +1154,8 @@ ${PRINT_CLEANUP_CSS}
         </>}
 
         {/* ═══ TIMELINE TAB ═══ */}
-        {printAll && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CPS_F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>TIMELINE</span></div>}
-        {(tab === "timeline" || printAll) && (() => {
+        {(printTabs && printTabs.has("timeline") && printTabs.has("schedule")) && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CPS_F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>TIMELINE</span></div>}
+        {(tab === "timeline" || (printTabs && printTabs.has("timeline"))) && (() => {
           /* Parse dates from tasks to build timeline */
           const parseDate = (str) => {
             if (!str || str.startsWith("[")) return null;
@@ -1341,8 +1341,8 @@ ${PRINT_CLEANUP_CSS}
         })()}
 
         {/* ═══ CALENDAR TAB ═══ */}
-        {printAll && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CPS_F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>CALENDAR</span></div>}
-        {(tab === "calendar" || printAll) && (() => {
+        {(printTabs && printTabs.has("calendar") && (printTabs.has("schedule") || printTabs.has("timeline"))) && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CPS_F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>CALENDAR</span></div>}
+        {(tab === "calendar" || (printTabs && printTabs.has("calendar"))) && (() => {
           const parseDate = (str) => {
             if (!str || str.startsWith("[")) return null;
             const parts = str.split("/");
@@ -6865,6 +6865,14 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
         setConnieCtx(null);setConnieDietMode(null);
         setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Switch / open another project
+      if(/\b(switch|change|another|different|other|pick another|new project|open another|swap)\b.*\bproject\b/i.test(input)||/\bproject\b.*\b(switch|change|another|different|other|swap)\b/i.test(input)||/^\s*(switch|change)\s*(project)?\s*$/i.test(input)){
+        setConnieCtx(null);setConnieDietMode(null);
+        const list=localProjects.filter(p=>p.client!=="TEMPLATE").map((p,i)=>`${i+1}. ${p.name}${p.client?" ("+p.client+")":""}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Which project should I switch to?\n\n${list}\n\nPick a number or name.`}]);
         setLoading(false);setMood("idle");return;
       }
 
