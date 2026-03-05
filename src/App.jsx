@@ -947,7 +947,7 @@ const CPSConnie = React.forwardRef(function CPSConnieInner({ initialProject, ini
   const printViaIframe = (clone) => {
     const fontRules = collectFontRules();
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
@@ -1864,7 +1864,7 @@ function ShotListConnie({ initialProject, initialScenes, onChangeProject, onChan
   };
   const slPrintViaIframe = (clone) => {
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
@@ -2315,7 +2315,7 @@ const LocationsConnie = React.forwardRef(function LocationsConnieInner({ initial
   const printViaIframe = (clone) => {
     const fontRules = collectFontRules();
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
@@ -2855,7 +2855,7 @@ function StoryboardConnie({ initialProject, initialFrames, onChangeProject, onCh
   };
   const sbPrintViaIframe = (clone) => {
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
@@ -10101,9 +10101,9 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           {_renderAgentChat()}
         </div>
       </div>
-    ) : hasDocCtx && !isMobile ? (
-      <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:agent.id==="billie"?"0 0 60%":"0 0 50%",borderRight:"1.5px solid #e5e5ea",overflow:"hidden"}}>
+    ) : hasDocCtx ? (
+      <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"50%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
@@ -10121,7 +10121,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             onDietarySelect={(idx)=>{setConnieDietMode(null);const proj=localProjects?.find(p=>p.id===docProjectId);if(proj&&onNavigateToDoc){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}
             projectInfoRef={projectInfoRef}/>
         </div>
-        <div style={{flex:agent.id==="billie"?"0 0 40%":"0 0 50%",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 40%":"0 0 50%"),height:isMobile?"50%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -11248,6 +11248,7 @@ export default function OnnaDashboard() {
   );
 
   const [isMobile,setIsMobile] = useState(()=>window.innerWidth<768);
+  const [mobileMenuOpen,setMobileMenuOpen] = useState(false);
   useEffect(()=>{const fn=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn);},[]);
 
   const [searches,setSearches]                           = useState({});
@@ -12973,13 +12974,14 @@ export default function OnnaDashboard() {
         const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
 
         // Print export — clone the document and print
-        const doActPrint = () => { const el=document.getElementById("actuals-print-area"); if(!el)return; const clone=el.cloneNode(true); clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove()); clone.querySelectorAll('button').forEach(n=>n.remove()); const w=window.open("","_blank"); w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:0;size:A4 landscape;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:10mm 8mm;}}${PRINT_CLEANUP_CSS}</style></head><body>'); w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>{w.document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());w.print();},500); };
+        const doActPrint = () => { const el=document.getElementById("actuals-print-area"); if(!el)return; const clone=el.cloneNode(true); clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove()); clone.querySelectorAll('button').forEach(n=>n.remove()); const w=window.open("","_blank"); w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;min-width:900px}@media print{@page{margin:0;size:A4 landscape;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:10mm 8mm;}}${PRINT_CLEANUP_CSS}</style></head><body>'); w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>{w.document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());w.print();},500); };
 
         return (
         <div>
           <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>&#8249; Back to Budget</button>
 
           {/* Document container — matches EstimateView style */}
+          <div style={{ overflowX:"auto",margin:isMobile?"0 -16px":"0",padding:isMobile?"0 16px":"0" }}>
           <div style={{ maxWidth:1000,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700 }}>
             {/* Tab bar */}
             <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
@@ -13153,6 +13155,7 @@ export default function OnnaDashboard() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
         );
@@ -13992,7 +13995,7 @@ export default function OnnaDashboard() {
         const ctExportPDF = () => {
           const el=document.getElementById("onna-ct-print");if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
-          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:1000px;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
           const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);idoc.close();
           idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{idoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
@@ -14022,7 +14025,8 @@ export default function OnnaDashboard() {
             )}
             <div style={{marginBottom:10,fontSize:11,color:T.muted}}>Label: <input value={ctData.label||""} onChange={e=>ctU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:220}} placeholder={ctContract.label}/></div>
 
-            <div id="onna-ct-print" style={{background:"#fff",padding:"40px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto"}}>
+            <div style={{overflowX:"auto",margin:isMobile?"0 -16px":"0",padding:isMobile?"0 16px":"0"}}>
+            <div id="onna-ct-print" style={{background:"#fff",padding:"40px 40px",fontFamily:CT_FONT,color:"#1a1a1a",lineHeight:1.5,maxWidth:880,margin:"0 auto",minWidth:600}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={ctData.prodLogo} onUpload={v=>ctU("prodLogo",v)} onRemove={()=>ctU("prodLogo",null)}/>
               </div>
@@ -14082,6 +14086,7 @@ export default function OnnaDashboard() {
                 <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
                 <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
               </div>
+            </div>
             </div>
           </div>
         );
@@ -15747,11 +15752,12 @@ export default function OnnaDashboard() {
             {!isMobile&&apiLoading&&<span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}><span style={{width:6,height:6,borderRadius:"50%",background:"#92680a",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}/>Syncing…</span>}
             {!isMobile&&apiError&&!apiLoading&&<span title={`API: ${apiError}`} style={{fontSize:11,color:"#c0392b",cursor:"default"}}>● Offline</span>}
             {!isMobile&&!apiLoading&&!apiError&&<span style={{fontSize:11,color:"#147d50",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"#147d50",display:"inline-block"}}/>Live</span>}
+            {isMobile&&<button onClick={()=>setMobileMenuOpen(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:6,fontSize:18,lineHeight:1,color:T.text,fontFamily:"inherit"}}>{mobileMenuOpen?"✕":"☰"}</button>}
           </div>
         </div>
 
         {/* Scroll area */}
-        <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:`${P}px ${P}px ${isMobile?80:44}px`}}>
+        <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:`${P}px ${P}px 44px`}}>
 
           {/* ══ DASHBOARD ══ */}
           {activeTab==="Dashboard"&&(
@@ -16605,7 +16611,7 @@ export default function OnnaDashboard() {
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",minHeight:useWideLayout?600:undefined}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:useWideLayout?undefined:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 180px)":useWideLayout?"calc(100vh - 200px)":"100%",maxWidth:1400,width:"100%"}}>
+                <div style={{flex:useWideLayout?undefined:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 120px)":useWideLayout?"calc(100vh - 200px)":"100%",maxWidth:1400,width:"100%"}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
@@ -16964,24 +16970,27 @@ export default function OnnaDashboard() {
         </div>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV ── */}
-      {isMobile&&(
-        <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(255,255,255,0.95)",borderTop:`1px solid ${T.border}`,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
-          {TABS.map(t=>(
-            <button key={t.id} onClick={()=>changeTab(t.id)} className="bottom-nav-btn" style={{color:activeTab===t.id?"#1d1d1f":"#aeaeb2"}}>
-              <StarIcon size={activeTab===t.id?13:11} color={activeTab===t.id?(t.starColor||"currentColor"):"currentColor"}/>
-              <span style={{fontSize:9,fontWeight:activeTab===t.id?700:500,letterSpacing:"0.04em"}}>{t.label}</span>
+      {/* ── MOBILE DROPDOWN MENU ── */}
+      {isMobile&&mobileMenuOpen&&(
+        <>
+          <div onClick={()=>setMobileMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:199,background:"rgba(0,0,0,0.25)"}}/>
+          <div style={{position:"fixed",top:50,left:0,right:0,zIndex:200,background:"rgba(255,255,255,0.98)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:`1px solid ${T.border}`,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",maxHeight:"calc(100vh - 60px)",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+            {TABS.map(t=>(
+              <button key={t.id} onClick={()=>{changeTab(t.id);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:activeTab===t.id?"#f5f5f7":"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit"}}>
+                <StarIcon size={12} color={activeTab===t.id?(t.starColor||"#1d1d1f"):"#aeaeb2"}/>
+                <span style={{fontSize:13,fontWeight:activeTab===t.id?700:500,letterSpacing:"0.04em",color:activeTab===t.id?"#1d1d1f":"#666"}}>{t.label}</span>
+              </button>
+            ))}
+            <button onClick={()=>{setShowArchive(true);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit"}}>
+              <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="#aeaeb2" strokeWidth="1.3"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="#aeaeb2" strokeWidth="1.3"/><path d="M4.5 7h3" stroke="#aeaeb2" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <span style={{fontSize:13,fontWeight:500,letterSpacing:"0.04em",color:"#666"}}>ARCHIVE</span>
             </button>
-          ))}
-          <button onClick={()=>setShowArchive(true)} className="bottom-nav-btn" style={{color:"#aeaeb2"}}>
-            <svg width={11} height={11} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.3"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-            <span style={{fontSize:9,fontWeight:500,letterSpacing:"0.04em"}}>ARCHIVE</span>
-          </button>
-          <button onClick={()=>{localStorage.removeItem("onna_token");setAuthed(false);}} className="bottom-nav-btn" style={{color:"#aeaeb2"}}>
-            <svg width={11} height={11} viewBox="0 0 12 12" fill="none"><path d="M4.5 2H2a1 1 0 00-1 1v6a1 1 0 001 1h2.5M8 9l3-3-3-3M11 6H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <span style={{fontSize:9,fontWeight:500,letterSpacing:"0.04em"}}>SIGN OUT</span>
-          </button>
-        </div>
+            <button onClick={()=>{localStorage.removeItem("onna_token");setAuthed(false);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+              <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M4.5 2H2a1 1 0 00-1 1v6a1 1 0 001 1h2.5M8 9l3-3-3-3M11 6H5" stroke="#aeaeb2" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span style={{fontSize:13,fontWeight:500,letterSpacing:"0.04em",color:"#666"}}>SIGN OUT</span>
+            </button>
+          </div>
+        </>
       )}
 
       {/* ── LEAD MODAL ── */}
