@@ -8244,6 +8244,8 @@ export default function OnnaDashboard() {
   const [activeRAVersion,setActiveRAVersion]             = useState(null);
   const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
   const [activeContractVersion,setActiveContractVersion] = useState(null);
+  const [cpsStore,setCpsStore]                           = useState(()=>{try{const s=localStorage.getItem('onna_cps');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeCPSVersion,setActiveCPSVersion]           = useState(null);
   const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
   const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
@@ -8437,6 +8439,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{}},[cpsStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{}},[dietaryStore]);
