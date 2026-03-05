@@ -589,7 +589,7 @@ const CpsCell = ({ value, onChange, style = {}, align = "left", placeholder = ""
         minHeight: 18, textAlign: align, whiteSpace: "pre-wrap", ...style }}
       onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-      {value ? <Hl text={value} /> : <span style={{ color: "#ddd" }}>{placeholder || "—"}</span>}
+      {value ? <CpsHl text={value} /> : <span style={{ color: "#ddd" }}>{placeholder || "—"}</span>}
     </div>
   );
 };
@@ -6974,73 +6974,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
         const raLabels=riskAssessmentStore?.[project.id]||[];
         if(raLabels.length===0){
-          setRonnieCtx({projectId:project.id,_step:"create_label"});
-          setMsgs([...history,{role:"assistant",content:`No risk assessments for ${project.name} yet. What should I call this risk assessment? (e.g. Shoot Day, Recce Day, Pre-Production)`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        if(raLabels.length===1){
+          const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
+          setRiskAssessmentStore(prev=>({...prev,[project.id]:[newRA]}));
           setRonnieCtx({projectId:project.id,vIdx:0});
           if(setActiveRAVersion)setActiveRAVersion(0);
-          addRonnieTab(project.id,0,project.name);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name}'s risk assessment (${raLabels[0].label||"Untitled"}). What would you like to do?`}]);
+          addRonnieTab(project.id,0,`${project.name} · [Untitled]`);
+          setMsgs([...history,{role:"assistant",content:`Created a new risk assessment for ${project.name}. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
-        // Multiple RAs — show numbered list
-        setRonnieCtx({projectId:project.id,_step:"pick_label"});
-        const list=raLabels.map((v,i)=>`${i+1}. ${v.label||"Untitled"}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`${project.name} has ${raLabels.length} risk assessments:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
-        setLoading(false);setMood("idle");return;
-      }
-
-      // ── Step: create_label — waiting for label name ──
-      if(ronnieCtx._step==="create_label"){
-        const project=localProjects?.find(p=>p.id===ronnieCtx.projectId);
-        if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
-        const labelName=input.trim();
-        if(!labelName||labelName.length<1){
-          setMsgs([...history,{role:"assistant",content:"Give me a name for this risk assessment (e.g. Shoot Day, Recce Day)."}]);
-          setLoading(false);setMood("idle");return;
-        }
-        const raLabels=riskAssessmentStore?.[project.id]||[];
-        const newRA={id:Date.now(),label:labelName,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
-        newRA.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
-        const _pi3=(projectInfoRef.current||{})[project.id];
-        if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;if(_pi3.crewOnSet)newRA.crewOnSet=_pi3.crewOnSet;}
-        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newRA);return store;});
-        const _li=new Image();_li.crossOrigin="anonymous";_li.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_li.naturalWidth;cv.height=_li.naturalHeight;cv.getContext("2d").drawImage(_li,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];const idx=arr.length-1;if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=du;}return s;});}catch{}};_li.src="/onna-default-logo.png";
-        const newIdx=raLabels.length;
-        setRonnieCtx({projectId:project.id,vIdx:newIdx});
-        if(setActiveRAVersion)setActiveRAVersion(newIdx);
-        addRonnieTab(project.id,newIdx,`${project.name} · ${labelName}`);
-        setMsgs([...history,{role:"assistant",content:`✓ Created ${labelName} for ${project.name}. I'm ready to work on it — tell me what risks to add, or ask me to review what's missing.`}]);
+        raLabels.forEach((v,i)=>{addRonnieTab(project.id,i,`${project.name} · ${v.label||`RA ${i+1}`}`);});
+        const lastIdx=raLabels.length-1;
+        setRonnieCtx({projectId:project.id,vIdx:lastIdx});
+        if(setActiveRAVersion)setActiveRAVersion(lastIdx);
+        setMsgs([...history,{role:"assistant",content:`Opened ${raLabels.length} risk assessment${raLabels.length>1?"s":""} for ${project.name}. What would you like to do?`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
-      // ── Step: pick_label — choosing from multiple RAs ──
-      if(ronnieCtx._step==="pick_label"){
-        const project=localProjects?.find(p=>p.id===ronnieCtx.projectId);
-        if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
-        const lower=input.toLowerCase();
-        const raLabels=riskAssessmentStore?.[project.id]||[];
-        if(/\b(create|new|add)\b/i.test(lower)){
-          setRonnieCtx({...ronnieCtx,_step:"create_label"});
-          setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment?"}]);
-          setLoading(false);setMood("idle");return;
-        }
-        const num=parseInt(input.trim(),10);
-        let matchIdx=-1;
-        if(num>=1&&num<=raLabels.length) matchIdx=num-1;
-        else matchIdx=raLabels.findIndex(v=>v.label&&lower.includes(v.label.toLowerCase()));
-        if(matchIdx>=0){
-          setRonnieCtx({projectId:project.id,vIdx:matchIdx});
-          if(setActiveRAVersion)setActiveRAVersion(matchIdx);
-          addRonnieTab(project.id,matchIdx,`${project.name} · ${raLabels[matchIdx].label}`);
-          setMsgs([...history,{role:"assistant",content:`Working on ${project.name} — ${raLabels[matchIdx].label}. What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        const list=raLabels.map((v,i)=>`${i+1}. ${v.label||"Untitled"}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Pick a risk assessment by number/name, or say **new**.\n\n${list}`}]);
-        setLoading(false);setMood("idle");return;
-      }
+
+      // Clean up any stale _step state
       if(ronnieCtx._step){setRonnieCtx(null);setLoading(false);setMood("idle");return;}
 
       // ── Ready state: editing ──
@@ -7118,17 +7068,18 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(switchProject){
         const raLabels=riskAssessmentStore?.[switchProject.id]||[];
         if(raLabels.length===0){
-          setRonnieCtx({projectId:switchProject.id,_step:"create_label"});
-          setMsgs([...history,{role:"assistant",content:`No risk assessments for ${switchProject.name} yet. What should I call this risk assessment?`}]);
-        }else if(raLabels.length===1){
+          const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
+          setRiskAssessmentStore(prev=>({...prev,[switchProject.id]:[newRA]}));
           setRonnieCtx({projectId:switchProject.id,vIdx:0});
           if(setActiveRAVersion)setActiveRAVersion(0);
-          addRonnieTab(switchProject.id,0,switchProject.name);
-          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} — ${raLabels[0].label||"Risk Assessment"}. What would you like to do?`}]);
+          addRonnieTab(switchProject.id,0,`${switchProject.name} · [Untitled]`);
+          setMsgs([...history,{role:"assistant",content:`Created a new risk assessment for ${switchProject.name}. What would you like to do?`}]);
         }else{
-          setRonnieCtx({projectId:switchProject.id,_step:"pick_label"});
-          const list=raLabels.map((v,i)=>`${i+1}. ${v.label||"Untitled"}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${raLabels.length} risk assessments:\n\n${list}\n\nPick one by number/name, or say **new**.`}]);
+          raLabels.forEach((v,i)=>{addRonnieTab(switchProject.id,i,`${switchProject.name} · ${v.label||`RA ${i+1}`}`);});
+          const lastIdx=raLabels.length-1;
+          setRonnieCtx({projectId:switchProject.id,vIdx:lastIdx});
+          if(setActiveRAVersion)setActiveRAVersion(lastIdx);
+          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} — opened ${raLabels.length} risk assessment${raLabels.length>1?"s":""}. What would you like to do?`}]);
         }
         setLoading(false);setMood("idle");return;
       }
@@ -13001,9 +12952,9 @@ export default function OnnaDashboard() {
                   let o=0;
                   const sg=groups.map(g=>{const d=(g.count/gt)*CIR,s={...g,d,o};o+=d;return s;});
                   return (
-                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px",display:"flex",flexDirection:"column"}}>
                       <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>{title}</div>
-                      <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
+                      <div style={{display:"flex",justifyContent:"center",marginBottom:16,flexShrink:0}}>
                         <svg width={156} height={156} viewBox="0 0 156 156">
                           <circle cx={78} cy={78} r={R} fill="none" stroke={T.borderSub} strokeWidth={22}/>
                           {sg.filter(g=>g.count>0).map((g,i)=>(
@@ -13014,9 +12965,9 @@ export default function OnnaDashboard() {
                           <text x={78} y={89} textAnchor="middle" style={{fontSize:10,fill:T.muted,fontFamily:"inherit"}}>total</text>
                         </svg>
                       </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                      <div style={{display:"flex",flexDirection:"column",gap:5,flex:1,overflowY:"auto"}}>
                         {sg.map((g,i)=>(
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:7}}>
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
                             <span style={{width:8,height:8,borderRadius:2,background:g.color,flexShrink:0}}/>
                             <span style={{fontSize:11.5,color:T.sub,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.label}</span>
                             <span style={{fontSize:12,fontWeight:600,color:T.text}}>{g.count}</span>
@@ -13067,7 +13018,7 @@ export default function OnnaDashboard() {
                       ))}
                     </div>
                     {/* Donuts Row */}
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22,alignItems:"start"}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
                       <Donut title="Conversion" groups={stageGroups}/>
                       <Donut title="By Category" groups={catGroups}/>
                       <Donut title="By Location" groups={locGroups}/>
