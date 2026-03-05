@@ -2846,7 +2846,6 @@ function _AgentDots({color}){
     {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:color,animation:`bop 1s ease-in-out ${i*0.18}s infinite`}}/>)}
   </div>;
 }
-function _AgentBubble({msg}){
 function DocPreviewDraggable({config,onReprocess,onExport}){
   const appliesTo=(rule,i,total)=>rule==="all"||(rule==="first"&&i===0)||(rule==="last"&&i===total-1)||rule===i;
   const [activePage,setActivePage]=useState(0);
@@ -2889,11 +2888,18 @@ function DocPreviewDraggable({config,onReprocess,onExport}){
     </div>
   </div>;
 }
+function _AgentBubble({msg,codyDocConfigRef,setMsgs}){
   const isAgent=msg.role==="assistant";
+  const handleDragReprocess=useCallback(async(newCfg)=>{
+    if(!codyDocConfigRef)return;
+    codyDocConfigRef.current=newCfg;
+    const result=await processDocSignStamp(newCfg.originalDoc,newCfg);
+    setMsgs(prev=>prev.map(m=>m===msg?{...m,_docPreview:result,_docConfig:newCfg}:m));
+  },[msg,codyDocConfigRef,setMsgs]);
   return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
     <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
       {msg._attachments&&msg._attachments.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:msg.content?6:0}}>{msg._attachments.map((att,ai)=><img key={ai} src={att.dataUrl} alt={att.name||"attachment"} style={{maxWidth:160,maxHeight:120,borderRadius:6,objectFit:"cover",border:"1px solid rgba(255,255,255,0.2)"}}/>)}</div>}
-      {msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
+      {msg._docPreview&&msg._docConfig&&codyDocConfigRef?<DocPreviewDraggable config={msg._docConfig} onReprocess={handleDragReprocess} onExport={()=>exportDocPreview(msg._docPreview)}/>:msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
         <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
         <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
         <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
@@ -6334,10 +6340,10 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const newMsgs=[...history];
           const lastAssistIdx=newMsgs.map((m,i)=>m.role==="assistant"?i:-1).filter(i=>i>=0).pop();
           if(lastAssistIdx!=null&&newMsgs[lastAssistIdx]._docPreview){
-            newMsgs[lastAssistIdx]={...newMsgs[lastAssistIdx],_docPreview:result,content:`Updated! I've ${desc.join(" and ")}. Click the preview to export.`};
+            newMsgs[lastAssistIdx]={...newMsgs[lastAssistIdx],_docPreview:result,_docConfig:cfg,content:`Updated! I've ${desc.join(" and ")}. Click the preview to export.`};
             setMsgs(newMsgs);
           }else{
-            setMsgs([...history,{role:"assistant",content:`Done! I've ${desc.join(" and ")}. Click the preview to export.`,_docPreview:result}]);
+            setMsgs([...history,{role:"assistant",content:`Done! I've ${desc.join(" and ")}. Click the preview to export.`,_docPreview:result,_docConfig:cfg}]);
           }
           setMood("excited");setTimeout(()=>setMood("idle"),2500);
         }catch(err){setMsgs([...history,{role:"assistant",content:`Oops, couldn't adjust: ${err.message}`}]);setMood("idle");}
@@ -6355,7 +6361,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
             const stampPages=_parsePageTarget(input,"stamp")||(wantStamp?"last":undefined);
             const letterPages=_parsePageTarget(input,"letter")||(wantLetterhead?"first":undefined);
             const allPages=/\b(all|every)\s+page/i.test(input);
-            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign&&signPages==="last"?"all":signPages,stampPages:allPages&&wantStamp&&stampPages==="last"?"all":stampPages,letterPages:allPages&&wantLetterhead&&letterPages==="first"?"all":letterPages,signOffset:0,stampOffset:0};
+            const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign&&signPages==="last"?"all":signPages,stampPages:allPages&&wantStamp&&stampPages==="last"?"all":stampPages,letterPages:allPages&&wantLetterhead&&letterPages==="first"?"all":letterPages,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0};
             const result=await processDocSignStamp(codyUploadedDoc,cfg);
             codyDocConfigRef.current=cfg;
             const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
@@ -8042,8 +8048,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{localStorage.setItem("onna_leads_view",leadsView);},[leadsView]);
   const [dashWidgetOrder,setDashWidgetOrder]=useState(()=>{try{const c=localStorage.getItem('onna_dash_widget_order');return c?JSON.parse(c):null;}catch{return null;}});
   useEffect(()=>{try{if(dashWidgetOrder)localStorage.setItem('onna_dash_widget_order',JSON.stringify(dashWidgetOrder));else localStorage.removeItem('onna_dash_widget_order');}catch{}},[dashWidgetOrder]);
-  const [dashWidgetSizes,setDashWidgetSizes]=useState(()=>{try{const c=localStorage.getItem('onna_dash_widget_sizes');return c?JSON.parse(c):null;}catch{return null;}});
-  useEffect(()=>{try{if(dashWidgetSizes)localStorage.setItem('onna_dash_widget_sizes',JSON.stringify(dashWidgetSizes));else localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[dashWidgetSizes]);
+
   const dashDragRef=useRef(null);
   const [mainDashOrder,setMainDashOrder]=useState(()=>{try{const c=localStorage.getItem('onna_main_dash_order');return c?JSON.parse(c):null;}catch{return null;}});
   useEffect(()=>{try{if(mainDashOrder)localStorage.setItem('onna_main_dash_order',JSON.stringify(mainDashOrder));else localStorage.removeItem('onna_main_dash_order');}catch{}},[mainDashOrder]);
@@ -8604,7 +8609,7 @@ export default function OnnaDashboard() {
     "onna_dietaries","onna_estimates","onna_project_info","onna_creative_links",
     "onna_lead_cats","onna_lead_locs","onna_vendor_cats","onna_vendor_locs",
     "onna_hidden_lead_cats","onna_hidden_vendor_cats",
-    "onna_dash_widget_order","onna_dash_widget_sizes","onna_main_dash_order","onna_archive"
+    "onna_dash_widget_order","onna_main_dash_order","onna_archive"
   ];
   const SYNC_TITLE = "__ONNA_SYNC__";
   const syncNoteIdRef = useRef(null);
@@ -8648,7 +8653,6 @@ export default function OnnaDashboard() {
       if (remote.onna_hidden_vendor_cats) setHiddenVendorBuiltins(remote.onna_hidden_vendor_cats);
       if (remote.onna_dash_widget_order) setDashWidgetOrder(remote.onna_dash_widget_order);
       if (remote.onna_main_dash_order) setMainDashOrder(remote.onna_main_dash_order);
-      if (remote.onna_dash_widget_sizes) setDashWidgetSizes(remote.onna_dash_widget_sizes);
       if (remote.onna_archive) setArchive(remote.onna_archive);
     } catch {}
   }, []); // eslint-disable-line
@@ -8698,7 +8702,7 @@ export default function OnnaDashboard() {
     if (!syncLoadedRef.current) return;
     pushSync();
     try { localStorage.setItem("onna_sync_ts", String(Date.now())); } catch {}
-  }, [dashNotesList, todos, projectTodos, callSheetStore, riskAssessmentStore, contractDocStore, travelItineraryStore, dietaryStore, projectEstimates, projectInfo, projectCreativeLinks, customLeadCats, customLeadLocs, customVendorCats, customVendorLocs, dashWidgetOrder, dashWidgetSizes, mainDashOrder, archive, pushSync]);
+  }, [dashNotesList, todos, projectTodos, callSheetStore, riskAssessmentStore, contractDocStore, travelItineraryStore, dietaryStore, projectEstimates, projectInfo, projectCreativeLinks, customLeadCats, customLeadLocs, customVendorCats, customVendorLocs, dashWidgetOrder, mainDashOrder, archive, pushSync]);
 
   const projStatusColor = {Active:"#147d50","In Review":"#92680a",Completed:T.muted};
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
@@ -11614,14 +11618,16 @@ export default function OnnaDashboard() {
                 }}
                 style={{marginBottom:isMobile?12:18}}
               >
-<div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+<div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
                 <div style={{display:"flex",gap:4}}>
                   <div
                     draggable="true"
                     onDragStart={e=>{dashDragRef.current="calendar";e.dataTransfer.setData("application/x-dash-section","calendar");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="calendar"]');if(w)w.style.opacity="0.35";},0);}}
                     onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
                     title="Drag to reorder"
-                    style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}
+                    style={{width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
                   >{"☰"}</div>
                 </div>
               </div>
@@ -11717,14 +11723,16 @@ export default function OnnaDashboard() {
                 }}
                 style={{marginBottom:isMobile?12:18}}
               >
-<div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+<div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
                 <div style={{display:"flex",gap:4}}>
                   <div
                     draggable="true"
                     onDragStart={e=>{dashDragRef.current="projects-todos";e.dataTransfer.setData("application/x-dash-section","projects-todos");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="projects-todos"]');if(w)w.style.opacity="0.35";},0);}}
                     onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
                     title="Drag to reorder"
-                    style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}
+                    style={{width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
                   >{"☰"}</div>
                 </div>
               </div>
@@ -11847,14 +11855,16 @@ export default function OnnaDashboard() {
                 }}
                 style={{marginBottom:isMobile?12:18}}
               >
-<div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+<div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}>
                 <div style={{display:"flex",gap:4}}>
                   <div
                     draggable="true"
                     onDragStart={e=>{dashDragRef.current="notes";e.dataTransfer.setData("application/x-dash-section","notes");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="notes"]');if(w)w.style.opacity="0.35";},0);}}
                     onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
                     title="Drag to reorder"
-                    style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}
+                    style={{width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",transition:"all 0.15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
                   >{"☰"}</div>
                 </div>
               </div>
@@ -12081,22 +12091,11 @@ export default function OnnaDashboard() {
                     </div>
                   ),
                 };
-                const DEFAULT_SIZES={"stats-0":1,"stats-1":1,"stats-2":1,"stats-3":1,"donut-0":1,"donut-1":1,"donut-2":1,"remind-0":2,"remind-1":2};
-                const sizes={...DEFAULT_SIZES,...(dashWidgetSizes||{})};
-                const maxCols=isMobile?2:4;
-                const cycleSize=(wid)=>{
-                  setDashWidgetSizes(prev=>{
-                    const s={...DEFAULT_SIZES,...(prev||{})};
-                    const cur=s[wid]||1;
-                    const next=cur>=maxCols?1:cur+1;
-                    s[wid]=next;
-                    return s;
-                  });
-                };
+
                 return (
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14}}>
                     {widgetOrder.map(id=>{
-                      const span=Math.min(sizes[id]||1,maxCols);
+                      const span=id.startsWith("remind-")?2:1;
                       return (
                       <div key={id} data-wid={id}
                         onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!==id){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="-2px";}}}
@@ -12111,11 +12110,10 @@ export default function OnnaDashboard() {
                             return order;
                           });
                         }}
-                        style={{gridColumn:"span "+span,position:"relative"}}
+                        style={{gridColumn:isMobile?(id.startsWith("remind-")?"span 2":"span 1"):(id.startsWith("remind-")?"span 2":"span 1"),position:"relative"}}
                       >
                         <div style={{position:"relative"}}>
                           {widgetMap[id]}
-                          <div style={{position:"absolute",top:10,right:10,display:"flex",gap:4,zIndex:10}}>
                           <div
                             draggable="true"
                             onDragStart={e=>{
@@ -12129,10 +12127,10 @@ export default function OnnaDashboard() {
                               document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});
                             }}
                             title="Drag to reorder"
-                            style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.25)"}}
+                            style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.04)",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#aeaeb2",userSelect:"none",WebkitUserSelect:"none",zIndex:5,transition:"all 0.15s"}}
+                            onMouseEnter={e=>{e.currentTarget.style.background="rgba(0,0,0,0.1)";e.currentTarget.style.color="#6e6e73";}}
+                            onMouseLeave={e=>{e.currentTarget.style.background="rgba(0,0,0,0.04)";e.currentTarget.style.color="#aeaeb2";}}
                           >{"☰"}</div>
-                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title={"Width: "+span+"/"+maxCols+" — click to resize"} style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",boxShadow:"0 2px 8px rgba(0,0,0,0.25)",fontFamily:"inherit"}}>{"⤢"}</button>
-                          </div>
                         </div>
                       </div>
                       );
