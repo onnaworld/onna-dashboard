@@ -2237,6 +2237,7 @@ const LocImgSlot = ({ src, onAdd, onRemove, h = "100%", style = {} }) => {
 const LocationsConnie = React.forwardRef(function LocationsConnieInner({ initialProject, initialLocations, initialDetails, onChangeProject, onChangeLocations, onChangeDetails, onShareUrl }, fwdRef) {
   const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "" });
   const [tab, setTab] = useState("overview");
+  const [printTabs, setPrintTabs] = useState(null); // null=normal, Set of tabs to force-render for share/export
   const printRef = useRef(null);
 
   const setProject = (updater) => {
@@ -2303,6 +2304,7 @@ const LocationsConnie = React.forwardRef(function LocationsConnieInner({ initial
     clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
     clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
     clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
+    clone.querySelectorAll("[data-print-only]").forEach(n => { n.style.display = ""; });
     clone.querySelectorAll("input, textarea").forEach(inp => {
       if (!inp.value || !inp.value.trim()) { inp.style.display = "none"; }
       else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; s.style.outline = "none"; inp.replaceWith(s); }
@@ -2337,13 +2339,17 @@ ${PRINT_CLEANUP_CSS}
 
   /* Share: capture rendered HTML, POST to /api/loc-share, returns a live URL */
   const generateSharePage = async (modes, existingToken, existingResourceId) => {
-    const el = printRef.current; if (!el) return;
+    const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["overview","detail"] : modes ? [modes] : ["overview","detail"]);
+    setPrintTabs(new Set(tabsArr));
+    await new Promise(r => setTimeout(r, 300));
+    const el = printRef.current; if (!el) { setPrintTabs(null); return; }
     const clone = cleanClone(el);
     clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
     const html = clone.innerHTML;
+    setPrintTabs(null);
     if (!html) return;
     try {
-      const body = { html, projectName: project.name || "", mode: "locations" };
+      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/loc-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -2353,6 +2359,16 @@ ${PRINT_CLEANUP_CSS}
         else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
       } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
     } catch (err) { alert("Error generating link: " + err.message); }
+  };
+
+  /* Export PDF with mode selection */
+  const exportAllPDF = () => {
+    setPrintTabs(new Set(["overview","detail"]));
+    setTimeout(() => {
+      const el = printRef.current; if (!el) { setPrintTabs(null); return; }
+      printViaIframe(cleanClone(el));
+      setTimeout(() => setPrintTabs(null), 100);
+    }, 200);
   };
 
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
@@ -2365,8 +2381,10 @@ ${PRINT_CLEANUP_CSS}
             style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
         ))}
         <div style={{ flex: 1 }} />
-        <div onClick={exportPDF} style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
-          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
+        <div onClick={exportPDF} style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
+          onMouseEnter={e => e.target.style.background = "#555"} onMouseLeave={e => e.target.style.background = "#333"}>EXPORT PAGE</div>
+        <div onClick={exportAllPDF} style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
+          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT ALL</div>
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
@@ -2385,7 +2403,7 @@ ${PRINT_CLEANUP_CSS}
         </div>
 
         {/* ========= OVERVIEW ========= */}
-        {tab === "overview" && (
+        {(tab === "overview" || (printTabs && printTabs.has("overview"))) && (
           <div>
             {locations.map((loc, idx) => {
               const sr = LOC_STATUS_C[loc.status] || LOC_STATUS_C["Scouted"];
@@ -2846,7 +2864,7 @@ const FitCard = ({ src, status, onAdd, onRemove, onStatus }) => {
 function FittingConnie({ initialProject, initialTalent, initialFittings, onChangeProject, onChangeTalent, onChangeFittings }) {
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   const LS = 0.5;
-  const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "", stylist: "" });
+  const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "", stylist: "", agencyLogo: null, clientLogo: null });
   const [tab, setTab] = useState("confirmed");
   const printRef = useRef(null);
 
@@ -2939,7 +2957,7 @@ function FittingConnie({ initialProject, initialTalent, initialFittings, onChang
     idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm;overflow:hidden}
 @media print{@page{size:landscape;margin:0}}
 ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
@@ -2968,12 +2986,18 @@ ${PRINT_CLEANUP_CSS}
           onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT PDF</div>
       </div>
 
-      <div ref={printRef} style={{ padding: "14px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div ref={printRef} style={{ padding: "10px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
           <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>FITTING DECK</div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div data-hide="1"><CSLogoSlot label="Agency Logo" image={project.agencyLogo} onUpload={v => setProject(p => ({ ...p, agencyLogo: v }))} onRemove={() => setProject(p => ({ ...p, agencyLogo: null }))} /></div>
+            <div data-hide="1"><CSLogoSlot label="Client Logo" image={project.clientLogo} onUpload={v => setProject(p => ({ ...p, clientLogo: v }))} onRemove={() => setProject(p => ({ ...p, clientLogo: null }))} /></div>
+            {project.agencyLogo && <img data-print-only="1" src={project.agencyLogo} alt="" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain", display: "none" }} />}
+            {project.clientLogo && <img data-print-only="1" src={project.clientLogo} alt="" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain", display: "none" }} />}
+          </div>
         </div>
-        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 10 }} />
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["STYLIST", "stylist", "Stylist"]].map(([lbl, key, ph]) => (
             <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
@@ -3012,7 +3036,7 @@ ${PRINT_CLEANUP_CSS}
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0", background: "#f8f8f8", cursor: "grab", borderBottom: "1px solid #eee" }}>
                           <span style={{ fontFamily: F, fontSize: 8, color: "#ccc", letterSpacing: 2 }}>{"≡"}</span>
                         </div>
-                        <div style={{ aspectRatio: "4/5", background: "#f8f8f8", position: "relative" }}>
+                        <div style={{ aspectRatio: "3/4", background: "#f8f8f8", position: "relative" }}>
                           <FitImgSlot src={look.image} h="100%" onAdd={files => setLookImg(t.id, look.id, files)} onRemove={() => rmLookImg(t.id, look.id)} />
                           <div onClick={() => { const i = FIT_STATUSES.indexOf(look.status); updateLook(t.id, look.id, "status", FIT_STATUSES[(i + 1) % FIT_STATUSES.length]); }}
                             style={{ position: "absolute", top: 4, right: 4, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: sr.bg, color: sr.text, padding: "2px 6px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{look.status}</div>
@@ -8928,6 +8952,20 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       setLoading(false);return;
     }
 
+    // ── Cody: quick-action number replies ─────────────────────────────────────
+    if(agent.id==="contracts"){
+      const trimmed=input.trim();
+      if(trimmed==="1"||/^1\b/i.test(trimmed)){
+        // "Live Contracts" — let it fall through to the contract handler below
+      } else if(trimmed==="2"||/^2\b.*\b(document|generate|draft)/i.test(trimmed)){
+        setMsgs([...history,{role:"assistant",content:"Sure! Describe the document you need — for example:\n\n• \"Draft an NDA for a freelance editor\"\n• \"Create a liability waiver for a night shoot in RAK\"\n• \"Write a release form for talent appearing in a commercial\"\n\nWhat would you like me to draft?"}]);
+        setInput("");setLoading(false);return;
+      } else if(trimmed==="3"||/^3\b.*\b(sign|stamp)/i.test(trimmed)){
+        setMsgs([...history,{role:"assistant",content:"Upload a PDF using the 📎 button below, or ask me to generate a document first — then I can add your signature, company stamp, and ONNA letterhead.\n\nTry: \"Create a liability waiver\" → then \"Sign and stamp this\""}]);
+        setInput("");setLoading(false);return;
+      }
+    }
+
     // ── Cody: sign/stamp/letterhead on uploaded document ─────────────────────
     if(agent.id==="contracts"){
       // ── Parse page targets from natural language ──
@@ -9876,6 +9914,16 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             + Add New
           </button>
         )}
+      </div>
+    )}
+    {/* Cody quick-action bubbles */}
+    {agent.id==="contracts"&&!loading&&!pendingConv&&msgs.length>0&&msgs[msgs.length-1].role==="assistant"&&/Here's what I can do|What do you need\?/i.test(msgs[msgs.length-1].content||"")&&(
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
+        {[{label:"📋 Live Contracts",value:"1"},{label:"✍️ Generate Document",value:"2"},{label:"🖊️ Sign & Stamp",value:"3"}].map(opt=>(
+          <button key={opt.value} type="button" onClick={()=>{setInput(opt.value);setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:12,fontWeight:600,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
+            {opt.label}
+          </button>
+        ))}
       </div>
     )}
     {/* uploaded doc preview for Cody */}
