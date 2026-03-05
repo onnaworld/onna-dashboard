@@ -7488,6 +7488,8 @@ export default function OnnaDashboard() {
   useEffect(()=>{localStorage.setItem("onna_leads_view",leadsView);},[leadsView]);
   const [dashWidgetOrder,setDashWidgetOrder]=useState(()=>{try{const c=localStorage.getItem('onna_dash_widget_order');return c?JSON.parse(c):null;}catch{return null;}});
   useEffect(()=>{try{if(dashWidgetOrder)localStorage.setItem('onna_dash_widget_order',JSON.stringify(dashWidgetOrder));else localStorage.removeItem('onna_dash_widget_order');}catch{}},[dashWidgetOrder]);
+  const [dashWidgetSizes,setDashWidgetSizes]=useState(()=>{try{const c=localStorage.getItem('onna_dash_widget_sizes');return c?JSON.parse(c):null;}catch{return null;}});
+  useEffect(()=>{try{if(dashWidgetSizes)localStorage.setItem('onna_dash_widget_sizes',JSON.stringify(dashWidgetSizes));else localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[dashWidgetSizes]);
   const dashDragRef=useRef(null);
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
@@ -7544,6 +7546,8 @@ export default function OnnaDashboard() {
   const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
   const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
+  const [dietaryStore,setDietaryStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_dietaries');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeDietaryVersion,setActiveDietaryVersion]   = useState(null);
   const [ctTypeModalOpen,setCtTypeModalOpen]             = useState(false);
   const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
   const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
@@ -7733,6 +7737,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{}},[dietaryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
   useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
   useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
@@ -8633,6 +8638,12 @@ export default function OnnaDashboard() {
       setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
       return;
     }
+    if (table==='dietaries') {
+      const {projectId, dietary} = item;
+      setDietaryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(dietary);return s;});
+      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
+      return;
+    }
     if (table==='clients') {
       const {id:_cId, ...clientFields} = item;
       const saved = await api.post('/api/clients', clientFields);
@@ -9333,6 +9344,7 @@ export default function OnnaDashboard() {
         {key:"callsheet",  emoji:"📋", label:"Call Sheet"},
         {key:"risk",       emoji:"⚠️", label:"Risk Assessment"},
         {key:"contracts",  emoji:"📝", label:"Contracts"},
+        {key:"dietaries",  emoji:"🍽️", label:"Dietaries"},
         {key:"permits",    emoji:"📄", label:"Permits"},
       ];
 
@@ -10053,6 +10065,233 @@ export default function OnnaDashboard() {
               <div style={{marginTop:60,display:"flex",justifyContent:"space-between",fontFamily:CT_FONT,fontSize:9,letterSpacing:CT_LS_HDR,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
                 <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
                 <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Dietaries section ──
+      if (documentsSubSection==="dietaries") {
+        const dietVersions = dietaryStore[p.id] || [];
+        const addDietNew = () => {
+          const newId = Date.now();
+          const newDiet = {id:newId,label:`Dietary List ${dietVersions.length+1}`,...JSON.parse(JSON.stringify(DIETARY_INIT))};
+          const _pi=(projectInfoRef.current||{})[p.id];
+          if(_pi){if(_pi.shootName)newDiet.project.name=_pi.shootName;if(_pi.shootDate)newDiet.project.date=_pi.shootDate;}
+          newDiet.project.name=newDiet.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newDiet.project.name;
+          // Auto-sync crew from call sheets
+          const csVersions = callSheetStore[p.id] || [];
+          if (csVersions.length > 0) {
+            const latestCS = csVersions[csVersions.length - 1];
+            const pulled = [];
+            (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:"None",allergies:"",notes:""});});});
+            if(pulled.length>0)newDiet.people=pulled;
+          }
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newDiet);return store;});
+          const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setDietaryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+          setActiveDietaryVersion(dietVersions.length);
+        };
+        const deleteDiet = (idx) => {
+          if(!confirm("Delete this dietary list? This will be moved to trash."))return;
+          const dietData=JSON.parse(JSON.stringify((dietaryStore[p.id]||[])[idx]));
+          if(dietData)archiveItem('dietaries',{projectId:p.id,dietary:dietData});
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
+          setActiveDietaryVersion(null);
+        };
+
+        // ── List view ──
+        if (activeDietaryVersion === null || dietVersions.length === 0) {
+          return (
+            <div>
+              {docBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Dietary Lists</div>
+                <button onClick={addDietNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Dietary List</button>
+              </div>
+              {dietVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No dietary lists yet. Click "+ New Dietary List" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {dietVersions.map((diet,i)=>{
+                  const crewCount=(diet.people||[]).length;
+                  const dietaryCount=(diet.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
+                  return(
+                    <div key={diet.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveDietaryVersion(i)}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>DL</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:crewCount>0?"#e8f5e9":"#f5f5f5",color:crewCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{crewCount} crew · {dietaryCount} dietary</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{diet.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{diet.project?.date||"No date set"}</div>
+                      </div>
+                      <button onClick={e=>{e.stopPropagation();deleteDiet(i);}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // ── Detail view ──
+        const dietIdx = Math.min(activeDietaryVersion, dietVersions.length-1);
+        const dietData = dietVersions[dietIdx] || dietVersions[0];
+        if(!dietData){setActiveDietaryVersion(null);return null;}
+
+        const dietU = (path, val) => {
+          setDietaryStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));
+            const arr=store[p.id]||[];
+            const idx=Math.min(dietIdx,arr.length-1);
+            const d=arr[idx];
+            const k=path.split(".");let o=d;
+            for(let i=0;i<k.length-1;i++)o=o[k[i]];
+            o[k[k.length-1]]=val;
+            arr[idx]=d;store[p.id]=arr;return store;
+          });
+        };
+        const dietUpdatePerson = (i,key,val) => {
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[p.id]=arr;return store;});
+        };
+        const dietAddPerson = () => {
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[p.id]=arr;return store;});
+        };
+        const dietDeletePerson = (i) => {
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[p.id]=arr;return store;});
+        };
+        // Sync from call sheet — pulls crew from latest call sheet, reflects deleted rows
+        const dietSyncFromCS = () => {
+          const csVersions = callSheetStore[p.id] || [];
+          if(csVersions.length===0){alert("No call sheets found for this project. Create a call sheet first.");return;}
+          const latestCS = csVersions[csVersions.length-1];
+          const pulled = [];
+          (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
+          if(pulled.length===0){alert("No crew names found in the latest call sheet.");return;}
+          setDietaryStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
+            const csNames=new Set(pulled.map(pr=>pr.name));
+            // Remove people no longer in call sheet (reflect deleted rows)
+            const existingMap = {};
+            d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});
+            // Keep existing dietary data for people still in CS, add new people
+            const newPeople = [];
+            pulled.forEach(pr=>{
+              const existing = existingMap[pr.name];
+              if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}
+              else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});}
+            });
+            // Also keep people with names not matching any CS entry but that were manually added (name not blank and not placeholder)
+            d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});
+            d.people=newPeople;
+            arr[dietIdx]=d;store[p.id]=arr;return store;
+          });
+        };
+
+        // Summary counts
+        const dietCounts={};
+        (dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
+        const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
+        const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
+
+        const dietExportPDF = () => {
+          const el=document.getElementById("onna-diet-print");if(!el)return;
+          const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4 landscape;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
+          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        };
+
+        return (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <button onClick={()=>setActiveDietaryVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Dietary Lists</button>
+              <div style={{flex:1}}/>
+              <button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>
+              <BtnExport onClick={dietExportPDF}>Export PDF</BtnExport>
+            </div>
+            <div style={{marginBottom:12}}>
+              <input value={dietData.label||""} onChange={e=>dietU("label",e.target.value)} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,width:"100%"}} placeholder="Dietary List Name"/>
+            </div>
+            <div id="onna-diet-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
+              <div style={{maxWidth:1123,margin:"0 auto",background:"#FFFFFF"}}>
+                {/* Header */}
+                <div style={{padding:"40px 40px 0"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <CSLogoSlot label="Production Logo" image={dietData.productionLogo} onUpload={v=>dietU("productionLogo",v)} onRemove={()=>dietU("productionLogo",null)}/>
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3}}>
+                      <CSLogoSlot label="Agency Logo" image={dietData.agencyLogo} onUpload={v=>dietU("agencyLogo",v)} onRemove={()=>dietU("agencyLogo",null)}/>
+                      <CSLogoSlot label="Client Logo" image={dietData.clientLogo} onUpload={v=>dietU("clientLogo",v)} onRemove={()=>dietU("clientLogo",null)}/>
+                    </div>
+                  </div>
+                  <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
+                </div>
+
+                <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
+                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>DIETARY REQUIREMENTS</div>
+                </div>
+
+                {/* Project info */}
+                <div style={{padding:"8px 32px 12px",display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {[["PROJECT:",dietData.project?.name,"project.name"],["CLIENT:",dietData.project?.client,"project.client"],["DATE:",dietData.project?.date,"project.date"],["CATERING:",dietData.project?.cateringContact,"project.cateringContact"]].map(([lbl,val,key])=>(
+                    <div key={key} style={{display:"flex",gap:4,alignItems:"baseline",marginRight:16}}>
+                      <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>{lbl}</span>
+                      <TICell value={val||""} onChange={v=>dietU(key,v)}/>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Summary badges */}
+                <div style={{padding:"0 32px 14px",display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,background:"#f4f4f4",padding:"4px 10px",borderRadius:2,color:"#666"}}>TOTAL CREW: {(dietData.people||[]).length}</div>
+                  <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,background:"#E8F5E9",padding:"4px 10px",borderRadius:2,color:"#2E7D32"}}>DIETARY: {dietTotalWithDietary}</div>
+                  <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,background:"#FCE4EC",padding:"4px 10px",borderRadius:2,color:"#C62828"}}>ALLERGIES: {dietTotalWithAllergy}</div>
+                  {Object.entries(dietCounts).filter(([k])=>k!=="None").map(([tag,count])=>(
+                    <div key={tag} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,background:"#f9f9f9",padding:"4px 8px",borderRadius:2,color:"#999"}}>{tag}: {count}</div>
+                  ))}
+                </div>
+
+                {/* Table */}
+                <div style={{padding:"0 32px",marginBottom:16}}>
+                  <div style={{display:"flex",background:"#000",padding:"4px 8px",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase"}}>CREW DIETARY NOTES</span>
+                    <span onClick={dietAddPerson} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
+                  </div>
+                  {/* Column headers */}
+                  <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+                    <div style={{width:24,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 4px",textAlign:"center"}}>#</div>
+                    <div style={{width:18}}/>
+                    <div style={{flex:1.2,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 6px"}}>NAME</div>
+                    <div style={{flex:0.8,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 6px"}}>ROLE</div>
+                    <div style={{flex:0.7,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 6px"}}>DEPARTMENT</div>
+                    <div style={{flex:0.7,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 6px"}}>DIETARY</div>
+                    <div style={{flex:1,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 6px"}}>ALLERGIES / INTOLERANCES</div>
+                    <div style={{flex:1.2,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",padding:"4px 6px"}}>NOTES</div>
+                  </div>
+                  {/* Rows */}
+                  {(dietData.people||[]).map((person,i)=>(
+                    <div key={person.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"center",minHeight:28}}>
+                      <div style={{width:24,fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#ccc",padding:"3px 4px",textAlign:"center"}}>{i+1}</div>
+                      <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <span onClick={()=>dietDeletePerson(i)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+                      </div>
+                      <div style={{flex:1.2}}><TICell value={person.name} onChange={v=>dietUpdatePerson(i,"name",v)} style={{fontWeight:600}}/></div>
+                      <div style={{flex:0.8}}><TICell value={person.role} onChange={v=>dietUpdatePerson(i,"role",v)} style={{color:"#666"}}/></div>
+                      <div style={{flex:0.7}}><TICell value={person.department} onChange={v=>dietUpdatePerson(i,"department",v)} style={{color:"#999"}}/></div>
+                      <div style={{flex:0.7,padding:"2px 4px"}}><DietaryTagSelect value={person.dietary} onChange={v=>dietUpdatePerson(i,"dietary",v)}/></div>
+                      <div style={{flex:1}}><TICell value={person.allergies} onChange={v=>dietUpdatePerson(i,"allergies",v)} style={{color:person.allergies?"#C62828":"#ddd"}}/></div>
+                      <div style={{flex:1.2}}><TICell value={person.notes} onChange={v=>dietUpdatePerson(i,"notes",v)} style={{color:"#999",fontStyle:person.notes?"italic":"normal"}}/></div>
+                    </div>
+                  ))}
+                  {(dietData.people||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No crew listed — click Sync from Call Sheet or + ADD ROW</div>}
+                </div>
+
+                {/* Footer */}
+                <div style={{padding:"0 32px 32px"}}>
+                  <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+                    <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -11023,15 +11262,26 @@ export default function OnnaDashboard() {
                     </div>
                   ),
                 };
-                const getSpan=id=>id.startsWith("remind-")?(isMobile?"span 2":"span 2"):"span 1";
+                const DEFAULT_SIZES={"stats-0":1,"stats-1":1,"stats-2":1,"stats-3":1,"donut-0":1,"donut-1":1,"donut-2":1,"remind-0":2,"remind-1":2};
+                const sizes={...DEFAULT_SIZES,...(dashWidgetSizes||{})};
+                const maxCols=isMobile?2:4;
+                const cycleSize=(wid)=>{
+                  setDashWidgetSizes(prev=>{
+                    const s={...DEFAULT_SIZES,...(prev||{})};
+                    const cur=s[wid]||1;
+                    const next=cur>=maxCols?1:cur+1;
+                    s[wid]=next;
+                    return s;
+                  });
+                };
                 return (
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14}}>
                     {widgetOrder.map(id=>(
                       <div key={id}
-                        draggable
-                        onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.5";e.currentTarget.style.cursor="grabbing";}}
-                        onDragEnd={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.cursor="grab";dashDragRef.current=null;}}
-                        onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
+                        draggable={true}
+                        onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.setData("text/plain",id);e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.4";}}
+                        onDragEnd={e=>{e.currentTarget.style.opacity="1";dashDragRef.current=null;}}
+                        onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!==id)e.currentTarget.style.outline="2px solid "+T.accent;}}
                         onDragLeave={e=>{e.currentTarget.style.outline="none";}}
                         onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
                           const from=dashDragRef.current;if(!from||from===id)return;
@@ -11043,9 +11293,10 @@ export default function OnnaDashboard() {
                             return order;
                           });
                         }}
-                        style={{gridColumn:getSpan(id),cursor:"grab"}}
+                        style={{gridColumn:"span "+Math.min(sizes[id]||1,maxCols),cursor:"grab",position:"relative"}}
                       >
                         {widgetMap[id]}
+                        <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title="Resize widget" style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:T.muted,opacity:0.5,transition:"opacity 0.15s",zIndex:2}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.5";}}>\u21D4</button>
                       </div>
                     ))}
                   </div>
@@ -11628,10 +11879,10 @@ export default function OnnaDashboard() {
                   {archive.length===0?(
                     <div style={{padding:"60px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
                   ):(
-                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects","callSheets","riskAssessments","contracts","travelItineraries","clients"].map(table=>{
+                    ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects","callSheets","riskAssessments","contracts","travelItineraries","dietaries","clients"].map(table=>{
                       const entries=archive.filter(e=>e.table===table);
                       if(!entries.length) return null;
-                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects",callSheets:"Call Sheets",riskAssessments:"Risk Assessments",contracts:"Contracts",travelItineraries:"Travel Itineraries",clients:"Clients"}[table]||table;
+                      const label={todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects",callSheets:"Call Sheets",riskAssessments:"Risk Assessments",contracts:"Contracts",travelItineraries:"Travel Itineraries",dietaries:"Dietary Lists",clients:"Clients"}[table]||table;
                       return (
                         <div key={table} style={{marginBottom:24}}>
                           <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
@@ -11640,7 +11891,7 @@ export default function OnnaDashboard() {
                             return (
                               <div key={e.id} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:10,border:`1px solid ${T.border}`,marginBottom:6,background:"#fafafa"}}>
                                 <div style={{flex:1,minWidth:0}}>
-                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||e.item?.callSheet?.label||e.item?.riskAssessment?.label||e.item?.contract?.label||e.item?.travelItinerary?.label||e.item?.label||"Untitled"}</div>
+                                  <div style={{fontSize:13,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.item?.text||e.item?.title||e.item?.company||e.item?.name||e.item?.callSheet?.label||e.item?.riskAssessment?.label||e.item?.contract?.label||e.item?.travelItinerary?.label||e.item?.dietary?.label||e.item?.label||"Untitled"}</div>
                                   <div style={{fontSize:11,color:T.muted,marginTop:2}}>{daysLeft} day{daysLeft!==1?"s":""} remaining</div>
                                 </div>
                                 <div style={{display:"flex",gap:6}}>
