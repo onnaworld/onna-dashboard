@@ -726,7 +726,6 @@ function CPSConnie({ initialProject, initialPhases, onChangeProject, onChangePha
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [tab, setTab] = useState("timeline");
   const [printAll, setPrintAll] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const printRef = useRef(null);
 
   /* Undo system */
@@ -925,7 +924,7 @@ ${PRINT_CLEANUP_CSS}
   return (
     <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: CPS_F, color: "#1a1a1a" }}>
       {/* Top bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto", overflow: showShareMenu ? "visible" : undefined, position: "relative", zIndex: showShareMenu ? 200 : undefined }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
         {[{ id: "schedule", label: "SCHEDULE" }, { id: "timeline", label: "TIMELINE" }, { id: "calendar", label: "CALENDAR" }].map(t => (
           <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>
             {t.label}
@@ -947,21 +946,6 @@ ${PRINT_CLEANUP_CSS}
         <div onClick={exportAllPDF} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
           onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>
           EXPORT ALL
-        </div>
-        <div style={{ position: "relative" }}>
-          <div onClick={() => setShowShareMenu(!showShareMenu)} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: showShareMenu ? "#1565C0" : "#1976D2", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid rgba(255,255,255,0.2)" }}
-            onMouseEnter={e => e.currentTarget.style.background = "#1565C0"} onMouseLeave={e => { if (!showShareMenu) e.currentTarget.style.background = "#1976D2"; }}>
-            SHARE
-          </div>
-          {showShareMenu && <div style={{ position: "absolute", right: 0, top: "100%", background: "#fff", border: "1px solid #ddd", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", borderRadius: 2, zIndex: 100, minWidth: 180 }}>
-            {[{ label: "Share Schedule", mode: "schedule" }, { label: "Share Timeline", mode: "timeline" }, { label: "Share Calendar", mode: "calendar" }, { label: "Share All Pages", mode: "all" }].map(opt => (
-              <div key={opt.mode} onClick={() => { setShowShareMenu(false); generateSharePage(opt.mode); }}
-                style={{ fontFamily: CPS_F, fontSize: 9, letterSpacing: CPS_LS, padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid #f0f0f0", color: "#333", textTransform: "uppercase" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#f5f5f5"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
-                {opt.label}
-              </div>
-            ))}
-          </div>}
         </div>
       </div>
 
@@ -6195,41 +6179,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
 
-        // ── pending: pick doc type (call sheet or dietaries) ──
-        if(conniePending?.step==="pick_doc_type"){
-          const lo=input.toLowerCase();
-          const proj=localProjects.find(p=>p.id===conniePending.projectId);
-          if(!proj){setConniePending(null);setMsgs([...history,{role:"assistant",content:"Project not found. Let's start over."}]);setLoading(false);setMood("idle");return;}
-          if(/\b(call\s*sheet|cs|1)\b/i.test(lo)){
-            setConniePending(null);
-            const csVersions=callSheetStore?.[proj.id]||[];
-            if(csVersions.length===0){
-              const newCS={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
-              newCS.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");
-              const _pi1=(projectInfoRef.current||{})[proj.id];
-              if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;if(_pi1.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi1.shootLocation;}}
-              setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newCS);return store;});
-              setConnieCtx({projectId:proj.id,vIdx:0});setConnieDietMode(null);
-              addConnieTab(proj.id,0,`${proj.name} · [Untitled]`);
-              setMsgs([...history,{role:"assistant",content:`✓ Created a new call sheet for ${proj.name}. What would you like to do?`}]);
-            }else{
-              csVersions.forEach((v,i)=>{addConnieTab(proj.id,i,`${proj.name} · ${v.label||`Day ${i+1}`}`);});
-              const lastIdx=csVersions.length-1;
-              setConnieCtx({projectId:proj.id,vIdx:lastIdx});setConnieDietMode(null);
-              setMsgs([...history,{role:"assistant",content:`Opened ${csVersions.length} call sheet${csVersions.length>1?"s":""} for ${proj.name}. What would you like to do?`}]);
-            }
-            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-          }
-          if(/\b(dietar(?:y|ies)|2)\b/i.test(lo)){
-            setConniePending(null);
-            setConnieCtx(null);setConnieDietMode(proj.id);
-            const dietCount=(dietaryStore?.[proj.id]||[]).length;
-            setMsgs([...history,{role:"assistant",content:`Here are ${proj.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);
-            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-          }
-          setMsgs([...history,{role:"assistant",content:`Which would you like to work on for ${proj.name}?\n\n1. Call Sheet\n2. Dietaries`}]);
-          setLoading(false);setMood("idle");return;
-        }
+
 
         // Switch from dietary back to call sheets
         if(connieDietMode && (/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input) || /\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input) || /^\s*call\s*sheets?\s*$/i.test(input))) {
@@ -6284,15 +6234,8 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
-        // If user didn't specify call sheet vs dietary, ask
-        const _wantsCS=/\b(call\s*sheet|cs)\b/i.test(input);
-        const _wantsDiet=/\bdietar(?:y|ies)\b/i.test(input);
-        if(!_wantsCS&&!_wantsDiet){
-          setConniePending({step:"pick_doc_type",projectId:project.id});
-          setMsgs([...history,{role:"assistant",content:`Which would you like to work on for ${project.name}?\n\n1. Call Sheet\n2. Dietaries`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        if(_wantsDiet){
+        // If user explicitly asked for dietaries, open dietary mode; otherwise default to call sheet (both visible in side panel)
+        if(/\bdietar(?:y|ies)\b/i.test(input)){
           setConnieCtx(null);setConnieDietMode(project.id);
           const dietCount=(dietaryStore?.[project.id]||[]).length;
           setMsgs([...history,{role:"assistant",content:`Here are ${project.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);
@@ -9293,6 +9236,8 @@ export default function OnnaDashboard() {
   const [activeContractVersion,setActiveContractVersion] = useState(null);
   const [cpsStore,setCpsStore]                           = useState(()=>{try{const s=localStorage.getItem('onna_cps');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeCPSVersion,setActiveCPSVersion]           = useState(null);
+  const [cpsShareUrl,setCpsShareUrl]                     = useState(null);
+  const [cpsShareLoading,setCpsShareLoading]             = useState(false);
   const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
   const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
@@ -12717,20 +12662,59 @@ export default function OnnaDashboard() {
 
         const cpsBack = <button onClick={()=>setActiveCPSVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to CPS list</button>;
 
+        const cpsShareTitle = `ONNA | ${cpsData.label || "Creative Production Schedule"}`;
+        const sendCpsShare = async (mode) => {
+          setCpsShareLoading(true);
+          try {
+            /* Capture the rendered CPS HTML */
+            const el = document.getElementById("onna-cps-print");
+            if (!el) { setCpsShareLoading(false); return; }
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
+            clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
+            clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); });
+            const html = clone.innerHTML;
+            const resp = await fetch("/api/cps-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html, projectName: cpsData.project?.name || p.name || "", mode }) });
+            const data = await resp.json();
+            if (data.url) { setCpsShareUrl(data.url); }
+            else alert("Failed to generate link: " + (data.error || "Unknown error"));
+          } catch (err) { alert("Error: " + err.message); }
+          setCpsShareLoading(false);
+        };
+
         return (
           <div>
             {cpsBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <input value={cpsData.label||""} onChange={e=>{setCpsStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][cpsIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CPS</span>
+                <input value={cpsData.label||""} onChange={e=>{setCpsStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][cpsIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <button onClick={()=>sendCpsShare("all")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#1976D2",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5,opacity:cpsShareLoading?0.6:1}}>{cpsShareLoading?"Generating\u2026":"Share All Pages"}</button>
+                <button onClick={()=>sendCpsShare("schedule")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#333",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:cpsShareLoading?0.6:1}}>Share Schedule</button>
+                <button onClick={()=>sendCpsShare("timeline")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#333",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:cpsShareLoading?0.6:1}}>Share Timeline</button>
+                <button onClick={()=>sendCpsShare("calendar")} disabled={cpsShareLoading} style={{padding:"5px 13px",borderRadius:8,background:"#333",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:cpsShareLoading?0.6:1}}>Share Calendar</button>
               </div>
             </div>
-            <CPSConnie
-              initialProject={cpsData.project}
-              initialPhases={cpsData.phases}
-              onChangeProject={proj => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].project = proj; return s; })}
-              onChangePhases={phases => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].phases = phases; return s; })}
-            />
+            {cpsShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{cpsShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <input readOnly value={cpsShareUrl} style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#333",background:"#fff"}}/>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${cpsShareTitle}\n${cpsShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                  <button onClick={()=>setCpsShareUrl(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit",padding:"0 4px"}}>Close</button>
+                </div>
+              </div>
+            )}
+            <div id="onna-cps-print">
+              <CPSConnie
+                initialProject={cpsData.project}
+                initialPhases={cpsData.phases}
+                onChangeProject={proj => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].project = proj; return s; })}
+                onChangePhases={phases => setCpsStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][cpsIdx].phases = phases; return s; })}
+              />
+            </div>
           </div>
         );
       }
