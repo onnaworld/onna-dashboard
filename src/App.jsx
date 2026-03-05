@@ -3536,7 +3536,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const _pendingDupRef=useRef(null);
   const setPendingDuplicate=(v)=>{_pendingDupRef.current=v;_setPendingDuplicate(v);};
   const [attachments,setAttachments]=useState([]);
-  const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
+  const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');const p=s?JSON.parse(s):null;if(p&&p._mode){localStorage.removeItem('onna_connie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
   const [conniePending,setConniePending]=useState(null); // {projectId, step:"pick_name"|"pick_existing_or_new"}
   const [connieDietPending,setConnieDietPending]=useState(null); // {type:"confirm_add_cs", name, dietary, vendorMatch:{name,email,phone}|null, projectId}
   const [connieTabs,setConnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_connie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
@@ -3576,7 +3576,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   },[agent.id]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[msgs,loading]);
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
-  useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx){if(connieCtx._mode){localStorage.removeItem('onna_connie_ctx');}else{localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));}}else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
@@ -6065,10 +6065,6 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           printRiskAssessmentPDF(ver_ex);
           setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
         }
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-        printRiskAssessmentPDF(ver_ex);
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for ${ver_ex.label||"the risk assessment"} — save it as PDF from there!`}]);
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
@@ -11507,6 +11503,38 @@ export default function OnnaDashboard() {
           {/* ══ DASHBOARD ══ */}
           {activeTab==="Dashboard"&&(
             <div>
+              {(()=>{
+                const MAIN_DEF=["calendar","projects-todos","notes"];
+                const mainOrder=dashWidgetOrder||MAIN_DEF;
+                const sectionMap = {
+                  "calendar": (
+              <div data-dash-section="calendar"
+                onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!=="calendar"){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="4px";}}}
+                onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
+                  const from=dashDragRef.current;if(!from||from==="calendar")return;
+                  setDashWidgetOrder(prev=>{
+                    const MAIN_DEF=["calendar","projects-todos","notes"];
+                    const order=[...(prev||MAIN_DEF)];
+                    const fi=order.indexOf(from),ti=order.indexOf("calendar");
+                    if(fi<0||ti<0)return prev;
+                    order.splice(fi,1);order.splice(ti,0,from);
+                    return order;
+                  });
+                }}
+                style={{marginBottom:isMobile?12:18}}
+              >
+<div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+                <div style={{display:"flex",gap:4}}>
+                  <div
+                    draggable="true"
+                    onDragStart={e=>{dashDragRef.current="calendar";e.dataTransfer.setData("application/x-dash-section","calendar");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="calendar"]');if(w)w.style.opacity="0.35";},0);}}
+                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
+                    title="Drag to reorder"
+                    style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}
+                  >{"☰"}</div>
+                </div>
+              </div>
               {/* ── Google Calendar Widget ── */}
               {(()=>{
                 const today = new Date();
@@ -11580,6 +11608,36 @@ export default function OnnaDashboard() {
                     </div>
                   </div>
                 ); })()}
+              </div>
+                  ),
+                  "projects-todos": (
+              <div data-dash-section="projects-todos"
+                onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!=="projects-todos"){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="4px";}}}
+                onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
+                  const from=dashDragRef.current;if(!from||from==="projects-todos")return;
+                  setDashWidgetOrder(prev=>{
+                    const MAIN_DEF=["calendar","projects-todos","notes"];
+                    const order=[...(prev||MAIN_DEF)];
+                    const fi=order.indexOf(from),ti=order.indexOf("projects-todos");
+                    if(fi<0||ti<0)return prev;
+                    order.splice(fi,1);order.splice(ti,0,from);
+                    return order;
+                  });
+                }}
+                style={{marginBottom:isMobile?12:18}}
+              >
+<div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+                <div style={{display:"flex",gap:4}}>
+                  <div
+                    draggable="true"
+                    onDragStart={e=>{dashDragRef.current="projects-todos";e.dataTransfer.setData("application/x-dash-section","projects-todos");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="projects-todos"]');if(w)w.style.opacity="0.35";},0);}}
+                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
+                    title="Drag to reorder"
+                    style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}
+                  >{"☰"}</div>
+                </div>
+              </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
                 {/* Active Projects */}
                 <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
@@ -11680,9 +11738,43 @@ export default function OnnaDashboard() {
                   </div>
                 </div>
               </div>
-
+              </div>
+                  ),
+                  "notes": (
+              <div data-dash-section="notes"
+                onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!=="notes"){e.currentTarget.style.outline="2px solid "+T.accent;e.currentTarget.style.outlineOffset="4px";}}}
+                onDragLeave={e=>{e.currentTarget.style.outline="none";}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
+                  const from=dashDragRef.current;if(!from||from==="notes")return;
+                  setDashWidgetOrder(prev=>{
+                    const MAIN_DEF=["calendar","projects-todos","notes"];
+                    const order=[...(prev||MAIN_DEF)];
+                    const fi=order.indexOf(from),ti=order.indexOf("notes");
+                    if(fi<0||ti<0)return prev;
+                    order.splice(fi,1);order.splice(ti,0,from);
+                    return order;
+                  });
+                }}
+                style={{marginBottom:isMobile?12:18}}
+              >
+<div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
+                <div style={{display:"flex",gap:4}}>
+                  <div
+                    draggable="true"
+                    onDragStart={e=>{dashDragRef.current="notes";e.dataTransfer.setData("application/x-dash-section","notes");e.dataTransfer.effectAllowed="move";setTimeout(()=>{const w=document.querySelector('[data-dash-section="notes"]');if(w)w.style.opacity="0.35";},0);}}
+                    onDragEnd={e=>{dashDragRef.current=null;document.querySelectorAll("[data-dash-section]").forEach(el=>{el.style.opacity="1";el.style.outline="none";});}}
+                    title="Drag to reorder"
+                    style={{width:28,height:28,borderRadius:8,background:"#1d1d1f",border:"none",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#fff",userSelect:"none",WebkitUserSelect:"none",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}
+                  >{"☰"}</div>
+                </div>
+              </div>
               {/* ── Notes ── */}
               <DashNotes notes={dashNotesList} setNotes={setDashNotesList} selectedId={dashSelectedNoteId} setSelectedId={setDashSelectedNoteId} isMobile={isMobile} onArchive={archiveItem}/>
+              </div>
+                  ),
+                };
+                return mainOrder.map(k=>(<Fragment key={k}>{sectionMap[k]}</Fragment>));
+              })()}
 
             </div>
           )}
