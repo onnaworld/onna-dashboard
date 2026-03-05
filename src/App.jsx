@@ -10080,10 +10080,15 @@ export default function OnnaDashboard() {
           const _pi=(projectInfoRef.current||{})[p.id];
           if(_pi){if(_pi.shootName)newDiet.project.name=_pi.shootName;if(_pi.shootDate)newDiet.project.date=_pi.shootDate;}
           newDiet.project.name=newDiet.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newDiet.project.name;
-          // Auto-sync crew from call sheets
+          // Auto-sync crew + project info from call sheets
           const csVersions = callSheetStore[p.id] || [];
           if (csVersions.length > 0) {
             const latestCS = csVersions[csVersions.length - 1];
+            if(latestCS.shootName)newDiet.project.name=latestCS.shootName;
+            if(latestCS.date)newDiet.project.date=latestCS.date;
+            // Extract client from shootName if it contains " | " pattern
+            const csParts=(latestCS.shootName||"").split(" | ");
+            if(csParts.length>=2)newDiet.project.client=csParts[0].trim();
             const pulled = [];
             (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:"None",allergies:"",notes:""});});});
             if(pulled.length>0)newDiet.people=pulled;
@@ -11277,10 +11282,7 @@ export default function OnnaDashboard() {
                 return (
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14}}>
                     {widgetOrder.map(id=>(
-                      <div key={id}
-                        draggable={true}
-                        onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.setData("text/plain",id);e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.4";}}
-                        onDragEnd={e=>{e.currentTarget.style.opacity="1";dashDragRef.current=null;}}
+                      <div key={id} data-wid={id}
                         onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dashDragRef.current&&dashDragRef.current!==id)e.currentTarget.style.outline="2px solid "+T.accent;}}
                         onDragLeave={e=>{e.currentTarget.style.outline="none";}}
                         onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";
@@ -11293,10 +11295,19 @@ export default function OnnaDashboard() {
                             return order;
                           });
                         }}
-                        style={{gridColumn:"span "+Math.min(sizes[id]||1,maxCols),cursor:"grab",position:"relative"}}
+                        style={{gridColumn:"span "+Math.min(sizes[id]||1,maxCols),position:"relative"}}
                       >
                         {widgetMap[id]}
-                        <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title="Resize widget" style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:6,background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:T.muted,opacity:0.5,transition:"opacity 0.15s",zIndex:2}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.5";}}>\u21D4</button>
+                        <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4,zIndex:3}}>
+                          <span
+                            draggable={true}
+                            onDragStart={e=>{dashDragRef.current=id;e.dataTransfer.setData("text/plain",id);e.dataTransfer.effectAllowed="move";const wEl=e.currentTarget.closest("[data-wid]");if(wEl)wEl.style.opacity="0.4";}}
+                            onDragEnd={e=>{document.querySelectorAll("[data-wid]").forEach(el=>{el.style.opacity="1";});dashDragRef.current=null;}}
+                            title="Drag to reorder"
+                            style={{width:24,height:24,borderRadius:6,background:"rgba(0,0,0,0.06)",cursor:"grab",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.muted,opacity:0.5,transition:"opacity 0.15s",userSelect:"none"}}
+                            onMouseEnter={e=>{e.currentTarget.style.opacity="1";}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.5";}}>\u2630</span>
+                          <button onClick={e=>{e.stopPropagation();cycleSize(id);}} title="Resize widget" style={{width:24,height:24,borderRadius:6,background:"rgba(0,0,0,0.06)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:T.muted,opacity:0.5,transition:"opacity 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.opacity="1";}} onMouseLeave={e=>{e.currentTarget.style.opacity="0.5";}}>\u21D4</button>
+                        </div>
                       </div>
                     ))}
                   </div>
