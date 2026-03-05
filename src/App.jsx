@@ -3405,7 +3405,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onFullWidthChange,isMobile,pushUndo,projectInfoRef}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const [msgs,setMsgs]         =useState(()=>{try{const s=localStorage.getItem('onna_agent_chat_'+agent.id);if(s){const p=JSON.parse(s);if(p[0]&&p[0].role==="assistant"&&p[0].content!==intro)p[0]={role:"assistant",content:intro};return p;}return[{role:"assistant",content:intro}];}catch{return[{role:"assistant",content:intro}];}});
   const [input,_setInput]       =useState("");
@@ -5000,6 +5000,16 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setConnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
+      // Navigate to document list views
+      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input)||/\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
+        onNavigateToDoc(project,"Documents","callsheet");
+        setMsgs([...history,{role:"assistant",content:"Taking you to your call sheets now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(dietar(?:y|ies))\b/i.test(input)||/\b(dietar(?:y|ies))\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
+        onNavigateToDoc(project,"Documents","dietaries");
+        setMsgs([...history,{role:"assistant",content:"Taking you to your dietary lists now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
       const _csLastMsg = history[history.length-1];
       if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|that's fine|thats fine|ok|okay)\b/i.test(input)){
@@ -5422,6 +5432,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let {projectId,vIdx}=billieCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      // Navigate to budget list view
+      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(budgets?|estimates?)\b/i.test(input)||/\b(budgets?|estimates?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
+        onNavigateToDoc(project,"Budget","estimates");
+        setMsgs([...history,{role:"assistant",content:"Taking you to your budgets now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
 
       const lower=input.toLowerCase();
       // Check if user is re-selecting the same project (e.g. typing "columbia" when already on columbia)
@@ -5848,6 +5864,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
 
+      // Navigate to risk assessment list view
+      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(risk\s*assess)\b/i.test(input)||/\b(risk\s*assess)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
+        onNavigateToDoc(project,"Documents","risk");
+        setMsgs([...history,{role:"assistant",content:"Taking you to your risk assessments now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+
       // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
       const lastMsg_ex = history[history.length-1];
       if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
@@ -6109,6 +6131,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       let {projectId,vIdx}=codyCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setCodyCtx(null);codyPendingRef.current=null;if(setActiveContractVersion) setActiveContractVersion(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      // Navigate to contracts list view
+      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(contracts?)\b/i.test(input)||/\b(contracts?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
+        onNavigateToDoc(project,"Documents","contracts");
+        setMsgs([...history,{role:"assistant",content:"Taking you to your contracts now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
 
       const lower=input.toLowerCase();
       const switchProject=fuzzyMatchProject(localProjects,input,projectId);
@@ -6790,10 +6818,11 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
 </div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}</body></html>`;
+  const printScript = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});window.print();};<\/script>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}${printScript}</body></html>`;
   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
   const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+  setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},10000);
 };
 
 // ─── RISK ASSESSMENT PDF EXPORT (mirrors on-screen layout exactly) ───────────
@@ -8741,6 +8770,17 @@ export default function OnnaDashboard() {
   const pushNav = (tab, project, section, subSection) => {
     const path = buildPath(tab, project?.id||null, section||null, subSection||null);
     window.history.pushState({tab,projectId:project?.id||null,section:section||null,subSection:subSection||null}, "", path);
+  };
+
+  // ── Navigate to document list view from agent chat ──────────────────────
+  const navigateToDoc = (projectObj, section, subSection) => {
+    setActiveTab("Projects");
+    setSelectedProject(projectObj);
+    setProjectSection(section);
+    if(section==="Documents"){ setDocumentsSubSection(subSection); setActiveCSVersion(null); setActiveDietaryVersion(null); setActiveRAVersion(null); setActiveContractVersion(null); }
+    if(section==="Budget"){ setBudgetSubSection(subSection||"estimates"); }
+    pushNav("Projects", projectObj, section, subSection);
+    setAgentActiveIdx(null);
   };
 
   // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
@@ -12103,6 +12143,7 @@ export default function OnnaDashboard() {
                       projectCasting={a.id==="carrie"?projectCasting:undefined}
                       setProjectCasting={a.id==="carrie"?setProjectCasting:undefined}
                       getProjectCastingTables={a.id==="carrie"?getProjectCastingTables:undefined}
+                      onNavigateToDoc={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?navigateToDoc:undefined}
                       onFullWidthChange={setAgentWantsFullWidth}
                       isMobile={isMobile}
                       pushUndo={pushUndo}
