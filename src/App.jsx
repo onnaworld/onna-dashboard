@@ -2220,26 +2220,28 @@ ${PRINT_CLEANUP_CSS}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           {frames.map((frame, idx) => {
-            const isDropTarget = dropAt === idx && dragFrom.current !== null && dragFrom.current !== idx;
+            const isDropTarget = dropAt === idx;
             return (
               <div
                 key={frame.id}
-                onDragOver={(e) => { if (!e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropAt(idx); } }}
+                draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-sb-frame", String(idx)); }}
+                onDragEnd={() => setDropAt(null)}
+                onDragOver={(e) => { if (e.dataTransfer.types.includes("application/x-sb-frame")) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropAt(idx); } }}
                 onDrop={(e) => {
-                  if (e.dataTransfer.types.includes("Files")) return;
+                  if (!e.dataTransfer.types.includes("application/x-sb-frame")) return;
                   e.preventDefault();
-                  const from = parseInt(e.dataTransfer.getData("text/plain"), 10);
+                  const from = parseInt(e.dataTransfer.getData("application/x-sb-frame"), 10);
                   if (isNaN(from) || from === idx) { setDropAt(null); return; }
                   setFrames((prev) => { const n = [...prev]; const [m] = n.splice(from, 1); n.splice(idx, 0, m); return n; });
                   setDropAt(null);
                 }}
                 onDragLeave={() => setDropAt(null)}
-                style={{ border: isDropTarget ? "2px solid #FFD54F" : "1px solid #ddd", borderRadius: 2, background: "#fff", overflow: "hidden" }}
+                style={{ border: isDropTarget ? "2px solid #FFD54F" : "1px solid #ddd", borderRadius: 2, background: "#fff", overflow: "hidden", cursor: "grab" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 6px", background: "#000" }}>
                   <div
-                    draggable
-                    style={{ display: "flex", alignItems: "center", gap: 4,  }}
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}
                   >
                     <span style={{ fontFamily: F, fontSize: 9, color: "rgba(255,255,255,0.3)" }}>{"\u2261"}</span>
                     <span style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>FRAME {idx + 1}</span>
