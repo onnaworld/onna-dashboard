@@ -10122,6 +10122,7 @@ export default function OnnaDashboard() {
   const [csCreateMenuDocs,setCsCreateMenuDocs]           = useState(false);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [travelSubSection,setTravelSubSection]           = useState(null);
+  const [permitsSubSection,setPermitsSubSection]         = useState(null);
   const [linkUploading,setLinkUploading]                 = useState(false);
   const [linkUploadProgress,setLinkUploadProgress]       = useState(null);
   const [projectEntries,setProjectEntries]               = useState({});
@@ -10793,7 +10794,7 @@ export default function OnnaDashboard() {
           const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
           setSelectedProject(proj||null);
           setProjectSection(state.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
           if (state.subSection && proj) {
             const sec = state.section;
             if (sec==="Creative") setCreativeSubSection(state.subSection);
@@ -10805,7 +10806,7 @@ export default function OnnaDashboard() {
         } else {
           setSelectedProject(null);
           setProjectSection("Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
         }
       } else {
         const parsed = parseURL(window.location.pathname, allProjectsMerged);
@@ -10813,7 +10814,7 @@ export default function OnnaDashboard() {
         if (parsed.project) {
           setSelectedProject(parsed.project);
           setProjectSection(parsed.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
           if (parsed.subSection) {
             const sec = parsed.section;
             if (sec==="Creative") setCreativeSubSection(parsed.subSection);
@@ -11187,7 +11188,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
@@ -11524,7 +11525,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -13103,9 +13104,38 @@ export default function OnnaDashboard() {
         );
       }
 
-      if (documentsSubSection==="permits") return (
-        <div>{docBack}<UploadZone label="Upload permit paperwork (PDF, images)" files={getProjectFiles(p.id,"permits")} onAdd={f=>addProjectFiles(p.id,"permits",f)}/></div>
-      );
+      if (documentsSubSection==="permits") {
+        const PERMIT_CARDS = [
+          {key:"customs",  emoji:"🛃", label:"Customs Permit"},
+          {key:"carnet",   emoji:"📑", label:"Carnet"},
+          {key:"shoot",    emoji:"🎬", label:"Shoot Permit"},
+        ];
+        if (!permitsSubSection) return (
+          <div>
+            {docBack}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+              {PERMIT_CARDS.map(c=>(
+                <div key={c.key} onClick={()=>setPermitsSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+                  <span style={{fontSize:28}}>{c.emoji}</span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:2}}>{(getProjectFiles(p.id,"permit_"+c.key)||[]).length} file{(getProjectFiles(p.id,"permit_"+c.key)||[]).length!==1?"s":""}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        const permitBack = <button onClick={()=>setPermitsSubSection(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Permits</button>;
+        const pc = PERMIT_CARDS.find(c=>c.key===permitsSubSection);
+        return (
+          <div>
+            {permitBack}
+            <div style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:14}}>{pc?.emoji} {pc?.label}</div>
+            <UploadZone label={`Upload ${pc?.label.toLowerCase()} documents (PDF, images)`} files={getProjectFiles(p.id,"permit_"+permitsSubSection)} onAdd={f=>addProjectFiles(p.id,"permit_"+permitsSubSection,f)}/>
+          </div>
+        );
+      }
 
       return null;
     }
@@ -14477,7 +14507,7 @@ export default function OnnaDashboard() {
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
