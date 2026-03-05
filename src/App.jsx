@@ -1033,7 +1033,7 @@ ${PRINT_CLEANUP_CSS}
           </div>
         ))}
         <div style={{ flex: 1 }} />
-        <div onClick={autoCascade} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", background: "#f5f5f5", color: "#666", textTransform: "uppercase", borderLeft: "1px solid #ddd" }}
+        <div onClick={autoCascade} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, background: "#f5f5f5", color: "#666", textTransform: "uppercase", borderLeft: "1px solid #ddd" }}
           onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f5f5f5"}>
           AUTO-DATE
         </div>
@@ -1049,7 +1049,7 @@ ${PRINT_CLEANUP_CSS}
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
 
         <div style={{ textAlign: "center", fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
@@ -1059,7 +1059,7 @@ ${PRINT_CLEANUP_CSS}
         {/* Project info */}
         <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
           {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, marginRight: 16 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 16 }}>
               <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>{lbl}</span>
               <CpsCell value={val} onChange={v => setProject(p => ({ ...p, [key]: v }))} />
             </div>
@@ -1892,11 +1892,11 @@ ${PRINT_CLEANUP_CSS}
   const approvedCount = filtered.filter(s => s.status === "Approved").length;
 
   return (
-    <div style={{ width: 1123, minWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }} onDragEnd={onDragEnd}>
+    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }} onDragEnd={onDragEnd}>
       {/* Top bar */}
       <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
         {[{ id: "list", label: "SHOT LIST" }, { id: "board", label: "BOARD VIEW" }].map(t => (
-          <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
+          <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: LS, padding: _fitMobile ? "8px 10px" : "10px 16px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
         ))}
         <div style={{ flex: 1 }} />
         {["all", "stills", "motion"].map(v => (
@@ -1907,13 +1907,13 @@ ${PRINT_CLEANUP_CSS}
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ textAlign: "center", fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>SHOT LIST</div>
 
         <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
           {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["DATE:", project.date, "date"], ["DIRECTOR:", project.director, "director"], ["DOP:", project.dop, "dop"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, marginRight: 14 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 14 }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}</span>
               <Cell value={val} onChange={v => setProject(p => ({ ...p, [key]: v }))} />
             </div>
@@ -2388,13 +2388,13 @@ ${PRINT_CLEANUP_CSS}
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ textAlign: "center", fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>LOCATIONS DECK</div>
 
         <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto" }}>
               <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
               <LocInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph}
                 style={{ width: 130, borderBottom: "1px solid #eee" }} />
@@ -2736,13 +2736,13 @@ body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ textAlign: "center", fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>CASTING DECK</div>
 
         <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["DIRECTOR", "director", "Director"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto" }}>
               <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
               <CastInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ fontSize: 11, flex: 1, minWidth: 60 }}/>
             </div>
@@ -2879,7 +2879,7 @@ ${PRINT_CLEANUP_CSS}
   const LS = 0.5;
 
   return (
-    <div style={{ width: 1123, minWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
+    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
       <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
         <div style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", background: "#000", color: "#fff", textTransform: "uppercase" }}>STORYBOARD</div>
         <div style={{ flex: 1 }} />
@@ -2888,13 +2888,13 @@ ${PRINT_CLEANUP_CSS}
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ textAlign: "center", fontFamily: F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>STORYBOARD</div>
 
         <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
           {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["DATE:", project.date, "date"], ["DIRECTOR:", project.director, "director"], ["DOP:", project.dop, "dop"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, marginRight: 14 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 14 }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}</span>
               <input value={val||""} onChange={e => setProject(p => ({ ...p, [key]: e.target.value }))}
                 placeholder={lbl.replace(":","").toLowerCase()}
@@ -3100,6 +3100,7 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
   const [tab, setTab] = useState("confirmed");
   const [printTabs, setPrintTabs] = useState(null);
   const printRef = useRef(null);
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
 
   const [talent, setTalentRaw] = useState(() => initialTalent || [mkFitTalent(), mkFitTalent()]);
   const [fittings, setFittingsRaw] = useState(() => initialFittings || [mkFitFitting(), mkFitFitting()]);
@@ -3252,8 +3253,8 @@ ${PRINT_CLEANUP_CSS}
   const row2Has = curFit && curFit.images.slice(4, 8).some(Boolean);
 
   return (
-    <div style={{ width: 1123, minWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
-      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         {[{ id: "confirmed", label: "CONFIRMED LOOKS" }, { id: "options", label: "FITTING OPTIONS" }].map(t => (
           <div key={t.id} onClick={() => { setTab(t.id); if (t.id === "options" && !selFit && fittings.length > 0) setSelFit(fittings[0].id); }}
             style={{ fontFamily: F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
@@ -3268,7 +3269,7 @@ ${PRINT_CLEANUP_CSS}
       </div>
 
       <div ref={printRef} data-fit-print="1" style={{ padding: "8px 10px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}>
           <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
           <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>FITTING DECK</div>
           <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
@@ -3279,9 +3280,9 @@ ${PRINT_CLEANUP_CSS}
           </div>
         </div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
-        <div style={{ display: "flex", gap: 12, marginBottom: 6, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: _fitMobile ? 8 : 12, marginBottom: 6, flexWrap: "wrap", justifyContent: "space-between" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["STYLIST", "stylist", "Stylist"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1 }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto" }}>
               <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}:</span>
               <FitInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ width: 110, borderBottom: "1px solid #eee" }} />
             </div>
@@ -3295,7 +3296,7 @@ ${PRINT_CLEANUP_CSS}
                 <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>TALENT {ti + 1}</span>
-                    <FitInp value={t.name} onChange={v => updateTalent(t.id, "name", v)} placeholder="Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: 140 }} />
+                    <FitInp value={t.name} onChange={v => updateTalent(t.id, "name", v)} placeholder="Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 90 : 140 }} />
                     <FitInp value={t.role} onChange={v => updateTalent(t.id, "role", v)} placeholder="Role" style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", background: "transparent", width: 90 }} />
                   </div>
                   <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -3303,7 +3304,7 @@ ${PRINT_CLEANUP_CSS}
                     <button onClick={() => deleteTalent(t.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, padding: "4px 0" }}>
+                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 4, padding: "4px 0" }}>
                   {t.looks.map((look, li) => {
                     const sr = FIT_STATUS_C[look.status] || FIT_STATUS_C["Pending"];
                     const isDropHere = dropLookAt && dropLookAt.tid === t.id && dropLookAt.lidx === li && dragLook.current && !(dragLook.current.tid === t.id && dragLook.current.lidx === li);
@@ -3362,8 +3363,8 @@ ${PRINT_CLEANUP_CSS}
               const r2 = fit.images.slice(4, 8).some(Boolean);
               return (
               <div key={fit.id} style={fi > 0 ? {marginTop:16} : {}}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4 }}>
-                  <FitInp value={fit.talentName} onChange={v => updateFit(fit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: 18, fontWeight: 700, padding: 0, width: 280 }} />
+                <div style={{ display: "flex", alignItems: "baseline", gap: _fitMobile ? 6 : 14, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4, flexWrap: "wrap" }}>
+                  <FitInp value={fit.talentName} onChange={v => updateFit(fit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: _fitMobile ? 14 : 18, fontWeight: 700, padding: 0, width: _fitMobile ? "100%" : 280 }} />
                   <div style={{ flex: 1, display: "flex", gap: 14 }}>
                     <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>LOOK </span>
                       <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look 1" style={{ display: "inline", width: 80 }} /></div>
@@ -3371,7 +3372,7 @@ ${PRINT_CLEANUP_CSS}
                       <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Fitting notes..." style={{ color: "#666", display: "inline", width: 220 }} /></div>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: r2 ? 8 : 0 }}>
+                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8, marginBottom: r2 ? 8 : 0 }}>
                   {[0,1,2,3].map(n => (
                     <FitCard key={n} src={fit.images[n]} status={(fit.imageStatuses||{})[n] || "none"}
                       onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
@@ -3379,7 +3380,7 @@ ${PRINT_CLEANUP_CSS}
                   ))}
                 </div>
                 {r2 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
                     {[4,5,6,7].map(n => (
                       <FitCard key={n} src={fit.images[n]} status={(fit.imageStatuses||{})[n] || "none"}
                         onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
@@ -11413,7 +11414,23 @@ export default function OnnaDashboard() {
   const [settingsSection,setSettingsSection] = useState("deleted");
 
   // ── SOP state ───────────────────────────────────────────────────────────────
-  const [sops,setSops] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_sops')||'[]');}catch{return [];}});
+  const [sops,setSops] = useState(()=>{
+    try{const raw=localStorage.getItem('onna_sops');if(raw){const parsed=JSON.parse(raw);if(parsed.length)return parsed;}}catch{}
+    const now=new Date().toISOString();
+    const seed=[
+      {id:1,title:"How to Use Vendor Vinnie",category:"agent",agent:"logistical",order:0,created_at:now,updated_at:now,content:"# How to Use Vendor Vinnie\n\nVendor Vinnie is your contact management assistant. He connects directly to the ONNA database — every contact you give him is saved in real time.\n\n## Three Core Capabilities\n\n### 1. Add a Vendor\nTell Vinnie the vendor’s details and a save form appears automatically.\n\n- Name and company\n- Category (Locations, Catering, Equipment, etc.)\n- Email, phone, location\n- Any additional notes\n\n**Example prompt:** “Add a new vendor — Stellar Lighting, Equipment category, email info@stellar.ae, phone +971 50 123 4567, based in Dubai”\n\n### 2. Log Outreach\nWhen you’ve contacted someone, tell Vinnie and he’ll log it with today’s date.\n\n- Mention who you contacted and how (call, email, WhatsApp)\n- He auto-fills the date\n- The outreach record saves to the Clients tab\n\n**Example prompt:** “I just emailed Sarah at Meridian Group about the Q2 campaign”\n\n### 3. Search Contacts\nFind vendors by name, category, or location.\n\n**Example prompt:** “Find all catering vendors in Abu Dhabi”\n\n## Tips\n\n- You can add multiple vendors in one message\n- Vinnie understands natural language — no need for exact formatting\n- All saved contacts appear in the Vendors tab immediately"},
+      {id:2,title:"How to Use Call Sheet Connie",category:"agent",agent:"compliance",order:1,created_at:now,updated_at:now,content:"# How to Use Call Sheet Connie\n\nCall Sheet Connie is your production coordinator. She reads and updates live call sheet data for any project.\n\n## Three Core Capabilities\n\n### 1. Edit Call Sheet\nAdd crew members, update call times, locations, and schedule details.\n\n- Add crew with name, role, call time, and wrap time\n- Update locations, parking details, nearest hospital\n- Set weather notes, general notes, and production contacts\n\n**Example prompt:** “Add John Smith as Gaffer, call time 06:00, wrap 18:00”\n\n### 2. Review & Check\nConnie scans the call sheet and flags what’s missing or incomplete.\n\n**Example prompt:** “Review the call sheet for Day 1 — what’s missing?”\n\n### 3. Dietary & Catering\nManage dietary requirements and meal planning for the crew.\n\n- Add dietary restrictions per crew member\n- Set breakfast, lunch, and snack menus\n- Track headcount for catering orders\n\n**Example prompt:** “Add dietary: Sarah is vegan, Mike is gluten-free”\n\n## Tips\n\n- Connie will ask which project to work on first\n- She can handle multiple crew additions in one message\n- All changes save to the call sheet in real time"},
+      {id:3,title:"How to Use Risk Assessment Ronnie",category:"agent",agent:"researcher",order:2,created_at:now,updated_at:now,content:"# How to Use Risk Assessment Ronnie\n\nRisk Assessment Ronnie is your safety and compliance officer. He manages hazard logs and risk assessments for every shoot day.\n\n## Three Core Capabilities\n\n### 1. Add Risks\nLog hazards with severity ratings, likelihood, and mitigation measures.\n\n- Describe the hazard (e.g. working at height, water proximity, pyrotechnics)\n- Ronnie assigns severity (Low / Medium / High / Critical)\n- He adds likelihood and recommended control measures\n\n**Example prompt:** “Add risk: shooting near water at Dubai Creek — crew will be on an unfenced dock”\n\n### 2. Review Assessment\nCheck what’s missing or needs updating on the current risk assessment.\n\n**Example prompt:** “Review the risk assessment for Day 2 — are we covered?”\n\n### 3. Generate Report\nSummarise all logged risks for a shoot day into a formatted report.\n\n**Example prompt:** “Generate a risk report for the Marina shoot”\n\n## Tips\n\n- Ronnie follows Dubai municipality safety guidelines\n- He’ll flag if critical risks don’t have mitigation measures\n- Reports can be exported for client or location approval"},
+      {id:4,title:"How to Use Meeting Minnie",category:"agent",agent:"minnie",order:3,created_at:now,updated_at:now,content:"# How to Use Meeting Minnie\n\nMeeting Minnie is your scheduling assistant. She helps manage meeting requests, check availability, and draft professional responses.\n\n## Three Core Capabilities\n\n### 1. Schedule Meeting\nPaste a meeting request (from email, WhatsApp, etc.) and Minnie will extract the details and propose available time slots.\n\n- She identifies who, what, and proposed times\n- Checks for conflicts with your schedule\n- Proposes 3 alternative slots if needed\n\n**Example prompt:** “Got this email: 'Hi, can we meet Thursday to discuss the Pulse Fitness campaign? Anytime after 2pm works.' — schedule it”\n\n### 2. Check Calendar\nReview upcoming meetings and spot conflicts.\n\n**Example prompt:** “What’s on my schedule this week? Any conflicts?”\n\n### 3. Draft Reply\nMinnie writes a professional response with available time options, signed off as the ONNA team.\n\n**Example prompt:** “Draft a reply to Sarah confirming Tuesday at 10am GST”\n\n## Tips\n\n- All times are in Dubai time (GST, UTC+4)\n- Minnie signs off as the ONNA team\n- You can paste raw email text — she’ll extract the relevant details"},
+      {id:5,title:"How to Use Budget Billie",category:"agent",agent:"billie",order:4,created_at:now,updated_at:now,content:"# How to Use Budget Billie\n\nBudget Billie is your production budget and expense tracking assistant. She builds detailed line-item budgets using current Dubai market rates.\n\n## Three Core Capabilities\n\n### 1. Build & Edit Budget\nCreate line-item production estimates with dual currency (AED/USD).\n\n- Add line items with descriptions, quantities, unit rates, and days\n- 15% Agency Fee and 10% Contingency applied by default\n- Update rates, add/remove items, adjust markup\n\n**Example prompt:** “Build a 2-day shoot budget — 1 director, 1 DOP, 2 camera assistants, lighting package, and catering for 15 crew”\n\n### 2. Log Expenses\nTrack actual spend against the budget.\n\n- Add costs as they come in\n- Categorise spend by department\n- Update Zoho amounts for accounting sync\n\n**Example prompt:** “Log expense: AED 3,200 for camera rental from Stellar Equipment”\n\n### 3. Review & Compare\nActuals vs estimates variance analysis.\n\n- Flag overruns before they become problems\n- Check remaining budget by category\n- Export comparison to PDF\n\n**Example prompt:** “How are we tracking on the Pulse Fitness budget? Any overruns?”\n\n## Tips\n\n- Fixed rate: 1 USD = 3.67 AED\n- Billie uses current Dubai market rates as defaults\n- She’ll ask which project to work on first"},
+      {id:6,title:"How to Use Contract Cody",category:"agent",agent:"contracts",order:5,created_at:now,updated_at:now,content:"# How to Use Contract Cody\n\nContract Cody is your contract drafting and document management assistant. He handles live contracts, generates legal documents, and manages signing.\n\n## Three Core Capabilities\n\n### 1. Live Contracts\nFill in contract fields, switch between contract types, and review or export.\n\n- Commissioning Agreements, Talent Agreements, Crew Deals, etc.\n- Review what fields are missing\n- Export completed contracts to PDF\n\n**Example prompt:** “Fill in the talent agreement for Sarah Khan — day rate AED 5,000, 3 shoot days, usage 12 months MENA”\n\n### 2. Generate Documents\nDraft custom legal documents from scratch based on your description.\n\n- Waivers, NDAs, release forms, consent forms\n- Location agreements, talent releases, crew memos\n- Based on ONNA’s standard legal language\n\n**Example prompt:** “Generate an NDA for a client meeting with Pulse Fitness”\n\n### 3. Sign & Stamp\nAdd signature, company stamp, and ONNA letterhead to documents.\n\n- Upload a PDF or use a generated document\n- Cody overlays the official ONNA signature block\n- Final document ready for distribution\n\n**Example prompt:** “Add signature and stamp to the Meridian Group commissioning agreement”\n\n## Tips\n\n- All changes save automatically to the project\n- Cody understands ONNA’s standard contract terms\n- You can switch contract types without losing data"},
+      {id:7,title:"How to Use Casting Carrie",category:"agent",agent:"carrie",order:6,created_at:now,updated_at:now,content:"# How to Use Casting Carrie\n\nCasting Carrie is your casting coordinator. She manages talent databases, casting briefs, and exports for client review.\n\n## Three Core Capabilities\n\n### 1. Add Talent\nAdd models, actors, or extras with full details.\n\n- Name, age range, gender, ethnicity\n- Agency and agent contact info\n- Rates, availability, and portfolio links\n\n**Example prompt:** “Add talent: Layla Hassan, female, age 25-30, represented by Stage Models, available March 15-20”\n\n### 2. Search & Brief\nSearch agencies or generate a casting brief for distribution.\n\n- Search by type (model, actor, extra), demographics, or availability\n- Generate a formatted casting brief with role requirements\n- Brief includes shoot dates, usage, wardrobe notes\n\n**Example prompt:** “Generate a casting brief — we need 3 male models, age 30-40, for a 2-day shoot in Dubai Marina, usage 6 months digital”\n\n### 3. Review & Export\nCheck casting status and export to PDF or CSV.\n\n- See who’s confirmed, on hold, or pending\n- Export the full casting table for client approval\n- Track fitting dates and measurements\n\n**Example prompt:** “Export the casting table for the Pulse Fitness shoot”\n\n## Tips\n\n- Carrie will ask which project to work on first\n- She can handle bulk talent additions\n- All data syncs to the casting table in real time"},
+      {id:8,title:"Pre-Production Workflow",category:"workflow",agent:"",order:7,created_at:now,updated_at:now,content:"# Pre-Production Workflow\n\nStandard operating procedure for taking a project from brief to shoot-ready.\n\n## Phase 1: Project Setup\n\n1. Create the project in the Dashboard with client name, project name, and estimated revenue/cost\n2. Set project status to **Active**\n3. Assign the project to the relevant producer\n\n## Phase 2: Budgeting\n\n1. Open **Budget Billie** and select the project\n2. Build the initial estimate with all line items\n3. Review agency fee (15%) and contingency (10%)\n4. Export the estimate PDF for client approval\n5. Once approved, lock the budget as the baseline\n\n## Phase 3: Contracts\n\n1. Open **Contract Cody** and select the project\n2. Generate the Commissioning Agreement from the approved estimate\n3. Fill in payment terms, deliverables, and usage rights\n4. Add signature and stamp, then send for client signature\n5. Generate Talent Agreements and Crew Deals as needed\n\n## Phase 4: Casting\n\n1. Open **Casting Carrie** and select the project\n2. Generate the casting brief from the creative deck\n3. Share with agencies and collect submissions\n4. Add shortlisted talent to the casting table\n5. Export for client review and get approvals\n\n## Phase 5: Logistics\n\n1. Use **Vendor Vinnie** to book vendors (equipment, locations, catering, transport)\n2. Log all outreach in the system\n3. Use **Call Sheet Connie** to build the call sheet for each shoot day\n4. Run **Risk Assessment Ronnie** for each location\n5. Have Connie review the call sheet for completeness\n\n## Phase 6: Final Checks\n\n- All contracts signed and filed\n- Budget approved and baseline locked\n- Call sheets distributed to crew (minimum 24 hours before)\n- Risk assessments approved and on-set copies printed\n- Catering confirmed with dietary requirements\n- All vendor bookings confirmed with POs issued"},
+      {id:9,title:"Post-Production & Wrap Workflow",category:"workflow",agent:"",order:8,created_at:now,updated_at:now,content:"# Post-Production & Wrap Workflow\n\nStandard operating procedure for wrapping a shoot and closing out a project.\n\n## Day-Of Wrap\n\n1. Confirm all crew have signed out on the call sheet\n2. Return all rented equipment — note any damages\n3. Collect all memory cards and hard drives\n4. Get final headcount from catering for invoice reconciliation\n\n## Expense Reconciliation\n\n1. Open **Budget Billie** and select the project\n2. Log all outstanding expenses and receipts\n3. Run **Review & Compare** to check actuals vs estimates\n4. Flag any overruns and document reasons\n5. Update Zoho with final amounts\n\n## Deliverables & Handover\n\n1. Confirm deliverable list with the client\n2. Track edit rounds and revision status in project notes\n3. Once finals are approved, update project status to **Completed**\n\n## Financial Close\n\n1. Issue final invoice based on contract payment terms\n2. Reconcile all vendor invoices against POs\n3. Close out the budget in Budget Billie\n4. Archive the project once all payments are settled\n\n## Post-Mortem\n\n- What went well?\n- What could be improved?\n- Any vendor or talent notes for future reference?\n- Update vendor ratings and notes in Vendor Vinnie"}
+    ];
+    try{localStorage.setItem('onna_sops',JSON.stringify(seed));}catch{}
+    return seed;
+  });
   const [sopEditId,setSopEditId] = useState(null);
   const [sopDraft,setSopDraft] = useState({title:"",content:"",category:"agent",agent:""});
   const [sopAddOpen,setSopAddOpen] = useState(false);
@@ -14945,7 +14962,7 @@ export default function OnnaDashboard() {
                 </div>
               </div>
             )}
-            <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
+            <div style={{overflowX:"auto",margin:isMobile?"0 -16px":"0 -28px",padding:isMobile?"0 16px":"0 28px"}}>
               <FittingConnie
                 ref={fitDeckRef}
                 initialProject={fitData.project}
