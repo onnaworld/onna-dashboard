@@ -1789,7 +1789,7 @@ ${PRINT_CLEANUP_CSS}
   const approvedCount = filtered.filter(s => s.status === "Approved").length;
 
   return (
-    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }} onDragEnd={onDragEnd}>
+    <div style={{ width: 1123, minWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }} onDragEnd={onDragEnd}>
       {/* Top bar */}
       <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
         {[{ id: "list", label: "SHOT LIST" }, { id: "board", label: "BOARD VIEW" }].map(t => (
@@ -2191,7 +2191,7 @@ ${PRINT_CLEANUP_CSS}
   const LS = 0.5;
 
   return (
-    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
+    <div style={{ width: 1123, minWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
       <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
         <div style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", background: "#000", color: "#fff", textTransform: "uppercase" }}>STORYBOARD</div>
         <div style={{ flex: 1 }} />
@@ -5478,7 +5478,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
 
     return (
       <div style={{overflowY:"auto",overflowX:"auto",padding:0,background:"#fff",height:"100%"}}>
-        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee"}}>Estimate — {estData.ts?.version||`V${estIdx+1}`}</div>
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",gap:6}}>Estimate — <input value={estData.ts?.version||""} onChange={e=>{const v=e.target.value;estSet(d=>({...d,ts:{...(d.ts||ESTIMATE_INIT.ts),version:v}}));}} placeholder={`V${estIdx+1}`} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #e0e0e0",fontSize:10,fontWeight:600,fontFamily:"inherit",color:"#555",width:180,letterSpacing:1,textTransform:"uppercase",background:"transparent"}} onFocus={e=>{e.target.style.borderColor="#7ab87a";e.target.style.background="#f3fff3";}} onBlur={e=>{e.target.style.borderColor="#e0e0e0";e.target.style.background="transparent";}}/></div>
         <EstimateView estData={estData} onSet={estSet} />
       </div>
     );
@@ -9057,9 +9057,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
         {billieTabs.map((tab,i)=>{
           const isActive=billieCtx&&billieCtx.projectId===tab.projectId&&billieCtx.vIdx===tab.vIdx;
+          const _bEstVs=projectEstimates?.[tab.projectId]||[];
+          const _bEstV=_bEstVs[tab.vIdx];
+          const _bProj=localProjects?.find(p=>p.id===tab.projectId);
+          const _bDynLabel=_bProj?`${_bProj.name} · ${_bEstV?.ts?.version||`V${tab.vIdx+1}`}`:tab.label;
           return(
-            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setBillieCtx({projectId:tab.projectId,vIdx:tab.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(tab.vIdx);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${tab.label}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #7ab87a":"1px solid #e0e0e0",background:isActive?"#f3fff3":"#f5f5f7",color:isActive?"#1a5a1a":"#6e6e73",borderBottom:isActive?"2px solid #7ab87a":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
-              <span>{tab.label}</span>
+            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setBillieCtx({projectId:tab.projectId,vIdx:tab.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(tab.vIdx);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${_bDynLabel}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #7ab87a":"1px solid #e0e0e0",background:isActive?"#f3fff3":"#f5f5f7",color:isActive?"#1a5a1a":"#6e6e73",borderBottom:isActive?"2px solid #7ab87a":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+              <span>{_bDynLabel}</span>
               <span onClick={e=>{e.stopPropagation();setBillieTabs(prev=>{const next=prev.filter((_,j)=>j!==i);if(isActive){if(next.length>0){const switchTo=next[0];setBillieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Switched to ${switchTo.label}.`}]);}else{setBillieCtx(null);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
@@ -9190,7 +9194,6 @@ const printCallSheetPDF = (cs) => {
   const weatherImg = "";
   const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
 ${logos}
-<div style="height:5px;background:#000;margin:0 32px"></div>
 <div style="text-align:center;padding:20px 32px 4px"><div style="font-size:12px;font-weight:800;${LS}color:#000">CALL SHEET</div></div>
 <div style="padding:8px 32px 10px;display:flex;justify-content:space-between;align-items:baseline;position:relative">
   <div style="font-size:11px;font-weight:800;${LS}">${e(cs.shootName)}</div>
@@ -13780,12 +13783,14 @@ export default function OnnaDashboard() {
                 <input value={slData.label||""} onChange={e=>{setShotListStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][slIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
             </div>
-            <ShotListConnie
-              initialProject={slData.project}
-              initialScenes={slData.scenes}
-              onChangeProject={proj => setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][slIdx].project = proj; return s; })}
-              onChangeScenes={scenes => setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][slIdx].scenes = scenes; return s; })}
-            />
+            <div style={{overflowX:"auto",marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}}>
+              <ShotListConnie
+                initialProject={slData.project}
+                initialScenes={slData.scenes}
+                onChangeProject={proj => setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][slIdx].project = proj; return s; })}
+                onChangeScenes={scenes => setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][slIdx].scenes = scenes; return s; })}
+              />
+            </div>
           </div>
         );
       }
@@ -13854,12 +13859,14 @@ export default function OnnaDashboard() {
                 <input value={sbData.label||""} onChange={e=>{setStoryboardStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][sbIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
             </div>
-            <StoryboardConnie
-              initialProject={sbData.project}
-              initialFrames={sbData.frames}
-              onChangeProject={proj => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].project = proj; return s; })}
-              onChangeFrames={frames => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].frames = frames; return s; })}
-            />
+            <div style={{overflowX:"auto",marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}}>
+              <StoryboardConnie
+                initialProject={sbData.project}
+                initialFrames={sbData.frames}
+                onChangeProject={proj => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].project = proj; return s; })}
+                onChangeFrames={frames => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].frames = frames; return s; })}
+              />
+            </div>
           </div>
         );
       }

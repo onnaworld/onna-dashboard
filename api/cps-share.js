@@ -56,15 +56,37 @@ export default async function handler(req, res) {
   const auth = req.headers.authorization || "";
 
   try {
-    // POST — create CPS share
+    // POST — create or update CPS share
     if (req.method === "POST") {
-      const { html, projectName, mode } = req.body;
+      const { html, projectName, mode, token: existingToken } = req.body;
       if (!html) return res.status(400).json({ error: "Missing html" });
 
-      const token = makeSlug(projectName || "cps") + "-" + Date.now().toString(36);
-      const url = `https://app.onna.world?cps=${encodeURIComponent(token)}`;
+      const token = existingToken || (makeSlug(projectName || "cps") + "-" + Date.now().toString(36));
+      const url = `https://app.onna.world/api/cps-share?token=${encodeURIComponent(token)}`;
 
       const useAuth = await resolveAuth(auth);
+
+      // If reusing token, delete old entries with this token
+      if (existingToken) {
+        try {
+          const listResp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
+          if (listResp.ok) {
+            const entries = await listResp.json();
+            const list = Array.isArray(entries) ? entries : entries.data || [];
+            for (const e of list) {
+              if (e.type !== "cps_share") continue;
+              try {
+                const blob = typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob;
+                if (blob.token === existingToken) {
+                  const eid = e.id || e._id;
+                  if (eid) await fetch(`${BACKEND}/api/resources/${eid}`, { method: "DELETE", headers: backendHeaders(useAuth) });
+                }
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+
       const payload = {
         type: "cps_share",
         blob: JSON.stringify({
@@ -134,6 +156,18 @@ body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans
 </style></head><body>
 <div class="cps-wrap"><div class="cps-inner">${parsed.html}</div></div>
 <div class="actions"><button class="btn" onclick="window.print()">Download as PDF</button></div>
+<script>
+document.querySelectorAll('span').forEach(function(s){
+  if(s.style.fontFamily&&s.style.fontFamily.indexOf('SackersGothic')!==-1&&s.textContent.trim().toLowerCase()==='onna'){
+    var img=document.createElement('img');
+    img.src='https://app.onna.world/onna-logo.png';
+    img.alt='ONNA';
+    img.style.height='36px';
+    img.style.display='block';
+    s.replaceWith(img);
+  }
+});
+</script>
 </body></html>`;
 
       res.setHeader("Content-Type", "text/html; charset=utf-8");
