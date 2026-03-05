@@ -2452,8 +2452,11 @@ ${PRINT_CLEANUP_CSS}
           </div>
         )}
 
+        {/* ========= PAGE BREAK between overview and detail when printing both ========= */}
+        {printTabs && printTabs.has("detail") && printTabs.has("overview") && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:CS_FONT,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>LOCATION DETAILS</span></div>}
+
         {/* ========= DETAIL ========= */}
-        {tab === "detail" && (
+        {(tab === "detail" || (printTabs && printTabs.has("detail"))) && (
           <div>
             <div data-hide="1" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
               {details.map((det, idx) => {
