@@ -14234,7 +14234,7 @@ export default function OnnaDashboard() {
                 <input value={slData.label||""} onChange={e=>{setShotListStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][slIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
             </div>
-            <div style={{overflowX:"auto",marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}}>
+            <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
               <ShotListConnie
                 initialProject={slData.project}
                 initialScenes={slData.scenes}
@@ -14310,7 +14310,7 @@ export default function OnnaDashboard() {
                 <input value={sbData.label||""} onChange={e=>{setStoryboardStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][sbIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
               </div>
             </div>
-            <div style={{overflowX:"auto",marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}}>
+            <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
               <StoryboardConnie
                 initialProject={sbData.project}
                 initialFrames={sbData.frames}
@@ -14404,7 +14404,7 @@ export default function OnnaDashboard() {
         </div>
 
         {/* Scroll area */}
-        <div style={{flex:1,overflowY:"auto",padding:`${P}px ${P}px ${isMobile?80:44}px`}}>
+        <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:`${P}px ${P}px ${isMobile?80:44}px`}}>
 
           {/* ══ DASHBOARD ══ */}
           {activeTab==="Dashboard"&&(
