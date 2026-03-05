@@ -6807,10 +6807,17 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const lower=input.toLowerCase();
         const num=parseInt(input.trim(),10);
         let project=null;
-        if(num>=1&&num<=localProjects.length) project=localProjects[num-1];
+        let _pickedByNumber=false;
+        if(num>=1&&num<=localProjects.length){project=localProjects[num-1];_pickedByNumber=true;}
         else project=fuzzyMatchProject(localProjects,input);
+        // If input is very short and matched fuzzily (not by number), confirm with the user
+        if(project&&!_pickedByNumber&&input.trim().length<4){
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}${p.client?" ("+p.client+")":""}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);
+          setLoading(false);setMood("idle");return;
+        }
         if(!project){
-          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}${p.client?" ("+p.client+")":""}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
@@ -7912,7 +7919,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const p=codyPendingRef.current;codyPendingRef.current=null;
         setMsgs(history);setInput("");setLoading(true);setMood("talking");
         try{
-          const allPages=/\b(all|every|both)\s+page/i.test(input);
+          let allPages=/\b(all|every|both)\s+page/i.test(input);
           const signPages=_parsePageTarget(input,"sign");
           const stampPages=_parsePageTarget(input,"stamp");
           const letterPages=_parsePageTarget(input,"letter");
@@ -7921,8 +7928,10 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(!signPages&&!stampPages&&!letterPages&&!allPages){
             const pgM=input.match(/\bpage\s+(\d+(?:\s*(?:and|,|&)\s*\d+)*)\b/i);
             if(pgM){const nums=pgM[1].match(/\d+/g).map(n=>parseInt(n,10)-1);genericPage=nums.length===1?nums[0]:nums;}
-            else if(/\b(first|1st)\s+page/i.test(input))genericPage="first";
-            else if(/\b(last|final)\s+page/i.test(input))genericPage="last";
+            else if(/\b(first|1st)\b/i.test(input))genericPage="first";
+            else if(/\b(last|final)\b/i.test(input))genericPage="last";
+            else if(/\b(all|every|both)\b/i.test(input)){allPages=true;}
+            else{const bareM=input.match(/(\d+(?:\s*(?:and|,|&)\s*\d+)*)/);if(bareM){const nums=bareM[1].match(/\d+/g).map(n=>parseInt(n,10)-1);genericPage=nums.length===1?nums[0]:nums;}}
           }
           const resolve=(specific,generic,fallback)=>allPages?"all":(specific!=null?specific:(generic!=null?generic:fallback));
           const cfg={originalDoc:p.doc,wantSign:p.wantSign,wantStamp:p.wantStamp,wantLetterhead:p.wantLetterhead,signPages:p.wantSign?resolve(signPages,genericPage,"last"):undefined,stampPages:p.wantStamp?resolve(stampPages,genericPage,"last"):undefined,letterPages:p.wantLetterhead?resolve(letterPages,genericPage,"first"):undefined,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
