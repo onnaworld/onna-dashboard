@@ -10866,7 +10866,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+        <div style={{flex:isMobile?"none":"0 0 45%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
           <div style={{padding:"6px 12px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
             <span style={{fontSize:11,fontWeight:600,color:"#6e6e73",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.id==="contracts"&&codyCtx?(()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];return(v?.label||`Version ${(codyCtx.vIdx||0)+1}`)+" Preview";})():agent.id==="compliance"&&connieDietMode?"Dietary Preview":agent.id==="compliance"?"Call Sheet Preview":agent.id==="researcher"?"Risk Assessment Preview":agent.id==="billie"?"Estimate Preview":agent.id==="carrie"?"Casting Deck Preview":"Preview"}</span>
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
@@ -10896,7 +10896,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             projectInfoRef={projectInfoRef}/>
           </div>
         </div>
-        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 40%":"0 0 50%"),height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":"0 0 55%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -12330,7 +12330,7 @@ export default function OnnaDashboard() {
   const [catSaving,setCatSaving] = useState(false);
   const [customVendorLocs,setCustomVendorLocs] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
-  const [archivedProjects,setArchivedProjects] = useState([]);
+  const [archivedProjects,setArchivedProjects] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archived_projects')||'[]')}catch{return []}});
   const [archivedTodos,setArchivedTodos]     = useState([]);
   const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab?t:["later","longterm"].includes(t.subType)?{...t,tab:"personal"}:{...t,tab:"onna"})}catch(e){return []}});
   const [todoDragId,setTodoDragId] = useState(null);
@@ -12399,6 +12399,7 @@ export default function OnnaDashboard() {
   };
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
+  useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{}},[archivedProjects]);
   useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
   useEffect(()=>{idbGet("projectFileStore").then(d=>{if(d)setProjectFileStore(d);setFileStoreReady(true);}).catch(()=>setFileStoreReady(true));},[]);
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
@@ -14218,7 +14219,21 @@ export default function OnnaDashboard() {
           <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Budget</button>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
             <div style={{fontSize:18,fontWeight:700,color:T.text}}>Estimates</div>
-            <BtnPrimary onClick={()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi6=(projectInfoRef.current||{})[p.id];ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:_pi6?.shootName||p.name||"",usage:_pi6?.usage||ne.ts.usage,shootDate:_pi6?.shootDate||ne.ts.shootDate,location:_pi6?.shootLocation||ne.ts.location};if(_pi6){const _sa2={};EST_SA_FIELDS.forEach((_f,i)=>{_sa2[i]=EST_SA_FIELDS[i].defaultValue;});if(_pi6.shootName)_sa2[3]=_pi6.shootName;if(_pi6.shootDate)_sa2[5]=_pi6.shootDate;if(_pi6.usage)_sa2[7]=_pi6.usage;ne.saFields=_sa2;}setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===ne.id);if(idx>=0&&!arr[idx].prodLogo)arr[idx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";}}>+ New Estimate</BtnPrimary>
+            {(()=>{
+              const addEstNew=()=>{const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi6=(projectInfoRef.current||{})[p.id];ne.ts={...ne.ts,version:`PRODUCTION ESTIMATE ${versionLabels[estimates.length]||`V${estimates.length+1}`}`,client:p.client||"",project:_pi6?.shootName||p.name||"",usage:_pi6?.usage||ne.ts.usage,shootDate:_pi6?.shootDate||ne.ts.shootDate,location:_pi6?.shootLocation||ne.ts.location};if(_pi6){const _sa2={};EST_SA_FIELDS.forEach((_f,i)=>{_sa2[i]=EST_SA_FIELDS[i].defaultValue;});if(_pi6.shootName)_sa2[3]=_pi6.shootName;if(_pi6.shootDate)_sa2[5]=_pi6.shootDate;if(_pi6.usage)_sa2[7]=_pi6.usage;ne.saFields=_sa2;}setProjectEstimates(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),ne]}));const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===ne.id);if(idx>=0&&!arr[idx].prodLogo)arr[idx].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";};
+              return(
+                <div style={{position:"relative"}}>
+                  <BtnPrimary onClick={()=>setCreateMenuOpen(prev=>({...prev,est:!prev.est}))}>+ New Estimate ▾</BtnPrimary>
+                  {createMenuOpen.est&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,est:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.est&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,est:false}));addEstNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,est:false}));setDuplicateModal({type:"estimate"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           {estimates.length===0?<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>:(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -18014,17 +18029,17 @@ export default function OnnaDashboard() {
                   }}
                   style={{border:"2px dashed #d2d2d7",borderRadius:14,padding:"18px 24px",marginBottom:16,display:"flex",alignItems:"center",gap:12,transition:"all 0.15s",background:"transparent",cursor:"default"}}
                 >
-                  <span style={{fontSize:18,opacity:0.4}}>⊘</span>
+                  <span style={{fontSize:18,opacity:0.4}}>📦</span>
                   <div>
-                    <div style={{fontSize:12.5,fontWeight:600,color:T.sub}}>Archive zone</div>
-                    <div style={{fontSize:11.5,color:T.muted}}>Drag a project card here to archive it</div>
+                    <div style={{fontSize:12.5,fontWeight:600,color:T.sub}}>Completed Projects</div>
+                    <div style={{fontSize:11.5,color:T.muted}}>Drag a finished project here to move it to the archive</div>
                   </div>
-                  {archivedProjects.length>0&&<button onClick={()=>setShowArchive(v=>!v)} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,background:showArchive?"#1d1d1f":"transparent",color:showArchive?"#fff":T.sub,fontFamily:"inherit",transition:"all 0.12s"}}>{showArchive?"Hide archive":"View archive"} ({archivedProjects.length})</button>}
+                  {archivedProjects.length>0&&<button onClick={()=>setShowArchive(v=>!v)} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,background:showArchive?"#1d1d1f":"transparent",color:showArchive?"#fff":T.sub,fontFamily:"inherit",transition:"all 0.12s"}}>{showArchive?"Hide":"Show"} ({archivedProjects.length})</button>}
                 </div>
 
                 {showArchive&&archivedProjects.length>0&&(
                   <div style={{marginBottom:20}}>
-                    <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Archived Projects</div>
+                    <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Completed Projects</div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                       {archivedProjects.map(p=>{
                         const _rev=getProjRevenue(p);const _cost=getProjCost(p);const profit=_rev-_cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
@@ -18035,7 +18050,7 @@ export default function OnnaDashboard() {
                                 <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{p.client}</div>
                                 <div style={{fontSize:13,fontWeight:600,color:T.sub}}>{p.name}</div>
                               </div>
-                              <button onClick={()=>setArchivedProjects(prev=>prev.filter(a=>a.id!==p.id))} style={{fontSize:11,color:T.link,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Restore</button>
+                              <button onClick={()=>setArchivedProjects(prev=>prev.filter(a=>a.id!==p.id))} style={{fontSize:11,color:T.link,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Move to Active</button>
                             </div>
                             <div style={{display:"flex",gap:14}}>
                               <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Revenue</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>AED {getProjRevenue(p).toLocaleString()}</div></div>
@@ -18100,7 +18115,7 @@ export default function OnnaDashboard() {
                             onMouseOver={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.color=T.sub;}}
                             onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.muted;}}
                           >
-                            <span style={{fontSize:13}}>⊘</span> Archive
+                            <span style={{fontSize:13}}>📦</span> Complete
                           </button>
                           )}
                           {p.client!=="TEMPLATE"&&<button
@@ -19525,6 +19540,7 @@ export default function OnnaDashboard() {
           recce:{store:recceReportStore,setStore:setRecceReportStore,archiveTable:"recceReports",archiveKey:"recceReport",title:"Recce Report",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
           dietary:{store:dietaryStore,setStore:setDietaryStore,archiveTable:"dietaries",archiveKey:"dietary",title:"Dietary List",descFn:r=>{const c=(r.item?.people||[]).length;return `${c} crew`;},labelKey:"label"},
           itinerary:{store:travelItineraryStore,setStore:setTravelItineraryStore,archiveTable:"travelItineraries",archiveKey:"travelItinerary",title:"Travel Itinerary",descFn:r=>{const s=(r.item?.sections||[]).length;return `${s} section${s!==1?"s":""}`;},labelKey:"label"},
+          estimate:{store:projectEstimates,setStore:setProjectEstimates,archiveTable:"estimates",archiveKey:"estimate",title:"Production Estimate",descFn:r=>{const secs=r.item?.sections||[];const gt=secs.reduce((s,sec)=>(sec.items||[]).reduce((a,it)=>a+(parseFloat(it.total)||0),0)+s,0);return gt>0?`AED ${gt.toLocaleString(undefined,{maximumFractionDigits:0})}`:"Empty";},labelKey:"ts.version",getLabelFn:item=>item?.ts?.version||"Untitled",setLabelFn:(clone,label)=>{if(!clone.ts)clone.ts={};clone.ts.version=label;}},
         };
         const conf=DCONF[dt];if(!conf)return null;
         const q=duplicateSearch.toLowerCase().trim();
@@ -19533,10 +19549,12 @@ export default function OnnaDashboard() {
           const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
           const projName=proj?.name||"Unknown Project";
           const client=proj?.client||"";
+          const _getLabel=conf.getLabelFn||(item=>item[conf.labelKey]||"Untitled");
           (items||[]).forEach(item=>{
-            results.push({item,projName,client,projectId:pid,label:item[conf.labelKey]||"Untitled",source:"active"});
+            results.push({item,projName,client,projectId:pid,label:_getLabel(item),source:"active"});
           });
         });
+        const _getLabel2=conf.getLabelFn||(item=>item[conf.labelKey]||"Untitled");
         (archive||[]).filter(e=>e.table===conf.archiveTable).forEach(entry=>{
           const it=entry.item;
           const item=it[conf.archiveKey]||it;
@@ -19544,7 +19562,7 @@ export default function OnnaDashboard() {
           const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
           const projName=proj?.name||"Unknown Project";
           const client=proj?.client||"";
-          results.push({item,projName,client,projectId:pid,label:item[conf.labelKey]||"Untitled",source:"archived"});
+          results.push({item,projName,client,projectId:pid,label:_getLabel2(item),source:"archived"});
         });
         const filtered=q?results.filter(r=>[r.projName,r.client,r.label].some(s=>(s||"").toLowerCase().includes(q))):results;
         const grouped={};
@@ -19557,7 +19575,7 @@ export default function OnnaDashboard() {
           const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
           const _pName=_proj?.name||"";
           if(_pid){
-            conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} ${conf.title} V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
+            conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];const vn=store[_pid].length+1;const autoLabel=`${_pName} ${conf.title} V${vn}`;if(conf.setLabelFn)conf.setLabelFn(clone,autoLabel);else clone.label=autoLabel;store[_pid].push(clone);return store;});
           }
           setDuplicateModal(null);setDuplicateSearch("");
         };
