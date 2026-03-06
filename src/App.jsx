@@ -18722,7 +18722,7 @@ export default function OnnaDashboard() {
               </div>
             </div>}
             {/* Desktop: vertical agent strip on left with drag-resize */}
-            {!isMobile&&<>{/* strip */}<div style={{flex:`0 0 ${agentStripW}px`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0 0",borderRight:"1px solid #e5e5ea"}}>
+            {!isMobile&&<>{/* strip */}<div style={{flex:`0 0 ${agentStripW}px`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0 0",borderRight:"1px solid #e5e5ea",minHeight:0,overflow:"hidden"}}>
               {/* Search */}
               <input value={agentSearch} onChange={e=>{setAgentSearch(e.target.value);}} placeholder="Search..." style={{width:agentStripW-16,padding:"4px 6px",borderRadius:6,border:"1px solid #e5e5ea",fontSize:9,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none",marginBottom:4,boxSizing:"border-box",textAlign:"center",flexShrink:0}}/>
               {/* Scrollable agent list — hidden scrollbar */}
