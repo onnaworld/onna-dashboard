@@ -4287,6 +4287,18 @@ const TI_HOTEL_COLS = [
   {key:"checkIn",label:"CHECK IN",flex:0.7},{key:"checkOut",label:"CHECK OUT",flex:0.7},{key:"roomType",label:"ROOM TYPE",flex:0.7},
   {key:"bookingRef",label:"BOOKING REF",flex:0.7},{key:"notes",label:"NOTES",flex:1},
 ];
+const TI_ROOMING_COLS = [
+  {key:"passportName",label:"PASSPORT NAME",flex:1.5},{key:"hotel",label:"HOTEL / PROPERTY",flex:1.3},
+  {key:"roomType",label:"ROOM TYPE",flex:0.7},{key:"sharingWith",label:"SHARING WITH",flex:1},
+  {key:"checkIn",label:"CHECK IN",flex:0.6},{key:"checkOut",label:"CHECK OUT",flex:0.6},
+  {key:"confirmNo",label:"CONF. NO.",flex:0.7},{key:"requests",label:"SPECIAL REQUESTS",flex:1.2},
+];
+const TI_MOVEMENT_COLS = [
+  {key:"time",label:"TIME",width:55},{key:"activity",label:"ACTIVITY",flex:2},{key:"location",label:"LOCATION",flex:1.2},
+  {key:"transport",label:"TRANSPORT",flex:0.7},{key:"who",label:"WHO",flex:0.8},{key:"notes",label:"NOTES",flex:1},
+];
+const tiMkMove = () => ({id:"mv"+Date.now()+Math.random(),time:"",activity:"",location:"",transport:"",who:"",notes:""});
+const tiMkDay = () => ({id:"dy"+Date.now()+Math.random(),date:"",title:"",moves:[tiMkMove(),tiMkMove(),tiMkMove()]});
 const TRAVEL_ITINERARY_INIT = {
   project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",producer:"[Producer]",destination:"[Destination]"},
   sections:[
@@ -4294,6 +4306,13 @@ const TRAVEL_ITINERARY_INIT = {
     {id:"cars",type:"cars",title:"AIRPORT TRANSFERS",subtitle:"All passengers will receive a text with driver details and live tracking link.",data:[{id:1,name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}]},
     {id:"hotels",type:"hotels",title:"HOTEL ACCOMMODATION",subtitle:"",data:[{id:1,name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""}]},
   ],
+  rooming:[
+    {id:"rm1",passportName:"",hotel:"",roomType:"",sharingWith:"",checkIn:"",checkOut:"",confirmNo:"",requests:""},
+    {id:"rm2",passportName:"",hotel:"",roomType:"",sharingWith:"",checkIn:"",checkOut:"",confirmNo:"",requests:""},
+    {id:"rm3",passportName:"",hotel:"",roomType:"",sharingWith:"",checkIn:"",checkOut:"",confirmNo:"",requests:""},
+  ],
+  moveDays:null,
+  travelTab:"itinerary",
   notes:"This itinerary, its commission, contents and subject are all strictly confidential. We ask that you do not cite or reference in any way or manner, designers, shoot details, models, partners or suppliers without their and the client\u2019s prior express permission, until release of the subject photographs/film/recordings into the public domain.",
 };
 
@@ -12008,17 +12027,13 @@ export default function OnnaDashboard() {
         const tag = e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
         e.preventDefault();
-        if(activeTab==="Agents"){
-          // Doc agents have their own ⌘Z handler via AgentCard useEffect (captures in bubble phase)
-          if(connieCtx||connieDietMode||ronnieCtx||codyCtx||billieCtx)return;
-          if(carrieCtx){setCarrieCtx(null);return;}
-        }
+        if(activeTab==="Agents") return; // AgentCard handles its own ⌘Z
         performUndo();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [performUndo,activeTab,connieCtx,connieDietMode,ronnieCtx,codyCtx,billieCtx,carrieCtx]);
+  }, [performUndo,activeTab]);
   const addTodoFromInput = (text) => {
     if (!text) return;
     pushUndo("add task");
@@ -15714,6 +15729,59 @@ export default function OnnaDashboard() {
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=(s.columns||[]).filter((_,j)=>j!==ci);s.data=s.data.map(r=>{const nr={...r};delete nr[col.key];return nr;});store[p.id]=arr;return store;});
         };
 
+        // ── Rooming helpers ──
+        const tiRooming = tiData.rooming || [];
+        const tiTravelTab = tiData.travelTab || "itinerary";
+        const tiSetTravelTab = (tab) => tiU("travelTab", tab);
+        const tiUpdateRooming = (id,key,val) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.rooming=(d.rooming||[]).map(r=>r.id===id?{...r,[key]:val}:r);store[p.id]=arr;return store;});
+        };
+        const tiAddRoomingRow = () => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];if(!d.rooming)d.rooming=[];d.rooming.push({id:"rm"+Date.now(),passportName:"",hotel:"",roomType:"",sharingWith:"",checkIn:"",checkOut:"",confirmNo:"",requests:""});store[p.id]=arr;return store;});
+        };
+        const tiDeleteRoomingRow = (id) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.rooming=(d.rooming||[]).filter(r=>r.id!==id);store[p.id]=arr;return store;});
+        };
+        const tiDragRm = useRef(null);
+        const [tiDropRmAt, setTiDropRmAt] = useState(null);
+        const tiReorderRooming = (fromIdx, toIdx) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const rm=[...(d.rooming||[])];const [moved]=rm.splice(fromIdx,1);rm.splice(toIdx,0,moved);d.rooming=rm;store[p.id]=arr;return store;});
+        };
+        const tiSyncRoomingToHotels = () => {
+          setTravelItineraryStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];
+            const hotelIdx=(d.sections||[]).findIndex(s=>s.type==="hotels");
+            if(hotelIdx===-1)return store;
+            const newData=(d.rooming||[]).filter(r=>r.passportName&&!r.passportName.startsWith("[")).map(r=>({
+              id:Date.now()+Math.random(),name:r.passportName,hotel:r.hotel,address:"",checkIn:r.checkIn,checkOut:r.checkOut,
+              roomType:r.roomType+(r.sharingWith?" (w/ "+r.sharingWith+")":""),bookingRef:r.confirmNo,notes:r.requests,
+            }));
+            if(newData.length===0)return store;
+            d.sections[hotelIdx].data=newData;store[p.id]=arr;return store;
+          });
+        };
+
+        // ── Movement order helpers ──
+        const tiMoveDays = tiData.moveDays || [tiMkDay()];
+        const tiUpdateDay = (did,key,val) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,[key]:val}:dy);store[p.id]=arr;return store;});
+        };
+        const tiAddDay = () => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];if(!d.moveDays)d.moveDays=[];d.moveDays.push(tiMkDay());store[p.id]=arr;return store;});
+        };
+        const tiDeleteDay = (did) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).filter(dy=>dy.id!==did);store[p.id]=arr;return store;});
+        };
+        const tiUpdateMove = (did,mid,key,val) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,moves:dy.moves.map(m=>m.id===mid?{...m,[key]:val}:m)}:dy);store[p.id]=arr;return store;});
+        };
+        const tiAddMove = (did) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,moves:[...dy.moves,tiMkMove()]}:dy);store[p.id]=arr;return store;});
+        };
+        const tiDeleteMove = (did,mid) => {
+          setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,moves:dy.moves.filter(m=>m.id!==mid)}:dy);store[p.id]=arr;return store;});
+        };
+
         const tiExportPDF = () => {
           const el=document.getElementById("onna-ti-print");if(!el)return;
           const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
@@ -15746,8 +15814,23 @@ export default function OnnaDashboard() {
                   <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
                 </div>
 
+                {/* Tab bar */}
+                <div style={{display:"flex",borderBottom:"2px solid #000",overflowX:"auto",margin:"0 32px"}}>
+                  {[{id:"itinerary",label:"ITINERARY"},{id:"rooming",label:"ROOMING LIST"},{id:"movement",label:"MOVEMENT ORDER"}].map(t=>(
+                    <div key={t.id} onClick={()=>tiSetTravelTab(t.id)}
+                      style={{fontFamily:CS_FONT,fontSize:9,fontWeight:tiTravelTab===t.id?700:400,letterSpacing:0.5,padding:"10px 16px",cursor:"pointer",background:tiTravelTab===t.id?"#000":"#f5f5f5",color:tiTravelTab===t.id?"#fff":"#666",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{t.label}</div>
+                  ))}
+                  <div style={{flex:1}}/>
+                  {tiTravelTab==="rooming"&&(
+                    <div onClick={tiSyncRoomingToHotels} style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,padding:"10px 16px",cursor:"pointer",background:"#f5f5f5",color:"#666",textTransform:"uppercase",borderLeft:"1px solid #ddd"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="#f5f5f5"}>
+                      SYNC TO HOTELS
+                    </div>
+                  )}
+                </div>
+
                 <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
-                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>TRAVEL ITINERARY</div>
+                  <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>{tiTravelTab==="itinerary"?"TRAVEL ITINERARY":tiTravelTab==="rooming"?"ROOMING LIST":"MOVEMENT ORDER"}</div>
                 </div>
 
                 {/* Project info */}
@@ -15760,8 +15843,8 @@ export default function OnnaDashboard() {
                   ))}
                 </div>
 
-                {/* Sections */}
-                <div style={{padding:"0 32px"}}>
+                {/* ========= ITINERARY TAB ========= */}
+                {tiTravelTab==="itinerary"&&(<div style={{padding:"0 32px"}}>
                   {(tiData.sections||[]).map((sec,si)=>(
                     <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={sec.data||[]}
                       onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
@@ -15789,10 +15872,8 @@ export default function OnnaDashboard() {
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* Confidentiality notice */}
-                <div style={{padding:"0 32px"}}>
+                  {/* Confidentiality notice */}
                   <div style={{marginTop:16,padding:"10px 0",borderTop:"1px solid #eee"}}>
                     <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",marginBottom:4}}>CONFIDENTIALITY NOTICE</div>
                     <div onClick={()=>{const val=prompt("Edit notice:",tiData.notes);if(val!==null)tiU("notes",val);}}
@@ -15800,7 +15881,143 @@ export default function OnnaDashboard() {
                       {tiData.notes||"Click to add confidentiality notice"}
                     </div>
                   </div>
-                </div>
+                </div>)}
+
+                {/* ========= ROOMING LIST TAB ========= */}
+                {tiTravelTab==="rooming"&&(<div style={{padding:"0 32px"}}>
+                  {/* Room summary badges */}
+                  {(()=>{
+                    const types={};const hotels={};
+                    tiRooming.forEach(r=>{
+                      const rt=(r.roomType||"").trim().toLowerCase();if(rt)types[rt]=(types[rt]||0)+1;
+                      const h=(r.hotel||"").trim();if(h)hotels[h]=(hotels[h]||0)+1;
+                    });
+                    const filled=tiRooming.filter(r=>r.passportName).length;
+                    return(
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+                        <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,background:"#000",color:"#fff",padding:"3px 10px",borderRadius:2}}>{filled} GUESTS</div>
+                        {Object.entries(types).map(([type,count])=>(
+                          <div key={type} style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,background:"#f4f4f4",color:"#666",padding:"3px 10px",borderRadius:2,textTransform:"uppercase"}}>{count} {type}</div>
+                        ))}
+                        {Object.entries(hotels).map(([hotel,count])=>(
+                          <div key={hotel} style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,background:"#E3F2FD",color:"#1565C0",padding:"3px 10px",borderRadius:2}}>{hotel}: {count}</div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Rooming table header */}
+                  <div style={{display:"flex",background:"#000",padding:"4px 8px"}}>
+                    <div style={{width:18}}/>
+                    <div style={{width:14}}/>
+                    <div style={{width:22,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#fff",padding:"4px 2px"}}>#</div>
+                    {TI_ROOMING_COLS.map(col=>(
+                      <div key={col.key} style={{flex:col.flex,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#fff",padding:"4px 4px"}}>{col.label}</div>
+                    ))}
+                  </div>
+
+                  {/* Rooming rows */}
+                  {tiRooming.map((rm,ri)=>{
+                    const isDropHere=tiDropRmAt===ri&&tiDragRm.current!==null&&tiDragRm.current!==ri;
+                    return(
+                      <div key={rm.id}
+                        onDragOver={e=>{e.preventDefault();setTiDropRmAt(ri);}}
+                        onDrop={()=>{
+                          const from=tiDragRm.current;
+                          if(from===null||from===ri){tiDragRm.current=null;setTiDropRmAt(null);return;}
+                          tiReorderRooming(from,ri);
+                          tiDragRm.current=null;setTiDropRmAt(null);
+                        }}
+                        onDragLeave={()=>setTiDropRmAt(null)}
+                        style={{display:"flex",borderBottom:isDropHere?"2px solid #FFD54F":"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
+                        <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <span onClick={()=>tiDeleteRoomingRow(rm.id)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
+                            onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+                        </div>
+                        <div draggable onDragStart={()=>{tiDragRm.current=ri;}} onDragEnd={()=>{tiDragRm.current=null;setTiDropRmAt(null);}}
+                          style={{width:14,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab"}}>
+                          <span style={{fontFamily:CS_FONT,fontSize:8,color:"#ccc"}}>≡</span>
+                        </div>
+                        <div style={{width:22,fontFamily:CS_FONT,fontSize:8,fontWeight:700,color:"#ccc",display:"flex",alignItems:"center",padding:"0 2px"}}>{ri+1}</div>
+                        {TI_ROOMING_COLS.map(col=>(
+                          <div key={col.key} style={{flex:col.flex}}>
+                            <input value={rm[col.key]||""} onChange={e=>tiUpdateRooming(rm.id,col.key,e.target.value)}
+                              placeholder={col.key==="passportName"?"Full passport name":col.key==="hotel"?"Hotel name":col.key==="roomType"?"Single / Double / Twin":col.key==="sharingWith"?"Roommate name":col.key==="checkIn"?"DD/MM":col.key==="checkOut"?"DD/MM":col.key==="confirmNo"?"Conf. number":"Requests..."}
+                              style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",padding:"4px 4px",width:"100%",boxSizing:"border-box",
+                                background:rm[col.key]?"transparent":"#FFFDE7",color:rm[col.key]?"#1a1a1a":"#999"}}/>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+
+                  {/* Add guest row */}
+                  <div style={{marginTop:4,marginBottom:16}}>
+                    <div onClick={tiAddRoomingRow} style={{display:"flex",alignItems:"center",background:"#f4f4f4",padding:"6px 8px",cursor:"pointer",borderRadius:1}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="#f4f4f4"}>
+                      <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#999",textTransform:"uppercase"}}>+ ADD GUEST</span>
+                    </div>
+                  </div>
+
+                  <div style={{fontFamily:CS_FONT,fontSize:8,color:"#999",letterSpacing:0.5,padding:"8px 0",borderTop:"1px solid #eee"}}>
+                    Click SYNC TO HOTELS in the tab bar to push this rooming list into the Hotel Accommodation section on the Itinerary tab.
+                  </div>
+                </div>)}
+
+                {/* ========= MOVEMENT ORDER TAB ========= */}
+                {tiTravelTab==="movement"&&(<div style={{padding:"0 32px"}}>
+                  {tiMoveDays.map((day,di)=>(
+                    <div key={day.id} style={{marginBottom:14}}>
+                      {/* Day header */}
+                      <div style={{display:"flex",alignItems:"center",background:"#000",padding:"4px 8px",justifyContent:"space-between"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#fff"}}>DAY {di+1}</span>
+                          <input value={day.date} onChange={e=>tiUpdateDay(day.id,"date",e.target.value)} placeholder="DD/MM/YYYY"
+                            style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#fff",background:"transparent",border:"none",outline:"none",width:80,padding:"2px 4px"}}/>
+                          <input value={day.title} onChange={e=>tiUpdateDay(day.id,"title",e.target.value)} placeholder="e.g. Travel Day / Shoot Day 1 / Recce"
+                            style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"rgba(255,255,255,0.6)",background:"transparent",border:"none",outline:"none",width:250,padding:"2px 4px"}}/>
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span onClick={()=>tiAddMove(day.id)} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.5)",cursor:"pointer",letterSpacing:0.5}}>+ ADD</span>
+                          <span onClick={()=>tiDeleteDay(day.id)} style={{fontSize:12,color:"rgba(255,255,255,0.3)",cursor:"pointer"}}
+                            onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.3)"}>×</span>
+                        </div>
+                      </div>
+                      {/* Column header */}
+                      <div style={{display:"flex",background:"#f4f4f4",padding:"3px 8px",gap:4}}>
+                        <div style={{width:14}}/>
+                        {TI_MOVEMENT_COLS.map(col=>(
+                          <div key={col.key} style={{...(col.width?{width:col.width}:{flex:col.flex}),fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999"}}>{col.label}</div>
+                        ))}
+                      </div>
+                      {/* Move rows */}
+                      {day.moves.map(mv=>(
+                        <div key={mv.id} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderBottom:"1px solid #f0f0f0"}}>
+                          <div style={{width:14}}>
+                            <span onClick={()=>tiDeleteMove(day.id,mv.id)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
+                              onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+                          </div>
+                          {TI_MOVEMENT_COLS.map(col=>(
+                            <div key={col.key} style={{...(col.width?{width:col.width}:{flex:col.flex})}}>
+                              <input value={mv[col.key]||""} onChange={e=>tiUpdateMove(day.id,mv.id,col.key,e.target.value)}
+                                placeholder={col.key==="time"?"00:00":col.key==="activity"?"Activity / movement":col.key==="location"?"Location / address":col.key==="transport"?"Van / Car / Walk":col.key==="who"?"All / Crew / Talent":"Notes"}
+                                style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",width:"100%",boxSizing:"border-box",padding:"3px 4px",
+                                  background:mv[col.key]?"transparent":"#FFFDE7",color:mv[col.key]?"#1a1a1a":"#999",
+                                  ...(col.key==="time"?{fontWeight:700}:{})}}/>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+
+                  <div style={{marginBottom:16}}>
+                    <div onClick={tiAddDay} style={{display:"flex",alignItems:"center",background:"#f4f4f4",padding:"6px 8px",cursor:"pointer",borderRadius:1}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="#f4f4f4"}>
+                      <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#999",textTransform:"uppercase"}}>+ ADD DAY</span>
+                    </div>
+                  </div>
+                </div>)}
 
                 {/* Footer */}
                 <div style={{padding:"0 32px 32px"}}>
