@@ -181,8 +181,58 @@ document.querySelectorAll('span').forEach(function(s){
     s.replaceWith(img);
   }
 });
-/* Interactive status cycling on shared page */
+/* Interactive approve/shortlist/reject on shared page */
 (function(){
+  var ACTION_C={
+    approved:{bg:"#2E7D32",text:"#fff"},
+    shortlisted:{bg:"#E65100",text:"#fff"},
+    rejected:{bg:"#C62828",text:"#fff"}
+  };
+  /* Make action buttons clickable */
+  document.querySelectorAll('[data-fit-action]').forEach(function(btn){
+    btn.style.cursor='pointer';
+    btn.addEventListener('click',function(){
+      var action=btn.getAttribute('data-fit-action');
+      var card=btn.closest('div[style*="border"]');
+      if(!card)return;
+      var row=btn.parentElement;
+      var siblings=row.querySelectorAll('[data-fit-action]');
+      var wasActive=btn.style.background===ACTION_C[action].bg;
+      /* Reset all buttons in this card */
+      siblings.forEach(function(s){
+        var a=s.getAttribute('data-fit-action');
+        s.style.background='#fff';
+        s.style.color=ACTION_C[a]?ACTION_C[a].bg:'#999';
+      });
+      if(!wasActive){
+        btn.style.background=ACTION_C[action].bg;
+        btn.style.color='#fff';
+        card.style.borderColor=ACTION_C[action].bg;
+        card.style.borderWidth='3px';
+      } else {
+        card.style.borderColor='#eee';
+        card.style.borderWidth='1px';
+      }
+    });
+  });
+  /* Make notes inputs editable */
+  document.querySelectorAll('[data-fit-note]').forEach(function(inp){
+    inp.removeAttribute('disabled');
+    inp.style.cursor='text';
+  });
+  /* Also add notes input to cards that don't have one yet */
+  document.querySelectorAll('[data-fit-card-actions]').forEach(function(row){
+    var card=row.parentElement;
+    if(!card.querySelector('[data-fit-note]')){
+      var inp=document.createElement('input');
+      inp.setAttribute('data-fit-note','1');
+      inp.placeholder='Notes...';
+      inp.style.cssText='width:100%;font-family:inherit;font-size:7px;padding:3px 4px;border:none;border-top:1px solid #f0f0f0;outline:none;color:#666;box-sizing:border-box;background:transparent';
+      inp.addEventListener('input',function(){inp.style.background=inp.value?'#FFFDE7':'transparent';});
+      card.appendChild(inp);
+    }
+  });
+  /* Interactive status cycling on confirmed looks */
   var STATUSES=["Pending","Option","Approved","Pulled","Returned"];
   var STATUS_C={
     "Pending":{bg:"#f4f4f4",text:"#999"},

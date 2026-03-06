@@ -3076,7 +3076,7 @@ const FitImgSlot = ({ src, onAdd, onRemove, h = "100%", style = {} }) => {
   );
 };
 
-const FitCard = ({ src, status, onAdd, onRemove, onStatus }) => {
+const FitCard = ({ src, status, onAdd, onRemove, onStatus, note, onNote }) => {
   const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   return (
@@ -3084,14 +3084,15 @@ const FitCard = ({ src, status, onAdd, onRemove, onStatus }) => {
       <div style={{ aspectRatio: "4/5", position: "relative" }}>
         <FitImgSlot src={src} h="100%" onAdd={onAdd} onRemove={onRemove} />
       </div>
-      <div style={{ display: "flex", borderTop: "1px solid #eee" }}>
+      <div data-fit-card-actions style={{ display: "flex", borderTop: "1px solid #eee" }}>
         {[{ k: "approved", l: "APPROVE", c: "#2E7D32" }, { k: "shortlisted", l: "SHORTLIST", c: "#E65100" }, { k: "rejected", l: "REJECT", c: "#C62828" }].map(btn => (
-          <div key={btn.k} onClick={() => onStatus(status === btn.k ? "none" : btn.k)}
+          <div key={btn.k} data-fit-action={btn.k} onClick={() => onStatus(status === btn.k ? "none" : btn.k)}
             style={{ flex: 1, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: 0.5, padding: "4px 0", textAlign: "center", cursor: "pointer", textTransform: "uppercase",
               background: status === btn.k ? btn.c : "#fff", color: status === btn.k ? "#fff" : btn.c,
               borderRight: btn.k !== "rejected" ? "1px solid #f0f0f0" : "none" }}>{btn.l}</div>
         ))}
       </div>
+      {onNote !== undefined && <input data-fit-note value={note || ""} onChange={e => onNote(e.target.value)} placeholder="Notes..." style={{ width: "100%", fontFamily: F, fontSize: 7, padding: "3px 4px", border: "none", borderTop: "1px solid #f0f0f0", outline: "none", color: "#666", boxSizing: "border-box", background: note ? "#FFFDE7" : "transparent" }} />}
     </div>
   );
 };
@@ -3180,6 +3181,7 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
     clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
     clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
     clone.querySelectorAll("input").forEach(inp => {
+      if (inp.hasAttribute("data-fit-note")) return; // keep notes inputs interactive on shared page
       if (!inp.value || !inp.value.trim()) inp.style.display = "none";
       else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s); }
     });
@@ -3321,7 +3323,7 @@ ${PRINT_CLEANUP_CSS}
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0", background: "#f8f8f8", cursor: "grab", borderBottom: "1px solid #eee" }}>
                           <span style={{ fontFamily: F, fontSize: 8, color: "#ccc", letterSpacing: 2 }}>{"≡"}</span>
                         </div>
-                        <div style={{ aspectRatio: "1/1", background: "#f8f8f8", position: "relative" }}>
+                        <div style={{ aspectRatio: "4/5", background: "#f8f8f8", position: "relative" }}>
                           <FitImgSlot src={look.image} h="100%" onAdd={files => setLookImg(t.id, look.id, files)} onRemove={() => rmLookImg(t.id, look.id)} />
                           <div data-fit-status={look.status} onClick={() => { const i = FIT_STATUSES.indexOf(look.status); updateLook(t.id, look.id, "status", FIT_STATUSES[(i + 1) % FIT_STATUSES.length]); }}
                             style={{ position: "absolute", top: 4, right: 4, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: sr.bg, color: sr.text, padding: "2px 6px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{look.status}</div>
@@ -3348,52 +3350,42 @@ ${PRINT_CLEANUP_CSS}
 
         {(tab === "options" || (printTabs && printTabs.has("options"))) && (
           <div>
-            <div data-hide="1" style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-              {fittings.map((fit, idx) => {
-                const active = curFit && curFit.id === fit.id;
-                return (
-                  <div key={fit.id} style={{ display: "flex", alignItems: "center", borderRadius: 2, border: active ? "2px solid #000" : "1px solid #ddd", overflow: "hidden" }}>
-                    <div onClick={() => setSelFit(fit.id)} style={{ fontFamily: F, fontSize: 8, fontWeight: active ? 700 : 400, letterSpacing: LS, padding: "4px 10px", cursor: "pointer", background: active ? "#000" : "#fff", color: active ? "#fff" : "#666" }}>
-                      {idx + 1}. {fit.talentName || "Untitled"}</div>
-                    <button onClick={() => deleteFitting(fit.id)} style={{ background: active ? "#333" : "#f5f5f5", border: "none", color: active ? "rgba(255,255,255,0.4)" : "#ccc", fontSize: 10, cursor: "pointer", padding: "4px 6px", lineHeight: 1 }}>{"×"}</button>
-                  </div>
-                );
-              })}
-              <div onClick={addFitting} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, padding: "4px 12px", cursor: "pointer", borderRadius: 2, border: "1px dashed #ccc", color: "#999" }}>+ ADD</div>
-            </div>
-            {/* In print mode, render ALL fittings; in normal mode, render only selected */}
-            {(printTabs ? fittings : (curFit ? [curFit] : [])).map((fit, fi) => {
-              const r2 = fit.images.slice(4, 8).some(Boolean);
+            {fittings.map((fit, fi) => {
+              const fitImgCount = fit.images.filter(Boolean).length;
               return (
-              <div key={fit.id} style={fi > 0 ? {marginTop:16} : {}}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: _fitMobile ? 6 : 14, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4, flexWrap: "wrap" }}>
-                  <FitInp value={fit.talentName} onChange={v => updateFit(fit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: _fitMobile ? 14 : 18, fontWeight: 700, padding: 0, width: _fitMobile ? "100%" : 280 }} />
-                  <div style={{ flex: 1, display: "flex", gap: 14 }}>
-                    <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>LOOK </span>
-                      <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look 1" style={{ display: "inline", width: 80 }} /></div>
-                    <div><span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>NOTES </span>
-                      <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Fitting notes..." style={{ color: "#666", display: "inline", width: 220 }} /></div>
+              <div key={fit.id} style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>MODEL {fi + 1}</span>
+                    <FitInp value={fit.talentName} onChange={v => updateFit(fit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 100 : 180 }} />
+                    <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look" style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", background: "transparent", width: 80 }} />
+                  </div>
+                  <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span onClick={() => { const imgs = [...fit.images]; const nextEmpty = imgs.findIndex(x => !x); if (nextEmpty === -1) { imgs.push(null,null,null,null); updateFit(fit.id, "images", imgs); } }} style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ CARD</span>
+                    <button onClick={() => deleteFitting(fit.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8, marginBottom: r2 ? 8 : 0 }}>
-                  {[0,1,2,3].map(n => (
-                    <FitCard key={n} src={fit.images[n]} status={(fit.imageStatuses||{})[n] || "none"}
+                <div style={{ padding: "2px 0 4px 0" }}>
+                  <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Notes..." style={{ color: "#666", width: "100%", borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
+                  {fit.images.map((img, n) => (
+                    (img || n < 4) ? <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
                       onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
-                      onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })} />
+                      onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })}
+                      note={(fit.imageNotes||{})[n] || ""}
+                      onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })} /> : null
                   ))}
                 </div>
-                {r2 && (
-                  <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
-                    {[4,5,6,7].map(n => (
-                      <FitCard key={n} src={fit.images[n]} status={(fit.imageStatuses||{})[n] || "none"}
-                        onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
-                        onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })} />
-                    ))}
-                  </div>
-                )}
               </div>
               );
             })}
+            <div data-hide="1" style={{ display: "flex", gap: 8 }}>
+              <div onClick={addFitting} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 12px", cursor: "pointer", borderRadius: 1, flex: 1 }}
+                onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}>
+                <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>+ ADD MODEL</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
