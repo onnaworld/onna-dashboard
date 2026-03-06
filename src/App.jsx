@@ -3436,23 +3436,6 @@ const CTB_OPT_C = {
   "Unavailable": { bg: "#f4f4f4", text: "#ccc" },
 };
 
-const CtClientLogo = () => {
-  const [logo, setLogo] = useState(null);
-  const [over, setOver] = useState(false);
-  const hf = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setLogo(e.target.result); r.readAsDataURL(f); };
-  return (
-    <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); hf(e.dataTransfer.files); }}
-      style={{ width: 80, height: 32, borderRadius: 2, overflow: "hidden", position: "relative" }}>
-      {logo ? (<><img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-        <button data-hide="1" onClick={() => setLogo(null)} style={{ position: "absolute", top: -2, right: -2, background: "rgba(0,0,0,0.4)", border: "none", color: "#fff", fontSize: 8, cursor: "pointer", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"\u00d7"}</button></>
-      ) : (<label style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: over ? "1px dashed #FFD54F" : "1px dashed #ddd", background: over ? CTB_YEL : "transparent", borderRadius: 2 }}>
-        <span style={{ fontFamily: CTB_F, fontSize: 6, color: "#ccc", letterSpacing: CTB_LS }}>CLIENT LOGO</span>
-        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { hf(e.target.files); e.target.value = ""; }} />
-      </label>)}
-    </div>
-  );
-};
-
 const PRINT_CLEANUP_CSS_CTB = `[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]{display:none!important}`;
 
 const CastingTableConnie = React.forwardRef(function CastingTableConnieInner({ initialProject, initialRoles, onChangeProject, onChangeRoles, onShareUrl }, fwdRef) {
@@ -3503,11 +3486,9 @@ const CastingTableConnie = React.forwardRef(function CastingTableConnieInner({ i
       </div>
 
       <div ref={printRef} style={{ padding: "16px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, borderBottom: "2.5px solid #000", paddingBottom: 8 }}>
-          <span style={{ fontFamily: "'Georgia', serif", fontSize: 22, fontWeight: 400, letterSpacing: 1 }}>onna</span>
-          <div style={{ fontFamily: CTB_F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>CASTING</div>
-          <CtClientLogo />
-        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
+        <div style={{ textAlign: "center", fontFamily: CTB_F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>CASTING</div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client"], ["DATE", "date", "Date"], ["CASTING", "casting", "Casting Director"]].map(([lbl, key, ph]) => (
@@ -4278,15 +4259,25 @@ function applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectC
 }
 
 // ─── BILLIE (ESTIMATE) HELPERS ───────────────────────────────────────────────
-function buildBillieSystem(project, estData, versionLabel, estSnapshot) {
+function buildBillieSystem(project, estData, versionLabel, estSnapshot, baseCurrency = "AED", secondCurrency = "USD") {
   return `You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live estimate database.
 
 CRITICAL: You ALREADY HAVE the full estimate data below. NEVER ask the user to paste, share, or provide estimate details — you can see everything. Just act on their request immediately.
 
 You are viewing: "${project.name}" — ${versionLabel}
+Base currency: ${baseCurrency} | Secondary currency: ${secondCurrency}
 
 CURRENT ESTIMATE STATE:
 ${estSnapshot}
+
+REGIONAL MARKET AWARENESS:
+- When populating rates, use market-appropriate rates for the shoot location (check the SHOOT LOCATION field above).
+- Dubai/UAE: Use AED rates — crew day rates typically AED 500–8,000 depending on role.
+- London/UK: Use GBP rates — crew day rates typically £250–£2,500 depending on role.
+- Saudi Arabia/KSA: Use SAR rates — generally 5–15% higher than Dubai equivalents.
+- US: Use USD rates — vary significantly by city (LA/NYC premium vs other markets).
+- If the shoot location isn't clear, default to Dubai rates in AED.
+- Always enter rates in the BASE CURRENCY (${baseCurrency}) shown above. The system auto-converts to ${secondCurrency}.
 
 INSTRUCTIONS:
 - When the user asks to ADD, UPDATE, or CHANGE rows, header fields, or notes, output a SINGLE JSON patch inside a \`\`\`json code block. Only ONE json block per response.
@@ -4302,7 +4293,7 @@ INSTRUCTIONS:
 - Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
 - Each row has: ref (e.g. "1A"), desc, notes, days, qty, rate. Total = days × qty × rate. All values MUST be strings.
 - Section 18 (Production Fees) rows with a % in notes auto-calculate from subtotal.
-- Always show dual currency: AED and USD (fixed rate: 1 AED = 0.27 USD).
+- When discussing totals, show the base currency (${baseCurrency}). The UI automatically shows the secondary currency (${secondCurrency}) conversion.
 - Be warm, concise and professional.
 - NEVER say you don't have access to data, can't see the estimate, or need the user to share information. You have FULL access.
 
@@ -6537,10 +6528,21 @@ function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPan
   </div>;
 }
 // ─── EstimateView — shared BudgetConnie rendering ─────────────────────────────
+const EST_CURRENCIES = [
+  { code: "AED", label: "AED — UAE Dirham", symbol: "AED", rates: { USD: 0.2723, GBP: 0.2155, EUR: 0.2510, SAR: 1.0210 } },
+  { code: "USD", label: "USD — US Dollar", symbol: "USD", rates: { AED: 3.6725, GBP: 0.7916, EUR: 0.9218, SAR: 3.7500 } },
+  { code: "GBP", label: "GBP — British Pound", symbol: "GBP", rates: { AED: 4.6391, USD: 1.2632, EUR: 1.1645, SAR: 4.7370 } },
+  { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 3.9841, USD: 1.0848, GBP: 0.8587, SAR: 4.0682 } },
+  { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9794, USD: 0.2667, GBP: 0.2111, EUR: 0.2458 } },
+];
 function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
   const printRef = useRef(null);
+  const [baseCurrency, setBaseCurrency] = useState(() => (estData.currency || "AED"));
+  const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
+  const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
+  const xRate = baseCurr.rates[secondCurrency] || exchangeRate;
 
   const ts = estData.ts || ESTIMATE_INIT.ts;
   const sections = estData.sections || defaultSections();
@@ -6610,6 +6612,19 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
             onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>EXPORT ALL</div>
         </div>
       </div>
+      <div data-noprint style={{ display:"flex", gap:12, alignItems:"center", padding:"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
+        <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>CURRENCY</span>
+        <select value={baseCurrency} onChange={e => { setBaseCurrency(e.target.value); onSet(d => ({...d, currency: e.target.value})); }}
+          style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
+          {EST_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+        </select>
+        <span style={{ fontFamily:EST_F, fontSize:8, color:"#ccc" }}>→</span>
+        <select value={secondCurrency} onChange={e => { setSecondCurrency(e.target.value); onSet(d => ({...d, currency2: e.target.value})); }}
+          style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
+          {EST_CURRENCIES.filter(c => c.code !== baseCurrency).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+        </select>
+        <span style={{ fontFamily:EST_F, fontSize:8, color:"#999", letterSpacing:EST_LS }}>1 {baseCurrency} = {xRate.toFixed(4)} {secondCurrency}</span>
+      </div>
 
       <div ref={printRef} id="onna-est-print" style={{ padding:"40px 40px" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
@@ -6632,21 +6647,21 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
           <div style={{borderTop:"2px solid #000",marginTop:8}}>
             <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
               <div style={{flex:1,...hdr}}>CATEGORY</div>
-              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL AED</div>
-              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL USD</div>
+              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {baseCurrency}</div>
+              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {secondCurrency}</div>
             </div>
             {sections.map((sec)=>{const t=estSectionTotal(sec);return(
               <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
                 <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
                 <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
                 <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
-                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*exchangeRate)}</div>
+                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>
               </div>
             );})}
             <div style={{display:"flex",borderTop:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal)}</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal*exchangeRate)}</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal*xRate)}</div>
             </div>
             <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>VAT (5%)</div>
@@ -6666,7 +6681,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
             return (
               <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
-                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>AED {estFmt(totalIncVat * (advPct / 100))}</span>
+                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{baseCurrency} {estFmt(totalIncVat * (advPct / 100))}</span>
               </div>
             ); })()}
           <div style={{marginTop:12}}>
@@ -6682,8 +6697,8 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
               <div style={{borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:12,display:"flex",justifyContent:"flex-end"}}>
                 <div style={{display:"flex",gap:0,padding:"6px 0"}}>
                   <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>SUBTOTAL</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>AED {estFmt(subtotal)}</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>USD {estFmt(subtotal*exchangeRate)}</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{baseCurrency} {estFmt(subtotal)}</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>USD {estFmt(subtotal*xRate)}</div>
                   <div style={{width:24}}></div>
                 </div>
               </div>
@@ -6715,8 +6730,8 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                 <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
                 <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
                 <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
-                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL AED</div>
-                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL USD</div>
+                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {baseCurrency}</div>
+                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>
                 <div style={{width:24,flexShrink:0}}></div>
               </div>
               {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);return(
@@ -6730,7 +6745,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                     ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
                     : <EstCell value={row.rate} onChange={v=>updateRow(si,ri,"rate",v)} align="right" />}</div>
                   <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot)}</div>
-                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*exchangeRate)}</div>
+                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>
                   <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <span onClick={()=>removeRow(si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span></div>
                 </div>);})}
@@ -6739,7 +6754,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                 <div style={{display:"flex",gap:0}}>
                   <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"4px 8px",letterSpacing:EST_LS}}>TOTAL</div>
                   <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal)}</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*exchangeRate)}</div>
+                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*xRate)}</div>
                   <div style={{width:24}}></div>
                 </div>
               </div>
@@ -6748,11 +6763,11 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
           <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
             <div style={{width:300}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
-                <span>GRAND TOTAL</span><span>AED {estFmt(grandTotal)}</span></div>
+                <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
-                <span>VAT (5%)</span><span>AED {estFmt(grandTotal*0.05)}</span></div>
+                <span>VAT (5%)</span><span>{baseCurrency} {estFmt(grandTotal*0.05)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
-                <span>TOTAL INC. VAT</span><span>AED {estFmt(grandTotal + grandTotal*0.05)}</span></div>
+                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*0.05)}</span></div>
             </div>
           </div>
         </>}
@@ -9576,10 +9591,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         }
       });
       const { subtotal, feesTotal, grandTotal: gt } = estCalcTotals(vSections);
-      snap += `Subtotal: AED ${estFmt(subtotal)} | Fees: AED ${estFmt(feesTotal)} | Grand Total: AED ${estFmt(gt)} | VAT: AED ${estFmt(gt*0.05)} | Total inc VAT: AED ${estFmt(gt*1.05)}\n`;
+      const bCur = ver.currency || "AED";
+      const bCur2 = ver.currency2 || "USD";
+      snap += `Subtotal: ${bCur} ${estFmt(subtotal)} | Fees: ${bCur} ${estFmt(feesTotal)} | Grand Total: ${bCur} ${estFmt(gt)} | VAT: ${bCur} ${estFmt(gt*0.05)} | Total inc VAT: ${bCur} ${estFmt(gt*1.05)}\n`;
+      snap += `Base currency: ${bCur} | Secondary currency: ${bCur2}\n`;
       if(vTs.notes) snap += `Notes: ${vTs.notes}\n`;
 
-      const billieSystem = buildBillieSystem(project, ver, vLabel, snap);
+      const billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2);
 
       try{
         const billieIntro = intro;
@@ -18258,7 +18276,7 @@ export default function OnnaDashboard() {
           return (
           <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0,overflow:"hidden"}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"10px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"2px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s-1+agentTotal)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
               {Array.from({length:Math.min(AGENTS_VISIBLE,agentTotal)},(_,k)=>AGENT_DEFS[(agentStart+k)%agentTotal]).map((a)=>{
@@ -18270,22 +18288,22 @@ export default function OnnaDashboard() {
                   onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={isMobile?{flex:"0 0 auto",width:"20%",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 2px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}:useWideLayout?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 4px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.55)":"scale(1)",transformOrigin:"center"}}>
+                  style={isMobile?{flex:"0 0 auto",width:"20%",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 2px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}:useWideLayout?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"2px 4px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
+                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.4)":"scale(1)",transformOrigin:"center",margin:useWideLayout?"-12px 0":0}}>
                     <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
-                  <span style={{fontSize:isMobile?8:useWideLayout?9:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
+                  <span style={{fontSize:isMobile?8:useWideLayout?8:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
                 </button>
               );})}
               {/* Next arrow */}
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"4px 16px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
-                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",minHeight:useWideLayout?600:undefined}}>Select an agent to start chatting</div>
+                <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"100%":useWideLayout?"calc(100vh - 200px)":"100%",minHeight:0,maxWidth:1400,width:"100%"}}>
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:"100%",minHeight:0,width:"100%"}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
