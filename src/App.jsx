@@ -3502,8 +3502,9 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
     idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm;overflow:hidden}
-#fit-wrap{transform-origin:top left}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm}
+#fit-wrap{width:100%}
+img{max-width:100%;height:auto}
 @media print{@page{size:landscape;margin:0}}
 ${PRINT_CLEANUP_CSS}
 </style></head><body><div id="fit-wrap"></div></body></html>`);
@@ -3511,13 +3512,6 @@ ${PRINT_CLEANUP_CSS}
     const wrap = idoc.getElementById("fit-wrap");
     wrap.appendChild(idoc.adoptNode(clone));
     setTimeout(() => {
-      const pageW = 1123, pageH = 794;
-      const contentH = wrap.scrollHeight;
-      const contentW = wrap.scrollWidth;
-      const scaleX = Math.min(1, pageW / contentW);
-      const scaleY = Math.min(1, pageH / contentH);
-      const scale = Math.min(scaleX, scaleY);
-      if (scale < 1) wrap.style.transform = `scale(${scale})`;
       iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000);
     }, 400);
   };
