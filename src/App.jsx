@@ -3375,7 +3375,7 @@ const PostConnie = React.forwardRef(function PostConnieInner({ initialProject, i
 let _fitId = 0;
 const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
 const mkFitLook = () => ({ id: "lk" + (++_fitId), name: "", description: "", notes: "", status: "Pending", image: null });
-const mkFitFitting = () => { const fid = ++_fitId; return { id: "fit" + fid, modelId: "m" + fid, talentName: "", lookName: "", notes: "", images: [null,null,null,null], imageStatuses: {} }; };
+const mkFitFitting = () => { const fid = ++_fitId; return { id: "fit" + fid, modelId: "m" + fid, talentName: "", lookName: "", description: "", role: "", notes: "", images: [null,null,null,null], imageStatuses: {} }; };
 
 const FIT_STATUSES = ["Pending", "Option", "Approved", "Pulled", "Returned"];
 const FIT_STATUS_C = {
@@ -3776,14 +3776,17 @@ ${PRINT_CLEANUP_CSS}
                         </div>
                       )}
                       {li === 0 && (
-                        <div style={{ display: "flex", gap: 8, padding: "2px 0 4px 0", alignItems: "center" }}>
-                          <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look" style={{ color: "#999", width: 100, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
-                          <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Notes..." style={{ color: "#666", flex: 1, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                        <div style={{ display: "flex", gap: 8, padding: "2px 0 4px 0", alignItems: "center", flexWrap: "wrap" }}>
+                          <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look" style={{ color: "#999", width: 80, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                          <FitInp value={fit.role || ""} onChange={v => updateFit(fit.id, "role", v)} placeholder="Role" style={{ color: "#999", width: 80, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                          <FitInp value={fit.description || ""} onChange={v => updateFit(fit.id, "description", v)} placeholder="Description" style={{ color: "#666", flex: 1, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
                         </div>
                       )}
                       {li > 0 && (
-                        <div style={{ padding: "2px 0 4px 0" }}>
-                          <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Notes..." style={{ color: "#666", width: "100%", borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                        <div style={{ display: "flex", gap: 8, padding: "2px 0 4px 0", alignItems: "center", flexWrap: "wrap" }}>
+                          <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look" style={{ color: "#999", width: 80, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                          <FitInp value={fit.role || ""} onChange={v => updateFit(fit.id, "role", v)} placeholder="Role" style={{ color: "#999", width: 80, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                          <FitInp value={fit.description || ""} onChange={v => updateFit(fit.id, "description", v)} placeholder="Description" style={{ color: "#666", flex: 1, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
                         </div>
                       )}
                       <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
