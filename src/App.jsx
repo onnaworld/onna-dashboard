@@ -2560,25 +2560,32 @@ const CAST_INIT = () => ({
   options: [mkCastOption()],
 });
 
-const CastInp = ({ value, onChange, style = {}, placeholder = "", bold = false }) => {
-  const [editing, setEditing] = useState(false);
-  const [temp, setTemp] = useState(value);
-  const commit = () => { setEditing(false); onChange(temp); };
-  if (editing) return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"100%",boxSizing:"border-box",color:style.color||"#1a1a1a"}} placeholder={placeholder}/>;
-  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"pre-wrap"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
-};
+const CastInp = ({ value, onChange, placeholder, style = {} }) => (
+  <input value={value} onChange={e => onChange(e.target.value)}
+    onFocus={e => { if (e.target.value.startsWith("[")) e.target.select(); }} placeholder={placeholder}
+    style={{ fontFamily: "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif", fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+      background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", ...style }} />
+);
 
-const CastImgSlot = ({ image, onUpload, onRemove, size = 120 }) => {
-  const ref = useRef();
-  const readFile = f => { if(!f||!f.type.startsWith("image/"))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  const isFullWidth = size === "100%";
-  return <div style={{width:isFullWidth?"100%":size,height:isFullWidth?"100%":size,borderRadius:isFullWidth?0:8,overflow:"hidden",flexShrink:0,position:"relative",background:"#f5f5f5"}}>
-    {image ? <>
-      <img src={image} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>ref.current.click()}/>
-      <button onClick={onRemove} style={{position:"absolute",top:4,right:4,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-    </> : <div onClick={()=>ref.current.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="#666";}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";readFile(e.dataTransfer.files[0]);}} style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:24,color:"#ccc"}}>+</div>}
-    <input ref={ref} type="file" accept="image/*" onChange={e=>readFile(e.target.files[0])} style={{display:"none"}}/>
-  </div>;
+const CastImgSlot = ({ src, h = "100%", onAdd, onRemove, style = {} }) => {
+  const [over, setOver] = useState(false);
+  if (src) return (
+    <div style={{ width: "100%", height: h, position: "relative", ...style }}>
+      <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={e => { e.target.style.display = "none"; }} />
+      <button data-hide="1" onClick={onRemove} style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"×"}</button>
+    </div>
+  );
+  return (
+    <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); setOver(false); if (e.dataTransfer.files.length > 0) onAdd(e.dataTransfer.files); }}
+      style={{ width: "100%", height: h, background: over ? "#FFFDE7" : "#f8f8f8", border: over ? "2px dashed #FFD54F" : "1px dashed #ddd", borderRadius: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all .15s", ...style }}>
+      <label style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <span style={{ fontSize: 18, color: over ? "#E65100" : "#ddd" }}>+</span>
+        <span style={{ fontFamily: "'Avenir','Avenir Next','Nunito Sans',sans-serif", fontSize: 6, color: over ? "#E65100" : "#ccc", letterSpacing: 0.5 }}>Drop or click</span>
+        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { onAdd(e.target.files); e.target.value = ""; }} />
+      </label>
+    </div>
+  );
 };
 
 const CastCard = ({ entry, onChange, onRemove, onStatusChange }) => {
@@ -3201,7 +3208,8 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
     });
   };
 
-  // Auto-sync: when any image status changes to "approved", pull into confirmed looks
+  // Auto-sync: when imageStatuses change to "approved", pull into confirmed looks
+  const approvedKey = useMemo(() => JSON.stringify(fittings.map(f => f.imageStatuses || {})), [fittings]);
   useEffect(() => {
     const approvedFits = fittings.filter(f =>
       f.talentName && f.images.some((img, i) => img && (f.imageStatuses || {})[i] === "approved")
@@ -3212,13 +3220,13 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
       setTalent(prev => {
         let found = prev.find(t => t.name.toLowerCase().trim() === fit.talentName.toLowerCase().trim());
         if (found) {
+          const existingImgs = found.looks.map(l => l.image).filter(Boolean);
+          const newImgs = approvedImgs.filter(img => !existingImgs.includes(img));
+          if (newImgs.length === 0) return prev;
           return prev.map(t => {
             if (t.id !== found.id) return t;
-            const newLooks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
-            const existingImgs = t.looks.map(l => l.image).filter(Boolean);
-            const unique = newLooks.filter(nl => !existingImgs.includes(nl.image));
-            if (unique.length === 0) return t;
-            return { ...t, looks: [...t.looks.filter(l => l.image), ...unique] };
+            const newLooks = newImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
+            return { ...t, looks: [...t.looks.filter(l => l.image), ...newLooks] };
           });
         } else {
           const newT = mkFitTalent();
@@ -3228,7 +3236,7 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
         }
       });
     });
-  }, [fittings]); // eslint-disable-line
+  }, [approvedKey]); // eslint-disable-line
 
   const dragLook = useRef(null);
   const [dropLookAt, setDropLookAt] = useState(null);
@@ -6774,6 +6782,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [codySignPanel,setCodySignPanel]=useState(null); // {config, preview} — split-panel sign/stamp viewer
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
+  const [codyPickerPid,setCodyPickerPid]=useState(null); // projectId when contract picker is shown
   const codyUndoStack=useRef([]); // undo stack for contract changes (up to 50)
   const pushCodyUndo=useCallback(()=>{if(!contractDocStore)return;codyUndoStack.current.push(JSON.parse(JSON.stringify(contractDocStore)));if(codyUndoStack.current.length>50)codyUndoStack.current.shift();},[contractDocStore]);
   const popCodyUndo=useCallback(()=>{if(codyUndoStack.current.length===0)return false;const snap=codyUndoStack.current.pop();if(setContractDocStore)setContractDocStore(snap);return true;},[setContractDocStore]);
@@ -6799,8 +6808,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
-  // Cmd+Z undo for Contract Cody
-  useEffect(()=>{if(agent.id!=="contracts"||!active)return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){const tag=e.target.tagName;if(tag==="INPUT"||tag==="TEXTAREA"||e.target.isContentEditable)return;e.preventDefault();if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last contract change."}]);}}};window.addEventListener("keydown",handler);return()=>window.removeEventListener("keydown",handler);},[agent.id,active,popCodyUndo,setMsgs]);
+  // Cmd+Z undo for Contract Cody (works even from textarea)
+  useEffect(()=>{if(agent.id!=="contracts"||!active)return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){if(codyUndoStack.current.length===0)return;e.preventDefault();if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last contract change."}]);}}};window.addEventListener("keydown",handler);return()=>window.removeEventListener("keydown",handler);},[agent.id,active,popCodyUndo,setMsgs]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   
@@ -6988,7 +6997,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:_introWithProjects}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);setCodyPickerPid(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -9643,7 +9652,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           const proj=localProjects.find(p=>p.id===pid);
           const ctVersions=contractDocStore?.[pid]||[];
           if(/\b(new|create)\b/i.test(input)){
-            codyPendingRef.current={projectId:pid,step:"pick_type"};
+            codyPendingRef.current={projectId:pid,step:"pick_type"};setCodyPickerPid(null);
             setMsgs([...history,{role:"assistant",content:`What type of contract for ${proj?.name||"this project"}?\n\n${typeList}\n\nPick a number or name.`}]);
             setLoading(false);setMood("idle");return;
           }
@@ -9652,7 +9661,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           if(num>=1&&num<=ctVersions.length) matchIdx=num-1;
           else matchIdx=ctVersions.findIndex(v=>(v.label||"").toLowerCase().includes(lower)||(CONTRACT_TYPE_LABELS[v.contractType]||"").toLowerCase().includes(lower));
           if(matchIdx>=0){
-            codyPendingRef.current=null;
+            codyPendingRef.current=null;setCodyPickerPid(null);
             setCodyCtx({projectId:pid,vIdx:matchIdx});
             if(setActiveContractVersion) setActiveContractVersion(matchIdx);
             const vLabel=ctVersions[matchIdx].label||`Version ${matchIdx+1}`;
@@ -9724,7 +9733,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           setMsgs([...history,{role:"assistant",content:`${project.name} doesn't have any contracts yet. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
-        codyPendingRef.current={projectId:project.id,step:"pick_existing_or_new"};
+        codyPendingRef.current={projectId:project.id,step:"pick_existing_or_new"};setCodyPickerPid(project.id);
         const list=ctVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`${project.name} has ${ctVersions.length} contract${ctVersions.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);
         setLoading(false);setMood("idle");return;
@@ -9770,7 +9779,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
         }else{
           setCodyCtx(null);
-          codyPendingRef.current={projectId:switchProject.id,step:"pick_existing_or_new"};
+          codyPendingRef.current={projectId:switchProject.id,step:"pick_existing_or_new"};setCodyPickerPid(switchProject.id);
           const list=swVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
           setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${swVersions.length} contracts:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);
         }
@@ -9795,7 +9804,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           setMsgs([...history,{role:"assistant",content:`${project.name} only has one contract. Say new contract to create another!`}]);
           setLoading(false);setMood("idle");return;
         }
-        setCodyCtx(null);codyPendingRef.current={projectId,step:"pick_existing_or_new"};
+        setCodyCtx(null);codyPendingRef.current={projectId,step:"pick_existing_or_new"};setCodyPickerPid(projectId);
         const list=ctList.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
         setMsgs([...history,{role:"assistant",content:`${project.name} contracts:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);
         setLoading(false);setMood("idle");return;
@@ -10402,9 +10411,10 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       );
     })()}
     {/* Cody contract picker buttons */}
-    {agent.id==="contracts"&&!loading&&codyPendingRef.current&&codyPendingRef.current.step==="pick_existing_or_new"&&(()=>{
-      const pid=codyPendingRef.current.projectId;
+    {agent.id==="contracts"&&!loading&&codyPickerPid&&(()=>{
+      const pid=codyPickerPid;
       const ctVersions=contractDocStore?.[pid]||[];
+      if(ctVersions.length===0)return null;
       return(
         <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
           {ctVersions.map((v,i)=>(
@@ -15952,7 +15962,7 @@ export default function OnnaDashboard() {
 
       {/* ── SIDEBAR (desktop only) ── */}
       <div style={{width:220,flexShrink:0,background:"rgba(255,255,255,0.82)",borderRight:`1px solid ${T.border}`,display:isMobile?"none":"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
-        <div onClick={()=>changeTab("Dashboard")} style={{padding:"20px 18px 16px",display:"flex",alignItems:"center",cursor:"pointer"}}>
+        <div onClick={(e)=>{if(e.metaKey||e.ctrlKey){window.open(window.location.origin,"_blank")}else{changeTab("Dashboard")}}} style={{padding:"20px 18px 16px",display:"flex",alignItems:"center",cursor:"pointer"}}>
           <img src="data:image/png;base64,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" alt="ONNA" style={{height:24,width:"auto",display:"block"}}/>
         </div>
 
@@ -15980,7 +15990,7 @@ export default function OnnaDashboard() {
         {/* Topbar */}
         <div style={{padding:`0 ${P}px`,height:isMobile?50:58,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.border}`,flexShrink:0,background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
-            {isMobile&&<img src="/onna-default-logo.png" alt="ONNA" onClick={()=>changeTab("Dashboard")} style={{height:18,width:"auto",marginRight:6,flexShrink:0,cursor:"pointer"}}/>}
+            {isMobile&&<img src="/onna-default-logo.png" alt="ONNA" onClick={(e)=>{if(e.metaKey||e.ctrlKey){window.open(window.location.origin,"_blank")}else{changeTab("Dashboard")}}} style={{height:18,width:"auto",marginRight:6,flexShrink:0,cursor:"pointer"}}/>}
             <span style={{fontSize:isMobile?14:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentTab.label}</span>
             {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300,flexShrink:0}}>›</span><span style={{fontSize:isMobile?12:14,color:T.sub,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedProject.name}</span>{!isMobile&&projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}{creativeSubSection?` › ${creativeSubSection==="moodboard"?"Moodboard":"Brief"}`:""}{budgetSubSection?` › ${budgetSubSection==="tracker"?"Budget Tracker":budgetSubSection==="estimates"?"Estimates":"Quotations"}`:""}</span></>}</>}
           </div>
