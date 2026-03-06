@@ -19398,10 +19398,11 @@ export default function OnnaDashboard() {
         const handleDuplicate=(r)=>{
           const clone=JSON.parse(JSON.stringify(r.cs));
           clone.id=Date.now();
-          clone.label="[Duplicated]";
           const _pid=csDuplicateModal.origin==="connie"?csDuplicateModal.projectId:selectedProject?.id;
+          const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
+          const _pName=_proj?.name||"";
           if(_pid){
-            setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+            setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} Call Sheet V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
           }
           setCsDuplicateModal(null);setCsDuplicateSearch("");
         };
@@ -19469,10 +19470,11 @@ export default function OnnaDashboard() {
         const handleDuplicate=(r)=>{
           const clone=JSON.parse(JSON.stringify(r.ra));
           clone.id=Date.now();
-          clone.label="[Duplicated]";
           const _pid=raDuplicateModal.origin==="ronnie"?raDuplicateModal.projectId:selectedProject?.id;
+          const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
+          const _pName=_proj?.name||"";
           if(_pid){
-            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} Risk Assessment V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
           }
           setRaDuplicateModal(null);setRaDuplicateSearch("");
         };
@@ -19550,11 +19552,12 @@ export default function OnnaDashboard() {
         const handleDuplicate=(r)=>{
           const clone=JSON.parse(JSON.stringify(r.item));
           clone.id=Date.now();
-          clone.label="[Duplicated]";
           if(clone.shareToken){clone.shareToken=null;clone.shareResourceId=null;}
           const _pid=selectedProject?.id;
+          const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
+          const _pName=_proj?.name||"";
           if(_pid){
-            conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+            conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} ${conf.title} V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
           }
           setDuplicateModal(null);setDuplicateSearch("");
         };
