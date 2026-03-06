@@ -2545,8 +2545,8 @@ ${PRINT_CLEANUP_CSS}
 /* ======= CASTING CONNIE ======= */
 let _castId = 0;
 const mkCastRole = () => ({ id: "cr" + (++_castId), name: "", description: "" });
-const mkCastEntry = () => ({ id: "ce" + (++_castId), name: "", agency: "", status: "Scouted", image: null, notes: "", email: "", phone: "", portfolio: "" });
-const mkCastOption = () => ({ id: "co" + (++_castId), role: "", entries: [mkCastEntry(), mkCastEntry()] });
+const mkCastEntry = () => ({ id: "ce" + (++_castId), name: "", agency: "", status: "none", image: null, notes: "", email: "", phone: "", portfolio: "" });
+const mkCastOption = () => ({ id: "co" + (++_castId), role: "", talent: [mkCastEntry(), mkCastEntry()] });
 const CAST_STATUSES = ["Scouted","Shortlisted","Approved","Booked"];
 const CAST_STATUS_C = {
   "Scouted":{bg:"#f4f4f4",text:"#999",border:"#ddd"},
@@ -2588,25 +2588,32 @@ const CastImgSlot = ({ src, h = "100%", onAdd, onRemove, style = {} }) => {
   );
 };
 
-const CastCard = ({ entry, onChange, onRemove, onStatusChange }) => {
-  const sc = CAST_STATUS_C[entry.status] || CAST_STATUS_C["Scouted"];
+const CastCard = ({ entry, onChange, onRemove }) => {
+  const status = entry.status || "none";
+  const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   const LS = 0.5;
   const castImgAdd = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => onChange("image", e.target.result); r.readAsDataURL(f); };
   return (
-    <div style={{ border: "1px solid #eee", borderRadius: 2, overflow: "hidden", position: "relative" }}>
-      <button data-hide="1" onClick={onRemove} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 2, lineHeight: 1 }}>{"×"}</button>
-      <div style={{ aspectRatio: "4/5", background: "#f8f8f8", position: "relative" }}>
+    <div data-cast-card style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff", position: "relative" }}>
+      {onRemove && <button data-hide="1" onClick={onRemove} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 2, lineHeight: 1 }}>{"×"}</button>}
+      <div style={{ aspectRatio: "4/5", position: "relative" }}>
         <CastImgSlot src={entry.image} h="100%" onAdd={castImgAdd} onRemove={() => onChange("image", null)} />
-        <div data-loc-status={entry.status} onClick={() => { const i = CAST_STATUSES.indexOf(entry.status); onStatusChange(CAST_STATUSES[(i + 1) % CAST_STATUSES.length]); }}
-          style={{ position: "absolute", top: 4, right: 4, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: sc.bg, color: sc.text, padding: "2px 6px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{entry.status}</div>
       </div>
       <div style={{ padding: "2px 4px" }}>
         <CastInp value={entry.name} onChange={v => onChange("name", v)} placeholder="Talent Name" style={{ fontSize: 9, fontWeight: 700, padding: "0 0 2px 0", borderBottom: "1px solid #eee", marginBottom: 2 }} />
         <CastInp value={entry.agency} onChange={v => onChange("agency", v)} placeholder="Agency" style={{ fontSize: 8, color: "#999", padding: 0, marginBottom: 1 }} />
-        <CastInp value={entry.portfolio || ""} onChange={v => onChange("portfolio", v)} placeholder="Portfolio link" style={{ fontSize: 8, color: "#1565C0", padding: 0, marginBottom: 1 }} />
-        <CastInp value={entry.notes} onChange={v => onChange("notes", v)} placeholder="Notes..." style={{ fontSize: 8, color: "#666", padding: 0 }} />
+        <CastInp value={entry.portfolio || ""} onChange={v => onChange("portfolio", v)} placeholder="Portfolio link" style={{ fontSize: 8, color: "#1565C0", padding: 0 }} />
       </div>
+      <div data-cast-card-actions style={{ display: "flex", borderTop: "1px solid #eee" }}>
+        {[{ k: "approved", l: "APPROVE", c: "#2E7D32" }, { k: "shortlisted", l: "SHORTLIST", c: "#E65100" }, { k: "rejected", l: "REJECT", c: "#C62828" }].map(btn => (
+          <div key={btn.k} data-cast-action={btn.k} onClick={() => onChange("status", status === btn.k ? "none" : btn.k)}
+            style={{ flex: 1, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, padding: "4px 0", textAlign: "center", cursor: "pointer", textTransform: "uppercase",
+              background: status === btn.k ? btn.c : "#fff", color: status === btn.k ? "#fff" : btn.c,
+              borderRight: btn.k !== "rejected" ? "1px solid #f0f0f0" : "none" }}>{btn.l}</div>
+        ))}
+      </div>
+      <input data-cast-note value={entry.notes || ""} onChange={e => onChange("notes", e.target.value)} placeholder="Notes..." style={{ width: "100%", fontFamily: F, fontSize: 7, padding: "3px 4px", border: "none", borderTop: "1px solid #f0f0f0", outline: "none", color: "#666", boxSizing: "border-box", background: entry.notes ? "#FFFDE7" : "transparent" }} />
     </div>
   );
 };
@@ -2631,7 +2638,7 @@ const CastingConnie = React.forwardRef(function CastingConnie({ initialProject, 
     listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: (r.talent||[]).map((e,ei) => ei===entryIdx ? {...e,[field]:val} : e)} : r));
   };
   const addEntryToRole = (listSetter, roleIdx) => {
-    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: [...(r.talent||r.entries), mkCastEntry()]} : r));
+    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: [...(r.talent||[]), mkCastEntry()]} : r));
   };
   const removeEntry = (listSetter, roleIdx, entryIdx) => {
     listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: (r.talent||r.entries).filter((_,ei) => ei!==entryIdx)} : r));
@@ -2737,12 +2744,11 @@ ${PRINT_CLEANUP_CSS}
               <button onClick={()=>removeRole(listSetter,ri)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "1fr" : "repeat(auto-fill,minmax(260px,1fr))", gap: 8, padding: "6px 0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 4, padding: "6px 0" }}>
             {(role.talent||[]).map((entry, ei) => (
               <CastCard key={entry.id||ei} entry={entry}
                 onChange={(field,val)=>updateEntry(listSetter,ri,ei,field,val)}
                 onRemove={()=>removeEntry(listSetter,ri,ei)}
-                onStatusChange={s=>updateEntry(listSetter,ri,ei,"status",s)}
               />
             ))}
           </div>
@@ -3502,9 +3508,8 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
     idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm}
-#fit-wrap{width:100%}
-img{max-width:100%;height:auto}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm;overflow:hidden}
+#fit-wrap{transform-origin:top left}
 @media print{@page{size:landscape;margin:0}}
 ${PRINT_CLEANUP_CSS}
 </style></head><body><div id="fit-wrap"></div></body></html>`);
@@ -3512,6 +3517,13 @@ ${PRINT_CLEANUP_CSS}
     const wrap = idoc.getElementById("fit-wrap");
     wrap.appendChild(idoc.adoptNode(clone));
     setTimeout(() => {
+      const pageW = 1123, pageH = 794;
+      const contentH = wrap.scrollHeight;
+      const contentW = wrap.scrollWidth;
+      const scaleX = Math.min(1, pageW / contentW);
+      const scaleY = Math.min(1, pageH / contentH);
+      const scale = Math.min(scaleX, scaleY);
+      if (scale < 1) wrap.style.transform = `scale(${scale})`;
       iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000);
     }, 400);
   };
@@ -3532,7 +3544,7 @@ ${PRINT_CLEANUP_CSS}
   const generateSharePage = async (modes, existingToken, existingResourceId) => {
     const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["confirmed","options"] : modes ? [modes] : ["confirmed","options"]);
     setPrintTabs(new Set(tabsArr));
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 300));
     const el = printRef.current; if (!el) { setPrintTabs(null); return; }
     const clone = fitCleanClone(el);
     clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
@@ -3608,7 +3620,6 @@ ${PRINT_CLEANUP_CSS}
           ))}
         </div>
 
-        {printTabs && printTabs.has("confirmed") && <div style={{marginBottom:8}}><span style={{fontFamily:F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>CONFIRMED LOOKS</span></div>}
         {(tab === "confirmed" || (printTabs && printTabs.has("confirmed"))) && (() => {
           const approved = [];
           fittings.forEach((fit, fi) => {
@@ -16411,117 +16422,82 @@ export default function OnnaDashboard() {
       }
 
       if (scheduleSubSection==="postprod") {
-        const ppVersions = Array.isArray(postProdStore[p.id]) ? postProdStore[p.id] : [];
-        const addPPNew = () => {
-          const newId = Date.now();
-          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", editor: "[Editor]", colourist: "[Colourist]", sound: "[Sound]", filesLink: "" };
-          const newPP = { id: newId, label: `V${ppVersions.length+1}`, project: proj, videos: [ppMkVideo(), ppMkVideo()], stills: [ppMkStill(), ppMkStill()], schedule: ppDefaultSchedule(), specNotes: "", feedback: "" };
-          setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newPP); return store; });
-        };
-        const deletePP = (idx) => {
-          if (!confirm("Delete this Post-Production schedule? This will be moved to trash.")) return;
-          const ppDelData = JSON.parse(JSON.stringify((postProdStore[p.id]||[])[idx]));
-          if (ppDelData) archiveItem('postprod', { projectId: p.id, postprod: ppDelData });
-          setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
-          setActivePostProdVersion(null);
-        };
-
-        // List view
-        if (activePostProdVersion === null || ppVersions.length === 0) {
-          return (
-            <div>
-              {schedBack}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Post-Production</div>
-                <button onClick={addPPNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Post-Prod</button>
-              </div>
-              {ppVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No post-production schedules yet. Click "+ New Post-Prod" to get started.</div></div>}
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {ppVersions.map((pp,i) => {
-                  const totalTasks = (pp.schedule||[]).length;
-                  const completeTasks = (pp.schedule||[]).filter(t=>t.status==="Complete"||t.status==="Delivered").length;
-                  const pct = totalTasks > 0 ? Math.round((completeTasks/totalTasks)*100) : 0;
-                  const totalDel = (pp.videos||[]).length + (pp.stills||[]).length;
-                  return (
-                    <div key={pp.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActivePostProdVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>POST-PROD</span>
-                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:pct>0?"#e8f5e9":"#f5f5f5",color:pct>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{totalDel} deliverables \u00b7 {totalTasks} tasks \u00b7 {pct}%</span>
-                        </div>
-                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{pp.label||"Untitled"}</div>
-                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{pp.project?.name||"No project name"}</div>
-                      </div>
-                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
-                        <button onClick={()=>deletePP(i)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>\u00d7</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
-
-        // Detail view — render PostConnie
-        const ppIdx = activePostProdVersion;
-        const ppData = ppVersions[ppIdx];
-        if (!ppData) { setActivePostProdVersion(null); return null; }
-
-        const ppBack = <button onClick={()=>setActivePostProdVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>\u2039 Back to Post-Prod list</button>;
-
-        const ppShareTitle = `ONNA | ${ppData.label || "Post-Production"}`;
-        const existingPpToken = ppData.shareToken || null;
-        const displayPpShareUrl = ppShareUrl || (existingPpToken ? `https://app.onna.world/api/postprod-share?token=${encodeURIComponent(existingPpToken)}` : null);
-        const sendPpShare = async () => {
-          setPpShareLoading(true);
-          try {
-            if (ppRef.current) await ppRef.current.share([], existingPpToken, ppData.shareResourceId);
-          } catch (err) { alert("Error: " + err.message); }
-          setPpShareLoading(false);
-        };
+        const ppData = postProdStore[p.id] || { deliverables: [], notes: "" };
+        const updatePP = (fn) => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (!s[p.id]) s[p.id] = { deliverables: [], notes: "" }; fn(s[p.id]); return s; });
+        const addDeliverable = () => updatePP(d => d.deliverables.push({ id: Date.now(), name: "", type: "Video", status: "Not Started", assignee: "", dueDate: "", notes: "" }));
+        const updateDeliverable = (id, key, val) => updatePP(d => { const item = d.deliverables.find(x => x.id === id); if (item) item[key] = val; });
+        const deleteDeliverable = (id) => { if (!confirm("Delete this deliverable?")) return; updatePP(d => { d.deliverables = d.deliverables.filter(x => x.id !== id); }); };
+        const STATUS_COLORS = { "Not Started": { bg: "#f5f5f5", text: "#999" }, "In Progress": { bg: "#FFF3E0", text: "#E65100" }, "In Review": { bg: "#E3F2FD", text: "#1565C0" }, "Revisions": { bg: "#FCE4EC", text: "#C62828" }, "Approved": { bg: "#E8F5E9", text: "#2E7D32" }, "Delivered": { bg: "#111", text: "#fff" } };
+        const STATUSES = ["Not Started", "In Progress", "In Review", "Revisions", "Approved", "Delivered"];
+        const TYPES = ["Video", "Stills", "Audio", "Graphics", "Animation", "Color Grade", "VFX", "Other"];
+        const total = ppData.deliverables.length;
+        const completed = ppData.deliverables.filter(d => d.status === "Approved" || d.status === "Delivered").length;
 
         return (
           <div>
-            {ppBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>POST-PROD</span>
-                <input value={ppData.label||""} onChange={e=>{setPostProdStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][ppIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <button onClick={sendPpShare} disabled={ppShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingPpToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ppShareLoading?0.5:1}}>
-                  {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Update Link" : "Generate Link"}
-                </button>
-              </div>
+            {schedBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontSize:16,fontWeight:700,color:T.text}}>Post-Production</div>
+              <button onClick={addDeliverable} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Add Deliverable</button>
             </div>
-            {displayPpShareUrl && (
-              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{ppShareTitle}</div>
-                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <a href={displayPpShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayPpShareUrl}</a>
-                  <button onClick={()=>{navigator.clipboard.writeText(`${ppShareTitle}\n${displayPpShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+            {total > 0 && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20}}>
+                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Total</div>
+                  <div style={{fontSize:20,fontWeight:700,color:T.text}}>{total}</div>
+                </div>
+                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Completed</div>
+                  <div style={{fontSize:20,fontWeight:700,color:"#2e7d32"}}>{completed}</div>
+                </div>
+                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
+                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Progress</div>
+                  <div style={{fontSize:20,fontWeight:700,color:T.text}}>{total > 0 ? Math.round((completed / total) * 100) : 0}%</div>
                 </div>
               </div>
             )}
-            <div id="onna-pp-print">
-              <PostConnie
-                ref={ppRef}
-                initialProject={ppData.project}
-                initialVideos={ppData.videos}
-                initialStills={ppData.stills}
-                initialSchedule={ppData.schedule}
-                initialSpecNotes={ppData.specNotes}
-                initialFeedback={ppData.feedback}
-                onChangeProject={proj => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].project = proj; return s; })}
-                onChangeVideos={vids => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].videos = vids; return s; })}
-                onChangeStills={stills => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].stills = stills; return s; })}
-                onChangeSchedule={sched => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].schedule = sched; return s; })}
-                onChangeSpecNotes={notes => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].specNotes = notes; return s; })}
-                onChangeFeedback={fb => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].feedback = fb; return s; })}
-                onShareUrl={(url, token, id) => { setPpShareUrl(url); setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][ppIdx]) { s[p.id][ppIdx].shareToken = token; s[p.id][ppIdx].shareResourceId = id; } return s; }); }}
-              />
+            {ppData.deliverables.length === 0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No deliverables yet. Click "+ Add Deliverable" to get started.</div></div>}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {ppData.deliverables.map(del => {
+                const sc = STATUS_COLORS[del.status] || STATUS_COLORS["Not Started"];
+                return (
+                  <div key={del.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 18px",borderLeft:`4px solid ${sc.text}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
+                      <input value={del.name||""} onChange={e=>updateDeliverable(del.id,"name",e.target.value)} placeholder="Deliverable name" style={{flex:1,minWidth:180,fontSize:13,fontWeight:600,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid transparent`,padding:"2px 0",fontFamily:"inherit",outline:"none"}} onFocus={e=>e.target.style.borderBottomColor=T.accent} onBlur={e=>e.target.style.borderBottomColor="transparent"}/>
+                      <select value={del.type||"Video"} onChange={e=>updateDeliverable(del.id,"type",e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${T.border}`,fontSize:11,fontFamily:"inherit",color:T.text,background:T.surface,cursor:"pointer"}}>
+                        {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <select value={del.status||"Not Started"} onChange={e=>updateDeliverable(del.id,"status",e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${sc.text}`,fontSize:11,fontWeight:600,fontFamily:"inherit",color:sc.text,background:sc.bg,cursor:"pointer"}}>
+                        {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <button onClick={()=>deleteDeliverable(del.id)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4,flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>×</button>
+                    </div>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Assignee:</span>
+                        <input value={del.assignee||""} onChange={e=>updateDeliverable(del.id,"assignee",e.target.value)} placeholder="—" style={{fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none",width:120}}/>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Due:</span>
+                        <input type="date" value={del.dueDate||""} onChange={e=>updateDeliverable(del.id,"dueDate",e.target.value)} style={{fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none"}}/>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:4,flex:1,minWidth:150}}>
+                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Notes:</span>
+                        <input value={del.notes||""} onChange={e=>updateDeliverable(del.id,"notes",e.target.value)} placeholder="—" style={{flex:1,fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none"}}/>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+            {ppData.deliverables.length > 0 && (
+              <div style={{marginTop:20,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+                <div style={{padding:"10px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
+                  <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Post-Production Notes</span>
+                </div>
+                <textarea value={ppData.notes||""} onChange={e=>updatePP(d=>{d.notes=e.target.value;})} placeholder="General post-production notes, revision history, delivery specs..." style={{width:"100%",minHeight:80,padding:"12px 18px",fontSize:13,color:T.text,background:"transparent",border:"none",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.6}}/>
+              </div>
+            )}
           </div>
         );
       }
