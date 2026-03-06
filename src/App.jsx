@@ -10106,7 +10106,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"50%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
@@ -10124,7 +10124,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             onDietarySelect={(idx)=>{setConnieDietMode(null);const proj=localProjects?.find(p=>p.id===docProjectId);if(proj&&onNavigateToDoc){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}
             projectInfoRef={projectInfoRef}/>
         </div>
-        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 40%":"0 0 50%"),height:isMobile?"50%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 40%":"0 0 50%"),height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -16585,7 +16585,7 @@ export default function OnnaDashboard() {
           const hasActiveAgent = agentActiveIdx !== null;
           const useWideLayout = !isMobile;
           return (
-          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"auto":useWideLayout?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0}}>
+          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":useWideLayout?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0,overflow:isMobile?"hidden":"visible"}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
             <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"10px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
@@ -16610,11 +16610,11 @@ export default function OnnaDashboard() {
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:useWideLayout?undefined:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:useWideLayout?"center":"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"8px 16px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center",minHeight:useWideLayout?600:undefined}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:useWideLayout?undefined:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"calc(100vh - 120px)":useWideLayout?"calc(100vh - 200px)":"100%",maxWidth:1400,width:"100%"}}>
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:isMobile?"100%":useWideLayout?"calc(100vh - 200px)":"100%",minHeight:0,maxWidth:1400,width:"100%"}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
