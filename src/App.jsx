@@ -3565,7 +3565,7 @@ ${PRINT_CLEANUP_CSS}
       const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
-      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
       if (data.url) {
