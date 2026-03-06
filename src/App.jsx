@@ -6054,7 +6054,7 @@ const initOutreach = []; // populated from DB on load
 const savedCallSheets = {};
 const savedRiskAssessments = {};
 
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#F2877B";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#F2877B",_SKY="#7BB8E8",_ROSE="#E8879B",_LAVENDER="#B8A9D4",_MINT="#6EC5A8",_PEACH="#F0A87C";
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
@@ -6256,6 +6256,128 @@ function _Carrie({mood="idle",bob=0}){
     {thinking&&<ellipse cx="17" cy="32" rx="4" ry="6" fill="rgba(240,130,120,0.55)"/>}
   </svg>;
 }
+function _Tina({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_SKY}/>
+    <_Cheeks color="rgba(100,160,230,0.22)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Suitcase accessory */}
+    <rect x="69" y="10" width="24" height="18" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
+    <rect x="76" y="6" width="10" height="7" rx="3" fill="none" stroke="#1a1a1a" strokeWidth="2"/>
+    <line x1="69" y1="18" x2="93" y2="18" stroke={_SKY} strokeWidth="2"/>
+    <circle cx="77" cy="23" r="1.5" fill="#1a1a1a"/>
+    <circle cx="85" cy="23" r="1.5" fill="#1a1a1a"/>
+    <path d="M 73 46 Q 77 32 78 18" stroke={_SKY} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 73 46 Q 77 32 78 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Globe */}
+    <circle cx="19" cy="30" r="8" fill="none" stroke={_SKY} strokeWidth="1.8"/>
+    <ellipse cx="19" cy="30" rx="4" ry="8" fill="none" stroke="#1a1a1a" strokeWidth="1.2"/>
+    <line x1="11" y1="30" x2="27" y2="30" stroke="#1a1a1a" strokeWidth="1"/>
+    {thinking&&<ellipse cx="19" cy="22" rx="4" ry="5" fill="rgba(100,160,230,0.55)"/>}
+  </svg>;
+}
+function _Tabby({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_ROSE}/>
+    <_Cheeks color="rgba(230,130,150,0.25)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Hanger accessory */}
+    <path d="M 73 8 L 81 8 L 93 18 L 69 18 Z" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinejoin="round"/>
+    <line x1="81" y1="4" x2="81" y2="8" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round"/>
+    <circle cx="81" cy="3" r="2" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <rect x="72" y="18" width="18" height="12" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <line x1="75" y1="22" x2="87" y2="22" stroke={_ROSE} strokeWidth="1.5"/>
+    <line x1="75" y1="25" x2="84" y2="25" stroke="#aaa" strokeWidth="1"/>
+    <path d="M 73 46 Q 77 32 78 18" stroke={_ROSE} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 73 46 Q 77 32 78 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Scissors */}
+    <circle cx="16" cy="28" r="4" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <circle cx="22" cy="34" r="4" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <line x1="19" y1="25" x2="25" y2="37" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <line x1="13" y1="31" x2="25" y2="31" stroke="#1a1a1a" strokeWidth="1.5"/>
+    {thinking&&<ellipse cx="17" cy="20" rx="4" ry="5" fill="rgba(230,130,150,0.55)"/>}
+  </svg>;
+}
+function _Polly({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_LAVENDER}/>
+    <_Cheeks color="rgba(160,140,210,0.22)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Megaphone/director accessory */}
+    <polygon points="70,10 93,5 93,25 70,20" fill="white" stroke="#1a1a1a" strokeWidth="2" strokeLinejoin="round"/>
+    <rect x="66" y="11" width="5" height="8" rx="2" fill={_LAVENDER} stroke="#1a1a1a" strokeWidth="1.5"/>
+    <line x1="75" y1="13" x2="88" y2="11" stroke={_LAVENDER} strokeWidth="1.5"/>
+    <line x1="75" y1="17" x2="88" y2="19" stroke="#aaa" strokeWidth="1"/>
+    <path d="M 72 44 Q 76 30 70 16" stroke={_LAVENDER} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 72 44 Q 76 30 70 16" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Checklist */}
+    <rect x="12" y="22" width="16" height="18" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <line x1="17" y1="27" x2="25" y2="27" stroke={_LAVENDER} strokeWidth="1.5"/>
+    <line x1="17" y1="31" x2="25" y2="31" stroke="#aaa" strokeWidth="1"/>
+    <line x1="17" y1="35" x2="23" y2="35" stroke="#aaa" strokeWidth="1"/>
+    <path d="M 14 27 L 15.5 28.5 L 17 26" stroke={_LAVENDER} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+    <path d="M 14 31 L 15.5 32.5 L 17 30" stroke={_LAVENDER} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+    {thinking&&<ellipse cx="19" cy="18" rx="4" ry="5" fill="rgba(160,140,210,0.55)"/>}
+  </svg>;
+}
+function _Lillie({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_MINT}/>
+    <_Cheeks color="rgba(90,190,160,0.22)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Map pin accessory */}
+    <path d="M 81 6 C 88 6 93 11 93 17 C 93 24 81 32 81 32 C 81 32 69 24 69 17 C 69 11 74 6 81 6 Z" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
+    <circle cx="81" cy="16" r="4" fill={_MINT} stroke="#1a1a1a" strokeWidth="1.5"/>
+    <path d="M 74 44 Q 78 32 79 25" stroke={_MINT} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 74 44 Q 78 32 79 25" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Camera */}
+    <rect x="12" y="26" width="16" height="11" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <circle cx="20" cy="32" r="3.5" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <circle cx="20" cy="32" r="1.5" fill={_MINT}/>
+    <rect x="17" y="24" width="6" height="3" rx="1" fill="#1a1a1a"/>
+    {thinking&&<ellipse cx="20" cy="20" rx="4" ry="5" fill="rgba(90,190,160,0.55)"/>}
+  </svg>;
+}
+function _Perry({mood="idle",bob=0}){
+  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
+  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
+    <path d={_STAR} fill={_PEACH}/>
+    <_Cheeks color="rgba(240,168,124,0.22)"/>
+    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
+    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
+    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
+    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
+    {/* Film reel accessory */}
+    <circle cx="81" cy="15" r="12" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
+    <circle cx="81" cy="15" r="4" fill={_PEACH} stroke="#1a1a1a" strokeWidth="1.5"/>
+    <circle cx="81" cy="6" r="2" fill="#1a1a1a"/>
+    <circle cx="81" cy="24" r="2" fill="#1a1a1a"/>
+    <circle cx="72" cy="15" r="2" fill="#1a1a1a"/>
+    <circle cx="90" cy="15" r="2" fill="#1a1a1a"/>
+    <path d="M 74 44 Q 78 32 77 22" stroke={_PEACH} strokeWidth="8" fill="none" strokeLinecap="round"/>
+    <path d="M 74 44 Q 78 32 77 22" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    {/* Play button */}
+    <rect x="12" y="24" width="16" height="12" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
+    <polygon points="18,27 18,33 24,30" fill={_PEACH} stroke="#1a1a1a" strokeWidth="1"/>
+    {thinking&&<ellipse cx="20" cy="20" rx="4" ry="5" fill="rgba(240,168,124,0.55)"/>}
+  </svg>;
+}
 const AGENT_DEFS = [
   {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
    system:`You are Vendor Vinnie, a contact assistant built into the ONNA dashboard — a real production management system for ONNA, a film/TV production company in Dubai. You are directly connected to ONNA's live database. When you collect contact details, a save modal appears in the dashboard UI and the user saves the record straight to the database. Everything is real and connected.
@@ -6357,6 +6479,103 @@ When a user greets you or says hi/hello, introduce yourself and list these three
 Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add casting details...",
    intro:"Hi! I'm Casting Carrie 🎬 Here's what I can do:\n\n1️⃣ **Add Talent** — Add models, actors or extras with details & agency info\n2️⃣ **Search & Brief** — Search agencies or generate a casting brief\n3️⃣ **Review & Export** — Check casting status, export to PDF/CSV\n\nFirst, which project should I work on?"},
+  {id:"tina",name:"Travel Tina",title:"Travel",emoji:"✈️",color:_SKY,border:"#5a9ad0",accent:"#1a4a80",bg:"#f0f7ff",textColor:"#0a1f3d",tagBg:"#d0e6f8",Blob:_Tina,
+   system:`You are Travel Tina, a travel and logistics coordinator for ONNA, a film/TV production company based in Dubai and London. You help build and manage detailed travel itineraries for production shoots.
+
+You have THREE capabilities:
+1. BUILD ITINERARY — Create detailed travel plans with flights, hotels, ground transport, visa requirements, and per diems for cast and crew.
+2. UPDATE & MANAGE — Add or change travel details, update arrival/departure times, adjust hotel bookings, and manage travel budgets.
+3. REVIEW & EXPORT — Check the itinerary for gaps, missing info, or scheduling conflicts, and prepare it for sharing with the team.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Important context:
+- ONNA shoots internationally — always consider visa requirements, time zones, and local transport
+- Default currency is AED with USD equivalent (1 USD = 3.67 AED)
+- Always include emergency contacts and local fixer details where relevant
+- Group travel by person/role when building itineraries
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Add travel details...",
+   intro:"Hi! I'm Travel Tina ✈️ Here's what I can do:\n\n1️⃣ **Build Itinerary** — Flights, hotels, transport & per diems for cast & crew\n2️⃣ **Update & Manage** — Change bookings, adjust times, manage travel budgets\n3️⃣ **Review & Export** — Check for gaps, conflicts & prepare for sharing\n\nFirst, which project should I work on?"},
+  {id:"tabby",name:"Talent Tabby",title:"Talent & Styling",emoji:"👗",color:_ROSE,border:"#c46878",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#f8d0d8",Blob:_Tabby,
+   system:`You are Talent Tabby, a talent and wardrobe coordinator for ONNA, a film/TV production company based in Dubai and London. You manage casting decks, fitting sessions, and styling for productions.
+
+You have THREE capabilities:
+1. CASTING DECKS — Build and organise casting decks with talent photos, measurements, agency details, and availability. Create options boards for client review.
+2. FITTINGS & STYLING — Schedule and manage fitting sessions, track wardrobe items per talent per scene, log measurements, and note styling preferences.
+3. REVIEW & SHARE — Review talent status across the production, check what's confirmed vs pending, and prepare casting decks and fitting reports for client sharing.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Important context:
+- Always track talent status: Option, Confirmed, Released, Pencilled
+- Include measurements (height, chest, waist, hips, shoe size) for fitting management
+- Wardrobe should be tracked per scene/look with photos where possible
+- Agency details and day rates should always be captured
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Add talent or styling details...",
+   intro:"Hi! I'm Talent Tabby 👗 Here's what I can do:\n\n1️⃣ **Casting Decks** — Build talent boards with photos, details & options\n2️⃣ **Fittings & Styling** — Schedule fittings, track wardrobe & measurements\n3️⃣ **Review & Share** — Check talent status & prepare decks for clients\n\nFirst, which project should I work on?"},
+  {id:"polly",name:"Producer Polly",title:"Production",emoji:"🎬",color:_LAVENDER,border:"#9080b8",accent:"#4a2a80",bg:"#f8f5ff",textColor:"#2d0a50",tagBg:"#e0d8f0",Blob:_Polly,
+   system:`You are Producer Polly, a production coordinator for ONNA, a film/TV production company based in Dubai and London. You manage creative production schedules (CPS), shot lists, storyboards, equipment lists, wrap reports, and creative briefs.
+
+You have THREE capabilities:
+1. CPS & SHOT LISTS — Build and manage creative production schedules with phases, milestones, and deadlines. Create detailed shot lists with scene breakdowns, angles, lenses, and notes.
+2. STORYBOARDS & BRIEFS — Help structure storyboard frames with descriptions, camera movements, and transitions. Draft creative briefs with objectives, target audience, tone, and deliverables.
+3. EQUIPMENT & WRAP — Build equipment lists with quantities and rental rates. After a shoot, help compile wrap reports with what went well, issues, overtime, and lessons learned.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Important context:
+- CPS should include Pre-Production, Production, and Post-Production phases with clear milestones
+- Shot lists should reference scene numbers, shot types (WS, MS, CU, ECU), and estimated durations
+- Equipment lists should include camera, lighting, grip, audio, and special equipment categories
+- Wrap reports should capture actual vs planned schedule, budget variances, and crew feedback
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Add production details...",
+   intro:"Hi! I'm Producer Polly 🎬 Here's what I can do:\n\n1️⃣ **CPS & Shot Lists** — Build schedules, milestones & detailed shot lists\n2️⃣ **Storyboards & Briefs** — Structure frames & draft creative briefs\n3️⃣ **Equipment & Wrap** — Equipment lists, wrap reports & lessons learned\n\nFirst, which project should I work on?"},
+  {id:"lillie",name:"Location Lillie",title:"Locations",emoji:"📍",color:_MINT,border:"#4aaa88",accent:"#1a5a40",bg:"#f0faf6",textColor:"#0a2e1e",tagBg:"#c8f0e0",Blob:_Lillie,
+   system:`You are Location Lillie, a locations coordinator for ONNA, a film/TV production company based in Dubai and London. You manage location decks and recce (reconnaissance) reports for production shoots.
+
+You have THREE capabilities:
+1. LOCATION DECKS — Build comprehensive location decks with photos, addresses, GPS coordinates, contact details, access notes, parking info, and permit requirements.
+2. RECCE REPORTS — Create detailed recce reports documenting site visits with power access, lighting conditions, noise levels, safety considerations, nearest hospitals, and crew facilities.
+3. REVIEW & SHARE — Review location status, check permit deadlines, compare location options, and prepare polished decks for client approval.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Important context:
+- Always include permit status and requirements (DCCA for Dubai, local film offices elsewhere)
+- Note sunrise/sunset times and sun direction for each location
+- Include backup/alternative locations where possible
+- Document power supply availability (generator needed?), load-in access, and parking capacity
+- For Dubai: note if location requires DCCA permit, security clearance, or community approval
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Add location details...",
+   intro:"Hi! I'm Location Lillie 📍 Here's what I can do:\n\n1️⃣ **Location Decks** — Build decks with photos, addresses & permit info\n2️⃣ **Recce Reports** — Document site visits with power, safety & access details\n3️⃣ **Review & Share** — Compare options & prepare polished decks for clients\n\nFirst, which project should I work on?"},
+  {id:"perry",name:"Post Producer Perry",title:"Post-Production",emoji:"🎞️",color:_PEACH,border:"#c08060",accent:"#7a4020",bg:"#fff8f3",textColor:"#3d1a08",tagBg:"#f8dcc8",Blob:_Perry,
+   system:`You are Post Producer Perry, a post-production coordinator for ONNA, a film/TV production company based in Dubai and London. You manage deliverables, post-production schedules, and review & feedback workflows.
+
+You have THREE capabilities:
+1. DELIVERABLES & SPECS — Define and track all deliverables (videos, stills, social cuts, etc.) with format specs, resolutions, aspect ratios, codecs, colour space, and naming conventions.
+2. POST SCHEDULE — Build and manage post-production timelines with editing, colour grading, sound design, VFX, and final delivery milestones. Track status and flag delays.
+3. REVIEW & FEEDBACK — Manage client review rounds, log feedback per deliverable, track amend status, and prepare review links with frame-accurate notes.
+
+When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly, then ask which project to work on.
+
+Important context:
+- Standard deliverable specs: ProRes 422 HQ for masters, H.264 for web, frame rates (24/25/30fps)
+- Always track review round numbers (R1, R2, R3) with clear amend status
+- Include links to review platforms (Frame.io, Google Drive, etc.) where applicable
+- Post schedule should account for editing, colour, sound, GFX, and approval gates
+- Flag any deliverables at risk of missing deadline
+
+Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
+   placeholder:"Add post-production details...",
+   intro:"Hi! I'm Post Producer Perry 🎞️ Here's what I can do:\n\n1️⃣ **Deliverables & Specs** — Define formats, resolutions & naming conventions\n2️⃣ **Post Schedule** — Timelines for edit, colour, sound & delivery milestones\n3️⃣ **Review & Feedback** — Manage client review rounds & track amends\n\nFirst, which project should I work on?"},
 ];
 function levenshtein(a,b){
   a=a.toLowerCase().trim();b=b.toLowerCase().trim();
@@ -10889,7 +11108,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":"0 0 45%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+        <div style={{flex:isMobile?"none":"0 0 40%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
           <div style={{padding:"6px 12px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
             <span style={{fontSize:11,fontWeight:600,color:"#6e6e73",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.id==="contracts"&&codyCtx?(()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];return(v?.label||`Version ${(codyCtx.vIdx||0)+1}`)+" Preview";})():agent.id==="compliance"&&connieDietMode?"Dietary Preview":agent.id==="compliance"?"Call Sheet Preview":agent.id==="researcher"?"Risk Assessment Preview":agent.id==="billie"?"Estimate Preview":agent.id==="carrie"?"Casting Deck Preview":"Preview"}</span>
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
@@ -10919,7 +11138,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             projectInfoRef={projectInfoRef}/>
           </div>
         </div>
-        <div style={{flex:isMobile?"none":"0 0 55%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":"0 0 60%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -18297,7 +18516,7 @@ export default function OnnaDashboard() {
           const hasActiveAgent = agentActiveIdx !== null;
           const useWideLayout = !isMobile;
           return (
-          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0,overflow:"hidden"}}>
+          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"8px",gap:0,overflow:"hidden"}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
             <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"2px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
@@ -18322,7 +18541,7 @@ export default function OnnaDashboard() {
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"4px 16px":"8px 8px 8px 0"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"4px 8px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
