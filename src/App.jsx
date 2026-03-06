@@ -1748,7 +1748,7 @@ const newShot = (id, scene) => ({
 });
 
 /* ======= MAIN COMPONENT ======= */
-function ShotListConnie({ initialProject, initialScenes, onChangeProject, onChangeScenes }) {
+const ShotListConnie = React.forwardRef(function ShotListConnieInner({ initialProject, initialScenes, onChangeProject, onChangeScenes, onShareUrl }, fwdRef) {
   const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [project, setProjectRaw] = useState(() => initialProject || {
     name: "[Project Name]", client: "[Client Name]", date: "[Date]", director: "[Director]", dop: "[DOP]"
@@ -1886,6 +1886,26 @@ ${PRINT_CLEANUP_CSS}
     const el = printRef.current; if (!el) return;
     slPrintViaIframe(slCleanClone(el));
   };
+  const generateSharePage = async (modes, existingToken, existingResourceId) => {
+    const el = printRef.current; if (!el) return;
+    const clone = slCleanClone(el);
+    clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+    const html = clone.innerHTML;
+    if (!html) return;
+    try {
+      const body = { html, projectName: project.name || "", clientName: project.client || "", mode: "shotlist" };
+      if (existingToken) body.token = existingToken;
+      if (existingResourceId) body.resourceId = existingResourceId;
+      const resp = await fetch("/api/shotlist-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
+      const data = await resp.json();
+      if (data.url) {
+        if (onShareUrl) onShareUrl(data.url, data.token, data.id);
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
+      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { alert("Error generating link: " + err.message); }
+  };
+  useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
   const allShots = scenes.flatMap(s => s.shots);
   const filtered = view === "all" ? allShots : allShots.filter(s => s.type === view.toUpperCase() || s.type === "BOTH");
@@ -3376,6 +3396,217 @@ const PostConnie = React.forwardRef(function PostConnieInner({ initialProject, i
   );
 });
 
+
+/* ======= CASTING TABLE CONNIE ======= */
+const CTB_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+const CTB_LS = 0.5;
+const CTB_YEL = "#FFFDE7";
+let _ctId = 0;
+const ctMkRole = () => ({ id: "cr" + (++_ctId), role: "", models: [ctMkModel(), ctMkModel(), ctMkModel()] });
+const ctMkModel = () => ({ id: "cm" + (++_ctId), agency: "", name: "", email: "", option: "First Option", notes: "", image: null, synced: false });
+const CTB_OPTIONS = ["First Option", "Second Option", "Third Option", "Shortlist", "Confirmed", "Declined", "Unavailable"];
+const CTB_OPT_C = {
+  "First Option": { bg: "#E8F5E9", text: "#2E7D32" },
+  "Second Option": { bg: "#FFF3E0", text: "#E65100" },
+  "Third Option": { bg: "#FCE4EC", text: "#C62828" },
+  "Shortlist": { bg: "#E3F2FD", text: "#1565C0" },
+  "Confirmed": { bg: "#000", text: "#fff" },
+  "Declined": { bg: "#f4f4f4", text: "#999" },
+  "Unavailable": { bg: "#f4f4f4", text: "#ccc" },
+};
+
+const CtClientLogo = () => {
+  const [logo, setLogo] = useState(null);
+  const [over, setOver] = useState(false);
+  const hf = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setLogo(e.target.result); r.readAsDataURL(f); };
+  return (
+    <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); hf(e.dataTransfer.files); }}
+      style={{ width: 80, height: 32, borderRadius: 2, overflow: "hidden", position: "relative" }}>
+      {logo ? (<><img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        <button data-hide="1" onClick={() => setLogo(null)} style={{ position: "absolute", top: -2, right: -2, background: "rgba(0,0,0,0.4)", border: "none", color: "#fff", fontSize: 8, cursor: "pointer", borderRadius: "50%", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"\u00d7"}</button></>
+      ) : (<label style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: over ? "1px dashed #FFD54F" : "1px dashed #ddd", background: over ? CTB_YEL : "transparent", borderRadius: 2 }}>
+        <span style={{ fontFamily: CTB_F, fontSize: 6, color: "#ccc", letterSpacing: CTB_LS }}>CLIENT LOGO</span>
+        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { hf(e.target.files); e.target.value = ""; }} />
+      </label>)}
+    </div>
+  );
+};
+
+const PRINT_CLEANUP_CSS_CTB = `[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]{display:none!important}`;
+
+const CastingTableConnie = React.forwardRef(function CastingTableConnieInner({ initialProject, initialRoles, onChangeProject, onChangeRoles, onShareUrl }, fwdRef) {
+  const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "", casting: "" });
+  const [roles, setRolesRaw] = useState(() => initialRoles || [ctMkRole(), ctMkRole()]);
+  const printRef = useRef(null);
+
+  const setProject = (v) => { const nv = typeof v === "function" ? v(project) : v; setProjectRaw(nv); if (onChangeProject) onChangeProject(nv); };
+  const setRoles = (v) => { const nv = typeof v === "function" ? v(roles) : v; setRolesRaw(nv); if (onChangeRoles) onChangeRoles(nv); };
+
+  const updateRole = (id, k, v) => setRoles(p => p.map(r => r.id === id ? { ...r, [k]: v } : r));
+  const addRole = () => setRoles(p => [...p, ctMkRole()]);
+  const deleteRole = (id) => setRoles(p => p.filter(r => r.id !== id));
+  const updateModel = (rid, mid, k, v) => setRoles(p => p.map(r => r.id === rid ? { ...r, models: r.models.map(m => m.id === mid ? { ...m, [k]: v } : m) } : r));
+  const addModel = (rid) => setRoles(p => p.map(r => r.id === rid ? { ...r, models: [...r.models, ctMkModel()] } : r));
+  const deleteModel = (rid, mid) => setRoles(p => p.map(r => r.id === rid ? { ...r, models: r.models.filter(m => m.id !== mid) } : r));
+
+  const addModelImage = (rid, mid, fileList) => {
+    const file = Array.from(fileList).find(f => f.type.startsWith("image/"));
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = (e) => setRoles(p => p.map(ro => ro.id === rid ? { ...ro, models: ro.models.map(m => m.id === mid ? { ...m, image: e.target.result } : m) } : ro));
+    r.readAsDataURL(file);
+  };
+
+  const collectFontRules = () => { try { return [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } }).filter(r => r.type === CSSRule.FONT_FACE_RULE).map(r => r.cssText).join("\n"); } catch { return ""; } };
+
+  const ctCleanClone = (el) => { const clone = el.cloneNode(true); clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove()); clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove()); return clone; };
+
+  const ctPrintViaIframe = (clone) => { const fontRules = collectFontRules(); const iframe = document.createElement("iframe"); iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;"; document.body.appendChild(iframe); const idoc = iframe.contentDocument; idoc.open(); idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');${fontRules}*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}@media print{@page{size:landscape;margin:0}}${PRINT_CLEANUP_CSS_CTB}</style></head><body></body></html>`); idoc.close(); idoc.body.appendChild(idoc.adoptNode(clone)); const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;})); Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);}); };
+
+  const exportPDF = () => { const el = printRef.current; if (!el) return; ctPrintViaIframe(ctCleanClone(el)); };
+
+  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ctCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = CTB_F; sp.style.fontSize = "8px"; sp.style.fontWeight = "700"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Casting Table", mode: "casting-table" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/casting-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); } } else { alert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { alert("Error generating link: " + err.message); } };
+  useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
+
+  const allModels = roles.flatMap(r => r.models);
+  const confirmed = allModels.filter(m => m.option === "Confirmed").length;
+  const shortlisted = allModels.filter(m => m.option === "Shortlist").length;
+  const synced = allModels.filter(m => m.synced).length;
+
+  return (
+    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: CTB_F, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+        <div style={{ fontFamily: CTB_F, fontSize: 9, fontWeight: 700, letterSpacing: CTB_LS, padding: "10px 16px", background: "#000", color: "#fff", textTransform: "uppercase" }}>CASTING</div>
+        <div style={{ flex: 1 }} />
+        <div data-hide="1" onClick={exportPDF} style={{ fontFamily: CTB_F, fontSize: 9, fontWeight: 700, letterSpacing: CTB_LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}>EXPORT PDF</div>
+      </div>
+
+      <div ref={printRef} style={{ padding: "16px 12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, borderBottom: "2.5px solid #000", paddingBottom: 8 }}>
+          <span style={{ fontFamily: "'Georgia', serif", fontSize: 22, fontWeight: 400, letterSpacing: 1 }}>onna</span>
+          <div style={{ fontFamily: CTB_F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>CASTING</div>
+          <CtClientLogo />
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client"], ["DATE", "date", "Date"], ["CASTING", "casting", "Casting Director"]].map(([lbl, key, ph]) => (
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+              <span style={{ fontFamily: CTB_F, fontSize: 9, fontWeight: 700, letterSpacing: CTB_LS }}>{lbl}:</span>
+              <input value={project[key]} onChange={e => setProject(p => ({ ...p, [key]: e.target.value }))} placeholder={ph}
+                style={{ fontFamily: CTB_F, fontSize: 9, letterSpacing: CTB_LS, border: "none", borderBottom: "1px solid #eee", outline: "none", padding: "2px 6px", width: 110, background: project[key] ? "transparent" : CTB_YEL, color: project[key] ? "#1a1a1a" : "#999" }} />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          <div style={{ fontFamily: CTB_F, fontSize: 8, fontWeight: 700, letterSpacing: CTB_LS, background: "#f4f4f4", padding: "3px 10px", borderRadius: 2, color: "#666" }}>TOTAL: {allModels.length}</div>
+          <div style={{ fontFamily: CTB_F, fontSize: 8, fontWeight: 700, letterSpacing: CTB_LS, background: "#E3F2FD", padding: "3px 10px", borderRadius: 2, color: "#1565C0" }}>SHORTLISTED: {shortlisted}</div>
+          <div style={{ fontFamily: CTB_F, fontSize: 8, fontWeight: 700, letterSpacing: CTB_LS, background: "#000", padding: "3px 10px", borderRadius: 2, color: "#fff" }}>CONFIRMED: {confirmed}</div>
+          <div style={{ fontFamily: CTB_F, fontSize: 8, fontWeight: 700, letterSpacing: CTB_LS, background: synced > 0 ? "#E8F5E9" : "#f4f4f4", padding: "3px 10px", borderRadius: 2, color: synced > 0 ? "#2E7D32" : "#999" }}>SYNCED TO DECK: {synced}</div>
+        </div>
+
+        {roles.map((role, ri) => (
+          <div key={role.id} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "5px 8px", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input value={role.role} onChange={e => updateRole(role.id, "role", e.target.value)} placeholder="Role Name"
+                  style={{ fontFamily: CTB_F, fontSize: 10, fontWeight: 700, letterSpacing: CTB_LS, color: "#fff", background: "transparent", border: "none", outline: "none", width: 200, padding: "2px 4px" }} />
+                <span style={{ fontFamily: CTB_F, fontSize: 8, color: "rgba(255,255,255,0.4)", letterSpacing: CTB_LS }}>{role.models.length} talent</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span data-hide="1" onClick={() => addModel(role.id)} style={{ fontFamily: CTB_F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: CTB_LS }}>+ ADD MODEL</span>
+                <span data-hide="1" onClick={() => deleteRole(role.id)} style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", cursor: "pointer" }}
+                  onMouseEnter={e => e.target.style.color = "#e53935"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.3)"}>{"\u00d7"}</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", background: "#f4f4f4", padding: "3px 8px", gap: 4, borderBottom: "1px solid #eee" }}>
+              <div style={{ width: 14 }} />
+              <div style={{ width: 36, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999" }}></div>
+              <div style={{ flex: 1, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999" }}>AGENCY</div>
+              <div style={{ flex: 1.2, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999" }}>NAME</div>
+              <div style={{ flex: 1, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999" }}>EMAIL</div>
+              <div style={{ width: 100, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999" }}>OPTION</div>
+              <div style={{ flex: 1, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999" }}>NOTES</div>
+              <div style={{ width: 30, fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, color: "#999", textAlign: "center" }}>DECK</div>
+            </div>
+
+            {role.models.map((model, mi) => {
+              const oc = CTB_OPT_C[model.option] || CTB_OPT_C["Declined"];
+              const isConfirmed = model.option === "Confirmed";
+              const isDeclined = model.option === "Declined" || model.option === "Unavailable";
+              return (
+                <div key={model.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderBottom: "1px solid #f0f0f0",
+                  background: isConfirmed ? "#f0faf0" : isDeclined ? "#fafafa" : "#fff", opacity: isDeclined ? 0.5 : 1 }}>
+                  <div style={{ width: 14 }}>
+                    <button data-hide="1" onClick={() => deleteModel(role.id, model.id)}
+                      style={{ background: "none", border: "none", color: "#ddd", fontSize: 10, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"\u00d7"}</button>
+                  </div>
+                  <div style={{ width: 36, height: 36, borderRadius: 2, overflow: "hidden", background: "#f4f4f4", flexShrink: 0 }}>
+                    {model.image ? (
+                      <img src={model.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <label style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        <span style={{ fontSize: 12, color: "#ddd" }}>+</span>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { addModelImage(role.id, model.id, e.target.files); e.target.value = ""; }} />
+                      </label>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input value={model.agency} onChange={e => updateModel(role.id, model.id, "agency", e.target.value)} placeholder="Agency"
+                      style={{ fontFamily: CTB_F, fontSize: 9, letterSpacing: CTB_LS, border: "none", outline: "none", width: "100%", padding: "3px 6px", boxSizing: "border-box",
+                        background: model.agency ? "transparent" : CTB_YEL, color: model.agency ? "#1a1a1a" : "#999" }} />
+                  </div>
+                  <div style={{ flex: 1.2 }}>
+                    <input value={model.name} onChange={e => updateModel(role.id, model.id, "name", e.target.value)} placeholder="Name"
+                      style={{ fontFamily: CTB_F, fontSize: 9, fontWeight: 700, letterSpacing: CTB_LS, border: "none", outline: "none", width: "100%", padding: "3px 6px", boxSizing: "border-box",
+                        textDecoration: isConfirmed ? "none" : isDeclined ? "line-through" : "none",
+                        background: model.name ? "transparent" : CTB_YEL, color: model.name ? "#1a1a1a" : "#999" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input value={model.email} onChange={e => updateModel(role.id, model.id, "email", e.target.value)} placeholder="Email"
+                      style={{ fontFamily: CTB_F, fontSize: 9, letterSpacing: CTB_LS, border: "none", outline: "none", width: "100%", padding: "3px 6px", boxSizing: "border-box",
+                        background: model.email ? "transparent" : CTB_YEL, color: model.email ? "#666" : "#999" }} />
+                  </div>
+                  <div style={{ width: 100 }}>
+                    <select value={model.option} onChange={e => updateModel(role.id, model.id, "option", e.target.value)}
+                      style={{ fontFamily: CTB_F, fontSize: 7, fontWeight: 700, letterSpacing: CTB_LS, border: "none", outline: "none", padding: "3px 4px", borderRadius: 2, cursor: "pointer", width: "100%",
+                        background: oc.bg, color: oc.text }}>
+                      {CTB_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input value={model.notes} onChange={e => updateModel(role.id, model.id, "notes", e.target.value)} placeholder="Notes..."
+                      style={{ fontFamily: CTB_F, fontSize: 9, letterSpacing: CTB_LS, border: "none", outline: "none", width: "100%", padding: "3px 6px", boxSizing: "border-box",
+                        background: model.notes ? "transparent" : CTB_YEL, color: model.notes ? "#666" : "#999" }} />
+                  </div>
+                  <div style={{ width: 30, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div onClick={() => updateModel(role.id, model.id, "synced", !model.synced)}
+                      style={{ width: 16, height: 16, borderRadius: 2, border: model.synced ? "2px solid #2E7D32" : "2px solid #ddd", background: model.synced ? "#2E7D32" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>
+                      {model.synced && <span style={{ color: "#fff", fontSize: 10, lineHeight: 1 }}>{"\u2713"}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        <div data-hide="1" style={{ marginBottom: 16 }}>
+          <div onClick={addRole} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 8px", cursor: "pointer", borderRadius: 1 }}
+            onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}>
+            <span style={{ fontFamily: CTB_F, fontSize: 9, fontWeight: 700, letterSpacing: CTB_LS, color: "#999", textTransform: "uppercase" }}>+ ADD ROLE</span>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between", fontFamily: CTB_F, fontSize: 9, letterSpacing: CTB_LS, color: "#000", borderTop: "2px solid #000", paddingTop: 10 }}>
+          <div><div style={{ fontWeight: 700 }}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+          <div style={{ textAlign: "right" }}><div style={{ fontWeight: 700 }}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 /* ======= FITTING CONNIE ======= */
 let _fitId = 0;
@@ -11916,6 +12147,11 @@ export default function OnnaDashboard() {
   const [activeRecceVersion,setActiveRecceVersion]       = useState(null);
   const [castingDeckStore,setCastingDeckStore]           = useState(()=>{try{const s=localStorage.getItem('onna_casting_decks');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeCastingDeckVersion,setActiveCastingDeckVersion] = useState(null);
+  const [castingTableStore,setCastingTableStore]         = useState(()=>{try{const s=localStorage.getItem('onna_casting_tables');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeCastingTableVersion,setActiveCastingTableVersion] = useState(null);
+  const [ctShareUrl,setCtShareUrl]                       = useState(null);
+  const [ctShareLoading,setCtShareLoading]               = useState(false);
+  const ctRef                                            = useRef(null);
   const [castDeckShareUrl,setCastDeckShareUrl]           = useState(null);
   const [castDeckShareLoading,setCastDeckShareLoading]   = useState(false);
   const [castDeckShareTabs,setCastDeckShareTabs]         = useState(new Set(["confirmed","options"]));
@@ -12161,6 +12397,7 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{}},[shotListStore]);
   useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
   useEffect(()=>{try{localStorage.setItem('onna_postprod',JSON.stringify(postProdStore))}catch{}},[postProdStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_casting_tables',JSON.stringify(castingTableStore))}catch{}},[castingTableStore]);
   useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
   // Poll fitting share feedback and sync back to portal
   useEffect(()=>{
@@ -12666,7 +12903,7 @@ export default function OnnaDashboard() {
           const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
           setSelectedProject(proj||null);
           setProjectSection(state.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
           if (state.subSection && proj) {
             const sec = state.section;
             if (sec==="Creative") setCreativeSubSection(state.subSection);
@@ -12678,7 +12915,7 @@ export default function OnnaDashboard() {
         } else {
           setSelectedProject(null);
           setProjectSection("Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
         }
       } else {
         const parsed = parseURL(window.location.pathname, allProjectsMerged);
@@ -12686,7 +12923,7 @@ export default function OnnaDashboard() {
         if (parsed.project) {
           setSelectedProject(parsed.project);
           setProjectSection(parsed.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
           if (parsed.subSection) {
             const sec = parsed.section;
             if (sec==="Creative") setCreativeSubSection(parsed.subSection);
@@ -13060,7 +13297,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
@@ -13403,7 +13640,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
+              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -15467,7 +15704,7 @@ export default function OnnaDashboard() {
         </div>
       );
 
-      const castingBack = <button onClick={()=>{setCastingSubSection(null);setActiveCastingDeckVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"\u2039"} Back to Casting</button>;
+      const castingBack = <button onClick={()=>{setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"\u2039"} Back to Casting</button>;
 
       if (castingSubSection==="deck") {
         const castDeckVersions = castingDeckStore[p.id] || [];
@@ -15625,91 +15862,118 @@ export default function OnnaDashboard() {
         );
       }
 
-      /* Default: tables sub-section */
+      /* Default: Casting Table sub-section */
+      if (castingSubSection==="tables") {
+        const ctVersions = Array.isArray(castingTableStore[p.id]) ? castingTableStore[p.id] : [];
+        const addCTNew = () => {
+          const newId = Date.now();
+          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", casting: "[Casting Director]" };
+          const newCT = { id: newId, label: `V${ctVersions.length+1}`, project: proj, roles: [ctMkRole(), ctMkRole()] };
+          setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newCT); return store; });
+        };
+        const deleteCT = (idx) => {
+          if (!confirm("Delete this Casting Table? This will be moved to trash.")) return;
+          const ctDelData = JSON.parse(JSON.stringify((castingTableStore[p.id]||[])[idx]));
+          if (ctDelData) archiveItem('casting_table', { projectId: p.id, castingTable: ctDelData });
+          setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
+          setActiveCastingTableVersion(null);
+        };
+
+        // List view
+        if (activeCastingTableVersion === null || ctVersions.length === 0) {
+          return (
+            <div>
+              {castingBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Casting Table</div>
+                <button onClick={addCTNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Casting Table</button>
+              </div>
+              {ctVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No casting tables yet. Click "+ New Casting Table" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {ctVersions.map((ct,i) => {
+                  const totalModels = (ct.roles||[]).reduce((s,r) => s + (r.models||[]).length, 0);
+                  const confirmedModels = (ct.roles||[]).reduce((s,r) => s + (r.models||[]).filter(m=>m.option==="Confirmed").length, 0);
+                  return (
+                    <div key={ct.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveCastingTableVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CASTING TABLE</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:confirmedModels>0?"#e8f5e9":"#f5f5f5",color:confirmedModels>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{totalModels} models {"·"} {confirmedModels} confirmed</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{ct.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{ct.project?.name||"No project name"}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>deleteCT(i)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>{"×"}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // Detail view
+        const ctIdx = activeCastingTableVersion;
+        const ctData = ctVersions[ctIdx];
+        if (!ctData) { setActiveCastingTableVersion(null); return null; }
+
+        const ctBack = <button onClick={()=>setActiveCastingTableVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Casting Table list</button>;
+
+        const ctShareTitle = `ONNA | ${ctData.label || "Casting Table"}`;
+        const existingCtToken = ctData.shareToken || null;
+        const displayCtShareUrl = ctShareUrl || (existingCtToken ? `https://app.onna.world/api/casting-share?token=${encodeURIComponent(existingCtToken)}` : null);
+        const sendCtShare = async () => {
+          setCtShareLoading(true);
+          try {
+            if (ctRef.current) await ctRef.current.share([], existingCtToken, ctData.shareResourceId);
+          } catch (err) { alert("Error: " + err.message); }
+          setCtShareLoading(false);
+        };
+
+        return (
+          <div>
+            {ctBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CASTING TABLE</span>
+                <input value={ctData.label||""} onChange={e=>{setCastingTableStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][ctIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={sendCtShare} disabled={ctShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingCtToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ctShareLoading?0.5:1}}>
+                  {ctShareLoading ? "Generating…" : existingCtToken ? "Update Link" : "Generate Link"}
+                </button>
+              </div>
+            </div>
+            {displayCtShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{ctShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={displayCtShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayCtShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${ctShareTitle}\n${displayCtShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
+            <div id="onna-ct-print">
+              <CastingTableConnie
+                ref={ctRef}
+                initialProject={ctData.project}
+                initialRoles={ctData.roles}
+                onChangeProject={proj => setCastingTableStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ctIdx]) s[p.id][ctIdx].project = proj; return s; })}
+                onChangeRoles={rls => setCastingTableStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ctIdx]) s[p.id][ctIdx].roles = rls; return s; })}
+                onShareUrl={(url, token, id) => { setCtShareUrl(url); setCastingTableStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][ctIdx]) { s[p.id][ctIdx].shareToken = token; s[p.id][ctIdx].shareResourceId = id; } return s; }); }}
+              />
+            </div>
+          </div>
+        );
+      }
+
+      /* Default: old casting tables fallback */
       return (
         <div>
           {castingSubSection==="tables"&&castingBack}
-          {castingTables.map(table=>(
-            <div key={table.id} style={{marginBottom:32}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                <input value={table.title} onChange={e=>updateCastingTableTitle(p.id,table.id,e.target.value)} style={{fontSize:18,fontWeight:700,color:T.text,background:"transparent",border:"none",borderBottom:"2px solid transparent",padding:"4px 0",fontFamily:"inherit",outline:"none",flex:1,cursor:"text"}} onFocus={e=>{e.target.style.borderBottomColor=T.accent}} onBlur={e=>{e.target.style.borderBottomColor="transparent"}}/>
-              </div>
-              <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}>
-                <button onClick={()=>downloadCSV(table.rows,castCols,table.title+".csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
-                <button onClick={()=>exportCastingPDF([{title:table.title,rows:table.rows}],castCols,table.title)} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
-                <BtnPrimary onClick={()=>addCastingRow(p.id,table.id)}>+ Add Model</BtnPrimary>
-                {castingTables.length>1&&<button onClick={()=>removeCastingTable(p.id,table.id)} style={{background:"none",border:`1px solid ${T.border}`,color:"#c0392b",padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>\u00d7 Delete Table</button>}
-              </div>
-              <div style={{borderRadius:14,overflow:"hidden",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:8}}>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr><TH style={{width:64}}/><TH>Agency</TH><TH>Name</TH><TH>Email</TH><TH>Option</TH><TH>Notes</TH><TH style={{width:36,textAlign:"center"}}>\ud83d\udcce</TH><TH style={{width:30}}/></tr></thead>
-                  <tbody>
-                    {table.rows.length===0?<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:T.muted,fontSize:13}}>No models added yet.</td></tr>
-                    :table.rows.map(row=>(
-                      <tr key={row.id}>
-                        <td style={{padding:"6px 8px",borderBottom:`1px solid ${T.borderSub}`,width:64,verticalAlign:"middle"}}>
-                          {row.headshot?(
-                            <div style={{position:"relative",width:56,height:56}}>
-                              <img src={row.headshot} alt="" style={{width:56,height:56,borderRadius:8,objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}}/>
-                              <button onClick={()=>updateCastingRow(p.id,table.id,row.id,"headshot",null)} style={{position:"absolute",top:-4,right:-4,width:16,height:16,borderRadius:"50%",background:"#c0392b",color:"#fff",border:"none",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>\u00d7</button>
-                            </div>
-                          ):(
-                            <div onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);};inp.click();}} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent;}} onDragLeave={e=>{e.currentTarget.style.borderColor="#ccc";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ccc";const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith("image/"))return;const fr=new FileReader();fr.onload=ev=>updateCastingRow(p.id,table.id,row.id,"headshot",ev.target.result);fr.readAsDataURL(f);}} style={{width:56,height:56,borderRadius:8,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"#ccc",background:"#fafafa"}}>+</div>
-                          )}
-                        </td>
-                        {["agency","name","email"].map(field=>{
-                          if(field==="agency"){
-                            const agencyKey=`${table.id}_${row.id}`;
-                            const agencyMatches=castAgencyOpen===agencyKey&&(row.agency||"").length>0?[...new Set(vendors.map(v=>v.company).filter(Boolean))].filter(c=>c.toLowerCase().includes((row.agency||"").toLowerCase())):[];
-                            return(
-                              <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                                <div style={{position:"relative"}}>
-                                  <input value={row.agency||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"agency",e.target.value)} onFocus={()=>setCastAgencyOpen(agencyKey)} onBlur={()=>setTimeout(()=>setCastAgencyOpen(prev=>prev===agencyKey?null:prev),150)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                                  {agencyMatches.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,background:"#fff",border:`1px solid ${T.border}`,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",maxHeight:160,overflowY:"auto",marginTop:2}}>
-                                    {agencyMatches.map(m=><div key={m} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateCastingRow(p.id,table.id,row.id,"agency",m);setCastAgencyOpen(null);}} style={{padding:"6px 10px",fontSize:12,cursor:"pointer",borderBottom:`1px solid ${T.borderSub}`}} onMouseEnter={e=>{e.target.style.background="#f0f0f5"}} onMouseLeave={e=>{e.target.style.background="#fff"}}>{m}</div>)}
-                                  </div>}
-                                </div>
-                              </td>
-                            );
-                          }
-                          return(
-                            <td key={field} style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                              <input value={row[field]||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,field,e.target.value)} style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                            </td>
-                          ); })}
-                        <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                          <select value={row.option||"First Option"} onChange={e=>updateCastingRow(p.id,table.id,row.id,"option",e.target.value)} style={{padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}>
-                            <option>First Option</option><option>Second Option</option><option>Confirmed</option><option>Released</option>
-                          </select>
-                        </td>
-                        <td style={{padding:"8px 10px",borderBottom:`1px solid ${T.borderSub}`}}>
-                          <input value={row.notes||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"notes",e.target.value)} placeholder="Notes..." style={{width:"100%",padding:"6px 9px",borderRadius:8,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit"}}/>
-                        </td>
-                        <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
-                          {row._editLink?(
-                            <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                              <input autoFocus value={row._linkDraft||""} onChange={e=>updateCastingRow(p.id,table.id,row.id,"_linkDraft",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,link:r._linkDraft||"",_editLink:false}:r)}:t)};});}if(e.key==="Escape")updateCastingRow(p.id,table.id,row.id,"_editLink",false);}} placeholder="https://..." style={{width:140,padding:"4px 7px",borderRadius:6,border:`1px solid ${T.accent}`,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
-                              <button onClick={()=>{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,link:r._linkDraft||"",_editLink:false}:r)}:t)};});}} style={{background:T.accent,border:"none",color:"#fff",fontSize:10,borderRadius:5,padding:"3px 7px",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
-                            </div>
-                          ):(
-                            <span onClick={()=>{if(row.link){window.open(row.link,"_blank");}else{setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}}} onContextMenu={e=>{e.preventDefault();setProjectCasting(prev=>{const tables=getProjectCastingTables(p.id);return{...prev,[p.id]:tables.map(t=>t.id===table.id?{...t,rows:t.rows.map(r=>r.id===row.id?{...r,_editLink:true,_linkDraft:r.link||""}:r)}:t)};});}} title={row.link?"Click to open, right-click to edit":"Click to add link"} style={{cursor:"pointer",fontSize:16,opacity:row.link?1:0.3}}>\ud83d\udcce</span>
-                          )}
-                        </td>
-                        <td style={{padding:"8px 6px",borderBottom:`1px solid ${T.borderSub}`}}><button onClick={()=>removeCastingRow(p.id,table.id,row.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>\u00d7</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-          <div style={{display:"flex",justifyContent:"center",gap:10,marginBottom:24}}>
-            <button onClick={()=>addCastingTable(p.id)} style={{background:"none",border:`1.5px dashed ${T.border}`,color:T.muted,padding:"10px 24px",borderRadius:10,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>+ Add Table</button>
-            {castingTables.length>0&&<>
-              <button onClick={()=>exportCastingPDF(castingTables,castCols,"Casting")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"10px 18px",borderRadius:10,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Export All PDF</button>
-              <button onClick={()=>{const allRows=castingTables.flatMap(t=>t.rows.map(r=>({...r,table:t.title})));const cols=[{key:"table",label:"Table"},...castCols];downloadCSV(allRows,cols,"Casting.csv");}} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"10px 18px",borderRadius:10,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Export All CSV</button>
-            </>}
-          </div>
+          <div style={{textAlign:"center",padding:40,color:"#999"}}>Select a casting sub-section.</div>
         </div>
       );
     }
@@ -17456,7 +17720,7 @@ export default function OnnaDashboard() {
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
