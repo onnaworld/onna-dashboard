@@ -15023,6 +15023,38 @@ export default function OnnaDashboard() {
     }
 
     if (projectSection==="Locations") {
+      const LOC_CARDS = [
+        {key:"deck",  emoji:"\ud83d\udccd", label:"Locations Deck"},
+        {key:"recce", emoji:"\ud83d\udcf7", label:"Recce Report"},
+      ];
+
+      if (!locSubSection) return (
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
+            {LOC_CARDS.map(c=>(
+              <div key={c.key} onClick={()=>{setLocSubSection(c.key);pushNav("Projects",p,"Locations",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+                <span style={{fontSize:28}}>{c.emoji}</span>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
+                  <div style={{fontSize:12,color:T.muted,marginTop:2}}>Open {c.label.toLowerCase()}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Folder Link</div>
+            <div style={{display:"flex",gap:10}}>
+              <input value={projectLocLinks[p.id]||""} onChange={e=>setProjectLocLinks(prev=>({...prev,[p.id]:e.target.value}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              {projectLocLinks[p.id]&&<a href={projectLocLinks[p.id]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none"}}>Open Folder ↗</a>}
+            </div>
+          </div>
+        </div>
+      );
+
+      const locSectionBack = <button onClick={()=>{setLocSubSection(null);setActiveLocDeckVersion(null);setActiveRecceVersion(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"\u2039"} Back to Locations</button>;
+
+      // ── Locations Deck sub-section ──
+      if (locSubSection==="deck") {
       const locVersions = locDeckStore[p.id] || [];
       const addLocNew = () => {
         const newId = Date.now();
@@ -15042,13 +15074,7 @@ export default function OnnaDashboard() {
       if (activeLocDeckVersion === null || locVersions.length === 0) {
         return (
           <div>
-            <div style={{marginBottom:18}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:8,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Dropbox / Drive Folder Link</div>
-              <div style={{display:"flex",gap:10}}>
-                <input value={projectLocLinks[p.id]||""} onChange={e=>setProjectLocLinks(prev=>({...prev,[p.id]:e.target.value}))} placeholder="https://www.dropbox.com/sh/..." style={{flex:1,padding:"9px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                {projectLocLinks[p.id]&&<a href={projectLocLinks[p.id]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"9px 18px",borderRadius:10,background:T.accent,color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none"}}>Open Folder ↗</a>}
-              </div>
-            </div>
+            {locSectionBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
               <div style={{fontSize:16,fontWeight:700,color:T.text}}>Locations Deck</div>
               <button onClick={addLocNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Locations Deck</button>
@@ -15084,7 +15110,7 @@ export default function OnnaDashboard() {
       const locData = locVersions[locIdx];
       if (!locData) { setActiveLocDeckVersion(null); return null; }
 
-      const locBack = <button onClick={()=>{setActiveLocDeckVersion(null);setLocShareUrl(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Locations list</button>;
+      const locBack = <button onClick={()=>{setActiveLocDeckVersion(null);setLocShareUrl(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Locations Deck list</button>;
 
       const locShareTitle = `ONNA | ${locData.label || "Locations Deck"}`;
       const existingLocToken = locData.shareToken || null;
@@ -15175,6 +15201,244 @@ export default function OnnaDashboard() {
           </div>
         </div>
       );
+      } // end locSubSection==="deck"
+
+      // ── Recce Report sub-section ──
+      if (locSubSection==="recce") {
+        const recceVersions = recceReportStore[p.id] || [];
+        const addRecceNew = () => {
+          const newId = Date.now();
+          const init = JSON.parse(JSON.stringify(RECCE_REPORT_INIT));
+          init.project.name = `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
+          init.project.client = p.client || "[Client Name]";
+          init.locations = [mkRecceLocation()];
+          const newRecce = {id:newId,label:`Recce ${recceVersions.length+1}`,...init};
+          setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newRecce);return store;});
+          setActiveRecceVersion(recceVersions.length);
+        };
+        const deleteRecce = (idx) => {
+          if(!confirm("Delete this recce report? This will be moved to trash."))return;
+          const recceData=JSON.parse(JSON.stringify((recceReportStore[p.id]||[])[idx]));
+          if(recceData)archiveItem('recceReports',{projectId:p.id,recceReport:recceData});
+          setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
+          setActiveRecceVersion(null);
+        };
+
+        if (activeRecceVersion === null || recceVersions.length === 0) {
+          return (
+            <div>
+              {locSectionBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Recce Reports</div>
+                <button onClick={addRecceNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Recce Report</button>
+              </div>
+              {recceVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No recce reports yet. Click "+ New Recce Report" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {recceVersions.map((rec,i)=>{
+                  const locCount=(rec.locations||[]).length;
+                  const rated=(rec.locations||[]).filter(l=>l.rating).length;
+                  return(
+                    <div key={rec.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveRecceVersion(i)}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>RECCE</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:rated>0?"#e8f5e9":"#f5f5f5",color:rated>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{locCount} location{locCount!==1?"s":""} · {rated} rated</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{rec.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{rec.project?.scoutedBy?`Scouted by ${rec.project.scoutedBy}`:"No scout assigned"}</div>
+                      </div>
+                      <button onClick={e=>{e.stopPropagation();deleteRecce(i);}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        const rcIdx = Math.min(activeRecceVersion, recceVersions.length-1);
+        const rcData = recceVersions[rcIdx];
+        if(!rcData){setActiveRecceVersion(null);return null;}
+
+        const rcU = (path, val) => {
+          setRecceReportStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];
+            const k=path.split(".");let o=d;for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=val;
+            arr[rcIdx]=d;store[p.id]=arr;return store;
+          });
+        };
+        const rcLocs = rcData.locations || [];
+        const rcSelLoc = rcData.selLoc || (rcLocs.length>0?rcLocs[0].id:null);
+        const curRecLoc = rcLocs.find(l=>l.id===rcSelLoc) || (rcLocs.length>0?rcLocs[0]:null);
+        const rcUpdateLoc = (id,key,val) => {
+          setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).map(l=>l.id===id?{...l,[key]:val}:l);store[p.id]=arr;return store;});
+        };
+        const rcAddLoc = () => {
+          const nl = mkRecceLocation();
+          setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];if(!d.locations)d.locations=[];d.locations.push(nl);d.selLoc=nl.id;store[p.id]=arr;return store;});
+        };
+        const rcDeleteLoc = (id) => {
+          setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).filter(l=>l.id!==id);if(d.selLoc===id)d.selLoc=null;store[p.id]=arr;return store;});
+        };
+        const rcAddImage = (locId, fileList) => {
+          Array.from(fileList).forEach(file=>{
+            if(!file.type.startsWith("image/"))return;
+            const r=new FileReader();
+            r.onload=(e)=>setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).map(l=>l.id===locId?{...l,images:[...(l.images||[]),e.target.result]}:l);store[p.id]=arr;return store;});
+            r.readAsDataURL(file);
+          });
+        };
+        const rcRemoveImage = (locId,idx) => {
+          setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).map(l=>l.id===locId?{...l,images:l.images.filter((_,i)=>i!==idx)}:l);store[p.id]=arr;return store;});
+        };
+        const rcExportPDF = () => {
+          const el=document.getElementById("onna-recce-print");if(!el)return;
+          const clone=el.cloneNode(true);clone.querySelectorAll("[data-hide]").forEach(n=>n.remove());
+          clone.querySelectorAll("input, textarea").forEach(inp=>{
+            if(!inp.value||!inp.value.trim())inp.style.display="none";
+            else{const s=document.createElement("span");s.textContent=inp.value;s.style.cssText=inp.style.cssText;s.style.border="none";s.style.background="none";inp.replaceWith(s);}
+          });
+          const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+          const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a}@media print{@page{margin:12mm;size:portrait}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
+          doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+        };
+
+        return (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <button onClick={()=>setActiveRecceVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Recce Reports</button>
+              <div style={{flex:1}}/>
+              <BtnExport onClick={rcExportPDF}>Export PDF</BtnExport>
+            </div>
+            <div style={{marginBottom:12}}>
+              <input value={rcData.label||""} onChange={e=>rcU("label",e.target.value)} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,width:"100%"}} placeholder="Recce Report Name"/>
+            </div>
+
+            <div id="onna-recce-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
+              <div style={{maxWidth:900,margin:"0 auto",background:"#fff"}}>
+                <div style={{padding:"20px 16px 0"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <CSLogoSlot label="Production Logo" image={rcData.productionLogo} onUpload={v=>rcU("productionLogo",v)} onRemove={()=>rcU("productionLogo",null)}/>
+                    <div style={{fontFamily:CS_FONT,fontSize:12,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>RECCE REPORT</div>
+                    <CSLogoSlot label="Client Logo" image={rcData.clientLogo} onUpload={v=>rcU("clientLogo",v)} onRemove={()=>rcU("clientLogo",null)}/>
+                  </div>
+                  <div style={{borderBottom:"2.5px solid #000",marginBottom:12}}/>
+                </div>
+
+                <div style={{padding:"0 16px",display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+                  {[["PROJECT","project.name","Project Name"],["CLIENT","project.client","Client"],["DATE","project.date","Date"],["PRODUCER","project.producer","Producer"],["SCOUTED BY","project.scoutedBy","Name"]].map(([lbl,key,ph])=>(
+                    <div key={key} style={{display:"flex",gap:4,alignItems:"baseline"}}>
+                      <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>{lbl}:</span>
+                      <RecceInp value={key.split(".").reduce((o,k)=>(o||{})[k],rcData)||""} onChange={v=>rcU(key,v)} placeholder={ph} style={{width:100,borderBottom:"1px solid #eee"}}/>
+                    </div>
+                  ))}
+                </div>
+
+                <div data-hide="1" style={{padding:"0 16px",display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+                  {rcLocs.map((loc,idx)=>{
+                    const active=curRecLoc&&curRecLoc.id===loc.id;
+                    const rc=RECCE_RATING_C[loc.rating]||{bg:"#f4f4f4",text:"#999"};
+                    return(
+                      <div key={loc.id} style={{display:"flex",alignItems:"center",borderRadius:2,border:active?"2px solid #000":"1px solid #ddd",overflow:"hidden"}}>
+                        <div onClick={()=>rcU("selLoc",loc.id)}
+                          style={{fontFamily:CS_FONT,fontSize:8,fontWeight:active?700:400,letterSpacing:0.5,padding:"5px 10px",cursor:"pointer",background:active?"#000":"#fff",color:active?"#fff":"#666"}}>
+                          {idx+1}. {loc.name||"Untitled"}
+                        </div>
+                        {loc.rating&&<div style={{fontFamily:CS_FONT,fontSize:6,fontWeight:700,background:rc.bg,color:rc.text,padding:"5px 6px",letterSpacing:0.5}}>{loc.rating[0]}</div>}
+                        <button onClick={()=>rcDeleteLoc(loc.id)}
+                          style={{background:active?"#333":"#f5f5f5",border:"none",color:active?"rgba(255,255,255,0.4)":"#ccc",fontSize:10,cursor:"pointer",padding:"5px 6px",lineHeight:1}}>×</button>
+                      </div>
+                    );
+                  })}
+                  <div onClick={rcAddLoc} style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"5px 12px",cursor:"pointer",borderRadius:2,border:"1px dashed #ccc",color:"#999"}}>+ ADD LOCATION</div>
+                </div>
+
+                {curRecLoc&&(
+                  <div style={{padding:"0 16px"}}>
+                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",borderBottom:"2px solid #000",paddingBottom:6,marginBottom:10}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:2}}>LOCATION {rcLocs.findIndex(l=>l.id===curRecLoc.id)+1}</div>
+                        <RecceInp value={curRecLoc.name} onChange={v=>rcUpdateLoc(curRecLoc.id,"name",v)} placeholder="Location Name" style={{fontSize:20,fontWeight:700,padding:0}}/>
+                      </div>
+                      <div data-hide="1" style={{display:"flex",gap:0,borderRadius:2,overflow:"hidden",border:"1px solid #ddd",flexShrink:0,marginTop:14}}>
+                        {RECCE_RATINGS.map(r=>{
+                          const rc=RECCE_RATING_C[r];const active=curRecLoc.rating===r;
+                          return(
+                            <div key={r} onClick={()=>rcUpdateLoc(curRecLoc.id,"rating",active?"":r)}
+                              style={{fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,padding:"4px 8px",cursor:"pointer",
+                                background:active?rc.bg:"#fff",color:active?rc.text:"#ccc",
+                                borderRight:r!=="Not Suitable"?"1px solid #ddd":"none"}}>{r.toUpperCase()}</div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{display:"flex",gap:10,marginBottom:10}}>
+                      <RecceField label="ADDRESS" value={curRecLoc.address} onChange={v=>rcUpdateLoc(curRecLoc.id,"address",v)} placeholder="Full address" style={{flex:2}}/>
+                      <RecceField label="GPS COORDINATES" value={curRecLoc.gps} onChange={v=>rcUpdateLoc(curRecLoc.id,"gps",v)} placeholder="25.2048, 55.2708" style={{flex:0.8}}/>
+                      <RecceField label="CONTACT ON SITE" value={curRecLoc.contact} onChange={v=>rcUpdateLoc(curRecLoc.id,"contact",v)} placeholder="Name" style={{flex:0.8}}/>
+                      <RecceField label="PHONE" value={curRecLoc.contactPhone} onChange={v=>rcUpdateLoc(curRecLoc.id,"contactPhone",v)} placeholder="+971..." style={{flex:0.6}}/>
+                    </div>
+
+                    <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>TECHNICAL ASSESSMENT</div>
+                    <div style={{display:"flex",gap:10,marginBottom:8}}>
+                      <RecceField label="POWER SUPPLY" value={curRecLoc.power} onChange={v=>rcUpdateLoc(curRecLoc.id,"power",v)} placeholder="Mains available, socket count, generator needed..."/>
+                      <RecceField label="PARKING / LOAD-IN" value={curRecLoc.parking} onChange={v=>rcUpdateLoc(curRecLoc.id,"parking",v)} placeholder="Parking spaces, load-in access, restrictions..."/>
+                      <RecceField label="NATURAL LIGHT" value={curRecLoc.light} onChange={v=>rcUpdateLoc(curRecLoc.id,"light",v)} placeholder="Direction, best time of day, blackout options..."/>
+                    </div>
+                    <div style={{display:"flex",gap:10,marginBottom:10}}>
+                      <RecceField label="NOISE / SOUND" value={curRecLoc.noise} onChange={v=>rcUpdateLoc(curRecLoc.id,"noise",v)} placeholder="Traffic, construction, echo, AC hum..."/>
+                      <RecceField label="MOBILE SIGNAL / WIFI" value={curRecLoc.signal} onChange={v=>rcUpdateLoc(curRecLoc.id,"signal",v)} placeholder="Signal strength, WiFi available, password..."/>
+                      <RecceField label="PERMITS REQUIRED" value={curRecLoc.permits} onChange={v=>rcUpdateLoc(curRecLoc.id,"permits",v)} placeholder="DFTC, council, private, none..."/>
+                    </div>
+
+                    <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>FACILITIES & SAFETY</div>
+                    <div style={{display:"flex",gap:10,marginBottom:8}}>
+                      <RecceField label="NEAREST HOSPITAL / A&E" value={curRecLoc.hospital} onChange={v=>rcUpdateLoc(curRecLoc.id,"hospital",v)} placeholder="Name, address, distance..."/>
+                      <RecceField label="TOILETS / GREEN ROOM" value={curRecLoc.facilities} onChange={v=>rcUpdateLoc(curRecLoc.id,"facilities",v)} placeholder="On-site toilets, green room, changing area..."/>
+                      <RecceField label="HEALTH & SAFETY NOTES" value={curRecLoc.health} onChange={v=>rcUpdateLoc(curRecLoc.id,"health",v)} placeholder="Hazards, trip risks, restricted areas..." color="#C62828"/>
+                    </div>
+
+                    <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>RECOMMENDATION</div>
+                    <div style={{display:"flex",gap:10,marginBottom:10}}>
+                      <RecceField label="RECOMMENDED SHOOT TIMES" value={curRecLoc.shootTimes} onChange={v=>rcUpdateLoc(curRecLoc.id,"shootTimes",v)} placeholder="e.g. 06:00-10:00 (golden hour), avoid 12:00-14:00 (harsh light)..." style={{flex:1}}/>
+                      <div style={{flex:1.5}}>
+                        <div style={{fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:2}}>RECOMMENDATION / NOTES</div>
+                        <textarea value={curRecLoc.recommendation||""} onChange={e=>rcUpdateLoc(curRecLoc.id,"recommendation",e.target.value)}
+                          placeholder="Overall assessment, things to be aware of, recommended or not..."
+                          style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"1px solid #eee",outline:"none",width:"100%",padding:"6px 8px",color:"#333",minHeight:40,resize:"none",boxSizing:"border-box",lineHeight:1.5,borderRadius:2,background:curRecLoc.recommendation?"#fff":"#FFFDE7"}}/>
+                      </div>
+                    </div>
+
+                    <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>LOCATION PHOTOS</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8}}>
+                      {(curRecLoc.images||[]).map((img,ii)=>(
+                        <div key={ii} style={{height:140,borderRadius:2,overflow:"hidden"}}>
+                          <RecceImgSlot src={img} h="100%" onAdd={files=>rcAddImage(curRecLoc.id,files)} onRemove={()=>rcRemoveImage(curRecLoc.id,ii)}/>
+                        </div>
+                      ))}
+                      {(curRecLoc.images||[]).length<12&&(
+                        <div style={{height:140}}>
+                          <RecceImgSlot src={null} h="100%" onAdd={files=>rcAddImage(curRecLoc.id,files)} onRemove={()=>{}}/>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{padding:"0 16px 16px"}}>
+                  <div style={{marginTop:24,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:10}}>
+                    <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      } // end locSubSection==="recce"
+
+      return null;
     }
 
     if (projectSection==="Casting") {
