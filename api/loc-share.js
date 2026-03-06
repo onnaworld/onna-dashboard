@@ -12,7 +12,7 @@ const backendHeaders = (authToken) => ({
 
 const cors = (res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 };
 
@@ -40,12 +40,24 @@ async function resolveAuth(callerAuth) {
 }
 
 function makeSlug(str) {
-  return (str || "locations")
+  return (str || "")
     .replace(/[^a-zA-Z0-9 _]/g, "")
     .trim()
     .split(/\s+/)
-    .join("-")
-    .toLowerCase() || "locations";
+    .join("_")
+    .toLowerCase();
+}
+
+async function findShareByToken(token, useAuth) {
+  const resp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
+  if (!resp.ok) return null;
+  const entries = await resp.json();
+  const list = Array.isArray(entries) ? entries : entries.data || [];
+  return list.find((e) => {
+    if (e.type !== "loc_share") return false;
+    try { return (typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob).token === token; }
+    catch { return false; }
+  });
 }
 
 export default async function handler(req, res) {
@@ -56,12 +68,38 @@ export default async function handler(req, res) {
   const auth = req.headers.authorization || "";
 
   try {
+    // PUT — save client feedback on a shared link
+    if (req.method === "PUT") {
+      const { token, feedback } = req.body;
+      if (!token || !feedback) return res.status(400).json({ error: "Missing token or feedback" });
+
+      const useAuth = await resolveAuth(auth);
+      const match = await findShareByToken(token, useAuth);
+      if (!match) return res.status(404).json({ error: "Share not found" });
+
+      const parsed = typeof match.blob === "string" ? JSON.parse(match.blob) : match.blob;
+      parsed.feedback = feedback;
+      parsed.feedbackUpdatedAt = new Date().toISOString();
+
+      const eid = match.id || match._id;
+      const putResp = await fetch(`${BACKEND}/api/resources/${eid}`, {
+        method: "PUT",
+        headers: backendHeaders(useAuth),
+        body: JSON.stringify({ type: "loc_share", blob: JSON.stringify(parsed) }),
+      });
+      if (!putResp.ok) return res.status(500).json({ error: "Failed to save feedback" });
+      return res.status(200).json({ ok: true });
+    }
+
     // POST — create or update Locations share
     if (req.method === "POST") {
-      const { html, projectName, mode, token: existingToken, resourceId } = req.body;
+      const { html, projectName, clientName, mode, token: existingToken, resourceId } = req.body;
       if (!html) return res.status(400).json({ error: "Missing html" });
 
-      const token = existingToken || (makeSlug(projectName || "locations") + "-" + Date.now().toString(36));
+      const clientSlug = makeSlug(clientName);
+      const projectSlug = makeSlug(projectName);
+      const slugBase = [clientSlug, projectSlug, "locationsdeck"].filter(Boolean).join("_") || "locationsdeck";
+      const token = existingToken || (slugBase + "_v" + Date.now().toString(36));
       const url = `https://app.onna.world/api/loc-share?token=${encodeURIComponent(token)}`;
 
       const useAuth = await resolveAuth(auth);
@@ -74,7 +112,6 @@ export default async function handler(req, res) {
         createdAt: new Date().toISOString(),
       });
 
-      // If we have a resourceId, update the existing resource directly via PUT
       if (resourceId) {
         try {
           const putResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, {
@@ -89,7 +126,6 @@ export default async function handler(req, res) {
         } catch {}
       }
 
-      // If reusing token but no resourceId, delete old entries with this token
       if (existingToken) {
         try {
           const listResp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
@@ -124,25 +160,25 @@ export default async function handler(req, res) {
 
     // GET — fetch Locations share by token
     if (req.method === "GET") {
-      const { token } = req.query;
+      const { token, feedbackOnly } = req.query;
       if (!token) return res.status(400).json({ error: "Missing token" });
 
       const useAuth = await resolveAuth(auth);
-      const resp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
-      if (!resp.ok) return res.status(500).json({ error: `Backend returned ${resp.status}` });
-      const entries = await resp.json();
-      const list = Array.isArray(entries) ? entries : entries.data || [];
-      const match = list.find((e) => {
-        if (e.type !== "loc_share") return false;
-        try { return (typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob).token === token; }
-        catch { return false; }
-      });
+      const match = await findShareByToken(token, useAuth);
       if (!match) return res.status(404).json({ error: "Share not found" });
 
       const parsed = typeof match.blob === "string" ? JSON.parse(match.blob) : match.blob;
 
+      if (feedbackOnly === "1") {
+        return res.status(200).json({
+          feedback: parsed.feedback || null,
+          feedbackUpdatedAt: parsed.feedbackUpdatedAt || null,
+        });
+      }
+
       // Return full rendered HTML page
       const title = parsed.projectName || "Locations Deck";
+      const existingFeedback = parsed.feedback ? JSON.stringify(parsed.feedback) : "null";
       const page = `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://app.onna.world/onna-o-logo.png">
@@ -159,17 +195,36 @@ body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans
 .actions{text-align:center;padding:24px 0}
 .btn{display:inline-block;background:#1a1a1a;color:#fff;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;text-decoration:none}
 .btn:hover{background:#333}
+.save-toast{position:fixed;bottom:20px;right:20px;background:#2E7D32;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:9999}
+.save-toast.show{opacity:1}
 @media print{
   body{background:#fff;padding:12mm;padding-bottom:18mm}
   .loc-wrap{box-shadow:none;border-radius:0}
   .actions{display:none!important}
+  .save-toast{display:none!important}
   @page{size:portrait;margin:0}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
 </style></head><body>
 <div class="loc-wrap"><div class="loc-inner">${parsed.html}</div></div>
 <div class="actions"><button class="btn" onclick="window.print()">Download as PDF</button></div>
+<div class="save-toast" id="saveToast">Changes saved</div>
 <script>
+var SHARE_TOKEN="${token.replace(/"/g, '\\"')}";
+var _feedback=${existingFeedback}||{};
+var _saveTimer=null;
+var _toast=document.getElementById('saveToast');
+function showToast(){_toast.classList.add('show');setTimeout(function(){_toast.classList.remove('show');},1500);}
+function saveFeedback(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(function(){
+    fetch(window.location.pathname,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:SHARE_TOKEN,feedback:_feedback})
+    }).then(function(){showToast();}).catch(function(){});
+  },800);
+}
 document.querySelectorAll('span').forEach(function(s){
   if(s.style.fontFamily&&s.style.fontFamily.indexOf('SackersGothic')!==-1&&s.textContent.trim().toLowerCase()==='onna'){
     var img=document.createElement('img');
@@ -189,9 +244,17 @@ document.querySelectorAll('span').forEach(function(s){
     "Approved":{bg:"#E8F5E9",text:"#2E7D32",border:"#A5D6A7"},
     "Booked":{bg:"#000",text:"#fff",border:"#000"}
   };
-  document.querySelectorAll('[data-loc-status]').forEach(function(el){
+  document.querySelectorAll('[data-loc-status]').forEach(function(el,si){
     el.style.cursor='pointer';
     el.title='Click to change status';
+    var sfb=_feedback['s'+si];
+    if(sfb&&sfb.status){
+      var sc=STATUS_C[sfb.status]||STATUS_C["Scouted"];
+      el.setAttribute('data-loc-status',sfb.status);
+      el.textContent=sfb.status;
+      el.style.background=sc.bg;
+      el.style.color=sc.text;
+    }
     el.addEventListener('click',function(){
       var cur=el.getAttribute('data-loc-status');
       var idx=STATUSES.indexOf(cur);
@@ -201,12 +264,11 @@ document.querySelectorAll('span').forEach(function(s){
       el.textContent=next;
       el.style.background=sc.bg;
       el.style.color=sc.text;
-      /* Update the parent card border */
       var card=el.closest('[style*="border-left"]');
-      if(card){
-        card.style.borderColor=sc.border;
-        card.style.borderLeftColor=sc.border;
-      }
+      if(card){card.style.borderColor=sc.border;card.style.borderLeftColor=sc.border;}
+      if(!_feedback['s'+si])_feedback['s'+si]={};
+      _feedback['s'+si].status=next;
+      saveFeedback();
     });
   });
 })();

@@ -994,7 +994,7 @@ ${PRINT_CLEANUP_CSS}
     setPrintTabs(null);
     if (!html) return;
     try {
-      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
+      const body = { html, projectName: project.name || "", clientName: project.client || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/cps-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -1025,11 +1025,11 @@ ${PRINT_CLEANUP_CSS}
   const milestones = allTasks.filter(t => t.milestone);
 
   return (
-    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: CPS_F, color: "#1a1a1a" }}>
+    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: CPS_F, color: "#1a1a1a" }}>
       {/* Top bar */}
       <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
         {[{ id: "schedule", label: "SCHEDULE" }, { id: "timeline", label: "TIMELINE" }, { id: "calendar", label: "CALENDAR" }].map(t => (
-          <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: CPS_LS, padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>
+          <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: CPS_LS, padding: _fitMobile ? "8px 10px" : "10px 16px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>
             {t.label}
           </div>
         ))}
@@ -1068,12 +1068,12 @@ ${PRINT_CLEANUP_CSS}
         </div>
 
         {/* Status summary banner */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "stretch" }}>
-          <div style={{ flex: 1, background: currentPhase ? (CPS_PHASE_COLORS[currentPhase.name] || "#1a1a1a") : "#1a1a1a", padding: "8px 12px", borderRadius: 2 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "stretch", flexWrap: _fitMobile ? "wrap" : "nowrap" }}>
+          <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: currentPhase ? (CPS_PHASE_COLORS[currentPhase.name] || "#1a1a1a") : "#1a1a1a", padding: "8px 12px", borderRadius: 2 }}>
             <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", marginBottom: 2 }}>CURRENT PHASE</div>
             <div style={{ fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff" }}>{currentPhase ? currentPhase.name : "\u2014"}</div>
           </div>
-          <div style={{ flex: 1, background: nextClientAction ? "#FFE082" : "#E8F5E9", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #FFD54F" : "1px solid #A5D6A7" }}>
+          <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#FFE082" : "#E8F5E9", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #FFD54F" : "1px solid #A5D6A7" }}>
             <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#2E7D32", textTransform: "uppercase", marginBottom: 2 }}>
               {nextClientAction ? "NEXT CLIENT ACTION" : "NO CLIENT ACTIONS PENDING"}
             </div>
@@ -1161,8 +1161,8 @@ ${PRINT_CLEANUP_CSS}
 
               {/* Column headers */}
               {!phase.collapsed && (
-                <>
-                  <div style={{ display: "flex", background: "#f4f4f4", borderBottom: "1px solid #ddd" }}>
+                <div style={{ overflowX: "auto" }}>
+                  <div style={{ display: "flex", background: "#f4f4f4", borderBottom: "1px solid #ddd", minWidth: _fitMobile ? 700 : 0 }}>
                     <div style={{ width: 24, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 4px", textAlign: "center" }}>#</div>
                     <div style={{ width: 18 }} />
                     <div style={{ flex: 2, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>TASK</div>
@@ -1179,7 +1179,7 @@ ${PRINT_CLEANUP_CSS}
                     const clientTask = isClient(task.owner);
                     const isComplete = task.status === "Complete";
                     return (
-                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, borderLeft: `3px solid ${clientTask && !isComplete ? "#FFD54F" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#FFE082" : "transparent" }}>
+                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#FFD54F" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#FFE082" : "transparent" }}>
                       <div style={{ width: 24, fontFamily: CPS_F, fontSize: 8, fontWeight: 700, color: "#ccc", padding: "3px 4px", textAlign: "center" }}>
                         {task.milestone ? <span style={{ color: phaseColor, fontSize: 9 }}>{"\u25C6"}</span> : (ti + 1)}
                       </div>
@@ -1217,7 +1217,7 @@ ${PRINT_CLEANUP_CSS}
                       No tasks — click + ADD TASK
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           );
@@ -1307,7 +1307,7 @@ ${PRINT_CLEANUP_CSS}
             return (diff / totalDays) * 100;
           };
 
-          const LABEL_W = 220;
+          const LABEL_W = _fitMobile ? 120 : 220;
           const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
           /* Today marker */
@@ -1950,7 +1950,7 @@ ${PRINT_CLEANUP_CSS}
             <div key={s.l} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, background: s.bg, padding: "4px 10px", borderRadius: 2, color: s.c }}>{s.l}: {s.v}</div>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: _fitMobile ? 8 : 12, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999" }}>STATUS:</span>
           {STATUSES.map(s => { const sr = STATUS_ROW[s]; return (
             <div key={s} style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -1989,9 +1989,9 @@ ${PRINT_CLEANUP_CSS}
                   </div>
                 </div>
 
-                {!scene.collapsed && <>
+                {!scene.collapsed && <div style={{ overflowX: "auto" }}>
                   {/* Column headers */}
-                  <div style={{ display: "flex", background: "#f4f4f4", borderBottom: "1px solid #ddd" }}>
+                  <div style={{ display: "flex", background: "#f4f4f4", borderBottom: "1px solid #ddd", minWidth: _fitMobile ? 700 : 0 }}>
                     <div style={{ width: 14 }} />
                     <div style={{ width: 18 }} />
                     <div style={{ width: 42, fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, color: "#999", padding: "4px 4px" }}>SHOT #</div>
@@ -2016,7 +2016,7 @@ ${PRINT_CLEANUP_CSS}
                     return (
                       <div key={shot.id} onDragOver={e => onDragOverShot(si, ri, e)} onDrop={onDrop}>
                         <div draggable onDragStart={e => startDragShot(si, ri, e)}
-                          style={{ display: "flex", borderBottom: isOpen ? "none" : `1px solid ${sr.border}`, borderLeft: `3px solid ${sr.dot}`, borderTop: isShotDrop ? "2px solid #FFD54F" : "none", alignItems: "center", minHeight: 28, cursor: "pointer", background: sr.bg, transition: "all .15s" }}
+                          style={{ display: "flex", borderBottom: isOpen ? "none" : `1px solid ${sr.border}`, borderLeft: `3px solid ${sr.dot}`, borderTop: isShotDrop ? "2px solid #FFD54F" : "none", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, cursor: "pointer", background: sr.bg, transition: "all .15s" }}
                           onClick={() => toggleExpand(si, ri)}>
                           {/* Drag handle */}
                           <div data-export-hide="1" style={{ width: 14, fontFamily: F, fontSize: 10, color: "#ddd", textAlign: "center", cursor: "grab", letterSpacing: 2 }}
@@ -2118,7 +2118,7 @@ ${PRINT_CLEANUP_CSS}
                   {shots.length === 0 && (
                     <div style={{ fontFamily: F, fontSize: 9, color: "#ccc", letterSpacing: LS, padding: "10px 26px", fontStyle: "italic" }}>No shots {view !== "all" ? `(${view})` : ""} {"\u2014"} click + ADD SHOT</div>
                   )}
-                </>}
+                </div>}
               </div>
             );
           })}
@@ -2206,7 +2206,7 @@ ${PRINT_CLEANUP_CSS}
       </div>
     </div>
   );
-}
+});
 
 
 /* ======= LOCATIONS CONNIE ======= */
@@ -2372,7 +2372,7 @@ ${PRINT_CLEANUP_CSS}
     setPrintTabs(null);
     if (!html) return;
     try {
-      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
+      const body = { html, projectName: project.name || "", clientName: project.client || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/loc-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -2519,7 +2519,7 @@ ${PRINT_CLEANUP_CSS}
                     {[1, 2].map(n => (<div key={n} style={{ flex: 1 }}><LocImgSlot src={det.images[n]} h="100%" onAdd={files => setDetImage(det.id, n, files)} onRemove={() => removeDetImage(det.id, n)} /></div>))}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, height: 150 }}>
+                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 6, height: _fitMobile ? 100 : 150 }}>
                   {[3, 4, 5, 6].map(n => (<div key={n}><LocImgSlot src={det.images[n]} h="100%" onAdd={files => setDetImage(det.id, n, files)} onRemove={() => removeDetImage(det.id, n)} /></div>))}
                 </div>
               </div>
@@ -2545,7 +2545,7 @@ ${PRINT_CLEANUP_CSS}
                     {[1, 2].map(n => (<div key={n} style={{ flex: 1 }}>{det.images[n] && <img src={det.images[n]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 2 }} />}</div>))}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, height: 150 }}>
+                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 6, height: _fitMobile ? 100 : 150 }}>
                   {[3, 4, 5, 6].map(n => (<div key={n}>{det.images[n] && <img src={det.images[n]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 2 }} />}</div>))}
                 </div>
               </div>
@@ -2736,7 +2736,7 @@ ${PRINT_CLEANUP_CSS}
     setPrintTabs(null);
     if (!html) return;
     try {
-      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
+      const body = { html, projectName: project.name || "", clientName: project.client || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/casting-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -2859,7 +2859,7 @@ const SB_FIELDS = [
   { key: "sfx", label: "SFX / AUDIO", ph: "Sound effects..." },
 ];
 
-function StoryboardConnie({ initialProject, initialFrames, onChangeProject, onChangeFrames }) {
+const StoryboardConnie = React.forwardRef(function StoryboardConnieInner({ initialProject, initialFrames, onChangeProject, onChangeFrames, onShareUrl }, fwdRef) {
   const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [frames, setFramesRaw] = useState(() => initialFrames || [
     mkFrame(), mkFrame(), mkFrame(), mkFrame(),
@@ -2942,6 +2942,26 @@ ${PRINT_CLEANUP_CSS}
     const el = printRef.current; if (!el) return;
     sbPrintViaIframe(sbCleanClone(el));
   };
+  const generateSharePage = async (modes, existingToken, existingResourceId) => {
+    const el = printRef.current; if (!el) return;
+    const clone = sbCleanClone(el);
+    clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+    const html = clone.innerHTML;
+    if (!html) return;
+    try {
+      const body = { html, projectName: project.name || "", clientName: project.client || "", mode: "storyboard" };
+      if (existingToken) body.token = existingToken;
+      if (existingResourceId) body.resourceId = existingResourceId;
+      const resp = await fetch("/api/storyboard-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
+      const data = await resp.json();
+      if (data.url) {
+        if (onShareUrl) onShareUrl(data.url, data.token, data.id);
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
+      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { alert("Error generating link: " + err.message); }
+  };
+  useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   const LS = 0.5;
@@ -2972,7 +2992,7 @@ ${PRINT_CLEANUP_CSS}
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 10 }}>
           {frames.map((frame, idx) => {
             const isDropTarget = dropAt === idx;
             return (
@@ -3095,7 +3115,7 @@ ${PRINT_CLEANUP_CSS}
       </div>
     </div>
   );
-}
+});
 
 
 
@@ -3311,6 +3331,7 @@ const ppColorKey = () => (
 );
 
 const PostConnie = React.forwardRef(function PostConnieInner({ initialProject, initialVideos, initialStills, initialSchedule, initialSpecNotes, initialFeedback, onChangeProject, onChangeVideos, onChangeStills, onChangeSchedule, onChangeSpecNotes, onChangeFeedback, onShareUrl }, fwdRef) {
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "", editor: "", colourist: "", sound: "", filesLink: "" });
   const [tab, setTab] = useState("master");
   const [schedView, setSchedView] = useState("list");
@@ -3344,36 +3365,36 @@ const PostConnie = React.forwardRef(function PostConnieInner({ initialProject, i
   const collectFontRules = () => { let r=""; try{for(const s of document.styleSheets){try{for(const ru of s.cssRules){if(ru.cssText&&ru.cssText.startsWith("@font-face"))r+=ru.cssText+"\n";}}catch(e){}}}catch(e){} return r; };
   const ppPrintViaIframe = (clone) => { const fontRules = collectFontRules(); const iframe = document.createElement("iframe"); iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;"; document.body.appendChild(iframe); const idoc = iframe.contentDocument; idoc.open(); idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');${fontRules}*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}.page-break{page-break-before:always}@media print{@page{size:landscape;margin:0}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`); idoc.close(); idoc.body.appendChild(idoc.adoptNode(clone)); const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;})); Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);}); };
   const exportPDF = () => { const el = printRef.current; if (!el) return; ppPrintViaIframe(ppCleanClone(el)); };
-  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ppCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = PP_F; sp.style.fontSize = "8px"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Post-Production", mode: "postprod" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/postprod-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); } } else { alert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { alert("Error generating link: " + err.message); } };
+  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ppCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = PP_F; sp.style.fontSize = "8px"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Post-Production", clientName: project.client || "", mode: "postprod" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/postprod-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); } } else { alert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { alert("Error generating link: " + err.message); } };
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
   const parseDate = (d) => { if (!d) return null; const p = d.split("/"); if (p.length < 2) return null; const day = parseInt(p[0]), mon = parseInt(p[1]) - 1, yr = p[2] ? parseInt(p[2]) : new Date().getFullYear(); const dt = new Date(yr, mon, day); return isNaN(dt.getTime()) ? null : dt; };
   const taskDates = schedule.map(t => ({ ...t, start: parseDate(t.startDate), end: parseDate(t.endDate) })).filter(t => t.start);
   const calendarWeeks = (() => { if (taskDates.length === 0) return []; const allD = taskDates.flatMap(t => [t.start, t.end].filter(Boolean)); const mn = new Date(Math.min(...allD.map(d => d.getTime()))); const mx = new Date(Math.max(...allD.map(d => d.getTime()))); mn.setDate(mn.getDate() - (mn.getDay() || 7) + 1); mx.setDate(mx.getDate() + (7 - mx.getDay()) % 7); const weeks = []; const d = new Date(mn); while (d <= mx) { const wk = []; for (let i = 0; i < 7; i++) { wk.push(new Date(d)); d.setDate(d.getDate() + 1); } weeks.push(wk); } return weeks; })();
   const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   const today = new Date(); today.setHours(0,0,0,0);
-  const renderVideoSection = () => (<div><div style={{ display: "flex", alignItems: "center", background: "#000", padding: "4px 8px", justifyContent: "space-between", marginBottom: 1 }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, color: "#fff" }}>VIDEO ({videos.length})</span><span data-hide="1" onClick={addV} style={{ fontFamily: PP_F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: PP_LS }}>+ ADD</span></div>{ppVHeader()}{videos.map((v, i) => ppVRow(v, i, updateV, deleteV, dupeV))}</div>);
-  const renderStillsSection = () => (<div><div style={{ display: "flex", alignItems: "center", background: "#000", padding: "4px 8px", justifyContent: "space-between", marginBottom: 1 }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, color: "#fff" }}>STILLS ({stills.length})</span><span data-hide="1" onClick={addS} style={{ fontFamily: PP_F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: PP_LS }}>+ ADD</span></div>{ppSHeader()}{stills.map((s, i) => ppSRow(s, i, updateS, deleteS, dupeS))}</div>);
-  const renderSchedule = () => (<div><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4 }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS }}>POST SCHEDULE ({schedComplete}/{schedule.length} COMPLETE)</span><div data-hide="1" style={{ display: "flex", gap: 0, borderRadius: 2, overflow: "hidden", border: "1px solid #ddd" }}>{[["list", "LIST"], ["calendar", "CALENDAR"]].map(([id, label]) => (<div key={id} onClick={() => setSchedView(id)} style={{ fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, padding: "3px 10px", cursor: "pointer", background: schedView === id ? "#000" : "#fff", color: schedView === id ? "#fff" : "#999", borderRight: id === "list" ? "1px solid #ddd" : "none" }}>{label}</div>))}</div></div>{schedView === "list" ? (<div>{ppSchedHeader()}{schedule.map((t, i) => ppTaskRow(t, i, updateTask, deleteTask))}<div data-hide="1" style={{ marginTop: 2 }}><div onClick={addTask} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "5px 8px", cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}><span style={{ fontFamily: PP_F, fontSize: 8, fontWeight: 700, letterSpacing: PP_LS, color: "#999" }}>+ ADD TASK</span></div></div></div>) : (taskDates.length === 0 ? <div style={{ fontFamily: PP_F, fontSize: 9, color: "#ccc", padding: "20px 0", textAlign: "center" }}>Add start dates (DD/MM) to see calendar.</div> : (<div><div style={{ display: "flex", borderBottom: "1px solid #eee", marginBottom: 4 }}><div style={{ width: 40 }} />{["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => <div key={d} style={{ flex: 1, fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, color: "#999", textAlign: "center", padding: "3px 0" }}>{d}</div>)}</div>{calendarWeeks.map((week, wi) => { const showMonth = wi === 0 || week[0].getMonth() !== calendarWeeks[wi - 1][0].getMonth(); return (<div key={wi} style={{ display: "flex", minHeight: 28 }}><div style={{ width: 40, fontFamily: PP_F, fontSize: 7, fontWeight: 700, color: "#999", letterSpacing: PP_LS, paddingTop: 2 }}>{showMonth ? months[week[0].getMonth()] : ""}</div>{week.map((date, di) => { const isToday = date.getTime() === today.getTime(); const tasksOn = taskDates.filter(t => { const end = t.end || t.start; return date >= t.start && date <= end; }); return (<div key={di} style={{ flex: 1, borderRight: "1px solid #f4f4f4", borderBottom: "1px solid #f4f4f4", padding: "2px 3px", background: isToday ? "#FFFDE7" : di >= 5 ? "#fafafa" : "#fff", minHeight: 24 }}><div style={{ fontFamily: PP_F, fontSize: 7, color: isToday ? "#E65100" : "#ccc", fontWeight: isToday ? 700 : 400 }}>{date.getDate()}</div>{tasksOn.map(t => { const oc = ppGetOwnerColor(t.owner); const ts = PP_EDIT_C[t.status] || PP_EDIT_C["Not Started"]; return (<div key={t.id} style={{ fontFamily: PP_F, fontSize: 6, fontWeight: 600, letterSpacing: PP_LS, padding: "1px 3px", marginTop: 1, borderRadius: 1, background: oc ? oc.bg : ts.bg, color: oc ? oc.text : ts.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: oc ? "2px solid " + oc.border : "none" }}>{t.task}</div>); })}</div>); })}</div>); })}</div>))}{ppColorKey()}</div>);
+  const renderVideoSection = () => (<div><div style={{ display: "flex", alignItems: "center", background: "#000", padding: "4px 8px", justifyContent: "space-between", marginBottom: 1 }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, color: "#fff" }}>VIDEO ({videos.length})</span><span data-hide="1" onClick={addV} style={{ fontFamily: PP_F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: PP_LS }}>+ ADD</span></div><div style={{ overflowX: "auto" }}>{ppVHeader()}{videos.map((v, i) => ppVRow(v, i, updateV, deleteV, dupeV))}</div></div>);
+  const renderStillsSection = () => (<div><div style={{ display: "flex", alignItems: "center", background: "#000", padding: "4px 8px", justifyContent: "space-between", marginBottom: 1 }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, color: "#fff" }}>STILLS ({stills.length})</span><span data-hide="1" onClick={addS} style={{ fontFamily: PP_F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: PP_LS }}>+ ADD</span></div><div style={{ overflowX: "auto" }}>{ppSHeader()}{stills.map((s, i) => ppSRow(s, i, updateS, deleteS, dupeS))}</div></div>);
+  const renderSchedule = () => (<div><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 6, borderBottom: "2px solid #000", paddingBottom: 4 }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS }}>POST SCHEDULE ({schedComplete}/{schedule.length} COMPLETE)</span><div data-hide="1" style={{ display: "flex", gap: 0, borderRadius: 2, overflow: "hidden", border: "1px solid #ddd" }}>{[["list", "LIST"], ["calendar", "CALENDAR"]].map(([id, label]) => (<div key={id} onClick={() => setSchedView(id)} style={{ fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, padding: "3px 10px", cursor: "pointer", background: schedView === id ? "#000" : "#fff", color: schedView === id ? "#fff" : "#999", borderRight: id === "list" ? "1px solid #ddd" : "none" }}>{label}</div>))}</div></div>{schedView === "list" ? (<div style={{ overflowX: "auto" }}>{ppSchedHeader()}{schedule.map((t, i) => ppTaskRow(t, i, updateTask, deleteTask))}<div data-hide="1" style={{ marginTop: 2 }}><div onClick={addTask} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "5px 8px", cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}><span style={{ fontFamily: PP_F, fontSize: 8, fontWeight: 700, letterSpacing: PP_LS, color: "#999" }}>+ ADD TASK</span></div></div></div>) : (taskDates.length === 0 ? <div style={{ fontFamily: PP_F, fontSize: 9, color: "#ccc", padding: "20px 0", textAlign: "center" }}>Add start dates (DD/MM) to see calendar.</div> : (<div><div style={{ display: "flex", borderBottom: "1px solid #eee", marginBottom: 4 }}><div style={{ width: 40 }} />{["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => <div key={d} style={{ flex: 1, fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, color: "#999", textAlign: "center", padding: "3px 0" }}>{d}</div>)}</div>{calendarWeeks.map((week, wi) => { const showMonth = wi === 0 || week[0].getMonth() !== calendarWeeks[wi - 1][0].getMonth(); return (<div key={wi} style={{ display: "flex", minHeight: 28 }}><div style={{ width: 40, fontFamily: PP_F, fontSize: 7, fontWeight: 700, color: "#999", letterSpacing: PP_LS, paddingTop: 2 }}>{showMonth ? months[week[0].getMonth()] : ""}</div>{week.map((date, di) => { const isToday = date.getTime() === today.getTime(); const tasksOn = taskDates.filter(t => { const end = t.end || t.start; return date >= t.start && date <= end; }); return (<div key={di} style={{ flex: 1, borderRight: "1px solid #f4f4f4", borderBottom: "1px solid #f4f4f4", padding: "2px 3px", background: isToday ? "#FFFDE7" : di >= 5 ? "#fafafa" : "#fff", minHeight: 24 }}><div style={{ fontFamily: PP_F, fontSize: 7, color: isToday ? "#E65100" : "#ccc", fontWeight: isToday ? 700 : 400 }}>{date.getDate()}</div>{tasksOn.map(t => { const oc = ppGetOwnerColor(t.owner); const ts = PP_EDIT_C[t.status] || PP_EDIT_C["Not Started"]; return (<div key={t.id} style={{ fontFamily: PP_F, fontSize: 6, fontWeight: 600, letterSpacing: PP_LS, padding: "1px 3px", marginTop: 1, borderRadius: 1, background: oc ? oc.bg : ts.bg, color: oc ? oc.text : ts.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: oc ? "2px solid " + oc.border : "none" }}>{t.task}</div>); })}</div>); })}</div>); })}</div>))}{ppColorKey()}</div>);
   const renderFeedback = () => (<div><div style={{ marginTop: 20, marginBottom: 6, fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, borderBottom: "2px solid #000", paddingBottom: 4 }}>REVIEW &amp; FEEDBACK ({reviewTasks.length} ROUNDS)</div>{reviewTasks.map((task, ri) => { const ts = PP_EDIT_C[task.status] || PP_EDIT_C["Not Started"]; const fb = feedback[task.id] || {}; return (<div key={task.id} style={{ marginBottom: 6, border: "1px solid #eee", borderLeft: "3px solid " + ts.text, borderRadius: 2, overflow: "hidden" }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 10px", background: "#f8f8f8", borderBottom: "1px solid #eee" }}><span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS }}>ROUND {ri + 1}: {task.task}</span><div onClick={() => { const i = PP_EDIT_STATUSES.indexOf(task.status); updateTask(task.id, "status", PP_EDIT_STATUSES[(i + 1) % PP_EDIT_STATUSES.length]); }} style={{ fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, background: ts.bg, color: ts.text, padding: "3px 10px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{task.status}</div></div><div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: fb.link ? "#E3F2FD" : "#fff", borderBottom: "1px solid #eee" }}><span style={{ fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, color: "#1565C0", flexShrink: 0 }}>LINK TO FILES:</span><PpInp value={fb.link || ""} onChange={v => setFb(task.id, "link", v)} placeholder="Paste link to files..." style={{ fontSize: 8, color: "#1565C0", background: "transparent", flex: 1 }} />{fb.link && <a href={(fb.link || "").startsWith("http") ? fb.link : "https://" + fb.link} target="_blank" rel="noopener noreferrer" style={{ fontFamily: PP_F, fontSize: 7, fontWeight: 700, color: "#1565C0", textDecoration: "none", padding: "2px 6px", background: "#fff", borderRadius: 2, border: "1px solid #90CAF9", flexShrink: 0 }}>OPEN &#8599;</a>}</div><textarea value={fb.body || ""} onChange={e => setFb(task.id, "body", e.target.value)} placeholder="Feedback, amends, action items..." style={{ fontFamily: PP_F, fontSize: 9, letterSpacing: PP_LS, border: "none", outline: "none", width: "100%", padding: "6px 10px", color: "#333", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.6, background: fb.body ? "#fff" : "#E3F2FD" }} /></div>); })}{reviewTasks.length === 0 && <div style={{ fontFamily: PP_F, fontSize: 9, color: "#ccc", padding: "20px 0", textAlign: "center" }}>No review tasks in schedule yet.</div>}</div>);
   const renderNotes = () => (<div style={{ marginBottom: 10 }}><div style={{ fontFamily: PP_F, fontSize: 7, fontWeight: 700, letterSpacing: PP_LS, color: "#999", marginBottom: 2 }}>DELIVERABLES NOTES</div><textarea value={specNotes} onChange={e => setSpecNotes(e.target.value)} placeholder="General delivery notes, naming, transfer method..." style={{ fontFamily: PP_F, fontSize: 9, letterSpacing: PP_LS, border: "1px solid #eee", outline: "none", width: "100%", padding: "6px 8px", color: "#333", minHeight: 30, resize: "none", boxSizing: "border-box", lineHeight: 1.5, borderRadius: 2, background: specNotes ? "#fff" : PP_YEL }} /></div>);
   return (
-    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: PP_F, color: "#1a1a1a" }}>
-      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: PP_F, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
         {[{ id: "master", label: "MASTER" }, { id: "video", label: "VIDEO" }, { id: "stills", label: "STILLS" }].map(t => (
-          <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: PP_F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: PP_LS, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
+          <div key={t.id} onClick={() => setTab(t.id)} style={{ fontFamily: PP_F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: PP_LS, padding: _fitMobile ? "8px 10px" : "10px 16px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
         ))}
         <div style={{ flex: 1 }} />
-        <div onClick={exportPDF} style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}>EXPORT PDF</div>
+        <div onClick={exportPDF} style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS, padding: _fitMobile ? "8px 10px" : "10px 16px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}>EXPORT PDF</div>
       </div>
       <div ref={printRef} style={{ padding: "16px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, borderBottom: "2.5px solid #000", paddingBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, borderBottom: "2.5px solid #000", paddingBottom: 8, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}>
           <span style={{ fontFamily: "'Georgia', serif", fontSize: 22, fontWeight: 400, letterSpacing: 1 }}>onna</span>
           <div style={{ fontFamily: PP_F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>POST-PRODUCTION</div>
           <PpClientLogo />
         </div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: _fitMobile ? 8 : 10, marginBottom: 6, flexWrap: "wrap" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client"], ["DATE", "date", "Date"], ["EDITOR", "editor", "Editor"], ["COLOURIST", "colourist", "Colourist"], ["SOUND", "sound", "Sound"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto" }}>
               <span style={{ fontFamily: PP_F, fontSize: 9, fontWeight: 700, letterSpacing: PP_LS }}>{lbl}:</span>
               <PpInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ width: 90, borderBottom: "1px solid #eee" }} />
             </div>
@@ -12120,6 +12141,14 @@ export default function OnnaDashboard() {
   const [activeShotListVersion,setActiveShotListVersion] = useState(null);
   const [storyboardStore,setStoryboardStore]             = useState(()=>{try{const s=localStorage.getItem('onna_storyboards');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
+  const [slShareUrl,setSlShareUrl]                       = useState(null);
+  const [slShareLoading,setSlShareLoading]               = useState(false);
+  const slRef                                            = useRef(null);
+  const [sbShareUrl,setSbShareUrl]                       = useState(null);
+  const [sbShareLoading,setSbShareLoading]               = useState(false);
+  const sbRef                                            = useRef(null);
+  const [recceShareUrl,setRecceShareUrl]                 = useState(null);
+  const [recceShareLoading,setRecceShareLoading]         = useState(false);
   const [postProdStore,setPostProdStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_postprod');return s?JSON.parse(s):{}}catch{return {}}});
   const [activePostProdVersion,setActivePostProdVersion] = useState(null);
   const [ppShareUrl,setPpShareUrl]                       = useState(null);
@@ -12156,7 +12185,11 @@ export default function OnnaDashboard() {
   const [castDeckShareLoading,setCastDeckShareLoading]   = useState(false);
   const [castDeckShareTabs,setCastDeckShareTabs]         = useState(new Set(["confirmed","options"]));
   const castDeckRef                                       = useRef(null);
-  const [castingSubSection,setCastingSubSection]         = useState(null);  const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
+  const [castingSubSection,setCastingSubSection]         = useState(null);
+  const [createMenuOpen,setCreateMenuOpen]               = useState({});
+  const [duplicateModal,setDuplicateModal]               = useState(null);
+  const [duplicateSearch,setDuplicateSearch]              = useState("");
+  const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeTIVersion,setActiveTIVersion]             = useState(null);
   const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
   const [dietaryStore,setDietaryStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_dietaries');return s?JSON.parse(s):{}}catch{return {}}});
@@ -14245,7 +14278,7 @@ export default function OnnaDashboard() {
         const csVersions = callSheetStore[p.id] || [];
         const addCSNew = () => {
           const newId = Date.now();
-          const newCS = {id:newId,label:`V${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
+          const newCS = {id:newId,label:`${p.name} Call Sheet V${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
           newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
           const _pi2=(projectInfoRef.current||{})[p.id];
           if(_pi2){if(_pi2.shootName)newCS.shootName=_pi2.shootName;if(_pi2.shootDate)newCS.date=_pi2.shootDate;if(_pi2.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi2.shootLocation;}}
@@ -14593,7 +14626,7 @@ export default function OnnaDashboard() {
 
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
         const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to trash."))return; const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
@@ -14603,7 +14636,16 @@ export default function OnnaDashboard() {
               {docBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Risk Assessments</div>
-                <button onClick={addRAVersion} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Risk Assessment</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,ra:!prev.ra}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Risk Assessment ▾</button>
+                  {createMenuOpen.ra&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,ra:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.ra&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,ra:false}));addRAVersion();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,ra:false}));setRaDuplicateModal({origin:"docs"});setRaDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {raVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No risk assessments yet. Click "+ New Risk Assessment" to get started, or ask Ronnie to build one for you.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -14962,7 +15004,7 @@ export default function OnnaDashboard() {
         const dietVersions = dietaryStore[p.id] || [];
         const addDietNew = () => {
           const newId = Date.now();
-          const newDiet = {id:newId,label:`Dietary List ${dietVersions.length+1}`,...JSON.parse(JSON.stringify(DIETARY_INIT))};
+          const newDiet = {id:newId,label:`${p.name} Dietary V${dietVersions.length+1}`,...JSON.parse(JSON.stringify(DIETARY_INIT))};
           const _pi=(projectInfoRef.current||{})[p.id];
           if(_pi){if(_pi.shootName)newDiet.project.name=_pi.shootName;if(_pi.shootDate)newDiet.project.date=_pi.shootDate;}
           newDiet.project.name=newDiet.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newDiet.project.name;
@@ -14998,7 +15040,16 @@ export default function OnnaDashboard() {
               {docBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Dietary Lists</div>
-                <button onClick={addDietNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Dietary List</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,diet:!prev.diet}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Dietary List ▾</button>
+                  {createMenuOpen.diet&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,diet:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.diet&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));addDietNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));setDuplicateModal({type:"dietary"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {dietVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No dietary lists yet. Click "+ New Dietary List" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -15296,7 +15347,7 @@ export default function OnnaDashboard() {
       const addLocNew = () => {
         const newId = Date.now();
         const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "", date: "" };
-        const newLoc = { id: newId, label: `V${locVersions.length+1}`, project: proj, locations: [mkLoc(), mkLoc(), mkLoc()], details: [mkDetail(), mkDetail(), mkDetail()], shareToken: null, shareResourceId: null };
+        const newLoc = { id: newId, label: `${p.name} Locations Deck V${locVersions.length+1}`, project: proj, locations: [mkLoc(), mkLoc(), mkLoc()], details: [mkDetail(), mkDetail(), mkDetail()], shareToken: null, shareResourceId: null };
         setLocDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newLoc); return store; });
       };
       const deleteLocDeck = (idx) => {
@@ -15314,7 +15365,16 @@ export default function OnnaDashboard() {
             {locSectionBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
               <div style={{fontSize:16,fontWeight:700,color:T.text}}>Locations Deck</div>
-              <button onClick={addLocNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Locations Deck</button>
+              <div style={{position:"relative"}}>
+                <button onClick={()=>setCreateMenuOpen(prev=>({...prev,loc:!prev.loc}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Locations Deck ▾</button>
+                {createMenuOpen.loc&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,loc:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                {createMenuOpen.loc&&(
+                  <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                    <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,loc:false}));addLocNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                    <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,loc:false}));setDuplicateModal({type:"locations"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                  </div>
+                )}
+              </div>
             </div>
             {locVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No locations decks yet. Click "+ New Locations Deck" to get started.</div></div>}
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -15361,13 +15421,15 @@ export default function OnnaDashboard() {
         setLocShareLoading(false);
       };
       const toggleLocShareTab = (t) => setLocShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-      const locShareLinks = locData.shareLinks || [];
-      const createNewLocLink = async () => {
-        if (locShareTabs.size === 0) return;
-        setLocShareLoading(true);
-        try { if (locDeckRef.current) await locDeckRef.current.share([...locShareTabs], null, null); }
-        catch (err) { alert("Error: " + err.message); }
-        setLocShareLoading(false);
+      const syncLocFeedback = async () => {
+        if (!existingLocToken) return;
+        try {
+          const resp = await fetch(`/api/loc-share?token=${encodeURIComponent(existingLocToken)}&feedbackOnly=1`);
+          if (!resp.ok) return;
+          const data = await resp.json();
+          if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+          else alert("No feedback received yet.");
+        } catch {}
       };
 
       return (
@@ -15388,8 +15450,8 @@ export default function OnnaDashboard() {
               <button onClick={sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
                 {locShareLoading ? "Generating\u2026" : existingLocToken ? "Update Link" : "Generate Link"}
               </button>
-              {existingLocToken && <button onClick={createNewLocLink} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
-                + New Link
+              {existingLocToken && <button onClick={syncLocFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                Sync
               </button>}
             </div>
           </div>
@@ -15399,21 +15461,6 @@ export default function OnnaDashboard() {
               <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                 <a href={displayLocShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayLocShareUrl}</a>
                 <button onClick={()=>{navigator.clipboard.writeText(`${locShareTitle}\n${displayLocShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
-              </div>
-            </div>
-          )}
-          {locShareLinks.length > 0 && (
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.muted,marginBottom:6}}>Link History</div>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {locShareLinks.map((link, li) => (
-                  <div key={li} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:8,background:T.surface,border:`1px solid ${T.border}`}}>
-                    <span style={{fontSize:10,fontWeight:700,color:"#fff",background:T.accent,borderRadius:4,padding:"2px 8px",flexShrink:0}}>V{li+1}</span>
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:11,color:"#1565C0",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.url}</a>
-                    <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{new Date(link.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
-                    <button onClick={()=>{navigator.clipboard.writeText(link.url);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Copy</button>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -15433,7 +15480,7 @@ export default function OnnaDashboard() {
               onChangeProject={proj => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].project = proj; return s; })}
               onChangeLocations={locs => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].locations = locs; return s; })}
               onChangeDetails={dets => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].details = dets; return s; })}
-              onShareUrl={(url, token, id) => { setLocShareUrl(url); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][locIdx]) { s[p.id][locIdx].shareToken = token; s[p.id][locIdx].shareResourceId = id; if (!s[p.id][locIdx].shareLinks) s[p.id][locIdx].shareLinks = []; s[p.id][locIdx].shareLinks.push({ url, token, resourceId: id, createdAt: new Date().toISOString() }); } return s; }); }}
+              onShareUrl={(url, token, id) => { setLocShareUrl(url); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][locIdx]) { s[p.id][locIdx].shareToken = token; s[p.id][locIdx].shareResourceId = id; } return s; }); }}
             />
           </div>
         </div>
@@ -15449,7 +15496,7 @@ export default function OnnaDashboard() {
           init.project.name = `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
           init.project.client = p.client || "[Client Name]";
           init.locations = [mkRecceLocation()];
-          const newRecce = {id:newId,label:`Recce ${recceVersions.length+1}`,...init};
+          const newRecce = {id:newId,label:`${p.name} Recce Report V${recceVersions.length+1}`,...init};
           setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newRecce);return store;});
           setActiveRecceVersion(recceVersions.length);
         };
@@ -15467,7 +15514,16 @@ export default function OnnaDashboard() {
               {locSectionBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Recce Reports</div>
-                <button onClick={addRecceNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Recce Report</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,recce:!prev.recce}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Recce Report ▾</button>
+                  {createMenuOpen.recce&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,recce:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.recce&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,recce:false}));addRecceNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,recce:false}));setDuplicateModal({type:"recce"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {recceVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No recce reports yet. Click "+ New Recce Report" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -15540,16 +15596,74 @@ export default function OnnaDashboard() {
           doc.body.appendChild(doc.adoptNode(clone));setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
         };
 
+        const existingRcToken = rcData.shareToken || null;
+        const displayRcShareUrl = recceShareUrl || (existingRcToken ? `https://app.onna.world/api/recce-share?token=${encodeURIComponent(existingRcToken)}` : null);
+        const rcShareTitle = `ONNA | ${rcData.label || "Recce Report"}`;
+        const sendRcShare = async () => {
+          setRecceShareLoading(true);
+          try {
+            const el = document.getElementById("onna-recce-print"); if (!el) { setRecceShareLoading(false); return; }
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
+            clone.querySelectorAll("input, textarea").forEach(inp => {
+              if (!inp.value || !inp.value.trim()) inp.style.display = "none";
+              else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s); }
+            });
+            clone.querySelectorAll("img").forEach(im => { if (im.src && !im.src.startsWith("data:") && !im.src.startsWith("http")) im.src = window.location.origin + im.getAttribute("src"); });
+            const html = clone.innerHTML;
+            if (!html) { setRecceShareLoading(false); return; }
+            const body = { html, projectName: rcData.project?.name || "", clientName: rcData.project?.client || "", mode: "recce" };
+            if (existingRcToken) body.token = existingRcToken;
+            if (rcData.shareResourceId) body.resourceId = rcData.shareResourceId;
+            const resp = await fetch("/api/recce-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            if (!resp.ok) throw new Error("Share failed");
+            const data = await resp.json();
+            setRecceShareUrl(data.url);
+            setRecceReportStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][rcIdx]) { s[p.id][rcIdx].shareToken = data.token; s[p.id][rcIdx].shareResourceId = data.id; } return s; });
+          } catch (err) { alert("Error: " + err.message); }
+          setRecceShareLoading(false);
+        };
+        const syncRcFeedback = async () => {
+          if (!existingRcToken) return;
+          try {
+            const resp = await fetch(`/api/recce-share?token=${encodeURIComponent(existingRcToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+            else alert("No feedback received yet.");
+          } catch {}
+        };
+
         return (
           <div>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-              <button onClick={()=>setActiveRecceVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Recce Reports</button>
+              <button onClick={()=>{setActiveRecceVersion(null);setRecceShareUrl(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Recce Reports</button>
               <div style={{flex:1}}/>
               <BtnExport onClick={rcExportPDF}>Export PDF</BtnExport>
             </div>
-            <div style={{marginBottom:12}}>
-              <input value={rcData.label||""} onChange={e=>rcU("label",e.target.value)} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,width:"100%"}} placeholder="Recce Report Name"/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>RECCE REPORT</span>
+                <input value={rcData.label||""} onChange={e=>rcU("label",e.target.value)} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={sendRcShare} disabled={recceShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingRcToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:recceShareLoading?0.5:1}}>
+                  {recceShareLoading ? "Generating\u2026" : existingRcToken ? "Update Link" : "Generate Link"}
+                </button>
+                {existingRcToken && <button onClick={syncRcFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
+                </button>}
+              </div>
             </div>
+            {displayRcShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{rcShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={displayRcShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayRcShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${rcShareTitle}\n${displayRcShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
 
             <div id="onna-recce-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
               <div style={{maxWidth:900,margin:"0 auto",background:"#fff"}}>
@@ -15610,36 +15724,36 @@ export default function OnnaDashboard() {
                       </div>
                     </div>
 
-                    <div style={{display:"flex",gap:10,marginBottom:10}}>
-                      <RecceField label="ADDRESS" value={curRecLoc.address} onChange={v=>rcUpdateLoc(curRecLoc.id,"address",v)} placeholder="Full address" style={{flex:2}}/>
-                      <RecceField label="GPS COORDINATES" value={curRecLoc.gps} onChange={v=>rcUpdateLoc(curRecLoc.id,"gps",v)} placeholder="25.2048, 55.2708" style={{flex:0.8}}/>
-                      <RecceField label="CONTACT ON SITE" value={curRecLoc.contact} onChange={v=>rcUpdateLoc(curRecLoc.id,"contact",v)} placeholder="Name" style={{flex:0.8}}/>
-                      <RecceField label="PHONE" value={curRecLoc.contactPhone} onChange={v=>rcUpdateLoc(curRecLoc.id,"contactPhone",v)} placeholder="+971..." style={{flex:0.6}}/>
+                    <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:isMobile?"wrap":"nowrap"}}>
+                      <RecceField label="ADDRESS" value={curRecLoc.address} onChange={v=>rcUpdateLoc(curRecLoc.id,"address",v)} placeholder="Full address" style={{flex:2,minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="GPS COORDINATES" value={curRecLoc.gps} onChange={v=>rcUpdateLoc(curRecLoc.id,"gps",v)} placeholder="25.2048, 55.2708" style={{flex:0.8,minWidth:isMobile?"45%":"auto"}}/>
+                      <RecceField label="CONTACT ON SITE" value={curRecLoc.contact} onChange={v=>rcUpdateLoc(curRecLoc.id,"contact",v)} placeholder="Name" style={{flex:0.8,minWidth:isMobile?"45%":"auto"}}/>
+                      <RecceField label="PHONE" value={curRecLoc.contactPhone} onChange={v=>rcUpdateLoc(curRecLoc.id,"contactPhone",v)} placeholder="+971..." style={{flex:0.6,minWidth:isMobile?"45%":"auto"}}/>
                     </div>
 
                     <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>TECHNICAL ASSESSMENT</div>
-                    <div style={{display:"flex",gap:10,marginBottom:8}}>
-                      <RecceField label="POWER SUPPLY" value={curRecLoc.power} onChange={v=>rcUpdateLoc(curRecLoc.id,"power",v)} placeholder="Mains available, socket count, generator needed..."/>
-                      <RecceField label="PARKING / LOAD-IN" value={curRecLoc.parking} onChange={v=>rcUpdateLoc(curRecLoc.id,"parking",v)} placeholder="Parking spaces, load-in access, restrictions..."/>
-                      <RecceField label="NATURAL LIGHT" value={curRecLoc.light} onChange={v=>rcUpdateLoc(curRecLoc.id,"light",v)} placeholder="Direction, best time of day, blackout options..."/>
+                    <div style={{display:"flex",gap:10,marginBottom:8,flexWrap:isMobile?"wrap":"nowrap"}}>
+                      <RecceField label="POWER SUPPLY" value={curRecLoc.power} onChange={v=>rcUpdateLoc(curRecLoc.id,"power",v)} placeholder="Mains available, socket count, generator needed..." style={{minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="PARKING / LOAD-IN" value={curRecLoc.parking} onChange={v=>rcUpdateLoc(curRecLoc.id,"parking",v)} placeholder="Parking spaces, load-in access, restrictions..." style={{minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="NATURAL LIGHT" value={curRecLoc.light} onChange={v=>rcUpdateLoc(curRecLoc.id,"light",v)} placeholder="Direction, best time of day, blackout options..." style={{minWidth:isMobile?"100%":"auto"}}/>
                     </div>
-                    <div style={{display:"flex",gap:10,marginBottom:10}}>
-                      <RecceField label="NOISE / SOUND" value={curRecLoc.noise} onChange={v=>rcUpdateLoc(curRecLoc.id,"noise",v)} placeholder="Traffic, construction, echo, AC hum..."/>
-                      <RecceField label="MOBILE SIGNAL / WIFI" value={curRecLoc.signal} onChange={v=>rcUpdateLoc(curRecLoc.id,"signal",v)} placeholder="Signal strength, WiFi available, password..."/>
-                      <RecceField label="PERMITS REQUIRED" value={curRecLoc.permits} onChange={v=>rcUpdateLoc(curRecLoc.id,"permits",v)} placeholder="DFTC, council, private, none..."/>
+                    <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:isMobile?"wrap":"nowrap"}}>
+                      <RecceField label="NOISE / SOUND" value={curRecLoc.noise} onChange={v=>rcUpdateLoc(curRecLoc.id,"noise",v)} placeholder="Traffic, construction, echo, AC hum..." style={{minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="MOBILE SIGNAL / WIFI" value={curRecLoc.signal} onChange={v=>rcUpdateLoc(curRecLoc.id,"signal",v)} placeholder="Signal strength, WiFi available, password..." style={{minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="PERMITS REQUIRED" value={curRecLoc.permits} onChange={v=>rcUpdateLoc(curRecLoc.id,"permits",v)} placeholder="DFTC, council, private, none..." style={{minWidth:isMobile?"100%":"auto"}}/>
                     </div>
 
                     <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>FACILITIES & SAFETY</div>
-                    <div style={{display:"flex",gap:10,marginBottom:8}}>
-                      <RecceField label="NEAREST HOSPITAL / A&E" value={curRecLoc.hospital} onChange={v=>rcUpdateLoc(curRecLoc.id,"hospital",v)} placeholder="Name, address, distance..."/>
-                      <RecceField label="TOILETS / GREEN ROOM" value={curRecLoc.facilities} onChange={v=>rcUpdateLoc(curRecLoc.id,"facilities",v)} placeholder="On-site toilets, green room, changing area..."/>
-                      <RecceField label="HEALTH & SAFETY NOTES" value={curRecLoc.health} onChange={v=>rcUpdateLoc(curRecLoc.id,"health",v)} placeholder="Hazards, trip risks, restricted areas..." color="#C62828"/>
+                    <div style={{display:"flex",gap:10,marginBottom:8,flexWrap:isMobile?"wrap":"nowrap"}}>
+                      <RecceField label="NEAREST HOSPITAL / A&E" value={curRecLoc.hospital} onChange={v=>rcUpdateLoc(curRecLoc.id,"hospital",v)} placeholder="Name, address, distance..." style={{minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="TOILETS / GREEN ROOM" value={curRecLoc.facilities} onChange={v=>rcUpdateLoc(curRecLoc.id,"facilities",v)} placeholder="On-site toilets, green room, changing area..." style={{minWidth:isMobile?"100%":"auto"}}/>
+                      <RecceField label="HEALTH & SAFETY NOTES" value={curRecLoc.health} onChange={v=>rcUpdateLoc(curRecLoc.id,"health",v)} placeholder="Hazards, trip risks, restricted areas..." color="#C62828" style={{minWidth:isMobile?"100%":"auto"}}/>
                     </div>
 
                     <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>RECOMMENDATION</div>
-                    <div style={{display:"flex",gap:10,marginBottom:10}}>
-                      <RecceField label="RECOMMENDED SHOOT TIMES" value={curRecLoc.shootTimes} onChange={v=>rcUpdateLoc(curRecLoc.id,"shootTimes",v)} placeholder="e.g. 06:00-10:00 (golden hour), avoid 12:00-14:00 (harsh light)..." style={{flex:1}}/>
-                      <div style={{flex:1.5}}>
+                    <div style={{display:"flex",gap:10,marginBottom:10,flexWrap:isMobile?"wrap":"nowrap"}}>
+                      <RecceField label="RECOMMENDED SHOOT TIMES" value={curRecLoc.shootTimes} onChange={v=>rcUpdateLoc(curRecLoc.id,"shootTimes",v)} placeholder="e.g. 06:00-10:00 (golden hour), avoid 12:00-14:00 (harsh light)..." style={{flex:1,minWidth:isMobile?"100%":"auto"}}/>
+                      <div style={{flex:1.5,minWidth:isMobile?"100%":"auto"}}>
                         <div style={{fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:2}}>RECOMMENDATION / NOTES</div>
                         <textarea value={curRecLoc.recommendation||""} onChange={e=>rcUpdateLoc(curRecLoc.id,"recommendation",e.target.value)}
                           placeholder="Overall assessment, things to be aware of, recommended or not..."
@@ -15648,9 +15762,9 @@ export default function OnnaDashboard() {
                     </div>
 
                     <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",marginBottom:6,borderBottom:"1px solid #eee",paddingBottom:3}}>LOCATION PHOTOS</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(4, 1fr)",gap:8}}>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2, 1fr)":"repeat(4, 1fr)",gap:isMobile?6:8}}>
                       {(curRecLoc.images||[]).map((img,ii)=>(
-                        <div key={ii} style={{height:140,borderRadius:2,overflow:"hidden"}}>
+                        <div key={ii} style={{height:isMobile?100:140,borderRadius:2,overflow:"hidden"}}>
                           <RecceImgSlot src={img} h="100%" onAdd={files=>rcAddImage(curRecLoc.id,files)} onRemove={()=>rcRemoveImage(curRecLoc.id,ii)}/>
                         </div>
                       ))}
@@ -15711,7 +15825,7 @@ export default function OnnaDashboard() {
         const addCastDeckNew = () => {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", director: "[Director]" };
-          const newDeck = { id: newId, label: `V${castDeckVersions.length+1}`, project: proj, confirmed: CAST_INIT().confirmed, options: CAST_INIT().options };
+          const newDeck = { id: newId, label: `${p.name} Casting Deck V${castDeckVersions.length+1}`, project: proj, confirmed: CAST_INIT().confirmed, options: CAST_INIT().options };
           setCastingDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newDeck); return store; });
         };
 
@@ -15720,7 +15834,16 @@ export default function OnnaDashboard() {
             {castingBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
               <div style={{fontSize:18,fontWeight:700,color:T.text}}>Casting Deck</div>
-              <button onClick={addCastDeckNew} style={{background:T.accent,color:"#fff",border:"none",padding:"8px 20px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Version</button>
+              <div style={{position:"relative"}}>
+                <button onClick={()=>setCreateMenuOpen(prev=>({...prev,cast:!prev.cast}))} style={{background:T.accent,color:"#fff",border:"none",padding:"8px 20px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Casting Deck ▾</button>
+                {createMenuOpen.cast&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,cast:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                {createMenuOpen.cast&&(
+                  <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                    <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,cast:false}));addCastDeckNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                    <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,cast:false}));setDuplicateModal({type:"casting"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                  </div>
+                )}
+              </div>
             </div>
             {castDeckVersions.length===0 ? <div style={{textAlign:"center",padding:40,color:T.muted,fontSize:14}}>No casting deck versions yet. Create one to get started.</div>
             : <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -15744,8 +15867,8 @@ export default function OnnaDashboard() {
 
         const existingCastToken = castData.shareToken;
         const existingCastResourceId = castData.shareResourceId;
-        const displayCastShareUrl = castDeckShareUrl || (castData.shareLinks && castData.shareLinks.length > 0 ? castData.shareLinks[castData.shareLinks.length-1].url : null);
-        const castShareTitle = `${castData.project?.name || "Casting Deck"} - Casting Deck`;
+        const displayCastShareUrl = castDeckShareUrl || (existingCastToken ? `https://app.onna.world/api/casting-share?token=${encodeURIComponent(existingCastToken)}` : null);
+        const castShareTitle = `ONNA | ${castData.label || "Casting Deck"}`;
 
         const sendCastShare = async () => {
           if (castDeckShareTabs.size === 0) return;
@@ -15755,13 +15878,15 @@ export default function OnnaDashboard() {
           setCastDeckShareLoading(false);
         };
         const toggleCastShareTab = (t) => setCastDeckShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-        const castShareLinks = castData.shareLinks || [];
-        const createNewCastLink = async () => {
-          if (castDeckShareTabs.size === 0) return;
-          setCastDeckShareLoading(true);
-          try { if (castDeckRef.current) await castDeckRef.current.share([...castDeckShareTabs], null, null); }
-          catch (err) { alert("Error: " + err.message); }
-          setCastDeckShareLoading(false);
+        const syncCastFeedback = async () => {
+          if (!existingCastToken) return;
+          try {
+            const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(existingCastToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+            else alert("No feedback received yet.");
+          } catch {}
         };
 
         return (
@@ -15782,8 +15907,8 @@ export default function OnnaDashboard() {
                 <button onClick={sendCastShare} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingCastToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
                   {castDeckShareLoading ? "Generating\u2026" : existingCastToken ? "Update Link" : "Generate Link"}
                 </button>
-                {existingCastToken && <button onClick={createNewCastLink} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
-                  + New Link
+                {existingCastToken && <button onClick={syncCastFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
                 </button>}
               </div>
             </div>
@@ -15796,21 +15921,6 @@ export default function OnnaDashboard() {
                 </div>
               </div>
             )}
-            {castShareLinks.length > 0 && (
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.muted,marginBottom:6}}>Link History</div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  {castShareLinks.map((link, li) => (
-                    <div key={li} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:8,background:T.surface,border:`1px solid ${T.border}`}}>
-                      <span style={{fontSize:10,fontWeight:700,color:"#fff",background:T.accent,borderRadius:4,padding:"2px 8px",flexShrink:0}}>V{li+1}</span>
-                      <a href={link.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:11,color:"#1565C0",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.url}</a>
-                      <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{new Date(link.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
-                      <button onClick={()=>{navigator.clipboard.writeText(link.url);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Copy</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <div style={{overflowX:"auto",marginLeft:-20,marginRight:-20,paddingLeft:20,paddingRight:20}}>
               <CastingConnie
                 ref={castDeckRef}
@@ -15820,7 +15930,7 @@ export default function OnnaDashboard() {
                 onChangeProject={proj => setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][castIdx].project = proj; return s; })}
                 onChangeConfirmed={conf => setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][castIdx].confirmed = conf; return s; })}
                 onChangeOptions={opts => setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][castIdx].options = opts; return s; })}
-                onShareUrl={(url, token, id) => { setCastDeckShareUrl(url); setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][castIdx]) { s[p.id][castIdx].shareToken = token; s[p.id][castIdx].shareResourceId = id; if (!s[p.id][castIdx].shareLinks) s[p.id][castIdx].shareLinks = []; s[p.id][castIdx].shareLinks.push({ url, token, resourceId: id, createdAt: new Date().toISOString() }); } return s; }); }}
+                onShareUrl={(url, token, id) => { setCastDeckShareUrl(url); setCastingDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][castIdx]) { s[p.id][castIdx].shareToken = token; s[p.id][castIdx].shareResourceId = id; } return s; }); }}
               />
             </div>
           </div>
@@ -16005,7 +16115,7 @@ export default function OnnaDashboard() {
         const addFitNew = () => {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", stylist: "[Stylist]" };
-          const newFit = { id: newId, label: `V${fitVersions.length+1}`, project: proj, talent: [mkFitTalent(), mkFitTalent()], fittings: [mkFitFitting(), mkFitFitting()] };
+          const newFit = { id: newId, label: `${p.name} Fitting Deck V${fitVersions.length+1}`, project: proj, talent: [mkFitTalent(), mkFitTalent()], fittings: [mkFitFitting(), mkFitFitting()] };
           setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newFit); return store; });
         };
         const deleteFitVersion = (idx) => {
@@ -16022,7 +16132,16 @@ export default function OnnaDashboard() {
               {stylingBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Fitting Deck</div>
-                <button onClick={addFitNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Fitting Deck</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,fit:!prev.fit}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Fitting Deck ▾</button>
+                  {createMenuOpen.fit&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,fit:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.fit&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,fit:false}));addFitNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,fit:false}));setDuplicateModal({type:"fitting"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {fitVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No fitting decks yet. Click "+ New Fitting Deck" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16235,7 +16354,7 @@ export default function OnnaDashboard() {
         const tiVersions = travelItineraryStore[p.id] || [];
         const addTINew = () => {
           const newId = Date.now();
-          const newTI = {id:newId,label:`Itinerary ${tiVersions.length+1}`,...JSON.parse(JSON.stringify(TRAVEL_ITINERARY_INIT))};
+          const newTI = {id:newId,label:`${p.name} Travel Itinerary V${tiVersions.length+1}`,...JSON.parse(JSON.stringify(TRAVEL_ITINERARY_INIT))};
           const _pi=(projectInfoRef.current||{})[p.id];
           if(_pi){if(_pi.shootName)newTI.project.name=_pi.shootName;if(_pi.shootDate)newTI.project.date=_pi.shootDate;}
           newTI.project.name=newTI.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newTI.project.name;
@@ -16258,7 +16377,16 @@ export default function OnnaDashboard() {
               {travelBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Travel Itineraries</div>
-                <button onClick={addTINew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Itinerary</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,ti:!prev.ti}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Itinerary ▾</button>
+                  {createMenuOpen.ti&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,ti:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.ti&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,ti:false}));addTINew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,ti:false}));setDuplicateModal({type:"itinerary"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {tiVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No travel itineraries yet. Click "+ New Itinerary" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16417,7 +16545,7 @@ export default function OnnaDashboard() {
             <div id="onna-ti-print" style={{background:"#fff",padding:0,fontFamily:CS_FONT,borderRadius:0}}>
               <div style={{maxWidth:1123,margin:"0 auto",background:"#FFFFFF"}}>
                 {/* Top bar */}
-                <div style={{padding:"40px 40px 0"}}>
+                <div style={{padding:isMobile?"16px 12px 0":"40px 40px 0"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                     <CSLogoSlot label="Production Logo" image={tiData.productionLogo} onUpload={v=>tiU("productionLogo",v)} onRemove={()=>tiU("productionLogo",null)}/>
                     <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3}}>
@@ -16429,10 +16557,10 @@ export default function OnnaDashboard() {
                 </div>
 
                 {/* Tab bar */}
-                <div style={{display:"flex",borderBottom:"2px solid #000",overflowX:"auto",margin:"0 32px"}}>
+                <div style={{display:"flex",borderBottom:"2px solid #000",overflowX:"auto",margin:isMobile?"0 8px":"0 32px"}}>
                   {[{id:"itinerary",label:"ITINERARY"},{id:"rooming",label:"ROOMING LIST"},{id:"movement",label:"MOVEMENT ORDER"}].map(t=>(
                     <div key={t.id} onClick={()=>tiSetTravelTab(t.id)}
-                      style={{fontFamily:CS_FONT,fontSize:9,fontWeight:tiTravelTab===t.id?700:400,letterSpacing:0.5,padding:"10px 16px",cursor:"pointer",background:tiTravelTab===t.id?"#000":"#f5f5f5",color:tiTravelTab===t.id?"#fff":"#666",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{t.label}</div>
+                      style={{fontFamily:CS_FONT,fontSize:9,fontWeight:tiTravelTab===t.id?700:400,letterSpacing:0.5,padding:isMobile?"8px 10px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,background:tiTravelTab===t.id?"#000":"#f5f5f5",color:tiTravelTab===t.id?"#fff":"#666",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{t.label}</div>
                   ))}
                   <div style={{flex:1}}/>
                   {tiTravelTab==="rooming"&&(
@@ -16443,14 +16571,14 @@ export default function OnnaDashboard() {
                   )}
                 </div>
 
-                <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
+                <div style={{textAlign:"center",padding:isMobile?"12px 12px 4px":"20px 32px 4px"}}>
                   <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>{tiTravelTab==="itinerary"?"TRAVEL ITINERARY":tiTravelTab==="rooming"?"ROOMING LIST":"MOVEMENT ORDER"}</div>
                 </div>
 
                 {/* Project info */}
-                <div style={{padding:"8px 32px 16px",display:"flex",gap:4,flexWrap:"wrap"}}>
+                <div style={{padding:isMobile?"8px 12px 12px":"8px 32px 16px",display:"flex",gap:4,flexWrap:"wrap"}}>
                   {[["PROJECT:",tiData.project?.name,"project.name"],["CLIENT:",tiData.project?.client,"project.client"],["DESTINATION:",tiData.project?.destination,"project.destination"],["DATE:",tiData.project?.date,"project.date"],["PRODUCER:",tiData.project?.producer,"project.producer"]].map(([lbl,val,key])=>(
-                    <div key={key} style={{display:"flex",gap:4,alignItems:"baseline",marginRight:16}}>
+                    <div key={key} style={{display:"flex",gap:4,alignItems:"baseline",flex:1,minWidth:isMobile?"45%":"auto",marginRight:16}}>
                       <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>{lbl}</span>
                       <TICell value={val||""} onChange={v=>tiU(key,v)}/>
                     </div>
@@ -16458,7 +16586,7 @@ export default function OnnaDashboard() {
                 </div>
 
                 {/* ========= ITINERARY TAB ========= */}
-                {tiTravelTab==="itinerary"&&(<div style={{padding:"0 32px"}}>
+                {tiTravelTab==="itinerary"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
                   {(tiData.sections||[]).map((sec,si)=>(
                     <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={sec.data||[]}
                       onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
@@ -16498,7 +16626,7 @@ export default function OnnaDashboard() {
                 </div>)}
 
                 {/* ========= ROOMING LIST TAB ========= */}
-                {tiTravelTab==="rooming"&&(<div style={{padding:"0 32px"}}>
+                {tiTravelTab==="rooming"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
                   {/* Room summary badges */}
                   {(()=>{
                     const types={};const hotels={};
@@ -16579,7 +16707,7 @@ export default function OnnaDashboard() {
                 </div>)}
 
                 {/* ========= MOVEMENT ORDER TAB ========= */}
-                {tiTravelTab==="movement"&&(<div style={{padding:"0 32px"}}>
+                {tiTravelTab==="movement"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
                   {tiMoveDays.map((day,di)=>(
                     <div key={day.id} style={{marginBottom:14}}>
                       {/* Day header */}
@@ -16686,7 +16814,7 @@ export default function OnnaDashboard() {
         const addCPSNew = () => {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", startDate: "[Start Date]", deliveryDate: "[Delivery Date]", producer: "[Producer]" };
-          const newCPS = { id: newId, label: `V${cpsVersions.length+1}`, project: proj, phases: cpsDefaultPhases() };
+          const newCPS = { id: newId, label: `${p.name} CPS V${cpsVersions.length+1}`, project: proj, phases: cpsDefaultPhases() };
           setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newCPS); return store; });
         };
         const deleteCPS = (idx) => {
@@ -16704,7 +16832,16 @@ export default function OnnaDashboard() {
               {schedBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Creative Production Schedule</div>
-                <button onClick={addCPSNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New CPS</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,cps:!prev.cps}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New CPS ▾</button>
+                  {createMenuOpen.cps&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,cps:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.cps&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,cps:false}));addCPSNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,cps:false}));setDuplicateModal({type:"cps"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {cpsVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No schedules yet. Click "+ New CPS" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16806,7 +16943,7 @@ export default function OnnaDashboard() {
           const defaultScenes = [
             { id: 1, name: "SCENE 1", collapsed: false, shots: [{ id: 101, scene: "1A", type: "STILLS", description: "", timing: "", frame: "", movement: "", camera: "", lighting: "", talent: "", wardrobe: "", props: "", location: "", notes: "", status: "Planned", refImages: [], wardrobeImages: [], propImages: [] }] },
           ];
-          const newSL = { id: newId, label: `V${slVersions.length+1}`, project: proj, scenes: defaultScenes };
+          const newSL = { id: newId, label: `${p.name} Shot List V${slVersions.length+1}`, project: proj, scenes: defaultScenes };
           setShotListStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSL); return store; });
         };
         const deleteSL = (idx) => {
@@ -16824,7 +16961,16 @@ export default function OnnaDashboard() {
               {schedBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Shot List</div>
-                <button onClick={addSLNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Shot List</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,sl:!prev.sl}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Shot List ▾</button>
+                  {createMenuOpen.sl&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,sl:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.sl&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,sl:false}));addSLNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,sl:false}));setDuplicateModal({type:"shotlist"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {slVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No shot lists yet. Click "+ New Shot List" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16858,22 +17004,62 @@ export default function OnnaDashboard() {
         const slData = slVersions[slIdx];
         if (!slData) { setActiveShotListVersion(null); return null; }
 
-        const slBack = <button onClick={()=>setActiveShotListVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Shot List</button>;
+        const slBack = <button onClick={()=>{setActiveShotListVersion(null);setSlShareUrl(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Shot List</button>;
+
+        const slShareTitle = `ONNA | ${slData.label || "Shot List"}`;
+        const existingSlToken = slData.shareToken || null;
+        const displaySlShareUrl = slShareUrl || (existingSlToken ? `https://app.onna.world/api/shotlist-share?token=${encodeURIComponent(existingSlToken)}` : null);
+        const sendSlShare = async () => {
+          setSlShareLoading(true);
+          try { if (slRef.current) await slRef.current.share([], existingSlToken, slData.shareResourceId); }
+          catch (err) { alert("Error: " + err.message); }
+          setSlShareLoading(false);
+        };
+        const syncSlFeedback = async () => {
+          if (!existingSlToken) return;
+          try {
+            const resp = await fetch(`/api/shotlist-share?token=${encodeURIComponent(existingSlToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+            else alert("No feedback received yet.");
+          } catch {}
+        };
 
         return (
           <div>
             {slBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <input value={slData.label||""} onChange={e=>{setShotListStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][slIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>SHOT LIST</span>
+                <input value={slData.label||""} onChange={e=>{setShotListStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][slIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={sendSlShare} disabled={slShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingSlToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:slShareLoading?0.5:1}}>
+                  {slShareLoading ? "Generating\u2026" : existingSlToken ? "Update Link" : "Generate Link"}
+                </button>
+                {existingSlToken && <button onClick={syncSlFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
+                </button>}
               </div>
             </div>
+            {displaySlShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{slShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={displaySlShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displaySlShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${slShareTitle}\n${displaySlShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
             <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
               <ShotListConnie
+                ref={slRef}
                 initialProject={slData.project}
                 initialScenes={slData.scenes}
                 onChangeProject={proj => setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][slIdx].project = proj; return s; })}
                 onChangeScenes={scenes => setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][slIdx].scenes = scenes; return s; })}
+                onShareUrl={(url, token, id) => { setSlShareUrl(url); setShotListStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][slIdx]) { s[p.id][slIdx].shareToken = token; s[p.id][slIdx].shareResourceId = id; } return s; }); }}
               />
             </div>
           </div>
@@ -16886,7 +17072,7 @@ export default function OnnaDashboard() {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", director: "[Director]", dop: "[DOP]" };
           const defaultFrames = [mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame()];
-          const newSB = { id: newId, label: `V${sbVersions.length+1}`, project: proj, frames: defaultFrames };
+          const newSB = { id: newId, label: `${p.name} Storyboard V${sbVersions.length+1}`, project: proj, frames: defaultFrames };
           setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSB); return store; });
         };
         const deleteSB = (idx) => {
@@ -16903,7 +17089,16 @@ export default function OnnaDashboard() {
               {schedBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Storyboard</div>
-                <button onClick={addSBNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Storyboard</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,sb:!prev.sb}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Storyboard ▾</button>
+                  {createMenuOpen.sb&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,sb:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.sb&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,sb:false}));addSBNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,sb:false}));setDuplicateModal({type:"storyboard"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {sbVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No storyboards yet. Click "+ New Storyboard" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16934,22 +17129,62 @@ export default function OnnaDashboard() {
         const sbData = sbVersions[sbIdx];
         if (!sbData) { setActiveStoryboardVersion(null); return null; }
 
-        const sbBack = <button onClick={()=>setActiveStoryboardVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Storyboards</button>;
+        const sbBack = <button onClick={()=>{setActiveStoryboardVersion(null);setSbShareUrl(null);}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Storyboards</button>;
+
+        const sbShareTitle = `ONNA | ${sbData.label || "Storyboard"}`;
+        const existingSbToken = sbData.shareToken || null;
+        const displaySbShareUrl = sbShareUrl || (existingSbToken ? `https://app.onna.world/api/storyboard-share?token=${encodeURIComponent(existingSbToken)}` : null);
+        const sendSbShare = async () => {
+          setSbShareLoading(true);
+          try { if (sbRef.current) await sbRef.current.share([], existingSbToken, sbData.shareResourceId); }
+          catch (err) { alert("Error: " + err.message); }
+          setSbShareLoading(false);
+        };
+        const syncSbFeedback = async () => {
+          if (!existingSbToken) return;
+          try {
+            const resp = await fetch(`/api/storyboard-share?token=${encodeURIComponent(existingSbToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+            else alert("No feedback received yet.");
+          } catch {}
+        };
 
         return (
           <div>
             {sbBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <input value={sbData.label||""} onChange={e=>{setStoryboardStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][sbIdx].label=e.target.value;return s;});}} style={{fontSize:16,fontWeight:700,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>STORYBOARD</span>
+                <input value={sbData.label||""} onChange={e=>{setStoryboardStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][sbIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={sendSbShare} disabled={sbShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingSbToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:sbShareLoading?0.5:1}}>
+                  {sbShareLoading ? "Generating\u2026" : existingSbToken ? "Update Link" : "Generate Link"}
+                </button>
+                {existingSbToken && <button onClick={syncSbFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
+                </button>}
               </div>
             </div>
+            {displaySbShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{sbShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={displaySbShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displaySbShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${sbShareTitle}\n${displaySbShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
+                </div>
+              </div>
+            )}
             <div style={{overflowX:"auto",margin:"0 -28px",padding:"0 28px"}}>
               <StoryboardConnie
+                ref={sbRef}
                 initialProject={sbData.project}
                 initialFrames={sbData.frames}
                 onChangeProject={proj => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].project = proj; return s; })}
                 onChangeFrames={frames => setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][sbIdx].frames = frames; return s; })}
+                onShareUrl={(url, token, id) => { setSbShareUrl(url); setStoryboardStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][sbIdx]) { s[p.id][sbIdx].shareToken = token; s[p.id][sbIdx].shareResourceId = id; } return s; }); }}
               />
             </div>
           </div>
@@ -16961,7 +17196,7 @@ export default function OnnaDashboard() {
         const addPPNew = () => {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", editor: "[Editor]", colourist: "[Colourist]", sound: "[Sound]", filesLink: "" };
-          const newPP = { id: newId, label: `V${ppVersions.length+1}`, project: proj, videos: [ppMkVideo(), ppMkVideo()], stills: [ppMkStill(), ppMkStill()], schedule: ppDefaultSchedule(), specNotes: "", feedback: "" };
+          const newPP = { id: newId, label: `${p.name} Post Production V${ppVersions.length+1}`, project: proj, videos: [ppMkVideo(), ppMkVideo()], stills: [ppMkStill(), ppMkStill()], schedule: ppDefaultSchedule(), specNotes: "", feedback: "" };
           setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newPP); return store; });
         };
         const deletePP = (idx) => {
@@ -16979,7 +17214,16 @@ export default function OnnaDashboard() {
               {schedBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Post-Production</div>
-                <button onClick={addPPNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Post-Production</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,pp:!prev.pp}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Post-Production ▾</button>
+                  {createMenuOpen.pp&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,pp:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.pp&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,pp:false}));addPPNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,pp:false}));setDuplicateModal({type:"postprod"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {ppVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No post-production schedules yet. Click "+ New Post-Production" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -17026,6 +17270,16 @@ export default function OnnaDashboard() {
           } catch (err) { alert("Error: " + err.message); }
           setPpShareLoading(false);
         };
+        const syncPpFeedback = async () => {
+          if (!existingPpToken) return;
+          try {
+            const resp = await fetch(`/api/postprod-share?token=${encodeURIComponent(existingPpToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+            else alert("No feedback received yet.");
+          } catch {}
+        };
 
         return (
           <div>
@@ -17039,6 +17293,9 @@ export default function OnnaDashboard() {
                 <button onClick={sendPpShare} disabled={ppShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingPpToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ppShareLoading?0.5:1}}>
                   {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Update Link" : "Generate Link"}
                 </button>
+                {existingPpToken && <button onClick={syncPpFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
+                </button>}
               </div>
             </div>
             {displayPpShareUrl && (
@@ -19242,6 +19499,88 @@ export default function OnnaDashboard() {
                           <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.hazardCount} hazard{r.hazardCount!==1?"s":""}</div>
                         </div>
                         <div style={{fontSize:11,color:"#6a9eca",fontWeight:600,flexShrink:0}}>Duplicate</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── GENERIC DUPLICATE MODAL ── */}
+      {duplicateModal&&(()=>{
+        const dt=duplicateModal.type;
+        const DCONF={
+          cps:{store:cpsStore,setStore:setCpsStore,archiveTable:"cps",archiveKey:"cps",title:"CPS",descFn:r=>{const t=(r.item?.phases||[]).reduce((s,ph)=>(ph.tasks||[]).length+s,0);return `${t} task${t!==1?"s":""}`;},labelKey:"label"},
+          shotlist:{store:shotListStore,setStore:setShotListStore,archiveTable:"shotlist",archiveKey:"shotlist",title:"Shot List",descFn:r=>{const s=(r.item?.scenes||[]).length;return `${s} scene${s!==1?"s":""}`;},labelKey:"label"},
+          storyboard:{store:storyboardStore,setStore:setStoryboardStore,archiveTable:"storyboard",archiveKey:"storyboard",title:"Storyboard",descFn:r=>{const f=(r.item?.frames||[]).length;return `${f} frame${f!==1?"s":""}`;},labelKey:"label"},
+          postprod:{store:postProdStore,setStore:setPostProdStore,archiveTable:"postprod",archiveKey:"postprod",title:"Post-Production",descFn:r=>{const v=(r.item?.videos||[]).length;return `${v} video${v!==1?"s":""}`;},labelKey:"label"},
+          casting:{store:castingDeckStore,setStore:setCastingDeckStore,archiveTable:"castingDecks",archiveKey:"castingDeck",title:"Casting Deck",descFn:r=>{const c=(r.item?.confirmed||[]).length;return `${c} confirmed`;},labelKey:"label"},
+          fitting:{store:fittingStore,setStore:setFittingStore,archiveTable:"fitting",archiveKey:"fitting",title:"Fitting Deck",descFn:r=>{const t=(r.item?.talent||[]).length;return `${t} talent`;},labelKey:"label"},
+          locations:{store:locDeckStore,setStore:setLocDeckStore,archiveTable:"locationDecks",archiveKey:"locationDeck",title:"Locations Deck",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
+          recce:{store:recceReportStore,setStore:setRecceReportStore,archiveTable:"recceReports",archiveKey:"recceReport",title:"Recce Report",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
+          dietary:{store:dietaryStore,setStore:setDietaryStore,archiveTable:"dietaries",archiveKey:"dietary",title:"Dietary List",descFn:r=>{const c=(r.item?.people||[]).length;return `${c} crew`;},labelKey:"label"},
+          itinerary:{store:travelItineraryStore,setStore:setTravelItineraryStore,archiveTable:"travelItineraries",archiveKey:"travelItinerary",title:"Travel Itinerary",descFn:r=>{const s=(r.item?.sections||[]).length;return `${s} section${s!==1?"s":""}`;},labelKey:"label"},
+        };
+        const conf=DCONF[dt];if(!conf)return null;
+        const q=duplicateSearch.toLowerCase().trim();
+        const results=[];
+        Object.entries(conf.store||{}).forEach(([pid,items])=>{
+          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
+          const projName=proj?.name||"Unknown Project";
+          const client=proj?.client||"";
+          (items||[]).forEach(item=>{
+            results.push({item,projName,client,projectId:pid,label:item[conf.labelKey]||"Untitled",source:"active"});
+          });
+        });
+        (archive||[]).filter(e=>e.table===conf.archiveTable).forEach(entry=>{
+          const it=entry.item;
+          const item=it[conf.archiveKey]||it;
+          const pid=it.projectId||"";
+          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
+          const projName=proj?.name||"Unknown Project";
+          const client=proj?.client||"";
+          results.push({item,projName,client,projectId:pid,label:item[conf.labelKey]||"Untitled",source:"archived"});
+        });
+        const filtered=q?results.filter(r=>[r.projName,r.client,r.label].some(s=>(s||"").toLowerCase().includes(q))):results;
+        const grouped={};
+        filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
+        const handleDuplicate=(r)=>{
+          const clone=JSON.parse(JSON.stringify(r.item));
+          clone.id=Date.now();
+          clone.label="[Duplicated]";
+          if(clone.shareToken){clone.shareToken=null;clone.shareResourceId=null;}
+          const _pid=selectedProject?.id;
+          if(_pid){
+            conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+          }
+          setDuplicateModal(null);setDuplicateSearch("");
+        };
+        return(
+          <div onClick={()=>{setDuplicateModal(null);setDuplicateSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+              <div style={{padding:"20px 24px 0",flexShrink:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing {conf.title}</div>
+                  <button onClick={()=>{setDuplicateModal(null);setDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                </div>
+                <input value={duplicateSearch} onChange={e=>setDuplicateSearch(e.target.value)} placeholder={`Search by project, client, or ${conf.title.toLowerCase()} name...`} autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
+              </div>
+              <div style={{overflowY:"auto",flex:1,padding:"0 24px 20px"}}>
+                {Object.keys(grouped).length===0?(
+                  <div style={{textAlign:"center",padding:"32px 0",color:"#86868b",fontSize:13}}>No {conf.title.toLowerCase()}s found{q?" matching your search":""}.</div>
+                ):Object.entries(grouped).map(([groupKey,items])=>(
+                  <div key={groupKey} style={{marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#86868b",letterSpacing:0.5,textTransform:"uppercase",marginBottom:6,padding:"4px 0"}}>{groupKey}</div>
+                    {items.map((r,ri)=>(
+                      <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#1976D2";e.currentTarget.style.background="#e3f2fd";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}{r.source==="archived"?" (archived)":""}</div>
+                          <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{conf.descFn(r)}</div>
+                        </div>
+                        <div style={{fontSize:11,color:"#1976D2",fontWeight:600,flexShrink:0}}>Duplicate</div>
                       </div>
                     ))}
                   </div>
