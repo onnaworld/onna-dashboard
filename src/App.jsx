@@ -16015,7 +16015,7 @@ export default function OnnaDashboard() {
         const addCTNew = () => {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", casting: "[Casting Director]" };
-          const newCT = { id: newId, label: `V${ctVersions.length+1}`, project: proj, roles: [ctMkRole(), ctMkRole()] };
+          const newCT = { id: newId, label: `${p.name} Casting Table V${ctVersions.length+1}`, project: proj, roles: [ctMkRole(), ctMkRole()] };
           setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newCT); return store; });
         };
         const deleteCT = (idx) => {
