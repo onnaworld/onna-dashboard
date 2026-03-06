@@ -18719,6 +18719,19 @@ export default function OnnaDashboard() {
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0}}>›</button>}
               </div>
             </div>}
+            {/* Desktop: vertical agent strip on left */}
+            {!isMobile&&<div style={{flex:"0 0 80px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 0",overflowY:"auto",borderRight:"1px solid #e5e5ea"}}>
+              {_filteredAgents.map((a)=>{
+                const i=AGENT_DEFS.indexOf(a);
+                const isActive=agentActiveIdx===i;
+                const isHover=agentHoverIdx===i;
+                return(
+                <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} onMouseEnter={()=>setAgentHoverIdx(i)} onMouseLeave={()=>setAgentHoverIdx(null)}
+                  style={{width:76,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"4px 2px",borderRadius:10,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}}>
+                  <div style={{transform:"scale(0.55)",transformOrigin:"center",margin:"-10px 0"}}><a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/></div>
+                  <span style={{fontSize:7.5,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:0.8,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%",lineHeight:1.2}}>{a.name}</span>
+                </button>);})}
+            </div>}
             {/* Chat panel — takes full height on desktop */}
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":"4px 8px"}}>
               {agentActiveIdx===null?(
@@ -18797,19 +18810,6 @@ export default function OnnaDashboard() {
                 </div>
               )}
             </div>
-            {/* Desktop: vertical agent strip on right */}
-            {!isMobile&&<div style={{flex:"0 0 72px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 0",overflowY:"auto",borderLeft:"1px solid #e5e5ea"}}>
-              {_filteredAgents.map((a)=>{
-                const i=AGENT_DEFS.indexOf(a);
-                const isActive=agentActiveIdx===i;
-                const isHover=agentHoverIdx===i;
-                return(
-                <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} onMouseEnter={()=>setAgentHoverIdx(i)} onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={{width:68,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"4px 2px",borderRadius:10,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}}>
-                  <div style={{transform:"scale(0.45)",transformOrigin:"center",margin:"-12px 0"}}><a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/></div>
-                  <span style={{fontSize:7,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:0.8,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%",lineHeight:1.2}}>{a.name}</span>
-                </button>);})}
-            </div>}
           </div>
           );})()}
 
