@@ -4316,6 +4316,59 @@ const TRAVEL_ITINERARY_INIT = {
   notes:"This itinerary, its commission, contents and subject are all strictly confidential. We ask that you do not cite or reference in any way or manner, designers, shoot details, models, partners or suppliers without their and the client\u2019s prior express permission, until release of the subject photographs/film/recordings into the public domain.",
 };
 
+// ─── RECCE REPORT HELPERS ───────────────────────────────────────────────────
+const RECCE_RATINGS = ["Excellent","Good","Adequate","Poor","Not Suitable"];
+const RECCE_RATING_C = {
+  "Excellent":{bg:"#E8F5E9",text:"#2E7D32"},"Good":{bg:"#E3F2FD",text:"#1565C0"},
+  "Adequate":{bg:"#FFF3E0",text:"#E65100"},"Poor":{bg:"#FCE4EC",text:"#C62828"},
+  "Not Suitable":{bg:"#000",text:"#fff"},
+};
+let _recceLocId = 0;
+const mkRecceLocation = () => ({
+  id:"rloc"+(++_recceLocId),name:"",address:"",gps:"",contact:"",contactPhone:"",
+  power:"",parking:"",light:"",noise:"",permits:"",
+  hospital:"",facilities:"",signal:"",health:"",shootTimes:"",
+  rating:"",recommendation:"",notes:"",images:[],
+});
+const RECCE_REPORT_INIT = {
+  project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",producer:"[Producer]",scoutedBy:"[Scouted By]"},
+  locations:[mkRecceLocation()],
+  selLoc:null,
+};
+const RecceInp = ({value,onChange,placeholder,style:s={}}) => (
+  <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+    style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",padding:"3px 6px",
+      background:value?"transparent":"#FFFDE7",boxSizing:"border-box",width:"100%",...s}}/>
+);
+const RecceField = ({label,value,onChange,placeholder,color="#999",style:s={}}) => (
+  <div style={{flex:1,minWidth:140,...s}}>
+    <div style={{fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color,marginBottom:2}}>{label}</div>
+    <RecceInp value={value} onChange={onChange} placeholder={placeholder}/>
+  </div>
+);
+const RecceImgSlot = ({src,onAdd,onRemove,h="100%"}) => {
+  const [over,setOver]=useState(false);
+  if(src)return(
+    <div onDragOver={e=>{e.preventDefault();setOver(true);}} onDragLeave={()=>setOver(false)}
+      onDrop={e=>{e.preventDefault();e.stopPropagation();setOver(false);if(e.dataTransfer.files.length>0){onRemove();setTimeout(()=>onAdd(e.dataTransfer.files),50);}}}
+      style={{width:"100%",height:h,position:"relative",overflow:"hidden",borderRadius:2,border:over?"2px solid #FFD54F":"none"}}>
+      <img src={src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+      <button data-hide="1" onClick={onRemove} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,0.5)",border:"none",color:"#fff",fontSize:9,cursor:"pointer",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
+    </div>
+  );
+  return(
+    <div onDragOver={e=>{e.preventDefault();setOver(true);}} onDragLeave={()=>setOver(false)}
+      onDrop={e=>{e.preventDefault();e.stopPropagation();setOver(false);if(e.dataTransfer.files.length>0)onAdd(e.dataTransfer.files);}}
+      style={{width:"100%",height:h,background:over?"#FFFDE7":"#f8f8f8",border:over?"2px dashed #FFD54F":"1px dashed #ddd",borderRadius:2,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s"}}>
+      <label style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+        <span style={{fontSize:16,color:over?"#E65100":"#ddd"}}>+</span>
+        <span style={{fontFamily:CS_FONT,fontSize:6,color:over?"#E65100":"#ccc",letterSpacing:0.5}}>Drop or click</span>
+        <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{onAdd(e.target.files);e.target.value="";}}/>
+      </label>
+    </div>
+  );
+};
+
 function buildRonnieSystem(project, raData, versionLabel, raSnapshot) {
   return `You are Risk Assessment Ronnie, a serious safety and compliance officer for ONNA, a film/TV production company in Dubai. You are DIRECTLY CONNECTED to the live risk assessment database.
 
@@ -6969,7 +7022,7 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onArchiveCallSheet}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true};
   const _buildIntro=()=>{
@@ -7012,6 +7065,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [conniePendingReview,setConniePendingReview]=useState(null); // {preSnapshot, markers[], projectId, vIdx}
   const [ronnieTabs,setRonnieTabs]=useState(()=>{try{const s=localStorage.getItem('onna_ronnie_tabs');return s?JSON.parse(s):[];}catch{return [];}});
   const addRonnieTab=(projectId,vIdx,label)=>setRonnieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
+  const [raCreateMenuRonnie,setRaCreateMenuRonnie]=useState(false);
+  const raCreateBtnRef=useRef(null);
   const [codyCtx,setCodyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_cody_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId, vIdx}
   const codyPendingRef=useRef(null); // null | {projectId, step:"pick_existing_or_new"} | {projectId, step:"pick_type"} | {projectId, step:"pick_name", typeId}
   const [billieCtx,setBillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_billie_ctx');const p=s?JSON.parse(s):null;if(p&&(p.pendingCreate||p.pendingVersion)){localStorage.removeItem('onna_billie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx}
@@ -10630,7 +10685,15 @@ After the HTML block, add a brief one-sentence confirmation message.`;
               <span onClick={e=>{e.stopPropagation();if(!confirm("Delete this risk assessment? It will be moved to trash."))return;const pid=tab.projectId;const vidx=tab.vIdx;const raData=(riskAssessmentStore?.[pid]||[])[vidx];if(raData&&onArchiveCallSheet)onArchiveCallSheet('riskAssessments',{projectId:pid,riskAssessment:JSON.parse(JSON.stringify(raData))});setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(vidx,1);store[pid]=arr;return store;});setRonnieTabs(prev=>{const next=prev.filter((_,j)=>j!==i).map(t=>t.projectId===pid&&t.vIdx>vidx?{...t,vIdx:t.vIdx-1}:t);if(isActive){if(next.length>0){const switchTo=next[0];setRonnieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveRAVersion)setActiveRAVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Deleted and switched to ${switchTo.label}.`}]);}else{setRonnieCtx(null);setMsgs(p=>[...p,{role:"assistant",content:"Risk assessment deleted. Pick a project to start a new one!"}]);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
             </div>
           ); })}
-        <div onClick={()=>{const _pid=ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};newRA.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi3=(projectInfoRef.current||{})[proj.id];if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;}const _raL3=new Image();_raL3.crossOrigin="anonymous";_raL3.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raL3.naturalWidth;cv.height=_raL3.naturalHeight;cv.getContext("2d").drawImage(_raL3,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});}};_raL3.onerror=()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});};_raL3.src="/onna-default-logo.png";const newIdx=(riskAssessmentStore?.[proj.id]||[]).length;setRonnieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveRAVersion)setActiveRAVersion(newIdx);addRonnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new risk assessment for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+        <div style={{flexShrink:0}}>
+          <div ref={raCreateBtnRef} onClick={()=>setRaCreateMenuRonnie(prev=>!prev)} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",fontFamily:"inherit"}}>+</div>
+          {raCreateMenuRonnie&&<div onClick={()=>setRaCreateMenuRonnie(false)} style={{position:"fixed",inset:0,zIndex:9998}} />}
+          {raCreateMenuRonnie&&(()=>{const _r=raCreateBtnRef.current?.getBoundingClientRect();return(
+            <div style={{position:"fixed",top:(_r?.bottom||0)+4,left:_r?.left||0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:200,overflow:"hidden"}}>
+              <div onClick={()=>{setRaCreateMenuRonnie(false);const _pid=ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};newRA.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi3=(projectInfoRef.current||{})[proj.id];if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;}const _raL3=new Image();_raL3.crossOrigin="anonymous";_raL3.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raL3.naturalWidth;cv.height=_raL3.naturalHeight;cv.getContext("2d").drawImage(_raL3,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});}};_raL3.onerror=()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});};_raL3.src="/onna-default-logo.png";const newIdx=(riskAssessmentStore?.[proj.id]||[]).length;setRonnieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveRAVersion)setActiveRAVersion(newIdx);addRonnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new risk assessment for ${proj.name}. What would you like to do?`}]);}}}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Risk Assessment</div>
+              <div onClick={()=>{setRaCreateMenuRonnie(false);if(onOpenDuplicateRA)onOpenDuplicateRA(ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId);}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+            </div>);})()}
+        </div>
       </div>
     )}
 
@@ -11782,6 +11845,8 @@ export default function OnnaDashboard() {
   const [documentsSubSection,setDocumentsSubSection]     = useState(null);
   const [csDuplicateModal,setCsDuplicateModal]           = useState(null); // null | {origin:"connie",projectId} | {origin:"docs"}
   const [csDuplicateSearch,setCsDuplicateSearch]         = useState("");
+  const [raDuplicateModal,setRaDuplicateModal]           = useState(null); // null | {origin:"ronnie",projectId} | {origin:"docs"}
+  const [raDuplicateSearch,setRaDuplicateSearch]         = useState("");
   const [csCreateMenuDocs,setCsCreateMenuDocs]           = useState(false);
   const [scheduleSubSection,setScheduleSubSection]       = useState(null);
   const [travelSubSection,setTravelSubSection]           = useState(null);
@@ -11817,6 +11882,10 @@ export default function OnnaDashboard() {
   const [storyboardStore,setStoryboardStore]             = useState(()=>{try{const s=localStorage.getItem('onna_storyboards');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
   const [postProdStore,setPostProdStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_postprod');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activePostProdVersion,setActivePostProdVersion] = useState(null);
+  const [ppShareUrl,setPpShareUrl]                       = useState(null);
+  const [ppShareLoading,setPpShareLoading]               = useState(false);
+  const ppRef                                            = useRef(null);
   const [fittingStore,setFittingStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_fittings');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeFittingVersion,setActiveFittingVersion]   = useState(null);
   const [fitShareLoading,setFitShareLoading]             = useState(false);
@@ -11834,6 +11903,9 @@ export default function OnnaDashboard() {
   const [locShareLoading,setLocShareLoading]             = useState(false);
   const [locShareTabs,setLocShareTabs]                   = useState(new Set(["overview","detail"]));
   const locDeckRef                                       = useRef(null);
+  const [locSubSection,setLocSubSection]                 = useState(null);
+  const [recceReportStore,setRecceReportStore]           = useState(()=>{try{const s=localStorage.getItem('onna_recce_reports');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeRecceVersion,setActiveRecceVersion]       = useState(null);
   const [castingDeckStore,setCastingDeckStore]           = useState(()=>{try{const s=localStorage.getItem('onna_casting_decks');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeCastingDeckVersion,setActiveCastingDeckVersion] = useState(null);
   const [castDeckShareUrl,setCastDeckShareUrl]           = useState(null);
@@ -12141,6 +12213,7 @@ export default function OnnaDashboard() {
     return()=>{cancelled=true;clearInterval(timer);};
   },[activeFittingVersion,selectedProject]); // eslint-disable-line
   useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_recce_reports',JSON.stringify(recceReportStore))}catch{}},[recceReportStore]);
   useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{}},[castingDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
@@ -12547,7 +12620,7 @@ export default function OnnaDashboard() {
     if (!syncLoadedRef.current) return;
     pushSync();
     try { localStorage.setItem("onna_sync_ts", String(Date.now())); } catch {}
-  }, [dashNotesList, todos, projectTodos, callSheetStore, riskAssessmentStore, contractDocStore, travelItineraryStore, dietaryStore, projectEstimates, projectInfo, projectCreativeLinks, customLeadCats, customLeadLocs, customVendorCats, customVendorLocs, archive, locDeckStore, pushSync]);
+  }, [dashNotesList, todos, projectTodos, callSheetStore, riskAssessmentStore, contractDocStore, travelItineraryStore, dietaryStore, projectEstimates, projectInfo, projectCreativeLinks, customLeadCats, customLeadLocs, customVendorCats, customVendorLocs, archive, locDeckStore, recceReportStore, pushSync]);
 
   const projStatusColor = {Active:"#147d50","In Review":"#92680a",Completed:T.muted};
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
@@ -12585,7 +12658,7 @@ export default function OnnaDashboard() {
           const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
           setSelectedProject(proj||null);
           setProjectSection(state.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
           if (state.subSection && proj) {
             const sec = state.section;
             if (sec==="Creative") setCreativeSubSection(state.subSection);
@@ -12597,7 +12670,7 @@ export default function OnnaDashboard() {
         } else {
           setSelectedProject(null);
           setProjectSection("Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
         }
       } else {
         const parsed = parseURL(window.location.pathname, allProjectsMerged);
@@ -12605,7 +12678,7 @@ export default function OnnaDashboard() {
         if (parsed.project) {
           setSelectedProject(parsed.project);
           setProjectSection(parsed.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
           if (parsed.subSection) {
             const sec = parsed.section;
             if (sec==="Creative") setCreativeSubSection(parsed.subSection);
@@ -12979,7 +13052,7 @@ export default function OnnaDashboard() {
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);
+    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
@@ -13322,7 +13395,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
+              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -16343,82 +16416,117 @@ export default function OnnaDashboard() {
       }
 
       if (scheduleSubSection==="postprod") {
-        const ppData = postProdStore[p.id] || { deliverables: [], notes: "" };
-        const updatePP = (fn) => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (!s[p.id]) s[p.id] = { deliverables: [], notes: "" }; fn(s[p.id]); return s; });
-        const addDeliverable = () => updatePP(d => d.deliverables.push({ id: Date.now(), name: "", type: "Video", status: "Not Started", assignee: "", dueDate: "", notes: "" }));
-        const updateDeliverable = (id, key, val) => updatePP(d => { const item = d.deliverables.find(x => x.id === id); if (item) item[key] = val; });
-        const deleteDeliverable = (id) => { if (!confirm("Delete this deliverable?")) return; updatePP(d => { d.deliverables = d.deliverables.filter(x => x.id !== id); }); };
-        const STATUS_COLORS = { "Not Started": { bg: "#f5f5f5", text: "#999" }, "In Progress": { bg: "#FFF3E0", text: "#E65100" }, "In Review": { bg: "#E3F2FD", text: "#1565C0" }, "Revisions": { bg: "#FCE4EC", text: "#C62828" }, "Approved": { bg: "#E8F5E9", text: "#2E7D32" }, "Delivered": { bg: "#111", text: "#fff" } };
-        const STATUSES = ["Not Started", "In Progress", "In Review", "Revisions", "Approved", "Delivered"];
-        const TYPES = ["Video", "Stills", "Audio", "Graphics", "Animation", "Color Grade", "VFX", "Other"];
-        const total = ppData.deliverables.length;
-        const completed = ppData.deliverables.filter(d => d.status === "Approved" || d.status === "Delivered").length;
+        const ppVersions = Array.isArray(postProdStore[p.id]) ? postProdStore[p.id] : [];
+        const addPPNew = () => {
+          const newId = Date.now();
+          const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", editor: "[Editor]", colourist: "[Colourist]", sound: "[Sound]", filesLink: "" };
+          const newPP = { id: newId, label: `V${ppVersions.length+1}`, project: proj, videos: [ppMkVideo(), ppMkVideo()], stills: [ppMkStill(), ppMkStill()], schedule: ppDefaultSchedule(), specNotes: "", feedback: "" };
+          setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newPP); return store; });
+        };
+        const deletePP = (idx) => {
+          if (!confirm("Delete this Post-Production schedule? This will be moved to trash.")) return;
+          const ppDelData = JSON.parse(JSON.stringify((postProdStore[p.id]||[])[idx]));
+          if (ppDelData) archiveItem('postprod', { projectId: p.id, postprod: ppDelData });
+          setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
+          setActivePostProdVersion(null);
+        };
+
+        // List view
+        if (activePostProdVersion === null || ppVersions.length === 0) {
+          return (
+            <div>
+              {schedBack}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+                <div style={{fontSize:16,fontWeight:700,color:T.text}}>Post-Production</div>
+                <button onClick={addPPNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Post-Prod</button>
+              </div>
+              {ppVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No post-production schedules yet. Click "+ New Post-Prod" to get started.</div></div>}
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {ppVersions.map((pp,i) => {
+                  const totalTasks = (pp.schedule||[]).length;
+                  const completeTasks = (pp.schedule||[]).filter(t=>t.status==="Complete"||t.status==="Delivered").length;
+                  const pct = totalTasks > 0 ? Math.round((completeTasks/totalTasks)*100) : 0;
+                  const totalDel = (pp.videos||[]).length + (pp.stills||[]).length;
+                  return (
+                    <div key={pp.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActivePostProdVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>POST-PROD</span>
+                          <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:pct>0?"#e8f5e9":"#f5f5f5",color:pct>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{totalDel} deliverables \u00b7 {totalTasks} tasks \u00b7 {pct}%</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:600,color:T.text}}>{pp.label||"Untitled"}</div>
+                        <div style={{fontSize:11,color:T.muted,marginTop:2}}>{pp.project?.name||"No project name"}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                        <button onClick={()=>deletePP(i)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>\u00d7</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        // Detail view — render PostConnie
+        const ppIdx = activePostProdVersion;
+        const ppData = ppVersions[ppIdx];
+        if (!ppData) { setActivePostProdVersion(null); return null; }
+
+        const ppBack = <button onClick={()=>setActivePostProdVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>\u2039 Back to Post-Prod list</button>;
+
+        const ppShareTitle = `ONNA | ${ppData.label || "Post-Production"}`;
+        const existingPpToken = ppData.shareToken || null;
+        const displayPpShareUrl = ppShareUrl || (existingPpToken ? `https://app.onna.world/api/postprod-share?token=${encodeURIComponent(existingPpToken)}` : null);
+        const sendPpShare = async () => {
+          setPpShareLoading(true);
+          try {
+            if (ppRef.current) await ppRef.current.share([], existingPpToken, ppData.shareResourceId);
+          } catch (err) { alert("Error: " + err.message); }
+          setPpShareLoading(false);
+        };
 
         return (
           <div>
-            {schedBack}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-              <div style={{fontSize:16,fontWeight:700,color:T.text}}>Post-Production</div>
-              <button onClick={addDeliverable} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Add Deliverable</button>
+            {ppBack}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>POST-PROD</span>
+                <input value={ppData.label||""} onChange={e=>{setPostProdStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][ppIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={sendPpShare} disabled={ppShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingPpToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ppShareLoading?0.5:1}}>
+                  {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Update Link" : "Generate Link"}
+                </button>
+              </div>
             </div>
-            {total > 0 && (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20}}>
-                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Total</div>
-                  <div style={{fontSize:20,fontWeight:700,color:T.text}}>{total}</div>
-                </div>
-                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Completed</div>
-                  <div style={{fontSize:20,fontWeight:700,color:"#2e7d32"}}>{completed}</div>
-                </div>
-                <div style={{borderRadius:12,padding:"14px 16px",background:T.surface,border:`1px solid ${T.border}`}}>
-                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>Progress</div>
-                  <div style={{fontSize:20,fontWeight:700,color:T.text}}>{total > 0 ? Math.round((completed / total) * 100) : 0}%</div>
+            {displayPpShareUrl && (
+              <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#1565C0",marginBottom:8}}>{ppShareTitle}</div>
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <a href={displayPpShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayPpShareUrl}</a>
+                  <button onClick={()=>{navigator.clipboard.writeText(`${ppShareTitle}\n${displayPpShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
                 </div>
               </div>
             )}
-            {ppData.deliverables.length === 0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No deliverables yet. Click "+ Add Deliverable" to get started.</div></div>}
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {ppData.deliverables.map(del => {
-                const sc = STATUS_COLORS[del.status] || STATUS_COLORS["Not Started"];
-                return (
-                  <div key={del.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 18px",borderLeft:`4px solid ${sc.text}`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-                      <input value={del.name||""} onChange={e=>updateDeliverable(del.id,"name",e.target.value)} placeholder="Deliverable name" style={{flex:1,minWidth:180,fontSize:13,fontWeight:600,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid transparent`,padding:"2px 0",fontFamily:"inherit",outline:"none"}} onFocus={e=>e.target.style.borderBottomColor=T.accent} onBlur={e=>e.target.style.borderBottomColor="transparent"}/>
-                      <select value={del.type||"Video"} onChange={e=>updateDeliverable(del.id,"type",e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${T.border}`,fontSize:11,fontFamily:"inherit",color:T.text,background:T.surface,cursor:"pointer"}}>
-                        {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <select value={del.status||"Not Started"} onChange={e=>updateDeliverable(del.id,"status",e.target.value)} style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${sc.text}`,fontSize:11,fontWeight:600,fontFamily:"inherit",color:sc.text,background:sc.bg,cursor:"pointer"}}>
-                        {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
-                      </select>
-                      <button onClick={()=>deleteDeliverable(del.id)} style={{background:"none",border:"none",fontSize:16,color:"#ccc",cursor:"pointer",padding:4,flexShrink:0}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ccc"}>×</button>
-                    </div>
-                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Assignee:</span>
-                        <input value={del.assignee||""} onChange={e=>updateDeliverable(del.id,"assignee",e.target.value)} placeholder="—" style={{fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none",width:120}}/>
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Due:</span>
-                        <input type="date" value={del.dueDate||""} onChange={e=>updateDeliverable(del.id,"dueDate",e.target.value)} style={{fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none"}}/>
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:4,flex:1,minWidth:150}}>
-                        <span style={{fontSize:10,color:T.muted,fontWeight:500}}>Notes:</span>
-                        <input value={del.notes||""} onChange={e=>updateDeliverable(del.id,"notes",e.target.value)} placeholder="—" style={{flex:1,fontSize:12,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"1px 0",fontFamily:"inherit",outline:"none"}}/>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div id="onna-pp-print">
+              <PostConnie
+                ref={ppRef}
+                initialProject={ppData.project}
+                initialVideos={ppData.videos}
+                initialStills={ppData.stills}
+                initialSchedule={ppData.schedule}
+                initialSpecNotes={ppData.specNotes}
+                initialFeedback={ppData.feedback}
+                onChangeProject={proj => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].project = proj; return s; })}
+                onChangeVideos={vids => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].videos = vids; return s; })}
+                onChangeStills={stills => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].stills = stills; return s; })}
+                onChangeSchedule={sched => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].schedule = sched; return s; })}
+                onChangeSpecNotes={notes => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].specNotes = notes; return s; })}
+                onChangeFeedback={fb => setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if(s[p.id]&&s[p.id][ppIdx]) s[p.id][ppIdx].feedback = fb; return s; })}
+                onShareUrl={(url, token, id) => { setPpShareUrl(url); setPostProdStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][ppIdx]) { s[p.id][ppIdx].shareToken = token; s[p.id][ppIdx].shareResourceId = id; } return s; }); }}
+              />
             </div>
-            {ppData.deliverables.length > 0 && (
-              <div style={{marginTop:20,borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden"}}>
-                <div style={{padding:"10px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
-                  <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Post-Production Notes</span>
-                </div>
-                <textarea value={ppData.notes||""} onChange={e=>updatePP(d=>{d.notes=e.target.value;})} placeholder="General post-production notes, revision history, delivery specs..." style={{width:"100%",minHeight:80,padding:"12px 18px",fontSize:13,color:T.text,background:"transparent",border:"none",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.6}}/>
-              </div>
-            )}
           </div>
         );
       }
@@ -17071,7 +17179,7 @@ export default function OnnaDashboard() {
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
+                    <select value={projectSection} onChange={e=>{setProjectSection(e.target.value);setEditingEstimate(null);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",selectedProject,e.target.value,null);}} style={{padding:"8px 30px 8px 13px",borderRadius:10,background:"#fff",border:"1px solid #d2d2d7",color:"#1d1d1f",fontSize:13,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 11px center",fontWeight:500,boxShadow:"0 1px 2px rgba(0,0,0,0.05)",minWidth:200}}>
                       {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>(
                         <option key={sec} value={sec}>{sec}</option>
                       ))}
@@ -17406,7 +17514,8 @@ export default function OnnaDashboard() {
                       pushUndo={pushUndo}
                       projectInfoRef={projectInfoRef}
                       onOpenDuplicateCS={a.id==="compliance"?(pid)=>{setCsDuplicateModal({origin:"connie",projectId:pid});setCsDuplicateSearch("");}:undefined}
-                      onArchiveCallSheet={(a.id==="compliance"||a.id==="researcher"||a.id==="billie")?archiveItem:undefined}
+                      onOpenDuplicateRA={a.id==="researcher"?(pid)=>{setRaDuplicateModal({origin:"ronnie",projectId:pid});setRaDuplicateSearch("");}:undefined}
+                      onArchiveCallSheet={(a.id==="compliance"||a.id==="researcher"||a.id==="billie"||a.id==="contracts")?archiveItem:undefined}
                     />
                   ))}
                 </div>
@@ -18521,6 +18630,77 @@ export default function OnnaDashboard() {
                           <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.crewCount} crew</div>
                         </div>
                         <div style={{fontSize:11,color:"#c47090",fontWeight:600,flexShrink:0}}>Duplicate</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── DUPLICATE RA MODAL ── */}
+      {raDuplicateModal&&(()=>{
+        const q=raDuplicateSearch.toLowerCase().trim();
+        const results=[];
+        // Active risk assessments
+        Object.entries(riskAssessmentStore||{}).forEach(([pid,ras])=>{
+          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
+          const projName=proj?.name||"Unknown Project";
+          const client=proj?.client||"";
+          (ras||[]).forEach((ra,idx)=>{
+            const hazardCount=(ra.hazards||[]).length;
+            results.push({ra,projName,client,projectId:pid,label:ra.label||ra.shootName||"Untitled",date:ra.shootDate||"",hazardCount,source:"active"});
+          });
+        });
+        // Archived risk assessments
+        (archive||[]).filter(e=>e.table==="riskAssessments").forEach(entry=>{
+          const it=entry.item;
+          const ra=it.riskAssessment||it;
+          const pid=it.projectId||"";
+          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
+          const projName=proj?.name||"Unknown Project";
+          const client=proj?.client||"";
+          const hazardCount=(ra.hazards||[]).length;
+          results.push({ra,projName,client,projectId:pid,label:ra.label||ra.shootName||"Untitled",date:ra.shootDate||"",hazardCount,source:"archived"});
+        });
+        const filtered=q?results.filter(r=>[r.projName,r.client,r.label,r.ra.shootName||""].some(s=>(s||"").toLowerCase().includes(q))):results;
+        const grouped={};
+        filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
+        const handleDuplicate=(r)=>{
+          const clone=JSON.parse(JSON.stringify(r.ra));
+          clone.id=Date.now();
+          clone.label="[Duplicated]";
+          const _pid=raDuplicateModal.origin==="ronnie"?raDuplicateModal.projectId:selectedProject?.id;
+          if(_pid){
+            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];store[_pid].push(clone);return store;});
+          }
+          setRaDuplicateModal(null);setRaDuplicateSearch("");
+        };
+        return(
+          <div onClick={()=>{setRaDuplicateModal(null);setRaDuplicateSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+              <div style={{padding:"20px 24px 0",flexShrink:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                  <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing Risk Assessment</div>
+                  <button onClick={()=>{setRaDuplicateModal(null);setRaDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                </div>
+                <input value={raDuplicateSearch} onChange={e=>setRaDuplicateSearch(e.target.value)} placeholder="Search by project, client, or risk assessment name..." autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
+              </div>
+              <div style={{overflowY:"auto",flex:1,padding:"0 24px 20px"}}>
+                {Object.keys(grouped).length===0?(
+                  <div style={{textAlign:"center",padding:"32px 0",color:"#86868b",fontSize:13}}>No risk assessments found{q?" matching your search":""}.</div>
+                ):Object.entries(grouped).map(([groupKey,items])=>(
+                  <div key={groupKey} style={{marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#86868b",letterSpacing:0.5,textTransform:"uppercase",marginBottom:6,padding:"4px 0"}}>{groupKey}</div>
+                    {items.map((r,ri)=>(
+                      <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6a9eca";e.currentTarget.style.background="#f3f8ff";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}{r.source==="archived"?" (archived)":""}</div>
+                          <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.hazardCount} hazard{r.hazardCount!==1?"s":""}</div>
+                        </div>
+                        <div style={{fontSize:11,color:"#6a9eca",fontWeight:600,flexShrink:0}}>Duplicate</div>
                       </div>
                     ))}
                   </div>
