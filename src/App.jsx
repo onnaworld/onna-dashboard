@@ -3039,7 +3039,7 @@ ${PRINT_CLEANUP_CSS}
 let _fitId = 0;
 const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
 const mkFitLook = () => ({ id: "lk" + (++_fitId), name: "", description: "", notes: "", status: "Pending", image: null });
-const mkFitFitting = () => ({ id: "fit" + (++_fitId), talentName: "", lookName: "", notes: "", images: [null,null,null,null,null,null,null,null], imageStatuses: {} });
+const mkFitFitting = () => ({ id: "fit" + (++_fitId), talentName: "", lookName: "", notes: "", images: [null,null,null,null], imageStatuses: {} });
 
 const FIT_STATUSES = ["Pending", "Option", "Approved", "Pulled", "Returned"];
 const FIT_STATUS_C = {
@@ -3111,6 +3111,8 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
   const [talent, setTalentRaw] = useState(() => initialTalent || [mkFitTalent(), mkFitTalent()]);
   const [fittings, setFittingsRaw] = useState(() => initialFittings || [mkFitFitting(), mkFitFitting()]);
   const [selFit, setSelFit] = useState(null);
+  const fittingsRef = useRef(fittings);
+  useEffect(() => { fittingsRef.current = fittings; }, [fittings]);
 
   const setProject = (u) => { setProjectRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeProject) onChangeProject(next); return next; }); };
   const setTalent = (u) => { setTalentRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeTalent) onChangeTalent(next); return next; }); };
@@ -3133,7 +3135,8 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
   const rmFitImg = (fid, idx) => setFittings(p => p.map(f => f.id === fid ? { ...f, images: f.images.map((img, i) => i === idx ? null : img) } : f));
 
   const syncApproved = () => {
-    fittings.forEach(fit => {
+    const currentFittings = fittingsRef.current;
+    currentFittings.forEach(fit => {
       if (!fit.talentName) return;
       const approvedImgs = fit.images.filter((img, i) => img && (fit.imageStatuses || {})[i] === "approved");
       if (approvedImgs.length === 0) return;
@@ -3142,9 +3145,10 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
         if (found) {
           return prev.map(t => {
             if (t.id !== found.id) return t;
-            const newLooks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img }));
+            const newLooks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
             const existingImgs = t.looks.map(l => l.image).filter(Boolean);
             const unique = newLooks.filter(nl => !existingImgs.includes(nl.image));
+            if (unique.length === 0) return t;
             return { ...t, looks: [...t.looks.filter(l => l.image), ...unique] };
           });
         } else {
@@ -3370,7 +3374,7 @@ ${PRINT_CLEANUP_CSS}
                     <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span onClick={() => { const newFit = mkFitFitting(); newFit.talentName = group.fits[0].talentName; setFittings(p => { const lastId = group.fits[group.fits.length - 1].id; const idx = p.findIndex(f => f.id === lastId); const n = [...p]; n.splice(idx + 1, 0, newFit); return n; }); }}
                         style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ LOOK</span>
-                      <button onClick={() => { group.fits.forEach(f => deleteFitting(f.id)); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
+                      <button onClick={() => { const ids = group.fits.map(f => f.id); setFittings(p => p.filter(f => !ids.includes(f.id))); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
                     </div>
                   </div>
                   {group.fits.map((fit, li) => (
@@ -3397,11 +3401,11 @@ ${PRINT_CLEANUP_CSS}
                       )}
                       <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
                         {fit.images.map((img, n) => (
-                          (img || n < 4) ? <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
+                          <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
                             onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
                             onStatus={s => { updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s }); if (s === "approved") setTimeout(() => syncApproved(), 150); }}
                             note={(fit.imageNotes||{})[n] || ""}
-                            onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })} /> : null
+                            onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })} />
                         ))}
                       </div>
                       <div data-hide="1" style={{ display: "flex", justifyContent: "flex-end", padding: "2px 0" }}>
@@ -11709,9 +11713,9 @@ export default function OnnaDashboard() {
       }catch{}
     };
     poll();
-    const timer=setInterval(poll,15000);
+    const timer=setInterval(poll,5000);
     return()=>{cancelled=true;clearInterval(timer);};
-  },[activeFittingVersion,selectedProject,fittingStore]); // eslint-disable-line
+  },[activeFittingVersion,selectedProject]); // eslint-disable-line
   useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{}},[castingDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
@@ -15835,7 +15839,7 @@ export default function OnnaDashboard() {
 
       {/* ── SIDEBAR (desktop only) ── */}
       <div style={{width:220,flexShrink:0,background:"rgba(255,255,255,0.82)",borderRight:`1px solid ${T.border}`,display:isMobile?"none":"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
-        <div style={{padding:"20px 18px 16px",display:"flex",alignItems:"center"}}>
+        <div onClick={()=>changeTab("Dashboard")} style={{padding:"20px 18px 16px",display:"flex",alignItems:"center",cursor:"pointer"}}>
           <img src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAoAKADASIAAhEBAxEB/8QAGgABAAMBAQEAAAAAAAAAAAAAAAYICQUHA//EAEIQAAEDAwIDBQIKBQ0AAAAAAAECAwQABREGBwgSIRMUMUFRCTIVFiIjQlJhcXSzFzY4gZEYM0NUVmJygoOUocPT/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/ALl0pUD343Jt21W3UvVM1kSX+YR4MXm5e8SFAlKc+QAClE+iT54oJy860y0p15xDbaBlS1qACR6kmufB1DYJz5jwr5bJTwOC2zLQtQ/cDms6IkffDiZ1A8sSHrhDjODn7R0R7dC5vABPhnHoFLI8c+NSa68GO6kO3KkxLppi4SEJyYzMt1C1H0SVtpT/ABKaDQSlZ47P75bjbNa6Gk9wHLnKs7DyY8+3z1Fx+EnyWyoknABBCQSlQ8PEGtCoz7MmO1JjuodZdQFtrQcpUkjIIPmCKD6UqkXtJJEhnV2kAy+62DAfyELIz84n0rscD+/JkCNtfrGaS8PkWOa8vqsf1ZRPn9Qnx936oIXFpVc/aFPvMbFRFMPONFV9jpJQojI7J446fcK7HAo447w6WlbrilqMyX1Ucn+eVQe6UrlawJGkbyQcEQH+v+mqsrtq9x9S7d61hans0x1xxg8r8d1wluS0febWPQ48fIgEdRQazUqMbXa5sW4ui4WqdPP9pFkpw42ojtI7o95pY8lJP8RgjIINUl0hLlL9oA+0uS8pv40zk8pcJGAHcDHpQaA0pUA4gtfs7abU3jU5WjvqW+725tX9JJXkNjHmB1WR6JNBP6VkIU6qctTmrS7c1QhOEdc/tVY7ypJcCebPvYBVWmvDhuG3uZtNadRLcSbihPdbmgfRktgBRx5BQKVgeixQejUpSgVUT2lnevi1ovkJ7p3yV2vpz8jfJ/xz1buoFv3ttA3V24maXlvCNJ5hIgSSM9hISDyqI80kEpP2KOOuKCO8GybMnh00v8C9jgtOGXyY5jI7RXac/nnPr9Hl8sV6/Wadpu29nDPqOTFMR6BEkPfONSWC9b5xT4KQroM480qSrGAceFS+88aO5Uu2KjQLJpy3SVpKTKQy64pB9UJWspB/xBQoOx7SZdkOtNKIi9j8Mpgv995cc/Y86ex5v39tirYbCiSnZDQ4mBQeFghBQV447BGM/bjFUn2S2Q17vPrlOstfpuLNkefEidOnAodngY+baBweUgBPMAEpHh1AFaFMNNMMNsMtpbabSEIQkYCUgYAA9KCkPtKv1v0f+AkfmJqI8QWx7+mNDaZ3R0ey4i2SrZCdubLOQYUhTSD2ycdQhSj1+qo+hAEu9pUD8btHnHTuEj8xNW026gxbhs9pu3XCM1JiyLBFZfYdQFIcQqOkKSoHxBBIxQUc3P3xTuZwyw9O6gfA1ZarxGLqj078wGnkh4f3gSAsepBHjgWZ4D/2cbR+Ml/nKqo3FVsrL2n1d3m3Nuv6VuTilW985UWVeJYWfrDyJ95PXxCsW54D/wBnG0fjJf5yqD2LWX6oXn8A/wDlqrOjhP20tG6t01bpq5q7B8WXtoEsDKoz4eQErx5jqQR5gnwOCNF9YgnSN5AGSYD/AOWqqR+zcB/SjqQ46fAn/e3QQ3Z3Xeq+HDd6dYNTRXxbVPBi8QQchSfoSGvIkA8wP0knHTII6O2lyg3njvbu1rlNy4MzUkx+O+2cpcbUl0pUPvBq0PFnsjH3U0r8J2hptrVlsaJhudE96b8THWft6lJPgo+QUapnwpRpELiZ0nDlsOR5LFwdbdacSUrbWlpwFJB6ggjGKDT2s/8Aj+3G+Mu47Gire/zW3ToIf5T8lyWsDn+/kThP2Erq5m9+uY+3O1961Y8EreiscsRtXg7IX8ltP3cxBP2AmqJcL2zat8NU3+6aouNyYtkYdrJlx1JDz8t1RUBlaVDwC1K6eafWg9Jt2ruHpvheO1T2skJuD0TvLsn4JlkC4n5Ycz2XUBYCM+aBioZwGbj/ABT3QVpO4P8AJatShLKOY/Jblpz2R/zZKPtKkele2/yKNtP7Sau/3Ef/AMa8C4qtj29l7jYbxpe43STapZKRJkrSXY8pB5gOZCUgApwU9M5Qqg0bpUB4fdftblbUWfU+UiatvsLghIxySW+jnTyB6KA9FCp9QKUpQfOSwxJZUzJZbeaV7yHEhST94NciHpDScKZ32HpeyRpWebtmoDSF59eYJzmlKDt0pSgUpSgUpSgUpSgUpSgUpSgUpSgUpSg//9k=" alt="ONNA" style={{height:24,width:"auto",display:"block"}}/>
         </div>
 
@@ -15863,7 +15867,7 @@ export default function OnnaDashboard() {
         {/* Topbar */}
         <div style={{padding:`0 ${P}px`,height:isMobile?50:58,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.border}`,flexShrink:0,background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
-            {isMobile&&<img src="/onna-default-logo.png" alt="ONNA" style={{height:18,width:"auto",marginRight:6,flexShrink:0}}/>}
+            {isMobile&&<img src="/onna-default-logo.png" alt="ONNA" onClick={()=>changeTab("Dashboard")} style={{height:18,width:"auto",marginRight:6,flexShrink:0,cursor:"pointer"}}/>}
             <span style={{fontSize:isMobile?14:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentTab.label}</span>
             {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300,flexShrink:0}}>›</span><span style={{fontSize:isMobile?12:14,color:T.sub,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedProject.name}</span>{!isMobile&&projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}{creativeSubSection?` › ${creativeSubSection==="moodboard"?"Moodboard":"Brief"}`:""}{budgetSubSection?` › ${budgetSubSection==="tracker"?"Budget Tracker":budgetSubSection==="estimates"?"Estimates":"Quotations"}`:""}</span></>}</>}
           </div>
