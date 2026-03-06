@@ -40,12 +40,12 @@ async function resolveAuth(callerAuth) {
 }
 
 function makeSlug(str) {
-  return (str || "fitting")
+  return (str || "")
     .replace(/[^a-zA-Z0-9 _]/g, "")
     .trim()
     .split(/\s+/)
-    .join("-")
-    .toLowerCase() || "fitting";
+    .join("_")
+    .toLowerCase();
 }
 
 async function findShareByToken(token, useAuth) {
@@ -93,10 +93,13 @@ export default async function handler(req, res) {
 
     // POST — create or update Fitting share
     if (req.method === "POST") {
-      const { html, projectName, mode, token: existingToken, resourceId } = req.body;
+      const { html, projectName, clientName, mode, token: existingToken, resourceId } = req.body;
       if (!html) return res.status(400).json({ error: "Missing html" });
 
-      const token = existingToken || (makeSlug(projectName || "fitting") + "-" + Date.now().toString(36));
+      const clientSlug = makeSlug(clientName);
+      const projectSlug = makeSlug(projectName);
+      const slugBase = [clientSlug, projectSlug, "fittingdeck"].filter(Boolean).join("_") || "fitting";
+      const token = existingToken || (slugBase + "_v" + Date.now().toString(36));
       const url = `https://app.onna.world/api/fit-share?token=${encodeURIComponent(token)}`;
 
       const useAuth = await resolveAuth(auth);

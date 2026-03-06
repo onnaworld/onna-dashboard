@@ -3568,7 +3568,7 @@ ${PRINT_CLEANUP_CSS}
     setPrintTabs(null);
     if (!html) return;
     try {
-      const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
+      const body = { html, projectName: project.name || "", clientName: project.client || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -7312,15 +7312,17 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   );
 
   const send=async()=>{
-    if((!_inputRef.current.trim()&&!attachments.length)||loading)return;
+    if(!_inputRef.current.trim()&&!attachments.length)return;
     const input=_inputRef.current;
-    // ── Clear chat intent ─────────────────────────────────────────────────────
-    if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
+    // ── Clear chat intent (runs even while loading) ──────────────────────────
+    if(/^(clear(\s+chat|\s+prompt|\s+all|\s+history)?|reset(\s+chat)?|wipe(\s+chat)?|start\s*over|new\s+chat)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:_introWithProjects}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setBillieTabs([]);setCodyCtx(null);setCodyTabs([]);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);setCodyPickerPid(null);
+      setMsgs(fresh);setInput("");setLoading(false);setMood("idle");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setConnieDietMode(null);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setBillieTabs([]);setCodyCtx(null);setCodyTabs([]);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);setCodyPickerPid(null);
+      if(setActiveContractVersion)setActiveContractVersion(null);if(setActiveRAVersion)setActiveRAVersion(null);if(setActiveEstimateVersion)setActiveEstimateVersion(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
+    if(loading)return;
     const curAttachments=[...attachments];
     setAttachments([]);
     const displayContent=input.trim()+(curAttachments.length?` [${curAttachments.length} image${curAttachments.length>1?"s":""}]`:"");
@@ -15529,7 +15531,6 @@ export default function OnnaDashboard() {
         const fitShareTitle = `ONNA | ${fitData.label || "Fitting Deck"}`;
         const existingFitToken = fitData.shareToken || null;
         const displayFitShareUrl = existingFitToken ? `https://app.onna.world/api/fit-share?token=${encodeURIComponent(existingFitToken)}` : null;
-        const fitShareLinks = fitData.shareLinks || [];
         const sendFitShare = async () => {
           if (fitShareTabs.size === 0) return;
           setFitShareLoading(true);
@@ -15538,12 +15539,33 @@ export default function OnnaDashboard() {
           setFitShareLoading(false);
         };
         const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-        const createNewFitLink = async () => {
-          if (fitShareTabs.size === 0) return;
-          setFitShareLoading(true);
-          try { if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], null, null); }
-          catch (err) { alert("Error: " + err.message); }
-          setFitShareLoading(false);
+        const syncFitFeedback = async () => {
+          if (!existingFitToken) return;
+          try {
+            const resp = await fetch(`/api/fit-share?token=${encodeURIComponent(existingFitToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data.feedback) return;
+            const fb = data.feedback;
+            setFittingStore(prev => {
+              const s = JSON.parse(JSON.stringify(prev));
+              const ver = s[p.id]?.[fitIdx];
+              if (!ver || !ver.fittings) return prev;
+              let changed = false;
+              let cardIdx = 0;
+              ver.fittings.forEach(fit => {
+                for (let n = 0; n < fit.images.length; n++) {
+                  const key = "c" + cardIdx;
+                  if (fb[key]) {
+                    if (fb[key].status) { if (!fit.imageStatuses) fit.imageStatuses = {}; if (fit.imageStatuses[n] !== fb[key].status) { fit.imageStatuses[n] = fb[key].status; changed = true; } }
+                    if (fb[key].note !== undefined) { if (!fit.imageNotes) fit.imageNotes = {}; if (fit.imageNotes[n] !== fb[key].note) { fit.imageNotes[n] = fb[key].note; changed = true; } }
+                  }
+                  cardIdx++;
+                }
+              });
+              return changed ? s : prev;
+            });
+          } catch {}
         };
 
         return (
@@ -15564,8 +15586,8 @@ export default function OnnaDashboard() {
                 <button onClick={sendFitShare} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingFitToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
                   {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Update Link" : "Generate Link"}
                 </button>
-                {existingFitToken && <button onClick={createNewFitLink} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
-                  + New Link
+                {existingFitToken && <button onClick={syncFitFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
                 </button>}
               </div>
             </div>
@@ -15575,21 +15597,6 @@ export default function OnnaDashboard() {
                 <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                   <a href={displayFitShareUrl} target="_blank" rel="noopener noreferrer" style={{flex:1,minWidth:200,padding:"6px 10px",borderRadius:7,border:"1px solid #90caf9",fontSize:11.5,fontFamily:"inherit",color:"#1565C0",background:"#fff",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{displayFitShareUrl}</a>
                   <button onClick={()=>{navigator.clipboard.writeText(`${fitShareTitle}\n${displayFitShareUrl}`);}} style={{padding:"5px 13px",borderRadius:8,background:"#1d1d1f",color:"#fff",border:"none",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>
-                </div>
-              </div>
-            )}
-            {fitShareLinks.length > 0 && (
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.muted,marginBottom:6}}>Link History</div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  {fitShareLinks.map((link, li) => (
-                    <div key={li} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",borderRadius:8,background:T.surface,border:`1px solid ${T.border}`}}>
-                      <span style={{fontSize:10,fontWeight:700,color:"#fff",background:T.accent,borderRadius:4,padding:"2px 8px",flexShrink:0}}>V{li+1}</span>
-                      <a href={link.url} target="_blank" rel="noopener noreferrer" style={{flex:1,fontSize:11,color:"#1565C0",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{link.url}</a>
-                      <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{new Date(link.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>
-                      <button onClick={()=>{navigator.clipboard.writeText(link.url);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Copy</button>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
