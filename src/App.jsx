@@ -3352,36 +3352,68 @@ ${PRINT_CLEANUP_CSS}
 
         {(tab === "options" || (printTabs && printTabs.has("options"))) && (
           <div>
-            {fittings.map((fit, fi) => {
-              const fitImgCount = fit.images.filter(Boolean).length;
-              return (
-              <div key={fit.id} style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>MODEL {fi + 1}</span>
-                    <FitInp value={fit.talentName} onChange={v => updateFit(fit.id, "talentName", v)} placeholder="Talent Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 100 : 180 }} />
-                    <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look" style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", background: "transparent", width: 80 }} />
+            {(() => {
+              const groups = [];
+              fittings.forEach((fit) => {
+                const key = (fit.talentName || "").trim().toLowerCase();
+                const last = groups.length > 0 ? groups[groups.length - 1] : null;
+                if (key && last && last.key === key) { last.fits.push(fit); }
+                else { groups.push({ key, fits: [fit] }); }
+              });
+              return groups.map((group, gi) => (
+                <div key={gi} style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>MODEL {gi + 1}</span>
+                      <FitInp value={group.fits[0].talentName} onChange={v => group.fits.forEach(f => updateFit(f.id, "talentName", v))} placeholder="Talent Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 100 : 180 }} />
+                    </div>
+                    <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span onClick={() => { const newFit = mkFitFitting(); newFit.talentName = group.fits[0].talentName; setFittings(p => { const lastId = group.fits[group.fits.length - 1].id; const idx = p.findIndex(f => f.id === lastId); const n = [...p]; n.splice(idx + 1, 0, newFit); return n; }); }}
+                        style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ LOOK</span>
+                      <button onClick={() => { group.fits.forEach(f => deleteFitting(f.id)); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
+                    </div>
                   </div>
-                  <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span onClick={() => { const imgs = [...fit.images]; const nextEmpty = imgs.findIndex(x => !x); if (nextEmpty === -1) { imgs.push(null,null,null,null); updateFit(fit.id, "images", imgs); } }} style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ CARD</span>
-                    <button onClick={() => deleteFitting(fit.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
-                  </div>
-                </div>
-                <div style={{ padding: "2px 0 4px 0" }}>
-                  <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Notes..." style={{ color: "#666", width: "100%", borderBottom: "1px solid #eee", padding: "3px 4px" }} />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
-                  {fit.images.map((img, n) => (
-                    (img || n < 4) ? <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
-                      onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
-                      onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })}
-                      note={(fit.imageNotes||{})[n] || ""}
-                      onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })} /> : null
+                  {group.fits.map((fit, li) => (
+                    <div key={fit.id} style={{ marginTop: li > 0 ? 4 : 0 }}>
+                      {li > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", background: "#333", padding: "2px 6px", justifyContent: "space-between" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, color: "rgba(255,255,255,0.7)" }}>LOOK {li + 1}</span>
+                            <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look Name" style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", background: "transparent", width: 100 }} />
+                          </div>
+                          <button data-hide="1" onClick={() => deleteFitting(fit.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 12, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
+                        </div>
+                      )}
+                      {li === 0 && (
+                        <div style={{ display: "flex", gap: 8, padding: "2px 0 4px 0", alignItems: "center" }}>
+                          <FitInp value={fit.lookName} onChange={v => updateFit(fit.id, "lookName", v)} placeholder="Look" style={{ color: "#999", width: 100, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                          <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Notes..." style={{ color: "#666", flex: 1, borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                        </div>
+                      )}
+                      {li > 0 && (
+                        <div style={{ padding: "2px 0 4px 0" }}>
+                          <FitInp value={fit.notes} onChange={v => updateFit(fit.id, "notes", v)} placeholder="Notes..." style={{ color: "#666", width: "100%", borderBottom: "1px solid #eee", padding: "3px 4px" }} />
+                        </div>
+                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 8 }}>
+                        {fit.images.map((img, n) => (
+                          (img || n < 4) ? <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
+                            onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
+                            onStatus={s => { updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s }); if (s === "approved") setTimeout(() => syncApproved(), 150); }}
+                            note={(fit.imageNotes||{})[n] || ""}
+                            onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })} /> : null
+                        ))}
+                      </div>
+                      <div data-hide="1" style={{ display: "flex", justifyContent: "flex-end", padding: "2px 0" }}>
+                        <span onClick={() => updateFit(fit.id, "images", [...fit.images, null])}
+                          style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, color: "#999", cursor: "pointer", textTransform: "uppercase", padding: "2px 6px" }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#666"} onMouseLeave={e => e.currentTarget.style.color = "#999"}>+ IMAGE</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-              );
-            })}
+              ));
+            })()}
             <div data-hide="1" style={{ display: "flex", gap: 8 }}>
               <div onClick={addFitting} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 12px", cursor: "pointer", borderRadius: 1, flex: 1 }}
                 onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}>
@@ -6882,7 +6914,9 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Quick-action number replies from intro bubbles ─────────────────────────
     const _isIntroReply=/^[123]$/.test(input.trim());
     const _lastMsg=msgs.length>0?msgs[msgs.length-1]:null;
-    const _lastIsIntro=_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastMsg.content||"")&&!/Pick a number or name/i.test(_lastMsg.content||"");
+    const _lastContent=_lastMsg?.content||"";
+    const _lastHasProjectList=/\n\d+\.\s+\*\*/.test(_lastContent);
+    const _lastIsIntro=_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastContent)&&!_lastHasProjectList;
     if(_isIntroReply&&_lastIsIntro){
       const n=parseInt(input.trim(),10);
       const _needsProject={compliance:true,researcher:true,contracts:true,billie:true,finn:true,carrie:true,logistical:false,minnie:false};
@@ -10101,7 +10135,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"auto"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
@@ -11591,6 +11625,67 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
   useEffect(()=>{try{localStorage.setItem('onna_postprod',JSON.stringify(postProdStore))}catch{}},[postProdStore]);
   useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
+  // Poll fitting share feedback and sync back to portal
+  useEffect(()=>{
+    if(activeFittingVersion==null||!selectedProject)return;
+    const pid=selectedProject.id;
+    const fitVersions=fittingStore[pid]||[];
+    const fitData=fitVersions[activeFittingVersion];
+    if(!fitData||!fitData.shareToken)return;
+    let cancelled=false;
+    const poll=async()=>{
+      try{
+        const resp=await fetch(`/api/fit-share?token=${encodeURIComponent(fitData.shareToken)}&feedbackOnly=1`);
+        if(!resp.ok||cancelled)return;
+        const data=await resp.json();
+        if(!data.feedback||cancelled)return;
+        const fb=data.feedback;
+        setFittingStore(prev=>{
+          const s=JSON.parse(JSON.stringify(prev));
+          const versions=s[pid]||[];
+          const ver=versions[activeFittingVersion];
+          if(!ver||!ver.fittings)return prev;
+          let changed=false;
+          // fb keys are "c0","c1",... mapping to flattened card indices across all fittings
+          let cardIdx=0;
+          ver.fittings.forEach(fit=>{
+            const visibleCount=Math.max(4,fit.images.length);
+            for(let n=0;n<visibleCount;n++){
+              if(fit.images[n]||n<4){
+                const key="c"+cardIdx;
+                if(fb[key]){
+                  if(fb[key].status&&fb[key].status!=="none"){
+                    if(!fit.imageStatuses)fit.imageStatuses={};
+                    if(fit.imageStatuses[n]!==fb[key].status){fit.imageStatuses[n]=fb[key].status;changed=true;}
+                  }
+                  if(fb[key].note!==undefined){
+                    if(!fit.imageNotes)fit.imageNotes={};
+                    if(fit.imageNotes[n]!==fb[key].note){fit.imageNotes[n]=fb[key].note;changed=true;}
+                  }
+                }
+                cardIdx++;
+              }
+            }
+          });
+          // Also sync status badges (s0,s1,...) back to talent looks
+          if(ver.talent){
+            let statusIdx=0;
+            ver.talent.forEach(t=>{
+              (t.looks||[]).forEach(look=>{
+                const skey="s"+statusIdx;
+                if(fb[skey]&&fb[skey].status&&look.status!==fb[skey].status){look.status=fb[skey].status;changed=true;}
+                statusIdx++;
+              });
+            });
+          }
+          return changed?s:prev;
+        });
+      }catch{}
+    };
+    poll();
+    const timer=setInterval(poll,15000);
+    return()=>{cancelled=true;clearInterval(timer);};
+  },[activeFittingVersion,selectedProject,fittingStore]); // eslint-disable-line
   useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{}},[castingDeckStore]);
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
@@ -16580,7 +16675,7 @@ export default function OnnaDashboard() {
           const hasActiveAgent = agentActiveIdx !== null;
           const useWideLayout = !isMobile;
           return (
-          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":useWideLayout?"auto":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0,overflow:isMobile?"hidden":"visible"}}>
+          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"16px",gap:0,overflow:"hidden"}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
             <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"10px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}

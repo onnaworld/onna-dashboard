@@ -12,7 +12,7 @@ const backendHeaders = (authToken) => ({
 
 const cors = (res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 };
 
@@ -48,6 +48,18 @@ function makeSlug(str) {
     .toLowerCase() || "fitting";
 }
 
+async function findShareByToken(token, useAuth) {
+  const resp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
+  if (!resp.ok) return null;
+  const entries = await resp.json();
+  const list = Array.isArray(entries) ? entries : entries.data || [];
+  return list.find((e) => {
+    if (e.type !== "fit_share") return false;
+    try { return (typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob).token === token; }
+    catch { return false; }
+  });
+}
+
 export default async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -56,6 +68,29 @@ export default async function handler(req, res) {
   const auth = req.headers.authorization || "";
 
   try {
+    // PUT — save client feedback on a shared link
+    if (req.method === "PUT") {
+      const { token, feedback } = req.body;
+      if (!token || !feedback) return res.status(400).json({ error: "Missing token or feedback" });
+
+      const useAuth = await resolveAuth(auth);
+      const match = await findShareByToken(token, useAuth);
+      if (!match) return res.status(404).json({ error: "Share not found" });
+
+      const parsed = typeof match.blob === "string" ? JSON.parse(match.blob) : match.blob;
+      parsed.feedback = feedback;
+      parsed.feedbackUpdatedAt = new Date().toISOString();
+
+      const eid = match.id || match._id;
+      const putResp = await fetch(`${BACKEND}/api/resources/${eid}`, {
+        method: "PUT",
+        headers: backendHeaders(useAuth),
+        body: JSON.stringify({ type: "fit_share", blob: JSON.stringify(parsed) }),
+      });
+      if (!putResp.ok) return res.status(500).json({ error: "Failed to save feedback" });
+      return res.status(200).json({ ok: true });
+    }
+
     // POST — create or update Fitting share
     if (req.method === "POST") {
       const { html, projectName, mode, token: existingToken, resourceId } = req.body;
@@ -74,7 +109,6 @@ export default async function handler(req, res) {
         createdAt: new Date().toISOString(),
       });
 
-      // If we have a resourceId, update the existing resource directly via PUT
       if (resourceId) {
         try {
           const putResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, {
@@ -89,7 +123,6 @@ export default async function handler(req, res) {
         } catch {}
       }
 
-      // If reusing token but no resourceId, delete old entries with this token
       if (existingToken) {
         try {
           const listResp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
@@ -124,25 +157,27 @@ export default async function handler(req, res) {
 
     // GET — fetch Fitting share by token
     if (req.method === "GET") {
-      const { token } = req.query;
+      const { token, feedbackOnly } = req.query;
       if (!token) return res.status(400).json({ error: "Missing token" });
 
       const useAuth = await resolveAuth(auth);
-      const resp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
-      if (!resp.ok) return res.status(500).json({ error: `Backend returned ${resp.status}` });
-      const entries = await resp.json();
-      const list = Array.isArray(entries) ? entries : entries.data || [];
-      const match = list.find((e) => {
-        if (e.type !== "fit_share") return false;
-        try { return (typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob).token === token; }
-        catch { return false; }
-      });
+      const match = await findShareByToken(token, useAuth);
       if (!match) return res.status(404).json({ error: "Share not found" });
 
       const parsed = typeof match.blob === "string" ? JSON.parse(match.blob) : match.blob;
 
+      // If feedbackOnly=1, return just the feedback data as JSON
+      if (feedbackOnly === "1") {
+        return res.status(200).json({
+          feedback: parsed.feedback || null,
+          feedbackUpdatedAt: parsed.feedbackUpdatedAt || null,
+        });
+      }
+
       // Return full rendered HTML page
       const title = parsed.projectName || "Fitting Deck";
+      // Pre-load any existing feedback
+      const existingFeedback = parsed.feedback ? JSON.stringify(parsed.feedback) : "null";
       const page = `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://app.onna.world/onna-o-logo.png">
@@ -160,17 +195,38 @@ body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans
 .btn{display:inline-block;background:#1a1a1a;color:#fff;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;text-decoration:none}
 .btn:hover{background:#333}
 .page-break{page-break-before:always;margin-top:32px;padding-top:16px;border-top:2px solid #000}
+.save-toast{position:fixed;bottom:20px;right:20px;background:#2E7D32;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:9999}
+.save-toast.show{opacity:1}
 @media print{
-  body{background:#fff;padding:8mm 10mm}
-  .fit-wrap{box-shadow:none;border-radius:0}
+  body{background:#fff;padding:0;margin:0}
+  .fit-wrap{box-shadow:none;border-radius:0;max-width:100%;width:100%}
+  .fit-inner{padding:8mm 10mm}
+  .fit-inner img{max-width:100%;height:auto}
   .actions{display:none!important}
+  .save-toast{display:none!important}
   @page{size:landscape;margin:0}
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
 </style></head><body>
 <div class="fit-wrap"><div class="fit-inner">${parsed.html}</div></div>
 <div class="actions"><button class="btn" onclick="window.print()">Download as PDF</button></div>
+<div class="save-toast" id="saveToast">Changes saved</div>
 <script>
+var SHARE_TOKEN="${token.replace(/"/g, '\\"')}";
+var _feedback=${existingFeedback}||{};
+var _saveTimer=null;
+var _toast=document.getElementById('saveToast');
+function showToast(){_toast.classList.add('show');setTimeout(function(){_toast.classList.remove('show');},1500);}
+function saveFeedback(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(function(){
+    fetch(window.location.pathname,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:SHARE_TOKEN,feedback:_feedback})
+    }).then(function(){showToast();}).catch(function(){});
+  },800);
+}
 document.querySelectorAll('span').forEach(function(s){
   if(s.style.fontFamily&&s.style.fontFamily.indexOf('SackersGothic')!==-1&&s.textContent.trim().toLowerCase()==='onna'){
     var img=document.createElement('img');
@@ -181,56 +237,70 @@ document.querySelectorAll('span').forEach(function(s){
     s.replaceWith(img);
   }
 });
-/* Interactive approve/shortlist/reject on shared page */
 (function(){
   var ACTION_C={
-    approved:{bg:"#2E7D32",text:"#fff"},
-    shortlisted:{bg:"#E65100",text:"#fff"},
-    rejected:{bg:"#C62828",text:"#fff"}
+    approved:{bg:"#2E7D32",label:"APPROVE"},
+    shortlisted:{bg:"#E65100",label:"SHORTLIST"},
+    rejected:{bg:"#C62828",label:"REJECT"}
   };
-  /* Make action buttons clickable */
-  document.querySelectorAll('[data-fit-action]').forEach(function(btn){
-    btn.style.cursor='pointer';
-    btn.addEventListener('click',function(){
-      var action=btn.getAttribute('data-fit-action');
-      var card=btn.closest('div[style*="border"]');
-      if(!card)return;
-      var row=btn.parentElement;
-      var siblings=row.querySelectorAll('[data-fit-action]');
-      var wasActive=btn.style.background===ACTION_C[action].bg;
-      /* Reset all buttons in this card */
-      siblings.forEach(function(s){
-        var a=s.getAttribute('data-fit-action');
-        s.style.background='#fff';
-        s.style.color=ACTION_C[a]?ACTION_C[a].bg:'#999';
-      });
-      if(!wasActive){
-        btn.style.background=ACTION_C[action].bg;
-        btn.style.color='#fff';
-        card.style.borderColor=ACTION_C[action].bg;
-        card.style.borderWidth='3px';
-      } else {
-        card.style.borderColor='#eee';
-        card.style.borderWidth='1px';
+  var cards=document.querySelectorAll('[data-fit-card]');
+  /* Index each card and apply existing feedback */
+  cards.forEach(function(card,ci){
+    var fb=_feedback['c'+ci];
+    if(fb){
+      if(fb.status&&fb.status!=='none'){
+        var ac=ACTION_C[fb.status];
+        if(ac){
+          card.style.border='3px solid '+ac.bg;
+          var btn=card.querySelector('[data-fit-action="'+fb.status+'"]');
+          if(btn){btn.style.background=ac.bg;btn.style.color='#fff';}
+        }
       }
-    });
-  });
-  /* Make notes inputs editable */
-  document.querySelectorAll('[data-fit-note]').forEach(function(inp){
-    inp.removeAttribute('disabled');
-    inp.style.cursor='text';
-  });
-  /* Also add notes input to cards that don't have one yet */
-  document.querySelectorAll('[data-fit-card-actions]').forEach(function(row){
-    var card=row.parentElement;
-    if(!card.querySelector('[data-fit-note]')){
-      var inp=document.createElement('input');
-      inp.setAttribute('data-fit-note','1');
-      inp.placeholder='Notes...';
-      inp.style.cssText='width:100%;font-family:inherit;font-size:7px;padding:3px 4px;border:none;border-top:1px solid #f0f0f0;outline:none;color:#666;box-sizing:border-box;background:transparent';
-      inp.addEventListener('input',function(){inp.style.background=inp.value?'#FFFDE7':'transparent';});
-      card.appendChild(inp);
     }
+    /* Wire up action buttons */
+    card.querySelectorAll('[data-fit-action]').forEach(function(btn){
+      btn.style.cursor='pointer';
+      btn.addEventListener('click',function(){
+        var action=btn.getAttribute('data-fit-action');
+        var row=btn.parentElement;
+        var siblings=row.querySelectorAll('[data-fit-action]');
+        var curStatus=(_feedback['c'+ci]||{}).status||'none';
+        var wasActive=curStatus===action;
+        siblings.forEach(function(s){
+          var a=s.getAttribute('data-fit-action');
+          s.style.background='#fff';
+          s.style.color=ACTION_C[a]?ACTION_C[a].bg:'#999';
+        });
+        if(!wasActive){
+          btn.style.background=ACTION_C[action].bg;
+          btn.style.color='#fff';
+          card.style.border='3px solid '+ACTION_C[action].bg;
+          if(!_feedback['c'+ci])_feedback['c'+ci]={};
+          _feedback['c'+ci].status=action;
+        } else {
+          card.style.border='1px solid #eee';
+          if(!_feedback['c'+ci])_feedback['c'+ci]={};
+          _feedback['c'+ci].status='none';
+        }
+        saveFeedback();
+      });
+    });
+    /* Notes input */
+    var noteInp=card.querySelector('[data-fit-note]');
+    if(!noteInp){
+      noteInp=document.createElement('input');
+      noteInp.setAttribute('data-fit-note','1');
+      noteInp.placeholder='Add a note...';
+      noteInp.style.cssText='width:100%;font-family:inherit;font-size:8px;padding:4px 6px;border:none;border-top:1px solid #f0f0f0;outline:none;color:#666;box-sizing:border-box;background:transparent';
+      card.appendChild(noteInp);
+    }
+    if(fb&&fb.note){noteInp.value=fb.note;noteInp.style.background='#FFFDE7';}
+    noteInp.addEventListener('input',function(){
+      noteInp.style.background=noteInp.value?'#FFFDE7':'transparent';
+      if(!_feedback['c'+ci])_feedback['c'+ci]={};
+      _feedback['c'+ci].note=noteInp.value;
+      saveFeedback();
+    });
   });
   /* Interactive status cycling on confirmed looks */
   var STATUSES=["Pending","Option","Approved","Pulled","Returned"];
@@ -241,9 +311,18 @@ document.querySelectorAll('span').forEach(function(s){
     "Pulled":{bg:"#E3F2FD",text:"#1565C0"},
     "Returned":{bg:"#000",text:"#fff"}
   };
-  document.querySelectorAll('[data-fit-status]').forEach(function(el){
+  document.querySelectorAll('[data-fit-status]').forEach(function(el,si){
     el.style.cursor='pointer';
     el.title='Click to change status';
+    /* Apply existing feedback */
+    var sfb=_feedback['s'+si];
+    if(sfb&&sfb.status){
+      var sc=STATUS_C[sfb.status]||STATUS_C["Pending"];
+      el.setAttribute('data-fit-status',sfb.status);
+      el.textContent=sfb.status;
+      el.style.background=sc.bg;
+      el.style.color=sc.text;
+    }
     el.addEventListener('click',function(){
       var cur=el.getAttribute('data-fit-status');
       var idx=STATUSES.indexOf(cur);
@@ -253,6 +332,9 @@ document.querySelectorAll('span').forEach(function(s){
       el.textContent=next;
       el.style.background=sc.bg;
       el.style.color=sc.text;
+      if(!_feedback['s'+si])_feedback['s'+si]={};
+      _feedback['s'+si].status=next;
+      saveFeedback();
     });
   });
 })();
