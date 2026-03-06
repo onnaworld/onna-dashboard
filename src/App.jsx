@@ -4289,15 +4289,18 @@ CURRENT ESTIMATE STATE:
 ${estSnapshot}
 
 INSTRUCTIONS:
-- When the user asks to ADD, UPDATE, or CHANGE rows, header fields, or notes, output a JSON patch inside a \`\`\`json code block.
+- When the user asks to ADD, UPDATE, or CHANGE rows, header fields, or notes, output a SINGLE JSON patch inside a \`\`\`json code block. Only ONE json block per response.
 - For top sheet fields: {"ts": {"client":"...","date":"...","project":"...","photographer":"...","deliverables":"...","deadlines":"...","usage":"...","shootDate":"...","location":"...","payment":"..."}}
-- For row updates by ref: {"rows": {"1A": {"rate":"5000","days":"2"}, "4B": {"desc":"DOP","rate":"3000"}}}
-- To add a row: {"addRow": {"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}}
+- PREFER updating existing rows by ref — the template already has most standard line items (photographer, DOP, gaffer, models, lighting, catering, etc). Match your items to existing refs: {"rows": {"1A": {"rate":"5000","days":"2","qty":"1"}, "4B": {"rate":"3000","days":"1","qty":"1"}}}
+- You can update MANY rows at once in a single "rows" object. When populating a budget, set days, qty, and rate on every relevant existing ref.
+- To add NEW rows that don't exist in the template: {"addRows": [{"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}, {"section":11, "desc":"ANOTHER ITEM", "days":"1", "qty":"1", "rate":"1500"}]}
+- To add a single new row: {"addRow": {"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}}
+- You can combine "rows" and "addRows" in the same patch to update existing AND add new rows simultaneously.
 - To remove a row: {"removeRow": "4P"}
 - For notes: {"notes": "..."}
 - To save as a NEW version (e.g. "save as V2"): {"saveAsVersion": "PRODUCTION ESTIMATE V2"}. This duplicates the current estimate into a new version tab WITHOUT overwriting the original. Always use this when the user says "save as V2", "create V2", "duplicate as V3", etc. NEVER overwrite an existing version — always create a new one.
 - Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
-- Each row has: ref (e.g. "1A"), desc, notes, days, qty, rate. Total = days × qty × rate.
+- Each row has: ref (e.g. "1A"), desc, notes, days, qty, rate. Total = days × qty × rate. All values MUST be strings.
 - Section 18 (Production Fees) rows with a % in notes auto-calculate from subtotal.
 - Always show dual currency: AED and USD (fixed rate: 1 AED = 0.27 USD).
 - Be warm, concise and professional.
@@ -4339,9 +4342,10 @@ function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProj
     ver.sections = sections;
   }
 
-  // Add row to section
-  if (patch.addRow) {
-    const { section: secNum, ...rowData } = patch.addRow;
+  // Add row(s) to section — supports single addRow or addRows array
+  const rowsToAdd = patch.addRows ? patch.addRows : patch.addRow ? [patch.addRow] : [];
+  for (const entry of rowsToAdd) {
+    const { section: secNum, ...rowData } = entry;
     const sec = sections.find(s => s.id === secNum || s.num === String(secNum));
     if (sec) {
       const nextRef = sec.num + String.fromCharCode(65 + sec.rows.length);
@@ -19393,17 +19397,6 @@ export default function OnnaDashboard() {
             results.push({cs,projName,client,projectId:pid,label:cs.label||"Untitled",date:cs.date||"",crewCount,source:"active"});
           });
         });
-        // Archived
-        (archive||[]).filter(e=>e.table==="callSheets").forEach(entry=>{
-          const it=entry.item;
-          const cs=it.callSheet||it;
-          const pid=it.projectId||"";
-          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-          const projName=proj?.name||"Unknown Project";
-          const client=proj?.client||"";
-          const crewCount=(cs.departments||[]).reduce((sum,d)=>(d.crew||[]).length+sum,0);
-          results.push({cs,projName,client,projectId:pid,label:cs.label||"Untitled",date:cs.date||"",crewCount,source:"archived"});
-        });
         // Filter
         const filtered=q?results.filter(r=>[r.projName,r.client,r.label,r.cs.shootName||""].some(s=>(s||"").toLowerCase().includes(q))):results;
         // Group by project
@@ -19440,7 +19433,7 @@ export default function OnnaDashboard() {
                     {items.map((r,ri)=>(
                       <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#c47090";e.currentTarget.style.background="#fff5f7";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}{r.source==="archived"?" (archived)":""}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</div>
                           <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.crewCount} crew</div>
                         </div>
                         <div style={{fontSize:11,color:"#c47090",fontWeight:600,flexShrink:0}}>Duplicate</div>
@@ -19467,17 +19460,6 @@ export default function OnnaDashboard() {
             const hazardCount=(ra.hazards||[]).length;
             results.push({ra,projName,client,projectId:pid,label:ra.label||ra.shootName||"Untitled",date:ra.shootDate||"",hazardCount,source:"active"});
           });
-        });
-        // Archived risk assessments
-        (archive||[]).filter(e=>e.table==="riskAssessments").forEach(entry=>{
-          const it=entry.item;
-          const ra=it.riskAssessment||it;
-          const pid=it.projectId||"";
-          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-          const projName=proj?.name||"Unknown Project";
-          const client=proj?.client||"";
-          const hazardCount=(ra.hazards||[]).length;
-          results.push({ra,projName,client,projectId:pid,label:ra.label||ra.shootName||"Untitled",date:ra.shootDate||"",hazardCount,source:"archived"});
         });
         const filtered=q?results.filter(r=>[r.projName,r.client,r.label,r.ra.shootName||""].some(s=>(s||"").toLowerCase().includes(q))):results;
         const grouped={};
@@ -19512,7 +19494,7 @@ export default function OnnaDashboard() {
                     {items.map((r,ri)=>(
                       <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6a9eca";e.currentTarget.style.background="#f3f8ff";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}{r.source==="archived"?" (archived)":""}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</div>
                           <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.hazardCount} hazard{r.hazardCount!==1?"s":""}</div>
                         </div>
                         <div style={{fontSize:11,color:"#6a9eca",fontWeight:600,flexShrink:0}}>Duplicate</div>
@@ -19554,16 +19536,6 @@ export default function OnnaDashboard() {
             results.push({item,projName,client,projectId:pid,label:_getLabel(item),source:"active"});
           });
         });
-        const _getLabel2=conf.getLabelFn||(item=>item[conf.labelKey]||"Untitled");
-        (archive||[]).filter(e=>e.table===conf.archiveTable).forEach(entry=>{
-          const it=entry.item;
-          const item=it[conf.archiveKey]||it;
-          const pid=it.projectId||"";
-          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-          const projName=proj?.name||"Unknown Project";
-          const client=proj?.client||"";
-          results.push({item,projName,client,projectId:pid,label:_getLabel2(item),source:"archived"});
-        });
         const filtered=q?results.filter(r=>[r.projName,r.client,r.label].some(s=>(s||"").toLowerCase().includes(q))):results;
         const grouped={};
         filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
@@ -19598,7 +19570,7 @@ export default function OnnaDashboard() {
                     {items.map((r,ri)=>(
                       <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#1976D2";e.currentTarget.style.background="#e3f2fd";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}{r.source==="archived"?" (archived)":""}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</div>
                           <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{conf.descFn(r)}</div>
                         </div>
                         <div style={{fontSize:11,color:"#1976D2",fontWeight:600,flexShrink:0}}>Duplicate</div>
