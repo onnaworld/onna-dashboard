@@ -18702,41 +18702,29 @@ export default function OnnaDashboard() {
           const hasActiveAgent = agentActiveIdx !== null;
           const useWideLayout = !isMobile;
           return (
-          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"0 8px",gap:0,overflow:"hidden"}}>
-            {/* Agent search + avatars */}
-            <div style={{flexShrink:0,borderBottom:"1px solid #e5e5ea"}}>
-              {!isMobile&&agentActiveIdx===null&&<div style={{display:"flex",justifyContent:"center",padding:"8px 16px 0"}}>
-                <input value={agentSearch} onChange={e=>{setAgentSearch(e.target.value);setAgentStart(0);}} placeholder="Search agents..." style={{width:"100%",maxWidth:320,padding:"6px 12px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:12,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none"}}/>
-              </div>}
-              <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"0 12px"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
-              {/* Prev arrow */}
-              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s-1+agentTotal)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
+          <div style={{display:"flex",flexDirection:isMobile?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"0 8px",gap:0,overflow:"hidden"}}>
+            {/* Mobile: horizontal agent strip on top */}
+            {isMobile&&<div style={{flexShrink:0,borderBottom:"1px solid #e5e5ea"}}>
+              <div style={{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}}>
+              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s-1+agentTotal)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0}}>‹</button>}
               {Array.from({length:Math.min(AGENTS_VISIBLE,agentTotal)},(_,k)=>_filteredAgents[(agentStart+k)%agentTotal]).map((a)=>{
                 const i=AGENT_DEFS.indexOf(a);
                 const isActive=agentActiveIdx===i;
-                const isHover=agentHoverIdx===i;
                 return(
-                <button key={a.id}
-                  onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)}
-                  onMouseEnter={()=>setAgentHoverIdx(i)}
-                  onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={isMobile?{flex:"0 0 auto",width:"20%",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 2px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}:useWideLayout?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"2px 4px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.45)":"scale(1)",transformOrigin:"center",margin:useWideLayout?"-14px 0":0}}>
-                    <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
-                  </div>
-                  <span style={{fontSize:isMobile?8:useWideLayout?8:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
-                </button>
-              );})}
-              {/* Next arrow */}
-              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
+                <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} onMouseEnter={()=>setAgentHoverIdx(i)} onMouseLeave={()=>setAgentHoverIdx(null)}
+                  style={{flex:"0 0 auto",width:"20%",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 2px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}}>
+                  <div style={{transform:"scale(0.65)",transformOrigin:"center"}}><a.Blob mood={isActive?"excited":"idle"} bob={0}/></div>
+                  <span style={{fontSize:8,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:0.5,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
+                </button>);})}
+              {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0}}>›</button>}
               </div>
-            </div>
-            {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",minHeight:0,padding:isMobile?"0":useWideLayout?"2px 8px":"8px 8px 8px 0"}}>
+            </div>}
+            {/* Chat panel — takes full height on desktop */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":"4px 8px"}}>
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:"100%",minHeight:0,width:"100%",maxWidth:isMobile?"none":900}}>
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:"100%",minHeight:0,width:"100%",maxWidth:"none"}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
@@ -18809,6 +18797,19 @@ export default function OnnaDashboard() {
                 </div>
               )}
             </div>
+            {/* Desktop: vertical agent strip on right */}
+            {!isMobile&&<div style={{flex:"0 0 72px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 0",overflowY:"auto",borderLeft:"1px solid #e5e5ea"}}>
+              {_filteredAgents.map((a)=>{
+                const i=AGENT_DEFS.indexOf(a);
+                const isActive=agentActiveIdx===i;
+                const isHover=agentHoverIdx===i;
+                return(
+                <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} onMouseEnter={()=>setAgentHoverIdx(i)} onMouseLeave={()=>setAgentHoverIdx(null)}
+                  style={{width:68,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"4px 2px",borderRadius:10,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}}>
+                  <div style={{transform:"scale(0.45)",transformOrigin:"center",margin:"-12px 0"}}><a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/></div>
+                  <span style={{fontSize:7,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:0.8,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%",lineHeight:1.2}}>{a.name}</span>
+                </button>);})}
+            </div>}
           </div>
           );})()}
 
