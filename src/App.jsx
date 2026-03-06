@@ -13034,14 +13034,14 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <div key={sec} onClick={()=>{setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCSVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
                   <div style={{fontSize:11,color:T.muted}}>{meta.count}</div>
                 </div>
                 <span style={{marginLeft:"auto",color:T.muted,fontSize:14,flexShrink:0}}>›</span>
-              </div>
+              </a>
             ); })}
         </div>
         {/* Delete project */}
@@ -13124,14 +13124,14 @@ export default function OnnaDashboard() {
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Creative assets for this project.</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
             {[["moodboard","Moodboard","🎨",moodFiles],["brief","Brief","📋",briefFiles]].map(([key,label,emoji,files])=>(
-              <div key={key} onClick={()=>{setCreativeSubSection(key);pushNav("Projects",p,"Creative",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <a key={key} href={buildPath("Projects",p.id,"Creative",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setCreativeSubSection(key);pushNav("Projects",p,"Creative",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
                   <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
                   <div style={{fontSize:12,color:T.muted}}>{files.length} file{files.length!==1?"s":""}</div>
                 </div>
                 <span style={{color:T.muted,fontSize:16,flexShrink:0}}>›</span>
-              </div>
+              </a>
             ))}
           </div>
         </div>
@@ -13151,14 +13151,14 @@ export default function OnnaDashboard() {
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Budget management for this project.</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
             {[["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`],["invoices","Invoices & Receipts","🧾","Upload invoices & receipts"]].map(([key,label,emoji,desc])=>(
-              <div key={key} onClick={()=>{setBudgetSubSection(key);pushNav("Projects",p,"Budget",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+              <a key={key} href={buildPath("Projects",p.id,"Budget",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setBudgetSubSection(key);pushNav("Projects",p,"Budget",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
                   <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
                   <div style={{fontSize:12,color:T.muted}}>{desc}</div>
                 </div>
                 <span style={{color:T.muted,fontSize:16,flexShrink:0}}>›</span>
-              </div>
+              </a>
             ))}
           </div>
         </div>
@@ -13621,13 +13621,13 @@ export default function OnnaDashboard() {
       if (!documentsSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           {DOC_CARDS.map(c=>(
-            <div key={c.key} onClick={()=>{setDocumentsSubSection(c.key);pushNav("Projects",p,"Documents",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+            <a key={c.key} href={buildPath("Projects",p.id,"Documents",c.key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setDocumentsSubSection(c.key);pushNav("Projects",p,"Documents",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
                 <div style={{fontSize:12,color:T.muted,marginTop:2}}>Open {c.label.toLowerCase()}</div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       );
@@ -15977,14 +15977,14 @@ export default function OnnaDashboard() {
       <div style={{width:220,flexShrink:0,background:"rgba(255,255,255,0.82)",borderRight:`1px solid ${T.border}`,display:isMobile?"none":"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
         <a href="/" onClick={(e)=>{if(!e.metaKey&&!e.ctrlKey){e.preventDefault();changeTab("Dashboard")}}} style={{padding:"20px 18px 16px",display:"flex",alignItems:"center",cursor:"pointer",textDecoration:"none"}}>
           <img src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAoAKADASIAAhEBAxEB/8QAGgABAAMBAQEAAAAAAAAAAAAAAAYICQUHA//EAEIQAAEDAwIDBQIKBQ0AAAAAAAECAwQABREGBwgSIRMUMUFRCTIVFiIjQlJhcXSzFzY4gZEYM0NUVmJygoOUocPT/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/ALl0pUD343Jt21W3UvVM1kSX+YR4MXm5e8SFAlKc+QAClE+iT54oJy860y0p15xDbaBlS1qACR6kmufB1DYJz5jwr5bJTwOC2zLQtQ/cDms6IkffDiZ1A8sSHrhDjODn7R0R7dC5vABPhnHoFLI8c+NSa68GO6kO3KkxLppi4SEJyYzMt1C1H0SVtpT/ABKaDQSlZ47P75bjbNa6Gk9wHLnKs7DyY8+3z1Fx+EnyWyoknABBCQSlQ8PEGtCoz7MmO1JjuodZdQFtrQcpUkjIIPmCKD6UqkXtJJEhnV2kAy+62DAfyELIz84n0rscD+/JkCNtfrGaS8PkWOa8vqsf1ZRPn9Qnx936oIXFpVc/aFPvMbFRFMPONFV9jpJQojI7J446fcK7HAo447w6WlbrilqMyX1Ucn+eVQe6UrlawJGkbyQcEQH+v+mqsrtq9x9S7d61hans0x1xxg8r8d1wluS0febWPQ48fIgEdRQazUqMbXa5sW4ui4WqdPP9pFkpw42ojtI7o95pY8lJP8RgjIINUl0hLlL9oA+0uS8pv40zk8pcJGAHcDHpQaA0pUA4gtfs7abU3jU5WjvqW+725tX9JJXkNjHmB1WR6JNBP6VkIU6qctTmrS7c1QhOEdc/tVY7ypJcCebPvYBVWmvDhuG3uZtNadRLcSbihPdbmgfRktgBRx5BQKVgeixQejUpSgVUT2lnevi1ovkJ7p3yV2vpz8jfJ/xz1buoFv3ttA3V24maXlvCNJ5hIgSSM9hISDyqI80kEpP2KOOuKCO8GybMnh00v8C9jgtOGXyY5jI7RXac/nnPr9Hl8sV6/Wadpu29nDPqOTFMR6BEkPfONSWC9b5xT4KQroM480qSrGAceFS+88aO5Uu2KjQLJpy3SVpKTKQy64pB9UJWspB/xBQoOx7SZdkOtNKIi9j8Mpgv995cc/Y86ex5v39tirYbCiSnZDQ4mBQeFghBQV447BGM/bjFUn2S2Q17vPrlOstfpuLNkefEidOnAodngY+baBweUgBPMAEpHh1AFaFMNNMMNsMtpbabSEIQkYCUgYAA9KCkPtKv1v0f+AkfmJqI8QWx7+mNDaZ3R0ey4i2SrZCdubLOQYUhTSD2ycdQhSj1+qo+hAEu9pUD8btHnHTuEj8xNW026gxbhs9pu3XCM1JiyLBFZfYdQFIcQqOkKSoHxBBIxQUc3P3xTuZwyw9O6gfA1ZarxGLqj078wGnkh4f3gSAsepBHjgWZ4D/2cbR+Ml/nKqo3FVsrL2n1d3m3Nuv6VuTilW985UWVeJYWfrDyJ95PXxCsW54D/wBnG0fjJf5yqD2LWX6oXn8A/wDlqrOjhP20tG6t01bpq5q7B8WXtoEsDKoz4eQErx5jqQR5gnwOCNF9YgnSN5AGSYD/AOWqqR+zcB/SjqQ46fAn/e3QQ3Z3Xeq+HDd6dYNTRXxbVPBi8QQchSfoSGvIkA8wP0knHTII6O2lyg3njvbu1rlNy4MzUkx+O+2cpcbUl0pUPvBq0PFnsjH3U0r8J2hptrVlsaJhudE96b8THWft6lJPgo+QUapnwpRpELiZ0nDlsOR5LFwdbdacSUrbWlpwFJB6ggjGKDT2s/8Aj+3G+Mu47Gire/zW3ToIf5T8lyWsDn+/kThP2Erq5m9+uY+3O1961Y8EreiscsRtXg7IX8ltP3cxBP2AmqJcL2zat8NU3+6aouNyYtkYdrJlx1JDz8t1RUBlaVDwC1K6eafWg9Jt2ruHpvheO1T2skJuD0TvLsn4JlkC4n5Ycz2XUBYCM+aBioZwGbj/ABT3QVpO4P8AJatShLKOY/Jblpz2R/zZKPtKkele2/yKNtP7Sau/3Ef/AMa8C4qtj29l7jYbxpe43STapZKRJkrSXY8pB5gOZCUgApwU9M5Qqg0bpUB4fdftblbUWfU+UiatvsLghIxySW+jnTyB6KA9FCp9QKUpQfOSwxJZUzJZbeaV7yHEhST94NciHpDScKZ32HpeyRpWebtmoDSF59eYJzmlKDt0pSgUpSgUpSgUpSgUpSgUpSgUpSgUpSg//9k=" alt="ONNA" style={{height:24,width:"auto",display:"block"}}/>
-        </div>
+        </a>
 
         <nav style={{flex:1,padding:"4px 8px",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
           {TABS.map(t=>(
-            <button key={t.id} onClick={()=>changeTab(t.id)} className={`nav-btn${activeTab===t.id?" active":""}`}>
+            <a key={t.id} href={buildPath(t.id,null,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();changeTab(t.id);}} className={`nav-btn${activeTab===t.id?" active":""}`} style={{textDecoration:"none",color:"inherit"}}>
               <StarIcon size={11} color={t.starColor||"currentColor"}/>
               <span>{t.label}</span>
-            </button>
+            </a>
           ))}
         </nav>
         <div style={{margin:10,position:"relative"}}>
@@ -16114,7 +16114,7 @@ export default function OnnaDashboard() {
                   </div>
                   <div style={{overflowY:"auto",maxHeight:480}}>
                     {activeProjects.map((p,i)=>(
-                      <div key={p.id} onClick={()=>{setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <a key={p.id} href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s",textDecoration:"none",color:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                         <div>
                           <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,fontWeight:500}}>{p.client}</div>
                           <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
@@ -16122,7 +16122,7 @@ export default function OnnaDashboard() {
                         <div style={{textAlign:"right"}}>
                           <div style={{fontSize:13,fontWeight:600,color:T.sub}}>{(projectTodos[p.id]||[]).length} task{(projectTodos[p.id]||[]).length!==1?"s":""}</div>
                         </div>
-                      </div>
+                      </a>
                     ))}
                     {activeProjects.length===0&&<div style={{padding:"28px 18px",textAlign:"center",fontSize:13,color:T.muted}}>No active projects.</div>}
                   </div>
@@ -16663,7 +16663,7 @@ export default function OnnaDashboard() {
                         className="proj-card"
                         style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",cursor:"grab"}}
                       >
-                        <div onClick={()=>{setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer"}}>
+                        <a href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer",textDecoration:"none",color:"inherit"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                             <div>
                               <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:3,fontWeight:500}}>{p.client}</div>
@@ -16686,7 +16686,7 @@ export default function OnnaDashboard() {
                             <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:11.5,color:T.muted}}>Margin</span><span style={{fontSize:11.5,fontWeight:600,color:T.text}}>{margin}%</span></div>
                             <div style={{height:3,borderRadius:999,background:T.borderSub}}><div style={{width:`${margin}%`,height:"100%",borderRadius:999,background:T.accent}}/></div>
                           </div>
-                        </div>
+                        </a>
                         <div style={{display:"flex",gap:8,marginTop:-3}}>
                           {p.client==="TEMPLATE"?(
                           <button
@@ -17235,10 +17235,10 @@ export default function OnnaDashboard() {
           <div onClick={()=>setMobileMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:199,background:"rgba(0,0,0,0.25)"}}/>
           <div style={{position:"fixed",top:50,left:0,right:0,zIndex:200,background:"rgba(255,255,255,0.98)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:`1px solid ${T.border}`,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",maxHeight:"calc(100vh - 60px)",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
             {TABS.map(t=>(
-              <button key={t.id} onClick={()=>{changeTab(t.id);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:activeTab===t.id?"#f5f5f7":"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit"}}>
+              <a key={t.id} href={buildPath(t.id,null,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();changeTab(t.id);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:activeTab===t.id?"#f5f5f7":"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit",textDecoration:"none",color:"inherit"}}>
                 <StarIcon size={12} color={activeTab===t.id?(t.starColor||"#1d1d1f"):"#aeaeb2"}/>
                 <span style={{fontSize:13,fontWeight:activeTab===t.id?700:500,letterSpacing:"0.04em",color:activeTab===t.id?"#1d1d1f":"#666"}}>{t.label}</span>
-              </button>
+              </a>
             ))}
             <button onClick={()=>{setShowArchive(true);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit"}}>
               <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="#aeaeb2" strokeWidth="1.3"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="#aeaeb2" strokeWidth="1.3"/><path d="M4.5 7h3" stroke="#aeaeb2" strokeWidth="1.3" strokeLinecap="round"/></svg>
