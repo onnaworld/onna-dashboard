@@ -7007,12 +7007,19 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
   const [codyPickerPid,setCodyPickerPid]=useState(null); // projectId when contract picker is shown
-  const codyUndoStack=useRef([]); // undo stack for contract changes (up to 50)
-  const codyUndoThrottle=useRef(0);
-  const pushCodyUndo=useCallback(()=>{if(!contractDocStore)return;const now=Date.now();if(now-codyUndoThrottle.current<300)return;codyUndoThrottle.current=now;codyUndoStack.current.push(JSON.parse(JSON.stringify(contractDocStore)));if(codyUndoStack.current.length>50)codyUndoStack.current.shift();},[contractDocStore]);
-  const popCodyUndo=useCallback(()=>{if(codyUndoStack.current.length===0)return false;const snap=codyUndoStack.current.pop();if(setContractDocStore)setContractDocStore(snap);return true;},[setContractDocStore]);
-  // Auto-push undo for all contract store changes when Cody is active
-  const codySetContractDocStore=useCallback((updater)=>{pushCodyUndo();if(setContractDocStore)setContractDocStore(updater);},[pushCodyUndo,setContractDocStore]);
+  const [codyTabs,setCodyTabs]=useState(()=>{try{const s=localStorage.getItem('onna_cody_tabs');return s?JSON.parse(s):[];}catch{return [];}});
+  const addCodyTab=(projectId,vIdx,label)=>setCodyTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
+  const [ctCreateMenuCody,setCtCreateMenuCody]=useState(false);
+  const ctCreateBtnRefCody=useRef(null);
+  const agentUndoStack=useRef([]); // unified undo stack for all agent doc changes (up to 50)
+  const agentUndoThrottle=useRef(0);
+  const pushAgentUndo=useCallback(()=>{const now=Date.now();if(now-agentUndoThrottle.current<300)return;agentUndoThrottle.current=now;const snap={};if(contractDocStore)snap.contractDocStore=JSON.parse(JSON.stringify(contractDocStore));if(callSheetStore)snap.callSheetStore=JSON.parse(JSON.stringify(callSheetStore));if(riskAssessmentStore)snap.riskAssessmentStore=JSON.parse(JSON.stringify(riskAssessmentStore));if(projectEstimates)snap.projectEstimates=JSON.parse(JSON.stringify(projectEstimates));agentUndoStack.current.push(snap);if(agentUndoStack.current.length>50)agentUndoStack.current.shift();},[contractDocStore,callSheetStore,riskAssessmentStore,projectEstimates]);
+  const popAgentUndo=useCallback(()=>{if(agentUndoStack.current.length===0)return false;const snap=agentUndoStack.current.pop();if(snap.contractDocStore&&setContractDocStore)setContractDocStore(snap.contractDocStore);if(snap.callSheetStore&&setCallSheetStore)setCallSheetStore(snap.callSheetStore);if(snap.riskAssessmentStore&&setRiskAssessmentStore)setRiskAssessmentStore(snap.riskAssessmentStore);if(snap.projectEstimates&&setProjectEstimates)setProjectEstimates(snap.projectEstimates);return true;},[setContractDocStore,setCallSheetStore,setRiskAssessmentStore,setProjectEstimates]);
+  const pushCodyUndo=pushAgentUndo;const popCodyUndo=popAgentUndo;
+  const codySetContractDocStore=useCallback((updater)=>{pushAgentUndo();if(setContractDocStore)setContractDocStore(updater);},[pushAgentUndo,setContractDocStore]);
+  const undoSetCallSheetStore=useCallback((updater)=>{pushAgentUndo();if(setCallSheetStore)setCallSheetStore(updater);},[pushAgentUndo,setCallSheetStore]);
+  const undoSetRiskAssessmentStore=useCallback((updater)=>{pushAgentUndo();if(setRiskAssessmentStore)setRiskAssessmentStore(updater);},[pushAgentUndo,setRiskAssessmentStore]);
+  const undoSetProjectEstimates=useCallback((updater)=>{pushAgentUndo();if(setProjectEstimates)setProjectEstimates(updater);},[pushAgentUndo,setProjectEstimates]);
 
   // ── Split-pane: detect if agent has active project context ──
   const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx);
@@ -7035,8 +7042,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
-  // Cmd+Z undo for Contract Cody (works even from textarea)
-  useEffect(()=>{if(agent.id!=="contracts"||!active)return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){if(codyUndoStack.current.length===0)return;e.preventDefault();if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last contract change."}]);}}};window.addEventListener("keydown",handler);return()=>window.removeEventListener("keydown",handler);},[agent.id,active,popCodyUndo,setMsgs]);
+  // Cmd+Z undo for all doc agents (contracts, compliance, researcher, billie) — works even from textarea
+  useEffect(()=>{if(!active)return;const docAgents=["contracts","compliance","researcher","billie"];if(!docAgents.includes(agent.id))return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){if(agentUndoStack.current.length===0)return;e.preventDefault();e.stopPropagation();popAgentUndo();}};window.addEventListener("keydown",handler,true);return()=>window.removeEventListener("keydown",handler,true);},[agent.id,active,popAgentUndo]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   
@@ -7057,6 +7064,12 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="billie"&&billieCtx&&billieCtx.vIdx!=null&&billieTabs.length===0){const p=localProjects?.find(pr=>pr.id===billieCtx.projectId);if(p){const vs=projectEstimates?.[p.id]||[];const vLabel=(vs[billieCtx.vIdx]?.ts?.version)||`V${(billieCtx.vIdx||0)+1}`;addBillieTab(p.id,billieCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
   // Remove billie tabs for archived/deleted projects
   useEffect(()=>{if(agent.id==="billie"&&billieTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=billieTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==billieTabs.length){setBillieTabs(filtered);if(billieCtx&&!activeIds.has(billieCtx.projectId)){if(filtered.length>0){setBillieCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setBillieCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
+  // Cody tabs: persist
+  useEffect(()=>{if(agent.id==="contracts"){try{localStorage.setItem('onna_cody_tabs',JSON.stringify(codyTabs));}catch{}}},[codyTabs,agent.id]);
+  // Seed cody tab from existing codyCtx on mount
+  useEffect(()=>{if(agent.id==="contracts"&&codyCtx&&codyCtx.vIdx!=null&&codyTabs.length===0){const p=localProjects?.find(pr=>pr.id===codyCtx.projectId);if(p){const vs=contractDocStore?.[p.id]||[];const v=vs[codyCtx.vIdx];const vLabel=v?.label||CONTRACT_TYPE_LABELS[v?.contractType]||`Version ${(codyCtx.vIdx||0)+1}`;addCodyTab(p.id,codyCtx.vIdx,`${p.name} · ${vLabel}`);}}},[]);// eslint-disable-line react-hooks/exhaustive-deps
+  // Remove cody tabs for archived/deleted projects
+  useEffect(()=>{if(agent.id==="contracts"&&codyTabs.length>0&&localProjects){const activeIds=new Set(localProjects.map(p=>p.id));const filtered=codyTabs.filter(t=>activeIds.has(t.projectId));if(filtered.length!==codyTabs.length){setCodyTabs(filtered);if(codyCtx&&!activeIds.has(codyCtx.projectId)){if(filtered.length>0){setCodyCtx({projectId:filtered[0].projectId,vIdx:filtered[0].vIdx});}else{setCodyCtx(null);}}}}},[localProjects,agent.id]);// eslint-disable-line react-hooks/exhaustive-deps
   const searchViaExt=(query,source)=>new Promise(resolve=>{
     if(!_loganExtId)return resolve({ok:false,error:"Extension not detected — reload the dashboard after installing the extension, and make sure Outlook or WhatsApp Web is open in another tab."});
     if(!window.chrome?.runtime?.sendMessage)return resolve({ok:false,error:"Not running in Chrome with the extension installed."});
@@ -7224,7 +7237,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:_introWithProjects}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);setCodyPickerPid(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setBillieTabs([]);setCodyCtx(null);setCodyTabs([]);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);setCodyPickerPid(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -8643,6 +8656,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
         setLoading(false);setMood("idle");return;
       }
+      // Undo command
+      if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
+        if(popAgentUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last change. You can undo up to 50 changes, or press ⌘Z."}]);}
+        else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
+        setLoading(false);setMood("idle");return;
+      }
 
       // Switch / open another project
       if(/\b(switch|change|another|different|other|pick another|new project|open another|swap)\b.*\bproject\b/i.test(input)||/\bproject\b.*\b(switch|change|another|different|other|swap)\b/i.test(input)||/^\s*(switch|change)\s*(project)?\s*$/i.test(input)){
@@ -9061,6 +9080,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
         setLoading(false);setMood("idle");return;
       }
+      // Undo command
+      if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
+        if(popAgentUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last change. You can undo up to 50 changes, or press ⌘Z."}]);}
+        else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
+        setLoading(false);setMood("idle");return;
+      }
 
       // Rename via chat
       {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
@@ -9431,6 +9456,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
         setRonnieCtx(null);
         setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return;
+      }
+      // Undo command
+      if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
+        if(popAgentUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last change. You can undo up to 50 changes, or press ⌘Z."}]);}
+        else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
         setLoading(false);setMood("idle");return;
       }
 
@@ -9942,6 +9973,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           codyPendingRef.current=null;
           setCodyCtx({projectId:pid,vIdx:newIdx});
           if(setActiveContractVersion) setActiveContractVersion(newIdx);
+          addCodyTab(pid,newIdx,`${proj?.name||"Project"} · ${label}`);
           setMsgs([...history,{role:"assistant",content:`Created ${label} for ${proj?.name}. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
         }
@@ -9960,10 +9992,14 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           setMsgs([...history,{role:"assistant",content:`${project.name} doesn't have any contracts yet. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return;
         }
-        codyPendingRef.current={projectId:project.id,step:"pick_existing_or_new"};setCodyPickerPid(project.id);
-        const list=ctVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`${project.name} has ${ctVersions.length} contract${ctVersions.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);
-        setLoading(false);setMood("idle");return;
+        // Open ALL contracts as tabs, activate last
+        ctVersions.forEach((v,i)=>{addCodyTab(project.id,i,`${project.name} · ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`);});
+        const lastIdx=ctVersions.length-1;
+        setCodyCtx({projectId:project.id,vIdx:lastIdx});codyPendingRef.current=null;
+        if(setActiveContractVersion) setActiveContractVersion(lastIdx);
+        const lastLabel=ctVersions[lastIdx].label||CONTRACT_TYPE_LABELS[ctVersions[lastIdx].contractType]||`Version ${lastIdx+1}`;
+        setMsgs([...history,{role:"assistant",content:`Opened ${ctVersions.length} contract${ctVersions.length>1?"s":""} for ${project.name}. Working on ${lastLabel}. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
       }
 
       let {projectId,vIdx}=codyCtx;
@@ -9995,20 +10031,19 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       if(switchProject){
         const swVersions=contractDocStore?.[switchProject.id]||[];
         if(swVersions.length===0){
-          setCodyCtx(null);
+          setCodyCtx(null);setCodyTabs([]);
           const typeList=CONTRACT_TYPE_IDS.map((t,i)=>`${i+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");
           codyPendingRef.current={projectId:switchProject.id,step:"pick_type"};
           setMsgs([...history,{role:"assistant",content:`${switchProject.name} doesn't have any contracts yet. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);
-        }else if(swVersions.length===1){
-          setCodyCtx({projectId:switchProject.id,vIdx:0});
-          codyPendingRef.current=null;
-          if(setActiveContractVersion) setActiveContractVersion(0);
-          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${swVersions[0].label||"Version 1"}). What would you like to do?`}]);
         }else{
-          setCodyCtx(null);
-          codyPendingRef.current={projectId:switchProject.id,step:"pick_existing_or_new"};setCodyPickerPid(switchProject.id);
-          const list=swVersions.map((v,i)=>`${i+1}. ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${swVersions.length} contracts:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);
+          // Open ALL contracts as tabs, activate last
+          setCodyTabs([]);
+          swVersions.forEach((v,i)=>{addCodyTab(switchProject.id,i,`${switchProject.name} · ${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}`);});
+          const lastIdx=swVersions.length-1;
+          setCodyCtx({projectId:switchProject.id,vIdx:lastIdx});codyPendingRef.current=null;
+          if(setActiveContractVersion) setActiveContractVersion(lastIdx);
+          const lastLabel=swVersions[lastIdx].label||CONTRACT_TYPE_LABELS[swVersions[lastIdx].contractType]||`Version ${lastIdx+1}`;
+          setMsgs([...history,{role:"assistant",content:`Opened ${swVersions.length} contract${swVersions.length>1?"s":""} for ${switchProject.name}. Working on ${lastLabel}. What would you like to do?`}]);
         }
         setLoading(false);setMood("idle");return;
       }
@@ -10501,19 +10536,19 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           <div style={{padding:"6px 12px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
             <span style={{fontSize:11,fontWeight:600,color:"#6e6e73",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.id==="contracts"&&codyCtx?(()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];return(v?.label||`Version ${(codyCtx.vIdx||0)+1}`)+" Preview";})():agent.id==="compliance"&&connieDietMode?"Dietary Preview":agent.id==="compliance"?"Call Sheet Preview":agent.id==="researcher"?"Risk Assessment Preview":agent.id==="billie"?"Estimate Preview":agent.id==="carrie"?"Casting Deck Preview":"Preview"}</span>
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              {["contracts","compliance","researcher","billie"].includes(agent.id)&&<button onClick={()=>{if(popAgentUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last change."}]);}}} title="Undo (⌘Z)" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";}}>⌘Z</button>}
               {agent.id==="contracts"&&codyCtx&&<>
-                <button onClick={()=>{if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last change."}]);}}} title="Undo (⌘Z)" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";}}>⌘Z</button>
-                <button onClick={()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];const label=v?.label||`Version ${(codyCtx.vIdx||0)+1}`;if(!confirm(`Delete "${label}"?`))return;pushCodyUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[codyCtx.projectId]||[];arr.splice(codyCtx.vIdx,1);store[codyCtx.projectId]=arr;return store;});setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted "${label}". Say a project name to start again, or press ⌘Z to undo.`}]);}} title="Delete" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#ff3b30",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#ff3b30";e.currentTarget.style.background="#fff5f5";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>Delete</button>
+                <button onClick={()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];const label=v?.label||`Version ${(codyCtx.vIdx||0)+1}`;if(!confirm(`Delete "${label}"?`))return;pushAgentUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[codyCtx.projectId]||[];arr.splice(codyCtx.vIdx,1);store[codyCtx.projectId]=arr;return store;});const _delPid=codyCtx.projectId;const _delIdx=codyCtx.vIdx;setCodyTabs(prev=>{const next=prev.filter(t=>!(t.projectId===_delPid&&t.vIdx===_delIdx)).map(t=>t.projectId===_delPid&&t.vIdx>_delIdx?{...t,vIdx:t.vIdx-1}:t);if(next.length>0){setCodyCtx({projectId:next[0].projectId,vIdx:next[0].vIdx});if(setActiveContractVersion)setActiveContractVersion(next[0].vIdx);}else{setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);}return next;});setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted "${label}". ${codyTabs.length>1?"Switched to next contract.":"Say a project name to start again, or press ⌘Z to undo."}`}]);}} title="Delete" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#ff3b30",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#ff3b30";e.currentTarget.style.background="#fff5f5";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>Delete</button>
               </>}
               <button onClick={()=>{if(agent.id==="compliance"){setConnieCtx(null);setConnieDietMode(null);}else if(agent.id==="researcher"){setRonnieCtx(null);}else if(agent.id==="contracts"){setCodyCtx(null);}else if(agent.id==="billie"){setBillieCtx(null);}else if(agent.id==="carrie"){setCarrieCtx(null);}}} title="Close preview" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s",lineHeight:1}} onMouseOver={e=>{e.currentTarget.style.borderColor="#6e6e73";e.currentTarget.style.background="#f0f0f2";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>✕</button>
             </div>
           </div>
           <div style={{flex:1,overflow:"auto"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
-            callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
-            riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
+            callSheetStore={callSheetStore} setCallSheetStore={agent.id==="compliance"?undoSetCallSheetStore:setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
+            riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={agent.id==="researcher"?undoSetRiskAssessmentStore:setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
             contractDocStore={contractDocStore} setContractDocStore={agent.id==="contracts"?codySetContractDocStore:setContractDocStore} activeContractVersion={activeContractVersion}
-            projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
+            projectEstimates={projectEstimates} setProjectEstimates={agent.id==="billie"?undoSetProjectEstimates:setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
             pushUndo={pushUndo}
             ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
             conniePendingReview={conniePendingReview} setConniePendingReview={setConniePendingReview}
@@ -10577,6 +10612,34 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             </div>
           ); })}
         <div onClick={()=>{const _pid=ronnieCtx?.projectId||ronnieTabs[ronnieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};newRA.shootName=`${proj.client||""} | ${proj.name}`.replace(/^TEMPLATE \| /,"");const _pi3=(projectInfoRef.current||{})[proj.id];if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;}const _raL3=new Image();_raL3.crossOrigin="anonymous";_raL3.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raL3.naturalWidth;cv.height=_raL3.naturalHeight;cv.getContext("2d").drawImage(_raL3,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});}};_raL3.onerror=()=>{setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[proj.id])store[proj.id]=[];store[proj.id].push(newRA);return store;});};_raL3.src="/onna-default-logo.png";const newIdx=(riskAssessmentStore?.[proj.id]||[]).length;setRonnieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveRAVersion)setActiveRAVersion(newIdx);addRonnieTab(proj.id,newIdx,`${proj.name} · [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new risk assessment for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+      </div>
+    )}
+
+    {/* Cody tab bar */}
+    {agent.id==="contracts"&&codyTabs.length>0&&(
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",background:"#fafafa",borderBottom:"1px solid #e5e5ea",overflowX:"auto",whiteSpace:"nowrap",flexShrink:0}}>
+        {codyTabs.map((tab,i)=>{
+          const isActive=codyCtx&&codyCtx.projectId===tab.projectId&&codyCtx.vIdx===tab.vIdx;
+          const _ctVs=contractDocStore?.[tab.projectId]||[];
+          const _ctV=_ctVs[tab.vIdx];
+          const _ctProj=localProjects?.find(p=>p.id===tab.projectId);
+          const _ctDynLabel=_ctProj?`${_ctProj.name} · ${_ctV?.label||CONTRACT_TYPE_LABELS[_ctV?.contractType]||`Version ${tab.vIdx+1}`}`:tab.label;
+          return(
+            <div key={`${tab.projectId}-${tab.vIdx}`} onClick={()=>{if(!isActive){setCodyCtx({projectId:tab.projectId,vIdx:tab.vIdx});if(setActiveContractVersion)setActiveContractVersion(tab.vIdx);setMsgs(prev=>[...prev,{role:"assistant",content:`Switched to ${_ctDynLabel}.`}]);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:"inherit",cursor:"pointer",border:isActive?"1px solid #8a6abf":"1px solid #e0e0e0",background:isActive?"#f5f0ff":"#f5f5f7",color:isActive?"#4a2a7a":"#6e6e73",borderBottom:isActive?"2px solid #8a6abf":"2px solid transparent",transition:"all 0.15s",flexShrink:0}}>
+              <span>{_ctDynLabel}</span>
+              <span onClick={e=>{e.stopPropagation();if(!confirm("Delete this contract? It will be moved to trash."))return;const pid=tab.projectId;const vidx=tab.vIdx;const ctData=(contractDocStore?.[pid]||[])[vidx];if(ctData&&onArchiveCallSheet)onArchiveCallSheet('contracts',{projectId:pid,contract:JSON.parse(JSON.stringify(ctData))});pushAgentUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(vidx,1);store[pid]=arr;return store;});setCodyTabs(prev=>{const next=prev.filter((_,j)=>j!==i).map(t=>t.projectId===pid&&t.vIdx>vidx?{...t,vIdx:t.vIdx-1}:t);if(isActive){if(next.length>0){const switchTo=next[0];setCodyCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveContractVersion)setActiveContractVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Deleted and switched to ${switchTo.label}.`}]);}else{setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);setMsgs(p=>[...p,{role:"assistant",content:"Contract deleted. Pick a project to start a new one!"}]);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>×</span>
+            </div>
+          ); })}
+        <div style={{flexShrink:0}}>
+          <div ref={ctCreateBtnRefCody} onClick={()=>setCtCreateMenuCody(prev=>!prev)} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",fontFamily:"inherit"}}>+</div>
+          {ctCreateMenuCody&&<div onClick={()=>setCtCreateMenuCody(false)} style={{position:"fixed",inset:0,zIndex:9998}} />}
+          {ctCreateMenuCody&&(()=>{const _r=ctCreateBtnRefCody.current?.getBoundingClientRect();return(
+            <div style={{position:"fixed",top:(_r?.bottom||0)+4,left:_r?.left||0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:220,overflow:"hidden"}}>
+              {CONTRACT_TYPE_IDS.map(typeId=>(
+                <div key={typeId} onClick={()=>{setCtCreateMenuCody(false);const _pid=codyCtx?.projectId||codyTabs[codyTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){codyPendingRef.current={projectId:_pid,step:"pick_name",typeId};setMsgs(prev=>[...prev,{role:"assistant",content:`Great — ${CONTRACT_TYPE_LABELS[typeId]} for ${proj.name}.\n\nWhat should we call this contract? (e.g. "Jane Doe" or "Director Agreement")`}]);}}}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ {CONTRACT_TYPE_LABELS[typeId]}</div>
+              ))}
+            </div>);})()}
+        </div>
       </div>
     )}
 
@@ -11946,10 +12009,8 @@ export default function OnnaDashboard() {
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
         e.preventDefault();
         if(activeTab==="Agents"){
-          if(connieCtx||connieDietMode){setConnieCtx(null);setConnieDietMode(null);return;}
-          if(ronnieCtx){setRonnieCtx(null);return;}
-          if(codyCtx){return;} /* cody has its own ⌘Z handler */
-          if(billieCtx){setBillieCtx(null);return;}
+          // Doc agents have their own ⌘Z handler via AgentCard useEffect (captures in bubble phase)
+          if(connieCtx||connieDietMode||ronnieCtx||codyCtx||billieCtx)return;
           if(carrieCtx){setCarrieCtx(null);return;}
         }
         performUndo();
