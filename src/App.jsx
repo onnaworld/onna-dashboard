@@ -7522,9 +7522,9 @@ function fuzzyMatchProject(projects, input, excludeId) {
   return null;
 }
 
-function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet}){
+function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
-  const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true};
+  const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true,tina:true,tabby:true,polly:true,lillie:true,perry:true};
   const _buildIntro=()=>{
     if(!_needsProj[agent.id]||!/which project/i.test(intro))return intro;
     const activeProjs=(localProjects||[]).filter(pr=>pr.status!=="Completed"&&pr.name&&!/^TEMPLATE/i.test(pr.name));
@@ -7574,6 +7574,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const addBillieTab=(projectId,vIdx,label)=>setBillieTabs(prev=>{if(prev.some(t=>t.projectId===projectId&&t.vIdx===vIdx))return prev;return[...prev,{projectId,vIdx,label}];});
   const [finnCtx,setFinnCtx]=useState(null); // unused — merged into Billie
   const [carrieCtx,setCarrieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_carrie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [tinaCtx,setTinaCtx]=useState(()=>{try{const s=localStorage.getItem('onna_tina_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [tabbyCtx,setTabbyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_tabby_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [pollyCtx,setPollyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_polly_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [lillieCtx,setLillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_lillie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [perryCtx,setPerryCtx]=useState(()=>{try{const s=localStorage.getItem('onna_perry_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
   const billieAttachRef=useRef(null);
@@ -7597,8 +7602,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const undoSetProjectEstimates=useCallback((updater)=>{pushAgentUndo();if(setProjectEstimates)setProjectEstimates(updater);},[pushAgentUndo,setProjectEstimates]);
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx);
-  const docProjectId = agent.id==="compliance"?(connieDietMode||connieCtx?.projectId) : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : null;
+  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx) || (agent.id==="tina" && !!tinaCtx) || (agent.id==="tabby" && !!tabbyCtx) || (agent.id==="polly" && !!pollyCtx) || (agent.id==="lillie" && !!lillieCtx) || (agent.id==="perry" && !!perryCtx);
+  const docProjectId = agent.id==="compliance"?(connieDietMode||connieCtx?.projectId) : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : agent.id==="tina"?tinaCtx?.projectId : agent.id==="tabby"?tabbyCtx?.projectId : agent.id==="polly"?pollyCtx?.projectId : agent.id==="lillie"?lillieCtx?.projectId : agent.id==="perry"?perryCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);
   },[active, isMobile]);
@@ -7623,6 +7628,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   
   useEffect(()=>{if(agent.id==="carrie"){try{if(carrieCtx)localStorage.setItem('onna_carrie_ctx',JSON.stringify(carrieCtx));else localStorage.removeItem('onna_carrie_ctx');}catch{}}},[carrieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="tina"){try{if(tinaCtx)localStorage.setItem('onna_tina_ctx',JSON.stringify(tinaCtx));else localStorage.removeItem('onna_tina_ctx');}catch{}}},[tinaCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="tabby"){try{if(tabbyCtx)localStorage.setItem('onna_tabby_ctx',JSON.stringify(tabbyCtx));else localStorage.removeItem('onna_tabby_ctx');}catch{}}},[tabbyCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="polly"){try{if(pollyCtx)localStorage.setItem('onna_polly_ctx',JSON.stringify(pollyCtx));else localStorage.removeItem('onna_polly_ctx');}catch{}}},[pollyCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="lillie"){try{if(lillieCtx)localStorage.setItem('onna_lillie_ctx',JSON.stringify(lillieCtx));else localStorage.removeItem('onna_lillie_ctx');}catch{}}},[lillieCtx,agent.id]);
+  useEffect(()=>{if(agent.id==="perry"){try{if(perryCtx)localStorage.setItem('onna_perry_ctx',JSON.stringify(perryCtx));else localStorage.removeItem('onna_perry_ctx');}catch{}}},[perryCtx,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{localStorage.setItem('onna_connie_tabs',JSON.stringify(connieTabs));}catch{}}},[connieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{localStorage.setItem('onna_ronnie_tabs',JSON.stringify(ronnieTabs));}catch{}}},[ronnieTabs,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{localStorage.setItem('onna_billie_tabs',JSON.stringify(billieTabs));}catch{}}},[billieTabs,agent.id]);
@@ -9846,7 +9856,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           setLoading(false);setMood("idle");return;
         }
       }
-      const _briefMatch=input.match(/\b(check|read|pull|use|load|look at|analyze|review|build from|build off|reference)\b.*\b(brief|moodboard|mood board|reference board|moodboards|briefs)\b/i)||input.match(/\b(brief|moodboard|mood board|reference board)\b/i)&&!/\b(create|write|make|draft)\b/i.test(input);
+      const _briefMatch=input.match(/\b(check|read|pull|use|load|look at|analyze|review|build from|build off|reference)\b.*\b(brief|moodboard|mood board|reference board|moodboards|briefs)\b/i)||(input.match(/\b(brief|moodboard|mood board|reference board)\b/i)&&!/\b(create|write|make|draft)\b/i.test(input));
       if(_briefMatch&&!_pendingPick){
         const _isMood=/\b(moodboard|mood board|reference board)\b/i.test(input);
         const _cat=_isMood?"moodboards":"briefs";
@@ -11381,6 +11391,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
     {/* inline input bar */}
     <div style={{padding:"10px 12px",background:"white",borderTop:pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"none":"1px solid #f2f2f7",display:"flex",gap:8,flexShrink:0}}>
       {(agent.id==="compliance"||agent.id==="researcher")&&<Fragment><button onClick={()=>attachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={attachRef} type="file" accept="image/*" multiple onChange={e=>{const files=Array.from(e.target.files||[]);files.forEach(f=>{const reader=new FileReader();reader.onload=ev=>{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl:ev.target.result}]);};reader.readAsDataURL(f);});e.target.value="";}} style={{display:"none"}}/></Fragment>}
+      {agent.id==="billie"&&<Fragment><button onClick={()=>billieAttachRef.current?.click()} style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎</button><input ref={billieAttachRef} type="file" accept="image/*,application/pdf,.pdf" multiple onChange={async e=>{const files=Array.from(e.target.files||[]);e.target.value="";for(const f of files){const isPdf=f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf");const reader=new FileReader();const dataUrl=await new Promise((res,rej)=>{reader.onload=ev=>res(ev.target.result);reader.onerror=rej;reader.readAsDataURL(f);});if(isPdf){try{const pages=await loadPdfPages(dataUrl);const capped=pages.slice(0,10);if(pages.length>10)setMsgs(prev=>[...prev,{role:"assistant",content:`PDF has ${pages.length} pages — using first 10 for analysis.`}]);capped.forEach((pg,i)=>{setAttachments(prev=>[...prev,{name:`${f.name}_p${i+1}`,type:"image/png",dataUrl:pg}]);});}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load PDF: ${err.message}`}]);}}else{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl}]);}}}} style={{display:"none"}}/></Fragment>}
       {agent.id==="contracts"&&<Fragment><label style={{background:"none",border:"1.5px solid #e5e5ea",borderRadius:12,padding:"0 10px",cursor:"pointer",fontSize:18,color:"#6e6e73",alignSelf:"stretch",minWidth:38,transition:"all 0.12s",display:"flex",alignItems:"center",justifyContent:"center"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";}}>📎<input type="file" accept="application/pdf,.pdf,.doc,.docx,image/*" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;e.target.value="";const isPdf=f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf");const isImg=f.type.startsWith("image/");const reader=new FileReader();reader.onload=async ev=>{const dataUrl=ev.target.result;try{if(isPdf){const pages=await loadPdfPages(dataUrl);codyDocConfigRef.current=null;setCodyUploadedDoc({name:f.name,type:"application/pdf",pages});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name} (${pages.length} page${pages.length>1?"s":""})`},{role:"assistant",content:`Got it! I've loaded "${f.name}" (${pages.length} page${pages.length>1?"s":""}). What would you like me to do?\n\n• "Sign this" — add signature (last page by default)\n• "Stamp all pages" — add stamp to every page\n• "Sign and stamp on company letterhead"\n• "Sign page 3" — apply to a specific page\n• After applying: "Move signature up" / "Move stamp down"`}]);}else if(isImg){codyDocConfigRef.current=null;setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`Got "${f.name}"! What would you like me to do — sign, stamp, or put on letterhead?`}]);}else{codyDocConfigRef.current=null;setCodyUploadedDoc({name:f.name,type:f.type,pages:[dataUrl]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`I received "${f.name}". Note: I can only preview PDF and image files. For Word docs, I can still apply sign/stamp when you export.`}]);}}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load document: ${err.message}`}]);}};reader.readAsDataURL(f);}} style={{display:"none"}}/></label></Fragment>}
       <textarea data-vinnie-ta value={input} onChange={e=>setInput(e.target.value)} onFocus={()=>setMood("talking")} onBlur={()=>setMood("idle")} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={pendingConv&&pendingConv.questions[pendingConv.idx]?.options?"Type custom value or pick above...":placeholder} rows={2} style={{flex:1,resize:"none",border:`1.5px solid ${input?"#6e6e73":"#e5e5ea"}`,borderRadius:12,padding:"8px 12px",fontSize:isMobile?16:13,fontFamily:"inherit",outline:"none",color:"#1d1d1f",background:"#f5f5f7",transition:"border 0.15s",userSelect:"text",WebkitUserSelect:"text"}}/>
       <button onClick={send} disabled={loading||(!input.trim()&&!attachments.length)} style={{background:loading||(!input.trim()&&!attachments.length)?"#e5e5ea":"#1d1d1f",border:"none",color:loading||(!input.trim()&&!attachments.length)?"#aeaeb2":"#fff",borderRadius:12,padding:"0 14px",cursor:loading||(!input.trim()&&!attachments.length)?"not-allowed":"pointer",fontWeight:900,fontSize:18,alignSelf:"stretch",minWidth:44,transition:"background 0.12s"}}>↑</button>
@@ -13994,7 +14005,7 @@ export default function OnnaDashboard() {
         </div>
         {/* Delete project */}
         <div style={{marginTop:40,paddingTop:20,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end"}}>
-          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This will be moved to trash.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
+          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This will be moved to the archive.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
         </div>
       </div>
     );
@@ -14608,7 +14619,7 @@ export default function OnnaDashboard() {
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
         };
-        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to trash."))return; const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
+        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to the archive."))return; const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
 
         // ── List view: no call sheet selected ──
         if (activeCSVersion === null || csVersions.length === 0) {
@@ -14950,7 +14961,7 @@ export default function OnnaDashboard() {
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
         const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to trash."))return; const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
+        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to the archive."))return; const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
         if (activeRAVersion === null || raVersions.length === 0) {
@@ -15106,7 +15117,7 @@ export default function OnnaDashboard() {
             setCtTypeModalOpen(false);
           };
           const deleteContract = (idx) => {
-            if (!confirm("Delete this contract? This will be moved to trash.")) return;
+            if (!confirm("Delete this contract? This will be moved to the archive.")) return;
             const ctData=JSON.parse(JSON.stringify((contractDocStore[p.id]||[])[idx])); if(ctData)archiveItem('contracts',{projectId:p.id,contract:ctData});
             setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
           };
@@ -15349,7 +15360,7 @@ export default function OnnaDashboard() {
           setActiveDietaryVersion(dietVersions.length);
         };
         const deleteDiet = (idx) => {
-          if(!confirm("Delete this dietary list? This will be moved to trash."))return;
+          if(!confirm("Delete this dietary list? This will be moved to the archive."))return;
           const dietData=JSON.parse(JSON.stringify((dietaryStore[p.id]||[])[idx]));
           if(dietData)archiveItem('dietaries',{projectId:p.id,dietary:dietData});
           setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
@@ -15674,7 +15685,7 @@ export default function OnnaDashboard() {
         setLocDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newLoc); return store; });
       };
       const deleteLocDeck = (idx) => {
-        if (!confirm("Delete this Locations Deck? This will be moved to trash.")) return;
+        if (!confirm("Delete this Locations Deck? This will be moved to the archive.")) return;
         const locData = JSON.parse(JSON.stringify((locDeckStore[p.id]||[])[idx]));
         if (locData) archiveItem('locationDecks', { projectId: p.id, locationDeck: locData });
         setLocDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -15824,7 +15835,7 @@ export default function OnnaDashboard() {
           setActiveRecceVersion(recceVersions.length);
         };
         const deleteRecce = (idx) => {
-          if(!confirm("Delete this recce report? This will be moved to trash."))return;
+          if(!confirm("Delete this recce report? This will be moved to the archive."))return;
           const recceData=JSON.parse(JSON.stringify((recceReportStore[p.id]||[])[idx]));
           if(recceData)archiveItem('recceReports',{projectId:p.id,recceReport:recceData});
           setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
@@ -16305,7 +16316,7 @@ export default function OnnaDashboard() {
           setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newCT); return store; });
         };
         const deleteCT = (idx) => {
-          if (!confirm("Delete this Casting Table? This will be moved to trash.")) return;
+          if (!confirm("Delete this Casting Table? This will be moved to the archive.")) return;
           const ctDelData = JSON.parse(JSON.stringify((castingTableStore[p.id]||[])[idx]));
           if (ctDelData) archiveItem('casting_table', { projectId: p.id, castingTable: ctDelData });
           setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -16464,7 +16475,7 @@ export default function OnnaDashboard() {
           setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newFit); return store; });
         };
         const deleteFitVersion = (idx) => {
-          if (!confirm("Delete this Fitting Deck? This will be moved to trash.")) return;
+          if (!confirm("Delete this Fitting Deck? This will be moved to the archive.")) return;
           const fitData = JSON.parse(JSON.stringify((fittingStore[p.id]||[])[idx]));
           if (fitData) archiveItem('fitting', { projectId: p.id, fitting: fitData });
           setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -16708,7 +16719,7 @@ export default function OnnaDashboard() {
           setActiveTIVersion(tiVersions.length);
         };
         const deleteTI = (idx) => {
-          if(!confirm("Delete this travel itinerary? This will be moved to trash."))return;
+          if(!confirm("Delete this travel itinerary? This will be moved to the archive."))return;
           const tiData=JSON.parse(JSON.stringify((travelItineraryStore[p.id]||[])[idx]));
           if(tiData)archiveItem('travelItineraries',{projectId:p.id,travelItinerary:tiData});
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
@@ -17163,7 +17174,7 @@ export default function OnnaDashboard() {
           setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newCPS); return store; });
         };
         const deleteCPS = (idx) => {
-          if (!confirm("Delete this CPS? This will be moved to trash.")) return;
+          if (!confirm("Delete this CPS? This will be moved to the archive.")) return;
           const cpsData = JSON.parse(JSON.stringify((cpsStore[p.id]||[])[idx]));
           if (cpsData) archiveItem('cps', { projectId: p.id, cps: cpsData });
           setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -17292,7 +17303,7 @@ export default function OnnaDashboard() {
           setShotListStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSL); return store; });
         };
         const deleteSL = (idx) => {
-          if (!confirm("Delete this Shot List? This will be moved to trash.")) return;
+          if (!confirm("Delete this Shot List? This will be moved to the archive.")) return;
           const slData = JSON.parse(JSON.stringify((shotListStore[p.id]||[])[idx]));
           if (slData) archiveItem('shotlist', { projectId: p.id, shotlist: slData });
           setShotListStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -17421,7 +17432,7 @@ export default function OnnaDashboard() {
           setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSB); return store; });
         };
         const deleteSB = (idx) => {
-          if (!confirm("Delete this Storyboard? This will be moved to trash.")) return;
+          if (!confirm("Delete this Storyboard? This will be moved to the archive.")) return;
           const sbData = JSON.parse(JSON.stringify((storyboardStore[p.id]||[])[idx]));
           if (sbData) archiveItem('storyboard', { projectId: p.id, storyboard: sbData });
           setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -17545,7 +17556,7 @@ export default function OnnaDashboard() {
           setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newPP); return store; });
         };
         const deletePP = (idx) => {
-          if (!confirm("Delete this Post-Production schedule? This will be moved to trash.")) return;
+          if (!confirm("Delete this Post-Production schedule? This will be moved to the archive.")) return;
           const ppDelData = JSON.parse(JSON.stringify((postProdStore[p.id]||[])[idx]));
           if (ppDelData) archiveItem('postprod', { projectId: p.id, postprod: ppDelData });
           setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -18238,7 +18249,7 @@ export default function OnnaDashboard() {
                                 <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
                                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                                   <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0}}>Client</span>
-                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}? This will be moved to trash.`))return;archiveItem('clients',c);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}? This will be moved to the archive.`))return;archiveItem('clients',c);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
                                 </div>
                               </div>
                               {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:2,fontWeight:500}}>{c.name}</div>}
@@ -18449,7 +18460,7 @@ export default function OnnaDashboard() {
                           </button>
                           )}
                           {p.client!=="TEMPLATE"&&<button
-                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This will be moved to trash.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
+                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This will be moved to the archive.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
                             style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"7px 11px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:13,cursor:"pointer",transition:"all 0.12s"}}
                             onMouseOver={e=>{e.currentTarget.style.background="#fff0f0";e.currentTarget.style.borderColor="#fdc5c5";e.currentTarget.style.color="#c0392b";}}
                             onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.borderSub;e.currentTarget.style.color=T.muted;}}
@@ -18582,9 +18593,9 @@ export default function OnnaDashboard() {
           const hasActiveAgent = agentActiveIdx !== null;
           const useWideLayout = !isMobile;
           return (
-          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"8px",gap:0,overflow:"hidden"}}>
+          <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"0 8px",gap:0,overflow:"hidden"}}>
             {/* Agent avatars — top strip when agent selected, full grid otherwise */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"2px 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"0 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s-1+agentTotal)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
               {Array.from({length:Math.min(AGENTS_VISIBLE,agentTotal)},(_,k)=>AGENT_DEFS[(agentStart+k)%agentTotal]).map((a)=>{
@@ -18597,17 +18608,17 @@ export default function OnnaDashboard() {
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
                   style={isMobile?{flex:"0 0 auto",width:"20%",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 2px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}:useWideLayout?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"2px 4px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.3)":"scale(1)",transformOrigin:"center",margin:useWideLayout?"-18px 0":0}}>
+                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.55)":"scale(1)",transformOrigin:"center",margin:useWideLayout?"-10px 0":0}}>
                     <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
-                  <span style={{fontSize:isMobile?8:useWideLayout?7:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
+                  <span style={{fontSize:isMobile?8:useWideLayout?8:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
                 </button>
               );})}
               {/* Next arrow */}
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"4px 8px":"8px 8px 8px 0"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"2px 8px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
@@ -18736,7 +18747,7 @@ export default function OnnaDashboard() {
                 <div style={{fontSize:12,color:T.muted,marginTop:2}}>Manage your account</div>
               </div>
               {[
-                {id:"deleted",label:"Deleted Items",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
+                {id:"deleted",label:"Archive",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"categories",label:"Manage Categories",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"sop",label:"SOPs",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2"/><path d="M5 4h4M5 7h4M5 10h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"signout",label:"Sign Out",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>'},
@@ -18755,10 +18766,10 @@ export default function OnnaDashboard() {
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
                     <div>
-                      <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
-                      <div style={{fontSize:12,color:T.muted,marginTop:2}}>Items are permanently removed after 30 days</div>
+                      <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Archive</div>
+                      <div style={{fontSize:12,color:T.muted,marginTop:2}}>Archived items are permanently removed after 30 days</div>
                     </div>
-                    {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently delete all items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 14px"}}>Empty trash</button>}
+                    {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all archived items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 14px"}}>Clear archive</button>}
                   </div>
                   {archive.length===0?(
                     <div style={{padding:"60px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
@@ -19917,11 +19928,11 @@ export default function OnnaDashboard() {
           <div style={{borderRadius:20,padding:28,width:680,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
               <div>
-                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Items are permanently removed after 30 days</div>
+                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Archive</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Archived items are permanently removed after 30 days</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently delete all items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Empty trash</button>}
+                {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all archived items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Clear archive</button>}
                 <button onClick={()=>setShowArchive(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
               </div>
             </div>
