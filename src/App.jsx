@@ -5869,18 +5869,22 @@ function DocPagePanel({pageIndex,config,onReprocess,onExport,total,appliesTo,sig
     </div>
   </div>;
 }
-function _AgentBubble({msg,codyDocConfigRef,setMsgs}){
+function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPanel}){
   const isAgent=msg.role==="assistant";
   const handleDragReprocess=useCallback(async(newCfg)=>{
     if(!codyDocConfigRef)return;
     codyDocConfigRef.current=newCfg;
     const result=await processDocSignStamp(newCfg.originalDoc,newCfg);
     setMsgs(prev=>prev.map(m=>m===msg?{...m,_docPreview:result,_docConfig:newCfg}:m));
-  },[msg,codyDocConfigRef,setMsgs]);
+    if(setCodySignPanel)setCodySignPanel({config:newCfg,preview:result});
+  },[msg,codyDocConfigRef,setMsgs,setCodySignPanel]);
   return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
     <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
       {msg._attachments&&msg._attachments.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:msg.content?6:0}}>{msg._attachments.map((att,ai)=><img key={ai} src={att.dataUrl} alt={att.name||"attachment"} style={{maxWidth:160,maxHeight:120,borderRadius:6,objectFit:"cover",border:"1px solid rgba(255,255,255,0.2)"}}/>)}</div>}
-      {msg._docPreview&&msg._docConfig&&codyDocConfigRef?<DocPreviewDraggable config={msg._docConfig} onReprocess={handleDragReprocess} onExport={(pi)=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc,pi)}/>:msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
+      {msg._docPreview&&msg._docConfig&&codyDocConfigRef?(codySignPanel?<div style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:120}} onClick={()=>setCodySignPanel&&setCodySignPanel({config:msg._docConfig,preview:msg._docPreview})}>
+        <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
+        <div style={{padding:"4px 6px",fontSize:9,fontWeight:600,color:"#0066cc",textAlign:"center"}}>Viewing in panel</div>
+      </div>:<DocPreviewDraggable config={msg._docConfig} onReprocess={handleDragReprocess} onExport={(pi)=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc,pi)}/>):msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
         <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
         <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
         <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
@@ -6690,6 +6694,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
   const [codyUploadedDoc,setCodyUploadedDoc]=useState(null); // {name, type, pages:[dataUrl,...]}
+  const [codySignPanel,setCodySignPanel]=useState(null); // {config, preview} — split-panel sign/stamp viewer
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
 
@@ -6901,7 +6906,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     // ── Clear chat intent ─────────────────────────────────────────────────────
     if(/^(clear( chat)?|reset( chat)?|wipe( chat)?)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:_introWithProjects}];
-      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);
+      setMsgs(fresh);setInput("");setPendingConv(null);setPending(null);setPendingDuplicate(null);setAttachments([]);setConnieCtx(null);setConnieTabs([]);setRonnieCtx(null);setRonnieTabs([]);setBillieCtx(null);setCodyCtx(null);codyPendingRef.current=null;setCodyUploadedDoc(null);setCodySignPanel(null);
       try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(fresh));}catch{}
       return;
     }
@@ -9354,6 +9359,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           const cfg={originalDoc:p.doc,wantSign:p.wantSign,wantStamp:p.wantStamp,wantLetterhead:p.wantLetterhead,signPages:p.wantSign?resolve(signPages,genericPage,"last"):undefined,stampPages:p.wantStamp?resolve(stampPages,genericPage,"last"):undefined,letterPages:p.wantLetterhead?resolve(letterPages,genericPage,"first"):undefined,signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
           const result=await processDocSignStamp(p.doc,cfg);
           codyDocConfigRef.current=cfg;
+          setCodySignPanel({config:cfg,preview:result});
           const actions=[p.wantLetterhead?"company letterhead":null,p.wantSign?"signature":null,p.wantStamp?"company stamp":null].filter(Boolean).join(", ");
           setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions} to your document.\n\nYou can adjust: "Move signature up/down" \u00b7 "Add letterhead to page 2" \u00b7 "Apply to all pages" \u00b7 Or drag to reposition`,_docPreview:result,_docConfig:cfg}]);
           setCodyUploadedDoc(null);setMood("excited");setTimeout(()=>setMood("idle"),2500);
@@ -9445,6 +9451,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           }
           const result=await processDocSignStamp(cfg.originalDoc,cfg);
           codyDocConfigRef.current=cfg;
+          setCodySignPanel({config:cfg,preview:result});
           const desc=[];
           if(/\bmove\b/i.test(input))desc.push("adjusted position");
           if(isAdd)desc.push("added "+((/\b(letterhead|company letter|header)\b/i.test(input)?"letterhead":"")+(/\b(sign|signature)\b/i.test(input)?" signature":"")+(/\b(stamp|seal)\b/i.test(input)?" stamp":"")).trim());
@@ -9526,6 +9533,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             const cfg={originalDoc:codyUploadedDoc,wantSign,wantStamp,wantLetterhead,signPages:allPages&&wantSign?"all":(signPages||(wantSign?"last":undefined)),stampPages:allPages&&wantStamp?"all":(stampPages||(wantStamp?"last":undefined)),letterPages:allPages&&wantLetterhead?"all":(letterPages||(wantLetterhead?"first":undefined)),signOffset:0,stampOffset:0,signOffsetX:0,stampOffsetX:0,signScale:1,stampScale:1,pageOffsets:{}};
             const result=await processDocSignStamp(codyUploadedDoc,cfg);
             codyDocConfigRef.current=cfg;
+            setCodySignPanel({config:cfg,preview:result});
             const actions=[wantLetterhead?"company letterhead":null,wantSign?"signature":null,wantStamp?"company stamp":null].filter(Boolean).join(", ");
             const pageNote=allPages?" on all pages":"";
             setMsgs([...history,{role:"assistant",content:`Done! I've applied ${actions}${pageNote} to your document. Click the preview below to export as PDF.\n\nYou can adjust: "Move signature up/down" \u00b7 "Move stamp up/down" \u00b7 "Apply to all pages" \u00b7 Or drag to reposition`,_docPreview:result,_docConfig:cfg}]);
@@ -10133,6 +10141,24 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           {_renderAgentChat()}
         </div>
       </div>
+    ) : codySignPanel ? (
+      <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":"0 0 55%",height:isMobile?"40%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"10px 16px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
+            <span style={{fontSize:12,fontWeight:700,color:"#1d1d1f"}}>Sign & Stamp Preview</span>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <button onClick={()=>exportDocPreview(codySignPanel.preview,codySignPanel.config.originalDoc)} style={{border:"1px solid #0066cc",background:"#fff",color:"#0066cc",borderRadius:6,padding:"4px 12px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Export PDF</button>
+              <button onClick={()=>setCodySignPanel(null)} style={{background:"none",border:"none",fontSize:18,color:"#aeaeb2",cursor:"pointer",lineHeight:1,padding:"2px 6px"}}>×</button>
+            </div>
+          </div>
+          <div style={{flex:1,overflowY:"auto",padding:16,background:"#f5f5f7"}}>
+            <DocPreviewDraggable config={codySignPanel.config} onReprocess={async(newCfg)=>{codyDocConfigRef.current=newCfg;const result=await processDocSignStamp(newCfg.originalDoc,newCfg);setCodySignPanel({config:newCfg,preview:result});setMsgs(prev=>prev.map(m=>m._docConfig?{...m,_docPreview:result,_docConfig:newCfg}:m));}} onExport={(pi)=>exportDocPreview(codySignPanel.preview,codySignPanel.config.originalDoc,pi)}/>
+          </div>
+        </div>
+        <div style={{flex:isMobile?"none":"0 0 45%",height:isMobile?"60%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+          {_renderAgentChat()}
+        </div>
+      </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
         <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"auto"}}>
@@ -10228,7 +10254,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         {/* inline chat messages */}
     <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
       {msgs.map((m,i)=>(<div key={i}>
-          <_AgentBubble msg={m} codyDocConfigRef={codyDocConfigRef} setMsgs={setMsgs}/>
+          <_AgentBubble msg={m} codyDocConfigRef={codyDocConfigRef} setMsgs={setMsgs} codySignPanel={codySignPanel} setCodySignPanel={setCodySignPanel}/>
         </div>))}
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
     </div>
@@ -10281,7 +10307,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         <span style={{fontSize:16}}>📄</span>
         <span style={{fontSize:11,fontWeight:600,color:"#333",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{codyUploadedDoc.name}</span>
         <span style={{fontSize:10,color:"#666"}}>{codyUploadedDoc.pages.length}p</span>
-        <button onClick={()=>setCodyUploadedDoc(null)} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}}>×</button>
+        <button onClick={()=>{setCodyUploadedDoc(null);setCodySignPanel(null);}} style={{background:"none",border:"none",color:"#999",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}}>×</button>
       </div>
     </div>}
     {/* attachment previews */}
