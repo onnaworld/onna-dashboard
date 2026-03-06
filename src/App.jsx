@@ -3532,7 +3532,7 @@ ${PRINT_CLEANUP_CSS}
   const generateSharePage = async (modes, existingToken, existingResourceId) => {
     const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["confirmed","options"] : modes ? [modes] : ["confirmed","options"]);
     setPrintTabs(new Set(tabsArr));
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 500));
     const el = printRef.current; if (!el) { setPrintTabs(null); return; }
     const clone = fitCleanClone(el);
     clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
@@ -3608,6 +3608,7 @@ ${PRINT_CLEANUP_CSS}
           ))}
         </div>
 
+        {printTabs && printTabs.has("confirmed") && <div style={{marginBottom:8}}><span style={{fontFamily:F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>CONFIRMED LOOKS</span></div>}
         {(tab === "confirmed" || (printTabs && printTabs.has("confirmed"))) && (() => {
           const approved = [];
           fittings.forEach((fit, fi) => {
@@ -16415,7 +16416,7 @@ export default function OnnaDashboard() {
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", editor: "[Editor]", colourist: "[Colourist]", sound: "[Sound]", filesLink: "" };
           const newPP = { id: newId, label: `V${ppVersions.length+1}`, project: proj, videos: [ppMkVideo(), ppMkVideo()], stills: [ppMkStill(), ppMkStill()], schedule: ppDefaultSchedule(), specNotes: "", feedback: "" };
-          setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newPP); return store; });
+          setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newPP); return store; });
         };
         const deletePP = (idx) => {
           if (!confirm("Delete this Post-Production schedule? This will be moved to trash.")) return;
