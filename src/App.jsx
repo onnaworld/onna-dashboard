@@ -13034,7 +13034,7 @@ export default function OnnaDashboard() {
   const [agentHoverIdx,setAgentHoverIdx]   = useState(null);
   const [agentStart,setAgentStart]         = useState(0);
   const [agentSearch,setAgentSearch]=useState("");
-  const [agentStripW,setAgentStripW]=useState(()=>{try{return parseInt(localStorage.getItem("onna_agent_strip_w"))||90;}catch{return 90;}});
+  const [agentStripW,setAgentStripW]=useState(()=>{try{return parseInt(localStorage.getItem("onna_agent_strip_w"))||180;}catch{return 180;}});
   const agentStripDrag=React.useRef(null);
   const _filteredAgents=agentSearch.trim()?AGENT_DEFS.filter(a=>a.name.toLowerCase().includes(agentSearch.toLowerCase())||a.title.toLowerCase().includes(agentSearch.toLowerCase())):AGENT_DEFS;
   const AGENTS_VISIBLE=isMobile?4:10;
@@ -18722,13 +18722,13 @@ export default function OnnaDashboard() {
               </div>
             </div>}
             {/* Desktop: vertical agent strip on left with drag-resize */}
-            {!isMobile&&<>{/* strip */}<div style={{flex:`0 0 ${agentStripW}px`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0 4px",borderRight:"1px solid #e5e5ea",overflow:"hidden"}}>
+            {!isMobile&&<>{/* strip */}<div style={{flex:`0 0 ${agentStripW}px`,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 0 0",borderRight:"1px solid #e5e5ea"}}>
               {/* Search */}
-              <input value={agentSearch} onChange={e=>{setAgentSearch(e.target.value);setAgentStart(0);}} placeholder="Search..." style={{width:agentStripW-16,padding:"4px 6px",borderRadius:6,border:"1px solid #e5e5ea",fontSize:9,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none",marginBottom:4,boxSizing:"border-box",textAlign:"center"}}/>
-              {/* Up nav */}
-              <div onClick={()=>setAgentStart(s=>Math.max(0,s-1))} style={{cursor:agentStart===0?"default":"pointer",color:agentStart===0?"transparent":"#c0c0c0",fontSize:10,padding:"1px 0",lineHeight:1,width:"100%",textAlign:"center",userSelect:"none",transition:"color 0.15s"}} onMouseEnter={e=>{if(agentStart>0)e.currentTarget.style.color="#888";}} onMouseLeave={e=>{e.currentTarget.style.color=agentStart===0?"transparent":"#c0c0c0";}}>‹</div>
-              {/* Visible agents */}
-              {(()=>{const visCount=Math.max(1,Math.floor(((typeof window!=="undefined"?window.innerHeight:700)-220)/((agentStripW<100)?58:70)));return _filteredAgents.slice(agentStart,agentStart+visCount).map((a)=>{
+              <input value={agentSearch} onChange={e=>{setAgentSearch(e.target.value);}} placeholder="Search..." style={{width:agentStripW-16,padding:"4px 6px",borderRadius:6,border:"1px solid #e5e5ea",fontSize:9,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none",marginBottom:4,boxSizing:"border-box",textAlign:"center",flexShrink:0}}/>
+              {/* Scrollable agent list — hidden scrollbar */}
+              <div className="agent-strip-scroll" style={{flex:1,overflowY:"auto",overflowX:"hidden",width:"100%",display:"flex",flexDirection:"column",alignItems:"center",gap:2,scrollbarWidth:"none",msOverflowStyle:"none"}}>
+              <style>{`.agent-strip-scroll::-webkit-scrollbar{display:none;}`}</style>
+              {_filteredAgents.map((a)=>{
                 const i=AGENT_DEFS.indexOf(a);
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -18736,16 +18736,15 @@ export default function OnnaDashboard() {
                 const mg=agentStripW<100?-12:agentStripW<130?-8:-4;
                 return(
                 <button key={a.id} onClick={()=>setAgentActiveIdx(agentActiveIdx===i?null:i)} onMouseEnter={()=>setAgentHoverIdx(i)} onMouseLeave={()=>setAgentHoverIdx(null)}
-                  style={{width:agentStripW-8,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"3px 2px",borderRadius:10,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}}>
+                  style={{width:agentStripW-8,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"3px 2px",borderRadius:10,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)",flexShrink:0}}>
                   <div style={{transform:`scale(${sc})`,transformOrigin:"center",margin:`${mg}px 0`}}><a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/></div>
                   <span style={{fontSize:agentStripW<100?7:8,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:0.8,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%",lineHeight:1.2}}>{a.name}</span>
-                </button>);});})()}
-              {/* Down nav */}
-              <div onClick={()=>setAgentStart(s=>Math.min(_filteredAgents.length-1,s+1))} style={{cursor:agentStart>=_filteredAgents.length-1?"default":"pointer",color:agentStart>=_filteredAgents.length-1?"transparent":"#c0c0c0",fontSize:10,padding:"1px 0",lineHeight:1,width:"100%",textAlign:"center",userSelect:"none",transition:"color 0.15s"}} onMouseEnter={e=>{if(agentStart<_filteredAgents.length-1)e.currentTarget.style.color="#888";}} onMouseLeave={e=>{e.currentTarget.style.color=agentStart>=_filteredAgents.length-1?"transparent":"#c0c0c0";}}>›</div>
+                </button>);})}
+              </div>
             </div>
             {/* Drag handle to resize strip */}
             <div style={{flex:"0 0 4px",cursor:"col-resize",background:"transparent",zIndex:2,display:"flex",alignItems:"center",justifyContent:"center"}}
-              onMouseDown={e=>{e.preventDefault();const startX=e.clientX;const startW=agentStripW;let curW=startW;const onMove=ev=>{curW=Math.max(70,Math.min(180,startW+(ev.clientX-startX)));setAgentStripW(curW);};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);try{localStorage.setItem("onna_agent_strip_w",String(curW));}catch{}};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}}>
+              onMouseDown={e=>{e.preventDefault();const startX=e.clientX;const startW=agentStripW;let curW=startW;const onMove=ev=>{curW=Math.max(70,Math.min(250,startW+(ev.clientX-startX)));setAgentStripW(curW);};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);try{localStorage.setItem("onna_agent_strip_w",String(curW));}catch{}};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}}>
               <div style={{width:2,height:32,borderRadius:1,background:"#d1d1d6"}}/>
             </div></>}
             {/* Chat panel — takes full height on desktop */}
