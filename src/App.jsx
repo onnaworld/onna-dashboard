@@ -2237,6 +2237,7 @@ const LocImgSlot = ({ src, onAdd, onRemove, h = "100%", style = {} }) => {
 };
 
 const LocationsConnie = React.forwardRef(function LocationsConnieInner({ initialProject, initialLocations, initialDetails, onChangeProject, onChangeLocations, onChangeDetails, onShareUrl }, fwdRef) {
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [project, setProjectRaw] = useState(() => initialProject || { name: "", client: "", date: "" });
   const [tab, setTab] = useState("overview");
   const [printTabs, setPrintTabs] = useState(null); // null=normal, Set of tabs to force-render for share/export
@@ -2609,6 +2610,7 @@ const CastCard = ({ entry, onChange, onRemove, onStatusChange }) => {
 };
 
 const CastingConnie = React.forwardRef(function CastingConnie({ initialProject, initialConfirmed, initialOptions, onChangeProject, onChangeConfirmed, onChangeOptions, onShareUrl }, fwdRef) {
+  const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const [project, setProject] = useState(initialProject || CAST_INIT().project);
   const [confirmed, setConfirmed] = useState(initialConfirmed || CAST_INIT().confirmed);
   const [options, setOptions] = useState(initialOptions || CAST_INIT().options);
@@ -3080,7 +3082,7 @@ const FitCard = ({ src, status, onAdd, onRemove, onStatus, note, onNote }) => {
   const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   return (
-    <div style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff" }}>
+    <div data-fit-card style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff" }}>
       <div style={{ aspectRatio: "4/5", position: "relative" }}>
         <FitImgSlot src={src} h="100%" onAdd={onAdd} onRemove={onRemove} />
       </div>
@@ -6879,10 +6881,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
 
     // ── Quick-action number replies from intro bubbles ─────────────────────────
     const _isIntroReply=/^[123]$/.test(input.trim());
-    const _lastIsIntro=msgs.length>0&&msgs[msgs.length-1].role==="assistant"&&/Here's what I can do|What do you need\?|which project/i.test(msgs[msgs.length-1].content||"");
+    const _lastMsg=msgs.length>0?msgs[msgs.length-1]:null;
+    const _lastIsIntro=_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastMsg.content||"")&&!/Pick a number or name/i.test(_lastMsg.content||"");
     if(_isIntroReply&&_lastIsIntro){
       const n=parseInt(input.trim(),10);
-      const _needsProject={compliance:true,researcher:true,contracts:false,billie:true,finn:true,carrie:true,logistical:false,minnie:false};
+      const _needsProject={compliance:true,researcher:true,contracts:true,billie:true,finn:true,carrie:true,logistical:false,minnie:false};
       const _responses={
         logistical:{1:"Tell me about the vendor — name, category, email and phone number.",2:"Who did you contact? Give me the name and what happened, and I'll log it with today's date.",3:"Who are you looking for? Give me a name, category, or location and I'll search."},
         compliance:{1:"Let's edit a call sheet. Which project should I work on?",2:"I'll review what's missing. Which project should I work on?",3:"Let's manage dietary requirements. Which project should I work on?"},
