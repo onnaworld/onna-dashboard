@@ -4297,6 +4297,9 @@ INSTRUCTIONS:
 - When discussing totals, show the base currency (${baseCurrency}). The UI automatically shows the secondary currency (${secondCurrency}) conversion.
 - Be warm, concise and professional.
 - NEVER say you don't have access to data, can't see the estimate, or need the user to share information. You have FULL access.
+- When images are attached (PDF pages, briefs, moodboards), ANALYZE them for budget-relevant info: crew roles, equipment, locations, shoot days, talent, deliverables, post-production. Extract into a JSON patch.
+- From a brief: look for project scope, deliverables, shoot dates, locations, crew, talent, equipment, post-production, explicit budget figures.
+- From a moodboard: infer production requirements from visual style — studio vs location, lighting complexity, special effects, props, wardrobe scale.
 
 RESPONSE STYLE:
 - Use bullet points for lists and summaries
@@ -7573,6 +7576,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [carrieCtx,setCarrieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_carrie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
+  const billieAttachRef=useRef(null);
   const [codyUploadedDoc,setCodyUploadedDoc]=useState(null); // {name, type, pages:[dataUrl,...]}
   const [codySignPanel,setCodySignPanel]=useState(null); // {config, preview} — split-panel sign/stamp viewer
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
@@ -9817,6 +9821,61 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       snap += `Base currency: ${bCur} | Secondary currency: ${bCur2}\n`;
       if(vTs.notes) snap += `Notes: ${vTs.notes}\n`;
 
+      // ── "check the brief / moodboard" auto-detect ──
+      const _pendingPick=billieCtx._pendingFilePick;
+      if(_pendingPick){
+        const pickNum=parseInt(input.trim(),10);
+        const _pickFiles=(projectFileStore[projectId]||{})[_pendingPick]||[];
+        if(pickNum>=1&&pickNum<=_pickFiles.length){
+          const chosen=_pickFiles[pickNum-1];
+          try{
+            let injected=[];
+            if(chosen.type==="application/pdf"||chosen.name?.toLowerCase().endsWith(".pdf")){
+              const pages=await loadPdfPages(chosen.dataUrl);
+              const capped=pages.slice(0,10);
+              if(pages.length>10) setMsgs(prev=>[...prev.slice(0,-1),{...prev[prev.length-1]},{role:"assistant",content:`PDF has ${pages.length} pages — using first 10 for analysis.`}]);
+              injected=capped.map((pg,i)=>({name:`${chosen.name}_p${i+1}`,type:"image/png",dataUrl:pg}));
+            }else{
+              injected=[{name:chosen.name,type:chosen.type||"image/jpeg",dataUrl:chosen.dataUrl}];
+            }
+            if(injected.length){const lastUser=history.findLast(m=>m.role==="user");if(lastUser)lastUser._attachments=(lastUser._attachments||[]).concat(injected);}
+            setBillieCtx(prev=>({...prev,_pendingFilePick:undefined}));
+          }catch(err){setMsgs([...history,{role:"assistant",content:`Failed to load file: ${err.message}`}]);setLoading(false);setMood("idle");return;}
+        }else{
+          setMsgs([...history,{role:"assistant",content:`Please pick a number between 1 and ${_pickFiles.length}.`}]);
+          setLoading(false);setMood("idle");return;
+        }
+      }
+      const _briefMatch=input.match(/\b(check|read|pull|use|load|look at|analyze|review|build from|build off|reference)\b.*\b(brief|moodboard|mood board|reference board|moodboards|briefs)\b/i)||input.match(/\b(brief|moodboard|mood board|reference board)\b/i)&&!/\b(create|write|make|draft)\b/i.test(input);
+      if(_briefMatch&&!_pendingPick){
+        const _isMood=/\b(moodboard|mood board|reference board)\b/i.test(input);
+        const _cat=_isMood?"moodboards":"briefs";
+        const _files=(projectFileStore[projectId]||{})[_cat]||[];
+        if(_files.length===0){
+          setMsgs([...history,{role:"assistant",content:`No ${_cat} found in the Creative folder for ${project.name}. Upload one there or attach directly with 📎`}]);
+          setLoading(false);setMood("idle");return;
+        }else if(_files.length===1){
+          const chosen=_files[0];
+          try{
+            let injected=[];
+            if(chosen.type==="application/pdf"||chosen.name?.toLowerCase().endsWith(".pdf")){
+              const pages=await loadPdfPages(chosen.dataUrl);
+              const capped=pages.slice(0,10);
+              if(pages.length>10) setMsgs(m=>[...m,{role:"assistant",content:`PDF has ${pages.length} pages — using first 10 for analysis.`}]);
+              injected=capped.map((pg,i)=>({name:`${chosen.name}_p${i+1}`,type:"image/png",dataUrl:pg}));
+            }else{
+              injected=[{name:chosen.name,type:chosen.type||"image/jpeg",dataUrl:chosen.dataUrl}];
+            }
+            if(injected.length){const lastUser=history.findLast(m=>m.role==="user");if(lastUser)lastUser._attachments=(lastUser._attachments||[]).concat(injected);}
+          }catch(err){setMsgs([...history,{role:"assistant",content:`Failed to load ${_cat.slice(0,-1)}: ${err.message}`}]);setLoading(false);setMood("idle");return;}
+        }else{
+          const list=_files.map((f,i)=>`${i+1}. ${f.name}`).join("\n");
+          setBillieCtx(prev=>({...prev,_pendingFilePick:_cat}));
+          setMsgs([...history,{role:"assistant",content:`Found ${_files.length} ${_cat}:\n\n${list}\n\nWhich one should I use? Pick a number.`}]);
+          setLoading(false);setMood("idle");return;
+        }
+      }
+
       const billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2);
 
       try{
@@ -9825,6 +9884,13 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
           if(m.role==="assistant"){
             if(mi===0) return{role:m.role,content:billieIntro};
             return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          if(m._attachments&&m._attachments.length){
+            const blocks=[];
+            m._attachments.forEach(att=>{const b64=att.dataUrl.split(",")[1];const mt=att.type||"image/jpeg";blocks.push({type:"image",source:{type:"base64",media_type:mt,data:b64}});});
+            const txt=(m.content||"").replace(/\s*\[\d+ images?\]\s*$/,"").trim();
+            if(txt)blocks.push({type:"text",text:txt});
+            return{role:"user",content:blocks};
           }
           return{role:m.role,content:m.content};
         });
