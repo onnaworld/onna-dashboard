@@ -13033,8 +13033,10 @@ export default function OnnaDashboard() {
   const [agentActiveIdx,_setAgentActiveIdx] = useState(null);
   const [agentHoverIdx,setAgentHoverIdx]   = useState(null);
   const [agentStart,setAgentStart]         = useState(0);
-  const AGENTS_VISIBLE=isMobile?4:7;
-  const agentTotal=AGENT_DEFS.length;
+  const [agentSearch,setAgentSearch]=useState("");
+  const _filteredAgents=agentSearch.trim()?AGENT_DEFS.filter(a=>a.name.toLowerCase().includes(agentSearch.toLowerCase())||a.title.toLowerCase().includes(agentSearch.toLowerCase())):AGENT_DEFS;
+  const AGENTS_VISIBLE=isMobile?4:10;
+  const agentTotal=_filteredAgents.length;
   const needsAgentNav=agentTotal>AGENTS_VISIBLE;
   const setAgentActiveIdx=idx=>{_setAgentActiveIdx(idx);if(idx!==null&&needsAgentNav){if(idx<agentStart)setAgentStart(idx);else if(idx>=agentStart+AGENTS_VISIBLE)setAgentStart(idx-AGENTS_VISIBLE+1);}};
   const [agentWantsFullWidth,setAgentWantsFullWidth] = useState(false);
@@ -15045,7 +15047,7 @@ export default function OnnaDashboard() {
 
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
-        const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+        const addRAVersion = () => { pushUndo("add risk assessment"); const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
         const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to the archive."))return; pushUndo("delete risk assessment"); const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
@@ -18701,11 +18703,15 @@ export default function OnnaDashboard() {
           const useWideLayout = !isMobile;
           return (
           <div style={{display:"flex",flexDirection:isMobile?"column":useWideLayout?"column":"row",height:isMobile?"calc(100vh - 94px)":"calc(100vh - 120px)",padding:isMobile?"0":"0 8px",gap:0,overflow:"hidden"}}>
-            {/* Agent avatars — top strip when agent selected, full grid otherwise */}
-            <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",flexShrink:0,borderBottom:"1px solid #e5e5ea",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"0 12px",flexShrink:0,borderBottom:"1px solid #e5e5ea"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
+            {/* Agent search + avatars */}
+            <div style={{flexShrink:0,borderBottom:"1px solid #e5e5ea"}}>
+              {!isMobile&&agentActiveIdx===null&&<div style={{display:"flex",justifyContent:"center",padding:"8px 16px 0"}}>
+                <input value={agentSearch} onChange={e=>{setAgentSearch(e.target.value);setAgentStart(0);}} placeholder="Search agents..." style={{width:"100%",maxWidth:320,padding:"6px 12px",borderRadius:8,border:"1px solid #e5e5ea",fontSize:12,fontFamily:"inherit",color:"#1d1d1f",background:"#f5f5f7",outline:"none"}}/>
+              </div>}
+              <div style={isMobile?{display:"flex",flexDirection:"row",overflowX:"hidden",overflowY:"hidden",gap:0,padding:"10px 4px 8px",WebkitOverflowScrolling:"touch",justifyContent:"center",alignItems:"center"}:useWideLayout?{display:"flex",flexDirection:"row",justifyContent:"space-evenly",alignItems:"center",gap:0,padding:"0 12px"}:{flex:"0 0 50%",overflowY:"auto",display:"flex",flexWrap:"wrap",alignContent:"center",justifyContent:"center",gap:16,padding:"24px 20px"}}>
               {/* Prev arrow */}
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s-1+agentTotal)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>‹</button>}
-              {Array.from({length:Math.min(AGENTS_VISIBLE,agentTotal)},(_,k)=>AGENT_DEFS[(agentStart+k)%agentTotal]).map((a)=>{
+              {Array.from({length:Math.min(AGENTS_VISIBLE,agentTotal)},(_,k)=>_filteredAgents[(agentStart+k)%agentTotal]).map((a)=>{
                 const i=AGENT_DEFS.indexOf(a);
                 const isActive=agentActiveIdx===i;
                 const isHover=agentHoverIdx===i;
@@ -18723,6 +18729,7 @@ export default function OnnaDashboard() {
               );})}
               {/* Next arrow */}
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
+              </div>
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",minHeight:0,padding:isMobile?"0":useWideLayout?"2px 8px":"8px 8px 8px 0"}}>
