@@ -10931,6 +10931,54 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       setLoading(false);return;
     }
 
+    // ── Doc-aware agents: Tina, Tabby, Polly, Lillie, Perry ──────────────────
+    const _docAgentMap={tina:{ctx:tinaCtx,setCtx:setTinaCtx,stores:{travel_itineraries:travelItineraryStore}},tabby:{ctx:tabbyCtx,setCtx:setTabbyCtx,stores:{casting_decks:castingDeckStore,fittings:fittingStore,casting_tables:castingTableStore}},polly:{ctx:pollyCtx,setCtx:setPollyCtx,stores:{cps:cpsStore,shotlists:shotListStore,storyboards:storyboardStore}},lillie:{ctx:lillieCtx,setCtx:setLillieCtx,stores:{loc_decks:locDeckStore,recce_reports:recceReportStore}},perry:{ctx:perryCtx,setCtx:setPerryCtx,stores:{postprod:postProdStore}}};
+    if(_docAgentMap[agent.id]){
+      const _da=_docAgentMap[agent.id],_daCtx=_da.ctx,_daSetCtx=_da.setCtx;
+      if(!_daCtx){
+        if(!localProjects?.length){setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);setLoading(false);setMood("idle");return;}
+        const num=parseInt(input.trim(),10);let project=null;
+        if(num>=1&&num<=localProjects.length)project=localProjects[num-1];else project=fuzzyMatchProject(localProjects,input);
+        if(!project){const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);setLoading(false);setMood("idle");return;}
+        _daSetCtx({projectId:project.id});setMsgs([...history,{role:"assistant",content:`Got it — working on **${project.name}**. What would you like to do?`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
+      }
+      const project=localProjects?.find(p=>p.id===_daCtx.projectId);
+      if(!project){_daSetCtx(null);setMsgs([...history,{role:"assistant",content:"Project not found. Which project should I work on?"}]);setLoading(false);setMood("idle");return;}
+      if(/\b(switch|change|different|another)\s+project\b/i.test(input)){_daSetCtx(null);const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");setMsgs([...history,{role:"assistant",content:`Sure! Which project should I work on?\n\n${list}`}]);setLoading(false);setMood("idle");return;}
+
+      let docSnap=`Project: ${project.name} (${project.client||""})\n\n`;
+      const _sl={travel_itineraries:"Travel Itineraries",casting_decks:"Casting Decks",fittings:"Fittings",casting_tables:"Casting Tables",cps:"Creative Production Schedules",shotlists:"Shot Lists",storyboards:"Storyboards",loc_decks:"Location Decks",recce_reports:"Recce Reports",postprod:"Post-Production"};
+      const stripImg=(o)=>{if(!o||typeof o!=="object")return o;if(Array.isArray(o))return o.map(stripImg);const r={};for(const[k,v]of Object.entries(o)){if(typeof v==="string"&&(v.startsWith("data:image")||v.startsWith("blob:")))r[k]="[image]";else if(k==="image"&&v&&typeof v==="string"&&v.length>100)r[k]="[image]";else r[k]=stripImg(v);}return r;};
+      Object.entries(_da.stores).forEach(([key,store])=>{if(!store)return;const versions=store[project.id]||[];docSnap+=`=== ${_sl[key]||key} (${versions.length} version${versions.length!==1?"s":""}) ===\n`;if(versions.length===0){docSnap+="(none created yet)\n\n";return;}versions.forEach((ver,vi)=>{const label=ver.label||ver.project?.name||`Version ${vi+1}`;docSnap+=`--- [vIdx:${vi}] ${label} ---\n`;docSnap+=JSON.stringify(stripImg(JSON.parse(JSON.stringify(ver))),null,1).substring(0,3000)+"\n\n";});});
+
+      const _piData=(projectInfoRef?.current||{})[project.id];
+      const enhancedSystem=`${system}\n\nCURRENT PROJECT CONTEXT:\n${docSnap}\nProject Info: ${JSON.stringify(_piData||{},null,1).substring(0,500)}\n\nINSTRUCTIONS:\n- You are viewing LIVE data for "${project.name}". Reference specific details from the snapshot above.\n- When the user asks to add, update, or change data, respond with a JSON patch in a \`\`\`json code block.\n- Patch format: { "store": "<store_key>", "versionIndex": <number>, "updates": { <fields to merge> } }\n- For new versions: { "store": "<store_key>", "action": "create", "data": { <full version object> } }\n- Valid store keys: ${Object.keys(_da.stores).join(", ")}\n- NEVER say you can't access data. You have FULL live access.`;
+
+      try{
+        const apiMessages=history.map((m,mi)=>{if(m.role==="assistant"){if(mi===0)return{role:m.role,content:intro};return{role:m.role,content:typeof m.content==="string"?m.content:""};}return{role:m.role,content:m.content};});
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:enhancedSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+        const jsonMatch=fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch=JSON.parse(jsonMatch[1].trim());
+            const storeSetMap={travel_itineraries:setTravelItineraryStore,casting_decks:setCastingDeckStore,fittings:setFittingStore,casting_tables:setCastingTableStore,cps:setCpsStore,shotlists:setShotListStore,storyboards:setStoryboardStore,loc_decks:setLocDeckStore,recce_reports:setRecceReportStore,postprod:setPostProdStore};
+            const setter=storeSetMap[patch.store];
+            if(setter&&_da.stores[patch.store]!==undefined){
+              if(patch.action==="create"){setter(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[project.id])s[project.id]=[];s[project.id].push({id:Date.now(),...patch.data});return s;});}
+              else if(patch.updates&&typeof patch.versionIndex==="number"){setter(prev=>{const s=JSON.parse(JSON.stringify(prev));const vs=s[project.id]||[];const vi=Math.min(patch.versionIndex,vs.length-1);if(vi>=0&&vs[vi]){const dm=(a,b)=>{if(!b||typeof b!=="object"||Array.isArray(b))return b;const o={...a};for(const[k,v]of Object.entries(b)){if(v&&typeof v==="object"&&!Array.isArray(v)&&a[k]&&typeof a[k]==="object"&&!Array.isArray(a[k]))o[k]=dm(a[k],v);else o[k]=v;}return o;};vs[vi]=dm(vs[vi],patch.updates);}return s;});}
+              const cleanText=fullText.replace(/```json[\s\S]*?```/g,"").trim();
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Updated."}]);
+            }else{setMsgs([...history,{role:"assistant",content:fullText||"Done!"}]);}
+          }catch(pe){setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);}
+        }else{setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);}
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return;
+    }
+
     try{
       const apiMessages=history.map(m=>{
         if(m.role==="assistant")return{role:m.role,content:typeof m.content==="string"?m.content:""};
@@ -11184,7 +11232,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":"0 0 60%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+        <div style={{flex:isMobile?"none":"0 0 50%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
           <div style={{padding:"6px 12px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
             <span style={{fontSize:11,fontWeight:600,color:"#6e6e73",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.id==="contracts"&&codyCtx?(()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];return(v?.label||`Version ${(codyCtx.vIdx||0)+1}`)+" Preview";})():agent.id==="compliance"&&connieDietMode?"Dietary Preview":agent.id==="compliance"?"Call Sheet Preview":agent.id==="researcher"?"Risk Assessment Preview":agent.id==="billie"?"Estimate Preview":agent.id==="carrie"?"Casting Deck Preview":"Preview"}</span>
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
@@ -11214,7 +11262,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             projectInfoRef={projectInfoRef}/>
           </div>
         </div>
-        <div style={{flex:isMobile?"none":"0 0 40%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":"0 0 50%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -12663,19 +12711,37 @@ export default function OnnaDashboard() {
 
   // ─── GLOBAL UNDO (Cmd+Z) ──────────────────────────────────────────────────
   const undoStack = useRef([]);
+  const undoToastRef = useRef(null);
+  const [undoToastMsg, setUndoToastMsg] = useState("");
   const pushUndo = useCallback((label) => {
+    const clone = (v) => JSON.parse(JSON.stringify(v));
     undoStack.current.push({
       label,
-      todos: JSON.parse(JSON.stringify(todos)),
-      projectTodos: JSON.parse(JSON.stringify(projectTodos)),
-      outreach: JSON.parse(JSON.stringify(outreach)),
-      vendors: JSON.parse(JSON.stringify(vendors)),
-      localProjects: JSON.parse(JSON.stringify(localProjects)),
-      archivedTodos: JSON.parse(JSON.stringify(archivedTodos)),
-      riskAssessmentStore: JSON.parse(JSON.stringify(riskAssessmentStore)),
+      todos: clone(todos),
+      projectTodos: clone(projectTodos),
+      outreach: clone(outreach),
+      vendors: clone(vendors),
+      localProjects: clone(localProjects),
+      archivedTodos: clone(archivedTodos),
+      riskAssessmentStore: clone(riskAssessmentStore),
+      cpsStore: clone(cpsStore),
+      shotListStore: clone(shotListStore),
+      storyboardStore: clone(storyboardStore),
+      callSheetStore: clone(callSheetStore),
+      contractDocStore: clone(contractDocStore),
+      postProdStore: clone(postProdStore),
+      fittingStore: clone(fittingStore),
+      locDeckStore: clone(locDeckStore),
+      recceReportStore: clone(recceReportStore),
+      castingDeckStore: clone(castingDeckStore),
+      castingTableStore: clone(castingTableStore),
+      travelItineraryStore: clone(travelItineraryStore),
+      dietaryStore: clone(dietaryStore),
+      projectEstimates: clone(projectEstimates),
+      archive: clone(archive),
     });
     if (undoStack.current.length > 50) undoStack.current.shift();
-  }, [todos, projectTodos, outreach, vendors, localProjects, archivedTodos, riskAssessmentStore]);
+  }, [todos, projectTodos, outreach, vendors, localProjects, archivedTodos, riskAssessmentStore, cpsStore, shotListStore, storyboardStore, callSheetStore, contractDocStore, postProdStore, fittingStore, locDeckStore, recceReportStore, castingDeckStore, castingTableStore, travelItineraryStore, dietaryStore, projectEstimates, archive]);
 
   const performUndo = useCallback(() => {
     if (undoStack.current.length === 0) return;
@@ -12687,6 +12753,24 @@ export default function OnnaDashboard() {
     setLocalProjects(snap.localProjects);
     setArchivedTodos(snap.archivedTodos);
     if (snap.riskAssessmentStore) setRiskAssessmentStore(snap.riskAssessmentStore);
+    if (snap.cpsStore) setCpsStore(snap.cpsStore);
+    if (snap.shotListStore) setShotListStore(snap.shotListStore);
+    if (snap.storyboardStore) setStoryboardStore(snap.storyboardStore);
+    if (snap.callSheetStore) setCallSheetStore(snap.callSheetStore);
+    if (snap.contractDocStore) setContractDocStore(snap.contractDocStore);
+    if (snap.postProdStore) setPostProdStore(snap.postProdStore);
+    if (snap.fittingStore) setFittingStore(snap.fittingStore);
+    if (snap.locDeckStore) setLocDeckStore(snap.locDeckStore);
+    if (snap.recceReportStore) setRecceReportStore(snap.recceReportStore);
+    if (snap.castingDeckStore) setCastingDeckStore(snap.castingDeckStore);
+    if (snap.castingTableStore) setCastingTableStore(snap.castingTableStore);
+    if (snap.travelItineraryStore) setTravelItineraryStore(snap.travelItineraryStore);
+    if (snap.dietaryStore) setDietaryStore(snap.dietaryStore);
+    if (snap.projectEstimates) setProjectEstimates(snap.projectEstimates);
+    if (snap.archive) setArchive(snap.archive);
+    setUndoToastMsg("Undo: " + (snap.label || "action"));
+    clearTimeout(undoToastRef.current);
+    undoToastRef.current = setTimeout(() => setUndoToastMsg(""), 1800);
   }, []);
 
   useEffect(() => {
@@ -14611,6 +14695,7 @@ export default function OnnaDashboard() {
       if (documentsSubSection==="callsheet") {
         const csVersions = callSheetStore[p.id] || [];
         const addCSNew = () => {
+          pushUndo("add call sheet");
           const newId = Date.now();
           const newCS = {id:newId,label:`${p.name} Call Sheet V${csVersions.length+1}`,...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
           newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
@@ -14619,7 +14704,7 @@ export default function OnnaDashboard() {
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
         };
-        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to the archive."))return; const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
+        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to the archive."))return; pushUndo("delete call sheet"); const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
 
         // ── List view: no call sheet selected ──
         if (activeCSVersion === null || csVersions.length === 0) {
@@ -14961,7 +15046,7 @@ export default function OnnaDashboard() {
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
         const addRAVersion = () => { const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to the archive."))return; const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
+        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to the archive."))return; pushUndo("delete risk assessment"); const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
         if (activeRAVersion === null || raVersions.length === 0) {
@@ -15118,6 +15203,7 @@ export default function OnnaDashboard() {
           };
           const deleteContract = (idx) => {
             if (!confirm("Delete this contract? This will be moved to the archive.")) return;
+            pushUndo("delete contract");
             const ctData=JSON.parse(JSON.stringify((contractDocStore[p.id]||[])[idx])); if(ctData)archiveItem('contracts',{projectId:p.id,contract:ctData});
             setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
           };
@@ -15337,6 +15423,7 @@ export default function OnnaDashboard() {
       if (documentsSubSection==="dietaries") {
         const dietVersions = dietaryStore[p.id] || [];
         const addDietNew = () => {
+          pushUndo("add dietary");
           const newId = Date.now();
           const newDiet = {id:newId,label:`${p.name} Dietary V${dietVersions.length+1}`,...JSON.parse(JSON.stringify(DIETARY_INIT))};
           const _pi=(projectInfoRef.current||{})[p.id];
@@ -15361,6 +15448,7 @@ export default function OnnaDashboard() {
         };
         const deleteDiet = (idx) => {
           if(!confirm("Delete this dietary list? This will be moved to the archive."))return;
+          pushUndo("delete dietary");
           const dietData=JSON.parse(JSON.stringify((dietaryStore[p.id]||[])[idx]));
           if(dietData)archiveItem('dietaries',{projectId:p.id,dietary:dietData});
           setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
@@ -15679,6 +15767,7 @@ export default function OnnaDashboard() {
       if (locSubSection==="deck") {
       const locVersions = locDeckStore[p.id] || [];
       const addLocNew = () => {
+        pushUndo("add locations deck");
         const newId = Date.now();
         const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "", date: "" };
         const newLoc = { id: newId, label: `${p.name} Locations Deck V${locVersions.length+1}`, project: proj, locations: [mkLoc(), mkLoc(), mkLoc()], details: [mkDetail(), mkDetail(), mkDetail()], shareToken: null, shareResourceId: null };
@@ -15686,6 +15775,7 @@ export default function OnnaDashboard() {
       };
       const deleteLocDeck = (idx) => {
         if (!confirm("Delete this Locations Deck? This will be moved to the archive.")) return;
+        pushUndo("delete locations deck");
         const locData = JSON.parse(JSON.stringify((locDeckStore[p.id]||[])[idx]));
         if (locData) archiveItem('locationDecks', { projectId: p.id, locationDeck: locData });
         setLocDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -15825,6 +15915,7 @@ export default function OnnaDashboard() {
       if (locSubSection==="recce") {
         const recceVersions = recceReportStore[p.id] || [];
         const addRecceNew = () => {
+          pushUndo("add recce report");
           const newId = Date.now();
           const init = JSON.parse(JSON.stringify(RECCE_REPORT_INIT));
           init.project.name = `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
@@ -15836,6 +15927,7 @@ export default function OnnaDashboard() {
         };
         const deleteRecce = (idx) => {
           if(!confirm("Delete this recce report? This will be moved to the archive."))return;
+          pushUndo("delete recce report");
           const recceData=JSON.parse(JSON.stringify((recceReportStore[p.id]||[])[idx]));
           if(recceData)archiveItem('recceReports',{projectId:p.id,recceReport:recceData});
           setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
@@ -16157,6 +16249,7 @@ export default function OnnaDashboard() {
       if (castingSubSection==="deck") {
         const castDeckVersions = castingDeckStore[p.id] || [];
         const addCastDeckNew = () => {
+          pushUndo("add casting deck");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", director: "[Director]" };
           const newDeck = { id: newId, label: `${p.name} Casting Deck V${castDeckVersions.length+1}`, project: proj, confirmed: CAST_INIT().confirmed, options: CAST_INIT().options };
@@ -16188,7 +16281,7 @@ export default function OnnaDashboard() {
                     <div style={{fontSize:14,fontWeight:600,color:T.text}}>{v.project?.name||"Untitled"}</div>
                     <div style={{fontSize:12,color:T.muted}}>{(v.confirmed||[]).reduce((a,r)=>(a+(r.talent||[]).length),0)} confirmed, {(v.options||[]).reduce((a,r)=>(a+(r.talent||r.entries||[]).length),0)} options</div>
                   </div>
-                  <button onClick={e=>{e.stopPropagation();if(confirm("Delete this casting deck version?"))setCastingDeckStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id].splice(i,1);return s;});}} style={{background:"none",border:"none",color:T.muted,fontSize:18,cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                  <button onClick={e=>{e.stopPropagation();if(confirm("Delete this casting deck version?")){pushUndo("delete casting deck");setCastingDeckStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id].splice(i,1);return s;});}}} style={{background:"none",border:"none",color:T.muted,fontSize:18,cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
                 </div>
               ))}
             </div>}
@@ -16310,6 +16403,7 @@ export default function OnnaDashboard() {
       if (castingSubSection==="tables") {
         const ctVersions = Array.isArray(castingTableStore[p.id]) ? castingTableStore[p.id] : [];
         const addCTNew = () => {
+          pushUndo("add casting table");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", casting: "[Casting Director]" };
           const newCT = { id: newId, label: `${p.name} Casting Table V${ctVersions.length+1}`, project: proj, roles: [ctMkRole(), ctMkRole()] };
@@ -16317,6 +16411,7 @@ export default function OnnaDashboard() {
         };
         const deleteCT = (idx) => {
           if (!confirm("Delete this Casting Table? This will be moved to the archive.")) return;
+          pushUndo("delete casting table");
           const ctDelData = JSON.parse(JSON.stringify((castingTableStore[p.id]||[])[idx]));
           if (ctDelData) archiveItem('casting_table', { projectId: p.id, castingTable: ctDelData });
           setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -16469,6 +16564,7 @@ export default function OnnaDashboard() {
       if (stylingSubSection==="fitting") {
         const fitVersions = fittingStore[p.id] || [];
         const addFitNew = () => {
+          pushUndo("add fitting deck");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", stylist: "[Stylist]" };
           const newFit = { id: newId, label: `${p.name} Fitting Deck V${fitVersions.length+1}`, project: proj, talent: [mkFitTalent(), mkFitTalent()], fittings: [mkFitFitting(), mkFitFitting()] };
@@ -16476,6 +16572,7 @@ export default function OnnaDashboard() {
         };
         const deleteFitVersion = (idx) => {
           if (!confirm("Delete this Fitting Deck? This will be moved to the archive.")) return;
+          pushUndo("delete fitting deck");
           const fitData = JSON.parse(JSON.stringify((fittingStore[p.id]||[])[idx]));
           if (fitData) archiveItem('fitting', { projectId: p.id, fitting: fitData });
           setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -16709,6 +16806,7 @@ export default function OnnaDashboard() {
       if (travelSubSection === "itinerary") {
         const tiVersions = travelItineraryStore[p.id] || [];
         const addTINew = () => {
+          pushUndo("add travel itinerary");
           const newId = Date.now();
           const newTI = {id:newId,label:`${p.name} Travel Itinerary V${tiVersions.length+1}`,...JSON.parse(JSON.stringify(TRAVEL_ITINERARY_INIT))};
           const _pi=(projectInfoRef.current||{})[p.id];
@@ -16720,6 +16818,7 @@ export default function OnnaDashboard() {
         };
         const deleteTI = (idx) => {
           if(!confirm("Delete this travel itinerary? This will be moved to the archive."))return;
+          pushUndo("delete travel itinerary");
           const tiData=JSON.parse(JSON.stringify((travelItineraryStore[p.id]||[])[idx]));
           if(tiData)archiveItem('travelItineraries',{projectId:p.id,travelItinerary:tiData});
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr.splice(idx,1);store[p.id]=arr;return store;});
@@ -17168,6 +17267,7 @@ export default function OnnaDashboard() {
       if (scheduleSubSection==="cps") {
         const cpsVersions = cpsStore[p.id] || [];
         const addCPSNew = () => {
+          pushUndo("add CPS");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", startDate: "[Start Date]", deliveryDate: "[Delivery Date]", producer: "[Producer]" };
           const newCPS = { id: newId, label: `${p.name} CPS V${cpsVersions.length+1}`, project: proj, phases: cpsDefaultPhases() };
@@ -17175,6 +17275,7 @@ export default function OnnaDashboard() {
         };
         const deleteCPS = (idx) => {
           if (!confirm("Delete this CPS? This will be moved to the archive.")) return;
+          pushUndo("delete CPS");
           const cpsData = JSON.parse(JSON.stringify((cpsStore[p.id]||[])[idx]));
           if (cpsData) archiveItem('cps', { projectId: p.id, cps: cpsData });
           setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -17294,6 +17395,7 @@ export default function OnnaDashboard() {
       if (scheduleSubSection==="shotlist") {
         const slVersions = shotListStore[p.id] || [];
         const addSLNew = () => {
+          pushUndo("add shot list");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", director: "[Director]", dop: "[DOP]" };
           const defaultScenes = [
@@ -17304,6 +17406,7 @@ export default function OnnaDashboard() {
         };
         const deleteSL = (idx) => {
           if (!confirm("Delete this Shot List? This will be moved to the archive.")) return;
+          pushUndo("delete shot list");
           const slData = JSON.parse(JSON.stringify((shotListStore[p.id]||[])[idx]));
           if (slData) archiveItem('shotlist', { projectId: p.id, shotlist: slData });
           setShotListStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -17425,6 +17528,7 @@ export default function OnnaDashboard() {
       if (scheduleSubSection==="storyboard") {
         const sbVersions = storyboardStore[p.id] || [];
         const addSBNew = () => {
+          pushUndo("add storyboard");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", director: "[Director]", dop: "[DOP]" };
           const defaultFrames = [mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame(), mkFrame()];
@@ -17433,6 +17537,7 @@ export default function OnnaDashboard() {
         };
         const deleteSB = (idx) => {
           if (!confirm("Delete this Storyboard? This will be moved to the archive.")) return;
+          pushUndo("delete storyboard");
           const sbData = JSON.parse(JSON.stringify((storyboardStore[p.id]||[])[idx]));
           if (sbData) archiveItem('storyboard', { projectId: p.id, storyboard: sbData });
           setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -17550,6 +17655,7 @@ export default function OnnaDashboard() {
       if (scheduleSubSection==="postprod") {
         const ppVersions = Array.isArray(postProdStore[p.id]) ? postProdStore[p.id] : [];
         const addPPNew = () => {
+          pushUndo("add post-production");
           const newId = Date.now();
           const proj = { name: `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""), client: p.client || "[Client Name]", date: "[Date]", editor: "[Editor]", colourist: "[Colourist]", sound: "[Sound]", filesLink: "" };
           const newPP = { id: newId, label: `${p.name} Post Production V${ppVersions.length+1}`, project: proj, videos: [ppMkVideo(), ppMkVideo()], stills: [ppMkStill(), ppMkStill()], schedule: ppDefaultSchedule(), specNotes: "", feedback: "" };
@@ -17557,6 +17663,7 @@ export default function OnnaDashboard() {
         };
         const deletePP = (idx) => {
           if (!confirm("Delete this Post-Production schedule? This will be moved to the archive.")) return;
+          pushUndo("delete post-production");
           const ppDelData = JSON.parse(JSON.stringify((postProdStore[p.id]||[])[idx]));
           if (ppDelData) archiveItem('postprod', { projectId: p.id, postprod: ppDelData });
           setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -18618,11 +18725,11 @@ export default function OnnaDashboard() {
               {needsAgentNav&&<button onClick={()=>setAgentStart(s=>(s+1)%agentTotal)} style={{background:"none",border:"1px solid #e5e5ea",borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#888",fontSize:14,flexShrink:0,transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e5e5ea";e.currentTarget.style.color="#888";}}>›</button>}
             </div>
             {/* Chat panel — centered wide card when agent active, right 50% otherwise */}
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch",minHeight:0,padding:isMobile?"0":useWideLayout?"2px 8px":"8px 8px 8px 0"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",minHeight:0,padding:isMobile?"0":useWideLayout?"2px 8px":"8px 8px 8px 0"}}>
               {agentActiveIdx===null?(
                 <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",color:"#aeaeb2",fontSize:14,fontFamily:"Avenir,'Avenir Next',sans-serif",fontWeight:500,padding:24,textAlign:"center"}}>Select an agent to start chatting</div>
               ):(
-                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:"100%",minHeight:0,width:"100%"}}>
+                <div style={{flex:1,background:"white",borderRadius:isMobile?0:20,border:isMobile?"none":"1.5px solid #e5e5ea",boxShadow:isMobile?"none":"0 8px 32px rgba(0,0,0,0.08)",display:"flex",flexDirection:"column",overflow:"hidden",height:"100%",minHeight:0,width:"100%",maxWidth:isMobile?"none":1100}}>
                   {/* Bubble header with nav arrows */}
                   <div style={{padding:"13px 18px 10px",borderBottom:"1px solid #f2f2f7",display:"flex",alignItems:"center",flexShrink:0}}>
                     <span style={{fontWeight:700,fontSize:12,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:1.2,textTransform:"uppercase"}}>{AGENT_DEFS[agentActiveIdx].name}</span>
@@ -18639,8 +18746,8 @@ export default function OnnaDashboard() {
                       gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
-                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie")?selectedProject:undefined}
-                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
+                      selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie"||a.id==="tina"||a.id==="tabby"||a.id==="polly"||a.id==="lillie"||a.id==="perry")?selectedProject:undefined}
+                      localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie"||a.id==="tina"||a.id==="tabby"||a.id==="polly"||a.id==="lillie"||a.id==="perry")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
                       vendors={(a.id==="compliance"||a.id==="carrie")?vendors:undefined}
                       activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                       dietaryStore={a.id==="compliance"?dietaryStore:undefined}
@@ -18670,6 +18777,26 @@ export default function OnnaDashboard() {
                       onOpenDuplicateCS={a.id==="compliance"?(pid)=>{setCsDuplicateModal({origin:"connie",projectId:pid});setCsDuplicateSearch("");}:undefined}
                       onOpenDuplicateRA={a.id==="researcher"?(pid)=>{setRaDuplicateModal({origin:"ronnie",projectId:pid});setRaDuplicateSearch("");}:undefined}
                       onArchiveCallSheet={(a.id==="compliance"||a.id==="researcher"||a.id==="billie"||a.id==="contracts")?archiveItem:undefined}
+                      travelItineraryStore={a.id==="tina"?travelItineraryStore:undefined}
+                      setTravelItineraryStore={a.id==="tina"?setTravelItineraryStore:undefined}
+                      castingDeckStore={(a.id==="tabby")?castingDeckStore:undefined}
+                      setCastingDeckStore={(a.id==="tabby")?setCastingDeckStore:undefined}
+                      fittingStore={(a.id==="tabby")?fittingStore:undefined}
+                      setFittingStore={(a.id==="tabby")?setFittingStore:undefined}
+                      castingTableStore={(a.id==="tabby")?castingTableStore:undefined}
+                      setCastingTableStore={(a.id==="tabby")?setCastingTableStore:undefined}
+                      cpsStore={a.id==="polly"?cpsStore:undefined}
+                      setCpsStore={a.id==="polly"?setCpsStore:undefined}
+                      shotListStore={a.id==="polly"?shotListStore:undefined}
+                      setShotListStore={a.id==="polly"?setShotListStore:undefined}
+                      storyboardStore={a.id==="polly"?storyboardStore:undefined}
+                      setStoryboardStore={a.id==="polly"?setStoryboardStore:undefined}
+                      locDeckStore={a.id==="lillie"?locDeckStore:undefined}
+                      setLocDeckStore={a.id==="lillie"?setLocDeckStore:undefined}
+                      recceReportStore={a.id==="lillie"?recceReportStore:undefined}
+                      setRecceReportStore={a.id==="lillie"?setRecceReportStore:undefined}
+                      postProdStore={a.id==="perry"?postProdStore:undefined}
+                      setPostProdStore={a.id==="perry"?setPostProdStore:undefined}
                     />
                   ))}
                 </div>
@@ -19747,6 +19874,7 @@ export default function OnnaDashboard() {
           const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
           const _pName=_proj?.name||"";
           if(_pid){
+            pushUndo("duplicate call sheet");
             setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} Call Sheet V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
           }
           setCsDuplicateModal(null);setCsDuplicateSearch("");
@@ -19808,6 +19936,7 @@ export default function OnnaDashboard() {
           const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
           const _pName=_proj?.name||"";
           if(_pid){
+            pushUndo("duplicate risk assessment");
             setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} Risk Assessment V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
           }
           setRaDuplicateModal(null);setRaDuplicateSearch("");
@@ -19885,6 +20014,7 @@ export default function OnnaDashboard() {
           const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
           const _pName=_proj?.name||"";
           if(_pid){
+            pushUndo("duplicate " + conf.title.toLowerCase());
             conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];const vn=store[_pid].length+1;const autoLabel=`${_pName} ${conf.title} V${vn}`;if(conf.setLabelFn)conf.setLabelFn(clone,autoLabel);else clone.label=autoLabel;store[_pid].push(clone);return store;});
           }
           setDuplicateModal(null);setDuplicateSearch("");
@@ -19972,6 +20102,7 @@ export default function OnnaDashboard() {
           </div>
         </div>
       )}
+      {undoToastMsg&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1d1d1f",color:"#fff",padding:"10px 24px",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"inherit",zIndex:99999,boxShadow:"0 8px 32px rgba(0,0,0,0.25)",pointerEvents:"none"}}>{undoToastMsg}</div>}
     </div>
   );
 }
