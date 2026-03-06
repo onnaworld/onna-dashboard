@@ -3070,7 +3070,7 @@ ${PRINT_CLEANUP_CSS}
 let _fitId = 0;
 const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
 const mkFitLook = () => ({ id: "lk" + (++_fitId), name: "", description: "", notes: "", status: "Pending", image: null });
-const mkFitFitting = () => ({ id: "fit" + (++_fitId), talentName: "", lookName: "", notes: "", images: [null,null,null,null], imageStatuses: {} });
+const mkFitFitting = () => { const fid = ++_fitId; return { id: "fit" + fid, modelId: "m" + fid, talentName: "", lookName: "", notes: "", images: [null,null,null,null], imageStatuses: {} }; };
 
 const FIT_STATUSES = ["Pending", "Option", "Approved", "Pulled", "Returned"];
 const FIT_STATUS_C = {
@@ -3203,10 +3203,31 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
 
   // Auto-sync: when any image status changes to "approved", pull into confirmed looks
   useEffect(() => {
-    const hasApproved = fittings.some(f =>
-      f.images.some((img, i) => img && (f.imageStatuses || {})[i] === "approved")
+    const approvedFits = fittings.filter(f =>
+      f.talentName && f.images.some((img, i) => img && (f.imageStatuses || {})[i] === "approved")
     );
-    if (hasApproved) syncApproved();
+    if (approvedFits.length === 0) return;
+    approvedFits.forEach(fit => {
+      const approvedImgs = fit.images.filter((img, i) => img && (fit.imageStatuses || {})[i] === "approved");
+      setTalent(prev => {
+        let found = prev.find(t => t.name.toLowerCase().trim() === fit.talentName.toLowerCase().trim());
+        if (found) {
+          return prev.map(t => {
+            if (t.id !== found.id) return t;
+            const newLooks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
+            const existingImgs = t.looks.map(l => l.image).filter(Boolean);
+            const unique = newLooks.filter(nl => !existingImgs.includes(nl.image));
+            if (unique.length === 0) return t;
+            return { ...t, looks: [...t.looks.filter(l => l.image), ...unique] };
+          });
+        } else {
+          const newT = mkFitTalent();
+          newT.name = fit.talentName;
+          newT.looks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
+          return [...prev, newT];
+        }
+      });
+    });
   }, [fittings]); // eslint-disable-line
 
   const dragLook = useRef(null);
@@ -3298,7 +3319,10 @@ ${PRINT_CLEANUP_CSS}
       const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
-      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const payload = JSON.stringify(body);
+      if (payload.length > 4 * 1024 * 1024) { alert("Content too large to share. Try removing some images first."); return; }
+      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+      if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
@@ -3407,20 +3431,20 @@ ${PRINT_CLEANUP_CSS}
             {(() => {
               const groups = [];
               fittings.forEach((fit) => {
-                const key = (fit.talentName || "").trim().toLowerCase();
+                const mid = fit.modelId || fit.id;
                 const last = groups.length > 0 ? groups[groups.length - 1] : null;
-                if (key && last && last.key === key) { last.fits.push(fit); }
-                else { groups.push({ key, fits: [fit] }); }
+                if (last && last.modelId === mid) { last.fits.push(fit); }
+                else { groups.push({ modelId: mid, fits: [fit] }); }
               });
               return groups.map((group, gi) => (
-                <div key={gi} style={{ marginBottom: 14 }}>
+                <div key={group.modelId} style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>MODEL {gi + 1}</span>
                       <FitInp value={group.fits[0].talentName} onChange={v => group.fits.forEach(f => updateFit(f.id, "talentName", v))} placeholder="Talent Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 100 : 180 }} />
                     </div>
                     <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span onClick={() => { const newFit = mkFitFitting(); newFit.talentName = group.fits[0].talentName; setFittings(p => { const lastId = group.fits[group.fits.length - 1].id; const idx = p.findIndex(f => f.id === lastId); const n = [...p]; n.splice(idx + 1, 0, newFit); return n; }); }}
+                      <span onClick={() => { const newFit = mkFitFitting(); newFit.talentName = group.fits[0].talentName; newFit.modelId = group.modelId; setFittings(p => { const lastId = group.fits[group.fits.length - 1].id; const idx = p.findIndex(f => f.id === lastId); const n = [...p]; n.splice(idx + 1, 0, newFit); return n; }); }}
                         style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ LOOK</span>
                       <button onClick={() => { const ids = group.fits.map(f => f.id); setFittings(p => p.filter(f => !ids.includes(f.id))); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
                     </div>
@@ -6750,6 +6774,9 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const [codySignPanel,setCodySignPanel]=useState(null); // {config, preview} — split-panel sign/stamp viewer
   const codyDocRef=useRef(null); // file input ref for Cody doc uploads
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
+  const codyUndoStack=useRef([]); // undo stack for contract changes (up to 50)
+  const pushCodyUndo=useCallback(()=>{if(!contractDocStore)return;codyUndoStack.current.push(JSON.parse(JSON.stringify(contractDocStore)));if(codyUndoStack.current.length>50)codyUndoStack.current.shift();},[contractDocStore]);
+  const popCodyUndo=useCallback(()=>{if(codyUndoStack.current.length===0)return false;const snap=codyUndoStack.current.pop();if(setContractDocStore)setContractDocStore(snap);return true;},[setContractDocStore]);
 
   // ── Split-pane: detect if agent has active project context ──
   const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx);
@@ -6772,6 +6799,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   useEffect(()=>{try{localStorage.setItem('onna_agent_chat_'+agent.id,JSON.stringify(msgs));}catch{}},[msgs,agent.id]);
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
+  // Cmd+Z undo for Contract Cody
+  useEffect(()=>{if(agent.id!=="contracts"||!active)return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){const tag=e.target.tagName;if(tag==="INPUT"||tag==="TEXTAREA"||e.target.isContentEditable)return;e.preventDefault();if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last contract change."}]);}}};window.addEventListener("keydown",handler);return()=>window.removeEventListener("keydown",handler);},[agent.id,active,popCodyUndo,setMsgs]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   
@@ -9664,6 +9693,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           const label=nameInput+" | "+CONTRACT_TYPE_LABELS[typeId];
           const ctVersions=contractDocStore?.[pid]||[];
           const newIdx=ctVersions.length;
+          pushCodyUndo();
           setContractDocStore(prev=>{
             const store=JSON.parse(JSON.stringify(prev));
             const arr=store[pid]||[];
@@ -9703,6 +9733,20 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       let {projectId,vIdx}=codyCtx;
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setCodyCtx(null);codyPendingRef.current=null;if(setActiveContractVersion) setActiveContractVersion(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
+
+      // Close command — close doc panel without clearing chat
+      if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
+        setCodyCtx(null);codyPendingRef.current=null;if(setActiveContractVersion)setActiveContractVersion(null);setCodySignPanel(null);
+        setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return;
+      }
+
+      // Undo command
+      if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
+        if(popCodyUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last contract change. You can undo up to 50 changes, or press ⌘Z."}]);}
+        else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
+        setLoading(false);setMood("idle");return;
+      }
 
       // Navigate to contracts list view
       if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(contracts?)\b/i.test(input)||/\b(contracts?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
@@ -9857,6 +9901,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         const _delVersions=contractDocStore?.[cd.projectId]||[];
         const _delVer=_delVersions[cd.vIdx];
         const _delLabel=_delVer?.label||`Version ${cd.vIdx+1}`;
+        pushCodyUndo();
         setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[cd.projectId]||[];arr.splice(cd.vIdx,1);store[cd.projectId]=arr;return store;});
         setCodyCtx(null);if(setActiveContractVersion) setActiveContractVersion(null);
         setMsgs([...history,{role:"assistant",content:`Done — **${_delLabel}** has been deleted. Say a project name to start again.`}]);
@@ -9871,6 +9916,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       // ── Confirm clear edits (user said "yes" after clear warning) ──
       if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_clear"&&/\b(yes|yep|yeah|sure|go ahead|do it|confirm|clear it|reset it)\b/i.test(input)){
         const cc=codyPendingRef.current;codyPendingRef.current=null;
+        pushCodyUndo();
         setContractDocStore(prev=>{
           const store=JSON.parse(JSON.stringify(prev));const arr=store[cc.projectId]||[];
           if(arr[cc.vIdx]){const ct=arr[cc.vIdx];ct.fieldValues={};ct.fieldConfirmed={};ct.generalTermsEdits={};ct.sigNames={};ct.signatures={};ct.prodLogo=null;ct.signingStatus="not_sent";ct.signingToken=null;}
@@ -9946,6 +9992,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         if(jsonMatch){
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
+            pushCodyUndo();
             applyCodyPatch(patch, project.id, vIdx, ctVersions, setContractDocStore);
             setTimeout(()=>syncProjectInfoToDocs(project.id),100);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
@@ -10365,7 +10412,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
               <button type="button" onClick={()=>{setInput(String(i+1));setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:12,fontWeight:600,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
                 {v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}
               </button>
-              <button type="button" onClick={()=>{if(!confirm(`Delete "${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}"? This cannot be undone.`))return;setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(i,1);store[pid]=arr;return store;});if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx===i){setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);}else if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx>i){setCodyCtx(prev=>({...prev,vIdx:prev.vIdx-1}));if(setActiveContractVersion)setActiveContractVersion(prev=>prev-1);}const remaining=(contractDocStore?.[pid]||[]).length-1;if(remaining<=0){codyPendingRef.current={projectId:pid,step:"pick_type"};const typeList=CONTRACT_TYPE_IDS.map((t,ti)=>`${ti+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} has no contracts left. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);}else{const updated=(contractDocStore?.[pid]||[]).filter((_,j)=>j!==i);const list=updated.map((cv,j)=>`${j+1}. ${cv.label||CONTRACT_TYPE_LABELS[cv.contractType]||`Version ${j+1}`}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} now has ${updated.length} contract${updated.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);}}} style={{background:"none",border:"none",color:"#aeaeb2",cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px"}} title="Delete contract">×</button>
+              <button type="button" onClick={()=>{if(!confirm(`Delete "${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}"?`))return;pushCodyUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(i,1);store[pid]=arr;return store;});if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx===i){setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);}else if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx>i){setCodyCtx(prev=>({...prev,vIdx:prev.vIdx-1}));if(setActiveContractVersion)setActiveContractVersion(prev=>prev-1);}const remaining=(contractDocStore?.[pid]||[]).length-1;if(remaining<=0){codyPendingRef.current={projectId:pid,step:"pick_type"};const typeList=CONTRACT_TYPE_IDS.map((t,ti)=>`${ti+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} has no contracts left. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);}else{const updated=(contractDocStore?.[pid]||[]).filter((_,j)=>j!==i);const list=updated.map((cv,j)=>`${j+1}. ${cv.label||CONTRACT_TYPE_LABELS[cv.contractType]||`Version ${j+1}`}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} now has ${updated.length} contract${updated.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);}}} style={{background:"#fff",border:"1px solid #e0e0e0",borderRadius:6,color:"#ff3b30",cursor:"pointer",fontSize:12,fontWeight:700,lineHeight:1,padding:"3px 6px",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.borderColor="#ff3b30";}} onMouseOut={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.borderColor="#e0e0e0";}} title="Delete contract">×</button>
             </div>
           ))}
           <button type="button" onClick={()=>{setInput("new");setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px dashed #0066cc",background:"#f0f4ff",fontSize:12,fontWeight:600,color:"#0066cc",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#dde8f8";}} onMouseOut={e=>{e.currentTarget.style.background="#f0f4ff";}}>
