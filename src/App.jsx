@@ -3481,77 +3481,6 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
     return { ...f, images: imgs.length < 1 ? [null] : imgs, imageStatuses: newStatuses, imageNotes: newNotes };
   }));
 
-  const syncApproved = () => {
-    const currentFittings = fittingsRef.current;
-    currentFittings.forEach(fit => {
-      if (!fit.talentName) return;
-      const approvedImgs = fit.images.filter((img, i) => img && (fit.imageStatuses || {})[i] === "approved");
-      if (approvedImgs.length === 0) return;
-      setTalent(prev => {
-        let found = prev.find(t => t.name.toLowerCase().trim() === fit.talentName.toLowerCase().trim());
-        if (found) {
-          return prev.map(t => {
-            if (t.id !== found.id) return t;
-            const newLooks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
-            const existingImgs = t.looks.map(l => l.image).filter(Boolean);
-            const unique = newLooks.filter(nl => !existingImgs.includes(nl.image));
-            if (unique.length === 0) return t;
-            return { ...t, looks: [...t.looks.filter(l => l.image), ...unique] };
-          });
-        } else {
-          const newT = mkFitTalent();
-          newT.name = fit.talentName;
-          newT.looks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
-          return [...prev, newT];
-        }
-      });
-    });
-  };
-
-  // Direct handler: push a single approved image into confirmed looks tab
-  const pushApprovedToConfirmed = (fitId, imgIdx) => {
-    const fit = fittings.find(f => f.id === fitId);
-    if (!fit || !fit.images[imgIdx]) return;
-    const img = fit.images[imgIdx];
-    const fitName = fit.talentName || ("Model " + (fittings.indexOf(fit) + 1));
-    setTalent(prev => {
-      let found = prev.find(t => t.name && t.name.toLowerCase().trim() === fitName.toLowerCase().trim());
-      const fitIdx = fittings.indexOf(fit);
-      if (!found && fitIdx < prev.length) {
-        const pos = prev[fitIdx];
-        if (pos && (!pos.name || pos.name.toLowerCase().trim() === fitName.toLowerCase().trim())) found = pos;
-      }
-      if (found) {
-        if (found.looks.some(l => l.image === img)) return prev;
-        return prev.map(t => t.id !== found.id ? t : { ...t, name: t.name || fitName, looks: [...t.looks.filter(l => l.image), { ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }] });
-      }
-      const newT = mkFitTalent();
-      newT.name = fitName;
-      newT.looks = [{ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }];
-      return [...prev, newT];
-    });
-  };
-
-  const dragLook = useRef(null);
-  const [dropLookAt, setDropLookAt] = useState(null);
-  const handleLookDragStart = (tid, lidx) => { dragLook.current = { tid, lidx }; };
-  const handleLookDragOver = (tid, lidx, e) => { e.preventDefault(); setDropLookAt({ tid, lidx }); };
-  const handleLookDrop = (tid, lidx) => {
-    const from = dragLook.current;
-    if (!from || (from.tid === tid && from.lidx === lidx)) { dragLook.current = null; setDropLookAt(null); return; }
-    setTalent(prev => {
-      const n = JSON.parse(JSON.stringify(prev));
-      const srcT = n.find(t => t.id === from.tid);
-      const dstT = n.find(t => t.id === tid);
-      if (!srcT || !dstT) return prev;
-      const [moved] = srcT.looks.splice(from.lidx, 1);
-      dstT.looks.splice(lidx, 0, moved);
-      return n;
-    });
-    dragLook.current = null; setDropLookAt(null);
-  };
-  const handleLookDragEnd = () => { dragLook.current = null; setDropLookAt(null); };
-
   const fitCleanClone = (el) => {
     const clone = el.cloneNode(true);
     clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
@@ -3658,8 +3587,6 @@ ${PRINT_CLEANUP_CSS}
             style={{ fontFamily: F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
         ))}
         <div style={{ flex: 1 }} />
-        <div onClick={syncApproved} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#f5f5f5", color: "#666", textTransform: "uppercase", borderLeft: "1px solid #ddd" }}
-          onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f5f5f5"}>SYNC APPROVED</div>
         <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
           onMouseEnter={e => e.target.style.background = "#555"} onMouseLeave={e => e.target.style.background = "#333"}>EXPORT PAGE</div>
         <div onClick={exportAllPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
@@ -3687,57 +3614,44 @@ ${PRINT_CLEANUP_CSS}
           ))}
         </div>
 
-        {(tab === "confirmed" || (printTabs && printTabs.has("confirmed"))) && (
-          <div>
-            {talent.map((t, ti) => (
-              <div key={t.id} style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>TALENT {ti + 1}</span>
-                    <FitInp value={t.name} onChange={v => updateTalent(t.id, "name", v)} placeholder="Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 90 : 140 }} />
-                    <FitInp value={t.role} onChange={v => updateTalent(t.id, "role", v)} placeholder="Role" style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", background: "transparent", width: 90 }} />
-                  </div>
-                  <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span onClick={() => addLook(t.id)} style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ LOOK</span>
-                    <button onClick={() => deleteTalent(t.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
-                  </div>
+        {(tab === "confirmed" || (printTabs && printTabs.has("confirmed"))) && (() => {
+          const approved = [];
+          fittings.forEach((fit, fi) => {
+            fit.images.forEach((img, n) => {
+              if (img && (fit.imageStatuses || {})[n] === "approved") {
+                approved.push({ fitId: fit.id, imgIdx: n, img, talentName: fit.talentName || ("Model " + (fi + 1)), lookName: fit.lookName || "", description: fit.description || "", role: fit.role || "", note: (fit.imageNotes || {})[n] || "" });
+              }
+            });
+          });
+          return (
+            <div>
+              {approved.length === 0 && (
+                <div style={{ padding: "32px 16px", textAlign: "center" }}>
+                  <span style={{ fontFamily: F, fontSize: 10, color: "#bbb", letterSpacing: LS }}>Approved looks from the Options tab will appear here</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: _fitMobile ? 6 : 4, padding: "4px 0" }}>
-                  {t.looks.map((look, li) => {
-                    const sr = FIT_STATUS_C[look.status] || FIT_STATUS_C["Pending"];
-                    const isDropHere = dropLookAt && dropLookAt.tid === t.id && dropLookAt.lidx === li && dragLook.current && !(dragLook.current.tid === t.id && dragLook.current.lidx === li);
-                    return (
-                      <div key={look.id}
-                        onDragOver={e => handleLookDragOver(t.id, li, e)}
-                        onDrop={() => handleLookDrop(t.id, li)}
-                        onDragLeave={() => setDropLookAt(null)}
-                        style={{ border: isDropHere ? "2px solid #FFD54F" : "1px solid #eee", borderRadius: 2, overflow: "hidden", position: "relative" }}>
-                        <div draggable onDragStart={() => handleLookDragStart(t.id, li)} onDragEnd={handleLookDragEnd}
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 0", background: "#f8f8f8", cursor: "grab", borderBottom: "1px solid #eee" }}>
-                          <span style={{ fontFamily: F, fontSize: 8, color: "#ccc", letterSpacing: 2 }}>{"≡"}</span>
-                        </div>
-                        <div style={{ aspectRatio: "4/5", background: "#f8f8f8", position: "relative" }}>
-                          <FitImgSlot src={look.image} h="100%" onAdd={files => setLookImg(t.id, look.id, files)} onRemove={() => rmLookImg(t.id, look.id)} />
-                          <div data-fit-status={look.status} onClick={() => { const i = FIT_STATUSES.indexOf(look.status); updateLook(t.id, look.id, "status", FIT_STATUSES[(i + 1) % FIT_STATUSES.length]); }}
-                            style={{ position: "absolute", top: 4, right: 4, fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: sr.bg, color: sr.text, padding: "2px 6px", borderRadius: 2, cursor: "pointer", textTransform: "uppercase" }}>{look.status}</div>
-                          <button data-hide="1" onClick={() => deleteLook(t.id, look.id)} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.4)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>{"×"}</button>
-                        </div>
-                        <div style={{ padding: "2px 4px" }}>
-                          <FitInp value={look.name} onChange={v => updateLook(t.id, look.id, "name", v)} placeholder={"Look " + (li + 1)} style={{ fontSize: 9, fontWeight: 700, padding: "0 0 2px 0", borderBottom: "1px solid #eee", marginBottom: 2 }} />
-                          <FitInp value={look.description} onChange={v => updateLook(t.id, look.id, "description", v)} placeholder="Description" style={{ fontSize: 8, color: "#999", padding: 0 }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "1fr" : "repeat(3, 1fr)", gap: 8 }}>
+                {approved.map((a, ai) => (
+                  <div key={a.fitId + "-" + a.imgIdx} style={{ border: "1px solid #eee", borderRadius: 2, overflow: "hidden", background: "#fff" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", background: "#f8f8f8", borderBottom: "1px solid #eee" }}>
+                      <div style={{ fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: "#E8F5E9", color: "#2E7D32", padding: "2px 6px", borderRadius: 2, textTransform: "uppercase", flexShrink: 0 }}>Approved</div>
+                      <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#1a1a1a" }}>{a.talentName}</span>
+                      {a.role && <span style={{ fontFamily: F, fontSize: 8, color: "#999", letterSpacing: LS }}>{a.role}</span>}
+                    </div>
+                    <div style={{ aspectRatio: "4/5", background: "#f0f0f0" }}>
+                      <img src={a.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    </div>
+                    <div style={{ padding: "4px 6px", borderTop: "1px solid #eee" }}>
+                      {a.lookName && <div style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: LS, color: "#1a1a1a", marginBottom: 2 }}>{a.lookName}</div>}
+                      {a.description && <div style={{ fontFamily: F, fontSize: 8, color: "#666", lineHeight: 1.3, marginBottom: 2 }}>{a.description}</div>}
+                      {a.note && <div style={{ fontFamily: F, fontSize: 7, color: "#999", fontStyle: "italic" }}>{a.note}</div>}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-            <div data-hide="1"><div onClick={addTalent} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 8px", cursor: "pointer", borderRadius: 1 }}
-              onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}>
-              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>+ ADD TALENT</span>
-            </div></div>
-          </div>
-        )}
+            </div>
+          );
+        })()}
 
         {printTabs && printTabs.has("options") && printTabs.has("confirmed") && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>FITTING OPTIONS</span></div>}
 
@@ -3793,7 +3707,7 @@ ${PRINT_CLEANUP_CSS}
                         {fit.images.map((img, n) => (
                           <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
                             onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
-                            onStatus={s => { updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s }); if (s === "approved") pushApprovedToConfirmed(fit.id, n); }}
+                            onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })}
                             note={(fit.imageNotes||{})[n] || ""}
                             onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })}
                             onDelete={() => deleteFitSlot(fit.id, n)} />
@@ -10584,14 +10498,16 @@ After the HTML block, add a brief one-sentence confirmation message.`;
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
         <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
-          {agent.id==="contracts"&&codyCtx&&(()=>{const ctVersions=contractDocStore?.[codyCtx.projectId]||[];const ver=ctVersions[codyCtx.vIdx];const label=ver?.label||`Version ${(codyCtx.vIdx||0)+1}`;return(
-            <div style={{padding:"8px 16px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
-              <span style={{fontSize:12,fontWeight:700,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{label}</span>
-              <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+          <div style={{padding:"6px 12px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
+            <span style={{fontSize:11,fontWeight:600,color:"#6e6e73",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.id==="contracts"&&codyCtx?(()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];return(v?.label||`Version ${(codyCtx.vIdx||0)+1}`)+" Preview";})():agent.id==="compliance"&&connieDietMode?"Dietary Preview":agent.id==="compliance"?"Call Sheet Preview":agent.id==="researcher"?"Risk Assessment Preview":agent.id==="billie"?"Estimate Preview":agent.id==="carrie"?"Casting Deck Preview":"Preview"}</span>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              {agent.id==="contracts"&&codyCtx&&<>
                 <button onClick={()=>{if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last change."}]);}}} title="Undo (⌘Z)" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";}}>⌘Z</button>
-                <button onClick={()=>{if(!confirm(`Delete "${label}"? You can undo with ⌘Z.`))return;pushCodyUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[codyCtx.projectId]||[];arr.splice(codyCtx.vIdx,1);store[codyCtx.projectId]=arr;return store;});setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted "${label}". Say a project name to start again, or press ⌘Z to undo.`}]);}} title="Delete contract" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#ff3b30",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#ff3b30";e.currentTarget.style.background="#fff5f5";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>Delete</button>
-              </div>
-            </div>);})()}
+                <button onClick={()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];const label=v?.label||`Version ${(codyCtx.vIdx||0)+1}`;if(!confirm(`Delete "${label}"?`))return;pushCodyUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[codyCtx.projectId]||[];arr.splice(codyCtx.vIdx,1);store[codyCtx.projectId]=arr;return store;});setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted "${label}". Say a project name to start again, or press ⌘Z to undo.`}]);}} title="Delete" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#ff3b30",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#ff3b30";e.currentTarget.style.background="#fff5f5";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>Delete</button>
+              </>}
+              <button onClick={()=>{if(agent.id==="compliance"){setConnieCtx(null);setConnieDietMode(null);}else if(agent.id==="researcher"){setRonnieCtx(null);}else if(agent.id==="contracts"){setCodyCtx(null);}else if(agent.id==="billie"){setBillieCtx(null);}else if(agent.id==="carrie"){setCarrieCtx(null);}}} title="Close preview" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s",lineHeight:1}} onMouseOver={e=>{e.currentTarget.style.borderColor="#6e6e73";e.currentTarget.style.background="#f0f0f2";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>✕</button>
+            </div>
+          </div>
           <div style={{flex:1,overflow:"auto"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
@@ -12029,12 +11945,19 @@ export default function OnnaDashboard() {
         const tag = e.target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
         e.preventDefault();
+        if(activeTab==="Agents"){
+          if(connieCtx||connieDietMode){setConnieCtx(null);setConnieDietMode(null);return;}
+          if(ronnieCtx){setRonnieCtx(null);return;}
+          if(codyCtx){return;} /* cody has its own ⌘Z handler */
+          if(billieCtx){setBillieCtx(null);return;}
+          if(carrieCtx){setCarrieCtx(null);return;}
+        }
         performUndo();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [performUndo]);
+  }, [performUndo,activeTab,connieCtx,connieDietMode,ronnieCtx,codyCtx,billieCtx,carrieCtx]);
   const addTodoFromInput = (text) => {
     if (!text) return;
     pushUndo("add task");
