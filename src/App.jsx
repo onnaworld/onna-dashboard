@@ -4274,6 +4274,7 @@ REGIONAL MARKET AWARENESS:
 - When populating rates, use market-appropriate rates for the shoot location (check the SHOOT LOCATION field above).
 - Dubai/UAE: Use AED rates — crew day rates typically AED 500–8,000 depending on role.
 - London/UK: Use GBP rates — crew day rates typically £250–£2,500 depending on role.
+- Europe/EU: Use EUR rates — crew day rates typically €300–€3,000 depending on role and country. Southern Europe (Spain, Italy, Greece) ~20% lower than Northern/Western Europe (France, Germany, Netherlands).
 - Saudi Arabia/KSA: Use SAR rates — generally 5–15% higher than Dubai equivalents.
 - US: Use USD rates — vary significantly by city (LA/NYC premium vs other markets).
 - If the shoot location isn't clear, default to Dubai rates in AED.
@@ -16033,7 +16034,16 @@ export default function OnnaDashboard() {
               {castingBack}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
                 <div style={{fontSize:16,fontWeight:700,color:T.text}}>Casting Table</div>
-                <button onClick={addCTNew} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Casting Table</button>
+                <div style={{position:"relative"}}>
+                  <button onClick={()=>setCreateMenuOpen(prev=>({...prev,ct:!prev.ct}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Casting Table ▾</button>
+                  {createMenuOpen.ct&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,ct:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
+                  {createMenuOpen.ct&&(
+                    <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,ct:false}));addCTNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                      <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,ct:false}));setDuplicateModal({type:"casting_table"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                    </div>
+                  )}
+                </div>
               </div>
               {ctVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No casting tables yet. Click "+ New Casting Table" to get started.</div></div>}
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16078,6 +16088,16 @@ export default function OnnaDashboard() {
           } catch (err) { alert("Error: " + err.message); }
           setCtShareLoading(false);
         };
+        const syncCtFeedback = async () => {
+          if (!existingCtToken) return;
+          try {
+            const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(existingCtToken)}&feedbackOnly=1`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
+            else alert("No feedback received yet.");
+          } catch {}
+        };
 
         return (
           <div>
@@ -16091,6 +16111,9 @@ export default function OnnaDashboard() {
                 <button onClick={sendCtShare} disabled={ctShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingCtToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ctShareLoading?0.5:1}}>
                   {ctShareLoading ? "Generating…" : existingCtToken ? "Update Link" : "Generate Link"}
                 </button>
+                {existingCtToken && <button onClick={syncCtFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sync
+                </button>}
               </div>
             </div>
             {displayCtShareUrl && (
@@ -19535,6 +19558,7 @@ export default function OnnaDashboard() {
           storyboard:{store:storyboardStore,setStore:setStoryboardStore,archiveTable:"storyboard",archiveKey:"storyboard",title:"Storyboard",descFn:r=>{const f=(r.item?.frames||[]).length;return `${f} frame${f!==1?"s":""}`;},labelKey:"label"},
           postprod:{store:postProdStore,setStore:setPostProdStore,archiveTable:"postprod",archiveKey:"postprod",title:"Post-Production",descFn:r=>{const v=(r.item?.videos||[]).length;return `${v} video${v!==1?"s":""}`;},labelKey:"label"},
           casting:{store:castingDeckStore,setStore:setCastingDeckStore,archiveTable:"castingDecks",archiveKey:"castingDeck",title:"Casting Deck",descFn:r=>{const c=(r.item?.confirmed||[]).length;return `${c} confirmed`;},labelKey:"label"},
+          casting_table:{store:castingTableStore,setStore:setCastingTableStore,archiveTable:"casting_table",archiveKey:"castingTable",title:"Casting Table",descFn:r=>{const m=(r.item?.roles||[]).reduce((s,rl)=>(rl.models||[]).length+s,0);return `${m} model${m!==1?"s":""}`;},labelKey:"label"},
           fitting:{store:fittingStore,setStore:setFittingStore,archiveTable:"fitting",archiveKey:"fitting",title:"Fitting Deck",descFn:r=>{const t=(r.item?.talent||[]).length;return `${t} talent`;},labelKey:"label"},
           locations:{store:locDeckStore,setStore:setLocDeckStore,archiveTable:"locationDecks",archiveKey:"locationDeck",title:"Locations Deck",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
           recce:{store:recceReportStore,setStore:setRecceReportStore,archiveTable:"recceReports",archiveKey:"recceReport",title:"Recce Report",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
