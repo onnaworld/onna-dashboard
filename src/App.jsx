@@ -2545,7 +2545,7 @@ ${PRINT_CLEANUP_CSS}
 /* ======= CASTING CONNIE ======= */
 let _castId = 0;
 const mkCastRole = () => ({ id: "cr" + (++_castId), name: "", description: "" });
-const mkCastEntry = () => ({ id: "ce" + (++_castId), name: "", agency: "", status: "Scouted", image: null, notes: "", email: "", phone: "" });
+const mkCastEntry = () => ({ id: "ce" + (++_castId), name: "", agency: "", status: "Scouted", image: null, notes: "", email: "", phone: "", portfolio: "" });
 const mkCastOption = () => ({ id: "co" + (++_castId), role: "", entries: [mkCastEntry(), mkCastEntry()] });
 const CAST_STATUSES = ["Scouted","Shortlisted","Approved","Booked"];
 const CAST_STATUS_C = {
@@ -2555,7 +2555,7 @@ const CAST_STATUS_C = {
   "Booked":{bg:"#000",text:"#fff",border:"#000"}
 };
 const CAST_INIT = () => ({
-  project: { name: "", client: "", date: "", director: "" },
+  project: { name: "", client: "", date: "", director: "", agencyLogo: null, clientLogo: null },
   confirmed: [{ id: "cr1", role: "Lead", talent: [mkCastEntry()] }],
   options: [mkCastOption()],
 });
@@ -2571,7 +2571,8 @@ const CastInp = ({ value, onChange, style = {}, placeholder = "", bold = false }
 const CastImgSlot = ({ image, onUpload, onRemove, size = 120 }) => {
   const ref = useRef();
   const readFile = f => { if(!f||!f.type.startsWith("image/"))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
-  return <div style={{width:size,height:size,borderRadius:8,overflow:"hidden",flexShrink:0,position:"relative",background:"#f5f5f5",border:"1.5px dashed #ccc"}}>
+  const isFullWidth = size === "100%";
+  return <div style={{width:isFullWidth?"100%":size,height:isFullWidth?"100%":size,borderRadius:isFullWidth?0:8,overflow:"hidden",flexShrink:0,position:"relative",background:"#f5f5f5"}}>
     {image ? <>
       <img src={image} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",cursor:"pointer"}} onClick={()=>ref.current.click()}/>
       <button onClick={onRemove} style={{position:"absolute",top:4,right:4,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,0.5)",color:"#fff",border:"none",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
@@ -2583,27 +2584,22 @@ const CastImgSlot = ({ image, onUpload, onRemove, size = 120 }) => {
 const CastCard = ({ entry, onChange, onRemove, onStatusChange }) => {
   const sc = CAST_STATUS_C[entry.status] || CAST_STATUS_C["Scouted"];
   return (
-    <div style={{border:`2px solid ${sc.border}`,borderRadius:10,padding:14,display:"flex",gap:14,alignItems:"flex-start",background:"#fff",transition:"border-color 0.2s"}}>
-      <CastImgSlot image={entry.image} onUpload={v=>onChange("image",v)} onRemove={()=>onChange("image",null)} size={100}/>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-          <CastInp value={entry.name} onChange={v=>onChange("name",v)} placeholder="Talent Name" bold style={{fontSize:14}}/>
-          <button onClick={onRemove} style={{background:"none",border:"none",color:"#ccc",fontSize:16,cursor:"pointer",padding:0,lineHeight:1}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color="#ccc"}>×</button>
+    <div style={{border:`2px solid ${sc.border}`,borderRadius:6,overflow:"hidden",background:"#fff",transition:"border-color 0.2s"}}>
+      <div style={{aspectRatio:"3/4",background:"#f8f8f8",position:"relative"}}>
+        <CastImgSlot image={entry.image} onUpload={v=>onChange("image",v)} onRemove={()=>onChange("image",null)} size="100%"/>
+        <div data-loc-status={entry.status} onClick={()=>{ const i = CAST_STATUSES.indexOf(entry.status); onStatusChange(CAST_STATUSES[(i+1)%CAST_STATUSES.length]); }}
+          style={{position:"absolute",top:4,right:4,fontFamily:"'Avenir','Avenir Next','Nunito Sans',sans-serif",fontSize:6,fontWeight:700,letterSpacing:0.5,background:sc.bg,color:sc.text,padding:"2px 6px",borderRadius:2,cursor:"pointer",textTransform:"uppercase"}}>{entry.status}</div>
+        <button data-hide="1" onClick={onRemove} style={{position:"absolute",top:4,left:4,background:"rgba(0,0,0,0.4)",border:"none",color:"#fff",fontSize:9,cursor:"pointer",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{"×"}</button>
+      </div>
+      <div style={{padding:"4px 6px"}}>
+        <CastInp value={entry.name} onChange={v=>onChange("name",v)} placeholder="Talent Name" bold style={{fontSize:9,fontWeight:700,padding:"0 0 2px 0",borderBottom:"1px solid #eee",marginBottom:2}}/>
+        <CastInp value={entry.agency} onChange={v=>onChange("agency",v)} placeholder="Agency" style={{fontSize:8,color:"#999",padding:0,marginBottom:1}}/>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          <CastInp value={entry.email} onChange={v=>onChange("email",v)} placeholder="Email" style={{fontSize:7,color:"#999",padding:0,flex:1,minWidth:40}}/>
+          <CastInp value={entry.phone} onChange={v=>onChange("phone",v)} placeholder="Phone" style={{fontSize:7,color:"#999",padding:0,flex:1,minWidth:40}}/>
         </div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:6}}>
-          <CastInp value={entry.agency} onChange={v=>onChange("agency",v)} placeholder="Agency" style={{fontSize:11,width:"auto",flex:1,minWidth:80}}/>
-          <CastInp value={entry.email} onChange={v=>onChange("email",v)} placeholder="Email" style={{fontSize:11,width:"auto",flex:1,minWidth:80}}/>
-          <CastInp value={entry.phone} onChange={v=>onChange("phone",v)} placeholder="Phone" style={{fontSize:11,width:"auto",flex:1,minWidth:80}}/>
-        </div>
-        <CastInp value={entry.notes} onChange={v=>onChange("notes",v)} placeholder="Notes..." style={{fontSize:10,color:"#666",width:"100%"}}/>
-        <div style={{display:"flex",gap:6,marginTop:8}} data-hide="1">
-          {CAST_STATUSES.map(s => {
-            const active = entry.status === s;
-            const ssc = CAST_STATUS_C[s];
-            return <div key={s} onClick={()=>onStatusChange(s)} style={{fontSize:9,fontWeight:700,letterSpacing:0.5,padding:"4px 10px",borderRadius:4,cursor:"pointer",background:active?ssc.bg:"#fff",color:active?ssc.text:ssc.text,border:`1.5px solid ${active?ssc.border:"#ddd"}`,transition:"all 0.15s",textTransform:"uppercase"}}>{s}</div>;
-          })}
-        </div>
-        <div data-loc-status={entry.status} style={{display:"inline-block",fontSize:9,fontWeight:700,letterSpacing:0.5,padding:"4px 10px",borderRadius:4,marginTop:6,background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`,textTransform:"uppercase"}} data-print-only="1">{entry.status}</div>
+        {(entry.portfolio || null) ? <a href={entry.portfolio} target="_blank" rel="noopener noreferrer" style={{fontSize:7,color:"#1565C0",textDecoration:"none",display:"block",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Portfolio ↗</a> : <CastInp value={entry.portfolio||""} onChange={v=>onChange("portfolio",v)} placeholder="Portfolio link" style={{fontSize:7,color:"#1565C0",padding:0,marginTop:1}}/>}
+        <CastInp value={entry.notes} onChange={v=>onChange("notes",v)} placeholder="Notes..." style={{fontSize:7,color:"#666",padding:0,marginTop:1}}/>
       </div>
     </div>
   );
@@ -2611,19 +2607,22 @@ const CastCard = ({ entry, onChange, onRemove, onStatusChange }) => {
 
 const CastingConnie = React.forwardRef(function CastingConnie({ initialProject, initialConfirmed, initialOptions, onChangeProject, onChangeConfirmed, onChangeOptions, onShareUrl }, fwdRef) {
   const _fitMobile = typeof window !== "undefined" && window.innerWidth < 640;
-  const [project, setProject] = useState(initialProject || CAST_INIT().project);
-  const [confirmed, setConfirmed] = useState(initialConfirmed || CAST_INIT().confirmed);
-  const [options, setOptions] = useState(initialOptions || CAST_INIT().options);
+  const F = CS_FONT;
+  const LS = 0.5;
+  const [projectRaw, setProjectRaw] = useState(() => initialProject || CAST_INIT().project);
+  const [confirmed, setConfirmedRaw] = useState(() => initialConfirmed || CAST_INIT().confirmed);
+  const [options, setOptionsRaw] = useState(() => initialOptions || CAST_INIT().options);
   const [tab, setTab] = useState("confirmed");
   const [printTabs, setPrintTabs] = useState(null);
   const printRef = useRef(null);
 
-  useEffect(() => { if (onChangeProject) onChangeProject(project); }, [project]);
-  useEffect(() => { if (onChangeConfirmed) onChangeConfirmed(confirmed); }, [confirmed]);
-  useEffect(() => { if (onChangeOptions) onChangeOptions(options); }, [options]);
+  const setProject = (u) => { setProjectRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeProject) onChangeProject(next); return next; }); };
+  const setConfirmed = (u) => { setConfirmedRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeConfirmed) onChangeConfirmed(next); return next; }); };
+  const setOptions = (u) => { setOptionsRaw(prev => { const next = typeof u === "function" ? u(prev) : u; if (onChangeOptions) onChangeOptions(next); return next; }); };
+  const project = projectRaw;
 
   const updateEntry = (listSetter, roleIdx, entryIdx, field, val) => {
-    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: (r.talent||r.entries).map((e,ei) => ei===entryIdx ? {...e,[field]:val} : e)} : r));
+    listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: (r.talent||[]).map((e,ei) => ei===entryIdx ? {...e,[field]:val} : e)} : r));
   };
   const addEntryToRole = (listSetter, roleIdx) => {
     listSetter(prev => prev.map((r,ri) => ri===roleIdx ? {...r, talent: [...(r.talent||r.entries), mkCastEntry()]} : r));
@@ -2651,39 +2650,56 @@ const CastingConnie = React.forwardRef(function CastingConnie({ initialProject, 
     return clone;
   };
 
-  const castExportPDF = () => {
-    const el = printRef.current; if (!el) return;
-    const clone = castCleanClone(el);
-    const fontRules = (() => { let r=""; try{for(const s of document.styleSheets){try{for(const ru of s.cssRules){if(ru.cssText&&ru.cssText.startsWith("@font-face"))r+=ru.cssText+"\n";}}catch{}}}catch{} return r; })();
+  const castPrintViaIframe = (clone) => {
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:1123px;height:794px;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
-${fontRules}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm;overflow:hidden}
+#cast-wrap{transform-origin:top left}
 @media print{@page{size:landscape;margin:0}}
-</style></head><body></body></html>`);
+${PRINT_CLEANUP_CSS}
+</style></head><body><div id="cast-wrap"></div></body></html>`);
     idoc.close();
-    idoc.body.appendChild(idoc.adoptNode(clone));
-    const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
-    Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);});
+    const wrap = idoc.getElementById("cast-wrap");
+    wrap.appendChild(idoc.adoptNode(clone));
+    setTimeout(() => {
+      const pageW = 1123, pageH = 794;
+      const contentH = wrap.scrollHeight;
+      const contentW = wrap.scrollWidth;
+      const scaleX = Math.min(1, pageW / contentW);
+      const scaleY = Math.min(1, pageH / contentH);
+      const scale = Math.min(scaleX, scaleY);
+      if (scale < 1) wrap.style.transform = `scale(${scale})`;
+      iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 400);
+  };
+  const exportPDF = () => {
+    const el = printRef.current; if (!el) return;
+    castPrintViaIframe(castCleanClone(el));
+  };
+  const exportAllPDF = () => {
+    setPrintTabs(new Set(["confirmed","options"]));
+    setTimeout(() => {
+      const el = printRef.current; if (!el) { setPrintTabs(null); return; }
+      castPrintViaIframe(castCleanClone(el));
+      setTimeout(() => setPrintTabs(null), 100);
+    }, 200);
   };
 
   const generateSharePage = async (modes, existingToken, existingResourceId) => {
-    const captureHtml = () => {
-      const el = printRef.current; if (!el) return null;
-      const clone = castCleanClone(el);
-      clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
-      return clone.innerHTML;
-    };
     const tabsArr = Array.isArray(modes) ? modes : (modes === "all" ? ["confirmed","options"] : modes ? [modes] : ["confirmed","options"]);
     setPrintTabs(new Set(tabsArr));
     await new Promise(r => setTimeout(r, 300));
-    const html = captureHtml();
+    const el = printRef.current; if (!el) { setPrintTabs(null); return; }
+    const clone = castCleanClone(el);
+    clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
+    clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+    const html = clone.innerHTML;
     setPrintTabs(null);
     if (!html) return;
     try {
@@ -2701,18 +2717,22 @@ body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif
 
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
-  const showTab = (t) => !printTabs || printTabs.has(t);
-
   const renderRoleSection = (roles, listSetter, sectionLabel) => (
     <div>
       {roles.map((role, ri) => (
-        <div key={role.id||ri} style={{marginBottom:24}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-            <CastInp value={role.role||role.name||""} onChange={v=>listSetter(prev=>prev.map((r,i)=>i===ri?{...r,role:v,name:v}:r))} placeholder="Role Name" bold style={{fontSize:13,letterSpacing:0.5,textTransform:"uppercase"}}/>
-            <button data-hide="1" onClick={()=>removeRole(listSetter,ri)} style={{background:"none",border:"none",color:"#ccc",fontSize:14,cursor:"pointer"}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color="#ccc"}>× Remove Role</button>
+        <div key={role.id||ri} style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "3px 6px", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#fff" }}>{sectionLabel.toUpperCase()} {ri + 1}</span>
+              <CastInp value={role.role||role.name||""} onChange={v=>listSetter(prev=>prev.map((r,i)=>i===ri?{...r,role:v,name:v}:r))} placeholder="Role Name" style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "transparent", width: _fitMobile ? 100 : 180 }}/>
+            </div>
+            <div data-hide="1" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span onClick={()=>addEntryToRole(listSetter,ri)} style={{ fontFamily: F, fontSize: 8, color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: LS }}>+ TALENT</span>
+              <button onClick={()=>removeRole(listSetter,ri)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1 }}>{"×"}</button>
+            </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-            {(role.talent||role.entries||[]).map((entry, ei) => (
+          <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "1fr" : "repeat(auto-fill,minmax(260px,1fr))", gap: 8, padding: "6px 0" }}>
+            {(role.talent||[]).map((entry, ei) => (
               <CastCard key={entry.id||ei} entry={entry}
                 onChange={(field,val)=>updateEntry(listSetter,ri,ei,field,val)}
                 onRemove={()=>removeEntry(listSetter,ri,ei)}
@@ -2720,54 +2740,65 @@ body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif
               />
             ))}
           </div>
-          <button data-hide="1" onClick={()=>addEntryToRole(listSetter,ri)} style={{marginTop:8,background:"none",border:"1.5px dashed #ccc",color:"#999",padding:"8px 20px",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:CS_FONT}}>+ Add Talent</button>
         </div>
       ))}
-      <button data-hide="1" onClick={()=>addRole(listSetter)} style={{background:"none",border:"1.5px dashed #ccc",color:"#999",padding:"8px 24px",borderRadius:8,fontSize:11,cursor:"pointer",fontFamily:CS_FONT}}>+ Add {sectionLabel} Role</button>
+      <div data-hide="1"><div onClick={()=>addRole(listSetter)} style={{ display: "flex", alignItems: "center", background: "#f4f4f4", padding: "6px 8px", cursor: "pointer", borderRadius: 1 }}
+        onMouseEnter={e => e.currentTarget.style.background = "#eee"} onMouseLeave={e => e.currentTarget.style.background = "#f4f4f4"}>
+        <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase" }}>+ ADD ROLE</span>
+      </div></div>
     </div>
   );
 
   return (
-    <div style={{ maxWidth: 1123, margin: "0 auto", background: "#fff", fontFamily: CS_FONT, color: "#1a1a1a" }}>
-      <div style={{ display: "flex", borderBottom: "2px solid #000" }}>
+    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         {[{ id: "confirmed", label: "CONFIRMED CAST" }, { id: "options", label: "CASTING OPTIONS" }].map(t => (
           <div key={t.id} onClick={() => setTab(t.id)}
-            style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
+            style={{ fontFamily: F, fontSize: 9, fontWeight: tab === t.id ? 700 : 400, letterSpacing: LS, padding: _fitMobile ? "8px 10px" : "10px 16px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, background: tab === t.id ? "#000" : "#f5f5f5", color: tab === t.id ? "#fff" : "#666", textTransform: "uppercase", borderRight: "1px solid #ddd" }}>{t.label}</div>
         ))}
         <div style={{ flex: 1 }} />
-        <div onClick={castExportPDF} style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
+        <div onClick={exportPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#333", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #555" }}
           onMouseEnter={e => e.target.style.background = "#555"} onMouseLeave={e => e.target.style.background = "#333"}>EXPORT PAGE</div>
+        <div onClick={exportAllPDF} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px", cursor: "pointer", background: "#000", color: "#fff", textTransform: "uppercase", borderLeft: "1px solid #333" }}
+          onMouseEnter={e => e.target.style.background = "#333"} onMouseLeave={e => e.target.style.background = "#000"}>EXPORT ALL</div>
       </div>
 
-      <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+      <div ref={printRef} data-cast-print="1" style={{ padding: "8px 10px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}>
+          <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
+          <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>CASTING DECK</div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div data-hide="1"><CSLogoSlot label="Agency Logo" image={project.agencyLogo} onUpload={v => setProject(p => ({ ...p, agencyLogo: v }))} onRemove={() => setProject(p => ({ ...p, agencyLogo: null }))} /></div>
+            <div data-hide="1"><CSLogoSlot label="Client Logo" image={project.clientLogo} onUpload={v => setProject(p => ({ ...p, clientLogo: v }))} onRemove={() => setProject(p => ({ ...p, clientLogo: null }))} /></div>
+            {project.agencyLogo && <img data-print-only="1" src={project.agencyLogo} alt="" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain", display: "none" }} />}
+            {project.clientLogo && <img data-print-only="1" src={project.clientLogo} alt="" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain", display: "none" }} />}
+          </div>
+        </div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
-        <div style={{ textAlign: "center", fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>CASTING DECK</div>
-
-        <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: _fitMobile ? 8 : 12, marginBottom: 6, flexWrap: "wrap", justifyContent: "space-between" }}>
           {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["DIRECTOR", "director", "Director"]].map(([lbl, key, ph]) => (
             <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto" }}>
-              <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
-              <CastInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ fontSize: 11, flex: 1, minWidth: 60 }}/>
+              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}:</span>
+              <CastInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ width: 110, borderBottom: "1px solid #eee" }} />
             </div>
           ))}
         </div>
 
-        {showTab("confirmed") && (
-          <div style={{ marginBottom: 24, display: (!printTabs || tab === "confirmed") ? "block" : "none" }}>
-            <div style={{ fontFamily: CS_FONT, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12, paddingBottom: 6, borderBottom: "1px solid #eee" }}>CONFIRMED CAST</div>
-            {renderRoleSection(confirmed, setConfirmed, "Confirmed")}
+        {(tab === "confirmed" || (printTabs && printTabs.has("confirmed"))) && (
+          <div>
+            {renderRoleSection(confirmed, setConfirmed, "Role")}
           </div>
         )}
 
-        {showTab("options") && (
-          <div style={{ display: (!printTabs || tab === "options") ? "block" : "none" }}>
-            <div style={{ fontFamily: CS_FONT, fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12, paddingBottom: 6, borderBottom: "1px solid #eee" }}>CASTING OPTIONS</div>
-            {renderRoleSection(options, setOptions, "Options")}
+        {printTabs && printTabs.has("options") && printTabs.has("confirmed") && <div className="page-break" style={{pageBreakBefore:"always",marginTop:32,paddingTop:16,borderTop:"2px solid #000"}}><span style={{fontFamily:F,fontSize:11,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>CASTING OPTIONS</span></div>}
+
+        {(tab === "options" || (printTabs && printTabs.has("options"))) && (
+          <div>
+            {renderRoleSection(options, setOptions, "Option")}
           </div>
         )}
 
-        <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between", fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, color: "#000", borderTop: "2px solid #000", paddingTop: 12 }}>
+        <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between", fontFamily: F, fontSize: 9, letterSpacing: LS, color: "#000", borderTop: "2px solid #000", paddingTop: 12 }}>
           <div><div style={{ fontWeight: 700 }}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
           <div style={{ textAlign: "right" }}><div style={{ fontWeight: 700 }}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
         </div>
@@ -10302,6 +10333,26 @@ After the HTML block, add a brief one-sentence confirmation message.`;
               {opt.label}
             </button>
           ))}
+        </div>
+      );
+    })()}
+    {/* Cody contract picker buttons */}
+    {agent.id==="contracts"&&!loading&&codyPendingRef.current&&codyPendingRef.current.step==="pick_existing_or_new"&&(()=>{
+      const pid=codyPendingRef.current.projectId;
+      const ctVersions=contractDocStore?.[pid]||[];
+      return(
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
+          {ctVersions.map((v,i)=>(
+            <div key={i} style={{display:"inline-flex",alignItems:"center",gap:4}}>
+              <button type="button" onClick={()=>{setInput(String(i+1));setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:12,fontWeight:600,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
+                {v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}
+              </button>
+              <button type="button" onClick={()=>{if(!confirm(`Delete "${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}"? This cannot be undone.`))return;setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(i,1);store[pid]=arr;return store;});if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx===i){setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);}else if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx>i){setCodyCtx(prev=>({...prev,vIdx:prev.vIdx-1}));if(setActiveContractVersion)setActiveContractVersion(prev=>prev-1);}const remaining=(contractDocStore?.[pid]||[]).length-1;if(remaining<=0){codyPendingRef.current={projectId:pid,step:"pick_type"};const typeList=CONTRACT_TYPE_IDS.map((t,ti)=>`${ti+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} has no contracts left. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);}else{const updated=(contractDocStore?.[pid]||[]).filter((_,j)=>j!==i);const list=updated.map((cv,j)=>`${j+1}. ${cv.label||CONTRACT_TYPE_LABELS[cv.contractType]||`Version ${j+1}`}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} now has ${updated.length} contract${updated.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);}}} style={{background:"none",border:"none",color:"#aeaeb2",cursor:"pointer",fontSize:13,lineHeight:1,padding:"0 2px"}} title="Delete contract">×</button>
+            </div>
+          ))}
+          <button type="button" onClick={()=>{setInput("new");setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px dashed #0066cc",background:"#f0f4ff",fontSize:12,fontWeight:600,color:"#0066cc",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#dde8f8";}} onMouseOut={e=>{e.currentTarget.style.background="#f0f4ff";}}>
+            + New Contract
+          </button>
         </div>
       );
     })()}
