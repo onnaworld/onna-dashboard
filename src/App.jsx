@@ -3109,11 +3109,12 @@ const FitImgSlot = ({ src, onAdd, onRemove, h = "100%", style = {} }) => {
   );
 };
 
-const FitCard = ({ src, status, onAdd, onRemove, onStatus, note, onNote }) => {
+const FitCard = ({ src, status, onAdd, onRemove, onStatus, note, onNote, onDelete }) => {
   const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   return (
-    <div data-fit-card style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff" }}>
+    <div data-fit-card style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff", position: "relative" }}>
+      {onDelete && <button data-hide="1" onClick={onDelete} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 2, lineHeight: 1 }}>{"×"}</button>}
       <div style={{ aspectRatio: "4/5", position: "relative" }}>
         <FitImgSlot src={src} h="100%" onAdd={onAdd} onRemove={onRemove} />
       </div>
@@ -3164,6 +3165,14 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
   const deleteFitting = (id) => { setFittings(p => p.filter(f => f.id !== id)); if (selFit === id) setSelFit(null); };
   const setFitImg = (fid, idx, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setFittings(p => p.map(ft => { if (ft.id !== fid) return ft; const imgs = [...ft.images]; while (imgs.length <= idx) imgs.push(null); imgs[idx] = e.target.result; return { ...ft, images: imgs }; })); r.readAsDataURL(f); };
   const rmFitImg = (fid, idx) => setFittings(p => p.map(f => f.id === fid ? { ...f, images: f.images.map((img, i) => i === idx ? null : img) } : f));
+  const deleteFitSlot = (fid, idx) => setFittings(p => p.map(f => {
+    if (f.id !== fid) return f;
+    const imgs = f.images.filter((_, i) => i !== idx);
+    const newStatuses = {}; const newNotes = {};
+    Object.keys(f.imageStatuses || {}).forEach(k => { const ki = parseInt(k); if (ki < idx) newStatuses[ki] = f.imageStatuses[ki]; else if (ki > idx) newStatuses[ki - 1] = f.imageStatuses[ki]; });
+    Object.keys(f.imageNotes || {}).forEach(k => { const ki = parseInt(k); if (ki < idx) newNotes[ki] = f.imageNotes[ki]; else if (ki > idx) newNotes[ki - 1] = f.imageNotes[ki]; });
+    return { ...f, images: imgs.length < 1 ? [null] : imgs, imageStatuses: newStatuses, imageNotes: newNotes };
+  }));
 
   const syncApproved = () => {
     const currentFittings = fittingsRef.current;
@@ -3191,6 +3200,14 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
       });
     });
   };
+
+  // Auto-sync: when any image status changes to "approved", pull into confirmed looks
+  useEffect(() => {
+    const hasApproved = fittings.some(f =>
+      f.images.some((img, i) => img && (f.imageStatuses || {})[i] === "approved")
+    );
+    if (hasApproved) syncApproved();
+  }, [fittings]); // eslint-disable-line
 
   const dragLook = useRef(null);
   const [dropLookAt, setDropLookAt] = useState(null);
@@ -3434,9 +3451,10 @@ ${PRINT_CLEANUP_CSS}
                         {fit.images.map((img, n) => (
                           <FitCard key={n} src={img} status={(fit.imageStatuses||{})[n] || "none"}
                             onAdd={files => setFitImg(fit.id, n, files)} onRemove={() => rmFitImg(fit.id, n)}
-                            onStatus={s => { updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s }); if (s === "approved") setTimeout(() => syncApproved(), 150); }}
+                            onStatus={s => updateFit(fit.id, "imageStatuses", { ...(fit.imageStatuses||{}), [n]: s })}
                             note={(fit.imageNotes||{})[n] || ""}
-                            onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })} />
+                            onNote={v => updateFit(fit.id, "imageNotes", { ...(fit.imageNotes||{}), [n]: v })}
+                            onDelete={() => deleteFitSlot(fit.id, n)} />
                         ))}
                       </div>
                       <div data-hide="1" style={{ display: "flex", justifyContent: "flex-end", padding: "2px 0" }}>
@@ -11730,22 +11748,19 @@ export default function OnnaDashboard() {
           // fb keys are "c0","c1",... mapping to flattened card indices across all fittings
           let cardIdx=0;
           ver.fittings.forEach(fit=>{
-            const visibleCount=Math.max(4,fit.images.length);
-            for(let n=0;n<visibleCount;n++){
-              if(fit.images[n]||n<4){
-                const key="c"+cardIdx;
-                if(fb[key]){
-                  if(fb[key].status&&fb[key].status!=="none"){
-                    if(!fit.imageStatuses)fit.imageStatuses={};
-                    if(fit.imageStatuses[n]!==fb[key].status){fit.imageStatuses[n]=fb[key].status;changed=true;}
-                  }
-                  if(fb[key].note!==undefined){
-                    if(!fit.imageNotes)fit.imageNotes={};
-                    if(fit.imageNotes[n]!==fb[key].note){fit.imageNotes[n]=fb[key].note;changed=true;}
-                  }
+            for(let n=0;n<fit.images.length;n++){
+              const key="c"+cardIdx;
+              if(fb[key]){
+                if(fb[key].status){
+                  if(!fit.imageStatuses)fit.imageStatuses={};
+                  if(fit.imageStatuses[n]!==fb[key].status){fit.imageStatuses[n]=fb[key].status;changed=true;}
                 }
-                cardIdx++;
+                if(fb[key].note!==undefined){
+                  if(!fit.imageNotes)fit.imageNotes={};
+                  if(fit.imageNotes[n]!==fb[key].note){fit.imageNotes[n]=fb[key].note;changed=true;}
+                }
               }
+              cardIdx++;
             }
           });
           // Also sync status badges (s0,s1,...) back to talent looks
