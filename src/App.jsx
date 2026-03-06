@@ -3211,13 +3211,22 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
   const approvedKey = useMemo(() => JSON.stringify(fittings.map(f => f.imageStatuses || {})), [fittings]);
   useEffect(() => {
     const approvedFits = fittings.filter(f =>
-      f.talentName && f.images.some((img, i) => img && (f.imageStatuses || {})[i] === "approved")
+      f.images.some((img, i) => img && (f.imageStatuses || {})[i] === "approved")
     );
     if (approvedFits.length === 0) return;
-    approvedFits.forEach(fit => {
+    approvedFits.forEach((fit, fi) => {
       const approvedImgs = fit.images.filter((img, i) => img && (fit.imageStatuses || {})[i] === "approved");
+      const fitName = fit.talentName || ("Model " + (fittings.indexOf(fit) + 1));
       setTalent(prev => {
-        let found = prev.find(t => t.name.toLowerCase().trim() === fit.talentName.toLowerCase().trim());
+        // Try matching by name first
+        let found = prev.find(t => t.name && t.name.toLowerCase().trim() === fitName.toLowerCase().trim());
+        // Also try matching by position (model index → talent index)
+        const fitIdx = fittings.indexOf(fit);
+        if (!found && fitIdx < prev.length) {
+          const positional = prev[fitIdx];
+          // Only use positional match if talent has no name or same name
+          if (positional && (!positional.name || positional.name === fitName)) found = positional;
+        }
         if (found) {
           const existingImgs = found.looks.map(l => l.image).filter(Boolean);
           const newImgs = approvedImgs.filter(img => !existingImgs.includes(img));
@@ -3225,11 +3234,11 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
           return prev.map(t => {
             if (t.id !== found.id) return t;
             const newLooks = newImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
-            return { ...t, looks: [...t.looks.filter(l => l.image), ...newLooks] };
+            return { ...t, name: t.name || fitName, looks: [...t.looks.filter(l => l.image), ...newLooks] };
           });
         } else {
           const newT = mkFitTalent();
-          newT.name = fit.talentName;
+          newT.name = fitName;
           newT.looks = approvedImgs.map(img => ({ ...mkFitLook(), name: fit.lookName || "", image: img, status: "Approved" }));
           return [...prev, newT];
         }
@@ -3319,6 +3328,21 @@ ${PRINT_CLEANUP_CSS}
     const clone = fitCleanClone(el);
     clone.querySelectorAll('[data-print-only]').forEach(n => { n.style.display = ''; });
     clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+    // Compress base64 images for sharing
+    const dataImgs = clone.querySelectorAll('img[src^="data:"]');
+    for (const img of dataImgs) {
+      try {
+        const compressed = await new Promise((resolve, reject) => {
+          const t = new Image(); t.onload = () => {
+            const maxW = 800; const scale = Math.min(1, maxW / t.naturalWidth);
+            const cv = document.createElement("canvas"); cv.width = t.naturalWidth * scale; cv.height = t.naturalHeight * scale;
+            cv.getContext("2d").drawImage(t, 0, 0, cv.width, cv.height);
+            resolve(cv.toDataURL("image/jpeg", 0.65));
+          }; t.onerror = reject; t.src = img.src;
+        });
+        img.src = compressed;
+      } catch {}
+    }
     const html = clone.innerHTML;
     setPrintTabs(null);
     if (!html) return;
@@ -3326,8 +3350,6 @@ ${PRINT_CLEANUP_CSS}
       const body = { html, projectName: project.name || "", mode: tabsArr.join("+") };
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
-      const payload = JSON.stringify(body);
-      if (payload.length > 4 * 1024 * 1024) { alert("Content too large to share. Try removing some images first."); return; }
       const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
       if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
@@ -6783,8 +6805,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const codyDocConfigRef=useRef(null); // {originalDoc, wantSign, wantStamp, wantLetterhead, signPages, stampPages, letterPages, signOffset, stampOffset, signOffsetX, stampOffsetX, signScale, stampScale}
   const [codyPickerPid,setCodyPickerPid]=useState(null); // projectId when contract picker is shown
   const codyUndoStack=useRef([]); // undo stack for contract changes (up to 50)
-  const pushCodyUndo=useCallback(()=>{if(!contractDocStore)return;codyUndoStack.current.push(JSON.parse(JSON.stringify(contractDocStore)));if(codyUndoStack.current.length>50)codyUndoStack.current.shift();},[contractDocStore]);
+  const codyUndoThrottle=useRef(0);
+  const pushCodyUndo=useCallback(()=>{if(!contractDocStore)return;const now=Date.now();if(now-codyUndoThrottle.current<300)return;codyUndoThrottle.current=now;codyUndoStack.current.push(JSON.parse(JSON.stringify(contractDocStore)));if(codyUndoStack.current.length>50)codyUndoStack.current.shift();},[contractDocStore]);
   const popCodyUndo=useCallback(()=>{if(codyUndoStack.current.length===0)return false;const snap=codyUndoStack.current.pop();if(setContractDocStore)setContractDocStore(snap);return true;},[setContractDocStore]);
+  // Auto-push undo for all contract store changes when Cody is active
+  const codySetContractDocStore=useCallback((updater)=>{pushCodyUndo();if(setContractDocStore)setContractDocStore(updater);},[pushCodyUndo,setContractDocStore]);
 
   // ── Split-pane: detect if agent has active project context ──
   const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx);
@@ -10269,11 +10294,20 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"auto"}}>
+        <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 60%":"0 0 50%"),height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          {agent.id==="contracts"&&codyCtx&&(()=>{const ctVersions=contractDocStore?.[codyCtx.projectId]||[];const ver=ctVersions[codyCtx.vIdx];const label=ver?.label||`Version ${(codyCtx.vIdx||0)+1}`;return(
+            <div style={{padding:"8px 16px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
+              <span style={{fontSize:12,fontWeight:700,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{label}</span>
+              <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                <button onClick={()=>{if(popCodyUndo()){setMsgs(prev=>[...prev,{role:"assistant",content:"Undone! Reverted the last change."}]);}}} title="Undo (⌘Z)" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#6e6e73",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#6e6e73";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";}}>⌘Z</button>
+                <button onClick={()=>{if(!confirm(`Delete "${label}"? You can undo with ⌘Z.`))return;pushCodyUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[codyCtx.projectId]||[];arr.splice(codyCtx.vIdx,1);store[codyCtx.projectId]=arr;return store;});setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted "${label}". Say a project name to start again, or press ⌘Z to undo.`}]);}} title="Delete contract" style={{background:"none",border:"1px solid #e0e0e0",borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:600,color:"#ff3b30",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.borderColor="#ff3b30";e.currentTarget.style.background="#fff5f5";}} onMouseOut={e=>{e.currentTarget.style.borderColor="#e0e0e0";e.currentTarget.style.background="none";}}>Delete</button>
+              </div>
+            </div>);})()}
+          <div style={{flex:1,overflow:"auto"}}>
           <AgentDocPreview agentId={agent.id} projectId={docProjectId}
             callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
-            contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion}
+            contractDocStore={contractDocStore} setContractDocStore={agent.id==="contracts"?codySetContractDocStore:setContractDocStore} activeContractVersion={activeContractVersion}
             projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
             pushUndo={pushUndo}
             ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
@@ -10286,6 +10320,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             dietaryStore={dietaryStore} setDietaryStore={setDietaryStore}
             onDietarySelect={(idx)=>{setConnieDietMode(null);const proj=localProjects?.find(p=>p.id===docProjectId);if(proj&&onNavigateToDoc){onNavigateToDoc(proj,"Documents","dietaries",{dietaryIdx:idx});}}}
             projectInfoRef={projectInfoRef}/>
+          </div>
         </div>
         <div style={{flex:isMobile?"none":(agent.id==="billie"?"0 0 40%":"0 0 50%"),height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
@@ -10406,27 +10441,6 @@ After the HTML block, add a brief one-sentence confirmation message.`;
               {opt.label}
             </button>
           ))}
-        </div>
-      );
-    })()}
-    {/* Cody contract picker buttons */}
-    {agent.id==="contracts"&&!loading&&codyPickerPid&&(()=>{
-      const pid=codyPickerPid;
-      const ctVersions=contractDocStore?.[pid]||[];
-      if(ctVersions.length===0)return null;
-      return(
-        <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
-          {ctVersions.map((v,i)=>(
-            <div key={i} style={{display:"inline-flex",alignItems:"center",gap:4}}>
-              <button type="button" onClick={()=>{setInput(String(i+1));setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:12,fontWeight:600,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
-                {v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}
-              </button>
-              <button type="button" onClick={()=>{if(!confirm(`Delete "${v.label||CONTRACT_TYPE_LABELS[v.contractType]||`Version ${i+1}`}"?`))return;pushCodyUndo();setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(i,1);store[pid]=arr;return store;});if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx===i){setCodyCtx(null);if(setActiveContractVersion)setActiveContractVersion(null);}else if(codyCtx&&codyCtx.projectId===pid&&codyCtx.vIdx>i){setCodyCtx(prev=>({...prev,vIdx:prev.vIdx-1}));if(setActiveContractVersion)setActiveContractVersion(prev=>prev-1);}const remaining=(contractDocStore?.[pid]||[]).length-1;if(remaining<=0){codyPendingRef.current={projectId:pid,step:"pick_type"};const typeList=CONTRACT_TYPE_IDS.map((t,ti)=>`${ti+1}. ${CONTRACT_TYPE_LABELS[t]}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} has no contracts left. Let's create one!\n\n${typeList}\n\nPick a number or name.`}]);}else{const updated=(contractDocStore?.[pid]||[]).filter((_,j)=>j!==i);const list=updated.map((cv,j)=>`${j+1}. ${cv.label||CONTRACT_TYPE_LABELS[cv.contractType]||`Version ${j+1}`}`).join("\n");const proj=localProjects?.find(p=>p.id===pid);setMsgs(prev=>[...prev,{role:"assistant",content:`Deleted! ${proj?.name||"This project"} now has ${updated.length} contract${updated.length===1?"":"s"}:\n\n${list}\n\nPick one by number/name, or say new to create another.`}]);}}} style={{background:"#fff",border:"1px solid #e0e0e0",borderRadius:6,color:"#ff3b30",cursor:"pointer",fontSize:12,fontWeight:700,lineHeight:1,padding:"3px 6px",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#fff5f5";e.currentTarget.style.borderColor="#ff3b30";}} onMouseOut={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.borderColor="#e0e0e0";}} title="Delete contract">×</button>
-            </div>
-          ))}
-          <button type="button" onClick={()=>{setInput("new");setTimeout(send,0);}} style={{padding:"6px 14px",borderRadius:10,border:"1px dashed #0066cc",background:"#f0f4ff",fontSize:12,fontWeight:600,color:"#0066cc",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#dde8f8";}} onMouseOut={e=>{e.currentTarget.style.background="#f0f4ff";}}>
-            + New Contract
-          </button>
         </div>
       );
     })()}
