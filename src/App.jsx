@@ -11108,7 +11108,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       </div>
     ) : hasDocCtx ? (
       <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,minHeight:0,overflow:"hidden"}}>
-        <div style={{flex:isMobile?"none":"0 0 40%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+        <div style={{flex:isMobile?"none":"0 0 60%",height:isMobile?"35%":"auto",borderRight:isMobile?"none":"1.5px solid #e5e5ea",borderBottom:isMobile?"1.5px solid #e5e5ea":"none",overflow:"hidden",display:"flex",flexDirection:"column"}}>
           <div style={{padding:"6px 12px",borderBottom:"1px solid #e5e5ea",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:"#fafafa"}}>
             <span style={{fontSize:11,fontWeight:600,color:"#6e6e73",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.id==="contracts"&&codyCtx?(()=>{const v=(contractDocStore?.[codyCtx.projectId]||[])[codyCtx.vIdx];return(v?.label||`Version ${(codyCtx.vIdx||0)+1}`)+" Preview";})():agent.id==="compliance"&&connieDietMode?"Dietary Preview":agent.id==="compliance"?"Call Sheet Preview":agent.id==="researcher"?"Risk Assessment Preview":agent.id==="billie"?"Estimate Preview":agent.id==="carrie"?"Casting Deck Preview":"Preview"}</span>
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
@@ -11138,7 +11138,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
             projectInfoRef={projectInfoRef}/>
           </div>
         </div>
-        <div style={{flex:isMobile?"none":"0 0 60%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+        <div style={{flex:isMobile?"none":"0 0 40%",height:isMobile?"65%":"auto",display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
           {_renderAgentChat()}
         </div>
       </div>
@@ -18531,10 +18531,10 @@ export default function OnnaDashboard() {
                   onMouseEnter={()=>setAgentHoverIdx(i)}
                   onMouseLeave={()=>setAgentHoverIdx(null)}
                   style={isMobile?{flex:"0 0 auto",width:"20%",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"4px 2px",borderRadius:14,transition:"transform 0.18s ease, background 0.18s ease",transform:isActive?"scale(1.08)":"scale(1)"}:useWideLayout?{flex:"1 1 0",minWidth:0,background:isActive?"rgba(0,0,0,0.06)":"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:0,padding:"2px 4px",borderRadius:12,transition:"transform 0.15s ease",transform:isActive?"scale(1.05)":"scale(1)"}:{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8,padding:"10px",borderRadius:20,transition:"transform 0.18s ease",transform:isActive?"scale(1.12)":"scale(1)"}}>
-                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.4)":"scale(1)",transformOrigin:"center",margin:useWideLayout?"-12px 0":0}}>
+                  <div style={{transform:isMobile?"scale(0.65)":useWideLayout?"scale(0.3)":"scale(1)",transformOrigin:"center",margin:useWideLayout?"-18px 0":0}}>
                     <a.Blob mood={isActive?"excited":isHover?"talking":"idle"} bob={0}/>
                   </div>
-                  <span style={{fontSize:isMobile?8:useWideLayout?8:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
+                  <span style={{fontSize:isMobile?8:useWideLayout?7:10,fontWeight:700,color:"#1d1d1f",fontFamily:"Avenir,'Avenir Next',sans-serif",letterSpacing:isMobile?0.5:1.2,textTransform:"uppercase",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>{a.name}</span>
                 </button>
               );})}
               {/* Next arrow */}
