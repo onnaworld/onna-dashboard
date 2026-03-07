@@ -6144,25 +6144,6 @@ function _Nova({mood="idle",bob=0}){
     {mood==="talking"?<><rect x="38" y="62" width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy="72" rx="9" ry="5" fill="#e8697a"/></>:<path d={mouth} stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>}
   </svg>;
 }
-function _Minnie({mood="idle",bob=0}){
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_PURPLE}/>
-    <_Cheeks color="rgba(160,120,220,0.22)"/>
-    {mood==="talking"?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :mood==="thinking"?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* calendar icon accessory */}
-    <rect x="70" y="8" width="22" height="20" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
-    <rect x="76" y="6" width="4" height="6" rx="2" fill="#1a1a1a"/>
-    <rect x="84" y="6" width="4" height="6" rx="2" fill="#1a1a1a"/>
-    <line x1="70" y1="16" x2="92" y2="16" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <circle cx="76" cy="22" r="1.5" fill={_PURPLE}/>
-    <circle cx="81" cy="22" r="1.5" fill="#1a1a1a"/>
-    <circle cx="86" cy="22" r="1.5" fill="#1a1a1a"/>
-    <path d="M 72 44 Q 76 30 77 18" stroke={_PURPLE} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 72 44 Q 76 30 77 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-  </svg>;
-}
 function _Billie({mood="idle",bob=0}){
   const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
   return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
@@ -6423,26 +6404,6 @@ When a user greets you or says hi/hello, introduce yourself and list these three
 Use bullet points, keep responses short and scannable, and lead with the action taken. Be warm, confident and professional.`,
    placeholder:"Add risk assessment details...",
    intro:"I'm Risk Assessment Ronnie 🔬 Here's what I can do:\n\n1️⃣ **Add Risks** — Log hazards with severity, likelihood & mitigation\n2️⃣ **Review Assessment** — Check what's missing or needs updating\n3️⃣ **Generate Report** — Summarise all risks for a shoot day\n\nFirst, which project should I work on?"},
-  {id:"minnie",name:"Meeting Minnie",title:"Scheduling",emoji:"📅",color:_PURPLE,border:"#a07cc0",accent:"#4a1a80",bg:"#faf5ff",textColor:"#2d0a50",tagBg:"#ede0f8",Blob:_Minnie,
-   system:`You are Meeting Minnie, ONNA's scheduling assistant for a film/TV production company in Dubai. You help manage meeting requests from emails.
-
-You have THREE capabilities:
-1. SCHEDULE MEETING — Given a meeting request, identify who, what, and proposed times, check for conflicts, and propose available slots.
-2. CHECK CALENDAR — Review upcoming schedule and spot conflicts.
-3. DRAFT REPLY — Write a professional response with three available time options.
-
-When a user greets you or says hi/hello, introduce yourself and list these three capabilities briefly so they know what you can help with.
-
-RESPONSE STYLE:
-- Use bullet points for lists and summaries
-- Keep responses short and scannable — no walls of text
-- Lead with the action taken or answer, then details
-- Use bold (text) for key names, fields, and labels
-- Tone: warm, confident, professional — never robotic
-- Always propose times in Dubai time (GST, UTC+4)
-- Sign off as the ONNA team.`,
-   placeholder:"Create new meeting...",
-   intro:"Hi! I'm Meeting Minnie 📅 Here's what I can do:\n\n1️⃣ **Schedule Meeting** — Paste a meeting request and I'll find available slots\n2️⃣ **Check Calendar** — See what's coming up and spot conflicts\n3️⃣ **Draft Reply** — I'll write a professional response with time options\n\nWhat do you need?"},
   {id:"billie",name:"Budget Billie",title:"Budgets & Expenses",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
    system:`You are Budget Billie, ONNA's production budget and expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You build detailed, accurate line-item production budgets using current Dubai market rates. Always show dual currency columns (AED and USD, fixed rate 1 USD = 3.67 AED). Apply 15% Agency Fee and 10% Contingency by default. You also track expenses, flag budget overruns, categorize costs, and manage actuals vs estimate variance.
 
@@ -7612,8 +7573,8 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
   const rafRef=useRef(null);
   const t0=useRef(null);
   useEffect(()=>{
-    const speed=agent.id==="compliance"?1.1:agent.id==="researcher"?1.9:agent.id==="minnie"?1.6:1.5;
-    const amp=agent.id==="compliance"?3:agent.id==="minnie"?4:5;
+    const speed=agent.id==="compliance"?1.1:agent.id==="researcher"?1.9:1.5;
+    const amp=agent.id==="compliance"?3:5;
     const fn=ts=>{if(!t0.current)t0.current=ts;setBob(Math.sin(((ts-t0.current)/1000)*speed)*amp);rafRef.current=requestAnimationFrame(fn);};
     rafRef.current=requestAnimationFrame(fn);
     return()=>cancelAnimationFrame(rafRef.current);
@@ -7842,12 +7803,11 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     const _lastIsIntro=_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastContent)&&!_lastHasProjectList;
     if(_isIntroReply&&_lastIsIntro){
       const n=parseInt(input.trim(),10);
-      const _needsProject={compliance:true,researcher:true,contracts:true,billie:true,finn:true,carrie:true,logistical:false,minnie:false};
+      const _needsProject={compliance:true,researcher:true,contracts:true,billie:true,finn:true,carrie:true,logistical:false};
       const _responses={
         logistical:{1:"Tell me about the vendor — name, category, email and phone number.",2:"Who did you contact? Give me the name and what happened, and I'll log it with today's date.",3:"Who are you looking for? Give me a name, category, or location and I'll search."},
         compliance:{1:"Let's edit a call sheet. Which project should I work on?",2:"I'll review what's missing. Which project should I work on?",3:"Let's manage dietary requirements. Which project should I work on?"},
         researcher:{1:"I'll help add risks. Which project should I work on?",2:"I'll review the assessment. Which project should I work on?",3:"I'll generate a risk report. Which project should I work on?"},
-        minnie:{1:"Paste a meeting request email and I'll find available time slots for you.",2:"Let me check your calendar. What date or week are you looking at?",3:"Paste the meeting request and I'll draft a professional reply with three time options."},
         billie:{1:"I'll work on the budget. Which project should I work on?",2:"I'll help track expenses. Which project should I work on?",3:"I'll compare actuals vs estimates. Which project should I work on?"},
 
         carrie:{1:"I'll add talent. Which project should I work on?",2:"I'll search agencies or generate a brief. Which project should I work on?",3:"I'll review casting and export. Which project should I work on?"},
@@ -8749,47 +8709,6 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         setMsgs([...history,{role:"assistant",content:`Selected: "${existName}" (${chosen.type}).\n1. Update existing entry\n2. Add as new contact on this card\n3. None of these — create separate entry\n\nReply 1, 2, or 3.`}]);
       }
       setMood("idle");return;
-    }
-
-    // ── Meeting Minnie: check emails + calendar ───────────────────────────────
-    if(agent.id==="minnie"&&/check.*email|meeting request|scan.*inbox|find.*meeting|check.*inbox/i.test(input.trim())){
-      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
-      const extResult=await searchViaExt("meeting request");
-      let emailContext="";
-      if(extResult.ok&&extResult.lead){
-        emailContext=`\n\nEMAIL FOUND IN OUTLOOK:\n${JSON.stringify(extResult.lead,null,2)}`;
-      }else{
-        emailContext=`\n\nNo meeting request emails found via Outlook search. (${extResult.error||"No results"})`;
-      }
-      let calContext="";
-      if(gcalToken&&gcalEvents&&gcalEvents.length){
-        const now=new Date();
-        const twoWeeks=new Date(now.getTime()+14*24*60*60*1000);
-        const upcoming=(gcalEvents||[]).filter(ev=>{const s=ev.start?.dateTime||ev.start?.date;return s&&new Date(s)>=now&&new Date(s)<=twoWeeks;}).slice(0,30);
-        calContext=`\n\nCALENDAR (next 14 days):\n${upcoming.map(ev=>`- ${ev.summary}: ${ev.start?.dateTime||ev.start?.date}${ev.end?.dateTime?` → ${ev.end.dateTime}`:""}`).join("\n")||"No events found"}`;
-      }else{
-        calContext="\n\nGoogle Calendar not connected. Suggest available slots based on typical business hours (9am–6pm GST, Mon–Fri).";
-      }
-      const contextMsg=`Check my emails for meeting requests and draft a reply.${emailContext}${calContext}`;
-      try{
-        const sysMsg=system;
-        const proxyRes=await fetch("/api/agents/logistical",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[...history.slice(1),{role:"user",content:contextMsg}],system:sysMsg})});
-        if(!proxyRes.ok){setMsgs([...history,{role:"assistant",content:"Couldn't reach the AI. Check your connection."}]);setLoading(false);setMood("idle");return;}
-        const reader=proxyRes.body.getReader();const decoder=new TextDecoder();let reply="";
-        setMsgs([...history,{role:"assistant",content:""}]);
-        while(true){
-          const{done,value}=await reader.read();if(done)break;
-          const chunk=decoder.decode(value,{stream:true});
-          const lines=chunk.split("\n");
-          for(const line of lines){
-            if(!line.startsWith("data:"))continue;
-            const d=line.slice(5).trim();if(d==="[DONE]")continue;
-            try{const j=JSON.parse(d);const t=j.delta?.text||j.content?.[0]?.text||"";if(t){reply+=t;setMsgs(prev=>{const n=[...prev];n[n.length-1]={role:"assistant",content:reply};return n;});}}catch{}
-          }
-        }
-        setLoading(false);setMood("idle");
-      }catch(e){setMsgs([...history,{role:"assistant",content:"Something went wrong: "+e.message}]);setLoading(false);setMood("idle");}
-      return;
     }
 
     // ── Vinnie: bare "new" / "create" / "add" with no type → ask which type ──
@@ -11399,7 +11318,6 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         logistical:[{label:"➕ Add Vendor",value:"1"},{label:"📞 Log Outreach",value:"2"},{label:"🔍 Search Contacts",value:"3"}],
         compliance:[{label:"✏️ Edit Call Sheet",value:"1"},{label:"✅ Review & Check",value:"2"},{label:"🍽️ Dietary & Catering",value:"3"}],
         researcher:[{label:"⚠️ Add Risks",value:"1"},{label:"✅ Review Assessment",value:"2"},{label:"📄 Generate Report",value:"3"}],
-        minnie:[{label:"📅 Schedule Meeting",value:"1"},{label:"📆 Check Calendar",value:"2"},{label:"✉️ Draft Reply",value:"3"}],
         billie:[{label:"💰 Build & Edit Budget",value:"1"},{label:"💳 Log Expenses",value:"2"},{label:"📊 Review & Compare",value:"3"}],
         contracts:[{label:"📋 Live Contracts",value:"1"},{label:"✍️ Generate Document",value:"2"},{label:"🖊️ Sign & Stamp",value:"3"}],
 
@@ -12626,7 +12544,6 @@ export default function OnnaDashboard() {
       {id:1,title:"How to Use Vendor Vinnie",category:"agent",agent:"logistical",order:0,created_at:now,updated_at:now,content:"# How to Use Vendor Vinnie\n\nVendor Vinnie is your contact management assistant. He connects directly to the ONNA database — every contact you give him is saved in real time.\n\n## Three Core Capabilities\n\n### 1. Add a Vendor\nTell Vinnie the vendor’s details and a save form appears automatically.\n\n- Name and company\n- Category (Locations, Catering, Equipment, etc.)\n- Email, phone, location\n- Any additional notes\n\n**Example prompt:** “Add a new vendor — Stellar Lighting, Equipment category, email info@stellar.ae, phone +971 50 123 4567, based in Dubai”\n\n### 2. Log Outreach\nWhen you’ve contacted someone, tell Vinnie and he’ll log it with today’s date.\n\n- Mention who you contacted and how (call, email, WhatsApp)\n- He auto-fills the date\n- The outreach record saves to the Clients tab\n\n**Example prompt:** “I just emailed Sarah at Meridian Group about the Q2 campaign”\n\n### 3. Search Contacts\nFind vendors by name, category, or location.\n\n**Example prompt:** “Find all catering vendors in Abu Dhabi”\n\n## Tips\n\n- You can add multiple vendors in one message\n- Vinnie understands natural language — no need for exact formatting\n- All saved contacts appear in the Vendors tab immediately"},
       {id:2,title:"How to Use Call Sheet Connie",category:"agent",agent:"compliance",order:1,created_at:now,updated_at:now,content:"# How to Use Call Sheet Connie\n\nCall Sheet Connie is your production coordinator. She reads and updates live call sheet data for any project.\n\n## Three Core Capabilities\n\n### 1. Edit Call Sheet\nAdd crew members, update call times, locations, and schedule details.\n\n- Add crew with name, role, call time, and wrap time\n- Update locations, parking details, nearest hospital\n- Set weather notes, general notes, and production contacts\n\n**Example prompt:** “Add John Smith as Gaffer, call time 06:00, wrap 18:00”\n\n### 2. Review & Check\nConnie scans the call sheet and flags what’s missing or incomplete.\n\n**Example prompt:** “Review the call sheet for Day 1 — what’s missing?”\n\n### 3. Dietary & Catering\nManage dietary requirements and meal planning for the crew.\n\n- Add dietary restrictions per crew member\n- Set breakfast, lunch, and snack menus\n- Track headcount for catering orders\n\n**Example prompt:** “Add dietary: Sarah is vegan, Mike is gluten-free”\n\n## Tips\n\n- Connie will ask which project to work on first\n- She can handle multiple crew additions in one message\n- All changes save to the call sheet in real time"},
       {id:3,title:"How to Use Risk Assessment Ronnie",category:"agent",agent:"researcher",order:2,created_at:now,updated_at:now,content:"# How to Use Risk Assessment Ronnie\n\nRisk Assessment Ronnie is your safety and compliance officer. He manages hazard logs and risk assessments for every shoot day.\n\n## Three Core Capabilities\n\n### 1. Add Risks\nLog hazards with severity ratings, likelihood, and mitigation measures.\n\n- Describe the hazard (e.g. working at height, water proximity, pyrotechnics)\n- Ronnie assigns severity (Low / Medium / High / Critical)\n- He adds likelihood and recommended control measures\n\n**Example prompt:** “Add risk: shooting near water at Dubai Creek — crew will be on an unfenced dock”\n\n### 2. Review Assessment\nCheck what’s missing or needs updating on the current risk assessment.\n\n**Example prompt:** “Review the risk assessment for Day 2 — are we covered?”\n\n### 3. Generate Report\nSummarise all logged risks for a shoot day into a formatted report.\n\n**Example prompt:** “Generate a risk report for the Marina shoot”\n\n## Tips\n\n- Ronnie follows Dubai municipality safety guidelines\n- He’ll flag if critical risks don’t have mitigation measures\n- Reports can be exported for client or location approval"},
-      {id:4,title:"How to Use Meeting Minnie",category:"agent",agent:"minnie",order:3,created_at:now,updated_at:now,content:"# How to Use Meeting Minnie\n\nMeeting Minnie is your scheduling assistant. She helps manage meeting requests, check availability, and draft professional responses.\n\n## Three Core Capabilities\n\n### 1. Schedule Meeting\nPaste a meeting request (from email, WhatsApp, etc.) and Minnie will extract the details and propose available time slots.\n\n- She identifies who, what, and proposed times\n- Checks for conflicts with your schedule\n- Proposes 3 alternative slots if needed\n\n**Example prompt:** “Got this email: 'Hi, can we meet Thursday to discuss the Pulse Fitness campaign? Anytime after 2pm works.' — schedule it”\n\n### 2. Check Calendar\nReview upcoming meetings and spot conflicts.\n\n**Example prompt:** “What’s on my schedule this week? Any conflicts?”\n\n### 3. Draft Reply\nMinnie writes a professional response with available time options, signed off as the ONNA team.\n\n**Example prompt:** “Draft a reply to Sarah confirming Tuesday at 10am GST”\n\n## Tips\n\n- All times are in Dubai time (GST, UTC+4)\n- Minnie signs off as the ONNA team\n- You can paste raw email text — she’ll extract the relevant details"},
       {id:5,title:"How to Use Budget Billie",category:"agent",agent:"billie",order:4,created_at:now,updated_at:now,content:"# How to Use Budget Billie\n\nBudget Billie is your production budget and expense tracking assistant. She builds detailed line-item budgets using current Dubai market rates.\n\n## Three Core Capabilities\n\n### 1. Build & Edit Budget\nCreate line-item production estimates with dual currency (AED/USD).\n\n- Add line items with descriptions, quantities, unit rates, and days\n- 15% Agency Fee and 10% Contingency applied by default\n- Update rates, add/remove items, adjust markup\n\n**Example prompt:** “Build a 2-day shoot budget — 1 director, 1 DOP, 2 camera assistants, lighting package, and catering for 15 crew”\n\n### 2. Log Expenses\nTrack actual spend against the budget.\n\n- Add costs as they come in\n- Categorise spend by department\n- Update Zoho amounts for accounting sync\n\n**Example prompt:** “Log expense: AED 3,200 for camera rental from Stellar Equipment”\n\n### 3. Review & Compare\nActuals vs estimates variance analysis.\n\n- Flag overruns before they become problems\n- Check remaining budget by category\n- Export comparison to PDF\n\n**Example prompt:** “How are we tracking on the Pulse Fitness budget? Any overruns?”\n\n## Tips\n\n- Fixed rate: 1 USD = 3.67 AED\n- Billie uses current Dubai market rates as defaults\n- She’ll ask which project to work on first"},
       {id:6,title:"How to Use Contract Cody",category:"agent",agent:"contracts",order:5,created_at:now,updated_at:now,content:"# How to Use Contract Cody\n\nContract Cody is your contract drafting and document management assistant. He handles live contracts, generates legal documents, and manages signing.\n\n## Three Core Capabilities\n\n### 1. Live Contracts\nFill in contract fields, switch between contract types, and review or export.\n\n- Commissioning Agreements, Talent Agreements, Crew Deals, etc.\n- Review what fields are missing\n- Export completed contracts to PDF\n\n**Example prompt:** “Fill in the talent agreement for Sarah Khan — day rate AED 5,000, 3 shoot days, usage 12 months MENA”\n\n### 2. Generate Documents\nDraft custom legal documents from scratch based on your description.\n\n- Waivers, NDAs, release forms, consent forms\n- Location agreements, talent releases, crew memos\n- Based on ONNA’s standard legal language\n\n**Example prompt:** “Generate an NDA for a client meeting with Pulse Fitness”\n\n### 3. Sign & Stamp\nAdd signature, company stamp, and ONNA letterhead to documents.\n\n- Upload a PDF or use a generated document\n- Cody overlays the official ONNA signature block\n- Final document ready for distribution\n\n**Example prompt:** “Add signature and stamp to the Meridian Group commissioning agreement”\n\n## Tips\n\n- All changes save automatically to the project\n- Cody understands ONNA’s standard contract terms\n- You can switch contract types without losing data"},
       {id:7,title:"How to Use Casting Carrie",category:"agent",agent:"carrie",order:6,created_at:now,updated_at:now,content:"# How to Use Casting Carrie\n\nCasting Carrie is your casting coordinator. She manages talent databases, casting briefs, and exports for client review.\n\n## Three Core Capabilities\n\n### 1. Add Talent\nAdd models, actors, or extras with full details.\n\n- Name, age range, gender, ethnicity\n- Agency and agent contact info\n- Rates, availability, and portfolio links\n\n**Example prompt:** “Add talent: Layla Hassan, female, age 25-30, represented by Stage Models, available March 15-20”\n\n### 2. Search & Brief\nSearch agencies or generate a casting brief for distribution.\n\n- Search by type (model, actor, extra), demographics, or availability\n- Generate a formatted casting brief with role requirements\n- Brief includes shoot dates, usage, wardrobe notes\n\n**Example prompt:** “Generate a casting brief — we need 3 male models, age 30-40, for a 2-day shoot in Dubai Marina, usage 6 months digital”\n\n### 3. Review & Export\nCheck casting status and export to PDF or CSV.\n\n- See who’s confirmed, on hold, or pending\n- Export the full casting table for client approval\n- Track fitting dates and measurements\n\n**Example prompt:** “Export the casting table for the Pulse Fitness shoot”\n\n## Tips\n\n- Carrie will ask which project to work on first\n- She can handle bulk talent additions\n- All data syncs to the casting table in real time"},
@@ -18765,8 +18682,6 @@ export default function OnnaDashboard() {
                       allLeads={a.id==="logistical"?localLeads:undefined}
                       onUpdateVendor={a.id==="logistical"?(id,fields)=>{setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));}:undefined}
                       onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
-                      gcalToken={a.id==="minnie"?gcalToken:undefined}
-                      gcalEvents={a.id==="minnie"?gcalEvents:undefined}
                       callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                       setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
                       selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie"||a.id==="tina"||a.id==="tabby"||a.id==="polly"||a.id==="lillie"||a.id==="perry")?selectedProject:undefined}
