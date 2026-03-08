@@ -12285,15 +12285,25 @@ export default function OnnaDashboard() {
   });
   useEffect(()=>{localStorage.setItem("onna_tab",activeTab);},[activeTab]);
 
-  // Auto-logout after 30 min inactivity (only active while authed)
+  // Auto-logout after 30 min inactivity with 1-minute warning
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const timeoutRef = useRef(null);
+  const warningRef = useRef(null);
   useEffect(()=>{
     if (!authed) return;
     const TIMEOUT = 30*60*1000;
-    let timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT);
-    const reset = ()=>{ clearTimeout(timer); timer = setTimeout(()=>{localStorage.removeItem("onna_token");setAuthed(false);}, TIMEOUT); };
+    const WARNING = 60*1000;
+    const doLogout = ()=>{setShowTimeoutWarning(false);localStorage.removeItem("onna_token");setAuthed(false);};
+    const schedule = ()=>{
+      clearTimeout(warningRef.current); clearTimeout(timeoutRef.current);
+      setShowTimeoutWarning(false);
+      warningRef.current = setTimeout(()=>setShowTimeoutWarning(true), TIMEOUT - WARNING);
+      timeoutRef.current = setTimeout(doLogout, TIMEOUT);
+    };
+    schedule();
     const events = ["mousemove","mousedown","keydown","touchstart","scroll"];
-    events.forEach(e=>window.addEventListener(e, reset, {passive:true}));
-    return ()=>{ clearTimeout(timer); events.forEach(e=>window.removeEventListener(e, reset)); };
+    events.forEach(e=>window.addEventListener(e, schedule, {passive:true}));
+    return ()=>{ clearTimeout(warningRef.current); clearTimeout(timeoutRef.current); events.forEach(e=>window.removeEventListener(e, schedule)); };
   },[authed]);
 
   // ── CPS share page (bypasses login — redirects to API-served HTML) ──────────
@@ -19095,6 +19105,7 @@ export default function OnnaDashboard() {
           </div>
         </div>
       )}
+      {showTimeoutWarning&&<div style={{position:"fixed",top:0,left:0,right:0,background:"#E65100",color:"#fff",padding:"10px 20px",textAlign:"center",fontSize:13,fontWeight:600,fontFamily:"inherit",zIndex:100001,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>Session expires in 1 minute due to inactivity<button onClick={()=>{setShowTimeoutWarning(false);}} style={{background:"#fff",color:"#E65100",border:"none",borderRadius:6,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>I'm still here</button></div>}
       {_modal.show && <div onClick={()=>_closeModal(_modal.type==="prompt"?null:undefined)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.45)",zIndex:100000,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Avenir','Avenir Next','Nunito Sans',sans-serif"}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:"28px 32px",minWidth:340,maxWidth:480,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",border:"1px solid #e5e5e5"}}>
         <div style={{fontSize:14,color:"#1a1a1a",lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:20}}>{_modal.message}</div>
         {_modal.type==="prompt"&&<input ref={_modalInputRef} defaultValue={_modal.defaultVal} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();_closeModal(e.target.value);}if(e.key==="Escape")_closeModal(null);}} style={{width:"100%",padding:"10px 12px",fontSize:14,border:"1.5px solid #ddd",borderRadius:8,fontFamily:"inherit",marginBottom:16,boxSizing:"border-box"}}/>}
