@@ -3,6 +3,29 @@ const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
 const ALLOWED_ORIGINS = ["https://app.onna.digital", "https://app.onna.world"];
 
+// ─── Rate limiting (in-memory, per serverless instance) ─────────────────────
+const RATE_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT = 120;        // max requests per window
+const LOGIN_RATE_LIMIT = 10;   // stricter limit for auth endpoints
+const hits = {};
+
+function rateLimit(ip, target) {
+  const isAuth = target && target.startsWith("/api/auth");
+  const limit = isAuth ? LOGIN_RATE_LIMIT : RATE_LIMIT;
+  const key = isAuth ? `auth:${ip}` : ip;
+  const now = Date.now();
+  if (!hits[key] || now - hits[key].start > RATE_WINDOW) {
+    hits[key] = { start: now, count: 1 };
+  } else {
+    hits[key].count++;
+  }
+  // Clean up old entries periodically
+  if (Object.keys(hits).length > 5000) {
+    for (const k of Object.keys(hits)) { if (now - hits[k].start > RATE_WINDOW) delete hits[k]; }
+  }
+  return hits[key].count > limit;
+}
+
 function setCors(req, res) {
   const origin = req.headers.origin || "";
   if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".vercel.app") || origin.startsWith("http://localhost")) {
@@ -21,6 +44,13 @@ export default async function handler(req, res) {
 
   const target = req.query.target;
   if (!target) return res.status(400).json({ error: "Missing target parameter" });
+
+  // Rate limit check
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || "unknown";
+  if (rateLimit(ip, target)) {
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({ error: "Too many requests. Please wait a moment." });
+  }
 
   const url = new URL(target, BACKEND);
   // Forward additional query params (skip 'target')
