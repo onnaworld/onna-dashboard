@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback, Fragment, useImperativeHandle } from "react";
 import { createPortal } from "react-dom";
+import Information from "./components/Information";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -12768,13 +12769,7 @@ export default function OnnaDashboard() {
   // ── Notes state ───────────────────────────────────────────────────────────────
   const [notes,setNotes]                     = useState(()=>{try{const c=localStorage.getItem('onna_cache_notes');return c?JSON.parse(c):[];}catch{return [];}});
   const [notesLoading,setNotesLoading]       = useState(false);
-  const notesFetchedRef                      = useRef(false);
   useEffect(()=>{try{if(notes.length)localStorage.setItem('onna_cache_notes',JSON.stringify(notes));}catch{}},[notes]);
-  const [noteAddOpen,setNoteAddOpen]         = useState(false);
-  const [noteEditId,setNoteEditId]           = useState(null);
-  const [noteDraft,setNoteDraft]             = useState({title:"",content:""});
-  const [noteSaving,setNoteSaving]           = useState(false);
-  const [notesErr,setNotesErr]               = useState("");
 
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
   const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
@@ -13825,7 +13820,6 @@ export default function OnnaDashboard() {
     pushNav(tab, null, null, null);
     if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
     if (tab==="Notes") setActiveTab("Information");
-
   };
 
   const pushNav = (tab, project, section, subSection) => {
@@ -18893,57 +18887,7 @@ export default function OnnaDashboard() {
           );})()}
 
         {/* ── INFORMATION TAB ── */}
-        {activeTab==="Information"&&(
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              <div style={{fontSize:22,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Information</div>
-              <button onClick={()=>{setNoteAddOpen(true);setNoteEditId(null);setNoteDraft({title:"",content:""});}} style={{padding:"9px 18px",borderRadius:10,background:"#1d1d1f",color:"#fff",border:"none",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New</button>
-            </div>
-
-            {/* Add / Edit form */}
-            {noteAddOpen&&(
-              <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,padding:"22px 24px",marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-                <input value={noteDraft.title} onChange={e=>setNoteDraft(p=>({...p,title:e.target.value}))} placeholder="Title" autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:15,fontWeight:600,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",marginBottom:10}}/>
-                <textarea value={noteDraft.content} onChange={e=>setNoteDraft(p=>({...p,content:e.target.value}))} placeholder="Write…" rows={6} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",resize:"vertical",lineHeight:1.6}}/>
-                {notesErr&&<div style={{fontSize:12,color:"#c0392b",marginTop:8,fontWeight:500}}>{notesErr}</div>}
-                <div style={{display:"flex",gap:8,marginTop:12}}>
-                  <BtnPrimary disabled={noteSaving||!noteDraft.content.trim()} onClick={()=>{
-                    setNoteSaving(true); setNotesErr("");
-                    try {
-                      if (noteEditId) {
-                        setDashNotesList(prev=>prev.map(n=>n.id===noteEditId?{...n,title:noteDraft.title,content:noteDraft.content,updatedAt:Date.now()}:n));
-                      } else {
-                        setDashNotesList(prev=>[{id:Date.now(),title:noteDraft.title,content:noteDraft.content,updatedAt:Date.now()},...prev]);
-                      }
-                      setNoteSaving(false); setNoteAddOpen(false); setNoteEditId(null); setNoteDraft({title:"",content:""});
-                    } catch(e) { setNotesErr(e.message||"Failed to save."); setNoteSaving(false); }
-                  }}>{noteSaving?"Saving…":noteEditId?"Save Changes":"Save"}</BtnPrimary>
-                  <BtnSecondary onClick={()=>{setNoteAddOpen(false);setNoteEditId(null);setNoteDraft({title:"",content:""});setNotesErr("");}}>Cancel</BtnSecondary>
-                </div>
-              </div>
-            )}
-
-            {dashNotesList.length===0 ? (
-              <div style={{textAlign:"center",padding:60,color:T.muted,fontSize:13}}>No information yet. Hit + New to start.</div>
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
-                {dashNotesList.map(n=>(
-                  <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:8}}>
-                    {n.title&&<div style={{fontSize:14,fontWeight:700,color:T.text,letterSpacing:"-0.01em"}}>{n.title}</div>}
-                    <div style={{fontSize:13,color:T.sub,lineHeight:1.65,whiteSpace:"pre-wrap",flexGrow:1}}>{n.content}</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:10,borderTop:`1px solid ${T.borderSub}`}}>
-                      <span style={{fontSize:11,color:T.muted}}>{n.updatedAt?new Date(n.updatedAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):n.updated_at?new Date(n.updated_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</span>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>{setNoteEditId(n.id);setNoteDraft({title:n.title||"",content:n.content||""});setNoteAddOpen(true);}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color=T.text} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Edit</button>
-                        <button onClick={()=>{if(!confirm("Delete this item?"))return;archiveItem("notes",n);setDashNotesList(prev=>prev.filter(x=>x.id!==n.id));}} style={{background:"none",border:"none",fontSize:12,color:T.muted,cursor:"pointer",fontFamily:"inherit",padding:"2px 6px",borderRadius:6}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>Delete</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary}/>}
 
         {activeTab==="Settings"&&(
           <div style={{display:"flex",gap:0,margin:`-${P}px -${P}px -${isMobile?80:44}px`,height:`calc(100% + ${P}px + ${isMobile?80:44}px)`,overflow:"hidden"}}>
