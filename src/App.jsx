@@ -4,6 +4,7 @@ import Information from "./components/Information";
 import Dashboard from "./components/Dashboard";
 import Agents from "./components/Agents";
 import Vendors from "./components/Vendors";
+import Clients from "./components/Clients";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -12518,25 +12519,14 @@ export default function OnnaDashboard() {
   const setSearch = (tab,val) => setSearches(p=>({...p,[tab]:val}));
   const getSearch = tab => searches[tab]||"";
 
-  const [leadCat,setLeadCat]                             = useState("All");
-  const [leadStatus,setLeadStatus]                       = useState("All");
-  const [leadMonth,setLeadMonth]                         = useState("All");
-  const [leadLoc,setLeadLoc]                             = useState("All");
   const [selectedLead,setSelectedLead]                   = useState(null);
   const [selectedOutreach,setSelectedOutreach]           = useState(null);
   const [addContactForm,setAddContactForm]               = useState(null); // {type,name,email,phone,role}
-  const [leadsView,setLeadsView]                         = useState(()=>localStorage.getItem("onna_leads_view")||"dashboard");
-  useEffect(()=>{localStorage.setItem("onna_leads_view",leadsView);},[leadsView]);
 
   useEffect(()=>{try{localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[]);
   const [outreach,setOutreach]                           = useState(initOutreach);
   const [outreachMsg,setOutreachMsg]                     = useState("");
   const [outreachLoading,setOutreachLoading]             = useState(false);
-  const [outreachCatFilter,setOutreachCatFilter]         = useState("All");
-  const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
-  const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
-  const [outreachLocFilter,setOutreachLocFilter]         = useState("All");
-  const [clientCountry,setClientCountry]                 = useState("All");
 
   const [vendors,setVendors]                         = useState(()=>{try{const c=localStorage.getItem('onna_cache_vendors');return c?JSON.parse(c):initVendors}catch{return initVendors}});
   useEffect(()=>{try{if(vendors.length)localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors));}catch{}},[vendors]);
@@ -13481,34 +13471,7 @@ export default function OnnaDashboard() {
   const projProfit    = projects.reduce((a,b)=>a+(getProjRevenue(b)-getProjCost(b)),0);
   const projMargin    = projRev>0?Math.round((projProfit/projRev)*100):0;
 
-  const allLeadsMerged = localLeads.map(l=>leadStatusOverrides[l.id]?{...l,status:leadStatusOverrides[l.id]}:l);
-  // Merge outreach into leads, deduplicating by company name so nothing appears twice
-  const _outreachKeys = new Set(outreach.map(o=>o.company.trim().toLowerCase()));
-  const _pureLeads    = allLeadsMerged.filter(l=>!_outreachKeys.has(l.company.trim().toLowerCase()));
-  const _outreachAsLeads = outreach.map(o=>({id:o.id,_fromOutreach:true,company:o.company,contact:o.clientName,role:o.role,email:o.email,category:o.category,status:o.status,date:o.date,value:o.value,location:o.location,notes:o.notes,phone:o.phone}));
-  const allLeadsCombined = [..._pureLeads,..._outreachAsLeads];
-  const leadMonths = ["All",...Array.from(new Set(allLeadsCombined.map(l=>getMonthLabel(l.date)).filter(Boolean)))];
-  const leadLocations = ["All",...Array.from(new Set(allLeadsCombined.map(l=>l.location).filter(Boolean))).sort()];
-  const filteredLeads = useMemo(()=>{
-    const q=getSearch("Leads").toLowerCase();
-    return allLeadsCombined
-      .filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth)&&(leadLoc==="All"||(l.location||"")=== leadLoc))
-      .sort((a,b)=>(a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase()));
-  },[searches,leadCat,leadStatus,leadMonth,leadLoc,localLeads,outreach]);
-
-  const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
-
-  const [outreachSort,setOutreachSort] = useState("date"); // "date" | "az"
-  const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category).filter(Boolean)))];
-  const outreachMonths     = ["All",...Array.from(new Set(outreach.map(o=>getMonthLabel(o.date)).filter(Boolean)))];
-  const outreachLocations  = ["All",...Array.from(new Set(outreach.map(o=>o.location).filter(Boolean))).sort()];
-  const filteredOutreach   = outreach.filter(o=>{
-    if (o.status==="not_contacted") return false; // not_contacted items live in Leads
-    const q=getSearch("Outreach").toLowerCase();
-    return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter)&&(outreachLocFilter==="All"||(o.location||"")===outreachLocFilter);
-  }).sort((a,b)=>outreachSort==="az"
-    ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
-    : (_parseDate(b.date)||new Date(0))-(_parseDate(a.date)||new Date(0)));
+  const filteredBB = vendors.filter(b=>{const s=getSearch("Vendors")?.toLowerCase();return (bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!s||[b.name,b.company,b.category,b.location,b.email,b.phone,b.website,b.notes,b.rateCard].some(v=>v&&v.toLowerCase().includes(s)));});
 
   // Dashboard todos — general and project kept strictly separate (projects = active only)
   const activeProjectIds = new Set(activeProjects.map(p=>p.id));
@@ -17948,264 +17911,7 @@ export default function OnnaDashboard() {
           {/* ══ VENDORS ══ */}
           {activeTab==="Vendors"&&<Vendors T={T} isMobile={isMobile} bbCat={bbCat} setBbCat={setBbCat} bbLocation={bbLocation} setBbLocation={setBbLocation} filteredBB={filteredBB} customVendorCats={customVendorCats} setCustomVendorCats={setCustomVendorCats} customVendorLocs={customVendorLocs} setCustomVendorLocs={setCustomVendorLocs} allVendorCats={allVendorCats} allVendorLocs={allVendorLocs} addNewOption={addNewOption} getSearch={getSearch} setSearch={setSearch} setShowAddVendor={setShowAddVendor} setEditVendor={setEditVendor} getXContacts={getXContacts} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} SearchBar={SearchBar} Sel={Sel} TH={TH} TD={TD} BtnPrimary={BtnPrimary}/>}
 
-          {/* ══ CLIENTS ══ */}
-          {activeTab==="Clients"&&(
-            <div>
-              <div style={{display:"flex",gap:6,marginBottom:22}}>
-                <Pill label="Overview"         active={leadsView==="dashboard"} onClick={()=>setLeadsView("dashboard")}/>
-                <Pill label="Leads"            active={leadsView==="leads"}     onClick={()=>setLeadsView("leads")}/>
-                <Pill label="Clients"          active={leadsView==="clients"}   onClick={()=>setLeadsView("clients")}/>
-                <Pill label="Outreach Tracker" active={leadsView==="outreach"}  onClick={()=>setLeadsView("outreach")}/>
-              </div>
-
-              {leadsView==="dashboard"&&(()=>{
-                const STATUSES = ["not_contacted","cold","warm","open","client"];
-                /* stats computed below in widgetMap */
-                const COLORS   = {not_contacted:"#c0392b",cold:"#6e6e73",warm:"#1a56db",open:"#147d50",client:"#7c3aed"};
-                const STATUS_LABELS = OUTREACH_STATUS_LABELS;
-                const counts   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).length);
-                const values   = STATUSES.map(s=>allLeadsCombined.filter(l=>l.status===s).reduce((a,b)=>a+(b.value||0),0));
-                const total    = counts.reduce((a,b)=>a+b,0)||1;
-
-                // Palette for category / location charts
-                const PAL = ["#6366f1","#f59e0b","#10b981","#3b82f6","#f43f5e","#8b5cf6","#ec4899","#14b8a6","#f97316","#06b6d4","#84cc16","#a78bfa"];
-
-                const stageGroups = STATUSES.map((s,i)=>({label:STATUS_LABELS[s],count:counts[i],color:COLORS[s]})).filter(g=>g.count>0);
-
-                const _catMap={};allLeadsCombined.forEach(l=>{if(l.category)_catMap[l.category]=(_catMap[l.category]||0)+1;});
-                const catGroups = Object.entries(_catMap).sort((a,b)=>b[1]-a[1]).map(([label,count],i)=>({label,count,color:PAL[i%PAL.length]}));
-
-                const _locMap={};allLeadsCombined.forEach(l=>{if(l.location){const k=l.location.split(",")[0].trim();_locMap[k]=(_locMap[k]||0)+1;}});
-                const locGroups = Object.entries(_locMap).sort((a,b)=>b[1]-a[1]).map(([label,count],i)=>({label,count,color:PAL[i%PAL.length]}));
-
-                // Reusable donut renderer
-                const Donut = ({title,groups})=>{
-                  const R=58,CIR=2*Math.PI*R,gt=groups.reduce((a,g)=>a+g.count,0)||1;
-                  let o=0;
-                  const sg=groups.map(g=>{const d=(g.count/gt)*CIR,s={...g,d,o};o+=d;return s;});
-                  return (
-                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:"22px 24px",display:"flex",flexDirection:"column"}}>
-                      <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>{title}</div>
-                      <div style={{display:"flex",justifyContent:"center",marginBottom:16,flexShrink:0}}>
-                        <svg width={156} height={156} viewBox="0 0 156 156">
-                          <circle cx={78} cy={78} r={R} fill="none" stroke={T.borderSub} strokeWidth={22}/>
-                          {sg.filter(g=>g.count>0).map((g,i)=>(
-                            <circle key={i} cx={78} cy={78} r={R} fill="none" stroke={g.color} strokeWidth={22}
-                              strokeDasharray={`${g.d} ${CIR-g.d}`} strokeDashoffset={-(g.o-(CIR/4))}/>
-                          ))}
-                          <text x={78} y={74} textAnchor="middle" style={{fontSize:22,fontWeight:700,fill:T.text,fontFamily:"inherit"}}>{gt}</text>
-                          <text x={78} y={89} textAnchor="middle" style={{fontSize:10,fill:T.muted,fontFamily:"inherit"}}>total</text>
-                        </svg>
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:5,flex:1,overflowY:"auto"}}>
-                        {sg.map((g,i)=>(
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
-                            <span style={{width:8,height:8,borderRadius:2,background:g.color,flexShrink:0}}/>
-                            <span style={{fontSize:11.5,color:T.sub,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.label}</span>
-                            <span style={{fontSize:12,fontWeight:600,color:T.text}}>{g.count}</span>
-                            <span style={{fontSize:11,color:T.muted,minWidth:28,textAlign:"right"}}>{Math.round((g.count/gt)*100)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                };
-
-                // Daily reminders logic
-                const today = new Date();
-                const oneMonthAgo = new Date(today); oneMonthAgo.setMonth(oneMonthAgo.getMonth()-1);
-                const openLead = l => { if(l._fromOutreach){const o=outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact};setSelectedOutreach({...o,_xContacts:getXContacts('outreach',o.id)});}else{setSelectedLead({...l,_xContacts:getXContacts('lead',l.id)});} };
-                const toContact = allLeadsCombined.filter(l=>l.status==="not_contacted").slice(0,5);
-                const toFollowUp = allLeadsCombined.filter(l=>{
-                  if(l.status==="not_contacted"||l.status==="client") return false;
-                  const d=_parseDate(l.date); return d&&d<oneMonthAgo;
-                }).slice(0,5);
-
-                const ReminderCard = ({lead,showDate})=>(
-                  <div onClick={()=>openLead(lead)} className="row" style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:12,border:`1px solid ${T.border}`,background:T.surface,cursor:"pointer",marginBottom:8}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lead.company}</div>
-                      <div style={{fontSize:11.5,color:T.muted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lead.contact||"—"}{lead.category?` · ${lead.category}`:""}</div>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
-                      <OutreachBadge status={lead.status}/>
-                      {showDate&&lead.date&&<span style={{fontSize:10.5,color:T.muted}}>{formatDate(lead.date)}</span>}
-                    </div>
-                    {lead.email&&<a href={`mailto:${lead.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:11,color:T.link,textDecoration:"none",background:"#f0f4ff",padding:"4px 9px",borderRadius:7,whiteSpace:"nowrap",flexShrink:0}}>Email</a>}
-                  </div>
-                );
-
-
-
-                return (
-                  <div>
-                    {/* Donuts Row */}
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
-                      <Donut title="Conversion" groups={stageGroups}/>
-                      <Donut title="By Category" groups={catGroups}/>
-                      <Donut title="By Location" groups={locGroups}/>
-                    </div>
-                    {/* Reminders Row */}
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
-                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:"22px 24px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
-                          <span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span>
-                        </div>
-                        {toContact.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>:toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)}
-                      </div>
-                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:"22px 24px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                          <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div>
-                          <span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span>
-                        </div>
-                        {toFollowUp.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>No follow-ups due yet.</div>:toFollowUp.map(l=><ReminderCard key={l.id} lead={l} showDate={true}/>)}
-                      </div>
-                    </div>
-                  </div>
-                ); })()}
-
-              {leadsView==="leads"&&(
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-                    <SearchBar value={getSearch("Leads")} onChange={v=>setSearch("Leads",v)} placeholder="Search company or contact…"/>
-                    <span style={{fontSize:12,color:T.muted}}>{filteredLeads.length} leads</span>
-                    <button onClick={()=>downloadCSV(filteredLeads,[{key:"company",label:"Company"},{key:"contact",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"},{key:"value",label:"Value (AED)"},{key:"location",label:"Location"},{key:"notes",label:"Notes"}],"leads.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
-                    <button onClick={()=>exportTablePDF(filteredLeads,[{key:"company",label:"Company"},{key:"contact",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Leads Pipeline")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
-                    <BtnPrimary onClick={()=>setShowAddLead(true)}>+ New Lead</BtnPrimary>
-                  </div>
-                  <div style={{display:"flex",gap:16,marginBottom:12,flexWrap:"wrap"}}>
-                    {[["not_contacted","Not yet reached out","#c0392b","#fff3e0"],["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
-                      <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5}}><span style={{width:7,height:7,borderRadius:"50%",background:bg,border:`1.5px solid ${c}`}}/><span style={{color:c,fontWeight:600}}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{color:T.muted}}>— {l}</span></div>
-                    ))}
-                    <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
-                  </div>
-                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?620:"auto"}}>
-                      <thead><tr>
-                        <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
-                        <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES,...customLeadCats]}/>
-                        <THFilter label="Location" value={leadLoc} onChange={setLeadLoc} options={leadLocations}/>
-                        <THFilter label="Status" value={leadStatus} onChange={setLeadStatus} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
-                        <THFilter label="Date Contacted" value={leadMonth} onChange={setLeadMonth} options={leadMonths}/>
-                      </tr></thead>
-                      <tbody>
-                        {filteredLeads.map(l=>(
-                          <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" onClick={()=>{ if(l._fromOutreach){const o=outreach.find(o=>o.id===l.id)||{...l,clientName:l.contact};setSelectedOutreach({...o,_xContacts:getXContacts('outreach',o.id)});}else{setSelectedLead({...l,_xContacts:getXContacts('lead',l.id)});}}}>
-                            <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role||""}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${l.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{l.email}</a></td>
-                            <TD muted>{l.category}</TD>
-                            <TD muted>{l.location||"—"}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];if(l._fromOutreach){await api.put(`/api/outreach/${l.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}else{await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}if(next==="client")promoteToClient(l);}}/></td>
-                            <TD muted>{formatDate(l.date)}</TD>
-                          </tr>
-                        ))}
-                        {filteredLeads.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No leads found.</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {leadsView==="clients"&&(()=>{
-                const clientCountries = ["All",...Array.from(new Set(localClients.map(c=>c.country).filter(Boolean))).sort()];
-                const _cq = getSearch("Clients").toLowerCase();
-                const _filteredClients = localClients.filter(c=>(!_cq||c.company.toLowerCase().includes(_cq)||(c.name||"").toLowerCase().includes(_cq))&&(clientCountry==="All"||(c.country||"")===clientCountry));
-                return (
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-                    <SearchBar value={getSearch("Clients")} onChange={v=>setSearch("Clients",v)} placeholder="Search clients…"/>
-                    <Sel value={clientCountry} onChange={setClientCountry} options={clientCountries} minWidth={170}/>
-                    <span style={{fontSize:12,color:T.muted}}>{_filteredClients.length} clients</span>
-                  </div>
-                  {_filteredClients.length===0
-                    ? <div style={{borderRadius:16,padding:44,textAlign:"center",background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:13}}>No clients yet. Leads marked as "Client" will appear here automatically.</div>
-                    : <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
-                        {_filteredClients.map(c=>{
-                          const cKey = (c.company||"").trim().toLowerCase();
-                          const cProjects = localProjects.filter(p=>(p.client||"").trim().toLowerCase()===cKey);
-                          const cRevenue  = cProjects.reduce((a,p)=>a+getProjRevenue(p),0);
-                          return (
-                            <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-                                <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
-                                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                  <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0}}>Client</span>
-                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}? This will be moved to Deleted.`))return;archiveItem('clients',c);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
-                                </div>
-                              </div>
-                              {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:2,fontWeight:500}}>{c.name}</div>}
-                              {c.country&&<div style={{fontSize:12,color:T.muted,marginBottom:12}}>{c.country}</div>}
-                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12,padding:"10px 12px",background:"#fafafa",borderRadius:10}}>
-                                <div>
-                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:3}}>Revenue</div>
-                                  <div style={{fontSize:17,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {cRevenue.toLocaleString()}</div>
-                                </div>
-                                <div>
-                                  <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:3}}>Projects</div>
-                                  <div style={{fontSize:17,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>{cProjects.length}</div>
-                                </div>
-                              </div>
-                              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                                {c.email&&<a href={`mailto:${c.email}`} style={{fontSize:12,color:T.link,textDecoration:"none"}}>{c.email}</a>}
-                                {c.phone&&<div style={{fontSize:12,color:T.muted}}>{c.phone}</div>}
-                                {c.notes&&<div style={{fontSize:11.5,color:T.muted,marginTop:4,fontStyle:"italic"}}>{c.notes}</div>}
-                              </div>
-                            </div>
-                          ); })}
-                      </div>
-                  }
-                </div>
-                ); })()}
-
-              {leadsView==="outreach"&&(
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-                    <SearchBar value={getSearch("Outreach")} onChange={v=>setSearch("Outreach",v)} placeholder="Search outreach…"/>
-                    <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:`1px solid ${T.border}`,flexShrink:0}}>
-                      <button onClick={()=>setOutreachSort("date")} style={{padding:"5px 11px",background:outreachSort==="date"?T.accent:"#f5f5f7",border:"none",color:outreachSort==="date"?"#fff":T.sub,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>Recent first</button>
-                      <button onClick={()=>setOutreachSort("az")} style={{padding:"5px 11px",background:outreachSort==="az"?T.accent:"#f5f5f7",border:"none",borderLeft:`1px solid ${T.border}`,color:outreachSort==="az"?"#fff":T.sub,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>A–Z</button>
-                    </div>
-                    <span style={{fontSize:12,color:T.muted}}>{filteredOutreach.length} contacts</span>
-                    <button onClick={()=>downloadCSV(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"},{key:"value",label:"Value (AED)"},{key:"location",label:"Location"},{key:"notes",label:"Notes"}],"outreach.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
-                    <button onClick={()=>exportTablePDF(filteredOutreach,[{key:"company",label:"Company"},{key:"clientName",label:"Contact"},{key:"role",label:"Role"},{key:"email",label:"Email"},{key:"category",label:"Category"},{key:"status",label:"Status"},{key:"date",label:"Date Contacted"}],"Outreach Tracker")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
-                  </div>
-                  <div style={{display:"flex",gap:16,marginBottom:12,flexWrap:"wrap"}}>
-                    {[["cold","No response",T.sub,"#f5f5f7"],["warm","Responded","#1a56db","#eef4ff"],["open","Meeting arranged","#147d50","#edfaf3"],["client","Converted to client","#7c3aed","#f3e8ff"]].map(([s,l,c,bg])=>(
-                      <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:11.5}}><span style={{width:7,height:7,borderRadius:"50%",background:bg,border:`1.5px solid ${c}`}}/><span style={{color:c,fontWeight:600}}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{color:T.muted}}>— {l}</span></div>
-                    ))}
-                    <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
-                  </div>
-                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?660:"auto"}}>
-                      <thead><tr>
-                        <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
-                        <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories}/>
-                        <THFilter label="Location" value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations}/>
-                        <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.filter(s=>s!=="not_contacted").map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
-                        <THFilter label="Date Contacted" value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths}/>
-                        <TH/>
-                      </tr></thead>
-                      <tbody>
-                        {filteredOutreach.map(o=>(
-                          <tr key={o.id} className="row" onClick={()=>setSelectedOutreach({...o,_xContacts:getXContacts('outreach',o.id)})}>
-                            <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${o.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{o.email}</a></td>
-                            <TD muted>{o.category}</TD>
-                            <TD muted>{o.location||"—"}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));if(next==="client")promoteToClient({...o,contact:o.clientName});}}/></td>
-                            <TD muted>{formatDate(o.date)}</TD>
-                            <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><button onClick={async()=>{archiveItem('outreach',o);await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
-                          </tr>
-                        ))}
-                        {filteredOutreach.length===0&&<tr><td colSpan={9} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No outreach contacts found.</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {activeTab==="Clients"&&<Clients T={T} isMobile={isMobile} api={api} localLeads={localLeads} setLocalLeads={setLocalLeads} localClients={localClients} setLocalClients={setLocalClients} outreach={outreach} setOutreach={setOutreach} localProjects={localProjects} leadStatusOverrides={leadStatusOverrides} customLeadCats={customLeadCats} getSearch={getSearch} setSearch={setSearch} setSelectedLead={setSelectedLead} setSelectedOutreach={setSelectedOutreach} setShowAddLead={setShowAddLead} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} formatDate={formatDate} _parseDate={_parseDate} getMonthLabel={getMonthLabel} archiveItem={archiveItem} promoteToClient={promoteToClient} getXContacts={getXContacts} getProjRevenue={getProjRevenue} OUTREACH_STATUS_LABELS={OUTREACH_STATUS_LABELS} OUTREACH_STATUSES={OUTREACH_STATUSES} LEAD_CATEGORIES={LEAD_CATEGORIES} Pill={Pill} SearchBar={SearchBar} Sel={Sel} BtnPrimary={BtnPrimary} TH={TH} THFilter={THFilter} TD={TD} OutreachBadge={OutreachBadge}/>}
 
           {/* ══ PROJECTS ══ */}
           {activeTab==="Projects"&&(()=>{
