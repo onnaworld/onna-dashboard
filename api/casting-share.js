@@ -232,6 +232,7 @@ function saveFeedback(){
     {k:"shortlisted",l:"SHORTLIST",c:"#E65100"},
     {k:"rejected",l:"REJECT",c:"#C62828"}
   ];
+  var _globalIdx=0;
   document.querySelectorAll('div').forEach(function(row){
     var kids=row.children;
     if(!kids||kids.length!==3)return;
@@ -243,10 +244,9 @@ function saveFeedback(){
     if(!isActionRow)return;
     var card=row.parentElement;
     if(!card)return;
-    var ci=Array.prototype.indexOf.call(card.parentElement?card.parentElement.children:[],card);
+    var ci=_globalIdx++;
     var fb=_feedback['c'+ci];
     var currentStatus=(fb&&fb.status)||"none";
-    /* Apply existing feedback */
     if(currentStatus!=="none"){
       for(var x=0;x<3;x++){
         var a=ACTIONS[x];
@@ -254,7 +254,7 @@ function saveFeedback(){
       }
     }
     for(var j=0;j<3;j++){
-      (function(btn,action,idx){
+      (function(btn,action,ci2){
         btn.style.cursor="pointer";
         btn.addEventListener("click",function(){
           var newStatus=currentStatus===action.k?"none":action.k;
@@ -268,11 +268,11 @@ function saveFeedback(){
           var bc=currentStatus==="approved"?"#2E7D32":currentStatus==="shortlisted"?"#E65100":currentStatus==="rejected"?"#C62828":"#eee";
           var bw=currentStatus!=="none"?"3px":"1px";
           card.style.border=bw+" solid "+bc;
-          if(!_feedback['c'+ci])_feedback['c'+ci]={};
-          _feedback['c'+ci].status=currentStatus;
+          if(!_feedback['c'+ci2])_feedback['c'+ci2]={};
+          _feedback['c'+ci2].status=currentStatus;
           saveFeedback();
         });
-      })(kids[j],ACTIONS[j],j);
+      })(kids[j],ACTIONS[j],ci);
     }
   });
 })();

@@ -15788,15 +15788,36 @@ export default function OnnaDashboard() {
         setLocShareLoading(false);
       };
       const toggleLocShareTab = (t) => setLocShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-      const syncLocFeedback = async () => {
-        if (!existingLocToken) return;
+      const syncLocDeck = async () => {
+        setLocShareLoading(true);
         try {
-          const resp = await fetch(`/api/loc-share?token=${encodeURIComponent(existingLocToken)}&feedbackOnly=1`);
-          if (!resp.ok) return;
-          const data = await resp.json();
-          if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-          else alert("No feedback received yet.");
-        } catch {}
+          if (locShareTabs.size > 0 && locDeckRef.current) {
+            await locDeckRef.current.share([...locShareTabs], existingLocToken, locData.shareResourceId);
+          }
+          const tk = existingLocToken || locData.shareToken;
+          if (tk) {
+            const resp = await fetch(`/api/loc-share?token=${encodeURIComponent(tk)}&feedbackOnly=1`);
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.feedback && typeof data.feedback === "object") {
+                const fb = data.feedback;
+                setLocDeckStore(prev => {
+                  const s = JSON.parse(JSON.stringify(prev));
+                  const ld = s[p.id] && s[p.id][locIdx];
+                  if (!ld || !ld.locations) return s;
+                  ld.locations.forEach((loc, li) => {
+                    const key = "s" + li;
+                    if (fb[key] && fb[key].status) {
+                      loc.status = fb[key].status;
+                    }
+                  });
+                  return s;
+                });
+              }
+            }
+          }
+        } catch (err) { alert("Sync error: " + err.message); }
+        setLocShareLoading(false);
       };
 
       return (
@@ -15814,12 +15835,9 @@ export default function OnnaDashboard() {
                   {t.charAt(0).toUpperCase()+t.slice(1)}
                 </label>
               ))}
-              <button onClick={sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
-                {locShareLoading ? "Generating\u2026" : existingLocToken ? "Update Link" : "Generate Link"}
+              <button onClick={existingLocToken ? syncLocDeck : sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
+                {locShareLoading ? "Syncing\u2026" : existingLocToken ? "Sync" : "Generate Link"}
               </button>
-              {existingLocToken && <button onClick={syncLocFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                Sync
-              </button>}
             </div>
           </div>
           {displayLocShareUrl && (
@@ -15992,16 +16010,6 @@ export default function OnnaDashboard() {
           } catch (err) { alert("Error: " + err.message); }
           setRecceShareLoading(false);
         };
-        const syncRcFeedback = async () => {
-          if (!existingRcToken) return;
-          try {
-            const resp = await fetch(`/api/recce-share?token=${encodeURIComponent(existingRcToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
 
         return (
           <div>
@@ -16017,11 +16025,8 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendRcShare} disabled={recceShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingRcToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:recceShareLoading?0.5:1}}>
-                  {recceShareLoading ? "Generating\u2026" : existingRcToken ? "Update Link" : "Generate Link"}
+                  {recceShareLoading ? "Generating\u2026" : existingRcToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingRcToken && <button onClick={syncRcFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayRcShareUrl && (
@@ -16252,15 +16257,48 @@ export default function OnnaDashboard() {
           setCastDeckShareLoading(false);
         };
         const toggleCastShareTab = (t) => setCastDeckShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-        const syncCastFeedback = async () => {
-          if (!existingCastToken) return;
+        const syncCastDeck = async () => {
+          setCastDeckShareLoading(true);
           try {
-            const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(existingCastToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
+            // 1. Push portal changes to shared link
+            if (castDeckShareTabs.size > 0 && castDeckRef.current) {
+              await castDeckRef.current.share([...castDeckShareTabs], existingCastToken, existingCastResourceId);
+            }
+            // 2. Pull client feedback back to portal
+            const tk = existingCastToken || castData.shareToken;
+            if (tk) {
+              const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(tk)}&feedbackOnly=1`);
+              if (resp.ok) {
+                const data = await resp.json();
+                if (data.feedback && typeof data.feedback === "object") {
+                  const fb = data.feedback;
+                  setCastingDeckStore(prev => {
+                    const s = JSON.parse(JSON.stringify(prev));
+                    const cd = s[p.id] && s[p.id][castIdx];
+                    if (!cd) return s;
+                    let gi = 0;
+                    const applyToRoles = (roles) => {
+                      if (!roles) return;
+                      for (const role of roles) {
+                        const talent = role.talent || [];
+                        for (let ti = 0; ti < talent.length; ti++) {
+                          const key = "c" + gi;
+                          if (fb[key] && fb[key].status) {
+                            talent[ti].status = fb[key].status;
+                          }
+                          gi++;
+                        }
+                      }
+                    };
+                    applyToRoles(cd.confirmed);
+                    applyToRoles(cd.options);
+                    return s;
+                  });
+                }
+              }
+            }
+          } catch (err) { alert("Sync error: " + err.message); }
+          setCastDeckShareLoading(false);
         };
 
         return (
@@ -16278,12 +16316,9 @@ export default function OnnaDashboard() {
                     {t.charAt(0).toUpperCase()+t.slice(1)}
                   </label>
                 ))}
-                <button onClick={sendCastShare} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingCastToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
-                  {castDeckShareLoading ? "Generating\u2026" : existingCastToken ? "Update Link" : "Generate Link"}
+                <button onClick={existingCastToken ? syncCastDeck : sendCastShare} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingCastToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
+                  {castDeckShareLoading ? "Syncing\u2026" : existingCastToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingCastToken && <button onClick={syncCastFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayCastShareUrl && (
@@ -16425,19 +16460,7 @@ export default function OnnaDashboard() {
             if (ctRef.current) await ctRef.current.share([], existingCtToken, ctData.shareResourceId);
           } catch (err) { alert("Error: " + err.message); }
           setCtShareLoading(false);
-        };
-        const syncCtFeedback = async () => {
-          if (!existingCtToken) return;
-          try {
-            const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(existingCtToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
-        return (
+        }; return (
           <div>
             {ctBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -16447,7 +16470,7 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendCtShare} disabled={ctShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingCtToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ctShareLoading?0.5:1}}>
-                  {ctShareLoading ? "Generating…" : existingCtToken ? "Update Link" : "Generate Link"}
+                  {ctShareLoading ? "Generating…" : existingCtToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingCtToken && <button onClick={syncCtFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                   Sync
@@ -16585,37 +16608,7 @@ export default function OnnaDashboard() {
           catch (err) { alert("Error: " + err.message); }
           setFitShareLoading(false);
         };
-        const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-        const syncFitFeedback = async () => {
-          if (!existingFitToken) return;
-          try {
-            const resp = await fetch(`/api/fit-share?token=${encodeURIComponent(existingFitToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (!data.feedback) return;
-            const fb = data.feedback;
-            setFittingStore(prev => {
-              const s = JSON.parse(JSON.stringify(prev));
-              const ver = s[p.id]?.[fitIdx];
-              if (!ver || !ver.fittings) return prev;
-              let changed = false;
-              let cardIdx = 0;
-              ver.fittings.forEach(fit => {
-                for (let n = 0; n < fit.images.length; n++) {
-                  const key = "c" + cardIdx;
-                  if (fb[key]) {
-                    if (fb[key].status) { if (!fit.imageStatuses) fit.imageStatuses = {}; if (fit.imageStatuses[n] !== fb[key].status) { fit.imageStatuses[n] = fb[key].status; changed = true; } }
-                    if (fb[key].note !== undefined) { if (!fit.imageNotes) fit.imageNotes = {}; if (fit.imageNotes[n] !== fb[key].note) { fit.imageNotes[n] = fb[key].note; changed = true; } }
-                  }
-                  cardIdx++;
-                }
-              });
-              return changed ? s : prev;
-            });
-          } catch {}
-        };
-
-        return (
+        const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; }); return (
           <div>
             {fitBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -16631,7 +16624,7 @@ export default function OnnaDashboard() {
                   </label>
                 ))}
                 <button onClick={sendFitShare} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingFitToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
-                  {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Update Link" : "Generate Link"}
+                  {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingFitToken && <button onClick={syncFitFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                   Sync
@@ -17310,7 +17303,7 @@ export default function OnnaDashboard() {
                   </label>
                 ))}
                 <button onClick={sendCpsShare} disabled={cpsShareLoading||cpsShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(cpsShareLoading||cpsShareTabs.size===0)?0.5:1}}>
-                  {cpsShareLoading ? "Generating\u2026" : existingToken ? "Update Link" : "Generate Link"}
+                  {cpsShareLoading ? "Generating\u2026" : existingToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingToken&&cpsAutoSyncing&&<span style={{fontSize:10,color:"#1976D2",fontWeight:500,display:"inline-flex",alignItems:"center",gap:4}}>Syncing\u2026</span>}
                 {existingToken&&!cpsAutoSyncing&&displayShareUrl&&<span style={{fontSize:10,color:"#4caf50",fontWeight:500}}>Auto-sync on</span>}
@@ -17420,19 +17413,7 @@ export default function OnnaDashboard() {
           try { if (slRef.current) await slRef.current.share([], existingSlToken, slData.shareResourceId); }
           catch (err) { alert("Error: " + err.message); }
           setSlShareLoading(false);
-        };
-        const syncSlFeedback = async () => {
-          if (!existingSlToken) return;
-          try {
-            const resp = await fetch(`/api/shotlist-share?token=${encodeURIComponent(existingSlToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
-        return (
+        }; return (
           <div>
             {slBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -17442,7 +17423,7 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendSlShare} disabled={slShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingSlToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:slShareLoading?0.5:1}}>
-                  {slShareLoading ? "Generating\u2026" : existingSlToken ? "Update Link" : "Generate Link"}
+                  {slShareLoading ? "Generating\u2026" : existingSlToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingSlToken && <button onClick={syncSlFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                   Sync
@@ -17547,19 +17528,7 @@ export default function OnnaDashboard() {
           try { if (sbRef.current) await sbRef.current.share([], existingSbToken, sbData.shareResourceId); }
           catch (err) { alert("Error: " + err.message); }
           setSbShareLoading(false);
-        };
-        const syncSbFeedback = async () => {
-          if (!existingSbToken) return;
-          try {
-            const resp = await fetch(`/api/storyboard-share?token=${encodeURIComponent(existingSbToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
-        return (
+        }; return (
           <div>
             {sbBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -17569,7 +17538,7 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendSbShare} disabled={sbShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingSbToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:sbShareLoading?0.5:1}}>
-                  {sbShareLoading ? "Generating\u2026" : existingSbToken ? "Update Link" : "Generate Link"}
+                  {sbShareLoading ? "Generating\u2026" : existingSbToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingSbToken && <button onClick={syncSbFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                   Sync
@@ -17679,19 +17648,7 @@ export default function OnnaDashboard() {
             if (ppRef.current) await ppRef.current.share([], existingPpToken, ppData.shareResourceId);
           } catch (err) { alert("Error: " + err.message); }
           setPpShareLoading(false);
-        };
-        const syncPpFeedback = async () => {
-          if (!existingPpToken) return;
-          try {
-            const resp = await fetch(`/api/postprod-share?token=${encodeURIComponent(existingPpToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
-        return (
+        }; return (
           <div>
             {ppBack}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -17701,7 +17658,7 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendPpShare} disabled={ppShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingPpToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ppShareLoading?0.5:1}}>
-                  {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Update Link" : "Generate Link"}
+                  {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingPpToken && <button onClick={syncPpFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                   Sync
