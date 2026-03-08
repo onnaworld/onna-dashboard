@@ -5576,45 +5576,46 @@ const configApi = {
 // ─── Debounced save to Turso (dual-write alongside localStorage) ───────────
 const _saveTimers = {};
 const _prevStoreSnaps = {};
+let _pendingSaves = 0;
+let _onSaveStatus = null; // component callback
+const _notifySaving = () => { _pendingSaves++; if (_onSaveStatus) _onSaveStatus("saving"); };
+const _notifySaved = () => { _pendingSaves = Math.max(0, _pendingSaves - 1); if (_pendingSaves === 0 && _onSaveStatus) _onSaveStatus("saved"); };
 const debouncedDocSave = (table, storeObj, delay = 2000) => {
-  // Compare per-project: only save changed project IDs
   const prev = _prevStoreSnaps[table] || {};
   const changedPids = Object.keys(storeObj).filter(pid => {
     const cur = JSON.stringify(storeObj[pid]);
     return cur !== prev[pid];
   });
-  // Update snapshot
   const snap = {};
   Object.keys(storeObj).forEach(pid => { snap[pid] = JSON.stringify(storeObj[pid]); });
   _prevStoreSnaps[table] = snap;
-  // Save only changed projects
   changedPids.forEach(pid => {
     const key = `${table}:${pid}`;
     clearTimeout(_saveTimers[key]);
+    _notifySaving();
     _saveTimers[key] = setTimeout(() => {
-      docApi.put(table, pid, storeObj[pid]).catch(() => {});
+      docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaved);
     }, delay);
   });
 };
 const debouncedGlobalSave = (table, data, delay = 2000) => {
   clearTimeout(_saveTimers[table]);
+  _notifySaving();
   _saveTimers[table] = setTimeout(() => {
-    globalApi.put(table, data).catch(() => {});
+    globalApi.put(table, data).then(_notifySaved).catch(_notifySaved);
   }, delay);
 };
 const debouncedConfigSave = (key, data, delay = 2000) => {
   clearTimeout(_saveTimers[`cfg:${key}`]);
+  _notifySaving();
   _saveTimers[`cfg:${key}`] = setTimeout(() => {
-    configApi.put(key, data).catch(() => {});
+    configApi.put(key, data).then(_notifySaved).catch(_notifySaved);
   }, delay);
 };
 const flushAllSaves = () => {
   Object.keys(_saveTimers).forEach(k => {
     clearTimeout(_saveTimers[k]);
   });
-  // Use sendBeacon for reliability on page close — fire all pending saves
-  // We can't easily know what's pending, so we rely on the debounce having already fired
-  // The main protection is the short debounce delay (2s)
 };
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -12179,6 +12180,16 @@ export default function OnnaDashboard() {
   const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
 
   const [authed,setAuthed]         = useState(()=>!!localStorage.getItem("onna_token") && !_urlReset);
+  const [saveStatus,setSaveStatus] = useState(null); // null | "saving" | "saved"
+  const saveStatusTimer = useRef(null);
+  useEffect(() => {
+    _onSaveStatus = (status) => {
+      clearTimeout(saveStatusTimer.current);
+      if (status === "saving") { setSaveStatus("saving"); }
+      else if (status === "saved") { setSaveStatus("saved"); saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 2000); }
+    };
+    return () => { _onSaveStatus = null; };
+  }, []);
   const [lgUser,setLgUser]         = useState("");
   const [lgPass,setLgPass]         = useState("");
   const [lgErr,setLgErr]           = useState("");
@@ -13329,12 +13340,8 @@ export default function OnnaDashboard() {
 
   // ── Hydrate project doc data from Turso when project opens ──────────────
   const hydratedProjectsRef = useRef(new Set());
-  useEffect(() => {
-    if (!selectedProject || !authed) return;
-    const pid = String(selectedProject.id);
-    if (hydratedProjectsRef.current.has(pid)) return;
-    hydratedProjectsRef.current.add(pid);
-    api.get(`/api/project-data/${pid}`).then(d => {
+  const hydrateProject = useCallback((pid) => {
+    return api.get(`/api/project-data/${pid}`).then(d => {
       if (!d) return;
       if (d.callsheets) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
       if (d.riskassessments) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
@@ -13356,7 +13363,22 @@ export default function OnnaDashboard() {
       if (d.project_actuals) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
       if (d.project_casting) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
     }).catch(() => {});
-  }, [selectedProject, authed]); // eslint-disable-line
+  }, []); // eslint-disable-line
+  useEffect(() => {
+    if (!selectedProject || !authed) return;
+    const pid = String(selectedProject.id);
+    if (hydratedProjectsRef.current.has(pid)) return;
+    hydratedProjectsRef.current.add(pid);
+    hydrateProject(pid);
+  }, [selectedProject, authed, hydrateProject]);
+
+  // ── Poll Turso for project updates every 30s while project is open ─────
+  useEffect(() => {
+    if (!selectedProject || !authed) return;
+    const pid = String(selectedProject.id);
+    const interval = setInterval(() => { hydrateProject(pid); }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedProject, authed, hydrateProject]);
 
   // ── Flush pending saves on page close ──────────────────────────────────
   useEffect(() => {
@@ -18439,6 +18461,7 @@ export default function OnnaDashboard() {
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:22}}>
                   <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Projects</button>
                   {projectSection!=="Home"&&<><span style={{color:T.muted}}>›</span><button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0}}>{selectedProject.name}</button></>}
+                  {saveStatus&&<span style={{marginLeft:"auto",fontSize:11,color:saveStatus==="saving"?T.muted:"#34c759",fontWeight:500,opacity:0.85,transition:"opacity 0.3s",display:"flex",alignItems:"center",gap:4}}>{saveStatus==="saving"?"Saving…":"Saved ✓"}</span>}
                 </div>
                 {projectSection!=="Home"&&(
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
