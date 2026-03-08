@@ -12567,6 +12567,7 @@ export default function OnnaDashboard() {
   const [showAddLead,setShowAddLead]         = useState(false);
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [showArchive,setShowArchive]         = useState(false);
+  const [showArchivedProjects,setShowArchivedProjects] = useState(false);
   const [showUserMenu,setShowUserMenu]       = useState(false);
   const [settingsSection,setSettingsSection] = useState("deleted");
 
@@ -13363,7 +13364,7 @@ export default function OnnaDashboard() {
   const projects2026  = allProjectsMerged.filter(p=>p.year===2026);
   const rev2026       = projects2026.reduce((a,b)=>a+getProjRevenue(b),0);
   const profit2026    = projects2026.reduce((a,b)=>a+(getProjRevenue(b)-getProjCost(b)),0);
-  const totalPipeline = localLeads.reduce((a,b)=>a+b.value,0);
+  const totalPipeline = localLeads.reduce((a,b)=>a+(b.value||0),0);
   const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
   const projects      = allProjectsMerged.filter(p=>p.year===projectYear||p.client==="TEMPLATE");
@@ -18373,10 +18374,10 @@ export default function OnnaDashboard() {
                     <div style={{fontSize:12.5,fontWeight:600,color:T.sub}}>Archived Projects</div>
                     <div style={{fontSize:11.5,color:T.muted}}>Drag a project here to archive it</div>
                   </div>
-                  {archivedProjects.length>0&&<button onClick={()=>setShowArchive(v=>!v)} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,background:showArchive?"#1d1d1f":"transparent",color:showArchive?"#fff":T.sub,fontFamily:"inherit",transition:"all 0.12s"}}>{showArchive?"Hide":"Show"} ({archivedProjects.length})</button>}
+                  {archivedProjects.length>0&&<button onClick={()=>setShowArchivedProjects(v=>!v)} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,background:showArchivedProjects?"#1d1d1f":"transparent",color:showArchivedProjects?"#fff":T.sub,fontFamily:"inherit",transition:"all 0.12s"}}>{showArchivedProjects?"Hide":"Show"} ({archivedProjects.length})</button>}
                 </div>
 
-                {showArchive&&archivedProjects.length>0&&(
+                {showArchivedProjects&&archivedProjects.length>0&&(
                   <div style={{marginBottom:20}}>
                     <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Archived Projects</div>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
