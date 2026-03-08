@@ -13365,107 +13365,6 @@ export default function OnnaDashboard() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, []);
 
-  // ── Cross-device sync via API ─────────────────────────────────────────────
-  const SYNC_KEYS = [
-    "onna_notes_list","onna_todos","onna_ptodos","onna_callsheets",
-    "onna_riskassessments","onna_contracts_doc","onna_travel_itineraries",
-    "onna_dietaries","onna_estimates","onna_project_info","onna_creative_links",
-    "onna_lead_cats","onna_lead_locs","onna_vendor_cats","onna_vendor_locs",
-    "onna_hidden_lead_cats","onna_hidden_vendor_cats",
-    "onna_archive","onna_shotlists","onna_storyboards","onna_fittings","onna_loc_decks"
-  ];
-  const SYNC_TITLE = "__ONNA_SYNC__";
-  const syncNoteIdRef = useRef(null);
-  const syncTimerRef = useRef(null);
-  const syncLoadedRef = useRef(false);
-
-  const gatherSyncData = useCallback(() => {
-    const data = {};
-    SYNC_KEYS.forEach(k => {
-      try { const v = localStorage.getItem(k); if (v) data[k] = JSON.parse(v); } catch {}
-    });
-    data._syncTs = Date.now();
-    return data;
-  }, []);
-
-  const applySyncData = useCallback((remote) => {
-    if (!remote || typeof remote !== "object") return;
-    SYNC_KEYS.forEach(k => {
-      if (remote[k] !== undefined && remote[k] !== null) {
-        try { localStorage.setItem(k, JSON.stringify(remote[k])); } catch {}
-      }
-    });
-    // Update React state from synced localStorage
-    try {
-      if (remote.onna_notes_list) setDashNotesList(remote.onna_notes_list);
-      if (remote.onna_todos) setTodos(remote.onna_todos.map(t => t.tab ? t : ["later","longterm"].includes(t.subType) ? {...t, tab:"personal"} : {...t, tab:"onna"}));
-      if (remote.onna_ptodos) setProjectTodos(remote.onna_ptodos);
-      if (remote.onna_callsheets) setCallSheetStore(remote.onna_callsheets);
-      if (remote.onna_riskassessments) setRiskAssessmentStore(remote.onna_riskassessments);
-      if (remote.onna_contracts_doc) setContractDocStore(remote.onna_contracts_doc);
-      if (remote.onna_travel_itineraries) setTravelItineraryStore(remote.onna_travel_itineraries);
-      if (remote.onna_dietaries) setDietaryStore(remote.onna_dietaries);
-      if (remote.onna_estimates) setProjectEstimates(remote.onna_estimates);
-      if (remote.onna_project_info) setProjectInfo(remote.onna_project_info);
-      if (remote.onna_creative_links) setProjectCreativeLinks(remote.onna_creative_links);
-      if (remote.onna_lead_cats) setCustomLeadCats(remote.onna_lead_cats);
-      if (remote.onna_lead_locs) setCustomLeadLocs(remote.onna_lead_locs);
-      if (remote.onna_vendor_cats) setCustomVendorCats(remote.onna_vendor_cats);
-      if (remote.onna_vendor_locs) setCustomVendorLocs(remote.onna_vendor_locs);
-      if (remote.onna_hidden_lead_cats) setHiddenLeadBuiltins(remote.onna_hidden_lead_cats);
-      if (remote.onna_hidden_vendor_cats) setHiddenVendorBuiltins(remote.onna_hidden_vendor_cats);
-      if (remote.onna_archive) setArchive(remote.onna_archive);
-      if (remote.onna_loc_decks) setLocDeckStore(remote.onna_loc_decks);
-    } catch {}
-  }, []); // eslint-disable-line
-
-  const pushSync = useCallback(() => {
-    if (!authed || !syncLoadedRef.current) return;
-    clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(async () => {
-      try {
-        const payload = JSON.stringify(gatherSyncData());
-        if (syncNoteIdRef.current) {
-          await api.put("/api/notes/" + syncNoteIdRef.current, { title: SYNC_TITLE, content: payload, updated_at: new Date().toISOString() });
-        } else {
-          const saved = await api.post("/api/notes", { title: SYNC_TITLE, content: payload });
-          if (saved && saved.id) syncNoteIdRef.current = saved.id;
-        }
-      } catch {}
-    }, 2000);
-  }, [authed, gatherSyncData]);
-
-  // Load sync data on auth
-  useEffect(() => {
-    if (!authed || syncLoadedRef.current) return;
-    (async () => {
-      try {
-        const allNotes = await api.get("/api/notes");
-        if (!Array.isArray(allNotes)) return;
-        const syncNote = allNotes.find(n => n.title === SYNC_TITLE);
-        if (syncNote) {
-          syncNoteIdRef.current = syncNote.id;
-          try {
-            const remote = JSON.parse(syncNote.content);
-            const localTs = parseInt(localStorage.getItem("onna_sync_ts") || "0", 10);
-            if (remote._syncTs && remote._syncTs > localTs) {
-              applySyncData(remote);
-              try { localStorage.setItem("onna_sync_ts", String(remote._syncTs)); } catch {}
-            }
-          } catch {}
-        }
-      } catch {}
-      syncLoadedRef.current = true;
-    })();
-  }, [authed, applySyncData]);
-
-  // Auto-push sync when key data changes (debounced)
-  useEffect(() => {
-    if (!syncLoadedRef.current) return;
-    pushSync();
-    try { localStorage.setItem("onna_sync_ts", String(Date.now())); } catch {}
-  }, [dashNotesList, todos, projectTodos, callSheetStore, riskAssessmentStore, contractDocStore, travelItineraryStore, dietaryStore, projectEstimates, projectInfo, projectCreativeLinks, customLeadCats, customLeadLocs, customVendorCats, customVendorLocs, archive, locDeckStore, recceReportStore, pushSync]);
-
   const projStatusColor = {Active:"#147d50","In Review":"#92680a",Completed:T.muted};
   const projStatusBg    = {Active:"#edfaf3","In Review":"#fff8e8",Completed:"#f5f5f7"};
 
@@ -13904,7 +13803,7 @@ export default function OnnaDashboard() {
     if (tab==="Notes"&&!notesFetchedRef.current&&!notesLoading) {
       notesFetchedRef.current=true;
       if(notes.length===0)setNotesLoading(true);
-      api.get("/api/notes").then(data=>{ if(Array.isArray(data)&&data.length)setNotes(data.filter(n=>n.title!=="__ONNA_SYNC__")); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
+      api.get("/api/notes").then(data=>{ if(Array.isArray(data)&&data.length)setNotes(data); setNotesLoading(false); }).catch(()=>setNotesLoading(false));
     }
   };
 
