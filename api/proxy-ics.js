@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     if (!upstream.ok) throw new Error(`Upstream returned ${upstream.status}`);
     const text = await upstream.text();
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
     res.status(200).send(text);
   } catch (err) {

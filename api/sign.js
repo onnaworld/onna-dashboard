@@ -1,6 +1,6 @@
 // Vercel serverless function — external vendor contract signing
 const BACKEND = "https://onna-backend-v2.vercel.app";
-const API_SECRET = process.env.VITE_API_SECRET || process.env.API_SECRET || "";
+const API_SECRET = process.env.API_SECRET || "";
 const SVC_USER = process.env.ONNA_SVC_USER || "";
 const SVC_PASS = process.env.ONNA_SVC_PASS || "";
 const RESEND_KEY = process.env.RESEND_API_KEY || "";
@@ -13,7 +13,7 @@ const backendHeaders = (authToken) => ({
 });
 
 const cors = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 };
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       const token = labelToSlug(slugParts || contractType);
 
       // URL: clean slug only, data lives in backend
-      const url = `https://app.onna.world?sign=${encodeURIComponent(token)}`;
+      const url = `https://app.onna.digital?sign=${encodeURIComponent(token)}`;
 
       // Store in backend
       const payload = {
@@ -155,8 +155,8 @@ export default async function handler(req, res) {
         // If we have captured HTML from the signing page, serve it directly — pixel-perfect match
         if (data.renderedHtml) {
           const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" type="image/png" href="https://app.onna.world/onna-o-logo.png">
-<meta property="og:image" content="https://app.onna.world/onna-o-logo.png">
+<link rel="icon" type="image/png" href="https://app.onna.digital/onna-o-logo.png">
+<meta property="og:image" content="https://app.onna.digital/onna-o-logo.png">
 <meta property="og:title" content="ONNA | ${(title || "Contract").replace(/"/g, "&quot;")}">
 <meta property="og:type" content="website">
 <title>\u200B</title>
@@ -191,7 +191,7 @@ body{font-family:'Avenir','Avenir Next','Helvetica Neue','Nunito Sans',sans-seri
         const gt = (snap.generalTermsEdits || {}).custom || "";
         const vs = data.vendorSig || {};
         let logo = snap.prodLogo || "";
-        if (logo && logo.startsWith("/")) logo = `https://app.onna.world${logo}`;
+        if (logo && logo.startsWith("/")) logo = `https://app.onna.digital${logo}`;
 
         const fl = snap.fieldLabels || {};
         const labelKeys = Object.keys(fl);
@@ -214,8 +214,8 @@ body{font-family:'Avenir','Avenir Next','Helvetica Neue','Nunito Sans',sans-seri
         const sigRightLabel = isTalent ? "Signed by the Talent" : (ct.includes("psc") ? "Signed for and on behalf of Commissionee" : "Signed by the Commissionee");
 
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" type="image/png" href="https://app.onna.world/onna-o-logo.png">
-<meta property="og:image" content="https://app.onna.world/onna-o-logo.png">
+<link rel="icon" type="image/png" href="https://app.onna.digital/onna-o-logo.png">
+<meta property="og:image" content="https://app.onna.digital/onna-o-logo.png">
 <meta property="og:title" content="ONNA | ${(title || "Contract").replace(/"/g, "&quot;")}">
 <meta property="og:type" content="website">
 <title>\u200B</title>
@@ -328,7 +328,7 @@ table.sigs td{width:50%;padding:14px;border:1px solid #eee;vertical-align:top}
       // Send email notification with download link
       if (RESEND_KEY && NOTIFY_EMAIL) {
         try {
-          const pdfUrl = `https://app.onna.world?sign=${encodeURIComponent(token)}&print=1`;
+          const pdfUrl = `https://app.onna.digital?sign=${encodeURIComponent(token)}&print=1`;
           const emailHtml = `
 <div style="font-family:'Avenir','Helvetica Neue',sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.5">
   <div style="background:#1d1d1f;padding:16px 24px;border-radius:8px 8px 0 0">
@@ -347,7 +347,7 @@ table.sigs td{width:50%;padding:14px;border:1px solid #eee;vertical-align:top}
     <p style="font-size:11px;color:#999;text-align:center">Click the button above to view the full signed contract and save as PDF.</p>
   </div>
   <div style="padding:14px 24px;background:#f5f5f7;border-radius:0 0 8px 8px;text-align:center">
-    <a href="https://app.onna.world" style="color:#888;font-size:11px;text-decoration:none">Open ONNA Dashboard</a>
+    <a href="https://app.onna.digital" style="color:#888;font-size:11px;text-decoration:none">Open ONNA Dashboard</a>
   </div>
 </div>`;
 

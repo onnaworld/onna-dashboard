@@ -5550,11 +5550,10 @@ function applyCodyPatch(patch, projectId, versionIdx, currentVersions, setContra
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-const API = "https://onna-backend-v2.vercel.app";
-const API_SECRET = import.meta.env.VITE_API_SECRET || "";
+const API = "/api/proxy";
 const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const getToken = () => localStorage.getItem("onna_token") || "";
-const _h = (extra={}) => ({"X-API-Secret":API_SECRET,"Authorization":`Bearer ${getToken()}`,...extra});
+const _h = (extra={}) => ({"Authorization":`Bearer ${getToken()}`,...extra});
 const _guard = r => { if(r.status===401){localStorage.removeItem("onna_token");window.location.reload();} return r.json(); };
 const api = {
   get:    (path)       => fetch(`${API}${path}`,{headers:_h()}).then(_guard),
@@ -12207,7 +12206,7 @@ export default function OnnaDashboard() {
     if (!lgUser.trim()||!lgPass.trim()) return;
     setLgLoading(true); setLgErr("");
     try {
-      const data = await fetch(`${API}/api/auth/login`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
+      const data = await fetch(`${API}/api/auth/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
       if (data.token) { localStorage.setItem("onna_token",data.token); window.location.reload(); }
       else setLgErr("Incorrect username or password");
     } catch { setLgErr("Could not connect. Please try again."); }
@@ -12217,7 +12216,7 @@ export default function OnnaDashboard() {
   const doResetRequest = async () => {
     setLgLoading(true);
     try {
-      const data = await fetch(`${API}/api/auth/reset-request`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({email:lgEmail})}).then(r=>r.json());
+      const data = await fetch(`${API}/api/auth/reset-request`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:lgEmail})}).then(r=>r.json());
       if (data.reset_url) { window.location.href=data.reset_url; return; } // SMTP not configured
     } catch {}
     setLgStep("forgot-sent"); setLgLoading(false);
@@ -12228,7 +12227,7 @@ export default function OnnaDashboard() {
     if (lgNewPass!==lgNewPass2){setLgErr("Passwords do not match");return;}
     setLgLoading(true); setLgErr("");
     try {
-      const data = await fetch(`${API}/api/auth/reset-confirm`,{method:"POST",headers:{"Content-Type":"application/json","X-API-Secret":API_SECRET},body:JSON.stringify({token:_urlReset,password:lgNewPass})}).then(r=>r.json());
+      const data = await fetch(`${API}/api/auth/reset-confirm`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:_urlReset,password:lgNewPass})}).then(r=>r.json());
       if (data.ok) setLgStep("reset-done");
       else setLgErr(data.error||"Reset failed. Link may have expired.");
     } catch { setLgErr("Could not connect. Please try again."); }
@@ -15908,7 +15907,7 @@ export default function OnnaDashboard() {
 
       const locShareTitle = `ONNA | ${locData.label || "Locations Deck"}`;
       const existingLocToken = locData.shareToken || null;
-      const displayLocShareUrl = locShareUrl || (existingLocToken ? `https://app.onna.world/api/loc-share?token=${encodeURIComponent(existingLocToken)}` : null);
+      const displayLocShareUrl = locShareUrl || (existingLocToken ? `https://app.onna.digital/api/loc-share?token=${encodeURIComponent(existingLocToken)}` : null);
       const sendLocShare = async () => {
         if (locShareTabs.size === 0) return;
         setLocShareLoading(true);
@@ -16112,7 +16111,7 @@ export default function OnnaDashboard() {
         };
 
         const existingRcToken = rcData.shareToken || null;
-        const displayRcShareUrl = recceShareUrl || (existingRcToken ? `https://app.onna.world/api/recce-share?token=${encodeURIComponent(existingRcToken)}` : null);
+        const displayRcShareUrl = recceShareUrl || (existingRcToken ? `https://app.onna.digital/api/recce-share?token=${encodeURIComponent(existingRcToken)}` : null);
         const rcShareTitle = `ONNA | ${rcData.label || "Recce Report"}`;
         const sendRcShare = async () => {
           setRecceShareLoading(true);
@@ -16373,7 +16372,7 @@ export default function OnnaDashboard() {
 
         const existingCastToken = castData.shareToken;
         const existingCastResourceId = castData.shareResourceId;
-        const displayCastShareUrl = castDeckShareUrl || (existingCastToken ? `https://app.onna.world/api/casting-share?token=${encodeURIComponent(existingCastToken)}` : null);
+        const displayCastShareUrl = castDeckShareUrl || (existingCastToken ? `https://app.onna.digital/api/casting-share?token=${encodeURIComponent(existingCastToken)}` : null);
         const castShareTitle = `ONNA | ${castData.label || "Casting Deck"}`;
 
         const sendCastShare = async () => {
@@ -16569,7 +16568,7 @@ export default function OnnaDashboard() {
 
         const ctShareTitle = `ONNA | ${ctData.label || "Casting Table"}`;
         const existingCtToken = ctData.shareToken || null;
-        const displayCtShareUrl = ctShareUrl || (existingCtToken ? `https://app.onna.world/api/casting-share?token=${encodeURIComponent(existingCtToken)}` : null);
+        const displayCtShareUrl = ctShareUrl || (existingCtToken ? `https://app.onna.digital/api/casting-share?token=${encodeURIComponent(existingCtToken)}` : null);
         const sendCtShare = async () => {
           setCtShareLoading(true);
           try {
@@ -16714,7 +16713,7 @@ export default function OnnaDashboard() {
 
         const fitShareTitle = `ONNA | ${fitData.label || "Fitting Deck"}`;
         const existingFitToken = fitData.shareToken || null;
-        const displayFitShareUrl = existingFitToken ? `https://app.onna.world/api/fit-share?token=${encodeURIComponent(existingFitToken)}` : null;
+        const displayFitShareUrl = existingFitToken ? `https://app.onna.digital/api/fit-share?token=${encodeURIComponent(existingFitToken)}` : null;
         const sendFitShare = async () => {
           if (fitShareTabs.size === 0) return;
           setFitShareLoading(true);
@@ -17388,7 +17387,7 @@ export default function OnnaDashboard() {
 
         const cpsShareTitle = `ONNA | ${cpsData.label || "Creative Production Schedule"}`;
         const existingToken = cpsData.shareToken || null;
-        const displayShareUrl = cpsShareUrl || (existingToken ? `https://app.onna.world/api/cps-share?token=${encodeURIComponent(existingToken)}` : null);
+        const displayShareUrl = cpsShareUrl || (existingToken ? `https://app.onna.digital/api/cps-share?token=${encodeURIComponent(existingToken)}` : null);
         const sendCpsShare = async () => {
           if (cpsShareTabs.size === 0) return;
           setCpsShareLoading(true);
@@ -17519,7 +17518,7 @@ export default function OnnaDashboard() {
 
         const slShareTitle = `ONNA | ${slData.label || "Shot List"}`;
         const existingSlToken = slData.shareToken || null;
-        const displaySlShareUrl = slShareUrl || (existingSlToken ? `https://app.onna.world/api/shotlist-share?token=${encodeURIComponent(existingSlToken)}` : null);
+        const displaySlShareUrl = slShareUrl || (existingSlToken ? `https://app.onna.digital/api/shotlist-share?token=${encodeURIComponent(existingSlToken)}` : null);
         const sendSlShare = async () => {
           setSlShareLoading(true);
           try { if (slRef.current) await slRef.current.share([], existingSlToken, slData.shareResourceId); }
@@ -17632,7 +17631,7 @@ export default function OnnaDashboard() {
 
         const sbShareTitle = `ONNA | ${sbData.label || "Storyboard"}`;
         const existingSbToken = sbData.shareToken || null;
-        const displaySbShareUrl = sbShareUrl || (existingSbToken ? `https://app.onna.world/api/storyboard-share?token=${encodeURIComponent(existingSbToken)}` : null);
+        const displaySbShareUrl = sbShareUrl || (existingSbToken ? `https://app.onna.digital/api/storyboard-share?token=${encodeURIComponent(existingSbToken)}` : null);
         const sendSbShare = async () => {
           setSbShareLoading(true);
           try { if (sbRef.current) await sbRef.current.share([], existingSbToken, sbData.shareResourceId); }
@@ -17749,7 +17748,7 @@ export default function OnnaDashboard() {
 
         const ppShareTitle = `ONNA | ${ppData.label || "Post-Production"}`;
         const existingPpToken = ppData.shareToken || null;
-        const displayPpShareUrl = ppShareUrl || (existingPpToken ? `https://app.onna.world/api/postprod-share?token=${encodeURIComponent(existingPpToken)}` : null);
+        const displayPpShareUrl = ppShareUrl || (existingPpToken ? `https://app.onna.digital/api/postprod-share?token=${encodeURIComponent(existingPpToken)}` : null);
         const sendPpShare = async () => {
           setPpShareLoading(true);
           try {
@@ -19247,7 +19246,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&!saved.error){setVendors(prev=>[...prev,saved]);} else {setVendors(prev=>[...prev,{...newVendor,id:Date.now()}]);}}catch{setVendors(prev=>[...prev,{...newVendor,id:Date.now()}]);}setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&saved.id){setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}else{alert("Failed to save vendor: "+(saved?.error||"Unknown error"));}}catch(e){alert("Failed to save vendor: "+(e.message||"Network error"));};}}>Save Vendor</BtnPrimary>
             </div>
           </div>
         </div>

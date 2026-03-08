@@ -1,6 +1,6 @@
 // Vercel serverless function — Casting Deck share link generator
 const BACKEND = "https://onna-backend-v2.vercel.app";
-const API_SECRET = process.env.VITE_API_SECRET || process.env.API_SECRET || "";
+const API_SECRET = process.env.API_SECRET || "";
 const SVC_USER = process.env.ONNA_SVC_USER || "";
 const SVC_PASS = process.env.ONNA_SVC_PASS || "";
 
@@ -11,7 +11,7 @@ const backendHeaders = (authToken) => ({
 });
 
 const cors = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 };
@@ -121,7 +121,7 @@ export default async function handler(req, res) {
       const projectSlug = makeSlug(projectName);
       const slugBase = [clientSlug, projectSlug, "castingdeck"].filter(Boolean).join("_") || "castingdeck";
       const token = existingToken || (slugBase + "_v" + Date.now().toString(36));
-      const url = `https://app.onna.world/api/casting-share?token=${encodeURIComponent(token)}`;
+      const url = `https://app.onna.digital/api/casting-share?token=${encodeURIComponent(token)}`;
 
       const useAuth = await resolveAuth(auth);
 
@@ -203,8 +203,8 @@ export default async function handler(req, res) {
       const matchId = match.id || match._id || "";
       const page = `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" type="image/png" href="https://app.onna.world/onna-o-logo.png">
-<meta property="og:image" content="https://app.onna.world/onna-o-logo.png">
+<link rel="icon" type="image/png" href="https://app.onna.digital/onna-o-logo.png">
+<meta property="og:image" content="https://app.onna.digital/onna-o-logo.png">
 <meta property="og:title" content="ONNA | ${title.replace(/"/g, "&quot;")}">
 <meta property="og:type" content="website">
 <title>ONNA \u2014 ${title.replace(/</g, "&lt;")}</title>
@@ -302,7 +302,7 @@ function saveFeedback(){
 document.querySelectorAll('span').forEach(function(s){
   if(s.style.fontFamily&&s.style.fontFamily.indexOf('SackersGothic')!==-1&&s.textContent.trim().toLowerCase()==='onna'){
     var img=document.createElement('img');
-    img.src='https://app.onna.world/onna-logo.png';
+    img.src='https://app.onna.digital/onna-logo.png';
     img.alt='ONNA';
     img.style.height='36px';
     img.style.display='block';
