@@ -6,6 +6,7 @@ import Agents from "./components/Agents";
 import Vendors from "./components/Vendors";
 import Clients from "./components/Clients";
 import ProjectsTab from "./components/Projects";
+import Finance from "./components/Finance";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -13460,11 +13461,7 @@ export default function OnnaDashboard() {
   const getEstimateRevenue = (pid) => revenueCache[pid]??null;
   const getProjRevenue = (p) => { const er = revenueCache[p.id]; return er !== null && er !== undefined ? er : p.revenue; };
   const getProjCost = (p) => { const c = costCache[p.id]; return c !== null && c !== undefined ? c : p.cost; };
-  const projects2026  = allProjectsMerged.filter(p=>p.year===2026);
-  const rev2026       = projects2026.reduce((a,b)=>a+getProjRevenue(b),0);
-  const profit2026    = projects2026.reduce((a,b)=>a+(getProjRevenue(b)-getProjCost(b)),0);
-  const totalPipeline = localLeads.reduce((a,b)=>a+(b.value||0),0);
-  const newCount      = localLeads.filter(l=>l.status==="not_contacted"||l.status==="cold").length;
+  // projects2026, rev2026, profit2026, totalPipeline, newCount moved to Finance component
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
   // projects, projRev, projProfit, projMargin moved to Projects component
 
@@ -13535,6 +13532,11 @@ export default function OnnaDashboard() {
       email: entity.email||"",
       phone: entity.phone||"",
       country: entity.location||"",
+      category: entity.category||"",
+      role: entity.role||"",
+      value: entity.value||"",
+      date: entity.date||"",
+      source: entity.source||"",
       notes: entity.notes||"",
     };
     const saved = await api.post("/api/clients", newClient);
@@ -17912,20 +17914,7 @@ export default function OnnaDashboard() {
 
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
-          {/* ══ FINANCE ══ */}
-          {activeTab==="Finance"&&(
-            <div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
-                {[{label:"Projects 2026",value:projects2026.length,sub:projects2026.filter(p=>p.status==="Active").length+" active"},{label:"Revenue 2026",value:"AED "+(rev2026/1000).toFixed(0)+"k",sub:"all projects this year"},{label:"Profit 2026",value:"AED "+(profit2026/1000).toFixed(0)+"k",sub:(rev2026?Math.round((profit2026/rev2026)*100):0)+"% margin"},{label:"Pipeline",value:apiLoading?"\u2014":"AED "+(totalPipeline/1000).toFixed(0)+"k",sub:newCount+" new leads"}].map((s,i)=>(
-                  <div key={i} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
-                    <div style={{fontSize:11,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase",color:T.muted,marginBottom:10}}>{s.label}</div>
-                    <div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:s.sub?4:0}}>{s.value}</div>
-                    {s.sub&&<div style={{fontSize:12,color:T.sub}}>{s.sub}</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading}/>}
 
           {/* ══ RESOURCES ══ */}
           {activeTab==="Resources"&&(

@@ -40,6 +40,9 @@ export default function Clients({
   const [outreachLocFilter, setOutreachLocFilter] = useState("All");
   const [outreachMonthFilter, setOutreachMonthFilter] = useState("All");
 
+  // Selected client (edit modal)
+  const [selectedClient, setSelectedClient] = useState(null);
+
   // Add Client modal
   const [showAddClient, setShowAddClient] = useState(false);
   const [newClient, setNewClient] = useState({company:"",name:"",email:"",phone:"",country:"",category:"",notes:""});
@@ -86,9 +89,9 @@ export default function Clients({
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 22 }}>
         <Pill label="Overview" active={leadsView === "dashboard"} onClick={() => setLeadsView("dashboard")} />
+        <Pill label="Outreach Tracker" active={leadsView === "outreach"} onClick={() => setLeadsView("outreach")} />
         <Pill label="Leads" active={leadsView === "leads"} onClick={() => setLeadsView("leads")} />
         <Pill label="Clients" active={leadsView === "clients"} onClick={() => setLeadsView("clients")} />
-        <Pill label="Outreach Tracker" active={leadsView === "outreach"} onClick={() => setLeadsView("outreach")} />
       </div>
 
       {leadsView === "dashboard" && (() => {
@@ -194,6 +197,8 @@ export default function Clients({
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
             <SearchBar value={getSearch("Leads")} onChange={v => setSearch("Leads", v)} placeholder="Search leads..." />
+            <Sel value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES, ...customLeadCats]} minWidth={170} />
+            <Sel value={leadLoc} onChange={setLeadLoc} options={leadLocations} minWidth={170} />
             <span style={{ fontSize: 12, color: T.muted }}>{filteredLeads.length} leads</span>
             <button onClick={() => downloadCSV(filteredLeads, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "leads.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
             <button onClick={() => exportTablePDF(filteredLeads, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }], "Leads Pipeline")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
@@ -254,7 +259,7 @@ export default function Clients({
                   const cProjects = localProjects.filter(p => (p.client || "").trim().toLowerCase() === cKey);
                   const cRevenue = cProjects.reduce((a, p) => a + getProjRevenue(p), 0);
                   return (
-                    <div key={c.id} className="proj-card" style={{ borderRadius: 16, padding: 22, background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                    <div key={c.id} className="proj-card" onClick={()=>setSelectedClient({...c})} style={{ borderRadius: 16, padding: 22, background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                         <div style={{ fontSize: 15, fontWeight: 600, color: T.text, letterSpacing: "-0.01em", lineHeight: 1.3 }}>{c.company}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -263,7 +268,7 @@ export default function Clients({
                         </div>
                       </div>
                       {c.name && <div style={{ fontSize: 12.5, color: T.sub, marginBottom: 2, fontWeight: 500 }}>{c.name}</div>}
-                      {c.country && <div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{c.country}</div>}
+                      {(c.category||c.country)&&<div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{[c.category,c.country].filter(Boolean).join(" \u00b7 ")}</div>}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12, padding: "10px 12px", background: "#fafafa", borderRadius: 10 }}>
                         <div>
                           <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 3 }}>Revenue</div>
@@ -292,6 +297,8 @@ export default function Clients({
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
             <SearchBar value={getSearch("Outreach")} onChange={v => setSearch("Outreach", v)} placeholder="Search outreach..." />
+            <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} minWidth={170} />
+            <Sel value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} minWidth={170} />
             <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, flexShrink: 0 }}>
               <button onClick={() => setOutreachSort("date")} style={{ padding: "5px 11px", background: outreachSort === "date" ? T.accent : "#f5f5f7", border: "none", color: outreachSort === "date" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Recent first</button>
               <button onClick={() => setOutreachSort("az")} style={{ padding: "5px 11px", background: outreachSort === "az" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "az" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>A{"\u2013"}Z</button>
@@ -332,6 +339,59 @@ export default function Clients({
                 {filteredOutreach.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No outreach contacts found.</td></tr>}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT CLIENT MODAL ── */}
+      {selectedClient&&(
+        <div className="modal-bg" onClick={()=>setSelectedClient(null)}>
+          <div style={{borderRadius:20,padding:28,width:580,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
+              <div>
+                <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedClient.company||"Client"}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[selectedClient.category,selectedClient.country].filter(Boolean).join(" \u00b7 ")}</div>
+              </div>
+              <button onClick={()=>setSelectedClient(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>\u00d7</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+              {[["Company","company"],["Contact Name","name"],["Email","email"],["Phone","phone"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
+                  <input value={selectedClient[key]||""} onChange={e=>setSelectedClient(p=>({...p,[key]:e.target.value}))}
+                    style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                </div>
+              ))}
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
+                <Sel value={selectedClient.category||""} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedClient(p=>({...p,category:n}));}else setSelectedClient(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
+                <Sel value={selectedClient.country||""} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedClient(p=>({...p,country:n}));}else setSelectedClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
+              </div>
+            </div>
+            {(selectedClient.role||selectedClient.source||selectedClient.value||selectedClient.date)&&(
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+                {selectedClient.role&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Role</div><div style={{fontSize:13,color:T.sub}}>{selectedClient.role}</div></div>}
+                {selectedClient.source&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Source</div><div style={{fontSize:13,color:T.sub}}>{selectedClient.source}</div></div>}
+                {selectedClient.value&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Value (AED)</div><div style={{fontSize:13,color:T.sub}}>{selectedClient.value}</div></div>}
+                {selectedClient.date&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Date</div><div style={{fontSize:13,color:T.sub}}>{formatDate(selectedClient.date)}</div></div>}
+              </div>
+            )}
+            <div style={{marginBottom:22}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
+              <textarea value={selectedClient.notes||""} onChange={e=>setSelectedClient(p=>({...p,notes:e.target.value}))} rows={4}
+                placeholder="Notes about this client..."
+                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <button onClick={async()=>{if(!confirm(`Delete ${selectedClient.company}?`))return;archiveItem('clients',selectedClient);await api.delete(`/api/clients/${selectedClient.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==selectedClient.id));setSelectedClient(null);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete client</button>
+              <div style={{display:"flex",gap:8}}>
+                <BtnSecondary onClick={()=>setSelectedClient(null)}>Cancel</BtnSecondary>
+                <BtnPrimary onClick={async()=>{const {id,...fields}=selectedClient;await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));setSelectedClient(null);}}>Save Changes</BtnPrimary>
+              </div>
+            </div>
           </div>
         </div>
       )}
