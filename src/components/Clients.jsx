@@ -238,6 +238,98 @@ export default function Clients({
       )}
 
       {leadsView === "clients" && (() => {
+        if (selectedClient) {
+          const cKey = (selectedClient.company || "").trim().toLowerCase();
+          const cProjects = localProjects.filter(p => (p.client || "").trim().toLowerCase() === cKey);
+          const cRevenue = cProjects.reduce((a, p) => a + getProjRevenue(p), 0);
+          return (
+            <div>
+              <button onClick={()=>setSelectedClient(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:20,display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:16}}>{"‹"}</span> Back to Clients
+              </button>
+              <div style={{borderRadius:20,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:isMobile?20:32}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+                  <div>
+                    <div style={{fontSize:24,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedClient.company||"Client"}</div>
+                    <div style={{fontSize:13,color:T.muted,marginTop:4}}>{[selectedClient.category,selectedClient.country].filter(Boolean).join(" · ")}</div>
+                  </div>
+                  <span style={{fontSize:11,padding:"4px 12px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:600}}>Client</span>
+                </div>
+
+                {/* Stats */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:28}}>
+                  <div style={{padding:"16px 18px",background:"#fafafa",borderRadius:14}}>
+                    <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Revenue</div>
+                    <div style={{fontSize:22,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {cRevenue.toLocaleString()}</div>
+                  </div>
+                  <div style={{padding:"16px 18px",background:"#fafafa",borderRadius:14}}>
+                    <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Projects</div>
+                    <div style={{fontSize:22,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>{cProjects.length}</div>
+                  </div>
+                  {selectedClient.source&&<div style={{padding:"16px 18px",background:"#fafafa",borderRadius:14}}>
+                    <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Source</div>
+                    <div style={{fontSize:15,fontWeight:600,color:T.text}}>{selectedClient.source}</div>
+                  </div>}
+                </div>
+
+                {/* Editable fields */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:20}}>
+                  {[["Company","company"],["Contact Name","name"],["Email","email"],["Phone","phone"]].map(([label,key])=>(
+                    <div key={key}>
+                      <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
+                      <input value={selectedClient[key]||""} onChange={e=>setSelectedClient(p=>({...p,[key]:e.target.value}))}
+                        style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit"}}/>
+                    </div>
+                  ))}
+                  <div>
+                    <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
+                    <Sel value={selectedClient.category||""} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedClient(p=>({...p,category:n}));}else setSelectedClient(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
+                    <Sel value={selectedClient.country||""} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedClient(p=>({...p,country:n}));}else setSelectedClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div style={{marginBottom:24}}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
+                  <textarea value={selectedClient.notes||""} onChange={e=>setSelectedClient(p=>({...p,notes:e.target.value}))} rows={5}
+                    placeholder="Notes about this client..."
+                    style={{width:"100%",padding:"12px 14px",borderRadius:10,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
+                </div>
+
+                {/* Projects list */}
+                {cProjects.length>0&&(
+                  <div style={{marginBottom:24}}>
+                    <div style={{fontSize:10,color:T.muted,marginBottom:8,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Projects</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {cProjects.map(p=>(
+                        <div key={p.id} style={{padding:"12px 16px",borderRadius:12,background:"#fafafa",border:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div style={{fontSize:13.5,fontWeight:600,color:T.text}}>{p.name||p.project||"Untitled"}</div>
+                            {p.date&&<div style={{fontSize:11.5,color:T.muted,marginTop:2}}>{p.date}</div>}
+                          </div>
+                          <div style={{fontSize:13,fontWeight:600,color:T.text}}>AED {getProjRevenue(p).toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:16,borderTop:`1px solid ${T.borderSub}`}}>
+                  <button onClick={async()=>{if(!confirm(`Delete ${selectedClient.company}?`))return;archiveItem('clients',selectedClient);await api.delete(`/api/clients/${selectedClient.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==selectedClient.id));setSelectedClient(null);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete client</button>
+                  <div style={{display:"flex",gap:8}}>
+                    <BtnSecondary onClick={()=>setSelectedClient(null)}>Cancel</BtnSecondary>
+                    <BtnPrimary onClick={async()=>{const {id,...fields}=selectedClient;await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));setSelectedClient(null);}}>Save Changes</BtnPrimary>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         const _cq = getSearch("Clients").toLowerCase();
         const _filteredClients = localClients.filter(c => {
           return (!_cq || [c.company,c.name,c.email,c.phone,c.country,c.category,c.notes].some(v=>v&&v.toLowerCase().includes(_cq))) && (clientCountry === "All" || (c.country || "") === clientCountry) && (clientCat === "All" || (c.category || "") === clientCat);
@@ -262,10 +354,7 @@ export default function Clients({
                     <div key={c.id} className="proj-card" onClick={()=>setSelectedClient({...c})} style={{ borderRadius: 16, padding: 22, background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", cursor: "pointer" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                         <div style={{ fontSize: 15, fontWeight: 600, color: T.text, letterSpacing: "-0.01em", lineHeight: 1.3 }}>{c.company}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 999, background: "#f3e8ff", color: "#7c3aed", fontWeight: 500, flexShrink: 0 }}>Client</span>
-                          <button onClick={async () => { if (!confirm(`Delete ${c.company}? This will be moved to Deleted.`)) return; archiveItem('clients', c); await api.delete(`/api/clients/${c.id}`); setLocalClients(prev => prev.filter(x => x.id !== c.id)); }} title="Delete client" style={{ background: "none", border: "none", color: T.muted, fontSize: 15, cursor: "pointer", padding: "1px 4px", borderRadius: 5, lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = T.muted}>{"\u00d7"}</button>
-                        </div>
+                        <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 999, background: "#f3e8ff", color: "#7c3aed", fontWeight: 500, flexShrink: 0 }}>Client</span>
                       </div>
                       {c.name && <div style={{ fontSize: 12.5, color: T.sub, marginBottom: 2, fontWeight: 500 }}>{c.name}</div>}
                       {(c.category||c.country)&&<div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{[c.category,c.country].filter(Boolean).join(" · ")}</div>}
@@ -280,7 +369,7 @@ export default function Clients({
                         </div>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {c.email && <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: T.link, textDecoration: "none" }}>{c.email}</a>}
+                        {c.email && <a href={`mailto:${c.email}`} onClick={e=>e.stopPropagation()} style={{ fontSize: 12, color: T.link, textDecoration: "none" }}>{c.email}</a>}
                         {c.phone && <div style={{ fontSize: 12, color: T.muted }}>{c.phone}</div>}
                         {c.notes && <div style={{ fontSize: 11.5, color: T.muted, marginTop: 4, fontStyle: "italic" }}>{c.notes}</div>}
                       </div>
@@ -339,59 +428,6 @@ export default function Clients({
                 {filteredOutreach.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No outreach contacts found.</td></tr>}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── EDIT CLIENT MODAL ── */}
-      {selectedClient&&(
-        <div className="modal-bg" onClick={()=>setSelectedClient(null)}>
-          <div style={{borderRadius:20,padding:28,width:580,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
-              <div>
-                <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedClient.company||"Client"}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[selectedClient.category,selectedClient.country].filter(Boolean).join(" · ")}</div>
-              </div>
-              <button onClick={()=>setSelectedClient(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
-              {[["Company","company"],["Contact Name","name"],["Email","email"],["Phone","phone"]].map(([label,key])=>(
-                <div key={key}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
-                  <input value={selectedClient[key]||""} onChange={e=>setSelectedClient(p=>({...p,[key]:e.target.value}))}
-                    style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
-                <Sel value={selectedClient.category||""} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedClient(p=>({...p,category:n}));}else setSelectedClient(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
-                <Sel value={selectedClient.country||""} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedClient(p=>({...p,country:n}));}else setSelectedClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
-              </div>
-            </div>
-            {(selectedClient.role||selectedClient.source||selectedClient.value||selectedClient.date)&&(
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
-                {selectedClient.role&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Role</div><div style={{fontSize:13,color:T.sub}}>{selectedClient.role}</div></div>}
-                {selectedClient.source&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Source</div><div style={{fontSize:13,color:T.sub}}>{selectedClient.source}</div></div>}
-                {selectedClient.value&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Value (AED)</div><div style={{fontSize:13,color:T.sub}}>{selectedClient.value}</div></div>}
-                {selectedClient.date&&<div><div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Date</div><div style={{fontSize:13,color:T.sub}}>{formatDate(selectedClient.date)}</div></div>}
-              </div>
-            )}
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
-              <textarea value={selectedClient.notes||""} onChange={e=>setSelectedClient(p=>({...p,notes:e.target.value}))} rows={4}
-                placeholder="Notes about this client..."
-                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <button onClick={async()=>{if(!confirm(`Delete ${selectedClient.company}?`))return;archiveItem('clients',selectedClient);await api.delete(`/api/clients/${selectedClient.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==selectedClient.id));setSelectedClient(null);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete client</button>
-              <div style={{display:"flex",gap:8}}>
-                <BtnSecondary onClick={()=>setSelectedClient(null)}>Cancel</BtnSecondary>
-                <BtnPrimary onClick={async()=>{const {id,...fields}=selectedClient;await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));setSelectedClient(null);}}>Save Changes</BtnPrimary>
-              </div>
-            </div>
           </div>
         </div>
       )}
