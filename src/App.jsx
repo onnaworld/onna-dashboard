@@ -2608,21 +2608,81 @@ const CastImgSlot = ({ src, h = "100%", onAdd, onRemove, style = {} }) => {
   );
 };
 
-const CastCard = ({ entry, onChange, onRemove }) => {
+const generateSelphyImage = (entry, modelNum, roleName) => {
+  return new Promise((resolve) => {
+    const W = 1200, H = 1800;
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, W, H);
+    const drawText = (photoH) => {
+      const textY = photoH || 0;
+      const pad = 60;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, textY, W, H - textY);
+      ctx.fillStyle = "#000";
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(pad, textY + 30); ctx.lineTo(W - pad, textY + 30); ctx.stroke();
+      let y = textY + 80;
+      ctx.font = "bold 52px 'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+      ctx.fillText("MODEL " + modelNum, pad, y);
+      if (roleName) { ctx.font = "44px 'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif"; ctx.fillStyle = "#666"; ctx.fillText(roleName, pad + ctx.measureText("MODEL " + modelNum + "  ").width, y); ctx.fillStyle = "#000"; }
+      y += 64;
+      if (entry.name) { ctx.font = "bold 60px 'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif"; ctx.fillText(entry.name, pad, y); y += 70; }
+      if (entry.look) { ctx.font = "42px 'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif"; ctx.fillStyle = "#444"; ctx.fillText("Look: " + entry.look, pad, y); y += 54; ctx.fillStyle = "#000"; }
+      if (entry.description) { ctx.font = "38px 'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif"; ctx.fillStyle = "#555"; const words = entry.description.split(" "); let line = ""; for (const w of words) { const test = line + (line ? " " : "") + w; if (ctx.measureText(test).width > W - pad * 2 && line) { ctx.fillText(line, pad, y); y += 48; line = w; } else line = test; } if (line) { ctx.fillText(line, pad, y); y += 48; } ctx.fillStyle = "#000"; }
+      if (entry.notes) { y += 10; ctx.font = "italic 36px 'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif"; ctx.fillStyle = "#888"; const words = entry.notes.split(" "); let line = ""; for (const w of words) { const test = line + (line ? " " : "") + w; if (ctx.measureText(test).width > W - pad * 2 && line) { ctx.fillText(line, pad, y); y += 44; line = w; } else line = test; } if (line) ctx.fillText(line, pad, y); }
+      resolve(cv.toDataURL("image/png"));
+    };
+    if (entry.image) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const photoH = 1280;
+        const iw = img.naturalWidth, ih = img.naturalHeight;
+        const scale = Math.max(W / iw, photoH / ih);
+        const sw = W / scale, sh = photoH / scale;
+        const sx = (iw - sw) / 2, sy = (ih - sh) / 2;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, photoH);
+        drawText(photoH);
+      };
+      img.onerror = () => drawText(0);
+      img.src = entry.image;
+    } else drawText(0);
+  });
+};
+
+const downloadSelphyCard = (entry, modelNum, roleName) => {
+  generateSelphyImage(entry, modelNum, roleName).then(dataUrl => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = (entry.name || "card").replace(/[^a-zA-Z0-9]/g, "_") + "_selphy.png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+};
+
+const CastCard = ({ entry, onChange, onRemove, modelNum, roleName, isConfirmed }) => {
   const status = entry.status || "none";
   const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   const LS = 0.5;
   const castImgAdd = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => onChange("image", e.target.result); r.readAsDataURL(f); };
+
   return (
     <div data-cast-card style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff", position: "relative" }}>
-      {onRemove && <button data-hide="1" onClick={onRemove} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 2, lineHeight: 1 }}>{"×"}</button>}
+      {onRemove && <button data-hide="1" onClick={onRemove} style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.5)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 2, lineHeight: 1 }}>{"\u00d7"}</button>}
       <div style={{ aspectRatio: "4/5", position: "relative" }}>
         <CastImgSlot src={entry.image} h="100%" onAdd={castImgAdd} onRemove={() => onChange("image", null)} />
       </div>
       <div style={{ padding: "2px 4px" }}>
         <CastInp value={entry.name} onChange={v => onChange("name", v)} placeholder="Talent Name" style={{ fontSize: 9, fontWeight: 700, padding: "0 0 2px 0", borderBottom: "1px solid #eee", marginBottom: 2 }} />
         <CastInp value={entry.agency} onChange={v => onChange("agency", v)} placeholder="Agency" style={{ fontSize: 8, color: "#999", padding: 0, marginBottom: 1 }} />
+        {isConfirmed && <CastInp value={entry.look || ""} onChange={v => onChange("look", v)} placeholder="Look" style={{ fontSize: 8, color: "#666", padding: 0, marginBottom: 1 }} />}
+        {isConfirmed && <CastInp value={entry.description || ""} onChange={v => onChange("description", v)} placeholder="Description" style={{ fontSize: 8, color: "#666", padding: 0, marginBottom: 1 }} />}
         <CastInp value={entry.portfolio || ""} onChange={v => onChange("portfolio", v)} placeholder="Portfolio link" style={{ fontSize: 8, color: "#1565C0", padding: 0 }} />
       </div>
       <div data-cast-card-actions style={{ display: "flex", borderTop: "1px solid #eee" }}>
@@ -2633,6 +2693,7 @@ const CastCard = ({ entry, onChange, onRemove }) => {
               borderRight: btn.k !== "rejected" ? "1px solid #f0f0f0" : "none" }}>{btn.l}</div>
         ))}
       </div>
+      {isConfirmed && entry.image && <div data-hide="1" onClick={() => downloadSelphyCard(entry, modelNum || 1, roleName || "")} style={{ fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, padding: "3px 0", textAlign: "center", cursor: "pointer", textTransform: "uppercase", color: "#1565C0", borderTop: "1px solid #f0f0f0", background: "#f8fbff" }}>SAVE CARD</div>}
       <input data-cast-note value={entry.notes || ""} onChange={e => onChange("notes", e.target.value)} placeholder="Notes..." style={{ width: "100%", fontFamily: F, fontSize: 7, padding: "3px 4px", border: "none", borderTop: "1px solid #f0f0f0", outline: "none", color: "#666", boxSizing: "border-box", background: entry.notes ? "#FFFDE7" : "transparent" }} />
     </div>
   );
@@ -12388,6 +12449,7 @@ export default function OnnaDashboard() {
   const [leadCat,setLeadCat]                             = useState("All");
   const [leadStatus,setLeadStatus]                       = useState("All");
   const [leadMonth,setLeadMonth]                         = useState("All");
+  const [leadLoc,setLeadLoc]                             = useState("All");
   const [selectedLead,setSelectedLead]                   = useState(null);
   const [selectedOutreach,setSelectedOutreach]           = useState(null);
   const [addContactForm,setAddContactForm]               = useState(null); // {type,name,email,phone,role}
@@ -12401,6 +12463,8 @@ export default function OnnaDashboard() {
   const [outreachCatFilter,setOutreachCatFilter]         = useState("All");
   const [outreachStatusFilter,setOutreachStatusFilter]   = useState("All");
   const [outreachMonthFilter,setOutreachMonthFilter]     = useState("All");
+  const [outreachLocFilter,setOutreachLocFilter]         = useState("All");
+  const [clientCountry,setClientCountry]                 = useState("All");
 
   const [vendors,setVendors]                         = useState(()=>{try{const c=localStorage.getItem('onna_cache_vendors');return c?JSON.parse(c):initVendors}catch{return initVendors}});
   const [bbCat,setBbCat]                                 = useState("All");
@@ -13379,22 +13443,24 @@ export default function OnnaDashboard() {
   const _outreachAsLeads = outreach.map(o=>({id:o.id,_fromOutreach:true,company:o.company,contact:o.clientName,role:o.role,email:o.email,category:o.category,status:o.status,date:o.date,value:o.value,location:o.location,notes:o.notes,phone:o.phone}));
   const allLeadsCombined = [..._pureLeads,..._outreachAsLeads];
   const leadMonths = ["All",...Array.from(new Set(allLeadsCombined.map(l=>getMonthLabel(l.date)).filter(Boolean)))];
+  const leadLocations = ["All",...Array.from(new Set(allLeadsCombined.map(l=>l.location).filter(Boolean))).sort()];
   const filteredLeads = useMemo(()=>{
     const q=getSearch("Leads").toLowerCase();
     return allLeadsCombined
-      .filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth))
+      .filter(l=>(!q||l.company.toLowerCase().includes(q)||(l.contact||"").toLowerCase().includes(q)||(l.role||"").toLowerCase().includes(q)||(l.email||"").toLowerCase().includes(q))&&(leadCat==="All"||l.category===leadCat)&&(leadStatus==="All"||l.status===leadStatus)&&(leadMonth==="All"||getMonthLabel(l.date)===leadMonth)&&(leadLoc==="All"||(l.location||"")=== leadLoc))
       .sort((a,b)=>(a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase()));
-  },[searches,leadCat,leadStatus,leadMonth,localLeads,outreach]);
+  },[searches,leadCat,leadStatus,leadMonth,leadLoc,localLeads,outreach]);
 
   const filteredBB = vendors.filter(b=>(bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||b.location===bbLocation)&&(!getSearch("Vendors")||b.name.toLowerCase().includes(getSearch("Vendors").toLowerCase())));
 
   const [outreachSort,setOutreachSort] = useState("date"); // "date" | "az"
   const outreachCategories = ["All",...Array.from(new Set(outreach.map(o=>o.category).filter(Boolean)))];
   const outreachMonths     = ["All",...Array.from(new Set(outreach.map(o=>getMonthLabel(o.date)).filter(Boolean)))];
+  const outreachLocations  = ["All",...Array.from(new Set(outreach.map(o=>o.location).filter(Boolean))).sort()];
   const filteredOutreach   = outreach.filter(o=>{
     if (o.status==="not_contacted") return false; // not_contacted items live in Leads
     const q=getSearch("Outreach").toLowerCase();
-    return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter);
+    return (!q||o.company.toLowerCase().includes(q)||o.clientName.toLowerCase().includes(q))&&(outreachCatFilter==="All"||o.category===outreachCatFilter)&&(outreachStatusFilter==="All"||o.status===outreachStatusFilter)&&(outreachMonthFilter==="All"||getMonthLabel(o.date)===outreachMonthFilter)&&(outreachLocFilter==="All"||(o.location||"")===outreachLocFilter);
   }).sort((a,b)=>outreachSort==="az"
     ? (a.company||"").toLowerCase().localeCompare((b.company||"").toLowerCase())
     : (_parseDate(b.date)||new Date(0))-(_parseDate(a.date)||new Date(0)));
@@ -18209,6 +18275,7 @@ export default function OnnaDashboard() {
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                         <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES,...customLeadCats]}/>
+                        <THFilter label="Location" value={leadLoc} onChange={setLeadLoc} options={leadLocations}/>
                         <THFilter label="Status" value={leadStatus} onChange={setLeadStatus} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
                         <THFilter label="Date Contacted" value={leadMonth} onChange={setLeadMonth} options={leadMonths}/>
                       </tr></thead>
@@ -18218,27 +18285,33 @@ export default function OnnaDashboard() {
                             <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role||""}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${l.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{l.email}</a></td>
                             <TD muted>{l.category}</TD>
+                            <TD muted>{l.location||"—"}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={l.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status)+1)%OUTREACH_STATUSES.length];if(l._fromOutreach){await api.put(`/api/outreach/${l.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}else{await api.put(`/api/leads/${l.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===l.id?{...x,status:next}:x));}if(next==="client")promoteToClient(l);}}/></td>
                             <TD muted>{formatDate(l.date)}</TD>
                           </tr>
                         ))}
-                        {filteredLeads.length===0&&<tr><td colSpan={7} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No leads found.</td></tr>}
+                        {filteredLeads.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No leads found.</td></tr>}
                       </tbody>
                     </table>
                   </div>
                 </div>
               )}
 
-              {leadsView==="clients"&&(
+              {leadsView==="clients"&&(()=>{
+                const clientCountries = ["All",...Array.from(new Set(localClients.map(c=>c.country).filter(Boolean))).sort()];
+                const _cq = getSearch("Clients").toLowerCase();
+                const _filteredClients = localClients.filter(c=>(!_cq||c.company.toLowerCase().includes(_cq)||(c.name||"").toLowerCase().includes(_cq))&&(clientCountry==="All"||(c.country||"")===clientCountry));
+                return (
                 <div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
                     <SearchBar value={getSearch("Clients")} onChange={v=>setSearch("Clients",v)} placeholder="Search clients…"/>
-                    <span style={{fontSize:12,color:T.muted}}>{localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length} clients</span>
+                    <Sel value={clientCountry} onChange={setClientCountry} options={clientCountries} minWidth={170}/>
+                    <span style={{fontSize:12,color:T.muted}}>{_filteredClients.length} clients</span>
                   </div>
-                  {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).length===0
+                  {_filteredClients.length===0
                     ? <div style={{borderRadius:16,padding:44,textAlign:"center",background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:13}}>No clients yet. Leads marked as "Client" will appear here automatically.</div>
                     : <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
-                        {localClients.filter(c=>!getSearch("Clients")||c.company.toLowerCase().includes(getSearch("Clients").toLowerCase())).map(c=>{
+                        {_filteredClients.map(c=>{
                           const cKey = (c.company||"").trim().toLowerCase();
                           const cProjects = localProjects.filter(p=>(p.client||"").trim().toLowerCase()===cKey);
                           const cRevenue  = cProjects.reduce((a,p)=>a+getProjRevenue(p),0);
@@ -18273,7 +18346,7 @@ export default function OnnaDashboard() {
                       </div>
                   }
                 </div>
-              )}
+                ); })()}
 
               {leadsView==="outreach"&&(
                 <div>
@@ -18298,6 +18371,7 @@ export default function OnnaDashboard() {
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                         <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories}/>
+                        <THFilter label="Location" value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations}/>
                         <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={[{value:"All",label:"All"},...OUTREACH_STATUSES.filter(s=>s!=="not_contacted").map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))]}/>
                         <THFilter label="Date Contacted" value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths}/>
                         <TH/>
@@ -18308,12 +18382,13 @@ export default function OnnaDashboard() {
                             <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${o.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{o.email}</a></td>
                             <TD muted>{o.category}</TD>
+                            <TD muted>{o.location||"—"}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><OutreachBadge status={o.status} onClick={async()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status)+1)%OUTREACH_STATUSES.length];await api.put(`/api/outreach/${o.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===o.id?{...x,status:next}:x));if(next==="client")promoteToClient({...o,contact:o.clientName});}}/></td>
                             <TD muted>{formatDate(o.date)}</TD>
                             <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>e.stopPropagation()}><button onClick={async()=>{archiveItem('outreach',o);await api.delete(`/api/outreach/${o.id}`);setOutreach(prev=>prev.filter(x=>x.id!==o.id));}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}}>×</button></td>
                           </tr>
                         ))}
-                        {filteredOutreach.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No outreach contacts found.</td></tr>}
+                        {filteredOutreach.length===0&&<tr><td colSpan={9} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No outreach contacts found.</td></tr>}
                       </tbody>
                     </table>
                   </div>

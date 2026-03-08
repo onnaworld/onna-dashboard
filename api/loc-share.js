@@ -70,10 +70,29 @@ export default async function handler(req, res) {
   try {
     // PUT — save client feedback on a shared link
     if (req.method === "PUT") {
-      const { token, feedback } = req.body;
+      const { token, feedback, resourceId } = req.body;
       if (!token || !feedback) return res.status(400).json({ error: "Missing token or feedback" });
 
       const useAuth = await resolveAuth(auth);
+
+      if (resourceId) {
+        try {
+          const getResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, { headers: backendHeaders(useAuth) });
+          if (getResp.ok) {
+            const existing = await getResp.json();
+            const parsed = typeof existing.blob === "string" ? JSON.parse(existing.blob) : existing.blob;
+            parsed.feedback = feedback;
+            parsed.feedbackUpdatedAt = new Date().toISOString();
+            const putResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, {
+              method: "PUT",
+              headers: backendHeaders(useAuth),
+              body: JSON.stringify({ type: "loc_share", blob: JSON.stringify(parsed) }),
+            });
+            if (putResp.ok) return res.status(200).json({ ok: true });
+          }
+        } catch {}
+      }
+
       const match = await findShareByToken(token, useAuth);
       if (!match) return res.status(404).json({ error: "Share not found" });
 
@@ -179,6 +198,7 @@ export default async function handler(req, res) {
       // Return full rendered HTML page
       const title = parsed.projectName || "Locations Deck";
       const existingFeedback = parsed.feedback ? JSON.stringify(parsed.feedback) : "null";
+      const matchId = match.id || match._id || "";
       const page = `<!DOCTYPE html><html><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" type="image/png" href="https://app.onna.world/onna-o-logo.png">
@@ -211,6 +231,7 @@ body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans
 <div class="save-toast" id="saveToast">Changes saved</div>
 <script>
 var SHARE_TOKEN="${token.replace(/"/g, '\\"')}";
+var RESOURCE_ID="${matchId}";
 var _feedback=${existingFeedback}||{};
 var _saveTimer=null;
 var _toast=document.getElementById('saveToast');
@@ -221,8 +242,8 @@ function saveFeedback(){
     fetch(window.location.pathname,{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:SHARE_TOKEN,feedback:_feedback})
-    }).then(function(){showToast();}).catch(function(){});
+      body:JSON.stringify({token:SHARE_TOKEN,feedback:_feedback,resourceId:RESOURCE_ID})
+    }).then(function(r){if(r.ok)showToast();else console.error('Save failed',r.status);}).catch(function(e){console.error('Save error',e);});
   },800);
 }
 document.querySelectorAll('span').forEach(function(s){
