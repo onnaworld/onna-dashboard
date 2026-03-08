@@ -902,7 +902,7 @@ const CPSConnie = React.forwardRef(function CPSConnieInner({ initialProject, ini
     const parseD = (s) => { if (!s || s.startsWith("[")) return null; const p = s.split("/"); if (p.length >= 2) { const y = p[2] ? (parseInt(p[2]) < 100 ? 2000 + parseInt(p[2]) : parseInt(p[2])) : new Date().getFullYear(); return new Date(y, parseInt(p[1]) - 1, parseInt(p[0])); } return null; };
     const fmtD = (d) => `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getFullYear()).slice(-2)}`;
     let cursor = parseD(startStr);
-    if (!cursor) { alert("Set a valid project start date first (DD/MM or DD/MM/YY)"); return; }
+    if (!cursor) { showAlert("Set a valid project start date first (DD/MM or DD/MM/YY)"); return; }
     const updated = phases.map(phase => ({
       ...phase,
       tasks: phase.tasks.map(task => {
@@ -929,16 +929,16 @@ const CPSConnie = React.forwardRef(function CPSConnieInner({ initialProject, ini
   const deletePhase = (pi) => {
     setPhases(prev => prev.filter((_, i) => i !== pi));
   };
-  const editPhaseName = (pi) => {
-    const val = prompt("Phase name:", phases[pi].name);
+  const editPhaseName = async (pi) => {
+    const val = await showPrompt("Phase name:", phases[pi].name);
     if (val) setPhases(prev => prev.map((p, i) => i === pi ? { ...p, name: val.toUpperCase() } : p));
   };
   const addPhase = (name) => {
     setPhases(prev => [...prev, { id: Date.now(), name: name || "NEW PHASE", collapsed: false, tasks: [{ id: Date.now() + 1, task: "", owner: "", startDate: "", endDate: "", duration: "", status: "Not Started", notes: "" }] }]);
     setShowAddPhase(false);
   };
-  const addCustomPhase = () => {
-    const name = prompt("Phase name:");
+  const addCustomPhase = async () => {
+    const name = await showPrompt("Phase name:");
     if (name) addPhase(name.toUpperCase());
   };
 
@@ -1008,9 +1008,9 @@ ${PRINT_CLEANUP_CSS}
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
-        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
-      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { alert("Error generating link: " + err.message); }
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
+      } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { showAlert("Error generating link: " + err.message); }
   };
 
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
@@ -1843,12 +1843,12 @@ const ShotListConnie = React.forwardRef(function ShotListConnieInner({ initialPr
   };
   const toggleCollapse = (si) => setScenesRaw(prev => prev.map((s, i) => i === si ? { ...s, collapsed: !s.collapsed } : s));
   const deleteScene = (si) => setScenes(prev => renumber(prev.filter((_, i) => i !== si)));
-  const editSceneName = (si) => {
-    const v = prompt("Scene name:", scenes[si].name);
+  const editSceneName = async (si) => {
+    const v = await showPrompt("Scene name:", scenes[si].name);
     if (v) setScenes(prev => renumber(prev.map((s, i) => i === si ? { ...s, name: v.toUpperCase() } : s)));
   };
-  const addScene = () => {
-    const name = prompt("Scene name:", `SCENE ${scenes.length + 1}`);
+  const addScene = async () => {
+    const name = await showPrompt("Scene name:", `SCENE ${scenes.length + 1}`);
     if (!name) return;
     setScenes(prev => renumber([...prev, { id: Date.now(), name: name.toUpperCase(), collapsed: false, shots: [newShot(Date.now() + 1, "")] }]));
   };
@@ -1904,13 +1904,13 @@ ${PRINT_CLEANUP_CSS}
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/shotlist-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
+      if (!resp.ok) { const txt = await resp.text().catch(() => ""); showAlert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
-        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
-      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { alert("Error generating link: " + err.message); }
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
+      } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { showAlert("Error generating link: " + err.message); }
   };
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
@@ -2386,9 +2386,9 @@ ${PRINT_CLEANUP_CSS}
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
-        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
-      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { alert("Error generating link: " + err.message); }
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
+      } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { showAlert("Error generating link: " + err.message); }
   };
 
   /* Export PDF with mode selection */
@@ -2811,9 +2811,9 @@ ${PRINT_CLEANUP_CSS}
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
-        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
-      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { alert("Error generating link: " + err.message); }
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
+      } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { showAlert("Error generating link: " + err.message); }
   };
 
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
@@ -3022,13 +3022,13 @@ ${PRINT_CLEANUP_CSS}
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/storyboard-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
+      if (!resp.ok) { const txt = await resp.text().catch(() => ""); showAlert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
-        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
-      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { alert("Error generating link: " + err.message); }
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
+      } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { showAlert("Error generating link: " + err.message); }
   };
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
@@ -3434,7 +3434,7 @@ const PostConnie = React.forwardRef(function PostConnieInner({ initialProject, i
   const collectFontRules = () => { let r=""; try{for(const s of document.styleSheets){try{for(const ru of s.cssRules){if(ru.cssText&&ru.cssText.startsWith("@font-face"))r+=ru.cssText+"\n";}}catch(e){}}}catch(e){} return r; };
   const ppPrintViaIframe = (clone) => { const fontRules = collectFontRules(); const iframe = document.createElement("iframe"); iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;"; document.body.appendChild(iframe); const idoc = iframe.contentDocument; idoc.open(); idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');${fontRules}*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}.page-break{page-break-before:always}@media print{@page{size:landscape;margin:0}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`); idoc.close(); idoc.body.appendChild(idoc.adoptNode(clone)); const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;})); Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);}); };
   const exportPDF = () => { const el = printRef.current; if (!el) return; ppPrintViaIframe(ppCleanClone(el)); };
-  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ppCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = PP_F; sp.style.fontSize = "8px"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Post-Production", clientName: project.client || "", mode: "postprod" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/postprod-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); } } else { alert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { alert("Error generating link: " + err.message); } };
+  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ppCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = PP_F; sp.style.fontSize = "8px"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Post-Production", clientName: project.client || "", mode: "postprod" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/postprod-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); } } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { showAlert("Error generating link: " + err.message); } };
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
   const parseDate = (d) => { if (!d) return null; const p = d.split("/"); if (p.length < 2) return null; const day = parseInt(p[0]), mon = parseInt(p[1]) - 1, yr = p[2] ? parseInt(p[2]) : new Date().getFullYear(); const dt = new Date(yr, mon, day); return isNaN(dt.getTime()) ? null : dt; };
   const taskDates = schedule.map(t => ({ ...t, start: parseDate(t.startDate), end: parseDate(t.endDate) })).filter(t => t.start);
@@ -3538,7 +3538,7 @@ const CastingTableConnie = React.forwardRef(function CastingTableConnieInner({ i
 
   const exportPDF = () => { const el = printRef.current; if (!el) return; ctPrintViaIframe(ctCleanClone(el)); };
 
-  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ctCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = CTB_F; sp.style.fontSize = "8px"; sp.style.fontWeight = "700"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Casting Table", mode: "casting-table" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/casting-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); } } else { alert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { alert("Error generating link: " + err.message); } };
+  const generateSharePage = async (modes, existingToken, existingResourceId) => { const captureHtml = () => { const el = printRef.current; if (!el) return null; const clone = ctCleanClone(el); clone.querySelectorAll('input').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value; sp.style.cssText = n.style.cssText; n.replaceWith(sp); }); clone.querySelectorAll('select').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.fontFamily = CTB_F; sp.style.fontSize = "8px"; sp.style.fontWeight = "700"; n.replaceWith(sp); }); clone.querySelectorAll('textarea').forEach(n => { const sp = document.createElement('span'); sp.textContent = n.value || ""; sp.style.cssText = n.style.cssText; sp.style.whiteSpace = "pre-wrap"; n.replaceWith(sp); }); clone.querySelectorAll('[data-hide]').forEach(n => n.remove()); clone.querySelectorAll('img').forEach(im => { if(im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); }); return clone.innerHTML; }; const html = captureHtml(); if (!html) return; try { const body = { html, projectName: project.name || "Casting Table", mode: "casting-table" }; if (existingToken) body.token = existingToken; if (existingResourceId) body.resourceId = existingResourceId; const resp = await fetch("/api/casting-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const data = await resp.json(); if (data.url) { if (onShareUrl) onShareUrl(data.url, data.token, data.id); else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); } } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); } } catch (err) { showAlert("Error generating link: " + err.message); } };
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
 
   const allModels = roles.flatMap(r => r.models);
@@ -3874,13 +3874,13 @@ ${PRINT_CLEANUP_CSS}
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!resp.ok) { const txt = await resp.text().catch(() => ""); alert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
+      if (!resp.ok) { const txt = await resp.text().catch(() => ""); showAlert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
       if (data.url) {
         if (onShareUrl) onShareUrl(data.url, data.token, data.id);
-        else { await navigator.clipboard.writeText(data.url).catch(() => {}); alert("Link copied to clipboard!\n\n" + data.url); }
-      } else { alert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { alert("Error generating link: " + err.message); }
+        else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
+      } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
+    } catch (err) { showAlert("Error generating link: " + err.message); }
   };
 
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
@@ -7233,7 +7233,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
       const dietUpdatePerson=(i,key,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietAddPerson=()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietDeletePerson=(i)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[projectId]=arr;return store;});};
-      const dietSyncFromCS=()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){alert("No call sheets found for this project. Create a call sheet first via the Call Sheets tab.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=prompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){alert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){alert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));arr[dietIdx]=d;store[projectId]=arr;return store;});alert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);};
+      const dietSyncFromCS=async()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){showAlert("No call sheets found for this project. Create a call sheet first via the Call Sheets tab.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=await showPrompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){showAlert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){showAlert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));arr[dietIdx]=d;store[projectId]=arr;return store;});showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);};
       const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
@@ -7435,7 +7435,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
                 {hasCM("cs:scalar:mapLink")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:mapLink")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:mapLink")} style={cRevBtn("decline")}>{"✕"}</button></span>}
               </div>
-              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
               {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
               <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
@@ -12182,8 +12182,37 @@ const LgLink = ({onClick,children}) => (
   <button onClick={onClick} style={{background:"none",border:"none",color:"#6e6e73",fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:2}}>{children}</button>
 );
 
+
+// ─── GLOBAL MODAL SYSTEM (replaces alert/prompt) ───────────────────────────
+let _modalResolve = null;
+let _setModalState = null;
+
+function showAlert(msg) {
+  return new Promise(resolve => {
+    _modalResolve = resolve;
+    if (_setModalState) _setModalState({ type: "alert", message: String(msg), show: true });
+  });
+}
+
+function showPrompt(msg, defaultVal = "") {
+  return new Promise(resolve => {
+    _modalResolve = resolve;
+    if (_setModalState) _setModalState({ type: "prompt", message: String(msg), defaultVal, show: true });
+  });
+}
+
+function _closeModal(value) {
+  if (_setModalState) _setModalState({ show: false });
+  if (_modalResolve) { _modalResolve(value); _modalResolve = null; }
+}
+
 export default function OnnaDashboard() {
   const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
+
+  const [_modal, _setModal] = useState({ show: false, type: "alert", message: "", defaultVal: "" });
+  const _modalInputRef = useRef(null);
+  useEffect(() => { _setModalState = _setModal; return () => { _setModalState = null; }; }, []);
+  useEffect(() => { if (_modal.show && _modal.type === "prompt" && _modalInputRef.current) { _modalInputRef.current.focus(); _modalInputRef.current.select(); } }, [_modal.show, _modal.type]);
 
   const [authed,setAuthed]         = useState(()=>!!localStorage.getItem("onna_token") && !_urlReset);
   const [saveStatus,setSaveStatus] = useState(null); // null | "saving" | "saved"
@@ -12292,7 +12321,7 @@ export default function OnnaDashboard() {
   if (_signToken) {
     // CT_FONT, CT_LS, CT_LS_HDR hoisted to top level
     const submitVendorSig = async () => {
-      if (!signVendorSig || !signVendorName.trim() || !signVendorDate.trim()) { alert("Please fill in your signature, name, and date before submitting."); return; }
+      if (!signVendorSig || !signVendorName.trim() || !signVendorDate.trim()) { showAlert("Please fill in your signature, name, and date before submitting."); return; }
       setSignSubmitting(true);
       try {
         // Capture the rendered contract HTML BEFORE submitting (so contract is still visible)
@@ -12321,8 +12350,8 @@ export default function OnnaDashboard() {
           }
           setSignSubmitted(true);
         }
-        else alert(data.error || "Submission failed");
-      } catch (err) { alert("Error: " + err.message); }
+        else showAlert(data.error || "Submission failed");
+      } catch (err) { showAlert("Error: " + err.message); }
       setSignSubmitting(false);
     };
 
@@ -13219,7 +13248,7 @@ export default function OnnaDashboard() {
 
   const connectGCal = () => {
     if (!window.google?.accounts?.oauth2) {
-      alert("Google Identity Services not loaded yet — please wait a moment and try again.");
+      showAlert("Google Identity Services not loaded yet — please wait a moment and try again.");
       return;
     }
     window.google.accounts.oauth2.initTokenClient({
@@ -13792,8 +13821,8 @@ export default function OnnaDashboard() {
   };
 
   // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
-  const addNewOption = (currentList, setter, storageKey, prompt_label) => {
-    const val = window.prompt(prompt_label);
+  const addNewOption = async (currentList, setter, storageKey, prompt_label) => {
+    const val = await showPrompt(prompt_label);
     if (!val || !val.trim()) return null;
     const trimmed = val.trim();
     if (currentList.includes(trimmed)) return trimmed;
@@ -14026,8 +14055,8 @@ export default function OnnaDashboard() {
       xhr.setRequestHeader("Content-Type","application/json");
       xhr.upload.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(Math.round((e.loaded/e.total)*50));};
       xhr.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(50+Math.round((e.loaded/e.total)*50));else setLinkUploadProgress(75);};
-      xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(data.error)throw new Error(data.error);setLinkUploadProgress(100);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),entry]}}));setTimeout(()=>{setLinkUploading(false);setLinkUploadProgress(null);},800);}catch(e){alert("Upload failed: "+e.message);setLinkUploading(false);setLinkUploadProgress(null);}};
-      xhr.onerror=()=>{alert("Upload failed: network error");setLinkUploading(false);setLinkUploadProgress(null);};
+      xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(data.error)throw new Error(data.error);setLinkUploadProgress(100);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),entry]}}));setTimeout(()=>{setLinkUploading(false);setLinkUploadProgress(null);},800);}catch(e){showAlert("Upload failed: "+e.message);setLinkUploading(false);setLinkUploadProgress(null);}};
+      xhr.onerror=()=>{showAlert("Upload failed: network error");setLinkUploading(false);setLinkUploadProgress(null);};
       xhr.send(JSON.stringify({url}));
     };
 
@@ -14133,7 +14162,7 @@ export default function OnnaDashboard() {
       const addStoredFiles = async (category, fileList) => {
         const newEntries = [];
         for (const f of fileList) {
-          if (f.size > 40*1024*1024) { alert(`"${f.name}" is over 40 MB. Please use the Dropbox / Drive link for very large files.`); continue; }
+          if (f.size > 40*1024*1024) { showAlert(`"${f.name}" is over 40 MB. Please use the Dropbox / Drive link for very large files.`); continue; }
           const data = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
           newEntries.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});
         }
@@ -14500,7 +14529,7 @@ export default function OnnaDashboard() {
         const addQuoteFiles = async (fileList) => {
           const newEntries = [];
           for (const f of fileList) {
-            if (f.size > 40*1024*1024) { alert(`"${f.name}" is over 40 MB.`); continue; }
+            if (f.size > 40*1024*1024) { showAlert(`"${f.name}" is over 40 MB.`); continue; }
             const data = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
             newEntries.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});
           }
@@ -14539,7 +14568,7 @@ export default function OnnaDashboard() {
                   <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
                   <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
                 </div>
-                <button onClick={e=>{e.stopPropagation();const n=prompt("Rename file:",f.name);if(n&&n.trim())renameQuoteFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
+                <button onClick={async e=>{e.stopPropagation();const n=await showPrompt("Rename file:",f.name);if(n&&n.trim())renameQuoteFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
                 <button onClick={e=>{e.stopPropagation();downloadQuoteFile(f);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Download">Export</button>
                 <button onClick={e=>{e.stopPropagation();if(confirm(`Delete "${f.name}"?`))deleteQuoteFile(f.id);}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
               </div>
@@ -14568,7 +14597,7 @@ export default function OnnaDashboard() {
         const addInvFiles = async (fileList) => {
           const newEntries = [];
           for (const f of fileList) {
-            if (f.size > 40*1024*1024) { alert(`"${f.name}" is over 40 MB.`); continue; }
+            if (f.size > 40*1024*1024) { showAlert(`"${f.name}" is over 40 MB.`); continue; }
             const data = await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
             newEntries.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});
           }
@@ -14603,7 +14632,7 @@ export default function OnnaDashboard() {
                   <div style={{fontSize:13,color:T.text,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
                   <div style={{fontSize:11,color:T.muted,marginTop:1}}>{(f.size/1024).toFixed(0)} KB · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
                 </div>
-                <button onClick={e=>{e.stopPropagation();const n=prompt("Rename file:",f.name);if(n&&n.trim())renameInvFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
+                <button onClick={async e=>{e.stopPropagation();const n=await showPrompt("Rename file:",f.name);if(n&&n.trim())renameInvFile(f.id,n.trim());}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Rename">Rename</button>
                 <button onClick={e=>{e.stopPropagation();downloadInvFile(f);}} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"6px 10px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Download">Export</button>
                 <button onClick={e=>{e.stopPropagation();if(confirm(`Delete "${f.name}"?`))deleteInvFile(f.id);}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
               </div>
@@ -14978,7 +15007,7 @@ export default function OnnaDashboard() {
                     <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
                     {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
                   </div>
-                  {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+                  {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
                   <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
                   {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
                   <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
@@ -15246,7 +15275,7 @@ export default function OnnaDashboard() {
             try {
               const resp = await fetch(`/api/sign?token=${encodeURIComponent(ct.signingToken)}`, {headers:{"Authorization":`Bearer ${getToken()}`}});
               const data = await resp.json();
-              if (data.error) { alert("Could not check: " + data.error); return; }
+              if (data.error) { showAlert("Could not check: " + data.error); return; }
               if (data.status === "signed" && data.vendorSig) {
                 setContractDocStore(prev => {
                   const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; const c = arr[idx]; if (!c) return store;
@@ -15261,11 +15290,11 @@ export default function OnnaDashboard() {
                   const idoc=iframe.contentDocument;idoc.open();idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:\'Avenir\',\'Avenir Next\',\'Nunito Sans\',sans-serif;padding:20px 24px;}@media print{@page{margin:0;size:A4;}}'+PRINT_CLEANUP_CSS+'</style></head><body></body></html>');idoc.close();
                   idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{idoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
                 },500); },100);
-                alert("Vendor signature merged! PDF export opening...");
+                showAlert("Vendor signature merged! PDF export opening...");
               } else {
-                alert("Status: " + (data.status||"pending") + " \u2014 not yet signed.");
+                showAlert("Status: " + (data.status||"pending") + " \u2014 not yet signed.");
               }
-            } catch (err) { alert("Error checking status: " + err.message); }
+            } catch (err) { showAlert("Error checking status: " + err.message); }
           };
           const STATUS_BADGE = {not_sent:{label:"Not sent",bg:"#f5f5f5",color:"#999"},pending:{label:"Pending signature",bg:"#FFF9C4",color:"#8d6e00"},signed:{label:"Signed",bg:"#e8f5e9",color:"#2e7d32"}};
           return (
@@ -15348,8 +15377,8 @@ export default function OnnaDashboard() {
               setSigShareUrl(data.url);
               ctSet(d=>({...d, signingStatus:"pending", signingToken:data.token||null}));
             }
-            else alert("Failed to create signing link: " + (data.error || "Unknown error"));
-          } catch (err) { alert("Error: " + err.message); }
+            else showAlert("Failed to create signing link: " + (data.error || "Unknown error"));
+          } catch (err) { showAlert("Error: " + err.message); }
           setSigShareLoading(false);
         };
 
@@ -15560,11 +15589,11 @@ export default function OnnaDashboard() {
         // Sync from call sheet — pulls crew from latest call sheet, reflects deleted rows
         const dietSyncFromCS = () => {
           const csVersions = callSheetStore[p.id] || [];
-          if(csVersions.length===0){alert("No call sheets found for this project. Create a call sheet first.");return;}
+          if(csVersions.length===0){showAlert("No call sheets found for this project. Create a call sheet first.");return;}
           const latestCS = csVersions[csVersions.length-1];
           const pulled = [];
           (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
-          if(pulled.length===0){alert("No crew names found in the latest call sheet.");return;}
+          if(pulled.length===0){showAlert("No crew names found in the latest call sheet.");return;}
           setDietaryStore(prev=>{
             const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
             if(latestCS.shootName)d.project.name=latestCS.shootName;
@@ -15574,7 +15603,7 @@ export default function OnnaDashboard() {
             d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));
             arr[dietIdx]=d;store[p.id]=arr;return store;
           });
-          alert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);
+          showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);
         };
 
         // Summary counts
@@ -15875,7 +15904,7 @@ export default function OnnaDashboard() {
         setLocShareLoading(true);
         try {
           if (locDeckRef.current) await locDeckRef.current.share([...locShareTabs], existingLocToken, locData.shareResourceId);
-        } catch (err) { alert("Error: " + err.message); }
+        } catch (err) { showAlert("Error: " + err.message); }
         setLocShareLoading(false);
       };
       const toggleLocShareTab = (t) => setLocShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
@@ -15905,7 +15934,7 @@ export default function OnnaDashboard() {
               return s;
             });
           }
-        } catch (err) { alert("Sync error: " + err.message); }
+        } catch (err) { showAlert("Sync error: " + err.message); }
         setLocShareLoading(false);
       };
 
@@ -16096,7 +16125,7 @@ export default function OnnaDashboard() {
             const data = await resp.json();
             setRecceShareUrl(data.url);
             setRecceReportStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][rcIdx]) { s[p.id][rcIdx].shareToken = data.token; s[p.id][rcIdx].shareResourceId = data.id; } return s; });
-          } catch (err) { alert("Error: " + err.message); }
+          } catch (err) { showAlert("Error: " + err.message); }
           setRecceShareLoading(false);
         };
         return (
@@ -16341,7 +16370,7 @@ export default function OnnaDashboard() {
           if (castDeckShareTabs.size === 0) return;
           setCastDeckShareLoading(true);
           try { if (castDeckRef.current) await castDeckRef.current.share([...castDeckShareTabs], existingCastToken, existingCastResourceId); }
-          catch (err) { alert("Error: " + err.message); }
+          catch (err) { showAlert("Error: " + err.message); }
           setCastDeckShareLoading(false);
         };
         const toggleCastShareTab = (t) => setCastDeckShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
@@ -16374,7 +16403,7 @@ export default function OnnaDashboard() {
                 return s;
               });
             }
-          } catch (err) { alert("Sync error: " + err.message); }
+          } catch (err) { showAlert("Sync error: " + err.message); }
           setCastDeckShareLoading(false);
         };
 
@@ -16437,7 +16466,7 @@ export default function OnnaDashboard() {
               </div>
               {linkUploadProgress!==null&&<div style={{marginTop:8}}><div style={{height:6,borderRadius:3,background:"#e5e5ea",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:linkUploadProgress===100?"#34c759":T.accent,width:`${linkUploadProgress}%`,transition:"width 0.3s ease"}}/></div><div style={{fontSize:11,color:T.muted,marginTop:4}}>{linkUploadProgress===100?"Complete!":linkUploadProgress<50?"Sending\u2026":"Downloading\u2026"} {linkUploadProgress}%</div></div>}
             </div>
-            <UploadZone label="Upload casting files (PDF, images, comp cards)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:[...((prev[p.id]||{}).casting||[]),...ne]}}));}}/>
+            <UploadZone label="Upload casting files (PDF, images, comp cards)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){showAlert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),casting:[...((prev[p.id]||{}).casting||[]),...ne]}}));}}/>
             {castFiles.length>0&&(()=>{const filteredCast=castFileSearchTerm.trim()?castFiles.filter(f=>f.name.toLowerCase().includes(castFileSearchTerm.trim().toLowerCase())):castFiles;return<>
                 <input value={castFileSearchTerm} onChange={e=>setCastFileSearchTerm(e.target.value)} placeholder="Search casting files\u2026" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginTop:16,marginBottom:8,boxSizing:"border-box"}}/>
                 <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:6,marginBottom:6}}>{filteredCast.length} file{filteredCast.length!==1?"s":""}{castFileSearchTerm.trim()?" found":" uploaded"}</div>
@@ -16535,7 +16564,7 @@ export default function OnnaDashboard() {
           setCtShareLoading(true);
           try {
             if (ctRef.current) await ctRef.current.share([], existingCtToken, ctData.shareResourceId);
-          } catch (err) { alert("Error: " + err.message); }
+          } catch (err) { showAlert("Error: " + err.message); }
           setCtShareLoading(false);
         };
         return (
@@ -16680,7 +16709,7 @@ export default function OnnaDashboard() {
           if (fitShareTabs.size === 0) return;
           setFitShareLoading(true);
           try { if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], existingFitToken, fitData.shareResourceId); }
-          catch (err) { alert("Error: " + err.message); }
+          catch (err) { showAlert("Error: " + err.message); }
           setFitShareLoading(false);
         };
         const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
@@ -16756,7 +16785,7 @@ export default function OnnaDashboard() {
               </div>
               {linkUploadProgress!==null&&<div style={{marginTop:8}}><div style={{height:6,borderRadius:3,background:"#e5e5ea",overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:linkUploadProgress===100?"#34c759":T.accent,width:`${linkUploadProgress}%`,transition:"width 0.3s ease"}}/></div><div style={{fontSize:11,color:T.muted,marginTop:4}}>{linkUploadProgress===100?"Complete!":linkUploadProgress<50?"Sending\u2026":"Downloading\u2026"} {linkUploadProgress}%</div></div>}
             </div>
-            <UploadZone label="Upload styling documents (PDF, images, lookbooks)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){alert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:[...((prev[p.id]||{}).styling_store||[]),...ne]}}));}}/>
+            <UploadZone label="Upload styling documents (PDF, images, lookbooks)" files={[]} onAdd={async fileList=>{const ne=[];for(const f of fileList){if(f.size>40*1024*1024){showAlert(f.name+" is over 40 MB.");continue;}const data=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});ne.push({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type,data,createdAt:Date.now()});}if(ne.length>0)setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),styling_store:[...((prev[p.id]||{}).styling_store||[]),...ne]}}));}}/>
             {styleFiles.length>0&&(()=>{const filteredStyle=styleSearchTerm.trim()?styleFiles.filter(f=>f.name.toLowerCase().includes(styleSearchTerm.trim().toLowerCase())):styleFiles;return<>
                 <input value={styleSearchTerm} onChange={e=>setStyleSearchTerm(e.target.value)} placeholder="Search styling files\u2026" style={{width:"100%",padding:"9px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",marginTop:16,marginBottom:8,boxSizing:"border-box"}}/>
                 <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginTop:6,marginBottom:6}}>{filteredStyle.length} file{filteredStyle.length!==1?"s":""}{styleSearchTerm.trim()?" found":" uploaded"}</div>
@@ -16909,12 +16938,12 @@ export default function OnnaDashboard() {
         };
         const tiDeleteRow = (si,ri) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data=d.sections[si].data.filter((_,j)=>j!==ri);arr[tiIdx]=d;store[p.id]=arr;return store;});};
         const tiDeleteSection = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.filter((_,i)=>i!==si);arr[tiIdx]=d;store[p.id]=arr;return store;});};
-        const tiEditSectionTitle = (si) => {const val=prompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
-        const tiEditSectionSubtitle = (si) => {const val=prompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
-        const tiAddSection = (type) => {
+        const tiEditSectionTitle = async (si) => {const val=await showPrompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
+        const tiEditSectionSubtitle = async (si) => {const val=await showPrompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
+        const tiAddSection = async (type) => {
           if(type==="custom"){
-            const title=prompt("Section title:","NEW SECTION");if(!title)return;
-            const colInput=prompt("Enter column names separated by commas:","Name, Date, Details, Notes");if(!colInput)return;
+            const title=await showPrompt("Section title:","NEW SECTION");if(!title)return;
+            const colInput=await showPrompt("Enter column names separated by commas:","Name, Date, Details, Notes");if(!colInput)return;
             const colNames=colInput.split(",").map(s=>s.trim()).filter(Boolean);if(colNames.length===0)return;
             const cols=colNames.map((name,i)=>({key:`col${i+1}`,label:name.toUpperCase(),flex:1}));
             const emptyRow={id:Date.now()};cols.forEach(c=>{emptyRow[c.key]="[Value]";});
@@ -16924,14 +16953,14 @@ export default function OnnaDashboard() {
             setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections.push({...defs[type],id:`${type}_${Date.now()}`});store[p.id]=arr;return store;});
           }
         };
-        const tiAddCustomColumn = (si) => {
-          const name=prompt("Column name:");if(!name)return;
+        const tiAddCustomColumn = async (si) => {
+          const name=await showPrompt("Column name:");if(!name)return;
           const sec=tiData.sections[si];const newKey=`col${(sec.columns||[]).length+1}_${Date.now()}`;
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=[...(s.columns||[]),{key:newKey,label:name.toUpperCase(),flex:1}];s.data=s.data.map(r=>({...r,[newKey]:"[Value]"}));store[p.id]=arr;return store;});
         };
-        const tiEditCustomColumn = (si,ci) => {
+        const tiEditCustomColumn = async (si,ci) => {
           const sec=tiData.sections[si];const col=(sec.columns||[])[ci];if(!col)return;
-          const name=prompt("Rename column:",col.label);if(!name)return;
+          const name=await showPrompt("Rename column:",col.label);if(!name)return;
           setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].columns=(arr[tiIdx].sections[si].columns||[]).map((c,j)=>j===ci?{...c,label:name.toUpperCase()}:c);store[p.id]=arr;return store;});
         };
         const tiDeleteCustomColumn = (si,ci) => {
@@ -17086,7 +17115,7 @@ export default function OnnaDashboard() {
                   {/* Confidentiality notice */}
                   <div style={{marginTop:16,padding:"10px 0",borderTop:"1px solid #eee"}}>
                     <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",marginBottom:4}}>CONFIDENTIALITY NOTICE</div>
-                    <div onClick={()=>{const val=prompt("Edit notice:",tiData.notes);if(val!==null)tiU("notes",val);}}
+                    <div onClick={async ()=>{const val=await showPrompt("Edit notice:",tiData.notes);if(val!==null)tiU("notes",val);}}
                       style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,lineHeight:1.5,color:"#999",cursor:"text"}}>
                       {tiData.notes||"Click to add confidentiality notice"}
                     </div>
@@ -17355,7 +17384,7 @@ export default function OnnaDashboard() {
           setCpsShareLoading(true);
           try {
             if (cpsRef.current) await cpsRef.current.share([...cpsShareTabs], existingToken, cpsData.shareResourceId);
-          } catch (err) { alert("Error: " + err.message); }
+          } catch (err) { showAlert("Error: " + err.message); }
           setCpsShareLoading(false);
         };
         const toggleShareTab = (t) => setCpsShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
@@ -17484,7 +17513,7 @@ export default function OnnaDashboard() {
         const sendSlShare = async () => {
           setSlShareLoading(true);
           try { if (slRef.current) await slRef.current.share([], existingSlToken, slData.shareResourceId); }
-          catch (err) { alert("Error: " + err.message); }
+          catch (err) { showAlert("Error: " + err.message); }
           setSlShareLoading(false);
         };
         return (
@@ -17597,7 +17626,7 @@ export default function OnnaDashboard() {
         const sendSbShare = async () => {
           setSbShareLoading(true);
           try { if (sbRef.current) await sbRef.current.share([], existingSbToken, sbData.shareResourceId); }
-          catch (err) { alert("Error: " + err.message); }
+          catch (err) { showAlert("Error: " + err.message); }
           setSbShareLoading(false);
         };
         return (
@@ -17715,7 +17744,7 @@ export default function OnnaDashboard() {
           setPpShareLoading(true);
           try {
             if (ppRef.current) await ppRef.current.share([], existingPpToken, ppData.shareResourceId);
-          } catch (err) { alert("Error: " + err.message); }
+          } catch (err) { showAlert("Error: " + err.message); }
           setPpShareLoading(false);
         };
         return (
@@ -18005,7 +18034,7 @@ export default function OnnaDashboard() {
                             {vaultFileRef ? <span style={{color:"#1d1d1f",fontWeight:600}}>{vaultFileRef.name}</span> : "Click to upload"}
                           </div>
                           {vaultFileRef&&<div style={{fontSize:11,color:T.muted}}>{(vaultFileRef.size/1024).toFixed(0)} KB</div>}
-                          <input type="file" style={{display:"none"}} onChange={e=>{if(e.target.files[0]){if(e.target.files[0].size>5*1024*1024){alert("Max file size is 5MB");return;}setVaultFileRef(e.target.files[0]);setVaultFileName(e.target.files[0].name);}}}/>
+                          <input type="file" style={{display:"none"}} onChange={e=>{if(e.target.files[0]){if(e.target.files[0].size>5*1024*1024){showAlert("Max file size is 5MB");return;}setVaultFileRef(e.target.files[0]);setVaultFileName(e.target.files[0].name);}}}/>
                         </label>
                       </div>
 
@@ -18757,7 +18786,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&saved.id){setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}else{alert("Failed to save vendor: "+(saved?.error||"Unknown error"));}}catch(e){alert("Failed to save vendor: "+(e.message||"Network error"));};}}>Save Vendor</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&saved.id){setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}else{showAlert("Failed to save vendor: "+(saved?.error||"Unknown error"));}}catch(e){showAlert("Failed to save vendor: "+(e.message||"Network error"));};}}>Save Vendor</BtnPrimary>
             </div>
           </div>
         </div>
@@ -19293,6 +19322,14 @@ export default function OnnaDashboard() {
           </div>
         </div>
       )}
+      {_modal.show && <div onClick={()=>_closeModal(_modal.type==="prompt"?null:undefined)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.45)",zIndex:100000,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Avenir','Avenir Next','Nunito Sans',sans-serif"}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:"28px 32px",minWidth:340,maxWidth:480,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",border:"1px solid #e5e5e5"}}>
+        <div style={{fontSize:14,color:"#1a1a1a",lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:20}}>{_modal.message}</div>
+        {_modal.type==="prompt"&&<input ref={_modalInputRef} defaultValue={_modal.defaultVal} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();_closeModal(e.target.value);}if(e.key==="Escape")_closeModal(null);}} style={{width:"100%",padding:"10px 12px",fontSize:14,border:"1.5px solid #ddd",borderRadius:8,fontFamily:"inherit",marginBottom:16,boxSizing:"border-box"}}/>}
+        <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+          {_modal.type==="prompt"&&<button onClick={()=>_closeModal(null)} style={{padding:"9px 20px",fontSize:13,fontWeight:600,border:"1.5px solid #ddd",borderRadius:8,background:"#fff",color:"#666",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>}
+          <button onClick={()=>{if(_modal.type==="prompt"){const v=_modalInputRef.current?_modalInputRef.current.value:_modal.defaultVal;_closeModal(v);}else _closeModal(undefined);}} style={{padding:"9px 20px",fontSize:13,fontWeight:600,border:"none",borderRadius:8,background:"#1a1a1a",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
+        </div>
+      </div></div>}
       {undoToastMsg&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1d1d1f",color:"#fff",padding:"10px 24px",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"inherit",zIndex:99999,boxShadow:"0 8px 32px rgba(0,0,0,0.25)",pointerEvents:"none"}}>{undoToastMsg}</div>}
     </div>
   );
