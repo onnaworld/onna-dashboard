@@ -25,7 +25,7 @@ export default function Vendors({
           <thead><tr><TH>Name</TH><TH>Company</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
           <tbody>
             {filteredBB.map(b=>(
-              <tr key={b.id} className="row" onClick={()=>setEditVendor({...b,_xContacts:getXContacts('vendor',b.id)})} style={{cursor:"pointer"}}>
+              <tr key={b.id} className="row" onClick={()=>{const d=b.dietaries;setEditVendor({...b,dietaries:typeof d==="string"?(() => {try{return JSON.parse(d)}catch{return []}})():Array.isArray(d)?d:[],_xContacts:getXContacts('vendor',b.id)});}} style={{cursor:"pointer"}}>
                 <TD bold>{b.name}</TD>
                 <TD muted>{b.company||"—"}</TD>
                 <TD muted>{b.category||"—"}</TD>

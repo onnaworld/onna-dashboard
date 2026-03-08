@@ -19304,8 +19304,27 @@ export default function OnnaDashboard() {
             {/* Rate card */}
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Rate Card</div>
-              <textarea value={editVendor.rateCard||""} onChange={e=>setEditVendor(p=>({...p,rateCard:e.target.value}))} rows={3}
+              <textarea value={editVendor.rateCard||""} onChange={e=>setEditVendor(p=>({...p,rateCard:e.target.value}))} rows={5}
                 placeholder="e.g. AED 1,500/half day · AED 2,800/full day · overtime at AED 300/hr"
+                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
+            </div>
+
+            {/* Dietaries */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:10,color:T.muted,marginBottom:6,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Dietary Requirements</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                {DIETARY_TAGS.filter(t=>t!=="None").map(tag=>{const tc=DIETARY_TAG_COLORS[tag];const selected=(editVendor.dietaries||[]).includes(tag);return(
+                  <button key={tag} onClick={()=>setEditVendor(p=>{const cur=p.dietaries||[];return{...p,dietaries:selected?cur.filter(t=>t!==tag):[...cur,tag]};})}
+                    style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:selected?700:500,fontFamily:"inherit",cursor:"pointer",border:selected?`1.5px solid ${tc.text}`:`1px solid ${T.border}`,background:selected?tc.bg:"#fafafa",color:selected?tc.text:T.muted,transition:"all 0.15s ease"}}>{tag}</button>
+                );})}
+              </div>
+              {(editVendor.dietaries||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+                {(editVendor.dietaries||[]).map(tag=>{const tc=DIETARY_TAG_COLORS[tag]||DIETARY_TAG_COLORS["Other"];return(
+                  <span key={tag} style={{fontSize:10,fontWeight:600,background:tc.bg,color:tc.text,padding:"3px 8px",borderRadius:10,letterSpacing:"0.03em"}}>{tag}</span>
+                );})}
+              </div>}
+              <textarea value={editVendor.dietaryNotes||""} onChange={e=>setEditVendor(p=>({...p,dietaryNotes:e.target.value}))} rows={2}
+                placeholder="Additional dietary notes, allergies, preferences…"
                 style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
             </div>
 
@@ -19343,7 +19362,7 @@ export default function OnnaDashboard() {
             {/* Notes */}
             <div style={{marginBottom:22}}>
               <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
-              <textarea value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))} rows={4}
+              <textarea value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))} rows={6}
                 placeholder="Parking, access, contacts on set, booking lead time…"
                 style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
             </div>
@@ -19363,6 +19382,7 @@ export default function OnnaDashboard() {
                 <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
                 <BtnPrimary onClick={async()=>{
                   const {id,_xContacts,...fields}=editVendor;
+                  if(Array.isArray(fields.dietaries))fields.dietaries=JSON.stringify(fields.dietaries);
                   setXContacts('vendor', id, _xContacts||[]);
                   await api.put(`/api/vendors/${id}`,fields);
                   setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
