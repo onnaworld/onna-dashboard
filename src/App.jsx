@@ -6209,7 +6209,7 @@ const initOutreach = []; // populated from DB on load
 const savedCallSheets = {};
 const savedRiskAssessments = {};
 
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#E85D4A",_SKY="#5BA8E8",_ROSE="#D4527A",_LAVENDER="#9B85CC",_MINT="#3DB88A",_PEACH="#E8976B";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#F2877B",_SKY="#7BB8E8",_ROSE="#E8879B",_LAVENDER="#B8A9D4",_MINT="#6EC5A8",_PEACH="#F0A87C";
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
@@ -6217,9 +6217,9 @@ const TABS = [
   {id:"Vendors",   label:"VENDORS",   starColor:_YELLOW},
   {id:"Clients",   label:"CLIENTS",   starColor:_ORANGE},
   {id:"Projects",  label:"PROJECTS",  starColor:_GREEN},
-  {id:"Finance",   label:"FINANCE",   starColor:_ORANGE},
+  {id:"Finance",   label:"FINANCE",   starColor:_TEAL},
   {id:"Resources", label:"RESOURCES", starColor:_BLUE},
-  {id:"Information",label:"INFORMATION",starColor:"#B0B0B0"},
+  {id:"Information",label:"INFORMATION",starColor:_CORAL},
 ];
 
 const StarIcon = ({size=11,color="currentColor"}) => (
@@ -12540,6 +12540,7 @@ export default function OnnaDashboard() {
   const [clientCountry,setClientCountry]                 = useState("All");
 
   const [vendors,setVendors]                         = useState(()=>{try{const c=localStorage.getItem('onna_cache_vendors');return c?JSON.parse(c):initVendors}catch{return initVendors}});
+  useEffect(()=>{try{if(vendors.length)localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors));}catch{}},[vendors]);
   const [bbCat,setBbCat]                                 = useState("All");
   const [bbLocation,setBbLocation]                       = useState("All");
   const [showRateModal,setShowRateModal]                 = useState(null);
