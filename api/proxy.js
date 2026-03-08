@@ -1,4 +1,4 @@
-// Vercel serverless catch-all proxy — injects API_SECRET server-side
+// Vercel serverless proxy — injects API_SECRET server-side
 const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
 const ALLOWED_ORIGINS = ["https://app.onna.digital", "https://app.onna.world"];
@@ -19,12 +19,13 @@ export default async function handler(req, res) {
   setCors(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const pathSegments = req.query.path;
-  const backendPath = "/" + (Array.isArray(pathSegments) ? pathSegments.join("/") : pathSegments || "");
+  const target = req.query.target;
+  if (!target) return res.status(400).json({ error: "Missing target parameter" });
 
-  const url = new URL(backendPath, BACKEND);
+  const url = new URL(target, BACKEND);
+  // Forward additional query params (skip 'target')
   for (const [key, val] of Object.entries(req.query)) {
-    if (key === "path") continue;
+    if (key === "target") continue;
     url.searchParams.set(key, val);
   }
 

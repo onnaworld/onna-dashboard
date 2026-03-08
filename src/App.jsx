@@ -5550,16 +5550,16 @@ function applyCodyPatch(patch, projectId, versionIdx, currentVersions, setContra
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-const API = "/api/proxy";
+const _proxy = (path) => `/api/proxy?target=${encodeURIComponent(path)}`;
 const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const getToken = () => localStorage.getItem("onna_token") || "";
 const _h = (extra={}) => ({"Authorization":`Bearer ${getToken()}`,...extra});
 const _guard = r => { if(r.status===401){localStorage.removeItem("onna_token");window.location.reload();} return r.json(); };
 const api = {
-  get:    (path)       => fetch(`${API}${path}`,{headers:_h()}).then(_guard),
-  post:   (path, body) => fetch(`${API}${path}`,{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
-  put:    (path, body) => fetch(`${API}${path}`,{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
-  delete: (path)       => fetch(`${API}${path}`,{method:"DELETE",headers:_h()}).then(_guard),
+  get:    (path)       => fetch(_proxy(path),{headers:_h()}).then(_guard),
+  post:   (path, body) => fetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
+  put:    (path, body) => fetch(_proxy(path),{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
+  delete: (path)       => fetch(_proxy(path),{method:"DELETE",headers:_h()}).then(_guard),
 };
 
 // ─── Document store API helpers (Turso-backed) ─────────────────────────────
@@ -12206,7 +12206,7 @@ export default function OnnaDashboard() {
     if (!lgUser.trim()||!lgPass.trim()) return;
     setLgLoading(true); setLgErr("");
     try {
-      const data = await fetch(`${API}/api/auth/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
+      const data = await fetch(_proxy("/api/auth/login"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
       if (data.token) { localStorage.setItem("onna_token",data.token); window.location.reload(); }
       else setLgErr("Incorrect username or password");
     } catch { setLgErr("Could not connect. Please try again."); }
@@ -12216,7 +12216,7 @@ export default function OnnaDashboard() {
   const doResetRequest = async () => {
     setLgLoading(true);
     try {
-      const data = await fetch(`${API}/api/auth/reset-request`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:lgEmail})}).then(r=>r.json());
+      const data = await fetch(_proxy("/api/auth/reset-request"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:lgEmail})}).then(r=>r.json());
       if (data.reset_url) { window.location.href=data.reset_url; return; } // SMTP not configured
     } catch {}
     setLgStep("forgot-sent"); setLgLoading(false);
@@ -12227,7 +12227,7 @@ export default function OnnaDashboard() {
     if (lgNewPass!==lgNewPass2){setLgErr("Passwords do not match");return;}
     setLgLoading(true); setLgErr("");
     try {
-      const data = await fetch(`${API}/api/auth/reset-confirm`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:_urlReset,password:lgNewPass})}).then(r=>r.json());
+      const data = await fetch(_proxy("/api/auth/reset-confirm"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:_urlReset,password:lgNewPass})}).then(r=>r.json());
       if (data.ok) setLgStep("reset-done");
       else setLgErr(data.error||"Reset failed. Link may have expired.");
     } catch { setLgErr("Could not connect. Please try again."); }
