@@ -15,6 +15,15 @@ const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,IDB_VE
 const idbGet=async(key)=>{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readonly").objectStore(IDB_STORE).get(key);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)})};
 const idbSet=async(key,val)=>{const db=await idbOpen();return new Promise((res,rej)=>{const t=db.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).put(val,key);t.onsuccess=()=>res();t.onerror=()=>rej(t.error)})};
 
+
+// ─── IMAGE UPLOAD VALIDATION ────────────────────────────────────────────────
+const MAX_IMG_SIZE = 10 * 1024 * 1024; // 10 MB
+const validateImg = (f) => {
+  if (!f || !f.type.startsWith("image/")) return false;
+  if (f.size > MAX_IMG_SIZE) { showAlert(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Max image size is 10 MB.`); return false; }
+  return true;
+};
+
 // ─── PDF PAGE LOADER (pdf.js from CDN) ──────────────────────────────────────
 let _pdfjs=null;
 const ensurePdfJs=()=>{if(_pdfjs)return Promise.resolve(_pdfjs);return new Promise((res,rej)=>{if(window.pdfjsLib){_pdfjs=window.pdfjsLib;return res(_pdfjs);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";_pdfjs=window.pdfjsLib;res(_pdfjs);};s.onerror=()=>rej(new Error("Failed to load pdf.js"));document.head.appendChild(s);});};
@@ -230,7 +239,7 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
-  const readFile = f => { if(!f||!f.type.startsWith("image/"))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  const readFile = f => { if(!validateImg(f))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
   const handleFile = e => { readFile(e.target.files[0]); };
   const onDrop = e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor="#ccc"; readFile(e.dataTransfer.files[0]); };
   const onDragOver = e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor="#666"; };
@@ -242,7 +251,7 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
   const ref = useRef();
   const [height, setHeight] = useState(defaultHeight);
   const dragRef = useRef({ dragging: false, startY: 0, startH: 0 });
-  const handleFile = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  const handleFile = e => { const f=e.target.files[0]; if(!validateImg(f))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
   const onMouseDown = useCallback(e => {
     e.preventDefault(); dragRef.current = { dragging:true, startY:e.clientY, startH:height };
     const onMove = ev => { if(!dragRef.current.dragging)return; setHeight(Math.max(80,dragRef.current.startH+(ev.clientY-dragRef.current.startY))); };
@@ -2678,7 +2687,7 @@ const CastCard = ({ entry, onChange, onRemove, modelNum, roleName, isConfirmed }
   const bc = status === "approved" ? "#2E7D32" : status === "shortlisted" ? "#E65100" : status === "rejected" ? "#C62828" : "#eee";
   const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
   const LS = 0.5;
-  const castImgAdd = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => onChange("image", e.target.result); r.readAsDataURL(f); };
+  const castImgAdd = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!validateImg(f)) return; const r = new FileReader(); r.onload = (e) => onChange("image", e.target.result); r.readAsDataURL(f); };
 
   return (
     <div data-cast-card style={{ border: (status !== "none" ? 3 : 1) + "px solid " + bc, borderRadius: 2, overflow: "hidden", background: "#fff", position: "relative" }}>
@@ -3263,7 +3272,7 @@ const PpSel = ({ value, onChange, options, style = {} }) => (
 const PpClientLogo = () => {
   const [logo, setLogo] = useState(null);
   const [over, setOver] = useState(false);
-  const hf = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setLogo(e.target.result); r.readAsDataURL(f); };
+  const hf = (files) => { const f = Array.from(files).find(f => f.type.startsWith("image/")); if (!validateImg(f)) return; const r = new FileReader(); r.onload = (e) => setLogo(e.target.result); r.readAsDataURL(f); };
   return (
     <div onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); hf(e.dataTransfer.files); }}
       style={{ width: 80, height: 32, borderRadius: 2, overflow: "hidden", position: "relative" }}>
@@ -3773,13 +3782,13 @@ const FittingConnie = React.forwardRef(function FittingConnieInner({ initialProj
   const updateLook = (tid, lid, k, v) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, [k]: v } : l) } : t));
   const addLook = (tid) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: [...t.looks, mkFitLook()] } : t));
   const deleteLook = (tid, lid) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.filter(l => l.id !== lid) } : t));
-  const setLookImg = (tid, lid, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, image: e.target.result } : l) } : t)); r.readAsDataURL(f); };
+  const setLookImg = (tid, lid, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!validateImg(f)) return; const r = new FileReader(); r.onload = (e) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, image: e.target.result } : l) } : t)); r.readAsDataURL(f); };
   const rmLookImg = (tid, lid) => setTalent(p => p.map(t => t.id === tid ? { ...t, looks: t.looks.map(l => l.id === lid ? { ...l, image: null } : l) } : t));
 
   const updateFit = (id, k, v) => setFittings(p => p.map(f => f.id === id ? { ...f, [k]: v } : f));
   const addFitting = () => setFittings(p => [...p, mkFitFitting()]);
   const deleteFitting = (id) => { setFittings(p => p.filter(f => f.id !== id)); if (selFit === id) setSelFit(null); };
-  const setFitImg = (fid, idx, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!f) return; const r = new FileReader(); r.onload = (e) => setFittings(p => p.map(ft => { if (ft.id !== fid) return ft; const imgs = [...ft.images]; while (imgs.length <= idx) imgs.push(null); imgs[idx] = e.target.result; return { ...ft, images: imgs }; })); r.readAsDataURL(f); };
+  const setFitImg = (fid, idx, fl) => { const f = Array.from(fl).find(f => f.type.startsWith("image/")); if (!validateImg(f)) return; const r = new FileReader(); r.onload = (e) => setFittings(p => p.map(ft => { if (ft.id !== fid) return ft; const imgs = [...ft.images]; while (imgs.length <= idx) imgs.push(null); imgs[idx] = e.target.result; return { ...ft, images: imgs }; })); r.readAsDataURL(f); };
   const rmFitImg = (fid, idx) => setFittings(p => p.map(f => f.id === fid ? { ...f, images: f.images.map((img, i) => i === idx ? null : img) } : f));
   const deleteFitSlot = (fid, idx) => setFittings(p => p.map(f => {
     if (f.id !== fid) return f;
@@ -12257,6 +12266,7 @@ export default function OnnaDashboard() {
 
   const doResetConfirm = async () => {
     if (!lgNewPass||lgNewPass.length<8){setLgErr("Password must be at least 8 characters");return;}
+    if (!/[A-Z]/.test(lgNewPass)||!/[0-9]/.test(lgNewPass)){setLgErr("Password must include at least one uppercase letter and one number");return;}
     if (lgNewPass!==lgNewPass2){setLgErr("Passwords do not match");return;}
     setLgLoading(true); setLgErr("");
     try {
@@ -12525,7 +12535,7 @@ export default function OnnaDashboard() {
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
             <LgLogo/>
             <div style={{fontSize:13,color:"#6e6e73",textAlign:"center",marginTop:-14,marginBottom:6}}>Choose a new password</div>
-            <LgIn label="New Password" type="password" autoFocus value={lgNewPass} onChange={v=>{setLgNewPass(v);setLgErr("");}} onEnter={()=>document.getElementById("lg-p2").focus()} placeholder="At least 8 characters" hasErr={!!lgErr}/>
+            <LgIn label="New Password" type="password" autoFocus value={lgNewPass} onChange={v=>{setLgNewPass(v);setLgErr("");}} onEnter={()=>document.getElementById("lg-p2").focus()} placeholder="Min 8 chars, 1 uppercase, 1 number" hasErr={!!lgErr}/>
             <LgIn label="Confirm Password" id="lg-p2" type="password" value={lgNewPass2} onChange={v=>{setLgNewPass2(v);setLgErr("");}} onEnter={doResetConfirm} placeholder="Repeat password" hasErr={!!lgErr}/>
             {lgErr&&<div style={{fontSize:12,color:"#c0392b",textAlign:"center",fontWeight:500}}>{lgErr}</div>}
             <LgBtn onClick={doResetConfirm} disabled={lgLoading||!lgNewPass||!lgNewPass2}>{lgLoading?"Saving…":"Set New Password"}</LgBtn>
