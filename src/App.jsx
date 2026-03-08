@@ -12732,7 +12732,7 @@ export default function OnnaDashboard() {
   const [sopAddOpen,setSopAddOpen] = useState(false);
   const [sopPreview,setSopPreview] = useState(false);
   const [sopFilter,setSopFilter] = useState("all");
-  useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{} debouncedGlobalSave('sops',sops);},[sops]);
+  useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('sops',sops);},[sops]);
 
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
@@ -12891,10 +12891,10 @@ export default function OnnaDashboard() {
       setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);
     }
   };
-  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} debouncedGlobalSave('todos',todos);},[todos]);
-  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
-  useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
-  useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
+  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
+  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
+  useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
+  useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
   useEffect(()=>{idbGet("projectFileStore").then(d=>{if(d)setProjectFileStore(d);setFileStoreReady(true);}).catch(()=>setFileStoreReady(true));},[]);
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
@@ -13333,12 +13333,14 @@ export default function OnnaDashboard() {
           }
         }
       } catch {}
+      globalHydratedRef.current = true;
 
     }).catch(()=>setApiLoading(false));
     return ()=>{ cancelled=true; };
   },[authed]);
 
   // ── Hydrate project doc data from Turso when project opens ──────────────
+  const globalHydratedRef = useRef(false);
   const hydratedProjectsRef = useRef(new Set());
   const hydrateProject = useCallback((pid) => {
     return api.get(`/api/project-data/${pid}`).then(d => {
