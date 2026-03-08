@@ -8,7 +8,9 @@ export default function Clients({
   outreach, setOutreach,
   localProjects,
   leadStatusOverrides,
-  customLeadCats,
+  customLeadCats, setCustomLeadCats,
+  customLeadLocs, setCustomLeadLocs,
+  allLeadCats, allLeadLocs, addNewOption,
   // Search helpers
   getSearch, setSearch,
   // Selections / modals
@@ -19,7 +21,7 @@ export default function Clients({
   // Constants
   OUTREACH_STATUS_LABELS, OUTREACH_STATUSES, LEAD_CATEGORIES,
   // UI components
-  Pill, SearchBar, Sel, BtnPrimary, TH, THFilter, TD, OutreachBadge,
+  Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge,
 }) {
   // ── Local state (Clients-tab-only) ──
   const [leadsView, setLeadsView] = useState(() => localStorage.getItem("onna_leads_view") || "dashboard");
@@ -30,12 +32,21 @@ export default function Clients({
   const [leadMonth, setLeadMonth] = useState("All");
   const [leadLoc, setLeadLoc] = useState("All");
   const [clientCountry, setClientCountry] = useState("All");
+  const [clientCat, setClientCat] = useState("All");
 
   const [outreachSort, setOutreachSort] = useState("date");
   const [outreachCatFilter, setOutreachCatFilter] = useState("All");
   const [outreachStatusFilter, setOutreachStatusFilter] = useState("All");
   const [outreachLocFilter, setOutreachLocFilter] = useState("All");
   const [outreachMonthFilter, setOutreachMonthFilter] = useState("All");
+
+  // Add Client modal
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [newClient, setNewClient] = useState({company:"",name:"",email:"",phone:"",country:"",category:"",notes:""});
+
+  // Add Outreach modal
+  const [showAddOutreach, setShowAddOutreach] = useState(false);
+  const [newOutreach, setNewOutreach] = useState({company:"",clientName:"",role:"",email:"",phone:"",category:"Production Companies",location:"Dubai, UAE",status:"cold",date:"",value:"",notes:""});
 
   // ── Computed values ──
   const allLeadsMerged = localLeads.map(l => leadStatusOverrides[l.id] ? { ...l, status: leadStatusOverrides[l.id] } : l);
@@ -49,7 +60,10 @@ export default function Clients({
   const filteredLeads = useMemo(() => {
     const q = getSearch("Leads").toLowerCase();
     return allLeadsCombined
-      .filter(l => (!q || l.company.toLowerCase().includes(q) || (l.contact || "").toLowerCase().includes(q) || (l.role || "").toLowerCase().includes(q) || (l.email || "").toLowerCase().includes(q)) && (leadCat === "All" || l.category === leadCat) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || (l.location || "") === leadLoc))
+      .filter(l => {
+        const s = q;
+        return (!s || [l.company,l.contact,l.role,l.email,l.phone,l.category,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(s))) && (leadCat === "All" || l.category === leadCat) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || (l.location || "") === leadLoc);
+      })
       .sort((a, b) => (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
   }, [getSearch("Leads"), leadCat, leadStatus, leadMonth, leadLoc, localLeads, outreach, leadStatusOverrides]);
 
@@ -59,10 +73,14 @@ export default function Clients({
   const filteredOutreach = outreach.filter(o => {
     if (o.status === "not_contacted") return false;
     const q = getSearch("Outreach").toLowerCase();
-    return (!q || o.company.toLowerCase().includes(q) || o.clientName.toLowerCase().includes(q)) && (outreachCatFilter === "All" || o.category === outreachCatFilter) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || (o.location || "") === outreachLocFilter);
+    return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || o.category === outreachCatFilter) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || (o.location || "") === outreachLocFilter);
   }).sort((a, b) => outreachSort === "az"
     ? (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase())
     : (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0)));
+
+  // Client categories and countries for filters
+  const clientCountries = ["All", ...Array.from(new Set(localClients.map(c => c.country).filter(Boolean))).sort()];
+  const clientCategories = ["All", ...Array.from(new Set(localClients.map(c => c.category).filter(Boolean))).sort()];
 
   return (
     <div>
@@ -175,7 +193,7 @@ export default function Clients({
       {leadsView === "leads" && (
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-            <SearchBar value={getSearch("Leads")} onChange={v => setSearch("Leads", v)} placeholder="Search company or contact\u2026" />
+            <SearchBar value={getSearch("Leads")} onChange={v => setSearch("Leads", v)} placeholder="Search leads..." />
             <span style={{ fontSize: 12, color: T.muted }}>{filteredLeads.length} leads</span>
             <button onClick={() => downloadCSV(filteredLeads, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "leads.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
             <button onClick={() => exportTablePDF(filteredLeads, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }], "Leads Pipeline")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
@@ -215,15 +233,18 @@ export default function Clients({
       )}
 
       {leadsView === "clients" && (() => {
-        const clientCountries = ["All", ...Array.from(new Set(localClients.map(c => c.country).filter(Boolean))).sort()];
         const _cq = getSearch("Clients").toLowerCase();
-        const _filteredClients = localClients.filter(c => (!_cq || c.company.toLowerCase().includes(_cq) || (c.name || "").toLowerCase().includes(_cq)) && (clientCountry === "All" || (c.country || "") === clientCountry));
+        const _filteredClients = localClients.filter(c => {
+          return (!_cq || [c.company,c.name,c.email,c.phone,c.country,c.category,c.notes].some(v=>v&&v.toLowerCase().includes(_cq))) && (clientCountry === "All" || (c.country || "") === clientCountry) && (clientCat === "All" || (c.category || "") === clientCat);
+        });
         return (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-              <SearchBar value={getSearch("Clients")} onChange={v => setSearch("Clients", v)} placeholder="Search clients\u2026" />
+              <SearchBar value={getSearch("Clients")} onChange={v => setSearch("Clients", v)} placeholder="Search clients..." />
+              <Sel value={clientCat} onChange={setClientCat} options={clientCategories} minWidth={170} />
               <Sel value={clientCountry} onChange={setClientCountry} options={clientCountries} minWidth={170} />
               <span style={{ fontSize: 12, color: T.muted }}>{_filteredClients.length} clients</span>
+              <BtnPrimary onClick={() => setShowAddClient(true)}>+ New Client</BtnPrimary>
             </div>
             {_filteredClients.length === 0
               ? <div style={{ borderRadius: 16, padding: 44, textAlign: "center", background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 13 }}>No clients yet. Leads marked as &quot;Client&quot; will appear here automatically.</div>
@@ -270,7 +291,7 @@ export default function Clients({
       {leadsView === "outreach" && (
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-            <SearchBar value={getSearch("Outreach")} onChange={v => setSearch("Outreach", v)} placeholder="Search outreach\u2026" />
+            <SearchBar value={getSearch("Outreach")} onChange={v => setSearch("Outreach", v)} placeholder="Search outreach..." />
             <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, flexShrink: 0 }}>
               <button onClick={() => setOutreachSort("date")} style={{ padding: "5px 11px", background: outreachSort === "date" ? T.accent : "#f5f5f7", border: "none", color: outreachSort === "date" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Recent first</button>
               <button onClick={() => setOutreachSort("az")} style={{ padding: "5px 11px", background: outreachSort === "az" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "az" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>A{"\u2013"}Z</button>
@@ -278,6 +299,7 @@ export default function Clients({
             <span style={{ fontSize: 12, color: T.muted }}>{filteredOutreach.length} contacts</span>
             <button onClick={() => downloadCSV(filteredOutreach, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "outreach.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
             <button onClick={() => exportTablePDF(filteredOutreach, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }], "Outreach Tracker")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
+            <BtnPrimary onClick={() => setShowAddOutreach(true)}>+ New Outreach</BtnPrimary>
           </div>
           <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
             {[["cold", "No response", T.sub, "#f5f5f7"], ["warm", "Responded", "#1a56db", "#eef4ff"], ["open", "Meeting arranged", "#147d50", "#edfaf3"], ["client", "Converted to client", "#7c3aed", "#f3e8ff"]].map(([s, l, c, bg]) => (
@@ -310,6 +332,82 @@ export default function Clients({
                 {filteredOutreach.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No outreach contacts found.</td></tr>}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD CLIENT MODAL ── */}
+      {showAddClient&&(
+        <div className="modal-bg" onClick={()=>setShowAddClient(false)}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Client</div>
+              <button onClick={()=>setShowAddClient(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
+              {[["Company","company"],["Contact Name","name"],["Email","email"],["Phone","phone"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
+                  <input value={newClient[key]} onChange={e=>setNewClient(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                </div>
+              ))}
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
+                <Sel value={newClient.category} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setNewClient(p=>({...p,category:n}));}else setNewClient(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth={200}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
+                <Sel value={newClient.country} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewClient(p=>({...p,country:n}));}else setNewClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
+              </div>
+              <div style={{gridColumn:"span 2"}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Notes</div>
+                <input value={newClient.notes} onChange={e=>setNewClient(p=>({...p,notes:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+              <BtnSecondary onClick={()=>setShowAddClient(false)}>Cancel</BtnSecondary>
+              <BtnPrimary onClick={async()=>{if(!newClient.company)return;try{const saved=await api.post("/api/clients",newClient);if(saved&&saved.id){setLocalClients(prev=>[...prev,saved]);}else{alert("Failed to save client: "+(saved?.error||"Unknown error"));return;}}catch(e){alert("Failed to save client: "+(e.message||"Network error"));return;}setNewClient({company:"",name:"",email:"",phone:"",country:"",category:"",notes:""});setShowAddClient(false);}}>Save Client</BtnPrimary>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD OUTREACH MODAL ── */}
+      {showAddOutreach&&(
+        <div className="modal-bg" onClick={()=>setShowAddOutreach(false)}>
+          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Outreach</div>
+              <button onClick={()=>setShowAddOutreach(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
+              {[["Company","company"],["Contact Name","clientName"],["Role","role"],["Email","email"],["Phone","phone"],["Date Contacted","date"],["Value (AED)","value"]].map(([label,key])=>(
+                <div key={key}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
+                  <input value={newOutreach[key]} onChange={e=>setNewOutreach(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+                </div>
+              ))}
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
+                <Sel value={newOutreach.category} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setNewOutreach(p=>({...p,category:n}));}else setNewOutreach(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth={200}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
+                <Sel value={newOutreach.location} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewOutreach(p=>({...p,location:n}));}else setNewOutreach(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
+                <Sel value={newOutreach.status} onChange={v=>setNewOutreach(p=>({...p,status:v}))} options={OUTREACH_STATUSES.filter(s=>s!=="not_contacted").map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth={200}/>
+              </div>
+              <div style={{gridColumn:"span 2"}}>
+                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Notes</div>
+                <input value={newOutreach.notes} onChange={e=>setNewOutreach(p=>({...p,notes:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+              <BtnSecondary onClick={()=>setShowAddOutreach(false)}>Cancel</BtnSecondary>
+              <BtnPrimary onClick={async()=>{if(!newOutreach.company)return;try{const saved=await api.post("/api/outreach",{...newOutreach,value:Number(newOutreach.value)||0});if(saved&&saved.id){setOutreach(prev=>[...prev,saved]);}else{alert("Failed to save outreach: "+(saved?.error||"Unknown error"));return;}}catch(e){alert("Failed to save outreach: "+(e.message||"Network error"));return;}setNewOutreach({company:"",clientName:"",role:"",email:"",phone:"",category:"Production Companies",location:"Dubai, UAE",status:"cold",date:"",value:"",notes:""});setShowAddOutreach(false);}}>Save Outreach</BtnPrimary>
+            </div>
           </div>
         </div>
       )}
