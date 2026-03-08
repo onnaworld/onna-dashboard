@@ -644,7 +644,7 @@ const actualsGrandZohoTotal = (sections) => sections.reduce((s, sec) => s + actu
 
 const CALLSHEET_INIT = {
   shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"ALL CREW MUST BRING VALID PASSPORT/ID TO SET",
-  productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,mapLink:"",weatherImage:null,weatherSummary:"",weatherHighC:"",weatherHighF:"",weatherLowC:"",weatherLowF:"",weatherRealFeelHighC:"",weatherRealFeelHighF:"",weatherRealFeelLowC:"",weatherRealFeelLowF:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",weatherHourly:[],
+  productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,mapLink:"",extraMapImages:[],weatherImage:null,weatherSummary:"",weatherHighC:"",weatherHighF:"",weatherLowC:"",weatherLowF:"",weatherRealFeelHighC:"",weatherRealFeelHighF:"",weatherRealFeelLowC:"",weatherRealFeelLowF:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",weatherHourly:[],
   venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""},{label:"NOTES",value:""}],
   schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],
   departments:[
@@ -4010,7 +4010,7 @@ IMPORTANT FIELD MAPPING (ALWAYS INCLUDE THESE):
 - In venueRows, after ACCESS always include a NOTES row with key shooting information for the location (e.g. daylight hours, local customs, permit requirements, temperature warnings, altitude, timezone). Example: {"label":"NOTES","value":"Only 11.5 hours of daylight. Outdoor permits required after 6pm. High UV index — ensure sun protection for crew."}
 
 WEATHER & LOCATION:
-- When the user provides a LOCATION (city, venue, address), generate a Google Maps link in the format https://www.google.com/maps/search/[URL-encoded address] and include it in the patch as "mapLink".
+- When the user provides a LOCATION (city, venue, address), generate a Google Maps link in the format https://www.google.com/maps/search/[URL-encoded address] and include it in the patch as "mapLink". The system will automatically fetch a map screenshot from the link.
 - When the user asks about weather, or provides a date and location, use your knowledge to estimate realistic weather for that location and date. Output a JSON patch with:
   - "weatherSummary": short description like "Sunny, Clear Skies" or "Partly Cloudy, Hot & Humid"
   - "weatherHighC", "weatherHighF", "weatherLowC", "weatherLowF": temperature values as strings (e.g. "34", "93")
@@ -14018,7 +14018,7 @@ export default function OnnaDashboard() {
         </div>
         {/* Delete project */}
         <div style={{marginTop:40,paddingTop:20,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end"}}>
-          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This will be moved to the archive.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
+          <button onClick={async()=>{if(!confirm(`Delete "${p.name}"? This will be moved to Deleted.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));setSelectedProject(null);setProjectSection("Home");}} style={{padding:"10px 22px",borderRadius:10,background:"#fff",border:"1px solid #e0e0e0",color:"#c0392b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.background="#c0392b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#c0392b";}} onMouseLeave={e=>{e.currentTarget.style.background="#fff";e.currentTarget.style.color="#c0392b";e.currentTarget.style.borderColor="#e0e0e0";}}>Delete Project</button>
         </div>
       </div>
     );
@@ -14584,7 +14584,7 @@ export default function OnnaDashboard() {
                       <div style={{fontSize:11,color:T.muted,marginTop:2}}>{est.ts?.date||"No date set"}</div>
                     </div>
                     <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
-                      <button onClick={()=>{if(!window.confirm(`Delete this estimate (${est.ts?.version||"V1"})? It will be moved to the archive.`))return;archiveItem("estimates",{projectId:p.id,estimate:est});setProjectEstimates(prev=>{const arr=(prev[p.id]||[]).filter(x=>x.id!==est.id);const updated={...prev};if(arr.length===0)delete updated[p.id];else updated[p.id]=arr;return updated;});}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                      <button onClick={()=>{if(!window.confirm(`Delete this estimate (${est.ts?.version||"V1"})? It will be moved to Deleted.`))return;archiveItem("estimates",{projectId:p.id,estimate:est});setProjectEstimates(prev=>{const arr=(prev[p.id]||[]).filter(x=>x.id!==est.id);const updated={...prev};if(arr.length===0)delete updated[p.id];else updated[p.id]=arr;return updated;});}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
                     </div>
                   </div>
                 ); })}
@@ -14633,7 +14633,7 @@ export default function OnnaDashboard() {
           setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
         };
-        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to the archive."))return; pushUndo("delete call sheet"); const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
+        const deleteCS = (idx) => { if(!confirm("Delete this call sheet? This will be moved to Deleted."))return; pushUndo("delete call sheet"); const csData=JSON.parse(JSON.stringify((callSheetStore[p.id]||[])[idx])); if(csData)archiveItem('callSheets',{projectId:p.id,callSheet:csData}); setCallSheetStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveCSVersion(null); };
 
         // ── List view: no call sheet selected ──
         if (activeCSVersion === null || csVersions.length === 0) {
@@ -14975,7 +14975,7 @@ export default function OnnaDashboard() {
       if (documentsSubSection==="risk") {
         const raVersions = riskAssessmentStore[p.id] || [];
         const addRAVersion = () => { pushUndo("add risk assessment"); const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
-        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to the archive."))return; pushUndo("delete risk assessment"); const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
+        const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to Deleted."))return; pushUndo("delete risk assessment"); const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
         // ── List view: no RA selected ──
         if (activeRAVersion === null || raVersions.length === 0) {
@@ -15131,7 +15131,7 @@ export default function OnnaDashboard() {
             setCtTypeModalOpen(false);
           };
           const deleteContract = (idx) => {
-            if (!confirm("Delete this contract? This will be moved to the archive.")) return;
+            if (!confirm("Delete this contract? This will be moved to Deleted.")) return;
             pushUndo("delete contract");
             const ctData=JSON.parse(JSON.stringify((contractDocStore[p.id]||[])[idx])); if(ctData)archiveItem('contracts',{projectId:p.id,contract:ctData});
             setContractDocStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; });
@@ -15376,7 +15376,7 @@ export default function OnnaDashboard() {
           setActiveDietaryVersion(dietVersions.length);
         };
         const deleteDiet = (idx) => {
-          if(!confirm("Delete this dietary list? This will be moved to the archive."))return;
+          if(!confirm("Delete this dietary list? This will be moved to Deleted."))return;
           pushUndo("delete dietary");
           const dietData=JSON.parse(JSON.stringify((dietaryStore[p.id]||[])[idx]));
           if(dietData)archiveItem('dietaries',{projectId:p.id,dietary:dietData});
@@ -15703,7 +15703,7 @@ export default function OnnaDashboard() {
         setLocDeckStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newLoc); return store; });
       };
       const deleteLocDeck = (idx) => {
-        if (!confirm("Delete this Locations Deck? This will be moved to the archive.")) return;
+        if (!confirm("Delete this Locations Deck? This will be moved to Deleted.")) return;
         pushUndo("delete locations deck");
         const locData = JSON.parse(JSON.stringify((locDeckStore[p.id]||[])[idx]));
         if (locData) archiveItem('locationDecks', { projectId: p.id, locationDeck: locData });
@@ -15774,15 +15774,34 @@ export default function OnnaDashboard() {
         setLocShareLoading(false);
       };
       const toggleLocShareTab = (t) => setLocShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-      const syncLocFeedback = async () => {
-        if (!existingLocToken) return;
+      const syncLocDeck = async () => {
+        setLocShareLoading(true);
         try {
-          const resp = await fetch(`/api/loc-share?token=${encodeURIComponent(existingLocToken)}&feedbackOnly=1`);
-          if (!resp.ok) return;
-          const data = await resp.json();
-          if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-          else alert("No feedback received yet.");
-        } catch {}
+          const tk = existingLocToken || locData.shareToken;
+          let fb = null;
+          if (tk) {
+            try {
+              const fbResp = await fetch(`/api/loc-share?token=${encodeURIComponent(tk)}&feedbackOnly=1`);
+              if (fbResp.ok) { const fbData = await fbResp.json(); fb = fbData.feedback; }
+            } catch {}
+          }
+          if (locShareTabs.size > 0 && locDeckRef.current) {
+            await locDeckRef.current.share([...locShareTabs], existingLocToken, locData.shareResourceId);
+          }
+          if (tk && fb && typeof fb === "object" && Object.keys(fb).length > 0) {
+            try { await fetch("/api/loc-share", { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token: tk, feedback: fb}) }); } catch {}
+          }
+          if (fb && typeof fb === "object") {
+            setLocDeckStore(prev => {
+              const s = JSON.parse(JSON.stringify(prev));
+              const ld = s[p.id] && s[p.id][locIdx];
+              if (!ld || !ld.locations) return s;
+              ld.locations.forEach((loc, li) => { const key = "s" + li; if (fb[key] && fb[key].status) { loc.status = fb[key].status; } });
+              return s;
+            });
+          }
+        } catch (err) { alert("Sync error: " + err.message); }
+        setLocShareLoading(false);
       };
 
       return (
@@ -15800,12 +15819,9 @@ export default function OnnaDashboard() {
                   {t.charAt(0).toUpperCase()+t.slice(1)}
                 </label>
               ))}
-              <button onClick={sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
-                {locShareLoading ? "Generating\u2026" : existingLocToken ? "Update Link" : "Generate Link"}
+              <button onClick={existingLocToken ? syncLocDeck : sendLocShare} disabled={locShareLoading||locShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingLocToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(locShareLoading||locShareTabs.size===0)?0.5:1}}>
+                {locShareLoading ? "Syncing\u2026" : existingLocToken ? "Sync" : "Generate Link"}
               </button>
-              {existingLocToken && <button onClick={syncLocFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                Sync
-              </button>}
             </div>
           </div>
           {displayLocShareUrl && (
@@ -15855,7 +15871,7 @@ export default function OnnaDashboard() {
           setActiveRecceVersion(recceVersions.length);
         };
         const deleteRecce = (idx) => {
-          if(!confirm("Delete this recce report? This will be moved to the archive."))return;
+          if(!confirm("Delete this recce report? This will be moved to Deleted."))return;
           pushUndo("delete recce report");
           const recceData=JSON.parse(JSON.stringify((recceReportStore[p.id]||[])[idx]));
           if(recceData)archiveItem('recceReports',{projectId:p.id,recceReport:recceData});
@@ -15978,17 +15994,6 @@ export default function OnnaDashboard() {
           } catch (err) { alert("Error: " + err.message); }
           setRecceShareLoading(false);
         };
-        const syncRcFeedback = async () => {
-          if (!existingRcToken) return;
-          try {
-            const resp = await fetch(`/api/recce-share?token=${encodeURIComponent(existingRcToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
         return (
           <div>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
@@ -16003,11 +16008,8 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendRcShare} disabled={recceShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingRcToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:recceShareLoading?0.5:1}}>
-                  {recceShareLoading ? "Generating\u2026" : existingRcToken ? "Update Link" : "Generate Link"}
+                  {recceShareLoading ? "Generating\u2026" : existingRcToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingRcToken && <button onClick={syncRcFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayRcShareUrl && (
@@ -16238,15 +16240,37 @@ export default function OnnaDashboard() {
           setCastDeckShareLoading(false);
         };
         const toggleCastShareTab = (t) => setCastDeckShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-        const syncCastFeedback = async () => {
-          if (!existingCastToken) return;
+        const syncCastDeck = async () => {
+          setCastDeckShareLoading(true);
           try {
-            const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(existingCastToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
+            const tk = existingCastToken || castData.shareToken;
+            let fb = null;
+            if (tk) {
+              try {
+                const fbResp = await fetch(`/api/casting-share?token=${encodeURIComponent(tk)}&feedbackOnly=1`);
+                if (fbResp.ok) { const fbData = await fbResp.json(); fb = fbData.feedback; }
+              } catch {}
+            }
+            if (castDeckShareTabs.size > 0 && castDeckRef.current) {
+              await castDeckRef.current.share([...castDeckShareTabs], existingCastToken, existingCastResourceId);
+            }
+            if (tk && fb && typeof fb === "object" && Object.keys(fb).length > 0) {
+              try { await fetch("/api/casting-share", { method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token: tk, feedback: fb}) }); } catch {}
+            }
+            if (fb && typeof fb === "object") {
+              setCastingDeckStore(prev => {
+                const s = JSON.parse(JSON.stringify(prev));
+                const cd = s[p.id] && s[p.id][castIdx];
+                if (!cd) return s;
+                let gi = 0;
+                const applyToRoles = (roles) => { if (!roles) return; for (const role of roles) { const talent = role.talent || []; for (let ti = 0; ti < talent.length; ti++) { const key = "c" + gi; if (fb[key] && fb[key].status) { talent[ti].status = fb[key].status; } gi++; } } };
+                applyToRoles(cd.confirmed);
+                applyToRoles(cd.options);
+                return s;
+              });
+            }
+          } catch (err) { alert("Sync error: " + err.message); }
+          setCastDeckShareLoading(false);
         };
 
         return (
@@ -16264,12 +16288,9 @@ export default function OnnaDashboard() {
                     {t.charAt(0).toUpperCase()+t.slice(1)}
                   </label>
                 ))}
-                <button onClick={sendCastShare} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingCastToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
-                  {castDeckShareLoading ? "Generating\u2026" : existingCastToken ? "Update Link" : "Generate Link"}
+                <button onClick={existingCastToken ? syncCastDeck : sendCastShare} disabled={castDeckShareLoading||castDeckShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingCastToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(castDeckShareLoading||castDeckShareTabs.size===0)?0.5:1}}>
+                  {castDeckShareLoading ? "Syncing\u2026" : existingCastToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingCastToken && <button onClick={syncCastFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayCastShareUrl && (
@@ -16343,7 +16364,7 @@ export default function OnnaDashboard() {
           setCastingTableStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newCT); return store; });
         };
         const deleteCT = (idx) => {
-          if (!confirm("Delete this Casting Table? This will be moved to the archive.")) return;
+          if (!confirm("Delete this Casting Table? This will be moved to Deleted.")) return;
           pushUndo("delete casting table");
           const ctDelData = JSON.parse(JSON.stringify((castingTableStore[p.id]||[])[idx]));
           if (ctDelData) archiveItem('casting_table', { projectId: p.id, castingTable: ctDelData });
@@ -16412,17 +16433,6 @@ export default function OnnaDashboard() {
           } catch (err) { alert("Error: " + err.message); }
           setCtShareLoading(false);
         };
-        const syncCtFeedback = async () => {
-          if (!existingCtToken) return;
-          try {
-            const resp = await fetch(`/api/casting-share?token=${encodeURIComponent(existingCtToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
         return (
           <div>
             {ctBack}
@@ -16433,11 +16443,8 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendCtShare} disabled={ctShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingCtToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ctShareLoading?0.5:1}}>
-                  {ctShareLoading ? "Generating…" : existingCtToken ? "Update Link" : "Generate Link"}
+                  {ctShareLoading ? "Generating…" : existingCtToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingCtToken && <button onClick={syncCtFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayCtShareUrl && (
@@ -16504,7 +16511,7 @@ export default function OnnaDashboard() {
           setFittingStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newFit); return store; });
         };
         const deleteFitVersion = (idx) => {
-          if (!confirm("Delete this Fitting Deck? This will be moved to the archive.")) return;
+          if (!confirm("Delete this Fitting Deck? This will be moved to Deleted.")) return;
           pushUndo("delete fitting deck");
           const fitData = JSON.parse(JSON.stringify((fittingStore[p.id]||[])[idx]));
           if (fitData) archiveItem('fitting', { projectId: p.id, fitting: fitData });
@@ -16572,35 +16579,6 @@ export default function OnnaDashboard() {
           setFitShareLoading(false);
         };
         const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
-        const syncFitFeedback = async () => {
-          if (!existingFitToken) return;
-          try {
-            const resp = await fetch(`/api/fit-share?token=${encodeURIComponent(existingFitToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (!data.feedback) return;
-            const fb = data.feedback;
-            setFittingStore(prev => {
-              const s = JSON.parse(JSON.stringify(prev));
-              const ver = s[p.id]?.[fitIdx];
-              if (!ver || !ver.fittings) return prev;
-              let changed = false;
-              let cardIdx = 0;
-              ver.fittings.forEach(fit => {
-                for (let n = 0; n < fit.images.length; n++) {
-                  const key = "c" + cardIdx;
-                  if (fb[key]) {
-                    if (fb[key].status) { if (!fit.imageStatuses) fit.imageStatuses = {}; if (fit.imageStatuses[n] !== fb[key].status) { fit.imageStatuses[n] = fb[key].status; changed = true; } }
-                    if (fb[key].note !== undefined) { if (!fit.imageNotes) fit.imageNotes = {}; if (fit.imageNotes[n] !== fb[key].note) { fit.imageNotes[n] = fb[key].note; changed = true; } }
-                  }
-                  cardIdx++;
-                }
-              });
-              return changed ? s : prev;
-            });
-          } catch {}
-        };
-
         return (
           <div>
             {fitBack}
@@ -16617,11 +16595,8 @@ export default function OnnaDashboard() {
                   </label>
                 ))}
                 <button onClick={sendFitShare} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingFitToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
-                  {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Update Link" : "Generate Link"}
+                  {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingFitToken && <button onClick={syncFitFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayFitShareUrl && (
@@ -16750,7 +16725,7 @@ export default function OnnaDashboard() {
           setActiveTIVersion(tiVersions.length);
         };
         const deleteTI = (idx) => {
-          if(!confirm("Delete this travel itinerary? This will be moved to the archive."))return;
+          if(!confirm("Delete this travel itinerary? This will be moved to Deleted."))return;
           pushUndo("delete travel itinerary");
           const tiData=JSON.parse(JSON.stringify((travelItineraryStore[p.id]||[])[idx]));
           if(tiData)archiveItem('travelItineraries',{projectId:p.id,travelItinerary:tiData});
@@ -17207,7 +17182,7 @@ export default function OnnaDashboard() {
           setCpsStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newCPS); return store; });
         };
         const deleteCPS = (idx) => {
-          if (!confirm("Delete this CPS? This will be moved to the archive.")) return;
+          if (!confirm("Delete this CPS? This will be moved to Deleted.")) return;
           pushUndo("delete CPS");
           const cpsData = JSON.parse(JSON.stringify((cpsStore[p.id]||[])[idx]));
           if (cpsData) archiveItem('cps', { projectId: p.id, cps: cpsData });
@@ -17296,7 +17271,7 @@ export default function OnnaDashboard() {
                   </label>
                 ))}
                 <button onClick={sendCpsShare} disabled={cpsShareLoading||cpsShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(cpsShareLoading||cpsShareTabs.size===0)?0.5:1}}>
-                  {cpsShareLoading ? "Generating\u2026" : existingToken ? "Update Link" : "Generate Link"}
+                  {cpsShareLoading ? "Generating\u2026" : existingToken ? "Sync" : "Generate Link"}
                 </button>
                 {existingToken&&cpsAutoSyncing&&<span style={{fontSize:10,color:"#1976D2",fontWeight:500,display:"inline-flex",alignItems:"center",gap:4}}>Syncing\u2026</span>}
                 {existingToken&&!cpsAutoSyncing&&displayShareUrl&&<span style={{fontSize:10,color:"#4caf50",fontWeight:500}}>Auto-sync on</span>}
@@ -17338,7 +17313,7 @@ export default function OnnaDashboard() {
           setShotListStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSL); return store; });
         };
         const deleteSL = (idx) => {
-          if (!confirm("Delete this Shot List? This will be moved to the archive.")) return;
+          if (!confirm("Delete this Shot List? This will be moved to Deleted.")) return;
           pushUndo("delete shot list");
           const slData = JSON.parse(JSON.stringify((shotListStore[p.id]||[])[idx]));
           if (slData) archiveItem('shotlist', { projectId: p.id, shotlist: slData });
@@ -17407,17 +17382,6 @@ export default function OnnaDashboard() {
           catch (err) { alert("Error: " + err.message); }
           setSlShareLoading(false);
         };
-        const syncSlFeedback = async () => {
-          if (!existingSlToken) return;
-          try {
-            const resp = await fetch(`/api/shotlist-share?token=${encodeURIComponent(existingSlToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
         return (
           <div>
             {slBack}
@@ -17428,11 +17392,8 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendSlShare} disabled={slShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingSlToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:slShareLoading?0.5:1}}>
-                  {slShareLoading ? "Generating\u2026" : existingSlToken ? "Update Link" : "Generate Link"}
+                  {slShareLoading ? "Generating\u2026" : existingSlToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingSlToken && <button onClick={syncSlFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displaySlShareUrl && (
@@ -17469,7 +17430,7 @@ export default function OnnaDashboard() {
           setStoryboardStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!store[p.id]) store[p.id] = []; store[p.id].push(newSB); return store; });
         };
         const deleteSB = (idx) => {
-          if (!confirm("Delete this Storyboard? This will be moved to the archive.")) return;
+          if (!confirm("Delete this Storyboard? This will be moved to Deleted.")) return;
           pushUndo("delete storyboard");
           const sbData = JSON.parse(JSON.stringify((storyboardStore[p.id]||[])[idx]));
           if (sbData) archiveItem('storyboard', { projectId: p.id, storyboard: sbData });
@@ -17534,17 +17495,6 @@ export default function OnnaDashboard() {
           catch (err) { alert("Error: " + err.message); }
           setSbShareLoading(false);
         };
-        const syncSbFeedback = async () => {
-          if (!existingSbToken) return;
-          try {
-            const resp = await fetch(`/api/storyboard-share?token=${encodeURIComponent(existingSbToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
         return (
           <div>
             {sbBack}
@@ -17555,11 +17505,8 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendSbShare} disabled={sbShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingSbToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:sbShareLoading?0.5:1}}>
-                  {sbShareLoading ? "Generating\u2026" : existingSbToken ? "Update Link" : "Generate Link"}
+                  {sbShareLoading ? "Generating\u2026" : existingSbToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingSbToken && <button onClick={syncSbFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displaySbShareUrl && (
@@ -17595,7 +17542,7 @@ export default function OnnaDashboard() {
           setPostProdStore(prev => { const store = JSON.parse(JSON.stringify(prev)); if (!Array.isArray(store[p.id])) store[p.id] = []; store[p.id].push(newPP); return store; });
         };
         const deletePP = (idx) => {
-          if (!confirm("Delete this Post-Production schedule? This will be moved to the archive.")) return;
+          if (!confirm("Delete this Post-Production schedule? This will be moved to Deleted.")) return;
           pushUndo("delete post-production");
           const ppDelData = JSON.parse(JSON.stringify((postProdStore[p.id]||[])[idx]));
           if (ppDelData) archiveItem('postprod', { projectId: p.id, postprod: ppDelData });
@@ -17666,17 +17613,6 @@ export default function OnnaDashboard() {
           } catch (err) { alert("Error: " + err.message); }
           setPpShareLoading(false);
         };
-        const syncPpFeedback = async () => {
-          if (!existingPpToken) return;
-          try {
-            const resp = await fetch(`/api/postprod-share?token=${encodeURIComponent(existingPpToken)}&feedbackOnly=1`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            if (data.feedback) alert("Feedback synced: " + JSON.stringify(data.feedback).slice(0, 200));
-            else alert("No feedback received yet.");
-          } catch {}
-        };
-
         return (
           <div>
             {ppBack}
@@ -17687,11 +17623,8 @@ export default function OnnaDashboard() {
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <button onClick={sendPpShare} disabled={ppShareLoading} style={{padding:"5px 16px",borderRadius:8,background:existingPpToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:ppShareLoading?0.5:1}}>
-                  {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Update Link" : "Generate Link"}
+                  {ppShareLoading ? "Generating\u2026" : existingPpToken ? "Sync" : "Generate Link"}
                 </button>
-                {existingPpToken && <button onClick={syncPpFeedback} style={{padding:"5px 12px",borderRadius:8,background:"#f5f5f7",color:T.text,border:`1px solid ${T.border}`,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                  Sync
-                </button>}
               </div>
             </div>
             {displayPpShareUrl && (
@@ -18279,7 +18212,7 @@ export default function OnnaDashboard() {
                                 <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
                                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                                   <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:"#f3e8ff",color:"#7c3aed",fontWeight:500,flexShrink:0}}>Client</span>
-                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}? This will be moved to the archive.`))return;archiveItem('clients',c);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
+                                  <button onClick={async()=>{if(!confirm(`Delete ${c.company}? This will be moved to Deleted.`))return;archiveItem('clients',c);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}} title="Delete client" style={{background:"none",border:"none",color:T.muted,fontSize:15,cursor:"pointer",padding:"1px 4px",borderRadius:5,lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted}>×</button>
                                 </div>
                               </div>
                               {c.name&&<div style={{fontSize:12.5,color:T.sub,marginBottom:2,fontWeight:500}}>{c.name}</div>}
@@ -18402,30 +18335,60 @@ export default function OnnaDashboard() {
                 >
                   <span style={{fontSize:18,opacity:0.4}}>📦</span>
                   <div>
-                    <div style={{fontSize:12.5,fontWeight:600,color:T.sub}}>Completed Projects</div>
-                    <div style={{fontSize:11.5,color:T.muted}}>Drag a finished project here to move it to the archive</div>
+                    <div style={{fontSize:12.5,fontWeight:600,color:T.sub}}>Archived Projects</div>
+                    <div style={{fontSize:11.5,color:T.muted}}>Drag a project here to archive it</div>
                   </div>
                   {archivedProjects.length>0&&<button onClick={()=>setShowArchive(v=>!v)} style={{marginLeft:"auto",padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,background:showArchive?"#1d1d1f":"transparent",color:showArchive?"#fff":T.sub,fontFamily:"inherit",transition:"all 0.12s"}}>{showArchive?"Hide":"Show"} ({archivedProjects.length})</button>}
                 </div>
 
                 {showArchive&&archivedProjects.length>0&&(
                   <div style={{marginBottom:20}}>
-                    <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Completed Projects</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                      {archivedProjects.map(p=>{
+                    <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:10}}>Archived Projects</div>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
+                      {archivedProjects.filter(p=>!getSearch("Projects")||`${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p=>{
                         const _rev=getProjRevenue(p);const _cost=getProjCost(p);const profit=_rev-_cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
                         return (
-                          <div key={p.id} style={{borderRadius:14,padding:16,background:"#fafafa",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:10,opacity:0.75}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                              <div>
-                                <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{p.client}</div>
-                                <div style={{fontSize:13,fontWeight:600,color:T.sub}}>{p.name}</div>
+                          <div key={p.id} className="proj-card" style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                            <a href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer",textDecoration:"none",color:"inherit"}}>
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                                <div>
+                                  <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:3,fontWeight:500}}>{p.client}</div>
+                                  <div style={{fontSize:14,fontWeight:600,color:T.text,letterSpacing:"-0.01em"}}>{p.name}</div>
+                                </div>
+                                <span style={{fontSize:10,padding:"3px 9px",borderRadius:999,background:projStatusBg[p.status]||"#f5f5f7",color:projStatusColor[p.status]||T.muted,fontWeight:500,whiteSpace:"nowrap"}}>{p.status}</span>
                               </div>
-                              <button onClick={()=>setArchivedProjects(prev=>prev.filter(a=>a.id!==p.id))} style={{fontSize:11,color:T.link,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Move to Active</button>
-                            </div>
-                            <div style={{display:"flex",gap:14}}>
-                              <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Revenue</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>AED {getProjRevenue(p).toLocaleString()}</div></div>
-                              <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",marginBottom:2}}>Margin</div><div style={{fontSize:14,fontWeight:700,color:T.sub}}>{margin}%</div></div>
+                              <div style={{borderTop:`1px solid ${T.borderSub}`}}/>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                                <div>
+                                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.04em",textTransform:"uppercase"}}>Revenue</div>
+                                  <div style={{fontSize:20,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {getProjRevenue(p).toLocaleString()}</div>
+                                </div>
+                                <div>
+                                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.04em",textTransform:"uppercase"}}>Profit</div>
+                                  <div style={{fontSize:20,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>AED {profit.toLocaleString()}</div>
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:11.5,color:T.muted}}>Margin</span><span style={{fontSize:11.5,fontWeight:600,color:T.text}}>{margin}%</span></div>
+                                <div style={{height:3,borderRadius:999,background:T.borderSub}}><div style={{width:`${margin}%`,height:"100%",borderRadius:999,background:T.accent}}/></div>
+                              </div>
+                            </a>
+                            <div style={{display:"flex",gap:8,marginTop:-3}}>
+                              <button
+                                onClick={e=>{e.stopPropagation();setArchivedProjects(prev=>prev.filter(a=>a.id!==p.id));}}
+                                style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"7px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:500,transition:"all 0.12s"}}
+                                onMouseOver={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.color=T.sub;}}
+                                onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.muted;}}
+                              >
+                                <span style={{fontSize:13}}>↩</span> Unarchive
+                              </button>
+                              <button
+                                onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This will be moved to Deleted.`))return;archiveItem('projects',p);setArchivedProjects(prev=>prev.filter(a=>a.id!==p.id));}}
+                                style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"7px 11px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:13,cursor:"pointer",transition:"all 0.12s"}}
+                                onMouseOver={e=>{e.currentTarget.style.background="#fff0f0";e.currentTarget.style.borderColor="#fdc5c5";e.currentTarget.style.color="#c0392b";}}
+                                onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.borderSub;e.currentTarget.style.color=T.muted;}}
+                                title="Delete project"
+                              >×</button>
                             </div>
                           </div>
                         ); })}
@@ -18486,11 +18449,11 @@ export default function OnnaDashboard() {
                             onMouseOver={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.color=T.sub;}}
                             onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color=T.muted;}}
                           >
-                            <span style={{fontSize:13}}>📦</span> Complete
+                            <span style={{fontSize:13}}>📦</span> Archive
                           </button>
                           )}
                           {p.client!=="TEMPLATE"&&<button
-                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This will be moved to the archive.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
+                            onClick={async e=>{e.stopPropagation();if(!confirm(`Delete "${p.name}"? This will be moved to Deleted.`))return;archiveItem('projects',p);await api.delete(`/api/projects/${p.id}`);setLocalProjects(prev=>prev.filter(x=>x.id!==p.id));}}
                             style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"7px 11px",borderRadius:9,background:"transparent",border:`1px solid ${T.borderSub}`,color:T.muted,fontSize:13,cursor:"pointer",transition:"all 0.12s"}}
                             onMouseOver={e=>{e.currentTarget.style.background="#fff0f0";e.currentTarget.style.borderColor="#fdc5c5";e.currentTarget.style.color="#c0392b";}}
                             onMouseOut={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.borderSub;e.currentTarget.style.color=T.muted;}}
@@ -18829,7 +18792,7 @@ export default function OnnaDashboard() {
                 <div style={{fontSize:12,color:T.muted,marginTop:2}}>Manage your account</div>
               </div>
               {[
-                {id:"deleted",label:"Archive",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
+                {id:"deleted",label:"Deleted",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"categories",label:"Manage Categories",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"sop",label:"SOPs",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2"/><path d="M5 4h4M5 7h4M5 10h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
                 {id:"signout",label:"Sign Out",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 00-1 1v8a1 1 0 001 1h3M9 10l3-3-3-3M13 7H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>'},
@@ -18848,10 +18811,10 @@ export default function OnnaDashboard() {
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
                     <div>
-                      <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Archive</div>
-                      <div style={{fontSize:12,color:T.muted,marginTop:2}}>Archived items are permanently removed after 30 days</div>
+                      <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
+                      <div style={{fontSize:12,color:T.muted,marginTop:2}}>Deleted items are permanently removed after 30 days</div>
                     </div>
-                    {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all archived items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 14px"}}>Clear archive</button>}
+                    {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all deleted items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:"6px 14px"}}>Clear all</button>}
                   </div>
                   {archive.length===0?(
                     <div style={{padding:"60px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
@@ -20013,11 +19976,11 @@ export default function OnnaDashboard() {
           <div style={{borderRadius:20,padding:28,width:680,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
               <div>
-                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Archive</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Archived items are permanently removed after 30 days</div>
+                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Deleted items are permanently removed after 30 days</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all archived items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Clear archive</button>}
+                {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all deleted items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Clear all</button>}
                 <button onClick={()=>setShowArchive(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
               </div>
             </div>
