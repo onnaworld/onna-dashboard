@@ -5571,7 +5571,7 @@ const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Travel","Locat
 const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 
 // ─── URL ROUTING HELPERS ───────────────────────────────────────────────────
-const TAB_SLUGS = {Dashboard:"dashboard",Agents:"agents",Vendors:"vendors",Clients:"clients",Projects:"projects",Resources:"resources",Notes:"notes",Settings:"settings"};
+const TAB_SLUGS = {Dashboard:"dashboard",Agents:"agents",Vendors:"vendors",Clients:"clients",Projects:"projects",Finance:"finance",Resources:"resources",Notes:"notes",Settings:"settings"};
 const SLUG_TO_TAB = Object.fromEntries(Object.entries(TAB_SLUGS).map(([k,v])=>[v,k]));
 const SECTION_SLUGS = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s,s.toLowerCase()]));
 const SLUG_TO_SECTION = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s.toLowerCase(),s]));
@@ -6066,6 +6066,7 @@ const TABS = [
   {id:"Vendors",   label:"VENDORS",   starColor:_YELLOW},
   {id:"Clients",   label:"CLIENTS",   starColor:_ORANGE},
   {id:"Projects",  label:"PROJECTS",  starColor:_GREEN},
+  {id:"Finance",   label:"FINANCE",   starColor:_ORANGE},
   {id:"Resources", label:"RESOURCES", starColor:_BLUE},
   {id:"Notes",     label:"NOTES",     starColor:"#B0B0B0"},
 ];
@@ -6708,7 +6709,7 @@ function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPan
         <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
         <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
       </div>}
-      {typeof msg.content === "string" ? msg.content.replace(/\\*\\*/g, "") : msg.content}
+      {typeof msg.content === "string" ? msg.content.replace(/\*\*/g, "") : msg.content}
     </div>
   </div>;
 }
@@ -18193,16 +18194,6 @@ export default function OnnaDashboard() {
 
                 return (
                   <div>
-                    {/* Stats Row */}
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
-                      {[{label:"Projects 2026",value:projects2026.length,sub:projects2026.filter(p=>p.status==="Active").length+" active"},{label:"Revenue 2026",value:"AED "+(rev2026/1000).toFixed(0)+"k",sub:"all projects this year"},{label:"Profit 2026",value:"AED "+(profit2026/1000).toFixed(0)+"k",sub:(rev2026?Math.round((profit2026/rev2026)*100):0)+"% margin"},{label:"Pipeline",value:apiLoading?"\u2014":"AED "+(totalPipeline/1000).toFixed(0)+"k",sub:newCount+" new leads"}].map((s,i)=>(
-                        <div key={i} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
-                          <div style={{fontSize:11,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase",color:T.muted,marginBottom:10}}>{s.label}</div>
-                          <div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:s.sub?4:0}}>{s.value}</div>
-                          {s.sub&&<div style={{fontSize:12,color:T.sub}}>{s.sub}</div>}
-                        </div>
-                      ))}
-                    </div>
                     {/* Donuts Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:isMobile?12:18,marginBottom:isMobile?14:22}}>
                       <Donut title="Conversion" groups={stageGroups}/>
@@ -18512,6 +18503,21 @@ export default function OnnaDashboard() {
                 </div>
               </div>
             ); })()}
+
+          {/* ══ FINANCE ══ */}
+          {activeTab==="Finance"&&(
+            <div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:22}}>
+                {[{label:"Projects 2026",value:projects2026.length,sub:projects2026.filter(p=>p.status==="Active").length+" active"},{label:"Revenue 2026",value:"AED "+(rev2026/1000).toFixed(0)+"k",sub:"all projects this year"},{label:"Profit 2026",value:"AED "+(profit2026/1000).toFixed(0)+"k",sub:(rev2026?Math.round((profit2026/rev2026)*100):0)+"% margin"},{label:"Pipeline",value:apiLoading?"\u2014":"AED "+(totalPipeline/1000).toFixed(0)+"k",sub:newCount+" new leads"}].map((s,i)=>(
+                  <div key={i} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
+                    <div style={{fontSize:11,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase",color:T.muted,marginBottom:10}}>{s.label}</div>
+                    <div style={{fontSize:28,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:s.sub?4:0}}>{s.value}</div>
+                    {s.sub&&<div style={{fontSize:12,color:T.sub}}>{s.sub}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ══ RESOURCES ══ */}
           {activeTab==="Resources"&&(
