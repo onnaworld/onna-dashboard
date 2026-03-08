@@ -12770,7 +12770,7 @@ export default function OnnaDashboard() {
   // ── Notes state ───────────────────────────────────────────────────────────────
   const [notes,setNotes]                     = useState(()=>{try{const c=localStorage.getItem('onna_cache_notes');return c?JSON.parse(c):[];}catch{return [];}});
   const [notesLoading,setNotesLoading]       = useState(false);
-  useEffect(()=>{try{if(notes.length)localStorage.setItem('onna_cache_notes',JSON.stringify(notes));}catch{}},[notes]);
+  useEffect(()=>{if(!globalHydratedRef.current)return;try{if(notes.length)localStorage.setItem('onna_cache_notes',JSON.stringify(notes));}catch{}},[notes]);
 
   const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
   const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
@@ -18688,7 +18688,7 @@ export default function OnnaDashboard() {
           );})()}
 
         {/* ── INFORMATION TAB ── */}
-        {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary}/>}
+        {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} hydrated={globalHydratedRef.current}/>}
 
         {activeTab==="Settings"&&(
           <div style={{display:"flex",gap:0,margin:`-${P}px -${P}px -${isMobile?80:44}px`,height:`calc(100% + ${P}px + ${isMobile?80:44}px)`,overflow:"hidden"}}>

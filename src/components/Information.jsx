@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 
-export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary }) {
+export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
   const [noteEditId, setNoteEditId]   = useState(null);
   const [noteDraft, setNoteDraft]     = useState({title:"",content:""});
@@ -8,16 +8,16 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const [notesErr, setNotesErr]       = useState("");
   const notesFetchedRef               = useRef(false);
 
-  // Lazy-fetch on first render
+  // Lazy-fetch on first render — wait until global hydration is done
   React.useEffect(() => {
-    if (notesFetchedRef.current || notesLoading) return;
+    if (!hydrated || notesFetchedRef.current || notesLoading) return;
     notesFetchedRef.current = true;
     if (notes.length === 0) setNotesLoading(true);
     api.get("/api/notes").then(data => {
       if (Array.isArray(data) && data.length) setNotes(data);
       setNotesLoading(false);
     }).catch(() => setNotesLoading(false));
-  }, []); // eslint-disable-line
+  }, [hydrated]); // eslint-disable-line
 
   return (
     <div>
