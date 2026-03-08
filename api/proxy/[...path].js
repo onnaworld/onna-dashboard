@@ -1,13 +1,22 @@
 // Vercel serverless catch-all proxy — injects API_SECRET server-side
 const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
+const ALLOWED_ORIGINS = ["https://app.onna.digital", "https://app.onna.world"];
 
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+function setCors(req, res) {
+  const origin = req.headers.origin || "";
+  if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".vercel.app") || origin.startsWith("http://localhost")) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0]);
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
+}
 
+export default async function handler(req, res) {
+  setCors(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const pathSegments = req.query.path;
