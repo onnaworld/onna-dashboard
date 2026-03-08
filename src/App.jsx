@@ -18438,6 +18438,7 @@ export default function OnnaDashboard() {
                     e.preventDefault();
                     const id=Number(e.dataTransfer.getData("projectId"));
                     const proj=projects.find(p=>p.id===id);
+                    if(proj?.client==="TEMPLATE") return;
                     if(proj){setArchivedProjects(prev=>[...prev,proj]);}
                     document.getElementById("archive-drop-zone").style.borderColor="#d2d2d7";
                     document.getElementById("archive-drop-zone").style.background="transparent";
@@ -18513,9 +18514,9 @@ export default function OnnaDashboard() {
                     return (
                       <div
                         key={p.id}
-                        draggable
-                        onDragStart={e=>{e.dataTransfer.setData("projectId",String(p.id));e.currentTarget.style.opacity="0.5";}}
-                        onDragEnd={e=>{e.currentTarget.style.opacity="1";}}
+                        draggable={p.client!=="TEMPLATE"}
+                        onDragStart={p.client!=="TEMPLATE"?e=>{e.dataTransfer.setData("projectId",String(p.id));e.currentTarget.style.opacity="0.5";}:undefined}
+                        onDragEnd={p.client!=="TEMPLATE"?e=>{e.currentTarget.style.opacity="1";}:undefined}
                         className="proj-card"
                         style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",cursor:"grab"}}
                       >
