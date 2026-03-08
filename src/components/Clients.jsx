@@ -268,7 +268,7 @@ export default function Clients({
                         </div>
                       </div>
                       {c.name && <div style={{ fontSize: 12.5, color: T.sub, marginBottom: 2, fontWeight: 500 }}>{c.name}</div>}
-                      {(c.category||c.country)&&<div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{[c.category,c.country].filter(Boolean).join(" \u00b7 ")}</div>}
+                      {(c.category||c.country)&&<div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{[c.category,c.country].filter(Boolean).join(" · ")}</div>}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12, padding: "10px 12px", background: "#fafafa", borderRadius: 10 }}>
                         <div>
                           <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 3 }}>Revenue</div>
@@ -350,9 +350,9 @@ export default function Clients({
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
               <div>
                 <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedClient.company||"Client"}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[selectedClient.category,selectedClient.country].filter(Boolean).join(" \u00b7 ")}</div>
+                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[selectedClient.category,selectedClient.country].filter(Boolean).join(" · ")}</div>
               </div>
-              <button onClick={()=>setSelectedClient(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>\u00d7</button>
+              <button onClick={()=>setSelectedClient(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
               {[["Company","company"],["Contact Name","name"],["Email","email"],["Phone","phone"]].map(([label,key])=>(
