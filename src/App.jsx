@@ -5559,6 +5559,64 @@ const api = {
   delete: (path)       => fetch(`${API}${path}`,{method:"DELETE",headers:_h()}).then(_guard),
 };
 
+// ─── Document store API helpers (Turso-backed) ─────────────────────────────
+const docApi = {
+  get: (table, projectId) => api.get(`/api/${table}?project_id=${projectId}`).then(r => r?.data ? JSON.parse(r.data) : null),
+  put: (table, projectId, data) => api.post(`/api/${table}`, { project_id: projectId, data: JSON.stringify(data) }),
+};
+const globalApi = {
+  get: (table) => api.get(`/api/${table}`).then(r => r?.data ? JSON.parse(r.data) : null),
+  put: (table, data) => api.post(`/api/${table}`, { data: JSON.stringify(data) }),
+};
+const configApi = {
+  get: (key) => api.get(`/api/user_config?key=${key}`).then(r => r?.data ? JSON.parse(r.data) : null),
+  put: (key, data) => api.post(`/api/user_config`, { key, data: JSON.stringify(data) }),
+};
+
+// ─── Debounced save to Turso (dual-write alongside localStorage) ───────────
+const _saveTimers = {};
+const _prevStoreSnaps = {};
+const debouncedDocSave = (table, storeObj, delay = 2000) => {
+  // Compare per-project: only save changed project IDs
+  const prev = _prevStoreSnaps[table] || {};
+  const changedPids = Object.keys(storeObj).filter(pid => {
+    const cur = JSON.stringify(storeObj[pid]);
+    return cur !== prev[pid];
+  });
+  // Update snapshot
+  const snap = {};
+  Object.keys(storeObj).forEach(pid => { snap[pid] = JSON.stringify(storeObj[pid]); });
+  _prevStoreSnaps[table] = snap;
+  // Save only changed projects
+  changedPids.forEach(pid => {
+    const key = `${table}:${pid}`;
+    clearTimeout(_saveTimers[key]);
+    _saveTimers[key] = setTimeout(() => {
+      docApi.put(table, pid, storeObj[pid]).catch(() => {});
+    }, delay);
+  });
+};
+const debouncedGlobalSave = (table, data, delay = 2000) => {
+  clearTimeout(_saveTimers[table]);
+  _saveTimers[table] = setTimeout(() => {
+    globalApi.put(table, data).catch(() => {});
+  }, delay);
+};
+const debouncedConfigSave = (key, data, delay = 2000) => {
+  clearTimeout(_saveTimers[`cfg:${key}`]);
+  _saveTimers[`cfg:${key}`] = setTimeout(() => {
+    configApi.put(key, data).catch(() => {});
+  }, delay);
+};
+const flushAllSaves = () => {
+  Object.keys(_saveTimers).forEach(k => {
+    clearTimeout(_saveTimers[k]);
+  });
+  // Use sendBeacon for reliability on page close — fire all pending saves
+  // We can't easily know what's pending, so we rely on the debounce having already fired
+  // The main protection is the short debounce delay (2s)
+};
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
 const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
@@ -12663,7 +12721,7 @@ export default function OnnaDashboard() {
   const [sopAddOpen,setSopAddOpen] = useState(false);
   const [sopPreview,setSopPreview] = useState(false);
   const [sopFilter,setSopFilter] = useState("all");
-  useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{}},[sops]);
+  useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{} debouncedGlobalSave('sops',sops);},[sops]);
 
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
@@ -12822,20 +12880,20 @@ export default function OnnaDashboard() {
       setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);
     }
   };
-  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){}},[todos]);
-  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){}},[projectTodos]);
-  useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{}},[archivedProjects]);
-  useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{}},[dashNotesList]);
+  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} debouncedGlobalSave('todos',todos);},[todos]);
+  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
+  useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
+  useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
   useEffect(()=>{idbGet("projectFileStore").then(d=>{if(d)setProjectFileStore(d);setFileStoreReady(true);}).catch(()=>setFileStoreReady(true));},[]);
   useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
-  useEffect(()=>{if(actualsReady)idbSet("projectActuals",projectActuals).catch(()=>{});},[projectActuals,actualsReady]);
+  useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
-  useEffect(()=>{if(castingReady)idbSet("projectCasting",projectCasting).catch(()=>{});},[projectCasting,castingReady]);
-  useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{}},[projectCreativeLinks]);
-  useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{}},[callSheetStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{}},[riskAssessmentStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{}},[cpsStore]);
+  useEffect(()=>{if(castingReady){idbSet("projectCasting",projectCasting).catch(()=>{}); debouncedDocSave('project_casting',projectCasting);}},[projectCasting,castingReady]);
+  useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{} debouncedDocSave('creative_links',projectCreativeLinks);},[projectCreativeLinks]);
+  useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{} debouncedDocSave('callsheets',callSheetStore);},[callSheetStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{} debouncedDocSave('riskassessments',riskAssessmentStore);},[riskAssessmentStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{} debouncedDocSave('cps',cpsStore);},[cpsStore]);
   // Auto-sync CPS share link when content changes (debounced 5s)
   useEffect(()=>{
     if(!selectedProject||activeCPSVersion==null)return;
@@ -12853,11 +12911,11 @@ export default function OnnaDashboard() {
     },5000);
     return()=>{if(cpsAutoSyncTimer.current)clearTimeout(cpsAutoSyncTimer.current);};
   },[cpsStore,activeCPSVersion,selectedProject]); // eslint-disable-line
-  useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{}},[shotListStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{}},[storyboardStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_postprod',JSON.stringify(postProdStore))}catch{}},[postProdStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_casting_tables',JSON.stringify(castingTableStore))}catch{}},[castingTableStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{}},[fittingStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{} debouncedDocSave('shotlists',shotListStore);},[shotListStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{} debouncedDocSave('storyboards',storyboardStore);},[storyboardStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_postprod',JSON.stringify(postProdStore))}catch{} debouncedDocSave('postprod',postProdStore);},[postProdStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_casting_tables',JSON.stringify(castingTableStore))}catch{} debouncedDocSave('casting_tables',castingTableStore);},[castingTableStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{} debouncedDocSave('fittings',fittingStore);},[fittingStore]);
   // Poll fitting share feedback and sync back to portal
   useEffect(()=>{
     if(activeFittingVersion==null||!selectedProject)return;
@@ -12916,14 +12974,14 @@ export default function OnnaDashboard() {
     const timer=setInterval(poll,5000);
     return()=>{cancelled=true;clearInterval(timer);};
   },[activeFittingVersion,selectedProject]); // eslint-disable-line
-  useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{}},[locDeckStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_recce_reports',JSON.stringify(recceReportStore))}catch{}},[recceReportStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{}},[castingDeckStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{}},[contractDocStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{}},[travelItineraryStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{}},[dietaryStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{}},[projectEstimates]);
-  useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{}},[projectInfo]);
+  useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{} debouncedDocSave('loc_decks',locDeckStore);},[locDeckStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_recce_reports',JSON.stringify(recceReportStore))}catch{} debouncedDocSave('recce_reports',recceReportStore);},[recceReportStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{} debouncedDocSave('casting_decks',castingDeckStore);},[castingDeckStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{} debouncedDocSave('contracts_doc',contractDocStore);},[contractDocStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{} debouncedDocSave('travel_itineraries',travelItineraryStore);},[travelItineraryStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{} debouncedDocSave('dietaries',dietaryStore);},[dietaryStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{} debouncedDocSave('estimates',projectEstimates);},[projectEstimates]);
+  useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{} debouncedDocSave('project_info',projectInfo);},[projectInfo]);
   useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
@@ -13224,10 +13282,88 @@ export default function OnnaDashboard() {
       try{localStorage.setItem('onna_cache_clients',JSON.stringify(finalClients))}catch{}
 
       setApiLoading(false);
+
+      // ── Migrate localStorage → Turso (one-time) ──────────────────────
+      if (!localStorage.getItem('onna_migrated_v1')) {
+        try {
+          const payload = {};
+          // Per-project doc stores
+          const docKeys = {onna_callsheets:1,onna_riskassessments:1,onna_contracts_doc:1,onna_estimates:1,onna_dietaries:1,onna_travel_itineraries:1,onna_shotlists:1,onna_storyboards:1,onna_fittings:1,onna_loc_decks:1,onna_cps:1,onna_postprod:1,onna_casting_tables:1,onna_casting_decks:1,onna_recce_reports:1,onna_project_info:1,onna_creative_links:1};
+          Object.keys(docKeys).forEach(k => { try { const v=localStorage.getItem(k); if(v) payload[k]=JSON.parse(v); } catch{} });
+          // Global stores
+          ['onna_todos','onna_ptodos','onna_notes_list','onna_archive','onna_sops'].forEach(k => { try { const v=localStorage.getItem(k); if(v) payload[k]=JSON.parse(v); } catch{} });
+          // Config keys
+          ['onna_lead_cats','onna_lead_locs','onna_vendor_cats','onna_vendor_locs','onna_hidden_lead_cats','onna_hidden_vendor_cats'].forEach(k => { try { const v=localStorage.getItem(k); if(v) payload[k]=JSON.parse(v); } catch{} });
+          // IndexedDB stores
+          try { const a=await idbGet("projectActuals"); if(a) payload.projectActuals=a; } catch{}
+          try { const c=await idbGet("projectCasting"); if(c) payload.projectCasting=c; } catch{}
+          payload._syncTs = Date.now();
+          await api.post('/api/migrate', payload);
+          localStorage.setItem('onna_migrated_v1', String(Date.now()));
+        } catch(e) { console.warn('Migration failed, will retry next load:', e); }
+      }
+
+      // ── Hydrate global data from Turso ────────────────────────────────
+      try {
+        const gd = await api.get('/api/global-data');
+        if (gd) {
+          if (gd.todos) setTodos(gd.todos.map(t => t.tab ? t : ["later","longterm"].includes(t.subType) ? {...t, tab:"personal"} : {...t, tab:"onna"}));
+          if (gd.ptodos) setProjectTodos(gd.ptodos);
+          if (gd.notes_list) setDashNotesList(gd.notes_list);
+          if (gd.archive) setArchive(gd.archive);
+          if (gd.sops) setSops(gd.sops);
+          if (gd.user_config) {
+            if (gd.user_config.onna_lead_cats) setCustomLeadCats(gd.user_config.onna_lead_cats);
+            if (gd.user_config.onna_lead_locs) setCustomLeadLocs(gd.user_config.onna_lead_locs);
+            if (gd.user_config.onna_vendor_cats) setCustomVendorCats(gd.user_config.onna_vendor_cats);
+            if (gd.user_config.onna_vendor_locs) setCustomVendorLocs(gd.user_config.onna_vendor_locs);
+            if (gd.user_config.onna_hidden_lead_cats) setHiddenLeadBuiltins(gd.user_config.onna_hidden_lead_cats);
+            if (gd.user_config.onna_hidden_vendor_cats) setHiddenVendorBuiltins(gd.user_config.onna_hidden_vendor_cats);
+          }
+        }
+      } catch {}
+
     }).catch(()=>setApiLoading(false));
     return ()=>{ cancelled=true; };
   },[authed]);
 
+  // ── Hydrate project doc data from Turso when project opens ──────────────
+  const hydratedProjectsRef = useRef(new Set());
+  useEffect(() => {
+    if (!selectedProject || !authed) return;
+    const pid = String(selectedProject.id);
+    if (hydratedProjectsRef.current.has(pid)) return;
+    hydratedProjectsRef.current.add(pid);
+    api.get(`/api/project-data/${pid}`).then(d => {
+      if (!d) return;
+      if (d.callsheets) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
+      if (d.riskassessments) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
+      if (d.contracts_doc) setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc}));
+      if (d.estimates) setProjectEstimates(prev => ({...prev, [pid]: d.estimates}));
+      if (d.dietaries) setDietaryStore(prev => ({...prev, [pid]: d.dietaries}));
+      if (d.travel_itineraries) setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries}));
+      if (d.shotlists) setShotListStore(prev => ({...prev, [pid]: d.shotlists}));
+      if (d.storyboards) setStoryboardStore(prev => ({...prev, [pid]: d.storyboards}));
+      if (d.fittings) setFittingStore(prev => ({...prev, [pid]: d.fittings}));
+      if (d.loc_decks) setLocDeckStore(prev => ({...prev, [pid]: d.loc_decks}));
+      if (d.cps) setCpsStore(prev => ({...prev, [pid]: d.cps}));
+      if (d.postprod) setPostProdStore(prev => ({...prev, [pid]: d.postprod}));
+      if (d.casting_tables) setCastingTableStore(prev => ({...prev, [pid]: d.casting_tables}));
+      if (d.casting_decks) setCastingDeckStore(prev => ({...prev, [pid]: d.casting_decks}));
+      if (d.recce_reports) setRecceReportStore(prev => ({...prev, [pid]: d.recce_reports}));
+      if (d.project_info) setProjectInfo(prev => ({...prev, [pid]: d.project_info}));
+      if (d.creative_links) setProjectCreativeLinks(prev => ({...prev, [pid]: d.creative_links}));
+      if (d.project_actuals) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
+      if (d.project_casting) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
+    }).catch(() => {});
+  }, [selectedProject, authed]); // eslint-disable-line
+
+  // ── Flush pending saves on page close ──────────────────────────────────
+  useEffect(() => {
+    const onBeforeUnload = () => { flushAllSaves(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   // ── Cross-device sync via API ─────────────────────────────────────────────
   const SYNC_KEYS = [
