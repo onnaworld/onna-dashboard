@@ -11956,7 +11956,7 @@ const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+      <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
         <div style={{padding:"11px 16px",borderBottom:`1px solid ${T.borderSub}`,fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",background:"#fafafa",fontWeight:600}}>AI Generator — {docType}</div>
         <div style={{padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
           <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Describe shoot, crew, location, timing…" rows={3} style={{width:"100%",background:"#fafafa",border:`1px solid ${T.border}`,borderRadius:10,padding:"10px 13px",color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",outline:"none",lineHeight:"1.6"}}/>
@@ -11966,7 +11966,7 @@ const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
         </div>
       </div>
       {(output||loading)&&(
-        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
           <div style={{padding:"11px 16px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
             <span style={{fontSize:10,color:T.muted,letterSpacing:"0.07em",textTransform:"uppercase",fontWeight:600}}>Generated {docType}</span>
             {output&&<div style={{display:"flex",gap:6}}>
@@ -12023,7 +12023,7 @@ const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onArchive})
   const showEditor = !isMobile||!!selectedNote;
   const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
   return (
-    <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",height:isMobile?520:500,background:T.surface}}>
+    <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,0.06)",display:"flex",height:isMobile?520:500,background:T.surface}}>
       {showList&&(
         <div style={{width:isMobile?"100%":220,borderRight:isMobile?"none":`1px solid ${T.border}`,display:"flex",flexDirection:"column",background:"#fafafa",flexShrink:0}}>
           <div style={{padding:"12px 14px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -14052,7 +14052,7 @@ export default function OnnaDashboard() {
 
     // mini stat card used in project sections
     const MiniStat = ({label,value}) => (
-      <div style={{borderRadius:14,padding:"18px 20px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+      <div style={{borderRadius:14,padding:"18px 20px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
         <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:6,fontWeight:500}}>{label}</div>
         <div style={{fontSize:22,fontWeight:700,color:T.text,letterSpacing:"-0.02em"}}>{value}</div>
       </div>
@@ -14085,7 +14085,7 @@ export default function OnnaDashboard() {
           </select>
         </div>
         {/* Project Info */}
-        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:isMobile?16:28,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+        <div style={{borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:isMobile?16:28,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
           <div style={{padding:"10px 18px",borderBottom:`1px solid ${T.borderSub}`,background:"#fafafa"}}>
             <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Project Info</span>
           </div>
@@ -14098,7 +14098,7 @@ export default function OnnaDashboard() {
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:28}}>
           {[["Total Revenue",`AED ${totalIn.toLocaleString()}`,"income"],["Total Expenses",`AED ${totalOut.toLocaleString()}`,"outgoings"],["Net Profit",`AED ${profit.toLocaleString()}`,"revenue − expenses"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
-            <div key={l} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+            <div key={l} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
               <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8,fontWeight:500}}>{l}</div>
               <div style={{fontSize:24,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:3}}>{v}</div>
               <div style={{fontSize:11,color:T.muted}}>{s}</div>
@@ -14106,7 +14106,7 @@ export default function OnnaDashboard() {
           ))}
         </div>
         {/* Project To-Do List */}
-        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:24,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:24,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
           <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",gap:8,background:"#fafafa"}}>
             <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>Project To-Do</span>
             <span style={{fontSize:11,color:T.muted}}>{(projectTodos[p.id]||[]).filter(t=>!archivedTodos.find(a=>a.id===t.id)&&!t.done).length} open</span>
@@ -14117,7 +14117,7 @@ export default function OnnaDashboard() {
         {(()=>{
           const projNotes=dashNotesList.filter(n=>n.projectId===p.id).sort((a,b)=>b.updatedAt-a.updatedAt);
           return (
-            <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:24,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",maxHeight:400}}>
+            <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",marginBottom:24,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",display:"flex",flexDirection:"column",maxHeight:400}}>
               <div style={{padding:"12px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",gap:8,background:"#fafafa",flexShrink:0}}>
                 <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>Notes</span>
                 <button onClick={()=>{const n={id:Date.now(),title:`${p.client||"Client"} | ${p.name||"Project"}`,content:"",updatedAt:Date.now(),projectId:p.id};setDashNotesList(prev=>[n,...prev]);}} style={{padding:"3px 10px",borderRadius:7,background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New</button>
@@ -14147,7 +14147,7 @@ export default function OnnaDashboard() {
           {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
             const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
             return (
-              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:14,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
+              <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:16,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -14237,7 +14237,7 @@ export default function OnnaDashboard() {
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Creative assets for this project.</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
             {[["moodboard","Moodboard","🎨",moodFiles],["brief","Brief","📋",briefFiles]].map(([key,label,emoji,files])=>(
-              <a key={key} href={buildPath("Projects",p.id,"Creative",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setCreativeSubSection(key);pushNav("Projects",p,"Creative",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
+              <a key={key} href={buildPath("Projects",p.id,"Creative",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setCreativeSubSection(key);pushNav("Projects",p,"Creative",key);}} className="proj-card" style={{borderRadius:16,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
                   <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
@@ -14264,7 +14264,7 @@ export default function OnnaDashboard() {
           <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Budget management for this project.</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
             {[["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`],["invoices","Invoices & Receipts","🧾","Upload invoices & receipts"]].map(([key,label,emoji,desc])=>(
-              <a key={key} href={buildPath("Projects",p.id,"Budget",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setBudgetSubSection(key);pushNav("Projects",p,"Budget",key);}} className="proj-card" style={{borderRadius:14,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",textDecoration:"none",color:"inherit"}}>
+              <a key={key} href={buildPath("Projects",p.id,"Budget",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setBudgetSubSection(key);pushNav("Projects",p,"Budget",key);}} className="proj-card" style={{borderRadius:16,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{minWidth:0,flex:1}}>
                   <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:3}}>{label}</div>
@@ -14748,7 +14748,7 @@ export default function OnnaDashboard() {
       if (!documentsSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           {DOC_CARDS.map(c=>(
-            <a key={c.key} href={buildPath("Projects",p.id,"Documents",c.key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setDocumentsSubSection(c.key);pushNav("Projects",p,"Documents",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s",textDecoration:"none",color:"inherit"}}>
+            <a key={c.key} href={buildPath("Projects",p.id,"Documents",c.key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setDocumentsSubSection(c.key);pushNav("Projects",p,"Documents",c.key);}} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -15780,7 +15780,7 @@ export default function OnnaDashboard() {
             {docBack}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
               {PERMIT_CARDS.map(c=>(
-                <div key={c.key} onClick={()=>setPermitsSubSection(c.key)} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+                <div key={c.key} onClick={()=>setPermitsSubSection(c.key)} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s"}}>
                   <span style={{fontSize:28}}>{c.emoji}</span>
                   <div>
                     <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -15815,7 +15815,7 @@ export default function OnnaDashboard() {
         <div>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
             {LOC_CARDS.map(c=>(
-              <div key={c.key} onClick={()=>{setLocSubSection(c.key);pushNav("Projects",p,"Locations",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <div key={c.key} onClick={()=>{setLocSubSection(c.key);pushNav("Projects",p,"Locations",c.key);}} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s"}}>
                 <span style={{fontSize:28}}>{c.emoji}</span>
                 <div>
                   <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -16312,7 +16312,7 @@ export default function OnnaDashboard() {
       if (!castingSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
           {CASTING_CARDS.map(c=>(
-            <div key={c.key} onClick={()=>{setCastingSubSection(c.key);pushNav("Projects",p,"Casting",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+            <div key={c.key} onClick={()=>{setCastingSubSection(c.key);pushNav("Projects",p,"Casting",c.key);}} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -16354,7 +16354,7 @@ export default function OnnaDashboard() {
             {castDeckVersions.length===0 ? <div style={{textAlign:"center",padding:40,color:T.muted,fontSize:14}}>No casting deck versions yet. Create one to get started.</div>
             : <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {castDeckVersions.map((v,i)=>(
-                <div key={v.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}} onClick={()=>setActiveCastingDeckVersion(i)}>
+                <div key={v.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:12,background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}} onClick={()=>setActiveCastingDeckVersion(i)}>
                   <span style={{fontSize:11,fontWeight:700,color:"#fff",background:T.accent,borderRadius:6,padding:"3px 10px"}}>{v.label||`V${i+1}`}</span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:600,color:T.text}}>{v.project?.name||"Untitled"}</div>
@@ -16632,7 +16632,7 @@ export default function OnnaDashboard() {
       if (!stylingSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
           {STYLING_CARDS.map(c=>(
-            <div key={c.key} onClick={()=>{setStylingSubSection(c.key);pushNav("Projects",p,"Styling",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+            <div key={c.key} onClick={()=>{setStylingSubSection(c.key);pushNav("Projects",p,"Styling",c.key);}} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -16832,7 +16832,7 @@ export default function OnnaDashboard() {
         <div>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
             {TRAVEL_CARDS.map(c=>(
-              <div key={c.key} onClick={()=>{setTravelSubSection(c.key);pushNav("Projects",p,"Travel",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+              <div key={c.key} onClick={()=>{setTravelSubSection(c.key);pushNav("Projects",p,"Travel",c.key);}} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s"}}>
                 <span style={{fontSize:28}}>{c.emoji}</span>
                 <div>
                   <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -17303,7 +17303,7 @@ export default function OnnaDashboard() {
       if (!scheduleSubSection) return (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
           {SCHED_CARDS.map(c=>(
-            <div key={c.key} onClick={()=>{setScheduleSubSection(c.key);pushNav("Projects",p,"Schedule",c.key);}} className="proj-card" style={{borderRadius:14,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",transition:"border-color 0.15s"}}>
+            <div key={c.key} onClick={()=>{setScheduleSubSection(c.key);pushNav("Projects",p,"Schedule",c.key);}} className="proj-card" style={{borderRadius:16,padding:"22px 20px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",transition:"border-color 0.15s"}}>
               <span style={{fontSize:28}}>{c.emoji}</span>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:T.text}}>{c.label}</div>
@@ -17826,7 +17826,7 @@ export default function OnnaDashboard() {
         .nav-btn:hover{color:#1d1d1f;background:rgba(0,0,0,0.05);}
         .nav-btn.active{background:rgba(0,0,0,0.08);color:#1d1d1f;font-weight:700;}
         .row:hover{background:#f5f5f7!important;cursor:pointer;}
-        .proj-card:hover{border-color:#c7c7cc!important;box-shadow:0 6px 20px rgba(0,0,0,0.08)!important;transform:translateY(-1px);}
+        .proj-card:hover{border-color:#c7c7cc!important;box-shadow:0 8px 24px rgba(0,0,0,0.10)!important;transform:translateY(-2px);}
         .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:${isMobile?"flex-end":"center"};justify-content:center;}
         input:focus,textarea:focus,select:focus{outline:none;border-color:#6e6e73!important;box-shadow:0 0 0 3px rgba(0,0,0,0.06)!important;}
         .todo-item:hover .todo-del{opacity:1;} .todo-del{opacity:0;transition:opacity 0.12s;}
@@ -17985,7 +17985,7 @@ export default function OnnaDashboard() {
                   let o=0;
                   const sg=groups.map(g=>{const d=(g.count/gt)*CIR,s={...g,d,o};o+=d;return s;});
                   return (
-                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px",display:"flex",flexDirection:"column"}}>
+                    <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:"22px 24px",display:"flex",flexDirection:"column"}}>
                       <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:16}}>{title}</div>
                       <div style={{display:"flex",justifyContent:"center",marginBottom:16,flexShrink:0}}>
                         <svg width={156} height={156} viewBox="0 0 156 156">
@@ -18048,14 +18048,14 @@ export default function OnnaDashboard() {
                     </div>
                     {/* Reminders Row */}
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
-                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:"22px 24px"}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
                           <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Contact Today</div>
                           <span style={{fontSize:11,color:"#c0392b",background:"#fff3e0",padding:"2px 8px",borderRadius:999,fontWeight:500}}>Not yet reached out</span>
                         </div>
                         {toContact.length===0?<div style={{fontSize:13,color:T.muted,textAlign:"center",padding:"24px 0"}}>All leads contacted!</div>:toContact.map(l=><ReminderCard key={l.id} lead={l} showDate={false}/>)}
                       </div>
-                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",padding:"22px 24px"}}>
+                      <div style={{borderRadius:16,background:T.surface,border:"1px solid "+T.border,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",padding:"22px 24px"}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
                           <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Follow Up</div>
                           <span style={{fontSize:11,color:"#92680a",background:"#fff8e8",padding:"2px 8px",borderRadius:999,fontWeight:500}}>1+ month since contact</span>
@@ -18081,7 +18081,7 @@ export default function OnnaDashboard() {
                     ))}
                     <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
                   </div>
-                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
                     <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?620:"auto"}}>
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
@@ -18127,7 +18127,7 @@ export default function OnnaDashboard() {
                           const cProjects = localProjects.filter(p=>(p.client||"").trim().toLowerCase()===cKey);
                           const cRevenue  = cProjects.reduce((a,p)=>a+getProjRevenue(p),0);
                           return (
-                            <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                            <div key={c.id} className="proj-card" style={{borderRadius:16,padding:22,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                                 <div style={{fontSize:15,fontWeight:600,color:T.text,letterSpacing:"-0.01em",lineHeight:1.3}}>{c.company}</div>
                                 <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -18177,7 +18177,7 @@ export default function OnnaDashboard() {
                     ))}
                     <span style={{fontSize:11.5,color:T.muted,marginLeft:"auto"}}>Click badge to cycle</span>
                   </div>
-                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                  <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
                     <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?660:"auto"}}>
                       <thead><tr>
                         <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
@@ -18272,7 +18272,7 @@ export default function OnnaDashboard() {
                       {archivedProjects.filter(p=>!getSearch("Projects")||`${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p=>{
                         const _rev=getProjRevenue(p);const _cost=getProjCost(p);const profit=_rev-_cost; const margin=_rev>0?Math.round((profit/_rev)*100):0;
                         return (
-                          <div key={p.id} className="proj-card" style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                          <div key={p.id} className="proj-card" style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
                             <a href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer",textDecoration:"none",color:"inherit"}}>
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                                 <div>
@@ -18330,7 +18330,7 @@ export default function OnnaDashboard() {
                         onDragStart={p.client!=="TEMPLATE"?e=>{e.dataTransfer.setData("projectId",String(p.id));e.currentTarget.style.opacity="0.5";}:undefined}
                         onDragEnd={p.client!=="TEMPLATE"?e=>{e.currentTarget.style.opacity="1";}:undefined}
                         className="proj-card"
-                        style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",cursor:"grab"}}
+                        style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",cursor:"grab"}}
                       >
                         <a href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{display:"flex",flexDirection:"column",gap:14,cursor:"pointer",textDecoration:"none",color:"inherit"}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -18442,7 +18442,7 @@ export default function OnnaDashboard() {
                       <div style={{marginBottom:12}}>
                         <input value={vaultPwSearch} onChange={e=>setVaultPwSearch(e.target.value)} placeholder="Search passwords…" style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",color:T.text,background:T.surface,boxSizing:"border-box"}}/>
                       </div>
-                      <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",marginBottom:14}}>
+                      <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",marginBottom:14}}>
                         <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?480:"auto"}}>
                           <thead><tr>
                             <TH>Service / Name</TH><TH>URL</TH><TH>Username / Email</TH><TH>Password</TH>
@@ -18475,7 +18475,7 @@ export default function OnnaDashboard() {
                     <div>
                       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:14,marginBottom:14}}>
                         {vaultResources.filter(r=>r.type==="file").map(e=>(
-                          <div key={e.id} style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:10}}>
+                          <div key={e.id} style={{borderRadius:16,padding:20,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",display:"flex",flexDirection:"column",gap:10}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                               <div style={{fontSize:28,lineHeight:1}}>📄</div>
                               <button onClick={()=>deleteVaultEntry(e.id)} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0}} onMouseOver={ev=>ev.currentTarget.style.color="#c0392b"} onMouseOut={ev=>ev.currentTarget.style.color=T.muted}>×</button>
