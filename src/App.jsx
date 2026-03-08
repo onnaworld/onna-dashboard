@@ -17822,9 +17822,9 @@ export default function OnnaDashboard() {
         ::-webkit-scrollbar{width:5px;height:5px;}
         ::-webkit-scrollbar-thumb{background:#d1d1d6;border-radius:3px;}
         ::-webkit-scrollbar-track{background:transparent;}
-        .nav-btn{width:100%;text-align:left;padding:8px 11px;border-radius:10px;border:none;background:transparent;color:#6e6e73;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.12s;display:flex;align-items:center;gap:9px;letter-spacing:0.04em;}
+        .nav-btn{width:100%;text-align:left;padding:9px 11px;border-radius:10px;border:none;background:transparent;color:#6e6e73;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.12s;display:flex;align-items:center;gap:9px;letter-spacing:0.04em;}
         .nav-btn:hover{color:#1d1d1f;background:rgba(0,0,0,0.05);}
-        .nav-btn.active{background:rgba(0,0,0,0.08);color:#1d1d1f;}
+        .nav-btn.active{background:rgba(0,0,0,0.08);color:#1d1d1f;font-weight:700;}
         .row:hover{background:#f5f5f7!important;cursor:pointer;}
         .proj-card:hover{border-color:#c7c7cc!important;box-shadow:0 6px 20px rgba(0,0,0,0.08)!important;transform:translateY(-1px);}
         .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:${isMobile?"flex-end":"center"};justify-content:center;}
@@ -19247,7 +19247,7 @@ export default function OnnaDashboard() {
             </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
               <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;const saved=await api.post("/api/vendors",newVendor);if(saved.id)setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
+              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&!saved.error){setVendors(prev=>[...prev,saved]);} else {setVendors(prev=>[...prev,{...newVendor,id:Date.now()}]);}}catch{setVendors(prev=>[...prev,{...newVendor,id:Date.now()}]);}setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}}>Save Vendor</BtnPrimary>
             </div>
           </div>
         </div>
