@@ -4057,7 +4057,7 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
   const ver = { ...versions[versionIdx] };
 
   // Merge scalar fields
-  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour","mapLink"];
+  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour","mapLink","mapImage"];
   scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
   if (patch.weatherHourly !== undefined) ver.weatherHourly = patch.weatherHourly;
 
@@ -4069,6 +4069,7 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
   if (patch.schedule) ver.schedule = patch.schedule;
   if (patch.venueRows) ver.venueRows = patch.venueRows;
   if (patch.emergencyNumbers) ver.emergencyNumbers = patch.emergencyNumbers;
+  if (patch.extraMapImages) ver.extraMapImages = patch.extraMapImages;
 
   // Merge departments/crew by role (case-insensitive)
   if (patch.departments && Array.isArray(patch.departments)) {
@@ -4094,11 +4095,37 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
 
   versions[versionIdx] = ver;
   setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
+
+  // Auto-fetch map screenshot when Connie sets mapLink and no mapImage exists
+  if (patch.mapLink && !ver.mapImage) {
+    try {
+      const link = patch.mapLink;
+      let q = "";
+      try { const u = new URL(link); q = u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0]; if (!q) q = u.searchParams.get("q") || ""; } catch {}
+      if (!q) q = link.replace(/https?:\/\/[^/]+\//, "");
+      q = decodeURIComponent(q).replace(/\+/g, " ");
+      const coords = link.match(/@(-?[\d.]+),(-?[\d.]+)/);
+      let mapUrl;
+      if (coords) { mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${coords[1]},${coords[2]}&zoom=15&size=600x400&maptype=mapnik&markers=${coords[1]},${coords[2]},red-pushpin`; }
+      else { mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(q)}&zoom=15&size=600x400&maptype=mapnik`; }
+      fetch(mapUrl).then(r => r.blob()).then(blob => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          setCallSheetStore(prev => {
+            const vs = JSON.parse(JSON.stringify(prev[projectId] || []));
+            if (vs[versionIdx]) vs[versionIdx].mapImage = e.target.result;
+            return { ...prev, [projectId]: vs };
+          });
+        };
+        reader.readAsDataURL(blob);
+      }).catch(() => {});
+    } catch {}
+  }
 }
 
 function buildConniePatchMarkers(patch, preVer) {
   const markers = new Set();
-  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour","mapLink"];
+  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour","mapLink","mapImage"];
   scalars.forEach(k => { if (patch[k] !== undefined && patch[k] !== (preVer[k]||"")) markers.add("cs:scalar:"+k); });
   if (patch.weatherHourly !== undefined) markers.add("cs:weatherHourly");
   if (patch.emergency) { if(patch.emergency.hospital && patch.emergency.hospital!==(preVer.emergency?.hospital||"")) markers.add("cs:emergency.hospital"); if(patch.emergency.police && patch.emergency.police!==(preVer.emergency?.police||"")) markers.add("cs:emergency.police"); }
@@ -7282,7 +7309,11 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
                 {hasCM("cs:scalar:mapLink")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:mapLink")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:mapLink")} style={cRevBtn("decline")}>{"✕"}</button></span>}
               </div>
-              <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/></div>
+              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapUrl;if(coords){mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${coords[1]},${coords[2]}&zoom=15&size=600x400&maptype=mapnik&markers=${coords[1]},${coords[2]},red-pushpin`;}else{mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(q)}&zoom=15&size=600x400&maptype=mapnik`;}fetch(mapUrl).then(r=>r.blob()).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+              <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
+              {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
+              <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
+              </div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px 48px"}}><div style={csSecTitle}>WEATHER</div>
               <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS,display:"flex",alignItems:"center",gap:4,position:"relative",...(hasCM("cs:scalar:weatherSummary")?cHL:{})}}>{hasCM("cs:scalar:weatherSummary")&&<span style={{position:"absolute",left:-28,top:0,display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:weatherSummary")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:weatherSummary")} style={cRevBtn("decline")}>{"✕"}</button></span>}<CSEditField value={csData.weatherSummary||""} onChange={v=>{csU("weatherSummary",v);confirmFC("weatherSummary");}} alwaysYellow={!isFC("weatherSummary")} style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS,flex:1}} placeholder="e.g. Sunny, Clear Skies"/></div>
@@ -11430,7 +11461,8 @@ const printCallSheetPDF = (cs) => {
   }).join("");
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
   const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
-  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/></div>` : "";
+  const extraMaps = (cs.extraMapImages||[]).filter(Boolean).map(img=>`<img src="${img}" style="width:100%;max-height:220px;object-fit:contain;border-radius:4px;margin-top:8px"/>`).join("");
+  const mapImg = cs.mapImage ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}<img src="${cs.mapImage}" style="width:100%;max-height:280px;object-fit:contain;border-radius:4px"/>${extraMaps}</div>` : (extraMaps ? `<div style="padding:14px 32px 10px"><div style="${secTitle}">MAP</div>${mapLink}${extraMaps}</div>` : "");
   const weatherSummaryPDF = cs.weatherSummary ? `<div style="font-size:9px;font-style:italic;letter-spacing:1.5px;margin-bottom:6px">${e(cs.weatherSummary)}</div>` : "";
   const wxEmoji=(c)=>{const l=(c||"").toLowerCase();return l.includes("sun")||l.includes("clear")?"☀️":l.includes("cloud")?"⛅":l.includes("rain")||l.includes("shower")?"🌧️":l.includes("storm")||l.includes("thunder")?"⛈️":l.includes("wind")?"💨":l.includes("fog")||l.includes("mist")?"🌫️":l.includes("snow")?"❄️":"🌤️"};
   const weatherHourlyPDF = (cs.weatherHourly||[]).length > 0 ? `<div style="margin-bottom:10px"><div style="font-weight:700;letter-spacing:1.5px;font-size:9px;color:#888;margin-bottom:4px">HOURLY FORECAST</div><div style="display:flex;width:100%">${cs.weatherHourly.map((h,i)=>`<div style="flex:1;text-align:center;padding:4px 2px;border-right:${i<cs.weatherHourly.length-1?"1px solid #eee":"none"};font-size:9px"><div style="font-weight:700;color:#555">${e(h.time)}</div><div style="font-size:13px;margin:2px 0">${wxEmoji(h.condition)}</div><div style="font-size:11px;font-weight:800;color:#1a1a1a;margin:1px 0">${e(h.tempC)}°</div><div style="font-size:8px;color:#888">${e(h.tempF)}°F</div></div>`).join("")}</div></div>` : "";
@@ -14876,7 +14908,10 @@ export default function OnnaDashboard() {
                     <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
                     {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
                   </div>
+                  {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapUrl;if(coords){mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${coords[1]},${coords[2]}&zoom=15&size=600x400&maptype=mapnik&markers=${coords[1]},${coords[2]},red-pushpin`;}else{mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(q)}&zoom=15&size=600x400&maptype=mapnik`;}fetch(mapUrl).then(r=>r.blob()).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
                   <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
+                  {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
+                  <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
                 </div>
 
                 {/* WEATHER */}
