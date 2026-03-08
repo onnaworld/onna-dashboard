@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Information from "./components/Information";
 import Dashboard from "./components/Dashboard";
 import Agents from "./components/Agents";
+import Vendors from "./components/Vendors";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -4169,10 +4170,10 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
       if (!q) q = link.replace(/https?:\/\/[^/]+\//, "");
       q = decodeURIComponent(q).replace(/\+/g, " ");
       const coords = link.match(/@(-?[\d.]+),(-?[\d.]+)/);
-      let mapUrl;
-      if (coords) { mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${coords[1]},${coords[2]}&zoom=15&size=600x400&maptype=mapnik&markers=${coords[1]},${coords[2]},red-pushpin`; }
-      else { mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(q)}&zoom=15&size=600x400&maptype=mapnik`; }
-      fetch(mapUrl).then(r => r.blob()).then(blob => {
+      let mapApiUrl;
+      if (coords) { mapApiUrl = `/api/map-image?lat=${coords[1]}&lon=${coords[2]}`; }
+      else { mapApiUrl = `/api/map-image?q=${encodeURIComponent(q)}`; }
+      fetch(mapApiUrl).then(r => { if(!r.ok) throw new Error("Map error"); return r.blob(); }).then(blob => {
         const reader = new FileReader();
         reader.onload = e => {
           setCallSheetStore(prev => {
@@ -6208,7 +6209,7 @@ const initOutreach = []; // populated from DB on load
 const savedCallSheets = {};
 const savedRiskAssessments = {};
 
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#F2877B",_SKY="#7BB8E8",_ROSE="#E8879B",_LAVENDER="#B8A9D4",_MINT="#6EC5A8",_PEACH="#F0A87C";
+const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#E85D4A",_SKY="#5BA8E8",_ROSE="#D4527A",_LAVENDER="#9B85CC",_MINT="#3DB88A",_PEACH="#E8976B";
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
@@ -7432,7 +7433,7 @@ function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore,
                 {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
                 {hasCM("cs:scalar:mapLink")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:mapLink")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:mapLink")} style={cRevBtn("decline")}>{"✕"}</button></span>}
               </div>
-              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapUrl;if(coords){mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${coords[1]},${coords[2]}&zoom=15&size=600x400&maptype=mapnik&markers=${coords[1]},${coords[2]},red-pushpin`;}else{mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(q)}&zoom=15&size=600x400&maptype=mapnik`;}fetch("/api/proxy-download",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:mapUrl})}).then(r=>r.json()).then(data=>{if(data.dataUrl)csU("mapImage",data.dataUrl);else throw new Error(data.error||"No image");}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
               <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
               {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
               <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
@@ -15015,7 +15016,7 @@ export default function OnnaDashboard() {
                     <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
                     {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
                   </div>
-                  {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapUrl;if(coords){mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${coords[1]},${coords[2]}&zoom=15&size=600x400&maptype=mapnik&markers=${coords[1]},${coords[2]},red-pushpin`;}else{mapUrl=`https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(q)}&zoom=15&size=600x400&maptype=mapnik`;}fetch("/api/proxy-download",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:mapUrl})}).then(r=>r.json()).then(data=>{if(data.dataUrl)csU("mapImage",data.dataUrl);else throw new Error(data.error||"No image");}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+                  {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>alert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
                   <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
                   {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
                   <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
@@ -17945,38 +17946,7 @@ export default function OnnaDashboard() {
             ); })()}
 
           {/* ══ VENDORS ══ */}
-          {activeTab==="Vendors"&&(
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-                <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
-                <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n){setBbCat(n);setBbLocation("All");}}else{setBbCat(v);setBbLocation("All");}}} options={allVendorCats} minWidth={170}/>
-                <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setBbLocation(n);}else setBbLocation(v);}} options={["All",...allVendorLocs]} minWidth={170}/>
-                <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
-                <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
-                <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
-                <BtnPrimary onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>
-              </div>
-              <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
-                  <thead><tr><TH>Name</TH><TH>Company</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH></tr></thead>
-                  <tbody>
-                    {filteredBB.map(b=>(
-                      <tr key={b.id} className="row" onClick={()=>setEditVendor({...b,_xContacts:getXContacts('vendor',b.id)})} style={{cursor:"pointer"}}>
-                        <TD bold>{b.name}</TD>
-                        <TD muted>{b.company||"—"}</TD>
-                        <TD muted>{b.category||"—"}</TD>
-                        <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email||"—"}</a></td>
-                        <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,whiteSpace:"nowrap",fontSize:12.5,color:T.sub}}>{b.phone||"—"}</td>
-                        <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{b.website?<a href={`https://${b.website}`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.website}</a>:<span style={{color:T.muted,fontSize:12.5}}>—</span>}</td>
-                        <TD muted>{b.location||"—"}</TD>
-                      </tr>
-                    ))}
-                    {filteredBB.length===0&&<tr><td colSpan={7} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {activeTab==="Vendors"&&<Vendors T={T} isMobile={isMobile} bbCat={bbCat} setBbCat={setBbCat} bbLocation={bbLocation} setBbLocation={setBbLocation} filteredBB={filteredBB} customVendorCats={customVendorCats} setCustomVendorCats={setCustomVendorCats} customVendorLocs={customVendorLocs} setCustomVendorLocs={setCustomVendorLocs} allVendorCats={allVendorCats} allVendorLocs={allVendorLocs} addNewOption={addNewOption} getSearch={getSearch} setSearch={setSearch} setShowAddVendor={setShowAddVendor} setEditVendor={setEditVendor} getXContacts={getXContacts} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} SearchBar={SearchBar} Sel={Sel} TH={TH} TD={TD} BtnPrimary={BtnPrimary}/>}
 
           {/* ══ CLIENTS ══ */}
           {activeTab==="Clients"&&(
