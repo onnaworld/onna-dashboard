@@ -14715,6 +14715,21 @@ export default function OnnaDashboard() {
         const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
         const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
 
+        const cfSet = new Set(csData._confirmed || []);
+        const isFC = (k) => cfSet.has(k);
+        const confirmFC = (...keys) => { const cur = new Set(csData._confirmed || []); let ch = false; keys.forEach(k => { if (!cur.has(k)) { cur.add(k); ch = true; } }); if (ch) csU("_confirmed", [...cur]); };
+        const csUC = (path, v, ...cfKeys) => { csU(path, v); if (cfKeys.length) confirmFC(...cfKeys); };
+        const cpr = null;
+        const hasCM = () => false;
+        const acceptCM = () => {};
+        const declineCM = () => {};
+        const acceptCMs = () => {};
+        const declineCMs = () => {};
+        const acceptAllC = () => {};
+        const declineAllC = () => {};
+        const cRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
+        const cHL = {borderLeft:"3px solid #1976D2",paddingLeft:4,marginLeft:-7};
+
         const csLbl = {fontSize:9,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:CS_LS};
         const csDeptBg = "#F4F4F4";
         const csSecTitle = {fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase",borderBottom:"2px solid #000",paddingBottom:5,marginBottom:10};
