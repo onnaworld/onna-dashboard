@@ -274,3 +274,534 @@ export function ConnieTabBar({
     )}
   </>);
 }
+
+/**
+ * handleConnieIntent - handles Call Sheet Connie intent detection in sendMessage.
+ * Returns true if the intent was handled (caller should return), false otherwise.
+ */
+export async function handleConnieIntent({
+  input, history, intro, agent,
+  setMsgs, setInput, setLoading, setMood,
+  connieCtx, setConnieCtx,
+  conniePending, setConniePending,
+  connieDietMode, setConnieDietMode,
+  connieDietPending, setConnieDietPending,
+  conniePendingReview, setConniePendingReview,
+  connieTabs, addConnieTab, setConnieTabs,
+  callSheetStore, setCallSheetStore,
+  dietaryStore, setDietaryStore,
+  localProjects,
+  fuzzyMatchProject, printCallSheetPDF, syncProjectInfoToDocs,
+  popAgentUndo, projectInfoRef,
+  vendorsProp, allLeads,
+  CALLSHEET_INIT, DIETARY_INIT, DIETARY_TAGS, PRINT_CLEANUP_CSS,
+  buildConnieSystem, applyConniePatch, buildConniePatchMarkers,
+  api,
+}) {
+  if (agent.id !== "compliance") return false;
+
+    // ── Connie: live call sheet handler ──────────────────────────────────────────
+      // Step 1: If no confirmed context yet, ask for project
+      if(!connieCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return true;
+        }
+
+        // ── pending: pick project for dietary side view ──
+        if(conniePending?.step==="pick_dietary_project"){
+          const num=parseInt(input.trim(),10);
+          let proj=null;
+          if(num>=1&&num<=localProjects.length) proj=localProjects[num-1];
+          else proj=fuzzyMatchProject(localProjects,input);
+          if(proj){
+            setConniePending(null);
+            setConnieCtx(null);setConnieDietMode(proj.id);
+            const dietCount=(dietaryStore?.[proj.id]||[]).length;
+            setMsgs([...history,{role:"assistant",content:`Here are ${proj.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+          }
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's dietaries? Pick a number or name.\n\n${list}`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+
+
+
+        // Switch from dietary back to call sheets
+        if(connieDietMode && (/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input) || /\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input) || /^\s*call\s*sheets?\s*$/i.test(input))) {
+          const lastTab = connieTabs[connieTabs.length-1];
+          if(lastTab) {
+            setConnieDietMode(null);
+            setConnieCtx({projectId:lastTab.projectId, vIdx:lastTab.vIdx});
+            setMsgs([...history,{role:"assistant",content:`Switched back to call sheets — ${lastTab.label}.`}]);
+          } else {
+            setConnieDietMode(null);
+            setMsgs([...history,{role:"assistant",content:"Switched to call sheets. Which project's call sheet should I work on?"}]);
+          }
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+        }
+
+        // "Open dietaries" without context — show project picker
+        if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\bdietar(?:y|ies)\b/i.test(input)||/\bdietar(?:y|ies)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*dietar(?:y|ies)\s*$/i.test(input)){
+          setConniePending({step:"pick_dietary_project"});
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which dietaries would you like to work on?\n\n${list}`}]);setLoading(false);setMood("idle");return true;
+        }
+
+        // Export intent without context — find the right call sheet and export
+        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+          // Find the first project that has call sheet data
+          let expProj=null;let expIdx=-1;
+          for(const p of localProjects){
+            const csv=callSheetStore?.[p.id]||[];
+            if(csv.length>0){expProj=p;expIdx=csv.length===1?0:csv.length-1;break;}
+          }
+          if(expProj){
+            const csv=callSheetStore[expProj.id];
+            const csData=csv[expIdx];
+            setConnieCtx({projectId:expProj.id,vIdx:expIdx});setConnieDietMode(null);
+            addConnieTab(expProj.id,expIdx,`${expProj.name} · ${csData.label||"Day 1"}`);
+            printCallSheetPDF(csData);
+            setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+          }
+          setMsgs([...history,{role:"assistant",content:"No call sheets found to export. Pick a project first and I'll create one!"}]);
+          setLoading(false);setMood("idle");return true;
+        }
+
+        // Try to match a project name in this message
+        const lower=input.toLowerCase();
+        const num=parseInt(input.trim(),10);
+        let project=null;
+        let _pickedByNumber=false;
+        if(num>=1&&num<=localProjects.length){project=localProjects[num-1];_pickedByNumber=true;}
+        else project=fuzzyMatchProject(localProjects,input);
+        // If input is very short and matched fuzzily (not by number), confirm with the user
+        if(project&&!_pickedByNumber&&input.trim().length<4){
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}${p.client?" ("+p.client+")":""}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        if(!project){
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}${p.client?" ("+p.client+")":""}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project should I work on?\n\n${list}\n\nPick a number or name.`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        // If user explicitly asked for dietaries, open dietary mode; otherwise default to call sheet (both visible in side panel)
+        if(/\bdietar(?:y|ies)\b/i.test(input)){
+          setConnieCtx(null);setConnieDietMode(project.id);
+          const dietCount=(dietaryStore?.[project.id]||[]).length;
+          setMsgs([...history,{role:"assistant",content:`Here are ${project.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+        }
+        // Project matched — now resolve version (call sheet)
+        const csVersions = callSheetStore?.[project.id] || [];
+        if(csVersions.length===0){
+          // Auto-create [Untitled] call sheet
+          const newCS={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(CALLSHEET_INIT))};
+          newCS.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
+          const _pi1=(projectInfoRef.current||{})[project.id];
+          if(_pi1){if(_pi1.shootName)newCS.shootName=_pi1.shootName;if(_pi1.shootDate)newCS.date=_pi1.shootDate;if(_pi1.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi1.shootLocation;}}
+          setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[project.id])store[project.id]=[];store[project.id].push(newCS);return store;});
+          setConnieCtx({projectId:project.id,vIdx:0});setConnieDietMode(null);
+          addConnieTab(project.id,0,`${project.name} · [Untitled]`);
+          const _csLogo=new Image();_csLogo.crossOrigin="anonymous";_csLogo.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_csLogo.naturalWidth;cv.height=_csLogo.naturalHeight;cv.getContext("2d").drawImage(_csLogo,0,0);const du=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].productionLogo)arr[arr.length-1].productionLogo=du;return s;});}catch{}};_csLogo.src="/onna-default-logo.png";
+          setMsgs([...history,{role:"assistant",content:`✓ Created a new call sheet for ${project.name}. What would you like to do?`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+        }
+        // 1+ docs: open ALL as tabs, activate last
+        csVersions.forEach((v,i)=>{addConnieTab(project.id,i,`${project.name} · ${v.label||`Day ${i+1}`}`);});
+        const lastIdx=csVersions.length-1;
+        setConnieCtx({projectId:project.id,vIdx:lastIdx});setConnieDietMode(null);
+        const lastLabel=csVersions[lastIdx].label||`Day ${lastIdx+1}`;
+        setMsgs([...history,{role:"assistant",content:`Opened ${csVersions.length} call sheet${csVersions.length>1?"s":""} for ${project.name}. Working on ${lastLabel}. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      // Step 2: Context is confirmed but user might be answering a day question
+      let {projectId,vIdx}=connieCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setConnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return true;}
+
+      // Close command — close doc panel without clearing chat
+      if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
+        setConnieCtx(null);setConnieDietMode(null);
+        setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
+        setLoading(false);setMood("idle");return true;
+      }
+      // Undo command
+      if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
+        if(popAgentUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last change. You can undo up to 50 changes, or press ⌘Z."}]);}
+        else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // Switch / open another project
+      if(/\b(switch|change|another|different|other|pick another|new project|open another|swap)\b.*\bproject\b/i.test(input)||/\bproject\b.*\b(switch|change|another|different|other|swap)\b/i.test(input)||/^\s*(switch|change)\s*(project)?\s*$/i.test(input)){
+        setConnieCtx(null);setConnieDietMode(null);
+        const list=localProjects.filter(p=>p.client!=="TEMPLATE").map((p,i)=>`${i+1}. ${p.name}${p.client?" ("+p.client+")":""}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Which project should I switch to?\n\n${list}\n\nPick a number or name.`}]);
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // Rename via chat
+      {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
+      if(_rm&&_rm[1]){const newLabel=_rm[1].trim();const csVersions_rn=callSheetStore?.[projectId]||[];const rIdx=Math.min(vIdx,csVersions_rn.length-1);if(rIdx>=0&&csVersions_rn[rIdx]){setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[projectId][rIdx].label=newLabel;return s;});setConnieTabs(prev=>prev.map(t=>t.projectId===projectId&&t.vIdx===rIdx?{...t,label:`${project.name} · ${newLabel}`}:t));setMsgs([...history,{role:"assistant",content:`✓ Renamed to "${newLabel}".`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;}}}
+
+      // "Show call sheets" while already in call sheet context — stay in side panel
+      if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(call\s*sheets?)\b/i.test(input)||/\b(call\s*sheets?)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*call\s*sheets?\s*$/i.test(input)){
+        setConnieDietMode(null);
+        setMsgs([...history,{role:"assistant",content:`Here's your call sheet for ${project.name}. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+      if(/\b(show|list|see|view|open|manage|go\s*to)\b.*\bdietar(?:y|ies)\b/i.test(input)||/\bdietar(?:y|ies)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input)||/^\s*dietar(?:y|ies)\s*$/i.test(input)){
+        setConnieCtx(null);setConnieDietMode(projectId);
+        const dietCount=(dietaryStore?.[projectId]||[]).length;
+        setMsgs([...history,{role:"assistant",content:`Here are ${project.name}'s dietary lists (${dietCount} total). You can create, view, or delete them from the panel.`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      // Handle "yes, export" confirmation (before fuzzyMatch to avoid false project switches)
+      const _csLastMsg = history[history.length-2];
+      if(_csLastMsg&&_csLastMsg._pendingExport&&/\b(yes|yep|sure|go ahead|do it|confirm|proceed|export anyway|export|that's fine|thats fine|ok|okay)\b/i.test(input)){
+        const _yEl=document.getElementById("onna-cs-print");
+        if(_yEl){const _yC=_yEl.cloneNode(true);_yC.querySelectorAll("button").forEach(b=>b.remove());_yC.querySelectorAll("input[type=file]").forEach(b=>b.remove());_yC.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const _yF=document.createElement("iframe");_yF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_yF);const _yD=_yF.contentDocument;_yD.open();_yD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_yD.close();_yD.body.appendChild(_yD.adoptNode(_yC));setTimeout(()=>{_yF.contentWindow.focus();_yF.contentWindow.print();setTimeout(()=>document.body.removeChild(_yF),1000);},300);}
+        else{printCallSheetPDF(_csLastMsg._pendingExport.csData);}
+        setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      // Export / PDF intent — uses exact same DOM clone as BtnExport button
+      if(/\b(export|pdf|download|print|save)\b/i.test(input)){
+        // Check for missing fields first
+        const csVersions_ex=callSheetStore?.[project.id]||[];
+        const vIdx_ex=Math.min(vIdx,csVersions_ex.length-1);
+        const csData_ex=csVersions_ex[vIdx_ex];
+        if(!csData_ex){setMsgs([...history,{role:"assistant",content:"No call sheet found to export. Create one first!"}]);setLoading(false);setMood("idle");return true;}
+        const missing=[];
+        if(!csData_ex.shootName) missing.push("Shoot Name");
+        if(!csData_ex.date) missing.push("Date");
+        if(!csData_ex.dayNumber) missing.push("Day Number");
+        if(!csData_ex.productionContacts) missing.push("Production Contacts");
+        const emptyVenues=(csData_ex.venueRows||[]).filter(v=>!v.value).map(v=>v.label);
+        if(emptyVenues.length) missing.push(...emptyVenues.map(v=>`Venue: ${v}`));
+        const emptySchedule=(csData_ex.schedule||[]).filter(s=>!s.time&&!s.activity).length;
+        if(emptySchedule===(csData_ex.schedule||[]).length&&emptySchedule>0) missing.push("Schedule (all rows empty)");
+        const emptyCrew=[];
+        (csData_ex.departments||[]).forEach(d=>{const unfilled=d.crew.filter(c=>!c.name);if(unfilled.length) emptyCrew.push(`${d.name}: ${unfilled.map(c=>c.role).join(", ")}`);});
+        if(emptyCrew.length) missing.push(...emptyCrew.map(c=>`Crew — ${c}`));
+        if(missing.length>0){
+          setMsgs([...history,{role:"assistant",content:`⚠️ Are you sure you want to export? You're missing information on this call sheet.\n\nSay "yes" to export anyway, or ask me "what's missing" for a full breakdown.`,_pendingExport:{csData:csData_ex}}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        const el=document.getElementById("onna-cs-print");
+        if(el){
+          const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());
+          const _iframe=document.createElement("iframe");_iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_iframe);
+          const _doc=_iframe.contentDocument;_doc.open();_doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_doc.close();
+          _doc.body.appendChild(_doc.adoptNode(clone));setTimeout(()=>{_doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(x=>x.remove());_iframe.contentWindow.focus();_iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(_iframe),1000);},300);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+        }else{
+          printCallSheetPDF((callSheetStore?.[project.id]||[])[Math.min(vIdx,(callSheetStore?.[project.id]||[]).length-1)]);
+          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the call sheet now — save it as PDF from there!"}]);
+        }
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      // ── Dietary commands (local pre-flight) ─────────────────────────────────
+      const matchDietaryTag = (inp) => {
+        const lo = inp.trim().toLowerCase();
+        const map = {"none":"None","vegetarian":"Vegetarian","veg":"Vegetarian","vegan":"Vegan",
+          "halal":"Halal","kosher":"Kosher","gluten free":"Gluten-Free","gluten-free":"Gluten-Free",
+          "gf":"Gluten-Free","dairy free":"Dairy-Free","dairy-free":"Dairy-Free","df":"Dairy-Free",
+          "nut allergy":"Nut Allergy","nut":"Nut Allergy","shellfish":"Shellfish Allergy",
+          "shellfish allergy":"Shellfish Allergy","pescatarian":"Pescatarian","pesce":"Pescatarian",
+          "other":"Other"};
+        return map[lo] || DIETARY_TAGS.find(t=>t.toLowerCase()===lo) || null;
+      };
+
+      // Check 0: Handle pending "add to call sheet?" confirmation
+      if(connieDietPending){
+        const isYes=/\b(yes|yep|sure|go ahead|do it|confirm|ok|okay|yeah|yea)\b/i.test(input);
+        const isNo=/\b(no|nope|nah|cancel|never\s*mind|skip)\b/i.test(input);
+        if(isYes){
+          const {name:cdpName,dietary:cdpDietary,vendorMatch:cdpVendor,projectId:cdpProjId}=connieDietPending;
+          // Add crew to call sheet
+          const csVersions_dp=callSheetStore?.[cdpProjId]||[];
+          const dpVIdx=Math.min(vIdx,csVersions_dp.length-1);
+          const crewEntry={role:cdpName,name:cdpName};
+          if(cdpVendor){if(cdpVendor.email)crewEntry.email=cdpVendor.email;if(cdpVendor.phone)crewEntry.phone=cdpVendor.phone;}
+          applyConniePatch({departments:[{name:"PRODUCTION & LOCATION",crew:[crewEntry]}]},cdpProjId,dpVIdx,csVersions_dp,setCallSheetStore);
+          // Add to dietary list
+          setDietaryStore(prev=>{
+            const store=JSON.parse(JSON.stringify(prev));
+            let arr=store[cdpProjId]||[];
+            if(arr.length===0){
+              const newDiet={id:Date.now(),label:"Dietary List 1",...JSON.parse(JSON.stringify(DIETARY_INIT))};
+              newDiet.project.name=project.name||"";newDiet.people=[];
+              arr=[newDiet];
+            }
+            const d=arr[arr.length-1];
+            d.people.push({id:Date.now()+Math.random(),name:cdpName,role:"",department:"PRODUCTION & LOCATION",dietary:cdpDietary,allergies:"",notes:""});
+            arr[arr.length-1]=d;store[cdpProjId]=arr;return store;
+          });
+          const vendorNote=cdpVendor?` I also pulled their contact details from the database (${cdpVendor.email||"no email"}${cdpVendor.phone?", "+cdpVendor.phone:""}).`:"";
+          setConnieDietPending(null);
+          setMsgs([...history,{role:"assistant",content:`Done! I've added ${cdpName} to the call sheet and set their dietary to ${cdpDietary}.${vendorNote}`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+        }
+        if(isNo){
+          setConnieDietPending(null);
+          setMsgs([...history,{role:"assistant",content:"No problem!"}]);
+          setLoading(false);setMood("idle");return true;
+        }
+      }
+
+      // Check 1: "Sync dietary with call sheet"
+      if(/sync\s+(dietary|dietaries|diet)/i.test(input)||(/sync/i.test(input)&&/(call\s*sheet|cs)/i.test(input)&&/(dietary|diet)/i.test(input))){
+        const dietArr=dietaryStore?.[projectId]||[];
+        if(dietArr.length===0){
+          setMsgs([...history,{role:"assistant",content:"No dietary lists found for this project. Create one first in the Documents tab, or ask me to add a dietary for someone and I'll create one automatically."}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        const csVersions_ds=callSheetStore?.[projectId]||[];
+        if(csVersions_ds.length===0){
+          setMsgs([...history,{role:"assistant",content:"No call sheets found for this project. Create a call sheet first."}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        const latestCS=csVersions_ds[csVersions_ds.length-1];
+        const pulled=[];
+        (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
+        setDietaryStore(prev=>{
+          const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[arr.length-1];
+          if(latestCS.shootName)d.project.name=latestCS.shootName;
+          if(latestCS.date)d.project.date=latestCS.date;
+          const csParts=(latestCS.shootName||"").split(" | ");
+          if(csParts.length>=2)d.project.client=csParts[0].trim();
+          const csNames=new Set(pulled.map(pr=>pr.name));
+          const existingMap={};
+          d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});
+          const newPeople=[];let addedCount=0;
+          pulled.forEach(pr=>{
+            const existing=existingMap[pr.name];
+            if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}
+            else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});addedCount++;}
+          });
+          d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});
+          d.people=newPeople;
+          arr[arr.length-1]=d;store[projectId]=arr;return store;
+        });
+        const addedCount=pulled.filter(pr=>{const dietPeople=(dietaryStore?.[projectId]||[])[(dietaryStore?.[projectId]||[]).length-1]?.people||[];return !dietPeople.some(dp=>dp.name&&dp.name.trim().toLowerCase()===pr.name);}).length;
+        setMsgs([...history,{role:"assistant",content:`Synced dietary list with call sheet! Added ${addedCount} new crew member${addedCount!==1?"s":""}, updated project info.`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      // Check 2: "Add dietary for [name] as [type]" / "set [name] dietary to [type]" / "[name] is [type]" / "mark [name] as [type]"
+      const dietAddPatterns=[
+        /(?:add|set)\s+dietar(?:y|ies)\s+(?:for\s+)?(.+?)\s+(?:as|to)\s+(.+)/i,
+        /set\s+(.+?)\s+dietar(?:y|ies)\s+(?:as|to)\s+(.+)/i,
+        /mark\s+(.+?)\s+(?:as|dietary\s+(?:as|to))\s+(.+)/i,
+        /(.+?)\s+is\s+(vegetarian|vegan|halal|kosher|gluten[- ]free|dairy[- ]free|nut(?:\s+allergy)?|shellfish(?:\s+allergy)?|pescatarian|none|other|gf|df|veg|pesce)\s*$/i,
+      ];
+      let dietNameMatch=null,dietTypeMatch=null;
+      for(const pat of dietAddPatterns){
+        const m=input.match(pat);
+        if(m){dietNameMatch=m[1].trim();dietTypeMatch=matchDietaryTag(m[2]);if(dietTypeMatch)break;dietNameMatch=null;dietTypeMatch=null;}
+      }
+      if(dietNameMatch&&dietTypeMatch){
+        const dietArr=dietaryStore?.[projectId]||[];
+        // Auto-create dietary list if none exists
+        if(dietArr.length===0){
+          const newDiet={id:Date.now(),label:"Dietary List 1",...JSON.parse(JSON.stringify(DIETARY_INIT))};
+          newDiet.project.name=project.name||"";newDiet.people=[];
+          const csVersions_dc=callSheetStore?.[projectId]||[];
+          if(csVersions_dc.length>0){const lcs=csVersions_dc[csVersions_dc.length-1];if(lcs.shootName)newDiet.project.name=lcs.shootName;if(lcs.date)newDiet.project.date=lcs.date;}
+          setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[projectId])store[projectId]=[];store[projectId].push(newDiet);return store;});
+        }
+        const latestDiet=(dietArr.length>0)?dietArr[dietArr.length-1]:null;
+        const nameLower=dietNameMatch.toLowerCase();
+        // Search dietary people first
+        if(latestDiet){
+          const existIdx=(latestDiet.people||[]).findIndex(pr=>pr.name&&pr.name.trim().toLowerCase()===nameLower);
+          if(existIdx>=0){
+            setDietaryStore(prev=>{
+              const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[arr.length-1];
+              d.people[existIdx].dietary=dietTypeMatch;
+              arr[arr.length-1]=d;store[projectId]=arr;return store;
+            });
+            setMsgs([...history,{role:"assistant",content:`Updated ${latestDiet.people[existIdx].name}'s dietary to ${dietTypeMatch}.`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+          }
+        }
+        // Search call sheet crew
+        const csVersions_dc2=callSheetStore?.[projectId]||[];
+        if(csVersions_dc2.length>0){
+          const latestCS2=csVersions_dc2[csVersions_dc2.length-1];
+          let csCrewMatch=null;
+          (latestCS2.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim().toLowerCase()===nameLower)csCrewMatch={name:cr.name.trim(),role:cr.role||"",department:dept.name||""};});});
+          if(csCrewMatch){
+            setDietaryStore(prev=>{
+              const store=JSON.parse(JSON.stringify(prev));let arr=store[projectId]||[];
+              if(arr.length===0){const nd={id:Date.now(),label:"Dietary List 1",...JSON.parse(JSON.stringify(DIETARY_INIT))};nd.project.name=project.name||"";nd.people=[];arr=[nd];}
+              const d=arr[arr.length-1];
+              d.people.push({id:Date.now()+Math.random(),name:csCrewMatch.name,role:csCrewMatch.role,department:csCrewMatch.department,dietary:dietTypeMatch,allergies:"",notes:""});
+              arr[arr.length-1]=d;store[projectId]=arr;return store;
+            });
+            setMsgs([...history,{role:"assistant",content:`Added ${csCrewMatch.name} to the dietary list as ${dietTypeMatch}.`}]);
+            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+          }
+        }
+        // Search vendor database
+        const vendorMatch=(vendorsProp||[]).find(v=>v.name&&v.name.trim().toLowerCase()===nameLower);
+        if(vendorMatch){
+          setConnieDietPending({type:"confirm_add_cs",name:dietNameMatch,dietary:dietTypeMatch,vendorMatch:{name:vendorMatch.name,email:vendorMatch.email||"",phone:vendorMatch.phone||""},projectId});
+          setMsgs([...history,{role:"assistant",content:`${dietNameMatch} isn't added as crew. I found ${vendorMatch.name} in the database — email: ${vendorMatch.email||"N/A"}, mobile: ${vendorMatch.phone||"N/A"}. Do you want me to add them to the call sheet?`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        // Not found anywhere
+        setConnieDietPending({type:"confirm_add_cs",name:dietNameMatch,dietary:dietTypeMatch,vendorMatch:null,projectId});
+        setMsgs([...history,{role:"assistant",content:`${dietNameMatch} isn't added as crew. Do you want me to add them to the call sheet?`}]);
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // Allow switching: if user mentions a different project name, reset context
+      const lower=input.toLowerCase();
+      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
+      if(switchProject){
+        setConnieCtx(null);
+        const swVersions=callSheetStore?.[switchProject.id]||[];
+        if(swVersions.length===0){
+          setConniePending({projectId:switchProject.id,step:"pick_name"});
+          setMsgs([...history,{role:"assistant",content:`No call sheets for ${switchProject.name} yet. What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);
+        }else if(swVersions.length===1){
+          setConnieCtx({projectId:switchProject.id,vIdx:0});setConnieDietMode(null);
+          const vl=swVersions[0].label||"Day 1";
+          addConnieTab(switchProject.id,0,`${switchProject.name} · ${vl}`);
+          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${vl}). What would you like to do?`}]);
+        } else {
+          setConniePending({projectId:switchProject.id,step:"pick_existing_or_new"});
+          const list=swVersions.map((v,i)=>`${i+1}. ${v.label||`Version ${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`${switchProject.name} has ${swVersions.length} call sheets:\n\n${list}\n\nPick one by number/name, or say **new** to create another.`}]);
+        }
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // If user says "switch project" / "change project"
+      if(/\b(switch|change|different|new)\s+(project|call\s*sheet)\b/i.test(input)){
+        setConnieCtx(null);setConniePending(null);
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's call sheet should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // "create new call sheet" / "new day" for current project
+      if(/\b(create|new|add)\b/i.test(lower)&&/\b(call\s*sheet|day|version)\b/i.test(lower)){
+        setConnieCtx(null);
+        setConniePending({projectId,step:"pick_name"});
+        setMsgs([...history,{role:"assistant",content:`What should I call this new call sheet? (e.g. Shoot Day 2, Recce Day)`}]);
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // "What's missing" breakdown for call sheet
+      if(/\b(what('?s| is) missing|breakdown|what do i need|what('?s| is) empty|missing (fields|info|data|information))\b/i.test(input)){
+        const csVersions_m=callSheetStore?.[project.id]||[];
+        const vIdx_m=Math.min(vIdx,csVersions_m.length-1);
+        const csData_m=csVersions_m[vIdx_m];
+        const missing=[];
+        if(!csData_m.shootName) missing.push("Shoot Name — not set");
+        if(!csData_m.date) missing.push("Date — not set");
+        if(!csData_m.dayNumber) missing.push("Day Number — not set");
+        if(!csData_m.productionContacts) missing.push("Production Contacts — empty");
+        (csData_m.venueRows||[]).forEach(v=>{if(!v.value) missing.push(`${v.label} — empty`);});
+        const emptyScheduleRows=(csData_m.schedule||[]).filter(s=>!s.time&&!s.activity);
+        if(emptyScheduleRows.length) missing.push(`Schedule — ${emptyScheduleRows.length} empty row${emptyScheduleRows.length>1?"s":""}`);
+        (csData_m.departments||[]).forEach(d=>{
+          const unfilled=d.crew.filter(c=>!c.name);
+          if(unfilled.length) missing.push(`${d.name} — ${unfilled.map(c=>c.role).join(", ")}`); });
+        if(missing.length===0){
+          setMsgs([...history,{role:"assistant",content:"Everything looks filled in! You're good to export. 🎉"}]);
+        }else{
+          setMsgs([...history,{role:"assistant",content:`Here's what's still missing on this call sheet:\n\n${missing.map(m=>`• ${m}`).join("\n")}\n\nWant me to help fill any of these in, or say "export" to go ahead anyway?`}]);
+        }
+        setLoading(false);setMood("idle");return true;
+      }
+
+      const csVersions = callSheetStore?.[project.id] || [];
+      if(csVersions.length===0){setConnieCtx(null);setConniePending({projectId:project.id,step:"pick_name"});setMsgs([...history,{role:"assistant",content:`No call sheets for ${project.name} yet. What should I call this call sheet? (e.g. Shoot Day 1, Recce Day)`}]);setLoading(false);setMood("idle");return true;}
+      vIdx = Math.min(vIdx, csVersions.length-1);
+
+      const ver = csVersions[vIdx];
+      const vLabel = ver.label || `Day ${vIdx+1}`;
+
+      // Build call sheet snapshot
+      let snap = `Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.date||"(empty)"} | Day: ${ver.dayNumber||"(empty)"}\n`;
+      snap += `Contacts: ${ver.productionContacts||"(empty)"}\n`;
+      if(ver.venueRows?.length) snap += "Venues:\n" + ver.venueRows.map(v=>`  ${v.label}: ${v.value||"(empty)"}`).join("\n") + "\n";
+      if(ver.schedule?.length) snap += "Schedule:\n" + ver.schedule.map(s=>`  ${s.time||"?"} — ${s.activity||"(empty)"} ${s.notes||""}`).join("\n") + "\n";
+      snap += `Weather: ${ver.weatherSummary||"(empty)"} | High: ${ver.weatherHighC||"?"}°C / ${ver.weatherHighF||"?"}°F | Low: ${ver.weatherLowC||"?"}°C / ${ver.weatherLowF||"?"}°F\n`;
+      snap += `Real Feel: High ${ver.weatherRealFeelHighC||"?"}°C / ${ver.weatherRealFeelHighF||"?"}°F | Low ${ver.weatherRealFeelLowC||"?"}°C / ${ver.weatherRealFeelLowF||"?"}°F\n`;
+      snap += `Sunrise: ${ver.weatherSunrise||"(empty)"} | Sunset: ${ver.weatherSunset||"(empty)"} | Blue Hour: ${ver.weatherBlueHour||"(empty)"}\n`;
+      if(ver.weatherHourly?.length) snap += "Hourly: " + ver.weatherHourly.map(h=>`${h.time}:${h.tempC}°C`).join(", ") + "\n";
+      snap += `Map Link: ${ver.mapLink||"(empty)"}\n`;
+      if(ver.departments?.length) snap += "Departments:\n" + ver.departments.map(d=>`  ${d.name}:\n` + d.crew.map(c=>`    ${c.role}: ${c.name||"(empty)"} | mob: ${c.mobile||"(empty)"} | email: ${c.email||"(empty)"} | call: ${c.callTime||"(empty)"}`).join("\n")).join("\n") + "\n";
+
+      // Build vendor summary
+      const vendorList = (vendorsProp||[]).map(v=>`${v.name}|${v.category||""}|${v.email||""}|${v.phone||""}`).join("\n");
+      const leadsList = (allLeads||[]).filter(l=>l.status==="client"||l.status==="warm"||l.status==="open").map(l=>`${l.company||""}|${l.contact||""}|${l.email||""}|${l.phone||""}|${l.role||""}|${l.category||""}`).join("\n");
+
+      const connieSystem = buildConnieSystem(project, ver, vLabel, snap, vendorList, leadsList);
+
+      // Stream response
+      try{
+        const connieIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            // Replace the intro message (first assistant msg) so old cached intros don't confuse the model
+            if(mi===0) return{role:m.role,content:connieIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:connieSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return true;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";let streamError="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.error){streamError=typeof ev.error==="string"?ev.error:ev.error.message||JSON.stringify(ev.error);}else if(ev.type==="error"){streamError=ev.error?.message||JSON.stringify(ev);}else if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+        if(!fullText&&streamError){setMsgs([...history,{role:"assistant",content:`Error: ${streamError}`}]);setLoading(false);setMood("idle");return true;}
+
+        // Parse JSON patch from response
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+            const existingCReview = conniePendingReview && conniePendingReview.projectId===project.id && conniePendingReview.vIdx===vIdx ? conniePendingReview : null;
+            const preSnapshot = existingCReview ? existingCReview.preSnapshot : JSON.parse(JSON.stringify(ver));
+            const newMarkers = buildConniePatchMarkers(patch, ver);
+            applyConniePatch(patch, project.id, vIdx, csVersions, setCallSheetStore);
+            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
+            if(newMarkers.size > 0){
+              const mergedMarkers = existingCReview ? [...new Set([...existingCReview.markers, ...newMarkers])] : [...newMarkers];
+              setConniePendingReview({ preSnapshot, markers: mergedMarkers, projectId: project.id, vIdx });
+              setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"\n\nReview the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
+            } else if (existingCReview && existingCReview.markers.length > 0) {
+              setMsgs([...history,{role:"assistant",content:(cleanText||"Done.")+"\n\nYou still have pending changes to review on the left."}]);
+            } else {
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Call sheet updated."}]);
+            }
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          // Post-response export fallback: if the LLM mentioned exporting, trigger print
+          if(/\b(export|print|pdf)\b/i.test(fullText)&&/🖨️|📄|print dialog/i.test(fullText)){
+            const _prEl=document.getElementById("onna-cs-print");
+            if(_prEl){const _prC=_prEl.cloneNode(true);_prC.querySelectorAll("button").forEach(b=>b.remove());_prC.querySelectorAll("input[type=file]").forEach(b=>b.remove());_prC.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const _prF=document.createElement("iframe");_prF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_prF);const _prD=_prF.contentDocument;_prD.open();_prD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_prD.close();_prD.body.appendChild(_prD.adoptNode(_prC));setTimeout(()=>{_prF.contentWindow.focus();_prF.contentWindow.print();setTimeout(()=>document.body.removeChild(_prF),1000);},300);}
+          }
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return true;
+
+  return false;
+}
+

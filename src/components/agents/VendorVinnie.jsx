@@ -93,7 +93,14 @@ export async function handleVinnieIntent({
         setMsgs([...history,{role:"assistant",content:`New vendor — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
         setLoading(false);setMood("idle");return true;
       }
-      try{
+      // Show blank card immediately, then fill via AI parse in background
+      const _blankVendor={_type:"vendor",name:"",company:"",category:"",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""};
+      const _blankVQs=buildQuestions(_blankVendor,"vendor");
+      setPendingConv({entry:_blankVendor,type:"vendor",saveAsOutreach:false,updateId:null,questions:_blankVQs,idx:0});
+      setMsgs([...history,{role:"assistant",content:`New vendor — parsing your details...\n\n${_blankVQs[0]?.q||"Vendor name?"}`}]);
+      setLoading(false);setMood("idle");
+      // AI parse in background → update card with extracted data
+      (async()=>{try{
         const sys=`You are an expert at parsing natural language vendor/supplier descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).
 
 Rules:
@@ -113,21 +120,28 @@ Fields: {"name":"","company":"","category":"","email":"","phone":"","website":""
         const vMatches=[...findAllSimilar(vname,allVendors,allLeads),...(entry.company?findAllSimilar(entry.company,allVendors,allLeads):[])];
         const seenV=new Set();const vDedup=vMatches.filter(m=>{const k=m.type+"_"+m.record.id;if(seenV.has(k))return false;seenV.add(k);return true;});
         if(vDedup.length>0){
+          setPendingConv(null);
           setPendingDuplicate({entry,matches:vDedup,saveAsOutreach:false});
-          setMsgs([...history,{role:"assistant",content:`Got it — ${vname}.\n\n${_dupMsg(vDedup,vname)}`}]);
+          setMsgs(prev=>[...prev.filter(m=>m.role!=="assistant"||!m.content?.includes("parsing your details")),{role:"assistant",content:`Got it — ${vname}.\n\n${_dupMsg(vDedup,vname)}`}]);
         }else{
-          const firstQ=startConv(entry,"vendor",false,null);
-          if(firstQ){
-            setMsgs([...history,{role:"assistant",content:`Got it — ${vname} pulled. Let me fill in the gaps. ('x' to skip)\n\n${firstQ}`}]);
-          }else{
-            showEntry(entry,"vendor",null,false);
-            setMsgs([...history,{role:"assistant",content:`Got it — review details for ${vname} below and hit Save.`}]);
-          }
+          // Merge parsed data into card, preserving any fields the user already typed
+          setPendingConv(prev=>{
+            if(!prev)return prev;
+            const merged={...prev.entry};
+            for(const k of Object.keys(entry)){if(k!=="_type"&&entry[k]&&!merged[k])merged[k]=entry[k];}
+            const newQs=buildQuestions(merged,"vendor");
+            const newIdx=Math.min(prev.idx,newQs.length?newQs.length-1:0);
+            const msg=newQs.length>0
+              ?`Got it — ${vname} pulled. Let me fill in the gaps. ('x' to skip)\n\n${newQs[newIdx].q}`
+              :`Got it — review details for ${vname} and hit Save.`;
+            setMsgs(p=>[...p.slice(0,-1),{role:"assistant",content:msg}]);
+            if(newQs.length===0){setTimeout(()=>{setPendingConv(null);showEntry(merged,"vendor",null,false);},0);return prev;}
+            return {...prev,entry:merged,questions:newQs,idx:newIdx};
+          });
         }
       }catch(e){
-        setMsgs([...history,{role:"assistant",content:"Hmm, I had trouble parsing that. Try: 'New vendor [Name], [Category], [email]'"}]);
-      }
-      setLoading(false);setMood("idle");
+        setMsgs(prev=>[...prev.slice(0,-1),{role:"assistant",content:"Hmm, I had trouble parsing that. Answer the fields one by one, or 'x' to skip."}]);
+      }})();
       return true;
     }
 
@@ -135,15 +149,23 @@ Fields: {"name":"","company":"","category":"","email":"","phone":"","website":""
     if(!/\b(vendor|supplier)\b/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
-      // Bare "create new lead" / "new lead" with no data → start blank Q&A from contact name
-      if(/^(?:create|add|new|make|save)?\s*(?:a\s+)?(?:new\s+)?(?:lead|contact)\s*[.!?]?\s*$/i.test(_vinInput)){
+      // Bare "create new lead" / "new lead" / "new outreach tracker" with no data → start blank Q&A
+      if(/^(?:create|add|new|make|save)?\s*(?:a\s+)?(?:new\s+)?(?:lead|contact|outreach(?:\s+tracker)?)\s*[.!?]?\s*$/i.test(_vinInput)){
         const entry={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
         const isOutreach=/outreach|tracker/i.test(input.trim());
         const firstQ=startConv(entry,"lead",isOutreach,null);
-        setMsgs([...history,{role:"assistant",content:`New lead — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+        setMsgs([...history,{role:"assistant",content:`New ${isOutreach?"outreach entry":"lead"} — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
         setLoading(false);setMood("idle");return true;
       }
-      try{
+      // Show blank card immediately, then fill via AI parse in background
+      const _isOutreachImmediate=/outreach|tracker/i.test(input.trim());
+      const _blankLead={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
+      const _blankLQs=buildQuestions(_blankLead,"lead");
+      setPendingConv({entry:_blankLead,type:"lead",saveAsOutreach:_isOutreachImmediate,updateId:null,questions:_blankLQs,idx:0});
+      setMsgs([...history,{role:"assistant",content:`New ${_isOutreachImmediate?"outreach entry":"lead"} — parsing your details...\n\n${_blankLQs[0]?.q||"Contact name?"}`}]);
+      setLoading(false);setMood("idle");
+      // AI parse in background → update card with extracted data
+      (async()=>{try{
         const sys=`You are an expert at parsing natural language contact descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).
 
 Rules:
@@ -161,16 +183,23 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
         const entry={...parsed,_type:"lead",date:parsed.date||today,status:parsed.status||"not_contacted"};
         const isOutreach=/outreach|tracker/i.test(input.trim());
         const name=entry.contact||entry.company||"this contact";
-        const firstQ=startConv(entry,"lead",isOutreach,null);
-        if(firstQ){
-          setMsgs([...history,{role:"assistant",content:`Got it — ${name} pulled. Let me fill in the gaps. ('x' to skip)\n\n${firstQ}`}]);
-        }else{
-          showEntry(entry,"lead",null,isOutreach);
-          setMsgs([...history,{role:"assistant",content:`Got it — review details for ${name} below and hit Save.`}]);
-        }
+        // Merge parsed data into card, preserving any fields the user already typed
+        setPendingConv(prev=>{
+          if(!prev)return prev;
+          const merged={...prev.entry};
+          for(const k of Object.keys(entry)){if(k!=="_type"&&entry[k]&&!merged[k])merged[k]=entry[k];}
+          const newQs=buildQuestions(merged,"lead");
+          const newIdx=Math.min(prev.idx,newQs.length?newQs.length-1:0);
+          const msg=newQs.length>0
+            ?`Got it — ${name} pulled. Let me fill in the gaps. ('x' to skip)\n\n${newQs[newIdx].q}`
+            :`Got it — review details for ${name} and hit Save.`;
+          setMsgs(p=>[...p.slice(0,-1),{role:"assistant",content:msg}]);
+          if(newQs.length===0){setTimeout(()=>{setPendingConv(null);showEntry(merged,"lead",null,isOutreach);},0);return prev;}
+          return {...prev,entry:merged,questions:newQs,idx:newIdx,saveAsOutreach:isOutreach};
+        });
       }catch(e){
-        setMsgs([...history,{role:"assistant",content:"Hmm, I had trouble parsing that. Try: 'I contacted [Name] at [Company], [email], [category].'"}]);
-      }
+        setMsgs(prev=>[...prev.slice(0,-1),{role:"assistant",content:"Hmm, I had trouble parsing that. Answer the fields one by one, or 'x' to skip."}]);
+      }})();
       setLoading(false);setMood("idle");
       return true;
     }
@@ -364,7 +393,8 @@ export default function VendorVinnieCard({
   const _cardType = _isXContactMode ? pendingConv._saveAsXContact.type : (pendingConv ? pendingConv.type : pendingType);
   const _cardIsEditable = !!pendingLead && !pendingConv;
   const _cardIsNew = pendingConv ? !pendingConv.updateId : !pendingId;
-  const _cardTitle = _isXContactMode ? `Adding Contact to ${pendingConv._saveAsXContact.existName}` : (_cardIsNew ? (_cardType === "vendor" ? "New Vendor" : "New Lead") : (_cardType === "vendor" ? "Update Vendor" : "Update Lead"));
+  const _isOutreach = pendingConv?.saveAsOutreach;
+  const _cardTitle = _isXContactMode ? `Adding Contact to ${pendingConv._saveAsXContact.existName}` : (_cardIsNew ? (_cardType === "vendor" ? "New Vendor" : (_isOutreach ? "New Outreach Entry" : "New Lead")) : (_cardType === "vendor" ? "Update Vendor" : "Update Lead"));
 
   const _cf = (label, key, wide = false, opts = null, inputType = "text") => {
     const val = _cardEntry?.[key] || "";
@@ -396,7 +426,7 @@ export default function VendorVinnieCard({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff", overflow: "hidden" }}>
       <div style={{ padding: "20px 20px 0", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #e5e5ea" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: _cardType === "vendor" ? "#f0f0f5" : "#edf7ed", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{_cardType === "vendor" ? "🏢" : "👤"}</div>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: _cardType === "vendor" ? "#f0f0f5" : (_isOutreach ? "#fff8e1" : "#edf7ed"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{_cardType === "vendor" ? "🏢" : (_isOutreach ? "📋" : "👤")}</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#1d1d1f" }}>{_cardTitle}</div>
             <div style={{ fontSize: 11.5, color: "#86868b", marginTop: 1 }}>{pendingConv ? "Answer in chat or edit directly" : "Edit fields and save"}</div>
