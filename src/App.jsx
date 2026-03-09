@@ -18,7 +18,7 @@ import Budget from "./components/project/Budget";
 import Creative from "./components/project/Creative";
 import VendorVinnieCard, { useVinnieCard, handleVinnieIntent } from "./components/agents/VendorVinnie";
 import { buildConnieSystem, applyConniePatch, buildConniePatchMarkers, revertConnieMarker, revertConnieMarkers, ConnieTabBar, handleConnieIntent } from "./components/agents/CallSheetConnie";
-import { buildRonnieSystem, applyRonniePatch, buildPatchMarkers, revertMarker, RonnieTabBar } from "./components/agents/RiskAssessmentRonnie";
+import { buildRonnieSystem, applyRonniePatch, buildPatchMarkers, revertMarker, RonnieTabBar, handleRonnieIntent } from "./components/agents/RiskAssessmentRonnie";
 import { buildBillieSystem, applyBilliePatch } from "./components/agents/BudgetBillie";
 import { CONTRACT_INIT, migrateContract, CONTRACT_TYPE_IDS, CONTRACT_TYPE_LABELS, CONTRACT_FIELDS, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC, buildCodySystem, applyCodyPatch } from "./components/agents/ContractCody";
 import { buildCarrieSystem, applyCarriePatch } from "./components/agents/CastingCarrie";
@@ -8046,278 +8046,25 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       setLoading(false);return;
     }
 
-    // ── Ronnie: live risk assessment handler ─────────────────────────────────────────────────────────────────────────
-    if(agent.id==="researcher"&&riskAssessmentStore&&setRiskAssessmentStore){
-
-      // ── Step 0: No context — ask for project ──
-      if(!ronnieCtx){
-        if(!localProjects?.length){
-          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
-          setLoading(false);setMood("idle");return;
-        }
-
-        // Export intent without context — find the right RA and export
-        if(/\b(export|pdf|download|print|save)\b/i.test(input)){
-          let expProj=null;let expIdx=-1;
-          for(const p of localProjects){
-            const rav=riskAssessmentStore?.[p.id]||[];
-            if(rav.length>0){expProj=p;expIdx=rav.length===1?0:rav.length-1;break;}
-          }
-          if(expProj){
-            const rav=riskAssessmentStore[expProj.id];
-            const raData=rav[expIdx];
-            setRonnieCtx({projectId:expProj.id,vIdx:expIdx});
-            if(setActiveRAVersion)setActiveRAVersion(expIdx);
-            addRonnieTab(expProj.id,expIdx,`${expProj.name} · ${raData.label||"Untitled"}`);
-            printRiskAssessmentPDF(raData);
-            setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
-            setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-          }
-          setMsgs([...history,{role:"assistant",content:"No risk assessments found to export. Pick a project first and I'll create one!"}]);
-          setLoading(false);setMood("idle");return;
-        }
-
-        const lower=input.toLowerCase();
-        const num=parseInt(input.trim(),10);
-        let project=null;
-        if(num>=1&&num<=localProjects.length) project=localProjects[num-1];
-        else project=fuzzyMatchProject(localProjects,input);
-        if(!project){
-          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's risk assessment should I work on?\n\n${list}\n\nPick a number or name.`}]);
-          setLoading(false);setMood("idle");return;
-        }
-        const raLabels=riskAssessmentStore?.[project.id]||[];
-        if(raLabels.length===0){
-          const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
-          newRA.shootName=`${project.client||""} | ${project.name}`.replace(/^TEMPLATE \| /,"");
-          const _pi3=(projectInfoRef.current||{})[project.id];
-          if(_pi3){if(_pi3.shootName)newRA.shootName=_pi3.shootName;if(_pi3.shootDate)newRA.shootDate=_pi3.shootDate;if(_pi3.shootLocation)newRA.locations=_pi3.shootLocation;if(_pi3.crewOnSet)newRA.crewOnSet=_pi3.crewOnSet;}
-          const _raLogo=new Image();_raLogo.crossOrigin="anonymous";_raLogo.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raLogo.naturalWidth;cv.height=_raLogo.naturalHeight;cv.getContext("2d").drawImage(_raLogo,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>({...prev,[project.id]:[newRA]}));}};_raLogo.onerror=()=>{setRiskAssessmentStore(prev=>({...prev,[project.id]:[newRA]}));};_raLogo.src="/onna-default-logo.png";
-          setRonnieCtx({projectId:project.id,vIdx:0});
-          if(setActiveRAVersion)setActiveRAVersion(0);
-          addRonnieTab(project.id,0,`${project.name} · [Untitled]`);
-          setMsgs([...history,{role:"assistant",content:`Created a new risk assessment for ${project.name}. What would you like to do?`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        raLabels.forEach((v,i)=>{addRonnieTab(project.id,i,`${project.name} · ${v.label||`RA ${i+1}`}`);});
-        // Backfill default logo for any RA missing it
-        const _missingLogo=raLabels.some(v=>!v.productionLogo);
-        if(_missingLogo){const _bl=new Image();_bl.crossOrigin="anonymous";_bl.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_bl.naturalWidth;cv.height=_bl.naturalHeight;cv.getContext("2d").drawImage(_bl,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];arr.forEach(r=>{if(!r.productionLogo)r.productionLogo=du;});return s;});}catch{}};_bl.src="/onna-default-logo.png";}
-        const lastIdx=raLabels.length-1;
-        setRonnieCtx({projectId:project.id,vIdx:lastIdx});
-        if(setActiveRAVersion)setActiveRAVersion(lastIdx);
-        setMsgs([...history,{role:"assistant",content:`Opened ${raLabels.length} risk assessment${raLabels.length>1?"s":""} for ${project.name}. What would you like to do?`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      // Clean up any stale _step state
-      if(ronnieCtx._step){setRonnieCtx(null);setLoading(false);setMood("idle");return;}
-
-      // ── Ready state: editing ──
-      let {projectId,vIdx}=ronnieCtx;
-      let project=localProjects?.find(p=>p.id===projectId);
-      if(!project){setRonnieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return;}
-
-      // Close command — close doc panel without clearing chat
-      if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
-        setRonnieCtx(null);
-        setMsgs([...history,{role:"assistant",content:"Closed! Let me know when you need me again."}]);
-        setLoading(false);setMood("idle");return;
-      }
-      // Undo command
-      if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
-        if(popAgentUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last change. You can undo up to 50 changes, or press ⌘Z."}]);}
-        else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
-        setLoading(false);setMood("idle");return;
-      }
-
-      // Rename via chat
-      {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
-      if(_rm&&_rm[1]){const newLabel=_rm[1].trim();const raVersions_rn=riskAssessmentStore?.[projectId]||[];const rIdx=Math.min(vIdx,raVersions_rn.length-1);if(rIdx>=0&&raVersions_rn[rIdx]){setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[projectId][rIdx].label=newLabel;return s;});setRonnieTabs(prev=>prev.map(t=>t.projectId===projectId&&t.vIdx===rIdx?{...t,label:`${project.name} · ${newLabel}`}:t));setMsgs([...history,{role:"assistant",content:`✓ Renamed to "${newLabel}".`}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;}}}
-
-      // Navigate to risk assessment list view
-      if(onNavigateToDoc&&(/\b(show|list|see|view|open|manage|go\s*to)\b.*\b(risk\s*assess)\b/i.test(input)||/\b(risk\s*assess)\b.*\b(show|list|see|view|open|manage|go\s*to)\b/i.test(input))){
-        onNavigateToDoc(project,"Documents","risk");
-        setMsgs([...history,{role:"assistant",content:"Taking you to your risk assessments now!"}]);setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      // Handle "yes, export" confirmation
-      const lastMsg_ex = history[history.length-2];
-      if(lastMsg_ex&&lastMsg_ex._pendingExport&&/\b(yes|go ahead|proceed|export|confirm|sure)\b/i.test(input)){
-        const _ryEl=document.getElementById("onna-ra-print");
-        if(_ryEl){const _ryC=_ryEl.cloneNode(true);_ryC.querySelectorAll("button").forEach(b=>b.remove());_ryC.querySelectorAll("input[type=file]").forEach(b=>b.remove());const _ryF=document.createElement("iframe");_ryF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_ryF);const _ryD=_ryF.contentDocument;_ryD.open();_ryD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_ryD.close();_ryD.body.appendChild(_ryD.adoptNode(_ryC));setTimeout(()=>{_ryF.contentWindow.focus();_ryF.contentWindow.print();setTimeout(()=>document.body.removeChild(_ryF),1000);},300);}
-        else{printRiskAssessmentPDF(lastMsg_ex._pendingExport.raData);}
-        setMsgs([...history,{role:"assistant",content:`Opening the print dialog for the risk assessment — save it as PDF from there!`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-      // Export / PDF intent — uses exact same DOM clone as BtnExport
-      if(/\b(export|pdf|download|print|save)\b/i.test(input)){
-        // Check for missing fields first
-        const raVersions_ex=riskAssessmentStore?.[project.id]||[];
-        const vIdx_ex=Math.min(vIdx,raVersions_ex.length-1);
-        const ver_ex=raVersions_ex[vIdx_ex];
-        if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
-        const _missing=[];
-        if(!ver_ex.shootName) _missing.push("Shoot Name");
-        if(!ver_ex.shootDate) _missing.push("Shoot Date");
-        if(!ver_ex.locations) _missing.push("Locations");
-        if(!ver_ex.crewOnSet) _missing.push("Crew on Set");
-        if(!ver_ex.timing) _missing.push("Timing");
-        if(!(ver_ex.sections||[]).length) _missing.push("Risk Sections (none added)");
-        (ver_ex.sections||[]).forEach(s=>{const emptyRows=s.rows.filter(r=>!r[0]&&!r[1]&&!r[2]&&!r[3]);if(emptyRows.length) _missing.push(`Empty rows in "${s.title}" (${emptyRows.length})`);s.rows.forEach((r,ri)=>{if(r[0]&&!r[3]) _missing.push(`Missing mitigation for "${r[0]}" in "${s.title}" (row ${ri+1})`);});});
-        if(!(ver_ex.conductItems||[]).length) _missing.push("Code of Conduct items");
-        if(!(ver_ex.waiverItems||[]).length) _missing.push("Liability Waiver items");
-        if(!(ver_ex.emergencyItems||[]).length) _missing.push("Emergency Response items");
-        if(_missing.length>0){
-          const warnMsg=`Before exporting, I noticed the following fields are missing or incomplete:\n\n${_missing.map(m=>`- ${m}`).join("\n")}\n\nAre you sure you want to export as-is? Type **"yes, export"** to proceed, or let me know what you'd like to fill in first.`;
-          setMsgs([...history,{role:"assistant",content:warnMsg,_pendingExport:{raData:ver_ex,label:ver_ex.label||"risk assessment"}}]);
-          setLoading(false);setMood("thinking");setTimeout(()=>setMood("idle"),2500);return;
-        }
-        const _raEl=document.getElementById("onna-ra-print");
-        if(_raEl){
-          const _raC=_raEl.cloneNode(true);_raC.querySelectorAll("button").forEach(b=>b.remove());_raC.querySelectorAll("input[type=file]").forEach(b=>b.remove());
-          const _raF=document.createElement("iframe");_raF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_raF);
-          const _raD=_raF.contentDocument;_raD.open();_raD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_raD.close();
-          _raD.body.appendChild(_raD.adoptNode(_raC));setTimeout(()=>{_raD.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(x=>x.remove());_raF.contentWindow.focus();_raF.contentWindow.print();setTimeout(()=>document.body.removeChild(_raF),1000);},300);
-          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
-        }else{
-          const ver_ex=(riskAssessmentStore?.[project.id]||[])[Math.min(vIdx,(riskAssessmentStore?.[project.id]||[]).length-1)];
-          if(!ver_ex){setMsgs([...history,{role:"assistant",content:"No risk assessment found to export. Create one first!"}]);setLoading(false);setMood("idle");return;}
-          printRiskAssessmentPDF(ver_ex);
-          setMsgs([...history,{role:"assistant",content:"Opening the print dialog for the risk assessment now — save it as PDF from there!"}]);
-        }
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-      const lower=input.toLowerCase();
-      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
-      if(switchProject){
-        const raLabels=riskAssessmentStore?.[switchProject.id]||[];
-        if(raLabels.length===0){
-          const newRA={id:Date.now(),label:"[Untitled]",...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))};
-          newRA.shootName=`${switchProject.client||""} | ${switchProject.name}`.replace(/^TEMPLATE \| /,"");
-          const _pi3s=(projectInfoRef.current||{})[switchProject.id];
-          if(_pi3s){if(_pi3s.shootName)newRA.shootName=_pi3s.shootName;if(_pi3s.shootDate)newRA.shootDate=_pi3s.shootDate;if(_pi3s.shootLocation)newRA.locations=_pi3s.shootLocation;if(_pi3s.crewOnSet)newRA.crewOnSet=_pi3s.crewOnSet;}
-          const _raLogo2=new Image();_raLogo2.crossOrigin="anonymous";_raLogo2.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_raLogo2.naturalWidth;cv.height=_raLogo2.naturalHeight;cv.getContext("2d").drawImage(_raLogo2,0,0);newRA.productionLogo=cv.toDataURL("image/png");}catch{}finally{setRiskAssessmentStore(prev=>({...prev,[switchProject.id]:[newRA]}));}};_raLogo2.onerror=()=>{setRiskAssessmentStore(prev=>({...prev,[switchProject.id]:[newRA]}));};_raLogo2.src="/onna-default-logo.png";
-          setRonnieCtx({projectId:switchProject.id,vIdx:0});
-          if(setActiveRAVersion)setActiveRAVersion(0);
-          addRonnieTab(switchProject.id,0,`${switchProject.name} · [Untitled]`);
-          setMsgs([...history,{role:"assistant",content:`Created a new risk assessment for ${switchProject.name}. What would you like to do?`}]);
-        }else{
-          raLabels.forEach((v,i)=>{addRonnieTab(switchProject.id,i,`${switchProject.name} · ${v.label||`RA ${i+1}`}`);});
-          const _missingLogo2=raLabels.some(v=>!v.productionLogo);
-          if(_missingLogo2){const _bl2=new Image();_bl2.crossOrigin="anonymous";_bl2.onload=()=>{try{const cv=document.createElement("canvas");cv.width=_bl2.naturalWidth;cv.height=_bl2.naturalHeight;cv.getContext("2d").drawImage(_bl2,0,0);const du=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[switchProject.id]||[];arr.forEach(r=>{if(!r.productionLogo)r.productionLogo=du;});return s;});}catch{}};_bl2.src="/onna-default-logo.png";}
-          const lastIdx=raLabels.length-1;
-          setRonnieCtx({projectId:switchProject.id,vIdx:lastIdx});
-          if(setActiveRAVersion)setActiveRAVersion(lastIdx);
-          setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} — opened ${raLabels.length} risk assessment${raLabels.length>1?"s":""}. What would you like to do?`}]);
-        }
-        setLoading(false);setMood("idle");return;
-      }
-
-      if(/\b(switch|change|different)\s+project\b/i.test(input)){
-        setRonnieCtx(null);
-        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-        setMsgs([...history,{role:"assistant",content:`Sure! Which project's risk assessment should I work on?\n\n${list}`}]);
-        setLoading(false);setMood("idle");return;
-      }
-
-      // "create new risk assessment" / "new version" / "create new" for current project
-      if(/\b(create|new|add)\b/i.test(lower)&&/\b(risk\s*assess|ra|assessment|version)\b/i.test(lower) || /\bcreate\s+new\b/i.test(lower)){
-        setRonnieCtx({projectId,_step:"create_label"});
-        setMsgs([...history,{role:"assistant",content:"What should I call this new risk assessment? (e.g. Shoot Day, Recce Day, Pre-Production)"}]);
-        setLoading(false);setMood("idle");return;
-      }
-
-      // Logo intent
-      const logoMatch=input.match(/\b(agency|client|production)\s*(logo|image|jpeg|jpg|png|pic|photo|branding)\b/i);
-      if(logoMatch&&curAttachments&&curAttachments.length>0){
-        const logoType=logoMatch[1].toLowerCase();
-        const logoKey=logoType==="agency"?"agencyLogo":logoType==="client"?"clientLogo":"productionLogo";
-        const imgData=curAttachments[0].dataUrl;
-        const raVersions_l=riskAssessmentStore?.[project.id]||[];
-        const vIdx_l=Math.min(vIdx,raVersions_l.length-1);
-        setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[project.id]||[];arr[vIdx_l][logoKey]=imgData;store[project.id]=arr;return store;});
-        setMsgs([...history,{role:"assistant",content:`\u2713 ${logoType.charAt(0).toUpperCase()+logoType.slice(1)} logo updated on the risk assessment!`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return;
-      }
-
-
-      const raVersions = riskAssessmentStore?.[project.id] || [];
-      vIdx = Math.min(vIdx, raVersions.length-1);
-      const ver = raVersions[vIdx];
-      const vLabel = ver.label || "Risk Assessment";
-
-      // Build risk assessment snapshot
-      let snap = `Label: ${ver.label||"(empty)"} | Shoot: ${ver.shootName||"(empty)"} | Date: ${ver.shootDate||"(empty)"} | Locations: ${ver.locations||"(empty)"} | Crew: ${ver.crewOnSet||"(empty)"} | Timing: ${ver.timing||"(empty)"}\n`;
-      if(ver.sections?.length) snap += "Risk Sections:\n" + ver.sections.map((s,si)=>`  ${si+1}. ${s.title}:\n` + s.rows.map((r,ri)=>`    [row ${ri}] ${r[0]||"?"} | Level: ${r[1]||"?"} | At Risk: ${r[2]||"?"} | Mitigation: ${r[3]||"(empty)"}`).join("\n")).join("\n") + "\n";
-      if(ver.conductItems?.length) snap += "Code of Conduct:\n" + ver.conductItems.map((c,ci)=>`  [item ${ci}] ${c.label} ${c.text}`).join("\n") + "\n";
-      if(ver.waiverItems?.length) snap += "Liability Waiver:\n" + ver.waiverItems.map((w,wi)=>`  [item ${wi}] ${w.label} ${w.text}`).join("\n") + "\n";
-      if(ver.emergencyItems?.length) snap += "Emergency Plan:\n" + ver.emergencyItems.map((e,ei)=>`  [item ${ei}] ${e.label} ${e.text}`).join("\n") + "\n";
-
-      const ronnieSystem = buildRonnieSystem(project, ver, vLabel, snap);
-
-      try{
-        const ronnieIntro = intro;
-        const apiMessages=history.map((m,mi)=>{
-          if(m.role==="assistant"){
-            if(mi===0) return{role:m.role,content:ronnieIntro};
-            return{role:m.role,content:typeof m.content==="string"?m.content:""};
-          }
-          if(m._attachments&&m._attachments.length){
-            const blocks=[];
-            m._attachments.forEach(att=>{const b64=att.dataUrl.split(",")[1];const mt=att.type||"image/jpeg";blocks.push({type:"image",source:{type:"base64",media_type:mt,data:b64}});});
-            const txt=(m.content||"").replace(/\s*\[\d+ images?\]\s*$/,"").trim();
-            if(txt)blocks.push({type:"text",text:txt});
-            return{role:"user",content:blocks};
-          }
-          return{role:m.role,content:m.content};
-        });
-        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:ronnieSystem,messages:apiMessages})});
-        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
-        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
-        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
-
-        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
-        if(jsonMatch){
-          try{
-            const patch = JSON.parse(jsonMatch[1].trim());
-            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            // Save pre-snapshot, apply patch, set up inline review markers
-            // Use the ORIGINAL pre-snapshot if there's already a pending review (preserves revert baseline)
-            const existingReview = ronniePendingReview && ronniePendingReview.projectId===project.id && ronniePendingReview.vIdx===vIdx ? ronniePendingReview : null;
-            const preSnapshot = existingReview ? existingReview.preSnapshot : JSON.parse(JSON.stringify(ver));
-            const newMarkers = buildPatchMarkers(patch, ver);
-            applyRonniePatch(patch, project.id, vIdx, raVersions, setRiskAssessmentStore);
-            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
-            if(newMarkers.size > 0){
-              // Merge with any existing unresolved markers
-              const mergedMarkers = existingReview ? [...new Set([...existingReview.markers, ...newMarkers])] : [...newMarkers];
-              setRonniePendingReview({ preSnapshot, markers: mergedMarkers, projectId: project.id, vIdx });
-              setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"\n\nReview the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
-            } else if (existingReview && existingReview.markers.length > 0) {
-              // No new markers but existing review still has unresolved markers — keep it
-              setMsgs([...history,{role:"assistant",content:(cleanText||"Done.")+"\n\nYou still have pending changes to review on the left."}]);
-            } else {
-              // No markers at all — just confirm
-              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"\u2713 Risk assessment updated."}]);
-            }
-          }catch(pe){
-            setMsgs([...history,{role:"assistant",content:fullText+"\n\n\u26a0\ufe0f Could not parse patch: "+pe.message}]);
-          }
-        }else{
-          // Post-response export fallback: if the LLM mentioned exporting, trigger print
-          if(/\b(export|print|pdf)\b/i.test(fullText)&&/🖨️|📄|print dialog/i.test(fullText)){
-            const _rrEl=document.getElementById("onna-ra-print");
-            if(_rrEl){const _rrC=_rrEl.cloneNode(true);_rrC.querySelectorAll("button").forEach(b=>b.remove());_rrC.querySelectorAll("input[type=file]").forEach(b=>b.remove());const _rrF=document.createElement("iframe");_rrF.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(_rrF);const _rrD=_rrF.contentDocument;_rrD.open();_rrD.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_rrD.close();_rrD.body.appendChild(_rrD.adoptNode(_rrC));setTimeout(()=>{_rrF.contentWindow.focus();_rrF.contentWindow.print();setTimeout(()=>document.body.removeChild(_rrF),1000);},300);}
-          }
-          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
-        }
-        setMood("excited");setTimeout(()=>setMood("idle"),2500);
-      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
-      setLoading(false);return;
+    // ── Ronnie intent dispatcher ──
+    if(agent.id==="researcher"){
+      const _ronnieHandled=await handleRonnieIntent({
+        input,history,intro,agent,
+        setMsgs,setInput,setLoading,setMood,
+        ronnieCtx,setRonnieCtx,
+        ronniePendingReview,setRonniePendingReview,
+        ronnieTabs,setRonnieTabs,addRonnieTab,
+        setActiveRAVersion,
+        riskAssessmentStore,setRiskAssessmentStore,
+        localProjects,curAttachments,
+        fuzzyMatchProject,printRiskAssessmentPDF,syncProjectInfoToDocs,
+        popAgentUndo,projectInfoRef,onNavigateToDoc,
+        RISK_ASSESSMENT_INIT,PRINT_CLEANUP_CSS,
+        buildRonnieSystem,applyRonniePatch,buildPatchMarkers,
+      });
+      if(_ronnieHandled)return;
     }
+
 
     // ── Cody: sign/stamp/letterhead on uploaded document ─────────────────────
     if(agent.id==="contracts"){
