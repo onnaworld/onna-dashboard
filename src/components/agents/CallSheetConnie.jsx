@@ -751,6 +751,7 @@ export async function handleConnieIntent({
       const connieSystem = buildConnieSystem(project, ver, vLabel, snap, vendorList, leadsList);
 
       // Stream response
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
         const connieIntro = intro;
         const apiMessages=history.map((m,mi)=>{

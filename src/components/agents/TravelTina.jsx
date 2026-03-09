@@ -49,7 +49,7 @@ const TRAVEL_ITINERARY_INIT = {
 // ─── TINA INTENT HANDLER ────────────────────────────────────────────────────
 export async function handleTinaIntent({
   input, history, intro, system, agent,
-  setMsgs, setLoading, setMood,
+  setMsgs, setInput, setLoading, setMood,
   tinaCtx, setTinaCtx,
   travelItineraryStore, setTravelItineraryStore,
   localProjects, fuzzyMatchProject, projectInfoRef,
@@ -79,6 +79,7 @@ export async function handleTinaIntent({
   const _piData = (projectInfoRef?.current || {})[project.id];
   const enhancedSystem = `${system}\n\nCURRENT PROJECT CONTEXT:\n${docSnap}\nProject Info: ${JSON.stringify(_piData || {}, null, 1).substring(0, 500)}\n\nINSTRUCTIONS:\n- You are viewing LIVE data for "${project.name}". Reference specific details from the snapshot above.\n- When the user asks to add, update, or change data, respond with a JSON patch in a \`\`\`json code block.\n- Patch format: { "store": "<store_key>", "versionIndex": <number>, "updates": { <fields to merge> } }\n- For new versions: { "store": "<store_key>", "action": "create", "data": { <full version object> } }\n- Valid store keys: ${Object.keys(_daStores).join(", ")}\n- NEVER say you can't access data. You have FULL live access.`;
 
+  setMsgs(history);setInput("");setLoading(true);setMood("thinking");
   try {
     const apiMessages = history.map((m, mi) => { if (m.role === "assistant") { if (mi === 0) return { role: m.role, content: intro }; return { role: m.role, content: typeof m.content === "string" ? m.content : "" }; } return { role: m.role, content: m.content }; });
     const res = await fetch(`/api/agents/${agent.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ system: enhancedSystem, messages: apiMessages }) });

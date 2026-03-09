@@ -340,6 +340,7 @@ export async function handleBillieIntent({
           estTotals = `Estimate Grand Total: AED ${estFmt(estGT)} | Subtotal: AED ${estFmt(_sub)} | Fees: AED ${estFmt(_fees)}\nVariance (Estimate - Actuals): AED ${estFmt(estGT - grandExp)}`;
         }
         const _expSystem = buildFinnSystem(project, actSnap, estTotals);
+        setMsgs(history);setInput("");setLoading(true);setMood("thinking");
         try{
           const billieIntro = intro;
           const apiMessages=history.map((m,mi)=>{
@@ -454,6 +455,7 @@ export async function handleBillieIntent({
 
       const billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2);
 
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
         const billieIntro = intro;
         const apiMessages=history.map((m,mi)=>{

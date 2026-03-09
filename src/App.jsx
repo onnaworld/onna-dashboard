@@ -7674,7 +7674,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(agent.id==="carrie"){
       const _carrieHandled=await handleCarrieIntent({
         input,history,intro,agent,
-        setMsgs,setLoading,setMood,
+        setMsgs,setInput,setLoading,setMood,
         carrieCtx,setCarrieCtx,
         projectCasting,setProjectCasting,getProjectCastingTables,
         buildCarrieSystem,applyCarriePatch,
@@ -7736,7 +7736,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(agent.id==="tina"){
       const _tinaHandled=await handleTinaIntent({
         input,history,intro,system,agent,
-        setMsgs,setLoading,setMood,
+        setMsgs,setInput,setLoading,setMood,
         tinaCtx,setTinaCtx,
         travelItineraryStore,setTravelItineraryStore,
         localProjects,fuzzyMatchProject,projectInfoRef,
@@ -7748,7 +7748,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(agent.id==="tabby"){
       const _tabbyHandled=await handleTabbyIntent({
         input,history,intro,system,agent,
-        setMsgs,setLoading,setMood,
+        setMsgs,setInput,setLoading,setMood,
         tabbyCtx,setTabbyCtx,
         castingDeckStore,setCastingDeckStore,
         fittingStore,setFittingStore,
@@ -7762,7 +7762,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(agent.id==="polly"){
       const _pollyHandled=await handlePollyIntent({
         input,history,intro,system,agent,
-        setMsgs,setLoading,setMood,
+        setMsgs,setInput,setLoading,setMood,
         pollyCtx,setPollyCtx,
         cpsStore,setCpsStore,
         shotListStore,setShotListStore,
@@ -7776,7 +7776,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(agent.id==="lillie"){
       const _lillieHandled=await handleLillieIntent({
         input,history,intro,system,agent,
-        setMsgs,setLoading,setMood,
+        setMsgs,setInput,setLoading,setMood,
         lillieCtx,setLillieCtx,
         locDeckStore,setLocDeckStore,
         recceReportStore,setRecceReportStore,
@@ -7790,7 +7790,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
     if(agent.id==="perry"){
       const _perryHandled=await handlePerryIntent({
         input,history,intro,system,agent,
-        setMsgs,setLoading,setMood,
+        setMsgs,setInput,setLoading,setMood,
         perryCtx,setPerryCtx,
         postProdStore,setPostProdStore,
         localProjects,fuzzyMatchProject,projectInfoRef,
@@ -7798,6 +7798,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       if(_perryHandled)return;
     }
 
+    setMsgs(history);setInput("");setLoading(true);setMood("thinking");
     try{
       const apiMessages=history.map(m=>{
         if(m.role==="assistant")return{role:m.role,content:typeof m.content==="string"?m.content:""};
@@ -10605,7 +10606,7 @@ export default function OnnaDashboard() {
                   </div>
                   {dashSelectedNoteId===note.id&&(
                     <div style={{padding:"0 18px 14px"}}>
-                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onInput={e=>{const html=e.currentTarget.innerHTML;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:html,updatedAt:Date.now()}:n));}} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
+                      <div contentEditable suppressContentEditableWarning ref={el=>{if(el&&!el._initialized){el.innerHTML=note.content||"";el._initialized=true;}}} onInput={e=>{const html=e.currentTarget.innerHTML;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:html,updatedAt:Date.now()}:n));}} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
                     </div>
                   )}
                 </div>

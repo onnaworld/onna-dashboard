@@ -423,6 +423,7 @@ export async function handleRonnieIntent({
 
       const ronnieSystem = buildRonnieSystem(project, ver, vLabel, snap);
 
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
         const ronnieIntro = intro;
         const apiMessages=history.map((m,mi)=>{

@@ -87,7 +87,7 @@ function applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectC
 // ─── CARRIE INTENT HANDLER ──────────────────────────────────────────────────
 export async function handleCarrieIntent({
   input, history, intro, agent,
-  setMsgs, setLoading, setMood,
+  setMsgs, setInput, setLoading, setMood,
   carrieCtx, setCarrieCtx,
   projectCasting, setProjectCasting, getProjectCastingTables,
   buildCarrieSystem, applyCarriePatch,
@@ -147,6 +147,7 @@ export async function handleCarrieIntent({
       const carrieSystem = buildCarrieSystem(project, snap, vendorSummary);
       const castCols = [{key:"agency",label:"Agency"},{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"option",label:"Option"},{key:"notes",label:"Notes"},{key:"link",label:"Link"}];
 
+      setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
         const carrieIntro = intro;
         const apiMessages=history.map((m,mi)=>{
