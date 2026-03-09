@@ -29,6 +29,7 @@ import { handleTabbyIntent } from "./components/agents/TalentTabby";
 import { TI_FLIGHT_COLS, TI_CAR_COLS, TI_HOTEL_COLS, TI_ROOMING_COLS, TI_MOVEMENT_COLS, tiMkMove, tiMkDay, TRAVEL_ITINERARY_INIT, handleTinaIntent } from "./components/agents/TravelTina";
 import { ProjectProvider, useProject } from "./context/ProjectContext";
 import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
+import { AgentProvider, useAgentStore } from "./context/AgentContext";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -8775,7 +8776,9 @@ export default function OnnaDashboard() {
   return (
     <ProjectProvider idbGet={idbGet} idbSet={idbSet} debouncedDocSave={debouncedDocSave}>
     <VendorLeadProvider initVendors={initVendors}>
+    <AgentProvider debouncedDocSave={debouncedDocSave}>
       <OnnaDashboardInner />
+    </AgentProvider>
     </VendorLeadProvider>
     </ProjectProvider>
   );
@@ -9178,96 +9181,55 @@ function OnnaDashboardInner() {
     projectLocLinks,setProjectLocLinks,projectCreativeLinks,setProjectCreativeLinks,
     getProjectFiles,addProjectFiles,
   } = useProject();
-  const [csDuplicateModal,setCsDuplicateModal]           = useState(null); // null | {origin:"connie",projectId} | {origin:"docs"}
-  const [csDuplicateSearch,setCsDuplicateSearch]         = useState("");
-  const [raDuplicateModal,setRaDuplicateModal]           = useState(null); // null | {origin:"ronnie",projectId} | {origin:"docs"}
-  const [raDuplicateSearch,setRaDuplicateSearch]         = useState("");
-  const [csCreateMenuDocs,setCsCreateMenuDocs]           = useState(false);
+  // ── Agent / Document store state from AgentContext ──
+  const {
+    csDuplicateModal,setCsDuplicateModal,csDuplicateSearch,setCsDuplicateSearch,
+    raDuplicateModal,setRaDuplicateModal,raDuplicateSearch,setRaDuplicateSearch,
+    csCreateMenuDocs,setCsCreateMenuDocs,
+    createMenuOpen,setCreateMenuOpen,duplicateModal,setDuplicateModal,duplicateSearch,setDuplicateSearch,
+    projectContracts,setProjectContracts,
+    callSheetStore,setCallSheetStore,activeCSVersion,setActiveCSVersion,
+    riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,
+    contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,
+    cpsStore,setCpsStore,activeCPSVersion,setActiveCPSVersion,
+    cpsShareUrl,setCpsShareUrl,cpsShareLoading,setCpsShareLoading,
+    cpsShareTabs,setCpsShareTabs,cpsRef,cpsAutoSyncTimer,cpsAutoSyncing,setCpsAutoSyncing,
+    shotListStore,setShotListStore,activeShotListVersion,setActiveShotListVersion,
+    slShareUrl,setSlShareUrl,slShareLoading,setSlShareLoading,slRef,
+    storyboardStore,setStoryboardStore,activeStoryboardVersion,setActiveStoryboardVersion,
+    sbShareUrl,setSbShareUrl,sbShareLoading,setSbShareLoading,sbRef,
+    recceShareUrl,setRecceShareUrl,recceShareLoading,setRecceShareLoading,
+    recceReportStore,setRecceReportStore,activeRecceVersion,setActiveRecceVersion,
+    postProdStore,setPostProdStore,activePostProdVersion,setActivePostProdVersion,
+    ppShareUrl,setPpShareUrl,ppShareLoading,setPpShareLoading,ppRef,
+    fittingStore,setFittingStore,activeFittingVersion,setActiveFittingVersion,
+    fitShareLoading,setFitShareLoading,fitShareTabs,setFitShareTabs,fitDeckRef,
+    locDeckStore,setLocDeckStore,activeLocDeckVersion,setActiveLocDeckVersion,
+    locShareUrl,setLocShareUrl,locShareLoading,setLocShareLoading,
+    locShareTabs,setLocShareTabs,locDeckRef,
+    castingDeckStore,setCastingDeckStore,activeCastingDeckVersion,setActiveCastingDeckVersion,
+    castDeckShareUrl,setCastDeckShareUrl,castDeckShareLoading,setCastDeckShareLoading,
+    castDeckShareTabs,setCastDeckShareTabs,castDeckRef,
+    castingTableStore,setCastingTableStore,activeCastingTableVersion,setActiveCastingTableVersion,
+    ctShareUrl,setCtShareUrl,ctShareLoading,setCtShareLoading,ctRef,
+    ctTypeModalOpen,setCtTypeModalOpen,ctSignShareUrl,setCtSignShareUrl,
+    ctSignShareLoading,setCtSignShareLoading,
+    travelItineraryStore,setTravelItineraryStore,activeTIVersion,setActiveTIVersion,
+    tiShowAddMenu,setTiShowAddMenu,
+    dietaryStore,setDietaryStore,activeDietaryVersion,setActiveDietaryVersion,
+    dietaryTab,setDietaryTab,
+    projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,
+    editingEstimate,setEditingEstimate,
+    projectNotes,setProjectNotes,projectInfo,setProjectInfo,projectInfoRef,
+    actualsTrackerTab,setActualsTrackerTab,actualsExpandedRef,
+    contractType,setContractType,contractFields,setContractFields,
+    generatedContract,setGeneratedContract,contractLoading,setContractLoading,
+  } = useAgentStore();
   const [projectActuals,setProjectActuals]               = useState({});
   const [actualsReady,setActualsReady]                   = useState(false);
   const [projectCasting,setProjectCasting]               = useState({});
   const [castingReady,setCastingReady]                   = useState(false);
   const [castAgencyOpen,setCastAgencyOpen]               = useState(null);
-  const [projectContracts,setProjectContracts]           = useState({});
-  const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
-  const [activeCSVersion,setActiveCSVersion]             = useState(null);
-  const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Risk Assessment",...d[k]}];}});return d;}catch{return {}}});
-  const [activeRAVersion,setActiveRAVersion]             = useState(null);
-  const [contractDocStore,setContractDocStore]           = useState(()=>{try{const s=localStorage.getItem('onna_contracts_doc');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Version 1",...d[k]}];}if(Array.isArray(d[k])){d[k]=d[k].map(c=>migrateContract(c));}});return d;}catch{return {}}});
-  const [activeContractVersion,setActiveContractVersion] = useState(null);
-  const [cpsStore,setCpsStore]                           = useState(()=>{try{const s=localStorage.getItem('onna_cps');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeCPSVersion,setActiveCPSVersion]           = useState(null);
-  const [shotListStore,setShotListStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_shotlists');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeShotListVersion,setActiveShotListVersion] = useState(null);
-  const [storyboardStore,setStoryboardStore]             = useState(()=>{try{const s=localStorage.getItem('onna_storyboards');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeStoryboardVersion,setActiveStoryboardVersion] = useState(null);
-  const [slShareUrl,setSlShareUrl]                       = useState(null);
-  const [slShareLoading,setSlShareLoading]               = useState(false);
-  const slRef                                            = useRef(null);
-  const [sbShareUrl,setSbShareUrl]                       = useState(null);
-  const [sbShareLoading,setSbShareLoading]               = useState(false);
-  const sbRef                                            = useRef(null);
-  const [recceShareUrl,setRecceShareUrl]                 = useState(null);
-  const [recceShareLoading,setRecceShareLoading]         = useState(false);
-  const [postProdStore,setPostProdStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_postprod');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activePostProdVersion,setActivePostProdVersion] = useState(null);
-  const [ppShareUrl,setPpShareUrl]                       = useState(null);
-  const [ppShareLoading,setPpShareLoading]               = useState(false);
-  const ppRef                                            = useRef(null);
-  const [fittingStore,setFittingStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_fittings');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeFittingVersion,setActiveFittingVersion]   = useState(null);
-  const [fitShareLoading,setFitShareLoading]             = useState(false);
-  const [fitShareTabs,setFitShareTabs]                   = useState(new Set(["confirmed","options"]));
-  const fitDeckRef                                       = useRef(null);
-  const [cpsShareUrl,setCpsShareUrl]                     = useState(null);
-  const [cpsShareLoading,setCpsShareLoading]             = useState(false);
-  const [cpsShareTabs,setCpsShareTabs]                   = useState(new Set(["schedule","timeline","calendar"]));
-  const cpsRef                                           = useRef(null);
-  const cpsAutoSyncTimer                                 = useRef(null);
-  const [cpsAutoSyncing,setCpsAutoSyncing]               = useState(false);
-  const [locDeckStore,setLocDeckStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_loc_decks');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeLocDeckVersion,setActiveLocDeckVersion]   = useState(null);
-  const [locShareUrl,setLocShareUrl]                     = useState(null);
-  const [locShareLoading,setLocShareLoading]             = useState(false);
-  const [locShareTabs,setLocShareTabs]                   = useState(new Set(["overview","detail"]));
-  const locDeckRef                                       = useRef(null);
-  const [recceReportStore,setRecceReportStore]           = useState(()=>{try{const s=localStorage.getItem('onna_recce_reports');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeRecceVersion,setActiveRecceVersion]       = useState(null);
-  const [castingDeckStore,setCastingDeckStore]           = useState(()=>{try{const s=localStorage.getItem('onna_casting_decks');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeCastingDeckVersion,setActiveCastingDeckVersion] = useState(null);
-  const [castingTableStore,setCastingTableStore]         = useState(()=>{try{const s=localStorage.getItem('onna_casting_tables');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeCastingTableVersion,setActiveCastingTableVersion] = useState(null);
-  const [ctShareUrl,setCtShareUrl]                       = useState(null);
-  const [ctShareLoading,setCtShareLoading]               = useState(false);
-  const ctRef                                            = useRef(null);
-  const [castDeckShareUrl,setCastDeckShareUrl]           = useState(null);
-  const [castDeckShareLoading,setCastDeckShareLoading]   = useState(false);
-  const [castDeckShareTabs,setCastDeckShareTabs]         = useState(new Set(["confirmed","options"]));
-  const castDeckRef                                       = useRef(null);
-  const [createMenuOpen,setCreateMenuOpen]               = useState({});
-  const [duplicateModal,setDuplicateModal]               = useState(null);
-  const [duplicateSearch,setDuplicateSearch]              = useState("");
-  const [travelItineraryStore,setTravelItineraryStore]   = useState(()=>{try{const s=localStorage.getItem('onna_travel_itineraries');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeTIVersion,setActiveTIVersion]             = useState(null);
-  const [tiShowAddMenu,setTiShowAddMenu]                 = useState(false);
-  const [dietaryStore,setDietaryStore]                   = useState(()=>{try{const s=localStorage.getItem('onna_dietaries');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeDietaryVersion,setActiveDietaryVersion]   = useState(null);
-  const [dietaryTab,setDietaryTab]                       = useState("dietary");
-  const [ctTypeModalOpen,setCtTypeModalOpen]             = useState(false);
-  const [ctSignShareUrl,setCtSignShareUrl]               = useState(null);
-  const [ctSignShareLoading,setCtSignShareLoading]       = useState(false);
-  const [projectEstimates,setProjectEstimates]           = useState(()=>{try{const s=localStorage.getItem('onna_estimates');return s?JSON.parse(s):{}}catch{return {}}});
-  const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
-  const [projectNotes,setProjectNotes]                   = useState({});
-  const [projectInfo,setProjectInfo]                     = useState(()=>{try{const s=localStorage.getItem('onna_project_info');return s?JSON.parse(s):{}}catch{return {}}});
-  const projectInfoRef                                   = useRef(projectInfo);
-  const [editingEstimate,setEditingEstimate]             = useState(null);
-  const [actualsTrackerTab,setActualsTrackerTab]         = useState("detail");
-  const actualsExpandedRef                               = useRef({});
-  const [contractType,setContractType]                   = useState(CONTRACT_TYPES[0]);
-  const [contractFields,setContractFields]               = useState({commissionee:"",individual:"",role:"",fee:"",shootDate:"",deliverables:"",usageRights:"",paymentTerms:"NET 30 days",deadline:"",projectRef:""});
-  const [generatedContract,setGeneratedContract]         = useState("");
-  const [contractLoading,setContractLoading]             = useState(false);
 
   // Auto-poll pending signing requests every 30s
   useEffect(() => {
@@ -9485,9 +9447,6 @@ function OnnaDashboardInner() {
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
   useEffect(()=>{if(castingReady){idbSet("projectCasting",projectCasting).catch(()=>{}); debouncedDocSave('project_casting',projectCasting);}},[projectCasting,castingReady]);
-  useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{} debouncedDocSave('callsheets',callSheetStore);},[callSheetStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{} debouncedDocSave('riskassessments',riskAssessmentStore);},[riskAssessmentStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{} debouncedDocSave('cps',cpsStore);},[cpsStore]);
   // Auto-sync CPS share link when content changes (debounced 5s)
   useEffect(()=>{
     if(!selectedProject||activeCPSVersion==null)return;
@@ -9505,11 +9464,6 @@ function OnnaDashboardInner() {
     },5000);
     return()=>{if(cpsAutoSyncTimer.current)clearTimeout(cpsAutoSyncTimer.current);};
   },[cpsStore,activeCPSVersion,selectedProject]); // eslint-disable-line
-  useEffect(()=>{try{localStorage.setItem('onna_shotlists',JSON.stringify(shotListStore))}catch{} debouncedDocSave('shotlists',shotListStore);},[shotListStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_storyboards',JSON.stringify(storyboardStore))}catch{} debouncedDocSave('storyboards',storyboardStore);},[storyboardStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_postprod',JSON.stringify(postProdStore))}catch{} debouncedDocSave('postprod',postProdStore);},[postProdStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_casting_tables',JSON.stringify(castingTableStore))}catch{} debouncedDocSave('casting_tables',castingTableStore);},[castingTableStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_fittings',JSON.stringify(fittingStore))}catch{} debouncedDocSave('fittings',fittingStore);},[fittingStore]);
   // Poll fitting share feedback and sync back to portal
   useEffect(()=>{
     if(activeFittingVersion==null||!selectedProject)return;
@@ -9568,14 +9522,6 @@ function OnnaDashboardInner() {
     const timer=setInterval(poll,5000);
     return()=>{cancelled=true;clearInterval(timer);};
   },[activeFittingVersion,selectedProject]); // eslint-disable-line
-  useEffect(()=>{try{localStorage.setItem('onna_loc_decks',JSON.stringify(locDeckStore))}catch{} debouncedDocSave('loc_decks',locDeckStore);},[locDeckStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_recce_reports',JSON.stringify(recceReportStore))}catch{} debouncedDocSave('recce_reports',recceReportStore);},[recceReportStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_casting_decks',JSON.stringify(castingDeckStore))}catch{} debouncedDocSave('casting_decks',castingDeckStore);},[castingDeckStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{} debouncedDocSave('contracts_doc',contractDocStore);},[contractDocStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{} debouncedDocSave('travel_itineraries',travelItineraryStore);},[travelItineraryStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{} debouncedDocSave('dietaries',dietaryStore);},[dietaryStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{} debouncedDocSave('estimates',projectEstimates);},[projectEstimates]);
-  useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{} debouncedDocSave('project_info',projectInfo);},[projectInfo]);
   useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
