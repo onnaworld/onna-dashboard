@@ -22,6 +22,7 @@ export default function Agents({
   locDeckStore, setLocDeckStore, recceReportStore, setRecceReportStore,
   postProdStore, setPostProdStore,
   syncProjectInfoToDocs,
+  projectFileStore,
 }) {
   const [agentHoverIdx, setAgentHoverIdx] = useState(null);
   const [agentStart, setAgentStart] = useState(0);
@@ -158,6 +159,7 @@ export default function Agents({
                 postProdStore={a.id==="perry"?postProdStore:undefined}
                 setPostProdStore={a.id==="perry"?setPostProdStore:undefined}
                 syncProjectInfoToDocs={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?syncProjectInfoToDocs:undefined}
+                projectFileStore={a.id==="billie"?projectFileStore:undefined}
               />
             ))}
           </div>

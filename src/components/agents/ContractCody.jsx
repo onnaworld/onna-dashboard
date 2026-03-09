@@ -728,6 +728,7 @@ export async function handleCodyIntent({
   codyUploadedDoc, setCodyUploadedDoc,
   codySignPanel, setCodySignPanel,
   codyPickerPid, setCodyPickerPid,
+  codyDocConfigRef,
   contractDocStore, setContractDocStore,
   localProjects, curAttachments,
   fuzzyMatchProject, syncProjectInfoToDocs,
