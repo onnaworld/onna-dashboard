@@ -374,6 +374,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 export function useVinnieCard({ agent, isMobile, pendingConv, pendingLead, pendingType, pendingId, leadEdit, getXContacts }) {
   const isVinnie = agent.id === "logistical";
   const hasVinnieCard = isVinnie && !isMobile && ((pendingConv && !pendingConv._awaitingTypeChoice && !pendingConv._awaitingUpdateName) || !!pendingLead);
+  if (isVinnie) console.log('[VinnieCard DEBUG]', { hasVinnieCard, isMobile, pendingConv: !!pendingConv, pendingLead: !!pendingLead, awaitType: pendingConv?._awaitingTypeChoice, awaitName: pendingConv?._awaitingUpdateName, entry: pendingConv?.entry ? 'SET' : 'NULL' });
   return { isVinnie, hasVinnieCard };
 }
 
@@ -420,6 +421,7 @@ export default function VendorVinnieCard({
     );
   };
 
+  console.log('[VinnieCard RENDER]', { _cardEntry: _cardEntry ? 'SET' : 'NULL', _cardType, _cardIsNew, pendingConv: !!pendingConv, pendingLead: !!pendingLead });
   if (!_cardEntry) return null;
   const _statusOpts = [{ value: "not_contacted", label: "Not Contacted" }, { value: "cold", label: "Cold" }, { value: "warm", label: "Warm" }, { value: "open", label: "Open" }];
   return (
