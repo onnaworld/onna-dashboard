@@ -43,6 +43,24 @@ import { TABBY_SYSTEM } from "./prompts/tabby";
 import { POLLY_SYSTEM } from "./prompts/polly";
 import { LILLIE_SYSTEM } from "./prompts/lillie";
 import { PERRY_SYSTEM } from "./prompts/perry";
+import { MobileMenu } from "./components/modals/MobileMenu";
+import { LeadModal } from "./components/modals/LeadModal";
+import { OutreachModal } from "./components/modals/OutreachModal";
+import { ProjectPickerModal } from "./components/modals/ProjectPickerModal";
+import { DragToProjectModal } from "./components/modals/DragToProjectModal";
+import { TodoModal } from "./components/modals/TodoModal";
+import { AddProjectModal } from "./components/modals/AddProjectModal";
+import { FromTemplateModal } from "./components/modals/FromTemplateModal";
+import { AddLeadModal } from "./components/modals/AddLeadModal";
+import { AddVendorModal } from "./components/modals/AddVendorModal";
+import { RateCardModal } from "./components/modals/RateCardModal";
+import { EditVendorModal } from "./components/modals/EditVendorModal";
+import { CategoryManagerModal } from "./components/modals/CategoryManagerModal";
+import { DuplicateCallSheetModal } from "./components/modals/DuplicateCallSheetModal";
+import { DuplicateRAModal } from "./components/modals/DuplicateRAModal";
+import { GenericDuplicateModal } from "./components/modals/GenericDuplicateModal";
+import { ArchiveModal } from "./components/modals/ArchiveModal";
+import { TimeoutWarning, GlobalAlertModal, UndoToast } from "./components/modals/MiniModals";
 
 // ─── IMAGE UPLOAD VALIDATION ────────────────────────────────────────────────
 const MAX_IMG_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -9960,6 +9978,55 @@ function OnnaDashboardInner() {
                           {items.map(s=>{
                             const isExpanded=sopEditId===("view_"+s.id);
                             const agentDef=s.agent?AGENT_DEFS.find(a=>a.id===s.agent):null;
+  const _mp = {T, isMobile, api, BtnPrimary, BtnSecondary, Sel, OutreachBadge, StarIcon,
+    activeTab, changeTab, TABS, buildPath, setAuthed,
+    selectedLead, setSelectedLead, selectedOutreach, setSelectedOutreach,
+    addContactForm, setAddContactForm,
+    addNewOption, customLeadCats, setCustomLeadCats, customLeadLocs, setCustomLeadLocs,
+    allLeadCats, allLeadLocs, allVendorCats, allVendorLocs,
+    customVendorCats, setCustomVendorCats, customVendorLocs, setCustomVendorLocs,
+    OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, promoteToClient,
+    setLocalLeads, setLeadStatusOverrides, setOutreach,
+    archiveItem, pruneCustom, setXContacts, pushUndo,
+    showRateModal, setShowRateModal, rateInput, setRateInput,
+    editVendor, setEditVendor, vendors, setVendors,
+    newVendor, setNewVendor, newLead, setNewLead,
+    DIETARY_TAGS, DIETARY_TAG_COLORS,
+    showCatManager, setShowCatManager, catEdit, setCatEdit, catEditVal, setCatEditVal, catSaving,
+    LEAD_CATEGORIES, VENDORS_CATEGORIES, hiddenLeadBuiltins, hiddenVendorBuiltins,
+    renameCat, deleteCat,
+    pendingProjectTask, setPendingProjectTask,
+    pendingDragToProject, setPendingDragToProject,
+    allProjectsMerged, setProjectTodos, setTodos, setTodoFilter, projectTodos,
+    selectedTodo, setSelectedTodo,
+    showAddProject, setShowAddProject, newProject, setNewProject,
+    showFromTemplate, setShowFromTemplate, templateProject, setTemplateProject,
+    showAddLead, setShowAddLead,
+    showAddVendor, setShowAddVendor, showAlert,
+    setLocalProjects, localProjects, archivedProjects,
+    callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore,
+    contractDocStore, setContractDocStore, projectEstimates, setProjectEstimates,
+    projectNotes, setProjectNotes,
+    getProjectCastingTables, setProjectCasting,
+    projectInfo, setProjectInfo,
+    projectCreativeLinks, setProjectCreativeLinks,
+    projectFileStore, setProjectFileStore,
+    projectActuals, setProjectActuals,
+    setSelectedProject, setProjectSection, selectedProject,
+    csDuplicateModal, setCsDuplicateModal, csDuplicateSearch, setCsDuplicateSearch,
+    raDuplicateModal, setRaDuplicateModal, raDuplicateSearch, setRaDuplicateSearch,
+    duplicateModal, setDuplicateModal, duplicateSearch, setDuplicateSearch,
+    cpsStore, setCpsStore, shotListStore, setShotListStore,
+    storyboardStore, setStoryboardStore, postProdStore, setPostProdStore,
+    castingDeckStore, setCastingDeckStore, castingTableStore, setCastingTableStore,
+    fittingStore, setFittingStore, locDeckStore, setLocDeckStore,
+    recceReportStore, setRecceReportStore, dietaryStore, setDietaryStore,
+    travelItineraryStore, setTravelItineraryStore,
+    showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
+    showTimeoutWarning, setShowTimeoutWarning,
+    _modal, _closeModal, _modalInputRef,
+    undoToastMsg, mobileMenuOpen, setMobileMenuOpen};
+
                             return (
                               <div key={s.id} style={{marginBottom:6,borderRadius:12,border:`1px solid ${T.border}`,background:"#fafafa",overflow:"hidden"}}>
                                 <div onClick={()=>setSopEditId(prev=>prev===("view_"+s.id)?null:("view_"+s.id))} style={{display:"flex",alignItems:"center",padding:"12px 14px",cursor:"pointer",gap:10}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
@@ -9998,969 +10065,44 @@ function OnnaDashboardInner() {
         </div>
       </div>
 
-      {/* ── MOBILE DROPDOWN MENU ── */}
-      {isMobile&&mobileMenuOpen&&(
-        <>
-          <div onClick={()=>setMobileMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:199,background:"rgba(0,0,0,0.25)"}}/>
-          <div style={{position:"fixed",top:50,left:0,right:0,zIndex:200,background:"rgba(255,255,255,0.98)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderBottom:`1px solid ${T.border}`,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",maxHeight:"calc(100vh - 60px)",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
-            {TABS.map(t=>(
-              <a key={t.id} href={buildPath(t.id,null,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();changeTab(t.id);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:activeTab===t.id?"#f5f5f7":"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit",textDecoration:"none",color:"inherit"}}>
-                <StarIcon size={12} color={activeTab===t.id?(t.starColor||"#1d1d1f"):"#aeaeb2"}/>
-                <span style={{fontSize:13,fontWeight:activeTab===t.id?700:500,letterSpacing:"0.04em",color:activeTab===t.id?"#1d1d1f":"#666"}}>{t.label}</span>
-              </a>
-            ))}
-            <button onClick={()=>{setShowArchive(true);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:"transparent",border:"none",borderBottom:`1px solid ${T.border}`,cursor:"pointer",fontFamily:"inherit"}}>
-              <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="#aeaeb2" strokeWidth="1.3"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="#aeaeb2" strokeWidth="1.3"/><path d="M4.5 7h3" stroke="#aeaeb2" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              <span style={{fontSize:13,fontWeight:500,letterSpacing:"0.04em",color:"#666"}}>ARCHIVE</span>
-            </button>
-            <button onClick={()=>{localStorage.removeItem("onna_token");setAuthed(false);setMobileMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"13px 20px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
-              <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M4.5 2H2a1 1 0 00-1 1v6a1 1 0 001 1h2.5M8 9l3-3-3-3M11 6H5" stroke="#aeaeb2" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span style={{fontSize:13,fontWeight:500,letterSpacing:"0.04em",color:"#666"}}>SIGN OUT</span>
-            </button>
-          </div>
-        </>
-      )}
+      {isMobile&&mobileMenuOpen&&<MobileMenu {..._mp}/>}
 
-      {/* ── LEAD MODAL ── */}
-      {selectedLead&&(
-        <div className="modal-bg" onClick={()=>setSelectedLead(null)}>
-          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-              <div>
-                <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedLead.company}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{selectedLead.category} · {selectedLead.location}</div>
-              </div>
-              <button onClick={()=>setSelectedLead(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
-              {[["company","Company"],["contact","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value"]].map(([field,label])=>(
-                <div key={field}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{label}</div>
-                  <input value={selectedLead[field]||""} onChange={e=>setSelectedLead(p=>({...p,[field]:e.target.value}))}
-                    style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
-                <Sel value={selectedLead.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedLead(p=>({...p,category:n}));}else setSelectedLead(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Source</div>
-                <Sel value={selectedLead.source||""} onChange={v=>setSelectedLead(p=>({...p,source:v}))} options={["Referral","LinkedIn","Website","Cold Outreach","Event","Other"]} minWidth="100%"/>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
-                <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-                  <OutreachBadge status={selectedLead.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedLead.status)+1)%OUTREACH_STATUSES.length];setSelectedLead(p=>({...p,status:next}));if(next==="client")promoteToClient(selectedLead);}}/>
-                  <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
-                </div>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-                <Sel value={selectedLead.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedLead(p=>({...p,location:n}));}else setSelectedLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
-              </div>
-            </div>
-            {/* Additional Contacts */}
-            <div style={{marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div style={{fontSize:10,color:T.muted,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Additional Contacts</div>
-                <button onClick={()=>setAddContactForm({type:"lead",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>＋ Add Contact</button>
-              </div>
-              {(selectedLead._xContacts||[]).map((c,i)=>(
-                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
-                  <button onClick={()=>setSelectedLead(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
-                </div>
-              ))}
-              {addContactForm?.type==="lead"&&(
-                <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                    {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
-                      <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
-                        <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-                    <button onClick={()=>{setSelectedLead(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{marginBottom:18}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
-              <textarea value={selectedLead.notes||""} onChange={e=>setSelectedLead(p=>({...p,notes:e.target.value}))} rows={3}
-                placeholder="Comments, next steps, context…"
-                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <button onClick={async()=>{
-                if(!window.confirm(`Delete ${selectedLead.company}?`)) return;
-                const snap = {...selectedLead};
-                // Archive, close modal, and update list immediately — don't wait for API
-                archiveItem('leads', snap);
-                setSelectedLead(null);
-                setLocalLeads(prev=>prev.filter(l=>l.id!==snap.id));
-                // Prune and API call are non-blocking cleanup
-                setTimeout(()=>{
-                  setLocalLeads(prev=>{
-                    pruneCustom(prev,'category',customLeadCats,setCustomLeadCats,'onna_lead_cats');
-                    pruneCustom(prev,'location',customLeadLocs,setCustomLeadLocs,'onna_lead_locs');
-                    return prev;
-                  });
-                },50);
-                try{await api.delete(`/api/leads/${snap.id}`);}catch{}
-              }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete lead</button>
-              <div style={{display:"flex",gap:8}}>
-                <BtnSecondary onClick={()=>setSelectedLead(null)}>Cancel</BtnSecondary>
-                <BtnPrimary onClick={async()=>{
-                  const {id,_xContacts,...fields} = selectedLead;
-                  setXContacts('lead', id, _xContacts||[]);
-                  await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
-                  setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
-                  setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
-                  if(selectedLead.status==="client") promoteToClient(selectedLead);
-                  setSelectedLead(null);
-                }}>Save Changes</BtnPrimary>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedLead&&<LeadModal {..._mp}/>}
 
-      {/* ── OUTREACH MODAL ── */}
-      {selectedOutreach&&(
-        <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
-          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-              <div>
-                <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{selectedOutreach.company}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{selectedOutreach.category} · {selectedOutreach.location}</div>
-              </div>
-              <button onClick={()=>setSelectedOutreach(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
-              {[["company","Company"],["clientName","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value (AED)"]].map(([field,label])=>(
-                <div key={field}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>{label}</div>
-                  <input value={selectedOutreach[field]||""} onChange={e=>setSelectedOutreach(p=>({...p,[field]:e.target.value}))}
-                    style={{width:"100%",padding:"8px 11px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
-                <Sel value={selectedOutreach.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedOutreach(p=>({...p,category:n}));}else setSelectedOutreach(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Source</div>
-                <Sel value={selectedOutreach.source||"Cold Outreach"} onChange={v=>setSelectedOutreach(p=>({...p,source:v}))} options={["Referral","LinkedIn","Website","Cold Outreach","Event","Other"]} minWidth="100%"/>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
-                <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-                  <OutreachBadge status={selectedOutreach.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedOutreach.status)+1)%OUTREACH_STATUSES.length];setSelectedOutreach(p=>({...p,status:next}));if(next==="client")promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});}}/>
-                  <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
-                </div>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-                <Sel value={selectedOutreach.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedOutreach(p=>({...p,location:n}));}else setSelectedOutreach(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
-              </div>
-            </div>
-            {/* Additional Contacts */}
-            <div style={{marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div style={{fontSize:10,color:T.muted,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Additional Contacts</div>
-                <button onClick={()=>setAddContactForm({type:"outreach",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>＋ Add Contact</button>
-              </div>
-              {(selectedOutreach._xContacts||[]).map((c,i)=>(
-                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
-                  <button onClick={()=>setSelectedOutreach(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
-                </div>
-              ))}
-              {addContactForm?.type==="outreach"&&(
-                <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                    {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
-                      <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
-                        <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-                    <button onClick={()=>{setSelectedOutreach(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{marginBottom:18}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
-              <textarea value={selectedOutreach.notes||""} onChange={e=>setSelectedOutreach(p=>({...p,notes:e.target.value}))} rows={3}
-                placeholder="Context, next steps, meeting notes…"
-                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <button onClick={async()=>{
-                if(!window.confirm(`Delete ${selectedOutreach.company}?`)) return;
-                pushUndo('delete outreach');archiveItem('outreach', selectedOutreach);
-                await api.delete(`/api/outreach/${selectedOutreach.id}`);
-                setOutreach(prev=>prev.filter(x=>x.id!==selectedOutreach.id));
-                setSelectedOutreach(null);
-              }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete</button>
-              <div style={{display:"flex",gap:8}}>
-                <BtnSecondary onClick={()=>setSelectedOutreach(null)}>Cancel</BtnSecondary>
-                <BtnPrimary onClick={async()=>{
-                  const {id,_xContacts,...fields}=selectedOutreach;
-                  setXContacts('outreach', id, _xContacts||[]);
-                  await api.put(`/api/outreach/${id}`,{...fields,value:Number(fields.value)||0});
-                  setOutreach(prev=>prev.map(x=>x.id===id?{...selectedOutreach,value:Number(fields.value)||0}:x));
-                  if(selectedOutreach.status==="client") promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});
-                  setSelectedOutreach(null);
-                }}>Save Changes</BtnPrimary>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedOutreach&&<OutreachModal {..._mp}/>}
 
-      {/* ── PROJECT PICKER POPUP ── */}
-      {pendingProjectTask&&(
-        <div className="modal-bg" onClick={()=>setPendingProjectTask(null)}>
-          <div style={{borderRadius:16,padding:24,width:340,maxWidth:"90vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>Select Project</div>
-            <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Which project should this task go under?</div>
-            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto"}}>
-              {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(
-                <button key={p.id} onClick={()=>{pushUndo('add project task');setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:Date.now(),text:pendingProjectTask,done:false,details:""}]}));setPendingProjectTask(null);}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
-                  <div>{p.name}</div>
-                  <div style={{fontSize:10,opacity:0.7,marginTop:1}}>{p.client}</div>
-                </button>
-              ))}
-            </div>
-            <button onClick={()=>setPendingProjectTask(null)} style={{marginTop:14,width:"100%",padding:"8px 0",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-          </div>
-        </div>
-      )}
+      {pendingProjectTask&&<ProjectPickerModal {..._mp}/>}
 
-      {/* ── DRAG TO PROJECT PICKER ── */}
-      {pendingDragToProject&&(
-        <div className="modal-bg" onClick={()=>setPendingDragToProject(null)}>
-          <div style={{borderRadius:16,padding:24,width:340,maxWidth:"90vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:4}}>Move to Project</div>
-            <div style={{fontSize:12,color:T.muted,marginBottom:16}}>Which project should "{pendingDragToProject.text}" go under?</div>
-            <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:220,overflowY:"auto"}}>
-              {allProjectsMerged.filter(p=>p.status==="Active").map(p=>(
-                <button key={p.id} onClick={()=>{pushUndo('move to project');setTodos(prev=>prev.filter(t=>t.id!==pendingDragToProject.id));setProjectTodos(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),{id:pendingDragToProject.id,text:pendingDragToProject.text,done:pendingDragToProject.done,details:pendingDragToProject.details||""}]}));setPendingDragToProject(null);setTodoFilter("project");}} style={{padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.12s"}} onMouseEnter={e=>{e.currentTarget.style.background=T.accent;e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor=T.accent;}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa";e.currentTarget.style.color=T.text;e.currentTarget.style.borderColor=T.border;}}>
-                  <div>{p.name}</div>
-                  <div style={{fontSize:10,opacity:0.7,marginTop:1}}>{p.client}</div>
-                </button>
-              ))}
-            </div>
-            <button onClick={()=>setPendingDragToProject(null)} style={{marginTop:14,width:"100%",padding:"8px 0",borderRadius:10,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-          </div>
-        </div>
-      )}
+      {pendingDragToProject&&<DragToProjectModal {..._mp}/>}
 
-      {/* ── TODO MODAL ── */}
-      {selectedTodo&&(
-        <div className="modal-bg" onClick={()=>setSelectedTodo(null)}>
-          <div style={{borderRadius:20,padding:28,width:500,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Task Details</div>
-              <button onClick={()=>setSelectedTodo(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Task</div>
-              <input value={selectedTodo.text} onChange={e=>{const u={...selectedTodo,text:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:14,fontFamily:"inherit"}}/>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Tab</div>
-                <Sel value={selectedTodo._source==="project"?"project":selectedTodo.tab==="personal"?"personal":"onna"} onChange={v=>{const oldSource=selectedTodo._source;if(v==="onna"||v==="personal"){const u={...selectedTodo,tab:v==="onna"?"onna":"personal",_source:"general",subType:selectedTodo.subType};setSelectedTodo(u);if(oldSource==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));setTodos(prev=>[...prev,u]);}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}else if(v==="project"){const firstActive=allProjectsMerged.find(p=>p.status==="Active");if(!firstActive)return;const pid=selectedTodo._source==="project"?selectedTodo.projectId:firstActive.id;const u={...selectedTodo,_source:"project",projectId:pid};setSelectedTodo(u);if(oldSource!=="project"){setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}]}));}}}} options={[{value:"onna",label:"ONNA"},{value:"personal",label:"Personal"},{value:"project",label:"Projects"}]}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={selectedTodo._source==="project"?String(selectedTodo.projectId):(selectedTodo.subType==="later"?"later":"now")} onChange={v=>{if(selectedTodo._source==="project"){const pid=Number(v);if(pid===selectedTodo.projectId)return;const u={...selectedTodo,projectId:pid};setSelectedTodo(u);setProjectTodos(prev=>{const updated={...prev};updated[selectedTodo.projectId]=(updated[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id);updated[pid]=[...(updated[pid]||[]),{id:u.id,text:u.text,done:u.done,details:u.details||""}];return updated;});}else{const u={...selectedTodo,subType:v==="later"?"later":undefined};setSelectedTodo(u);setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} options={selectedTodo._source==="project"?allProjectsMerged.filter(p=>p.status==="Active").map(p=>({value:String(p.id),label:p.name})):[{value:"now",label:"Now"},{value:"later",label:"Later"}]}/>
-              </div>
-            </div>
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Additional Notes</div>
-              <textarea value={selectedTodo.details||""} onChange={e=>{const u={...selectedTodo,details:e.target.value};setSelectedTodo(u);if(u._source==="project"){setProjectTodos(prev=>({...prev,[u.projectId]:(prev[u.projectId]||[]).map(x=>x.id===u.id?u:x)}));}else{setTodos(prev=>prev.map(t=>t.id===u.id?u:t));}}} rows={4} placeholder="Add notes, links, context…" style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical"}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between"}}>
-              <button onClick={()=>{pushUndo('delete task');archiveItem('todos',selectedTodo);if(selectedTodo._source==="project"){setProjectTodos(prev=>({...prev,[selectedTodo.projectId]:(prev[selectedTodo.projectId]||[]).filter(x=>x.id!==selectedTodo.id)}));}else{setTodos(prev=>prev.filter(t=>t.id!==selectedTodo.id));}setSelectedTodo(null);}} style={{padding:"8px 16px",borderRadius:10,background:"#fff0f0",border:"1px solid #ffd0d0",color:"#c0392b",fontSize:13,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>Delete task</button>
-              <BtnPrimary onClick={()=>setSelectedTodo(null)}>Done</BtnPrimary>
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedTodo&&<TodoModal {..._mp}/>}
 
-      {/* ── ADD PROJECT MODAL ── */}
-      {showAddProject&&(
-        <div className="modal-bg" onClick={()=>setShowAddProject(false)}>
-          <div style={{borderRadius:20,padding:28,width:480,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Project</div>
-              <button onClick={()=>setShowAddProject(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Client","client"],["Project Name","name"],["Revenue (AED)","revenue"],["Cost (AED)","cost"]].map(([label,key])=>(
-                <div key={key}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
-                  <input value={newProject[key]} onChange={e=>setNewProject(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-                <Sel value={newProject.status} onChange={v=>setNewProject(p=>({...p,status:v}))} options={["Active","In Review","Completed"]}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Year</div>
-                <Sel value={String(newProject.year)} onChange={v=>setNewProject(p=>({...p,year:Number(v)}))} options={["2024","2025","2026","2027"]}/>
-              </div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-              <BtnSecondary onClick={()=>setShowAddProject(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newProject.client||!newProject.name)return;const saved=await api.post("/api/projects",{...newProject,revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0});if(saved.id)setLocalProjects(prev=>[...prev,saved]);setNewProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});setShowAddProject(false);}}>Save Project</BtnPrimary>
-            </div>
-          </div>
-        </div>
-      )}
+      {showAddProject&&<AddProjectModal {..._mp}/>}
 
-      {/* ── NEW PROJECT FROM TEMPLATE MODAL ── */}
-      {showFromTemplate&&(
-        <div className="modal-bg" onClick={()=>setShowFromTemplate(false)}>
-          <div style={{borderRadius:20,padding:28,width:480,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Project from Template</div>
-              <button onClick={()=>setShowFromTemplate(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{fontSize:12,color:T.muted,marginBottom:18}}>Creates a new project with all template structures (risk assessments, call sheets, contracts, estimates) pre-loaded.</div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Client Name","client"],["Project Name","name"],["Revenue (AED)","revenue"],["Cost (AED)","cost"]].map(([label,key])=>(
-                <div key={key}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
-                  <input value={templateProject[key]} onChange={e=>setTemplateProject(p=>({...p,[key]:e.target.value}))} placeholder={key==="client"?"e.g. Columbia / IMA":key==="name"?"e.g. Ramadan Activation 2026":""} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-                <Sel value={templateProject.status} onChange={v=>setTemplateProject(p=>({...p,status:v}))} options={["Active","In Review","Completed"]}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Year</div>
-                <Sel value={String(templateProject.year)} onChange={v=>setTemplateProject(p=>({...p,year:Number(v)}))} options={["2024","2025","2026","2027"]}/>
-              </div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-              <BtnSecondary onClick={()=>setShowFromTemplate(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{
-                if(!templateProject.client||!templateProject.name)return;
-                const saved=await api.post("/api/projects",{...templateProject,revenue:Number(templateProject.revenue)||0,cost:Number(templateProject.cost)||0});
-                if(!saved.id)return;
-                setLocalProjects(prev=>[...prev,saved]);
-                const tplId=allProjectsMerged.find(p=>p.client==="TEMPLATE")?.id;
-                if(tplId){
-                  const tplCS=callSheetStore?.[tplId];
-                  if(tplCS&&tplCS.length>0) setCallSheetStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCS))}));
-                  const tplRA=riskAssessmentStore?.[tplId];
-                  if(tplRA&&tplRA.length>0) setRiskAssessmentStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplRA))}));
-                  const tplCT=contractDocStore?.[tplId];
-                  if(tplCT&&tplCT.length>0) setContractDocStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCT))}));
-                  const tplEst=projectEstimates?.[tplId];
-                  if(tplEst&&tplEst.length>0){const cloned=JSON.parse(JSON.stringify(tplEst));cloned.forEach(e=>{if(e.ts){e.ts.client=saved.client||e.ts.client;e.ts.project=saved.name||e.ts.project;}});setProjectEstimates(prev=>({...prev,[saved.id]:cloned}));}
-                  const tplTodos=projectTodos?.[tplId];
-                  if(tplTodos&&tplTodos.length>0) setProjectTodos(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplTodos)).map(t=>({...t,done:false}))}));
-                  const noteKeys=["_prodsched","_preprod","_postprod"];
-                  const noteUpdates={};noteKeys.forEach(k=>{const v=projectNotes[tplId+k];if(v)noteUpdates[saved.id+k]=v;});
-                  if(Object.keys(noteUpdates).length>0) setProjectNotes(prev=>({...prev,...noteUpdates}));
-                  const tplCastTables=getProjectCastingTables(tplId);
-                  if(tplCastTables.some(t=>t.rows.length>0)) setProjectCasting(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplCastTables))}));
-                  const tplInfo=projectInfo?.[tplId];
-                  if(tplInfo&&Object.keys(tplInfo).length>0) setProjectInfo(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplInfo))}));
-                  const tplLinks=projectCreativeLinks?.[tplId];
-                  if(tplLinks&&Object.keys(tplLinks).length>0) setProjectCreativeLinks(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplLinks))}));
-                  const tplFiles=projectFileStore?.[tplId];
-                  if(tplFiles&&Object.keys(tplFiles).length>0) setProjectFileStore(prev=>({...prev,[saved.id]:JSON.parse(JSON.stringify(tplFiles))}));
-                  const tplActuals=projectActuals?.[tplId];
-                  if(tplActuals&&tplActuals.length>0){const cloned=JSON.parse(JSON.stringify(tplActuals));cloned.forEach(s=>s.rows.forEach(r=>{r.expenses=[];r.zohoAmount="0";r.status="";}));setProjectActuals(prev=>({...prev,[saved.id]:cloned}));}
-                }
-                setTemplateProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
-                setShowFromTemplate(false);
-                setSelectedProject(saved);setProjectSection("Home");
-              }}>Create Project</BtnPrimary>
-            </div>
-          </div>
-        </div>
-      )}
+      {showFromTemplate&&<FromTemplateModal {..._mp}/>}
 
-            {/* ── ADD LEAD MODAL ── */}
-      {showAddLead&&(
-        <div className="modal-bg" onClick={()=>setShowAddLead(false)}>
-          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Lead</div>
-              <button onClick={()=>setShowAddLead(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Company","company"],["Contact Name","contact"],["Role","role"],["Email","email"],["Phone","phone"],["Date Contacted","date"],["Value (AED)","value"]].map(([label,key])=>(
-                <div key={key}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
-                  <input value={newLead[key]} onChange={e=>setNewLead(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={newLead.category} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setNewLead(p=>({...p,category:n}));}else setNewLead(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth={200}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-                <Sel value={newLead.location} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewLead(p=>({...p,location:n}));}else setNewLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Source</div>
-                <Sel value={newLead.source} onChange={v=>setNewLead(p=>({...p,source:v}))} options={["Referral","LinkedIn","Website","Cold Outreach","Event","Other"]} minWidth={200}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-                <Sel value={newLead.status} onChange={v=>setNewLead(p=>({...p,status:v}))} options={OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth={200}/>
-              </div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-              <BtnSecondary onClick={()=>setShowAddLead(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newLead.company)return;const saved=await api.post("/api/leads",{...newLead,value:Number(newLead.value)||0});if(saved.id)setLocalLeads(prev=>[...prev,saved]);setNewLead({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});setShowAddLead(false);}}>Save Lead</BtnPrimary>
-            </div>
-          </div>
-        </div>
-      )}
+      {showAddLead&&<AddLeadModal {..._mp}/>}
 
-      {/* ── ADD VENDOR MODAL ── */}
-      {showAddVendor&&(
-        <div className="modal-bg" onClick={()=>setShowAddVendor(false)}>
-          <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
-              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>New Vendor</div>
-              <button onClick={()=>setShowAddVendor(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:18}}>
-              {[["Name","name"],["Company","company"],["Email","email"],["Phone","phone"],["Website","website"],["Rate Card","rateCard"],["Notes","notes"]].map(([label,key])=>(
-                <div key={key} style={{gridColumn:key==="notes"?"span 2":"auto"}}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>{label}</div>
-                  <input value={newVendor[key]} onChange={e=>setNewVendor(p=>({...p,[key]:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={newVendor.category} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setNewVendor(p=>({...p,category:n}));}else setNewVendor(p=>({...p,category:v}));}} options={allVendorCats.filter(c=>c!=="All")} minWidth={200}/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-                <Sel value={newVendor.location} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setNewVendor(p=>({...p,location:n}));}else setNewVendor(p=>({...p,location:v}));}} options={allVendorLocs} minWidth={200}/>
-              </div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
-              <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&saved.id){setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}else{showAlert("Failed to save vendor: "+(saved?.error||"Unknown error"));}}catch(e){showAlert("Failed to save vendor: "+(e.message||"Network error"));};}}>Save Vendor</BtnPrimary>
-            </div>
-          </div>
-        </div>
-      )}
+      {showAddVendor&&<AddVendorModal {..._mp}/>}
 
-      {/* ── RATE CARD MODAL ── */}
-      {showRateModal&&(
-        <div className="modal-bg" onClick={()=>setShowRateModal(null)}>
-          <div style={{borderRadius:20,padding:26,width:380,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:16,fontWeight:700,color:T.text}}>Add Rate Card</div>
-              <button onClick={()=>setShowRateModal(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{fontSize:12.5,color:T.muted,marginBottom:14}}>{showRateModal.name}</div>
-            <input type="text" placeholder="e.g. AED 1,500/day" value={rateInput} onChange={e=>setRateInput(e.target.value)} style={{width:"100%",padding:"10px 13px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",marginBottom:16}}/>
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <BtnSecondary onClick={()=>setShowRateModal(null)}>Cancel</BtnSecondary>
-              <BtnPrimary onClick={async()=>{await api.put(`/api/vendors/${showRateModal.id}`,{rateCard:rateInput});setVendors(prev=>prev.map(b=>b.id===showRateModal.id?{...b,rateCard:rateInput}:b));setShowRateModal(null);}}>Save</BtnPrimary>
-            </div>
-          </div>
-        </div>
-      )}
+      {showRateModal&&<RateCardModal {..._mp}/>}
 
-      {/* ── EDIT VENDOR MODAL ── */}
-      {editVendor&&(
-        <div className="modal-bg" onClick={()=>setEditVendor(null)}>
-          <div style={{borderRadius:20,padding:28,width:580,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
-              <div>
-                <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{editVendor.name||"Vendor"}</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[editVendor.company,editVendor.category,editVendor.location].filter(Boolean).join(" · ")}</div>
-              </div>
-              <button onClick={()=>setEditVendor(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
-            </div>
+      {editVendor&&<EditVendorModal {..._mp}/>}
 
-            {/* Contact details */}
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
-              {[["Name","name"],["Company","company"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
-                <div key={key}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
-                  <input value={editVendor[key]||""} onChange={e=>setEditVendor(p=>({...p,[key]:e.target.value}))}
-                    style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-                </div>
-              ))}
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
-                <Sel value={editVendor.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setEditVendor(p=>({...p,category:n}));}else setEditVendor(p=>({...p,category:v}));}} options={allVendorCats.filter(c=>c!=="All")} minWidth="100%"/>
-              </div>
-              <div>
-                <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
-                <Sel value={editVendor.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setEditVendor(p=>({...p,location:n}));}else setEditVendor(p=>({...p,location:v}));}} options={allVendorLocs} minWidth="100%"/>
-              </div>
-            </div>
-
-            {/* Rate card */}
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Rate Card</div>
-              <textarea value={editVendor.rateCard||""} onChange={e=>setEditVendor(p=>({...p,rateCard:e.target.value}))} rows={5}
-                placeholder="e.g. AED 1,500/half day · AED 2,800/full day · overtime at AED 300/hr"
-                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-            </div>
-
-            {/* Dietaries */}
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:6,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Dietary Requirements</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-                {DIETARY_TAGS.filter(t=>t!=="None").map(tag=>{const tc=DIETARY_TAG_COLORS[tag];const selected=(editVendor.dietaries||[]).includes(tag);return(
-                  <button key={tag} onClick={()=>setEditVendor(p=>{const cur=p.dietaries||[];return{...p,dietaries:selected?cur.filter(t=>t!==tag):[...cur,tag]};})}
-                    style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:selected?700:500,fontFamily:"inherit",cursor:"pointer",border:selected?`1.5px solid ${tc.text}`:`1px solid ${T.border}`,background:selected?tc.bg:"#fafafa",color:selected?tc.text:T.muted,transition:"all 0.15s ease"}}>{tag}</button>
-                );})}
-              </div>
-              {(editVendor.dietaries||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-                {(editVendor.dietaries||[]).map(tag=>{const tc=DIETARY_TAG_COLORS[tag]||DIETARY_TAG_COLORS["Other"];return(
-                  <span key={tag} style={{fontSize:10,fontWeight:600,background:tc.bg,color:tc.text,padding:"3px 8px",borderRadius:10,letterSpacing:"0.03em"}}>{tag}</span>
-                );})}
-              </div>}
-              <textarea value={editVendor.dietaryNotes||""} onChange={e=>setEditVendor(p=>({...p,dietaryNotes:e.target.value}))} rows={2}
-                placeholder="Additional dietary notes, allergies, preferences…"
-                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-            </div>
-
-            {/* Additional Contacts */}
-            <div style={{marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div style={{fontSize:10,color:T.muted,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Additional Contacts</div>
-                <button onClick={()=>setAddContactForm({type:"vendor",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>＋ Add Contact</button>
-              </div>
-              {(editVendor._xContacts||[]).map((c,i)=>(
-                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
-                  <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
-                  <button onClick={()=>setEditVendor(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>
-                </div>
-              ))}
-              {addContactForm?.type==="vendor"&&(
-                <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                    {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
-                      <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
-                        <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-                    <button onClick={()=>{setEditVendor(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notes */}
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
-              <textarea value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))} rows={6}
-                placeholder="Parking, access, contacts on set, booking lead time…"
-                style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-            </div>
-
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <button onClick={async()=>{
-                if(!window.confirm(`Delete ${editVendor.name}?`)) return;
-                archiveItem('vendors', editVendor);
-                await api.delete(`/api/vendors/${editVendor.id}`);
-                const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
-                setVendors(updatedVendors);
-                pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
-                pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
-                setEditVendor(null);
-              }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
-              <div style={{display:"flex",gap:8}}>
-                <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
-                <BtnPrimary onClick={async()=>{
-                  const {id,_xContacts,...fields}=editVendor;
-                  if(Array.isArray(fields.dietaries))fields.dietaries=JSON.stringify(fields.dietaries);
-                  setXContacts('vendor', id, _xContacts||[]);
-                  await api.put(`/api/vendors/${id}`,fields);
-                  setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
-                  setEditVendor(null);
-                }}>Save Changes</BtnPrimary>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CATEGORY MANAGER MODAL ── */}
-      {showCatManager&&(
-        <div className="modal-bg" onClick={()=>setShowCatManager(false)}>
-          <div style={{borderRadius:20,padding:28,width:560,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
-              <div>
-                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Manage Categories</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete client and vendor categories</div>
-              </div>
-              <button onClick={()=>setShowCatManager(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-            </div>
-            <div style={{overflowY:"auto",flex:1}}>
-              {[
-                {label:"Client Categories",type:"lead",builtin:LEAD_CATEGORIES.filter(c=>c!=="All"),custom:customLeadCats,hidden:hiddenLeadBuiltins},
-                {label:"Vendor Categories",type:"vendor",builtin:VENDORS_CATEGORIES,custom:customVendorCats,hidden:hiddenVendorBuiltins},
-              ].map(section=>(
-                <div key={section.type} style={{marginBottom:28}}>
-                  <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12,paddingBottom:7,borderBottom:`1px solid ${T.border}`}}>{section.label}</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    {/* Built-in categories */}
-                    {section.builtin.filter(c=>!section.hidden.includes(c)).map(cat=>(
-                      <div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
-                        {catEdit&&catEdit.type===section.type&&catEdit.cat===cat?(
-                          <>
-                            <input autoFocus value={catEditVal} onChange={e=>setCatEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")renameCat(section.type,cat,catEditVal);if(e.key==="Escape")setCatEdit(null);}} style={{flex:1,border:`1.5px solid ${T.accent}`,borderRadius:7,padding:"5px 8px",fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}/>
-                            <button disabled={catSaving} onClick={()=>renameCat(section.type,cat,catEditVal)} style={{background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",padding:"4px 10px",borderRadius:6,fontFamily:"inherit",opacity:catSaving?0.5:1}}>Save</button>
-                            <button onClick={()=>setCatEdit(null)} style={{background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",padding:"4px 6px",fontFamily:"inherit"}}>Cancel</button>
-                          </>
-                        ):(
-                          <>
-                            <span style={{flex:1,fontSize:13,color:T.text}}>{cat}</span>
-                            <span style={{fontSize:10,color:T.muted,background:"#f0ede8",borderRadius:999,padding:"2px 8px",fontWeight:500}}>built-in</span>
-                            <button disabled={catSaving} onClick={()=>{setCatEdit({type:section.type,cat});setCatEditVal(cat);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Rename</button>
-                            <button disabled={catSaving} onClick={async()=>{if(!window.confirm(`Delete "${cat}"? All ${section.type==='lead'?'clients':'vendors'} in this category will have it cleared.`))return;await deleteCat(section.type,cat);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {/* Custom categories */}
-                    {section.custom.map(cat=>(
-                      <div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
-                        {catEdit&&catEdit.type===section.type&&catEdit.cat===cat?(
-                          <>
-                            <input autoFocus value={catEditVal} onChange={e=>setCatEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")renameCat(section.type,cat,catEditVal);if(e.key==="Escape")setCatEdit(null);}} style={{flex:1,border:`1.5px solid ${T.accent}`,borderRadius:7,padding:"5px 8px",fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}/>
-                            <button disabled={catSaving} onClick={()=>renameCat(section.type,cat,catEditVal)} style={{background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",padding:"4px 10px",borderRadius:6,fontFamily:"inherit",opacity:catSaving?0.5:1}}>Save</button>
-                            <button onClick={()=>setCatEdit(null)} style={{background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",padding:"4px 6px",fontFamily:"inherit"}}>Cancel</button>
-                          </>
-                        ):(
-                          <>
-                            <span style={{flex:1,fontSize:13,color:T.text}}>{cat}</span>
-                            <button disabled={catSaving} onClick={()=>{setCatEdit({type:section.type,cat});setCatEditVal(cat);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Rename</button>
-                            <button disabled={catSaving} onClick={async()=>{if(!window.confirm(`Delete "${cat}"? All ${section.type==='lead'?'clients':'vendors'} in this category will have it cleared.`))return;await deleteCat(section.type,cat);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    {section.builtin.filter(c=>!section.hidden.includes(c)).length===0&&section.custom.length===0&&(
-                      <div style={{fontSize:13,color:T.muted,padding:"12px 0",textAlign:"center"}}>No categories.</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{borderTop:`1px solid ${T.border}`,paddingTop:16,marginTop:4,flexShrink:0,display:"flex",justifyContent:"flex-end"}}>
-              <BtnSecondary onClick={()=>setShowCatManager(false)}>Done</BtnSecondary>
-            </div>
-          </div>
-        </div>
-      )}
+      {showCatManager&&<CategoryManagerModal {..._mp}/>}
 
 
 
-      {/* ── DUPLICATE CALL SHEET MODAL ── */}
-      {csDuplicateModal&&(()=>{
-        const q=csDuplicateSearch.toLowerCase().trim();
-        // Gather all call sheets: active + archived
-        const results=[];
-        // Active
-        Object.entries(callSheetStore||{}).forEach(([pid,sheets])=>{
-          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-          const projName=proj?.name||"Unknown Project";
-          const client=proj?.client||"";
-          (sheets||[]).forEach((cs,idx)=>{
-            const crewCount=(cs.departments||[]).reduce((sum,d)=>(d.crew||[]).length+sum,0);
-            results.push({cs,projName,client,projectId:pid,label:cs.label||"Untitled",date:cs.date||"",crewCount,source:"active"});
-          });
-        });
-        // Filter
-        const filtered=q?results.filter(r=>[r.projName,r.client,r.label,r.cs.shootName||""].some(s=>(s||"").toLowerCase().includes(q))):results;
-        // Group by project
-        const grouped={};
-        filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
-        // Duplicate handler
-        const handleDuplicate=(r)=>{
-          const clone=JSON.parse(JSON.stringify(r.cs));
-          clone.id=Date.now();
-          const _pid=csDuplicateModal.origin==="connie"?csDuplicateModal.projectId:selectedProject?.id;
-          const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
-          const _pName=_proj?.name||"";
-          if(_pid){
-            pushUndo("duplicate call sheet");
-            setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} Call Sheet V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
-          }
-          setCsDuplicateModal(null);setCsDuplicateSearch("");
-        };
-        return(
-          <div onClick={()=>{setCsDuplicateModal(null);setCsDuplicateSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-              <div style={{padding:"20px 24px 0",flexShrink:0}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                  <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing Call Sheet</div>
-                  <button onClick={()=>{setCsDuplicateModal(null);setCsDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                </div>
-                <input value={csDuplicateSearch} onChange={e=>setCsDuplicateSearch(e.target.value)} placeholder="Search by project, client, or call sheet name..." autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
-              </div>
-              <div style={{overflowY:"auto",flex:1,padding:"0 24px 20px"}}>
-                {Object.keys(grouped).length===0?(
-                  <div style={{textAlign:"center",padding:"32px 0",color:"#86868b",fontSize:13}}>No call sheets found{q?" matching your search":""}.</div>
-                ):Object.entries(grouped).map(([groupKey,items])=>(
-                  <div key={groupKey} style={{marginBottom:16}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#86868b",letterSpacing:0.5,textTransform:"uppercase",marginBottom:6,padding:"4px 0"}}>{groupKey}</div>
-                    {items.map((r,ri)=>(
-                      <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#c47090";e.currentTarget.style.background="#fff5f7";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</div>
-                          <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.crewCount} crew</div>
-                        </div>
-                        <div style={{fontSize:11,color:"#c47090",fontWeight:600,flexShrink:0}}>Duplicate</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {csDuplicateModal&&<DuplicateCallSheetModal {..._mp}/>}
 
-      {/* ── DUPLICATE RA MODAL ── */}
-      {raDuplicateModal&&(()=>{
-        const q=raDuplicateSearch.toLowerCase().trim();
-        const results=[];
-        // Active risk assessments
-        Object.entries(riskAssessmentStore||{}).forEach(([pid,ras])=>{
-          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-          const projName=proj?.name||"Unknown Project";
-          const client=proj?.client||"";
-          (ras||[]).forEach((ra,idx)=>{
-            const hazardCount=(ra.hazards||[]).length;
-            results.push({ra,projName,client,projectId:pid,label:ra.label||ra.shootName||"Untitled",date:ra.shootDate||"",hazardCount,source:"active"});
-          });
-        });
-        const filtered=q?results.filter(r=>[r.projName,r.client,r.label,r.ra.shootName||""].some(s=>(s||"").toLowerCase().includes(q))):results;
-        const grouped={};
-        filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
-        const handleDuplicate=(r)=>{
-          const clone=JSON.parse(JSON.stringify(r.ra));
-          clone.id=Date.now();
-          const _pid=raDuplicateModal.origin==="ronnie"?raDuplicateModal.projectId:selectedProject?.id;
-          const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
-          const _pName=_proj?.name||"";
-          if(_pid){
-            pushUndo("duplicate risk assessment");
-            setRiskAssessmentStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];clone.label=`${_pName} Risk Assessment V${store[_pid].length+1}`;store[_pid].push(clone);return store;});
-          }
-          setRaDuplicateModal(null);setRaDuplicateSearch("");
-        };
-        return(
-          <div onClick={()=>{setRaDuplicateModal(null);setRaDuplicateSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-              <div style={{padding:"20px 24px 0",flexShrink:0}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                  <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing Risk Assessment</div>
-                  <button onClick={()=>{setRaDuplicateModal(null);setRaDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                </div>
-                <input value={raDuplicateSearch} onChange={e=>setRaDuplicateSearch(e.target.value)} placeholder="Search by project, client, or risk assessment name..." autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
-              </div>
-              <div style={{overflowY:"auto",flex:1,padding:"0 24px 20px"}}>
-                {Object.keys(grouped).length===0?(
-                  <div style={{textAlign:"center",padding:"32px 0",color:"#86868b",fontSize:13}}>No risk assessments found{q?" matching your search":""}.</div>
-                ):Object.entries(grouped).map(([groupKey,items])=>(
-                  <div key={groupKey} style={{marginBottom:16}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#86868b",letterSpacing:0.5,textTransform:"uppercase",marginBottom:6,padding:"4px 0"}}>{groupKey}</div>
-                    {items.map((r,ri)=>(
-                      <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#6a9eca";e.currentTarget.style.background="#f3f8ff";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</div>
-                          <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{r.date||"No date"} · {r.hazardCount} hazard{r.hazardCount!==1?"s":""}</div>
-                        </div>
-                        <div style={{fontSize:11,color:"#6a9eca",fontWeight:600,flexShrink:0}}>Duplicate</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {raDuplicateModal&&<DuplicateRAModal {..._mp}/>}
 
-      {/* ── GENERIC DUPLICATE MODAL ── */}
-      {duplicateModal&&(()=>{
-        const dt=duplicateModal.type;
-        const DCONF={
-          cps:{store:cpsStore,setStore:setCpsStore,archiveTable:"cps",archiveKey:"cps",title:"CPS",descFn:r=>{const t=(r.item?.phases||[]).reduce((s,ph)=>(ph.tasks||[]).length+s,0);return `${t} task${t!==1?"s":""}`;},labelKey:"label"},
-          shotlist:{store:shotListStore,setStore:setShotListStore,archiveTable:"shotlist",archiveKey:"shotlist",title:"Shot List",descFn:r=>{const s=(r.item?.scenes||[]).length;return `${s} scene${s!==1?"s":""}`;},labelKey:"label"},
-          storyboard:{store:storyboardStore,setStore:setStoryboardStore,archiveTable:"storyboard",archiveKey:"storyboard",title:"Storyboard",descFn:r=>{const f=(r.item?.frames||[]).length;return `${f} frame${f!==1?"s":""}`;},labelKey:"label"},
-          postprod:{store:postProdStore,setStore:setPostProdStore,archiveTable:"postprod",archiveKey:"postprod",title:"Post-Production",descFn:r=>{const v=(r.item?.videos||[]).length;return `${v} video${v!==1?"s":""}`;},labelKey:"label"},
-          casting:{store:castingDeckStore,setStore:setCastingDeckStore,archiveTable:"castingDecks",archiveKey:"castingDeck",title:"Casting Deck",descFn:r=>{const c=(r.item?.confirmed||[]).length;return `${c} confirmed`;},labelKey:"label"},
-          casting_table:{store:castingTableStore,setStore:setCastingTableStore,archiveTable:"casting_table",archiveKey:"castingTable",title:"Casting Table",descFn:r=>{const m=(r.item?.roles||[]).reduce((s,rl)=>(rl.models||[]).length+s,0);return `${m} model${m!==1?"s":""}`;},labelKey:"label"},
-          fitting:{store:fittingStore,setStore:setFittingStore,archiveTable:"fitting",archiveKey:"fitting",title:"Fitting Deck",descFn:r=>{const t=(r.item?.talent||[]).length;return `${t} talent`;},labelKey:"label"},
-          locations:{store:locDeckStore,setStore:setLocDeckStore,archiveTable:"locationDecks",archiveKey:"locationDeck",title:"Locations Deck",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
-          recce:{store:recceReportStore,setStore:setRecceReportStore,archiveTable:"recceReports",archiveKey:"recceReport",title:"Recce Report",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
-          dietary:{store:dietaryStore,setStore:setDietaryStore,archiveTable:"dietaries",archiveKey:"dietary",title:"Dietary List",descFn:r=>{const c=(r.item?.people||[]).length;return `${c} crew`;},labelKey:"label"},
-          itinerary:{store:travelItineraryStore,setStore:setTravelItineraryStore,archiveTable:"travelItineraries",archiveKey:"travelItinerary",title:"Travel Itinerary",descFn:r=>{const s=(r.item?.sections||[]).length;return `${s} section${s!==1?"s":""}`;},labelKey:"label"},
-          estimate:{store:projectEstimates,setStore:setProjectEstimates,archiveTable:"estimates",archiveKey:"estimate",title:"Production Estimate",descFn:r=>{const secs=r.item?.sections||[];const gt=secs.reduce((s,sec)=>(sec.items||[]).reduce((a,it)=>a+(parseFloat(it.total)||0),0)+s,0);return gt>0?`AED ${gt.toLocaleString(undefined,{maximumFractionDigits:0})}`:"Empty";},labelKey:"ts.version",getLabelFn:item=>item?.ts?.version||"Untitled",setLabelFn:(clone,label)=>{if(!clone.ts)clone.ts={};clone.ts.version=label;}},
-        };
-        const conf=DCONF[dt];if(!conf)return null;
-        const q=duplicateSearch.toLowerCase().trim();
-        const results=[];
-        Object.entries(conf.store||{}).forEach(([pid,items])=>{
-          const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-          const projName=proj?.name||"Unknown Project";
-          const client=proj?.client||"";
-          const _getLabel=conf.getLabelFn||(item=>item[conf.labelKey]||"Untitled");
-          (items||[]).forEach(item=>{
-            results.push({item,projName,client,projectId:pid,label:_getLabel(item),source:"active"});
-          });
-        });
-        const filtered=q?results.filter(r=>[r.projName,r.client,r.label].some(s=>(s||"").toLowerCase().includes(q))):results;
-        const grouped={};
-        filtered.forEach(r=>{const key=r.projName+(r.client?" | "+r.client:"");if(!grouped[key])grouped[key]=[];grouped[key].push(r);});
-        const handleDuplicate=(r)=>{
-          const clone=JSON.parse(JSON.stringify(r.item));
-          clone.id=Date.now();
-          if(clone.shareToken){clone.shareToken=null;clone.shareResourceId=null;}
-          const _pid=selectedProject?.id;
-          const _proj=localProjects?.find(p=>p.id===_pid)||(archivedProjects||[]).find(p=>p.id===_pid);
-          const _pName=_proj?.name||"";
-          if(_pid){
-            pushUndo("duplicate " + conf.title.toLowerCase());
-            conf.setStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[_pid])store[_pid]=[];const vn=store[_pid].length+1;const autoLabel=`${_pName} ${conf.title} V${vn}`;if(conf.setLabelFn)conf.setLabelFn(clone,autoLabel);else clone.label=autoLabel;store[_pid].push(clone);return store;});
-          }
-          setDuplicateModal(null);setDuplicateSearch("");
-        };
-        return(
-          <div onClick={()=>{setDuplicateModal(null);setDuplicateSearch("");}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-              <div style={{padding:"20px 24px 0",flexShrink:0}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                  <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing {conf.title}</div>
-                  <button onClick={()=>{setDuplicateModal(null);setDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                </div>
-                <input value={duplicateSearch} onChange={e=>setDuplicateSearch(e.target.value)} placeholder={`Search by project, client, or ${conf.title.toLowerCase()} name...`} autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
-              </div>
-              <div style={{overflowY:"auto",flex:1,padding:"0 24px 20px"}}>
-                {Object.keys(grouped).length===0?(
-                  <div style={{textAlign:"center",padding:"32px 0",color:"#86868b",fontSize:13}}>No {conf.title.toLowerCase()}s found{q?" matching your search":""}.</div>
-                ):Object.entries(grouped).map(([groupKey,items])=>(
-                  <div key={groupKey} style={{marginBottom:16}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#86868b",letterSpacing:0.5,textTransform:"uppercase",marginBottom:6,padding:"4px 0"}}>{groupKey}</div>
-                    {items.map((r,ri)=>(
-                      <div key={ri} onClick={()=>handleDuplicate(r)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,border:"1px solid #e8e8e8",marginBottom:6,cursor:"pointer",transition:"border-color 0.15s,background 0.15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#1976D2";e.currentTarget.style.background="#e3f2fd";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="transparent";}}>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1d1d1f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</div>
-                          <div style={{fontSize:11,color:"#86868b",marginTop:2}}>{conf.descFn(r)}</div>
-                        </div>
-                        <div style={{fontSize:11,color:"#1976D2",fontWeight:600,flexShrink:0}}>Duplicate</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {duplicateModal&&<GenericDuplicateModal {..._mp}/>}
 
-      {/* ── ARCHIVE MODAL ── */}
-      {showArchive&&(
-        <div className="modal-bg" onClick={()=>setShowArchive(false)}>
-          <div style={{borderRadius:20,padding:28,width:680,maxWidth:"94vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22,flexShrink:0}}>
-              <div>
-                <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Deleted Items</div>
-                <div style={{fontSize:12,color:T.muted,marginTop:2}}>Deleted items are permanently removed after 30 days</div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                {archive.length>0&&<button onClick={()=>{if(window.confirm("Permanently remove all deleted items?"))setArchive(()=>{try{localStorage.removeItem('onna_archive');}catch{}return [];});}} style={{background:"none",border:"none",color:T.muted,fontSize:12,cursor:"pointer",fontFamily:"inherit",padding:0}}>Clear all</button>}
-                <button onClick={()=>setShowArchive(false)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-              </div>
-            </div>
-            <div style={{overflowY:"auto",flex:1}}>
-              {archive.length===0?(
-                <div style={{padding:"48px 0",textAlign:"center",color:T.muted,fontSize:13}}>No deleted items.</div>
-              ):(
-                ["todos","notes","dashNotes","leads","vendors","outreach","estimates","projects"].map(table=>{
-                  const entries = archive.filter(e=>e.table===table);
-                  if (!entries.length) return null;
-                  const label = {todos:"Tasks",notes:"Notes",dashNotes:"Dashboard Notes",leads:"Leads",vendors:"Vendors",outreach:"Outreach",estimates:"Estimates",projects:"Projects"}[table]||table;
-                  return (
-                    <div key={table} style={{marginBottom:24}}>
-                      <div style={{fontSize:10,color:T.muted,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:`1px solid ${T.border}`}}>{label} ({entries.length})</div>
-                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                        {entries.map(entry=>{
-                          const it = entry.item;
-                          const name = table==='estimates'?(it.estimate?.ts?.version||"Estimate"):table==='todos'?(it.text||"Task"):table==='dashNotes'?(it.title||"Untitled Note"):table==='notes'?(it.title||"Untitled Note"):table==='projects'?(it.name||"Project"):(it.company||it.name||"—");
-                          const sub = table==='estimates'?(it.estimate?.ts?.project||""):table==='todos'?(it.tab==="onna"?"ONNA":it.tab==="personal"?"Personal":"Project"):table==='dashNotes'?"":(it.contact||it.clientName||it.category||it.client||"");
-                          const deleted = new Date(entry.deletedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
-                          return (
-                            <div key={entry.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.borderSub}`}}>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</div>
-                                {sub&&<div style={{fontSize:11.5,color:T.muted,marginTop:1}}>{sub}</div>}
-                              </div>
-                              <div style={{fontSize:11,color:T.muted,flexShrink:0}}>{(()=>{const days=Math.max(0,30-Math.floor((Date.now()-new Date(entry.deletedAt).getTime())/(24*60*60*1000)));return days<=7?<span style={{color:"#c0392b"}}>{days}d left</span>:<span>{days}d left</span>;})()}</div>
-                              <button onClick={()=>restoreItem(entry)} style={{background:"#edfaf3",border:"none",color:"#147d50",padding:"5px 12px",borderRadius:7,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Restore</button>
-                              <button onClick={()=>{if(window.confirm(`Permanently delete ${name}?`))permanentlyDelete(entry.id);}} style={{background:"none",border:"none",color:T.muted,fontSize:16,cursor:"pointer",padding:0,flexShrink:0}}>×</button>
-                            </div>
-                          ); })}
-                      </div>
-                    </div>
-                  ); })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {showTimeoutWarning&&<div style={{position:"fixed",top:0,left:0,right:0,background:"#E65100",color:"#fff",padding:"10px 20px",textAlign:"center",fontSize:13,fontWeight:600,fontFamily:"inherit",zIndex:100001,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>Session expires in 1 minute due to inactivity<button onClick={()=>{setShowTimeoutWarning(false);}} style={{background:"#fff",color:"#E65100",border:"none",borderRadius:6,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>I'm still here</button></div>}
-      {_modal.show && <div onClick={()=>_closeModal(_modal.type==="prompt"?null:undefined)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.45)",zIndex:100000,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Avenir','Avenir Next','Nunito Sans',sans-serif"}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:"28px 32px",minWidth:340,maxWidth:480,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",border:"1px solid #e5e5e5"}}>
-        <div style={{fontSize:14,color:"#1a1a1a",lineHeight:1.6,whiteSpace:"pre-wrap",marginBottom:20}}>{_modal.message}</div>
-        {_modal.type==="prompt"&&<input ref={_modalInputRef} defaultValue={_modal.defaultVal} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();_closeModal(e.target.value);}if(e.key==="Escape")_closeModal(null);}} style={{width:"100%",padding:"10px 12px",fontSize:14,border:"1.5px solid #ddd",borderRadius:8,fontFamily:"inherit",marginBottom:16,boxSizing:"border-box"}}/>}
-        <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
-          {_modal.type==="prompt"&&<button onClick={()=>_closeModal(null)} style={{padding:"9px 20px",fontSize:13,fontWeight:600,border:"1.5px solid #ddd",borderRadius:8,background:"#fff",color:"#666",cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>}
-          <button onClick={()=>{if(_modal.type==="prompt"){const v=_modalInputRef.current?_modalInputRef.current.value:_modal.defaultVal;_closeModal(v);}else _closeModal(undefined);}} style={{padding:"9px 20px",fontSize:13,fontWeight:600,border:"none",borderRadius:8,background:"#1a1a1a",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>OK</button>
-        </div>
-      </div></div>}
-      {undoToastMsg&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1d1d1f",color:"#fff",padding:"10px 24px",borderRadius:10,fontSize:13,fontWeight:600,fontFamily:"inherit",zIndex:99999,boxShadow:"0 8px 32px rgba(0,0,0,0.25)",pointerEvents:"none"}}>{undoToastMsg}</div>}
+      {showArchive&&<ArchiveModal {..._mp}/>}
+      {showTimeoutWarning&&<TimeoutWarning showTimeoutWarning={showTimeoutWarning} setShowTimeoutWarning={setShowTimeoutWarning}/>}
+      {_modal.show&&<GlobalAlertModal _modal={_modal} _closeModal={_closeModal} _modalInputRef={_modalInputRef}/>}
+      {undoToastMsg&&<UndoToast undoToastMsg={undoToastMsg}/>}
     </div>
   );
 }
