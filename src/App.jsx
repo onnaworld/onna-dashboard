@@ -30,6 +30,7 @@ import { TI_FLIGHT_COLS, TI_CAR_COLS, TI_HOTEL_COLS, TI_ROOMING_COLS, TI_MOVEMEN
 import { ProjectProvider, useProject } from "./context/ProjectContext";
 import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 import { AgentProvider, useAgentStore } from "./context/AgentContext";
+import { UIProvider, useUI } from "./context/UIContext";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -8773,7 +8774,10 @@ function _closeModal(value) {
 }
 
 export default function OnnaDashboard() {
+  const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
+  const _initialTab = (()=>{ const parsed = parseURL(window.location.pathname, []); return parsed.tab || localStorage.getItem("onna_tab") || "Dashboard"; })();
   return (
+    <UIProvider initialTab={_initialTab} initialLgStep={_urlReset ? "reset" : "login"}>
     <ProjectProvider idbGet={idbGet} idbSet={idbSet} debouncedDocSave={debouncedDocSave}>
     <VendorLeadProvider initVendors={initVendors}>
     <AgentProvider debouncedDocSave={debouncedDocSave}>
@@ -8781,11 +8785,37 @@ export default function OnnaDashboard() {
     </AgentProvider>
     </VendorLeadProvider>
     </ProjectProvider>
+    </UIProvider>
   );
 }
 
 function OnnaDashboardInner() {
   const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
+
+  // ── UI state from UIContext ──
+  const {
+    activeTab,setActiveTab,isMobile,setIsMobile,mobileMenuOpen,setMobileMenuOpen,
+    lgUser,setLgUser,lgPass,setLgPass,lgErr,setLgErr,
+    lgLoading,setLgLoading,lgStep,setLgStep,lgEmail,setLgEmail,
+    lgNewPass,setLgNewPass,lgNewPass2,setLgNewPass2,
+    showTimeoutWarning,setShowTimeoutWarning,timeoutRef,warningRef,
+    signData,setSignData,signLoading,setSignLoading,
+    signError,setSignError,signSubmitted,setSignSubmitted,
+    signVendorName,setSignVendorName,signVendorDate,setSignVendorDate,
+    signVendorSig,setSignVendorSig,signSubmitting,setSignSubmitting,
+    vaultLocked,setVaultLocked,vaultKey,setVaultKey,
+    vaultPass,setVaultPass,vaultErr,setVaultErr,
+    vaultLoading,setVaultLoading,vaultResources,setVaultResources,
+    vaultView,setVaultView,vaultShowPw,setVaultShowPw,
+    vaultCopied,setVaultCopied,vaultSaving,setVaultSaving,
+    vaultAddPwOpen,setVaultAddPwOpen,vaultEditId,setVaultEditId,
+    vaultNewPw,setVaultNewPw,vaultFileRef,setVaultFileRef,
+    vaultFileName,setVaultFileName,vaultFileErr,setVaultFileErr,
+    vaultPwSearch,setVaultPwSearch,vaultViewEntry,setVaultViewEntry,
+    searches,setSearches,setSearch,getSearch,
+    selectedLead,setSelectedLead,selectedOutreach,setSelectedOutreach,
+    addContactForm,setAddContactForm,undoToastMsg,setUndoToastMsg,
+  } = useUI();
 
   const [_modal, _setModal] = useState({ show: false, type: "alert", message: "", defaultVal: "" });
   const _modalInputRef = useRef(null);
@@ -8803,14 +8833,6 @@ function OnnaDashboardInner() {
     };
     return () => { _onSaveStatus = null; };
   }, []);
-  const [lgUser,setLgUser]         = useState("");
-  const [lgPass,setLgPass]         = useState("");
-  const [lgErr,setLgErr]           = useState("");
-  const [lgLoading,setLgLoading]   = useState(false);
-  const [lgStep,setLgStep]         = useState(_urlReset ? "reset" : "login");
-  const [lgEmail,setLgEmail]       = useState("");
-  const [lgNewPass,setLgNewPass]   = useState("");
-  const [lgNewPass2,setLgNewPass2] = useState("");
 
   const doLogin = async () => {
     if (!lgUser.trim()||!lgPass.trim()) return;
@@ -8845,18 +8867,7 @@ function OnnaDashboardInner() {
     setLgLoading(false);
   };
 
-  // ── These two must live before the early return to satisfy Rules of Hooks ──
-  const [activeTab,setActiveTab] = useState(()=>{
-    const parsed = parseURL(window.location.pathname, []);
-    if (parsed.tab) return parsed.tab;
-    return localStorage.getItem("onna_tab")||"Dashboard";
-  });
-  useEffect(()=>{localStorage.setItem("onna_tab",activeTab);},[activeTab]);
-
   // Auto-logout after 30 min inactivity with 1-minute warning
-  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
-  const timeoutRef = useRef(null);
-  const warningRef = useRef(null);
   useEffect(()=>{
     if (!authed) return;
     const TIMEOUT = 30*60*1000;
@@ -8884,14 +8895,6 @@ function OnnaDashboardInner() {
 
   // ── Public signing page (bypasses login) ────────────────────────────────────
   const _signToken = _urlParams.get("sign") || "";
-  const [signData, setSignData] = useState(null);
-  const [signLoading, setSignLoading] = useState(false);
-  const [signError, setSignError] = useState("");
-  const [signSubmitted, setSignSubmitted] = useState(false);
-  const [signVendorName, setSignVendorName] = useState("");
-  const [signVendorDate, setSignVendorDate] = useState("");
-  const [signVendorSig, setSignVendorSig] = useState("");
-  const [signSubmitting, setSignSubmitting] = useState(false);
 
   const _printMode = _urlParams.get("print") === "1";
   useEffect(() => { if (_printMode) document.title = "\u200B"; }, [_printMode]);
@@ -9131,18 +9134,6 @@ function OnnaDashboardInner() {
     </div>
   );
 
-  const [isMobile,setIsMobile] = useState(()=>window.innerWidth<768);
-  const [mobileMenuOpen,setMobileMenuOpen] = useState(false);
-  useEffect(()=>{const fn=()=>setIsMobile(window.innerWidth<768);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn);},[]);
-
-  const [searches,setSearches]                           = useState({});
-  const setSearch = (tab,val) => setSearches(p=>({...p,[tab]:val}));
-  const getSearch = tab => searches[tab]||"";
-
-  const [selectedLead,setSelectedLead]                   = useState(null);
-  const [selectedOutreach,setSelectedOutreach]           = useState(null);
-  const [addContactForm,setAddContactForm]               = useState(null); // {type,name,email,phone,role}
-
   useEffect(()=>{try{localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[]);
 
   // ── Vendor / Lead / Outreach state from VendorLeadContext ──
@@ -9310,26 +9301,6 @@ function OnnaDashboardInner() {
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
 
-  // ── Vault state ──────────────────────────────────────────────────────────────
-  const [vaultLocked,setVaultLocked]         = useState(true);
-  const [vaultKey,setVaultKey]               = useState(null);
-  const [vaultPass,setVaultPass]             = useState("");
-  const [vaultErr,setVaultErr]               = useState("");
-  const [vaultLoading,setVaultLoading]       = useState(false);
-  const [vaultResources,setVaultResources]   = useState([]);
-  const [vaultView,setVaultView]             = useState("passwords");
-  const [vaultShowPw,setVaultShowPw]         = useState({});
-  const [vaultCopied,setVaultCopied]         = useState(null);
-  const [vaultSaving,setVaultSaving]         = useState(false);
-  const [vaultAddPwOpen,setVaultAddPwOpen]   = useState(false);
-  const [vaultEditId,setVaultEditId]         = useState(null);
-  const [vaultNewPw,setVaultNewPw]           = useState({name:"",url:"",username:"",password:"",notes:""});
-  const [vaultFileRef,setVaultFileRef]       = useState(null);
-  const [vaultFileName,setVaultFileName]     = useState("");
-  const [vaultFileErr,setVaultFileErr]       = useState("");
-  const [vaultPwSearch,setVaultPwSearch]     = useState("");
-  const [vaultViewEntry,setVaultViewEntry]   = useState(null);
-
   // ── Notes state ───────────────────────────────────────────────────────────────
   const [notes,setNotes]                     = useState(()=>{try{const c=localStorage.getItem('onna_cache_notes');return c?JSON.parse(c):[];}catch{return [];}});
   const [notesLoading,setNotesLoading]       = useState(false);
@@ -9351,7 +9322,6 @@ function OnnaDashboardInner() {
   // ─── GLOBAL UNDO (Cmd+Z) ──────────────────────────────────────────────────
   const undoStack = useRef([]);
   const undoToastRef = useRef(null);
-  const [undoToastMsg, setUndoToastMsg] = useState("");
   const pushUndo = useCallback((label) => {
     const clone = (v) => JSON.parse(JSON.stringify(v));
     undoStack.current.push({
