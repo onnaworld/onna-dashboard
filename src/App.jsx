@@ -11249,7 +11249,7 @@ export default function OnnaDashboard() {
                   </div>
                   {dashSelectedNoteId===note.id&&(
                     <div style={{padding:"0 18px 14px"}}>
-                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onBlur={e=>{const html=e.target.innerHTML;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:html,updatedAt:Date.now()}:n));}} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
+                      <div contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{__html:note.content||""}} onInput={e=>{const html=e.currentTarget.innerHTML;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:html,updatedAt:Date.now()}:n));}} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
                     </div>
                   )}
                 </div>
