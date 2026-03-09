@@ -22,6 +22,7 @@ import { buildRonnieSystem, applyRonniePatch, buildPatchMarkers, revertMarker, R
 import { buildBillieSystem, applyBilliePatch, handleBillieIntent } from "./components/agents/BudgetBillie";
 import { CONTRACT_INIT, migrateContract, CONTRACT_TYPE_IDS, CONTRACT_TYPE_LABELS, CONTRACT_FIELDS, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC, buildCodySystem, applyCodyPatch, handleCodyIntent } from "./components/agents/ContractCody";
 import { buildCarrieSystem, applyCarriePatch, handleCarrieIntent } from "./components/agents/CastingCarrie";
+import { handleTabbyIntent } from "./components/agents/TalentTabby";
 import { TI_FLIGHT_COLS, TI_CAR_COLS, TI_HOTEL_COLS, TI_ROOMING_COLS, TI_MOVEMENT_COLS, tiMkMove, tiMkDay, TRAVEL_ITINERARY_INIT, handleTinaIntent } from "./components/agents/TravelTina";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
@@ -7740,8 +7741,22 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       if(_tinaHandled)return;
     }
 
-    // ── Doc-aware agents: Tabby, Polly, Lillie, Perry ──────────────────
-    const _docAgentMap={tabby:{ctx:tabbyCtx,setCtx:setTabbyCtx,stores:{casting_decks:castingDeckStore,fittings:fittingStore,casting_tables:castingTableStore}},polly:{ctx:pollyCtx,setCtx:setPollyCtx,stores:{cps:cpsStore,shotlists:shotListStore,storyboards:storyboardStore}},lillie:{ctx:lillieCtx,setCtx:setLillieCtx,stores:{loc_decks:locDeckStore,recce_reports:recceReportStore}},perry:{ctx:perryCtx,setCtx:setPerryCtx,stores:{postprod:postProdStore}}};
+        // ── Tabby intent dispatcher ──
+    if(agent.id==="tabby"){
+      const _tabbyHandled=await handleTabbyIntent({
+        input,history,intro,system,agent,
+        setMsgs,setLoading,setMood,
+        tabbyCtx,setTabbyCtx,
+        castingDeckStore,setCastingDeckStore,
+        fittingStore,setFittingStore,
+        castingTableStore,setCastingTableStore,
+        localProjects,fuzzyMatchProject,projectInfoRef,
+      });
+      if(_tabbyHandled)return;
+    }
+
+    // ── Doc-aware agents: Polly, Lillie, Perry ──────────────────
+    const _docAgentMap={polly:{ctx:pollyCtx,setCtx:setPollyCtx,stores:{cps:cpsStore,shotlists:shotListStore,storyboards:storyboardStore}},lillie:{ctx:lillieCtx,setCtx:setLillieCtx,stores:{loc_decks:locDeckStore,recce_reports:recceReportStore}},perry:{ctx:perryCtx,setCtx:setPerryCtx,stores:{postprod:postProdStore}}};
     if(_docAgentMap[agent.id]){
       const _da=_docAgentMap[agent.id],_daCtx=_da.ctx,_daSetCtx=_da.setCtx;
       if(!_daCtx){
@@ -7773,7 +7788,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         if(jsonMatch){
           try{
             const patch=JSON.parse(jsonMatch[1].trim());
-            const storeSetMap={casting_decks:setCastingDeckStore,fittings:setFittingStore,casting_tables:setCastingTableStore,cps:setCpsStore,shotlists:setShotListStore,storyboards:setStoryboardStore,loc_decks:setLocDeckStore,recce_reports:setRecceReportStore,postprod:setPostProdStore};
+            const storeSetMap={cps:setCpsStore,shotlists:setShotListStore,storyboards:setStoryboardStore,loc_decks:setLocDeckStore,recce_reports:setRecceReportStore,postprod:setPostProdStore};
             const setter=storeSetMap[patch.store];
             if(setter&&_da.stores[patch.store]!==undefined){
               if(patch.action==="create"){setter(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[project.id])s[project.id]=[];s[project.id].push({id:Date.now(),...patch.data});return s;});}
