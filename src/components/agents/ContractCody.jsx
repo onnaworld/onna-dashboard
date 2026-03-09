@@ -1,5 +1,10 @@
 import React from "react";
 
+// ─── CODY CONSTANTS ─────────────────────────────────────────────────────────
+const CT_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
+const CT_LS = 0.5; const CT_LS_HDR = 1.5;
+const getToken = () => localStorage.getItem("onna_token") || "";
+
 // ─── CODY (CONTRACT) HELPERS ────────────────────────────────────────────────
 const CONTRACT_INIT = {
   contractType:"commission_se",
@@ -732,8 +737,8 @@ export async function handleCodyIntent({
   contractDocStore, setContractDocStore,
   localProjects, curAttachments,
   fuzzyMatchProject, syncProjectInfoToDocs,
-  popAgentUndo, projectInfoRef, onNavigateToDoc,
-  loadPdfPages,
+  pushAgentUndo, popAgentUndo, projectInfoRef, onNavigateToDoc,
+  loadPdfPages, processDocSignStamp, renderHtmlToDocPages,
   CONTRACT_INIT, migrateContract, CONTRACT_TYPE_IDS, CONTRACT_TYPE_LABELS,
   CONTRACT_FIELDS, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC,
   buildCodySystem, applyCodyPatch,
@@ -1048,7 +1053,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           const label=nameInput+" | "+CONTRACT_TYPE_LABELS[typeId];
           const ctVersions=contractDocStore?.[pid]||[];
           const newIdx=ctVersions.length;
-          pushCodyUndo();
+          pushAgentUndo();
           setContractDocStore(prev=>{
             const store=JSON.parse(JSON.stringify(prev));
             const arr=store[pid]||[];
@@ -1103,7 +1108,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
 
       // Undo command
       if(/^\s*(undo|undo that|go back|revert|command z)\s*$/i.test(input)){
-        if(popCodyUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last contract change. You can undo up to 50 changes, or press ⌘Z."}]);}
+        if(popAgentUndo()){setMsgs([...history,{role:"assistant",content:"Done — reverted the last contract change. You can undo up to 50 changes, or press ⌘Z."}]);}
         else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
         setLoading(false);setMood("idle");return true;
       }
@@ -1260,7 +1265,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         const _delVersions=contractDocStore?.[cd.projectId]||[];
         const _delVer=_delVersions[cd.vIdx];
         const _delLabel=_delVer?.label||`Version ${cd.vIdx+1}`;
-        pushCodyUndo();
+        pushAgentUndo();
         setContractDocStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[cd.projectId]||[];arr.splice(cd.vIdx,1);store[cd.projectId]=arr;return store;});
         setCodyCtx(null);if(setActiveContractVersion) setActiveContractVersion(null);
         setMsgs([...history,{role:"assistant",content:`Done — **${_delLabel}** has been deleted. Say a project name to start again.`}]);
@@ -1275,7 +1280,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
       // ── Confirm clear edits (user said "yes" after clear warning) ──
       if(codyPendingRef.current&&codyPendingRef.current.step==="confirm_clear"&&/\b(yes|yep|yeah|sure|go ahead|do it|confirm|clear it|reset it)\b/i.test(input)){
         const cc=codyPendingRef.current;codyPendingRef.current=null;
-        pushCodyUndo();
+        pushAgentUndo();
         setContractDocStore(prev=>{
           const store=JSON.parse(JSON.stringify(prev));const arr=store[cc.projectId]||[];
           if(arr[cc.vIdx]){const ct=arr[cc.vIdx];ct.fieldValues={};ct.fieldConfirmed={};ct.generalTermsEdits={};ct.sigNames={};ct.signatures={};ct.prodLogo=null;ct.signingStatus="not_sent";ct.signingToken=null;}
@@ -1351,7 +1356,7 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         if(jsonMatch){
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
-            pushCodyUndo();
+            pushAgentUndo();
             applyCodyPatch(patch, project.id, vIdx, ctVersions, setContractDocStore);
             setTimeout(()=>syncProjectInfoToDocs(project.id),100);
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
