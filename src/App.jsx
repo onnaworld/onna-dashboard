@@ -27,6 +27,7 @@ import { handleLillieIntent } from "./components/agents/LocationLillie";
 import { handlePollyIntent } from "./components/agents/ProducerPolly";
 import { handleTabbyIntent } from "./components/agents/TalentTabby";
 import { TI_FLIGHT_COLS, TI_CAR_COLS, TI_HOTEL_COLS, TI_ROOMING_COLS, TI_MOVEMENT_COLS, tiMkMove, tiMkDay, TRAVEL_ITINERARY_INIT, handleTinaIntent } from "./components/agents/TravelTina";
+import { ProjectProvider, useProject } from "./context/ProjectContext";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -8770,6 +8771,14 @@ function _closeModal(value) {
 }
 
 export default function OnnaDashboard() {
+  return (
+    <ProjectProvider idbGet={idbGet} idbSet={idbSet} debouncedDocSave={debouncedDocSave}>
+      <OnnaDashboardInner />
+    </ProjectProvider>
+  );
+}
+
+function OnnaDashboardInner() {
   const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
 
   const [_modal, _setModal] = useState({ show: false, type: "alert", message: "", defaultVal: "" });
@@ -9141,44 +9150,34 @@ export default function OnnaDashboard() {
   const [rateInput,setRateInput]                         = useState("");
   const [editVendor,setEditVendor]                       = useState(null);
 
-  // projectYear moved to Projects component
-  const [selectedProject,setSelectedProject]             = useState(null);
-  const [projectSection,setProjectSection]               = useState("Home");
-  const [creativeSubSection,setCreativeSubSection]       = useState(null);
-  const [budgetSubSection,setBudgetSubSection]           = useState(null);
-  const [invoiceTab,setInvoiceTab]                       = useState("invoices");
-  const [previewFile,setPreviewFile]                     = useState(null);
-  const [quoteSearchTerm,setQuoteSearchTerm]             = useState("");
-  const [invoiceSearchTerm,setInvoiceSearchTerm]         = useState("");
-  const [creativeSearchTerm,setCreativeSearchTerm]       = useState("");
-  const [castFileSearchTerm,setCastFileSearchTerm]       = useState("");
-  const [styleSearchTerm,setStyleSearchTerm]             = useState("");
-  const [documentsSubSection,setDocumentsSubSection]     = useState(null);
+  // ── Project state from ProjectContext ──
+  const {
+    selectedProject,setSelectedProject,projectSection,setProjectSection,
+    creativeSubSection,setCreativeSubSection,budgetSubSection,setBudgetSubSection,
+    invoiceTab,setInvoiceTab,previewFile,setPreviewFile,
+    quoteSearchTerm,setQuoteSearchTerm,invoiceSearchTerm,setInvoiceSearchTerm,
+    creativeSearchTerm,setCreativeSearchTerm,castFileSearchTerm,setCastFileSearchTerm,
+    styleSearchTerm,setStyleSearchTerm,documentsSubSection,setDocumentsSubSection,
+    scheduleSubSection,setScheduleSubSection,travelSubSection,setTravelSubSection,
+    permitsSubSection,setPermitsSubSection,stylingSubSection,setStylingSubSection,
+    locSubSection,setLocSubSection,castingSubSection,setCastingSubSection,
+    linkUploading,setLinkUploading,linkUploadProgress,setLinkUploadProgress,
+    projectEntries,setProjectEntries,aiMsg,setAiMsg,aiLoading,setAiLoading,
+    attachedFile,setAttachedFile,projectFiles,setProjectFiles,
+    projectFileStore,setProjectFileStore,fileStoreReady,setFileStoreReady,
+    projectLocLinks,setProjectLocLinks,projectCreativeLinks,setProjectCreativeLinks,
+    getProjectFiles,addProjectFiles,
+  } = useProject();
   const [csDuplicateModal,setCsDuplicateModal]           = useState(null); // null | {origin:"connie",projectId} | {origin:"docs"}
   const [csDuplicateSearch,setCsDuplicateSearch]         = useState("");
   const [raDuplicateModal,setRaDuplicateModal]           = useState(null); // null | {origin:"ronnie",projectId} | {origin:"docs"}
   const [raDuplicateSearch,setRaDuplicateSearch]         = useState("");
   const [csCreateMenuDocs,setCsCreateMenuDocs]           = useState(false);
-  const [scheduleSubSection,setScheduleSubSection]       = useState(null);
-  const [travelSubSection,setTravelSubSection]           = useState(null);
-  const [permitsSubSection,setPermitsSubSection]         = useState(null);
-  const [stylingSubSection,setStylingSubSection]         = useState(null);
-  const [linkUploading,setLinkUploading]                 = useState(false);
-  const [linkUploadProgress,setLinkUploadProgress]       = useState(null);
-  const [projectEntries,setProjectEntries]               = useState({});
-  const [aiMsg,setAiMsg]                                 = useState("");
-  const [aiLoading,setAiLoading]                         = useState(false);
-  const [attachedFile,setAttachedFile]                   = useState(null);
-  const [projectFiles,setProjectFiles]                   = useState({});
-  const [projectFileStore,setProjectFileStore]           = useState({});
-  const [fileStoreReady,setFileStoreReady]               = useState(false);
   const [projectActuals,setProjectActuals]               = useState({});
   const [actualsReady,setActualsReady]                   = useState(false);
   const [projectCasting,setProjectCasting]               = useState({});
   const [castingReady,setCastingReady]                   = useState(false);
   const [castAgencyOpen,setCastAgencyOpen]               = useState(null);
-  const [projectLocLinks,setProjectLocLinks]             = useState({});
-  const [projectCreativeLinks,setProjectCreativeLinks]   = useState(()=>{try{const s=localStorage.getItem('onna_creative_links');return s?JSON.parse(s):{}}catch{return {}}});
   const [projectContracts,setProjectContracts]           = useState({});
   const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
   const [activeCSVersion,setActiveCSVersion]             = useState(null);
@@ -9222,7 +9221,6 @@ export default function OnnaDashboard() {
   const [locShareLoading,setLocShareLoading]             = useState(false);
   const [locShareTabs,setLocShareTabs]                   = useState(new Set(["overview","detail"]));
   const locDeckRef                                       = useRef(null);
-  const [locSubSection,setLocSubSection]                 = useState(null);
   const [recceReportStore,setRecceReportStore]           = useState(()=>{try{const s=localStorage.getItem('onna_recce_reports');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeRecceVersion,setActiveRecceVersion]       = useState(null);
   const [castingDeckStore,setCastingDeckStore]           = useState(()=>{try{const s=localStorage.getItem('onna_casting_decks');return s?JSON.parse(s):{}}catch{return {}}});
@@ -9236,7 +9234,6 @@ export default function OnnaDashboard() {
   const [castDeckShareLoading,setCastDeckShareLoading]   = useState(false);
   const [castDeckShareTabs,setCastDeckShareTabs]         = useState(new Set(["confirmed","options"]));
   const castDeckRef                                       = useRef(null);
-  const [castingSubSection,setCastingSubSection]         = useState(null);
   const [createMenuOpen,setCreateMenuOpen]               = useState({});
   const [duplicateModal,setDuplicateModal]               = useState(null);
   const [duplicateSearch,setDuplicateSearch]              = useState("");
@@ -9488,13 +9485,10 @@ export default function OnnaDashboard() {
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
   useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
-  useEffect(()=>{idbGet("projectFileStore").then(d=>{if(d)setProjectFileStore(d);setFileStoreReady(true);}).catch(()=>setFileStoreReady(true));},[]);
-  useEffect(()=>{if(fileStoreReady)idbSet("projectFileStore",projectFileStore).catch(()=>{});},[projectFileStore,fileStoreReady]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
   useEffect(()=>{if(castingReady){idbSet("projectCasting",projectCasting).catch(()=>{}); debouncedDocSave('project_casting',projectCasting);}},[projectCasting,castingReady]);
-  useEffect(()=>{try{localStorage.setItem('onna_creative_links',JSON.stringify(projectCreativeLinks))}catch{} debouncedDocSave('creative_links',projectCreativeLinks);},[projectCreativeLinks]);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{} debouncedDocSave('callsheets',callSheetStore);},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{} debouncedDocSave('riskassessments',riskAssessmentStore);},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{} debouncedDocSave('cps',cpsStore);},[cpsStore]);
@@ -10090,8 +10084,6 @@ export default function OnnaDashboard() {
   });
   const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("general")?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
-  const getProjectFiles    = (id,key) => (projectFiles[id]||{})[key]||[];
-  const addProjectFiles    = (id,key,newFiles) => setProjectFiles(prev=>({...prev,[id]:{...(prev[id]||{}),[key]:[...getProjectFiles(id,key),...newFiles]}}));
   const getProjectCastingTables = id => {
     const val = projectCasting[id];
     if (!val || (Array.isArray(val) && val.length === 0)) return [{id:1,title:"Casting",rows:[]}];
