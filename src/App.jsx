@@ -32,17 +32,6 @@ import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
 import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, OUTLOOK_CAL_ICS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections } from "./utils/helpers";
-import { VINNIE_SYSTEM } from "./prompts/vinnie";
-import { CONNIE_SYSTEM } from "./prompts/connie";
-import { RONNIE_SYSTEM } from "./prompts/ronnie";
-import { BILLIE_SYSTEM } from "./prompts/billie";
-import { CODY_SYSTEM } from "./prompts/cody";
-import { CARRIE_SYSTEM } from "./prompts/carrie";
-import { TINA_SYSTEM } from "./prompts/tina";
-import { TABBY_SYSTEM } from "./prompts/tabby";
-import { POLLY_SYSTEM } from "./prompts/polly";
-import { LILLIE_SYSTEM } from "./prompts/lillie";
-import { PERRY_SYSTEM } from "./prompts/perry";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
 import { OutreachModal } from "./components/modals/OutreachModal";
@@ -84,84 +73,17 @@ import { doLogin as _doLogin, doResetRequest as _doResetRequest, doResetConfirm 
 import { processOutreach as _processOutreach, promoteToClient as _promoteToClient, addNewOption as _addNewOption, pruneCustom, deleteCat as _deleteCat, renameCat as _renameCat } from "./handlers/vendorHandlers";
 import { syncProjectInfoToDocs as _syncProjectInfoToDocs, generateContract as _generateContract, getProjectCastingTables as _getProjectCastingTablesFn, getProjectCasting as _getProjectCastingFn, addCastingTable as _addCastingTable, addCastingRow as _addCastingRow, updateCastingRow as _updateCastingRow, removeCastingRow as _removeCastingRow, updateCastingTableTitle as _updateCastingTableTitle, removeCastingTable as _removeCastingTable, uploadFromLink as _uploadFromLink } from "./handlers/documentHandlers";
 import { doPushUndo, doPerformUndo, fmtInline, renderAgentMd, sendAgentMessage as _sendAgentMessage } from "./handlers/agentHandlers.jsx";
-
-function buildFinnSystem(project, actualsSnapshot, estimateTotals) {
-  return `You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live budget tracker (actuals) database.
-
-CRITICAL: You ALREADY HAVE the full actuals data below. NEVER ask the user to paste, share, or provide data — you can see everything. Just act on their request immediately.
-
-You are viewing: "${project.name}"
-
-CURRENT ACTUALS STATE:
-${actualsSnapshot}
-
-${estimateTotals ? `ESTIMATE TOTALS (for variance comparison):\n${estimateTotals}\n` : ""}
-
-INSTRUCTIONS:
-- When the user asks to UPDATE a row field, output a JSON patch inside a \`\`\`json code block:
-  {"updateRow": {"secIdx": 0, "rowIdx": 0, "field": "zohoAmount", "value": "5000"}}
-  Valid fields: zohoAmount, actualsAmount, status
-- To ADD an expense to a row:
-  {"addExpense": {"secIdx": 0, "rowIdx": 0, "vendor": "Vendor Name", "amount": "5000", "date": "2025-01-15", "note": "Description"}}
-- To DELETE an expense from a row:
-  {"deleteExpense": {"secIdx": 0, "rowIdx": 0, "expenseIdx": 0}}
-- To UPDATE a row's status:
-  {"updateStatus": {"secIdx": 0, "rowIdx": 0, "status": "Paid"}}
-  Valid statuses: "", "Pending", "Invoiced", "Paid", "On Hold"
-- Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
-- Row references like "1A" map to section index and row index. Section "1" = secIdx 0, Row "A" = rowIdx 0, "B" = rowIdx 1, etc.
-- Always show dual currency: AED and USD (fixed rate: 1 AED = 0.27 USD).
-- Be warm, concise and professional.
-- NEVER say you don't have access to data. You have FULL access.
-
-RESPONSE STYLE:
-- Use bullet points for lists and summaries
-- Keep responses short and scannable — no walls of text
-- Lead with the action taken or answer, then details
-- Use bold (text) for key names, fields, and labels
-- Tone: warm, confident, professional — never robotic
-- When confirming changes, summarise what was updated in a quick bullet list`;
-}
-
-function applyFinnPatch(patch, projectId, projectActuals, setProjectActuals) {
-  const sections = JSON.parse(JSON.stringify(projectActuals[projectId] || []));
-  if (!sections.length) return;
-
-  if (patch.updateRow) {
-    const { secIdx, rowIdx, field, value } = patch.updateRow;
-    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
-      sections[secIdx].rows[rowIdx][field] = value;
-    }
-  }
-
-  if (patch.addExpense) {
-    const { secIdx, rowIdx, vendor, amount, date, note } = patch.addExpense;
-    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
-      const row = sections[secIdx].rows[rowIdx];
-      if (!row.expenses) row.expenses = [];
-      row.expenses.push({ vendor: vendor || "", amount: amount || "0", date: date || "", note: note || "" });
-    }
-  }
-
-  if (patch.deleteExpense) {
-    const { secIdx, rowIdx, expenseIdx } = patch.deleteExpense;
-    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
-      const exps = sections[secIdx].rows[rowIdx].expenses || [];
-      if (expenseIdx >= 0 && expenseIdx < exps.length) {
-        exps.splice(expenseIdx, 1);
-      }
-    }
-  }
-
-  if (patch.updateStatus) {
-    const { secIdx, rowIdx, status } = patch.updateStatus;
-    if (sections[secIdx] && sections[secIdx].rows[rowIdx]) {
-      sections[secIdx].rows[rowIdx].status = status;
-    }
-  }
-
-  setProjectActuals(prev => ({ ...prev, [projectId]: sections }));
-}
+// Extracted data & components
+import { buildFinnSystem, applyFinnPatch } from "./components/agents/FinanceFinn";
+import { RISK_ASSESSMENT_INIT } from "./data/riskAssessmentInit";
+import { RECCE_RATINGS, RECCE_RATING_C, mkRecceLocation, RECCE_REPORT_INIT, RecceInp, RecceField, RecceImgSlot } from "./data/recceReportInit.jsx";
+import { _YELLOW, _PINK, _BLUE, _PURPLE, _GREEN, _ORANGE, _TEAL, _CORAL } from "./components/agents/AgentCharacters";
+import { AGENT_DEFS } from "./data/agentDefs";
+import { DocPreviewDraggable } from "./components/ui/DocPreview";
+import SigningPage from "./components/SigningPage";
+import { riskSystemPrompt } from "./prompts/risk";
+import { callSheetSystemPrompt } from "./prompts/callsheet";
+import "./styles/global.css";
 
 // ─── Generic doc updater factory ──────────────────────────────────────────────
 function makeDocUpdater(projectId, vIdx, setStore, initTemplate, initLabel) {
@@ -190,97 +112,6 @@ function makeDocUpdater(projectId, vIdx, setStore, initTemplate, initLabel) {
   return { update, set };
 }
 
-// ─── RONNIE (RISK ASSESSMENT) HELPERS ─────────────────────────────────────────
-const RISK_ASSESSMENT_INIT = {
-  shootName:"",shootDate:"",locations:"",crewOnSet:"",timing:"",
-  productionLogo:null,agencyLogo:null,clientLogo:null,
-  sections:[
-    {id:1,title:"ENVIRONMENTAL & WEATHER RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
-      rows:[["Extreme Heat / Sun Exposure","High","Full Crew & Talent","Shoot to be scheduled during cooler hours where possible. Shaded rest areas provided on-site. Sunscreen, cold water, and electrolyte drinks available at all times. Mandatory hydration breaks every 30 minutes in direct sun."],
-            ["Sandstorm / High Winds","Medium","Full Crew & Equipment","Monitor weather forecast 48hrs and 24hrs prior. If sandstorm warning issued, shoot will be postponed. Protective covers for all camera equipment on standby."],
-            ["UV Radiation","Medium","Full Crew & Talent","SPF50+ sunscreen in First Aid Kit. Crew advised to wear hats and UV-protective clothing. Talent to be provided shade between takes."],
-            ["Humidity / Dehydration","High","Full Crew & Talent","Cold water and isotonic drinks provided by Production. Crew to be briefed on dehydration symptoms. Medic on standby for heat-related illness."],
-            ["Low Light (Exterior Night)","Medium","Full Crew","Adequate lighting rigs for safe movement. High-vis vests mandatory for all crew after sunset. Torches provided for wrap/load-out."]]},
-    {id:2,title:"PERSONNEL & HEALTH RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
-      rows:[["Fatigue / Long Hours","High","Full Crew & Talent","Maximum 12-hour shoot day enforced. Scheduled meal breaks (minimum 30 mins every 6 hours). Production to monitor crew wellbeing throughout."],
-            ["Slips, Trips & Falls","Medium","Full Crew","Cables to be taped/ramped at all times. Clear walkways maintained. Crew to wear closed-toe shoes with grip soles."],
-            ["Food Allergies / Dietary","Low","Full Crew & Talent","Catering to confirm allergen information on all food. Crew/talent dietary requirements collected in advance."],
-            ["COVID / Illness","Low","Full Crew & Talent","Any crew displaying symptoms must not attend set. Sanitiser stations available on-site."]]},
-    {id:3,title:"TECHNICAL EQUIPMENT RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
-      rows:[["Dust / Sand Ingress","High","Camera Equipment","No lens changes in open/windy conditions. Protective rain covers used when equipment idle. Air blowers on set for sensor/lens cleaning."],
-            ["Equipment Drop / Damage","Medium","Gear & Crew Below","Tethering of all handheld gear when shooting at height. No equipment left on edges or unstable surfaces. Equipment check-in/check-out managed by AC."],
-            ["Battery Failure / Power Loss","Medium","Production Schedule","Minimum 2x spare batteries per camera body. Fully charged power banks carried. Generator on standby for extended exterior shoots."],
-            ["Data Loss / Card Failure","High","Production / Client","DIT to verify all offloads on-set. Dual card recording enabled on all cameras. No cards to be formatted until backup confirmed by DIT."]]},
-    {id:4,title:"TRANSPORT & LOGISTICS RISKS",cols:["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"],
-      rows:[["Road Traffic Accidents","Medium","Self-Driving Crew","Crew driving own vehicles do so at their own risk and waive ONNA of all liability for transit. Journey time and routes shared in advance."],
-            ["Loading / Unloading Equipment","Medium","Crew & Equipment","Minimum 2 persons for heavy lifts. Trolleys and ramps provided. No rushing during load-in/load-out."],
-            ["Parking / Vehicle Access","Low","Full Crew","Parking locations confirmed and communicated 24hrs prior. Designated vehicle marshalling area on-site."]]},
-    {id:5,title:"BRAND & PRIVACY",cols:["Hazard / Risk","Risk Level","Who is at Risk","Control Measures"],
-      rows:[["IP Theft / Social Media Leaks","High","Client / Agency / Production","No posting of behind-the-scenes (BTS), product shots, or talent imagery to personal social media until official assets have gone live with written permission from the Client/Agency."],
-            ["Public Filming / Bystanders","Medium","Production / Client","If filming in public spaces, ensure DTCM permit covers location. Crew to politely manage bystanders. No members of the public to be filmed without signed release forms."],
-            ["Talent Image Rights","Medium","Talent / Client","All talent to have signed appearance release forms prior to call time. Usage terms to be confirmed and documented before shoot."]]},
-  ],
-  conductIntro:"All crew members on the call sheet are representatives of ONNA. High-level professionalism is mandatory to maintain relations with the Client and Agency.",
-  conductItems:[{label:"Client Relations:",text:"Maintain a helpful, solutions-only attitude. Any issues must be funneled directly to ONNA, never discussed in front of the client."},{label:"Anti-Harassment:",text:"ONNA maintains a Zero-Tolerance Sexual Harassment Policy. Any inappropriate behavior, language, or conduct will result in immediate removal from the set and termination of the contract."},{label:"General Conduct:",text:"Crew must act with integrity, respecting local customs and the shoot environment (No littering / Leave No Trace)."}],
-  waiverIntro:"By joining this production, the crew acknowledges:",
-  waiverItems:[{label:"Transport:",text:"Crew members choosing to drive their own vehicles to/from the shoot location do so at their own risk. They acknowledge the risks of driving in the UAE and hereby waive ONNA of any liability regarding vehicle damage or transit-related incidents."},{label:"Health:",text:"Crew confirms they are fit for the physical requirements of this shoot, including working in high temperatures where applicable."},{label:"Safety Gear:",text:"High-vis vests and emergency kits are managed by Production. Activity-appropriate footwear, clothing, sun protection, and personal hydration is the responsibility of the individual."},{label:"Insurance:",text:"Crew are responsible for maintaining their own valid personal accident insurance and medical insurance. ONNA does not provide individual health or vehicle insurance cover."}],
-  emergencyItems:[{label:"Nearest Hospital:",text:"To be confirmed based on shoot location. Production to identify closest facility and share with crew on the call sheet."},{label:"Police:",text:"999"},{label:"Ambulance:",text:"998"},{label:"Fire:",text:"997"},{label:"Production Lead (Emily):",text:"+971 585 608 616"},{label:"Muster Point:",text:"To be designated on-site by Production at the start of each shoot day and communicated at the safety briefing."},{label:"Weather Protocol:",text:"In the event of a sandstorm warning, extreme heat advisory, or site evacuation, all crew must leave equipment and report to the designated muster point for a head count by Production."},{label:"First Aid:",text:"First Aid Kit on-site at all times managed by Production. Contents checked before every shoot. Medic on standby for high-risk shoots."}],
-};
-
-
-
-// ─── RECCE REPORT HELPERS ───────────────────────────────────────────────────
-const RECCE_RATINGS = ["Excellent","Good","Adequate","Poor","Not Suitable"];
-const RECCE_RATING_C = {
-  "Excellent":{bg:"#E8F5E9",text:"#2E7D32"},"Good":{bg:"#E3F2FD",text:"#1565C0"},
-  "Adequate":{bg:"#FFF3E0",text:"#E65100"},"Poor":{bg:"#FCE4EC",text:"#C62828"},
-  "Not Suitable":{bg:"#000",text:"#fff"},
-};
-let _recceLocId = 0;
-const mkRecceLocation = () => ({
-  id:"rloc"+(++_recceLocId),name:"",address:"",gps:"",contact:"",contactPhone:"",
-  power:"",parking:"",light:"",noise:"",permits:"",
-  hospital:"",facilities:"",signal:"",health:"",shootTimes:"",
-  rating:"",recommendation:"",notes:"",images:[],
-});
-const RECCE_REPORT_INIT = {
-  project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",producer:"[Producer]",scoutedBy:"[Scouted By]"},
-  locations:[mkRecceLocation()],
-  selLoc:null,
-};
-const RecceInp = ({value,onChange,placeholder,style:s={}}) => (
-  <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-    style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",padding:"3px 6px",
-      background:value?"transparent":"#FFFDE7",boxSizing:"border-box",width:"100%",...s}}/>
-);
-const RecceField = ({label,value,onChange,placeholder,color="#999",style:s={}}) => (
-  <div style={{flex:1,minWidth:140,...s}}>
-    <div style={{fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,color,marginBottom:2}}>{label}</div>
-    <RecceInp value={value} onChange={onChange} placeholder={placeholder}/>
-  </div>
-);
-const RecceImgSlot = ({src,onAdd,onRemove,h="100%"}) => {
-  const [over,setOver]=useState(false);
-  if(src)return(
-    <div onDragOver={e=>{e.preventDefault();setOver(true);}} onDragLeave={()=>setOver(false)}
-      onDrop={e=>{e.preventDefault();e.stopPropagation();setOver(false);if(e.dataTransfer.files.length>0){onRemove();setTimeout(()=>onAdd(e.dataTransfer.files),50);}}}
-      style={{width:"100%",height:h,position:"relative",overflow:"hidden",borderRadius:2,border:over?"2px solid #FFD54F":"none"}}>
-      <img src={src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
-      <button data-hide="1" onClick={onRemove} style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,0.5)",border:"none",color:"#fff",fontSize:9,cursor:"pointer",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>×</button>
-    </div>
-  );
-  return(
-    <div onDragOver={e=>{e.preventDefault();setOver(true);}} onDragLeave={()=>setOver(false)}
-      onDrop={e=>{e.preventDefault();e.stopPropagation();setOver(false);if(e.dataTransfer.files.length>0)onAdd(e.dataTransfer.files);}}
-      style={{width:"100%",height:h,background:over?"#FFFDE7":"#f8f8f8",border:over?"2px dashed #FFD54F":"1px dashed #ddd",borderRadius:2,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all .15s"}}>
-      <label style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-        <span style={{fontSize:16,color:over?"#E65100":"#ddd"}}>+</span>
-        <span style={{fontFamily:CS_FONT,fontSize:6,color:over?"#E65100":"#ccc",letterSpacing:0.5}}>Drop or click</span>
-        <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{onAdd(e.target.files);e.target.value="";}}/>
-      </label>
-    </div>
-  );
-};
 
 
 
@@ -288,7 +119,6 @@ const RecceImgSlot = ({src,onAdd,onRemove,h="100%"}) => {
 
 // ─── STATIC SEED DATA (used as fallback until API loads) ─────────────────────
 
-const _YELLOW="#F5D13A",_PINK="#F2A7BC",_BLUE="#A8CCEA",_PURPLE="#C9B3E8",_GREEN="#A8D8B0",_ORANGE="#F5A623",_TEAL="#7EC8C8",_CORAL="#F2877B",_SKY="#7BB8E8",_ROSE="#E8879B",_LAVENDER="#B8A9D4",_MINT="#6EC5A8",_PEACH="#F0A87C";
 
 const TABS = [
   {id:"Dashboard", label:"DASHBOARD", starColor:_PINK},
@@ -321,403 +151,6 @@ if (typeof window !== "undefined") {
 const getXContacts = (type, id) => { try { return JSON.parse(localStorage.getItem(`onna_xc_${type}_${id}`) || '[]'); } catch { return []; } };
 const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${type}_${id}`, JSON.stringify(arr)); } catch {} };
 
-// ─── AGENT CHARACTERS ────────────────────────────────────────────────────────
-const _STAR = "M 43.5,18.1 Q 50.0,4.0 56.5,18.1 Q 62.9,32.2 78.3,34.0 Q 93.7,35.8 82.3,46.3 Q 70.9,56.8 74.0,72.0 Q 77.0,87.2 63.5,79.6 Q 50.0,72.0 36.5,79.6 Q 23.0,87.2 26.0,72.0 Q 29.1,56.8 17.7,46.3 Q 6.3,35.8 21.7,34.0 Q 37.1,32.2 43.5,18.1 Z";
-function _DotEyes({y=42,spread=13,size=5,color="#1a1a1a"}){return<><circle cx={50-spread} cy={y} r={size} fill={color}/><circle cx={50+spread} cy={y} r={size} fill={color}/></>;}
-function _SquintEyes({y=43,spread=13}){return<><path d={`M ${50-spread-6} ${y} Q ${50-spread} ${y-7} ${50-spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/><path d={`M ${50+spread-6} ${y} Q ${50+spread} ${y-7} ${50+spread+6} ${y}`} stroke="#1a1a1a" strokeWidth="3.2" fill="none" strokeLinecap="round"/></>;}
-function _OpenMouth({y=62}){return<><rect x="38" y={y} width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy={y+10} rx="9" ry="5" fill="#e8697a"/></>;}
-function _VMouth({y=63}){return<path d={`M ${50-6} ${y} Q 50 ${y+7} ${50+6} ${y}`} stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>;}
-function _Cheeks({color="rgba(240,120,100,0.25)"}){return<><ellipse cx="34" cy="54" rx="6" ry="4" fill={color}/><ellipse cx="66" cy="54" rx="6" ry="4" fill={color}/></>;}
-function _Logan({mood="idle",bob=0}){
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_YELLOW}/>
-    {mood==="excited"?<><_Cheeks color="rgba(240,120,100,0.32)"/><_SquintEyes/><_OpenMouth y={61}/></>
-    :mood==="thinking"?<><_DotEyes/><_VMouth y={64}/></>
-    :mood==="talking"?<><_Cheeks color="rgba(240,120,100,0.22)"/><_DotEyes/><_OpenMouth y={62}/></>
-    :<><_Cheeks color="rgba(240,120,100,0.22)"/><_DotEyes/><_VMouth y={63}/></>}
-    <circle cx="84" cy="17" r="12" fill="rgba(210,238,255,0.75)" stroke="#1a1a1a" strokeWidth="2.2"/>
-    <circle cx="84" cy="17" r="8" fill="rgba(230,247,255,0.9)"/>
-    <line x1="92" y1="25" x2="100" y2="33" stroke="#1a1a1a" strokeWidth="2.8" strokeLinecap="round"/>
-    <path d="M 77 42 Q 81 30 82 23" stroke={_YELLOW} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 77 42 Q 81 30 82 23" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-  </svg>;
-}
-function _Rex({mood="idle",bob=0}){
-  const frown=mood==="serious"||mood==="thinking";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_PINK}/>
-    <_Cheeks color="rgba(240,120,140,0.25)"/>
-    {mood==="talking"?<><_DotEyes y={46}/><_OpenMouth y={62}/></>
-    :frown?<><_DotEyes y={46}/><path d="M 34 65 Q 50 57 66 65" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/></>
-    :<><_DotEyes y={46}/><_VMouth y={64}/></>}
-    <rect x="72" y="6" width="21" height="27" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2.2"/>
-    <rect x="78" y="4" width="9" height="7" rx="3.5" fill="#1a1a1a"/>
-    <line x1="75.5" y1="17" x2="90.5" y2="17" stroke="#c06070" strokeWidth="2"/>
-    <line x1="75.5" y1="21" x2="90.5" y2="21" stroke="#aaa" strokeWidth="1.3"/>
-    <line x1="75.5" y1="25" x2="86" y2="25" stroke="#aaa" strokeWidth="1.3"/>
-    <line x1="75.5" y1="29" x2="90.5" y2="29" stroke="#aaa" strokeWidth="1.3"/>
-    <path d="M 76 43 Q 80 29 81 20" stroke={_PINK} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 76 43 Q 80 29 81 20" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {mood==="thinking"&&<ellipse cx="17" cy="32" rx="4" ry="6" fill="rgba(140,200,255,0.65)"/>}
-  </svg>;
-}
-function _Nova({mood="idle",bob=0}){
-  const excited=mood==="excited";
-  const mouth=excited?"M 42 62 Q 50 68 58 62":mood==="thinking"?"M 43 61 Q 50 57 57 61":"M 43 62 Q 50 67 57 62";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_BLUE}/>
-    <_Cheeks color="rgba(100,150,220,0.22)"/>
-    <circle cx="37" cy="43" r="10" fill="rgba(255,255,255,0.3)" stroke="#1a1a1a" strokeWidth="2.5"/>
-    <circle cx="63" cy="43" r="10" fill="rgba(255,255,255,0.3)" stroke="#1a1a1a" strokeWidth="2.5"/>
-    <line x1="47" y1="43" x2="53" y2="43" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round"/>
-    <line x1="27" y1="41" x2="21" y2="39" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round"/>
-    <line x1="73" y1="41" x2="79" y2="39" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round"/>
-    {excited?<><path d="M 31 45 Q 37 40 43 45" stroke="#1a1a1a" strokeWidth="2.5" fill="none" strokeLinecap="round"/><path d="M 57 45 Q 63 40 69 45" stroke="#1a1a1a" strokeWidth="2.5" fill="none" strokeLinecap="round"/></>:<><circle cx="37" cy="44" r="4" fill="#1a1a1a"/><circle cx="63" cy="44" r="4" fill="#1a1a1a"/></>}
-    {mood==="talking"?<><rect x="38" y="62" width="24" height="14" rx="7" fill="#1a1a1a"/><ellipse cx="50" cy="72" rx="9" ry="5" fill="#e8697a"/></>:<path d={mouth} stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round"/>}
-  </svg>;
-}
-function _Billie({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_GREEN}/>
-    <_Cheeks color="rgba(60,160,90,0.20)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Calculator accessory */}
-    <rect x="71" y="5" width="22" height="27" rx="3.5" fill="white" stroke="#1a1a1a" strokeWidth="2.1"/>
-    <rect x="73" y="8" width="18" height="7" rx="2" fill="#c8efd4"/>
-    <text x="82" y="14.5" fontSize="5" fill="#2a7a3a" textAnchor="middle" fontWeight="700" fontFamily="monospace">AED</text>
-    {/* Calc button grid */}
-    {[[74,18],[79,18],[84,18],[89,18],[74,23],[79,23],[84,23],[89,23]].map(([x,y],i)=>(
-      <rect key={i} x={x} y={y} width="3.5" height="3.5" rx="0.8" fill={i===3||i===7?"#3a9a5a":_GREEN} opacity="0.85"/>
-    ))}
-    <path d="M 73 46 Q 77 32 78 15" stroke={_GREEN} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 73 46 Q 77 32 78 15" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Coin stack */}
-    <ellipse cx="19" cy="34" rx="7" ry="3" fill="#F5D13A" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <ellipse cx="19" cy="31" rx="7" ry="3" fill="#F5D13A" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <ellipse cx="19" cy="28" rx="7" ry="3" fill="#ffe066" stroke="#1a1a1a" strokeWidth="1.5"/>
-  </svg>;
-}
-function _Cody({mood="idle",bob=0}){
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_ORANGE}/>
-    <_Cheeks color="rgba(245,166,35,0.22)"/>
-    {mood==="talking"?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :mood==="thinking"?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :mood==="excited"?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Contract/document accessory */}
-    <rect x="70" y="5" width="22" height="28" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2.1"/>
-    <line x1="74" y1="12" x2="88" y2="12" stroke={_ORANGE} strokeWidth="2"/>
-    <line x1="74" y1="17" x2="88" y2="17" stroke="#aaa" strokeWidth="1.3"/>
-    <line x1="74" y1="22" x2="84" y2="22" stroke="#aaa" strokeWidth="1.3"/>
-    <line x1="74" y1="27" x2="88" y2="27" stroke="#aaa" strokeWidth="1.3"/>
-    {/* Signature scribble */}
-    <path d="M 76 25 Q 79 23 82 25 Q 85 27 88 25" stroke={_ORANGE} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-    <path d="M 73 46 Q 77 32 78 15" stroke={_ORANGE} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 73 46 Q 77 32 78 15" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Pen accessory */}
-    <line x1="16" y1="22" x2="26" y2="38" stroke="#1a1a1a" strokeWidth="3" strokeLinecap="round"/>
-    <line x1="16" y1="22" x2="26" y2="38" stroke={_ORANGE} strokeWidth="1.5" strokeLinecap="round"/>
-    <circle cx="15" cy="20" r="2" fill="#1a1a1a"/>
-  </svg>;
-}
-function _Finn({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_TEAL}/>
-    <_Cheeks color="rgba(60,160,160,0.20)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Receipt/clipboard accessory */}
-    <rect x="70" y="5" width="22" height="28" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2.1"/>
-    <rect x="77" y="3" width="8" height="5" rx="2.5" fill="#1a1a1a"/>
-    <line x1="74" y1="13" x2="88" y2="13" stroke={_TEAL} strokeWidth="2"/>
-    <line x1="74" y1="17" x2="88" y2="17" stroke="#aaa" strokeWidth="1.3"/>
-    <line x1="74" y1="21" x2="84" y2="21" stroke="#aaa" strokeWidth="1.3"/>
-    <line x1="74" y1="25" x2="88" y2="25" stroke="#aaa" strokeWidth="1.3"/>
-    <text x="86" y="26" fontSize="5" fill="#5aA8A8" fontWeight="700" fontFamily="monospace">$</text>
-    <path d="M 73 46 Q 77 32 78 15" stroke={_TEAL} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 73 46 Q 77 32 78 15" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Coin accessory */}
-    <ellipse cx="19" cy="32" rx="7" ry="3" fill="#F5D13A" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <ellipse cx="19" cy="29" rx="7" ry="3" fill="#ffe066" stroke="#1a1a1a" strokeWidth="1.5"/>
-    {thinking&&<ellipse cx="17" cy="22" rx="4" ry="6" fill="rgba(100,200,200,0.55)"/>}
-  </svg>;
-}
-function _Carrie({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_CORAL}/>
-    <_Cheeks color="rgba(240,130,120,0.25)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Clapperboard accessory */}
-    <rect x="69" y="8" width="24" height="20" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
-    <rect x="69" y="4" width="24" height="8" rx="2" fill="#1a1a1a"/>
-    <line x1="73" y1="4" x2="77" y2="12" stroke="white" strokeWidth="1.5"/>
-    <line x1="79" y1="4" x2="83" y2="12" stroke="white" strokeWidth="1.5"/>
-    <line x1="85" y1="4" x2="89" y2="12" stroke="white" strokeWidth="1.5"/>
-    <line x1="72" y1="18" x2="90" y2="18" stroke={_CORAL} strokeWidth="2"/>
-    <line x1="72" y1="22" x2="86" y2="22" stroke="#aaa" strokeWidth="1.3"/>
-    <path d="M 74 44 Q 78 30 79 18" stroke={_CORAL} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 74 44 Q 78 30 79 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {thinking&&<ellipse cx="17" cy="32" rx="4" ry="6" fill="rgba(240,130,120,0.55)"/>}
-  </svg>;
-}
-function _Tina({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_SKY}/>
-    <_Cheeks color="rgba(100,160,230,0.22)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Suitcase accessory */}
-    <rect x="69" y="10" width="24" height="18" rx="3" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
-    <rect x="76" y="6" width="10" height="7" rx="3" fill="none" stroke="#1a1a1a" strokeWidth="2"/>
-    <line x1="69" y1="18" x2="93" y2="18" stroke={_SKY} strokeWidth="2"/>
-    <circle cx="77" cy="23" r="1.5" fill="#1a1a1a"/>
-    <circle cx="85" cy="23" r="1.5" fill="#1a1a1a"/>
-    <path d="M 73 46 Q 77 32 78 18" stroke={_SKY} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 73 46 Q 77 32 78 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Globe */}
-    <circle cx="19" cy="30" r="8" fill="none" stroke={_SKY} strokeWidth="1.8"/>
-    <ellipse cx="19" cy="30" rx="4" ry="8" fill="none" stroke="#1a1a1a" strokeWidth="1.2"/>
-    <line x1="11" y1="30" x2="27" y2="30" stroke="#1a1a1a" strokeWidth="1"/>
-    {thinking&&<ellipse cx="19" cy="22" rx="4" ry="5" fill="rgba(100,160,230,0.55)"/>}
-  </svg>;
-}
-function _Tabby({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_ROSE}/>
-    <_Cheeks color="rgba(230,130,150,0.25)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Hanger accessory */}
-    <path d="M 73 8 L 81 8 L 93 18 L 69 18 Z" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinejoin="round"/>
-    <line x1="81" y1="4" x2="81" y2="8" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round"/>
-    <circle cx="81" cy="3" r="2" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <rect x="72" y="18" width="18" height="12" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <line x1="75" y1="22" x2="87" y2="22" stroke={_ROSE} strokeWidth="1.5"/>
-    <line x1="75" y1="25" x2="84" y2="25" stroke="#aaa" strokeWidth="1"/>
-    <path d="M 73 46 Q 77 32 78 18" stroke={_ROSE} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 73 46 Q 77 32 78 18" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Scissors */}
-    <circle cx="16" cy="28" r="4" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <circle cx="22" cy="34" r="4" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <line x1="19" y1="25" x2="25" y2="37" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <line x1="13" y1="31" x2="25" y2="31" stroke="#1a1a1a" strokeWidth="1.5"/>
-    {thinking&&<ellipse cx="17" cy="20" rx="4" ry="5" fill="rgba(230,130,150,0.55)"/>}
-  </svg>;
-}
-function _Polly({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_LAVENDER}/>
-    <_Cheeks color="rgba(160,140,210,0.22)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Megaphone/director accessory */}
-    <polygon points="70,10 93,5 93,25 70,20" fill="white" stroke="#1a1a1a" strokeWidth="2" strokeLinejoin="round"/>
-    <rect x="66" y="11" width="5" height="8" rx="2" fill={_LAVENDER} stroke="#1a1a1a" strokeWidth="1.5"/>
-    <line x1="75" y1="13" x2="88" y2="11" stroke={_LAVENDER} strokeWidth="1.5"/>
-    <line x1="75" y1="17" x2="88" y2="19" stroke="#aaa" strokeWidth="1"/>
-    <path d="M 72 44 Q 76 30 70 16" stroke={_LAVENDER} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 72 44 Q 76 30 70 16" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Checklist */}
-    <rect x="12" y="22" width="16" height="18" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <line x1="17" y1="27" x2="25" y2="27" stroke={_LAVENDER} strokeWidth="1.5"/>
-    <line x1="17" y1="31" x2="25" y2="31" stroke="#aaa" strokeWidth="1"/>
-    <line x1="17" y1="35" x2="23" y2="35" stroke="#aaa" strokeWidth="1"/>
-    <path d="M 14 27 L 15.5 28.5 L 17 26" stroke={_LAVENDER} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-    <path d="M 14 31 L 15.5 32.5 L 17 30" stroke={_LAVENDER} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-    {thinking&&<ellipse cx="19" cy="18" rx="4" ry="5" fill="rgba(160,140,210,0.55)"/>}
-  </svg>;
-}
-function _Lillie({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_MINT}/>
-    <_Cheeks color="rgba(90,190,160,0.22)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Map pin accessory */}
-    <path d="M 81 6 C 88 6 93 11 93 17 C 93 24 81 32 81 32 C 81 32 69 24 69 17 C 69 11 74 6 81 6 Z" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
-    <circle cx="81" cy="16" r="4" fill={_MINT} stroke="#1a1a1a" strokeWidth="1.5"/>
-    <path d="M 74 44 Q 78 32 79 25" stroke={_MINT} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 74 44 Q 78 32 79 25" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Camera */}
-    <rect x="12" y="26" width="16" height="11" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <circle cx="20" cy="32" r="3.5" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <circle cx="20" cy="32" r="1.5" fill={_MINT}/>
-    <rect x="17" y="24" width="6" height="3" rx="1" fill="#1a1a1a"/>
-    {thinking&&<ellipse cx="20" cy="20" rx="4" ry="5" fill="rgba(90,190,160,0.55)"/>}
-  </svg>;
-}
-function _Perry({mood="idle",bob=0}){
-  const talking=mood==="talking";const thinking=mood==="thinking";const excited=mood==="excited";
-  return<svg viewBox="0 0 100 100" width={120} height={120} style={{overflow:"visible",transform:`translateY(${bob}px)`,transition:"transform 0.05s"}}>
-    <path d={_STAR} fill={_PEACH}/>
-    <_Cheeks color="rgba(240,168,124,0.22)"/>
-    {talking?<><_DotEyes y={44}/><_OpenMouth y={61}/></>
-    :excited?<><_SquintEyes y={43}/><_OpenMouth y={62}/></>
-    :thinking?<><_DotEyes y={44}/><_VMouth y={63}/></>
-    :<><_DotEyes y={44}/><_VMouth y={63}/></>}
-    {/* Film reel accessory */}
-    <circle cx="81" cy="15" r="12" fill="white" stroke="#1a1a1a" strokeWidth="2"/>
-    <circle cx="81" cy="15" r="4" fill={_PEACH} stroke="#1a1a1a" strokeWidth="1.5"/>
-    <circle cx="81" cy="6" r="2" fill="#1a1a1a"/>
-    <circle cx="81" cy="24" r="2" fill="#1a1a1a"/>
-    <circle cx="72" cy="15" r="2" fill="#1a1a1a"/>
-    <circle cx="90" cy="15" r="2" fill="#1a1a1a"/>
-    <path d="M 74 44 Q 78 32 77 22" stroke={_PEACH} strokeWidth="8" fill="none" strokeLinecap="round"/>
-    <path d="M 74 44 Q 78 32 77 22" stroke="#1a1a1a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-    {/* Play button */}
-    <rect x="12" y="24" width="16" height="12" rx="2" fill="white" stroke="#1a1a1a" strokeWidth="1.5"/>
-    <polygon points="18,27 18,33 24,30" fill={_PEACH} stroke="#1a1a1a" strokeWidth="1"/>
-    {thinking&&<ellipse cx="20" cy="20" rx="4" ry="5" fill="rgba(240,168,124,0.55)"/>}
-  </svg>;
-}
-const AGENT_DEFS = [
-  {id:"logistical",name:"Vendor Vinnie",title:"Contacts",emoji:"🔍",color:_YELLOW,border:"#d4aa20",accent:"#7a5800",bg:"#fffef5",textColor:"#3d2800",tagBg:"#fef3c0",Blob:_Logan,
-   system:VINNIE_SYSTEM,
-   placeholder:"Create new vendor...",
-   intro:"Hey! I'm Vendor Vinnie ✏️ Here's what I can do:\n\n1️⃣ **Add a Vendor** — Give me a name, category, email & phone and I'll save it\n2️⃣ **Log Outreach** — Tell me who you contacted and I'll log it with today's date\n3️⃣ **Search Contacts** — Find vendors by name, category or location\n\nWhat do you need?"},
-  {id:"compliance",name:"Call Sheet Connie",title:"Call Sheets",emoji:"📋",color:_PINK,border:"#c47090",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#fdd8e0",Blob:_Rex,
-   system:CONNIE_SYSTEM,
-   placeholder:"Add call sheet details...",
-   intro:"Hi! I'm Call Sheet Connie 📋 Here's what I can do:\n\n1️⃣ **Edit Call Sheet** — Add crew, update times, locations & details\n2️⃣ **Review & Check** — Find what's missing or needs updating\n3️⃣ **Dietary & Catering** — Manage dietary requirements and menus\n\nFirst, which project should I work on?"},
-  {id:"researcher",name:"Risk Assessment Ronnie",title:"Risk Assessment",emoji:"🔬",color:_BLUE,border:"#6a9eca",accent:"#1a4a80",bg:"#f3f8ff",textColor:"#0a1f3d",tagBg:"#d8eaf8",Blob:_Nova,
-   system:RONNIE_SYSTEM,
-   placeholder:"Add risk assessment details...",
-   intro:"I'm Risk Assessment Ronnie 🔬 Here's what I can do:\n\n1️⃣ **Add Risks** — Log hazards with severity, likelihood & mitigation\n2️⃣ **Review Assessment** — Check what's missing or needs updating\n3️⃣ **Generate Report** — Summarise all risks for a shoot day\n\nFirst, which project should I work on?"},
-  {id:"billie",name:"Budget Billie",title:"Budgets & Expenses",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
-   system:BILLIE_SYSTEM,
-   placeholder:"Budget or expense details...",
-   intro:"Hey! I'm Budget Billie 💰 Here's what I can do:\n\n1️⃣ **Build & Edit Budget** — Create estimates, update rates, adjust markup\n2️⃣ **Log Expenses** — Track actuals, add costs, update Zoho amounts\n3️⃣ **Review & Compare** — Actuals vs estimates, flag overruns, export\n\nFirst, which project should I work on?"},
-  {id:"contracts",name:"Contract Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
-   system:CODY_SYSTEM,
-   placeholder:"Add contract details...",
-   intro:"I'm Contract Cody 📝 Here's what I can do:\n\n1️⃣ **Live Contracts** — Fill in fields, switch types, review & export your project contracts\n2️⃣ **Generate Documents** — Draft waivers, NDAs, agreements & more from scratch\n3️⃣ **Sign & Stamp** — Upload a PDF or generate a doc, then add signature, stamp & letterhead\n\nWhat do you need?"},
-  {id:"carrie",name:"Casting Carrie",title:"Casting",emoji:"🎬",color:_CORAL,border:"#c46050",accent:"#7a2a1a",bg:"#fff5f3",textColor:"#3d1008",tagBg:"#fdd8d0",Blob:_Carrie,
-   system:CARRIE_SYSTEM,
-   placeholder:"Add casting details...",
-   intro:"Hi! I'm Casting Carrie 🎬 Here's what I can do:\n\n1️⃣ **Add Talent** — Add models, actors or extras with details & agency info\n2️⃣ **Search & Brief** — Search agencies or generate a casting brief\n3️⃣ **Review & Export** — Check casting status, export to PDF/CSV\n\nFirst, which project should I work on?"},
-  {id:"tina",name:"Travel Tina",title:"Travel",emoji:"✈️",color:_SKY,border:"#5a9ad0",accent:"#1a4a80",bg:"#f0f7ff",textColor:"#0a1f3d",tagBg:"#d0e6f8",Blob:_Tina,
-   system:TINA_SYSTEM,
-   placeholder:"Add travel details...",
-   intro:"Hi! I'm Travel Tina ✈️ Here's what I can do:\n\n1️⃣ **Build Itinerary** — Flights, hotels, transport & per diems for cast & crew\n2️⃣ **Update & Manage** — Change bookings, adjust times, manage travel budgets\n3️⃣ **Review & Export** — Check for gaps, conflicts & prepare for sharing\n\nFirst, which project should I work on?"},
-  {id:"tabby",name:"Talent Tabby",title:"Talent & Styling",emoji:"👗",color:_ROSE,border:"#c46878",accent:"#7a1a30",bg:"#fff5f7",textColor:"#3d0818",tagBg:"#f8d0d8",Blob:_Tabby,
-   system:TABBY_SYSTEM,
-   placeholder:"Add talent or styling details...",
-   intro:"Hi! I'm Talent Tabby 👗 Here's what I can do:\n\n1️⃣ **Casting Decks** — Build talent boards with photos, details & options\n2️⃣ **Fittings & Styling** — Schedule fittings, track wardrobe & measurements\n3️⃣ **Review & Share** — Check talent status & prepare decks for clients\n\nFirst, which project should I work on?"},
-  {id:"polly",name:"Producer Polly",title:"Production",emoji:"🎬",color:_LAVENDER,border:"#9080b8",accent:"#4a2a80",bg:"#f8f5ff",textColor:"#2d0a50",tagBg:"#e0d8f0",Blob:_Polly,
-   system:POLLY_SYSTEM,
-   placeholder:"Add production details...",
-   intro:"Hi! I'm Producer Polly 🎬 Here's what I can do:\n\n1️⃣ **CPS & Shot Lists** — Build schedules, milestones & detailed shot lists\n2️⃣ **Storyboards & Briefs** — Structure frames & draft creative briefs\n3️⃣ **Equipment & Wrap** — Equipment lists, wrap reports & lessons learned\n\nFirst, which project should I work on?"},
-  {id:"lillie",name:"Location Lillie",title:"Locations",emoji:"📍",color:_MINT,border:"#4aaa88",accent:"#1a5a40",bg:"#f0faf6",textColor:"#0a2e1e",tagBg:"#c8f0e0",Blob:_Lillie,
-   system:LILLIE_SYSTEM,
-   placeholder:"Add location details...",
-   intro:"Hi! I'm Location Lillie 📍 Here's what I can do:\n\n1️⃣ **Location Decks** — Build decks with photos, addresses & permit info\n2️⃣ **Recce Reports** — Document site visits with power, safety & access details\n3️⃣ **Review & Share** — Compare options & prepare polished decks for clients\n\nFirst, which project should I work on?"},
-  {id:"perry",name:"Post Producer Perry",title:"Post-Production",emoji:"🎞️",color:_PEACH,border:"#c08060",accent:"#7a4020",bg:"#fff8f3",textColor:"#3d1a08",tagBg:"#f8dcc8",Blob:_Perry,
-   system:PERRY_SYSTEM,
-   placeholder:"Add post-production details...",
-   intro:"Hi! I'm Post Producer Perry 🎞️ Here's what I can do:\n\n1️⃣ **Deliverables & Specs** — Define formats, resolutions & naming conventions\n2️⃣ **Post Schedule** — Timelines for edit, colour, sound & delivery milestones\n3️⃣ **Review & Feedback** — Manage client review rounds & track amends\n\nFirst, which project should I work on?"},
-];
-function _AgentDots({color}){
-  return<div style={{display:"flex",gap:5,padding:"10px 14px",alignItems:"center"}}>
-    {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:color,animation:`bop 1s ease-in-out ${i*0.18}s infinite`}}/>)}
-  </div>;
-}
-function DocPreviewDraggable({config,onReprocess,onExport}){
-  const appliesTo=(rule,i,total)=>{if(rule==="all")return true;if(rule==="first"&&i===0)return true;if(rule==="last"&&i===total-1)return true;if(Array.isArray(rule))return rule.includes(i);return rule===i;};
-  const total=config.originalDoc.pages.length;
-  const [signAR,setSignAR]=useState(1.8);const [stampAR,setStampAR]=useState(1.2);const [logoAR,setLogoAR]=useState(2.4);
-  return <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:8}}>
-    {config.originalDoc.pages.map((_,pi)=><DocPagePanel key={pi} pageIndex={pi} config={config} onReprocess={onReprocess} onExport={onExport} total={total} appliesTo={appliesTo} signAR={signAR} setSignAR={setSignAR} stampAR={stampAR} setStampAR={setStampAR} logoAR={logoAR} setLogoAR={setLogoAR}/>)}
-    {total>1&&<button onClick={()=>onExport()} style={{border:"1px solid #0066cc",background:"#0066cc",color:"#fff",borderRadius:6,padding:"6px 16px",fontSize:12,fontWeight:600,cursor:"pointer",alignSelf:"flex-start"}}>Export All Pages</button>}
-  </div>;
-}
-function DocPagePanel({pageIndex,config,onReprocess,onExport,total,appliesTo,signAR,setSignAR,stampAR,setStampAR,logoAR,setLogoAR}){
-  const containerRef=useRef(null);
-  const [natW,setNatW]=useState(0);const [natH,setNatH]=useState(0);const [dispW,setDispW]=useState(0);
-  const dragRef=useRef({dragging:false,target:null,startX:0,startY:0,origX:0,origY:0});
-  const pageImg=config.originalDoc.pages[pageIndex];
-  const scale=natW?dispW/natW:1;
-  const sScale=config.signScale||1;const stScale=config.stampScale||1;
-  const showSign=config.wantSign&&appliesTo(config.signPages||"last",pageIndex,total);
-  const showStamp=config.wantStamp&&appliesTo(config.stampPages||"last",pageIndex,total);
-  const showLetter=config.wantLetterhead&&appliesTo(config.letterPages||"first",pageIndex,total);
-  const signH=80*sScale,signW=signH*signAR;
-  const stampH=120*stScale,stampW=stampH*stampAR;
-  const po=(config.pageOffsets||{})[pageIndex]||{};
-  const signCX=60+(po.signOffsetX!=null?po.signOffsetX:(config.signOffsetX||0));
-  const signCY=natH-180+(po.signOffset!=null?po.signOffset:(config.signOffset||0));
-  const stampCX=natW-60-stampW+(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0));
-  const stampCY=natH-180+(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0));
-  const LH_H=100,lhH=50,lhX=60,lhY=22;
-  const contentScale=showLetter?(natH-LH_H)/natH:1;
-  const onBgLoad=useCallback(e=>{const img=e.target;setNatW(img.naturalWidth);setNatH(img.naturalHeight);setDispW(img.offsetWidth);},[]);
-  useEffect(()=>{const ro=new ResizeObserver(ents=>{for(const ent of ents)setDispW(ent.contentRect.width);});if(containerRef.current)ro.observe(containerRef.current);return()=>ro.disconnect();},[]);
-  const onMouseDown=useCallback((target,e)=>{
-    e.preventDefault();e.stopPropagation();
-    const cx=target==="sign"?signCX:stampCX;const cy=target==="sign"?signCY:stampCY;
-    dragRef.current={dragging:true,target,startX:e.clientX,startY:e.clientY,origX:cx,origY:cy};
-    const onMove=ev=>{if(!dragRef.current.dragging)return;const el=document.getElementById("_dpd_"+pageIndex+"_"+dragRef.current.target);if(el){el.style.left=(dragRef.current.origX*scale+(ev.clientX-dragRef.current.startX))+"px";el.style.top=(dragRef.current.origY*scale+(ev.clientY-dragRef.current.startY))+"px";}};
-    const onUp=ev=>{if(!dragRef.current.dragging)return;dragRef.current.dragging=false;window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);
-      const dx=(ev.clientX-dragRef.current.startX)/scale;const dy=(ev.clientY-dragRef.current.startY)/scale;const t=dragRef.current.target;const newCfg={...config,pageOffsets:{...(config.pageOffsets||{})}};
-      const curPo={...(newCfg.pageOffsets[pageIndex]||{})};
-      if(t==="sign"){let nx=(po.signOffsetX!=null?po.signOffsetX:(config.signOffsetX||0))+dx,ny=(po.signOffset!=null?po.signOffset:(config.signOffset||0))+dy;const sw=signW;const rawX=60+nx,rawY=natH-180+ny;if(rawX<0)nx=-60;if(rawX+sw>natW)nx=natW-60-sw;if(rawY<0)ny=-(natH-180);if(rawY+signH>natH)ny=signH;curPo.signOffsetX=Math.round(nx);curPo.signOffset=Math.round(ny);
-      }else{let nx=(po.stampOffsetX!=null?po.stampOffsetX:(config.stampOffsetX||0))+dx,ny=(po.stampOffset!=null?po.stampOffset:(config.stampOffset||0))+dy;const rawX=natW-60-stampW+nx,rawY=natH-180+ny;if(rawX<0)nx=-(natW-60-stampW);if(rawX+stampW>natW)nx=60;if(rawY<0)ny=-(natH-180);if(rawY+stampH>natH)ny=stampH;curPo.stampOffsetX=Math.round(nx);curPo.stampOffset=Math.round(ny);}
-      newCfg.pageOffsets[pageIndex]=curPo;
-      onReprocess(newCfg);};
-    window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);
-  },[config,pageIndex,po,scale,natW,natH,signCX,signCY,stampCX,stampCY,signAR,stampAR,signH,signW,stampH,stampW,sScale,stScale,onReprocess]);
-  const onResizeDown=useCallback((target,e)=>{
-    e.preventDefault();e.stopPropagation();
-    const startY=e.clientY;const origScale=target==="sign"?(config.signScale||1):(config.stampScale||1);const baseH=target==="sign"?80:120;
-    dragRef.current={dragging:true,target,startX:e.clientX,startY,origX:0,origY:0};
-    const onMove=ev=>{if(!dragRef.current.dragging)return;const dy=ev.clientY-startY;const newS=Math.max(0.3,Math.min(3,origScale+dy/(baseH*scale)));
-      const el=document.getElementById("_dpd_"+pageIndex+"_"+target);if(el){el.style.height=(baseH*newS*scale)+"px";}};
-    const onUp=ev=>{dragRef.current.dragging=false;window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);
-      const dy=ev.clientY-startY;const newS=Math.max(0.3,Math.min(3,origScale+dy/(baseH*scale)));const newCfg={...config};
-      if(target==="sign")newCfg.signScale=Math.round(newS*100)/100;else newCfg.stampScale=Math.round(newS*100)/100;
-      onReprocess(newCfg);};
-    window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);
-  },[config,pageIndex,scale,onReprocess]);
-  const resizeHandle=(target)=><div onMouseDown={e=>onResizeDown(target,e)} style={{position:"absolute",right:-3,bottom:-3,width:10,height:10,cursor:"nwse-resize",background:"#0066cc",borderRadius:2,border:"1px solid #fff",zIndex:5}}/>;
-  const overlays=[];
-  if(showSign)overlays.push("Signature");if(showStamp)overlays.push("Stamp");if(showLetter)overlays.push("Letterhead");
-  const padT="3.4%",padS="2.7%",padB="2.7%";
-  return <div ref={containerRef} style={{position:"relative",maxWidth:480,borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",background:"#fff",userSelect:"none",padding:`${padT} ${padS} ${padB} ${padS}`}}>
-    {showLetter?<div style={{position:"relative",width:"100%"}}><div style={{width:"100%",paddingBottom:(natH&&natW?(natH/natW*100):75)+"%"}}/>
-      <img src={pageImg} alt={"page "+(pageIndex+1)} onLoad={onBgLoad} style={{position:"absolute",top:LH_H*scale,left:0,width:(contentScale*100)+"%",height:"auto",display:"block"}} draggable={false}/>
-    </div>:<img src={pageImg} alt={"page "+(pageIndex+1)} onLoad={onBgLoad} style={{width:"100%",height:"auto",display:"block"}} draggable={false}/>}
-    {showLetter&&<div style={{position:"absolute",top:padT,left:padS,right:padS,bottom:padB,pointerEvents:"none",zIndex:1}}><img src="/onna-default-logo.png" alt="logo" draggable={false} onLoad={e=>setLogoAR(e.target.naturalWidth/e.target.naturalHeight)} style={{position:"absolute",left:lhX*scale,top:lhY*scale,height:lhH*scale,width:"auto"}}/><div style={{position:"absolute",left:40*scale,right:40*scale,top:(lhY+lhH+8)*scale,height:Math.max(1,2.5*scale),background:"#000"}}/></div>}
-    {showSign&&<div id={"_dpd_"+pageIndex+"_sign"} style={{position:"absolute",left:`calc(${padS} + ${signCX*scale}px)`,top:`calc(${padT} + ${signCY*scale}px)`,zIndex:2}}><img src="/SIGN.png" alt="signature" draggable={false} onLoad={e=>setSignAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("sign",e)} style={{height:signH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("sign")}</div>}
-    {showStamp&&<div id={"_dpd_"+pageIndex+"_stamp"} style={{position:"absolute",left:`calc(${padS} + ${stampCX*scale}px)`,top:`calc(${padT} + ${stampCY*scale}px)`,zIndex:2}}><img src="/STAMP.png" alt="stamp" draggable={false} onLoad={e=>setStampAR(e.target.naturalWidth/e.target.naturalHeight)} onMouseDown={e=>onMouseDown("stamp",e)} style={{height:stampH*scale,width:"auto",cursor:"grab",filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.18))",display:"block"}}/>{resizeHandle("stamp")}</div>}
-    <div style={{padding:"4px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff",borderTop:"1px solid #eee"}}>
-      <span style={{fontSize:10,color:"#666"}}>Page {pageIndex+1}{overlays.length>0?" · "+overlays.join(", "):""}</span>
-      <button onClick={()=>onExport(pageIndex)} style={{border:"1px solid #0066cc",background:"#fff",color:"#0066cc",borderRadius:4,padding:"2px 10px",fontSize:10,fontWeight:600,cursor:"pointer"}}>Export Page</button>
-    </div>
-  </div>;
-}
 function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPanel}){
   const isAgent=msg.role==="assistant";
   const handleDragReprocess=useCallback(async(newCfg)=>{
@@ -892,175 +325,7 @@ function OnnaDashboardInner() {
   }, [_signToken]);
 
   if (_signToken) {
-    // CT_FONT, CT_LS, CT_LS_HDR hoisted to top level
-    const submitVendorSig = async () => {
-      if (!signVendorSig || !signVendorName.trim() || !signVendorDate.trim()) { showAlert("Please fill in your signature, name, and date before submitting."); return; }
-      setSignSubmitting(true);
-      try {
-        // Capture the rendered contract HTML BEFORE submitting (so contract is still visible)
-        let renderedHtml = "";
-        const el = document.getElementById("onna-sign-print");
-        if (el) {
-          const clone = el.cloneNode(true);
-          clone.querySelectorAll("button").forEach(b=>b.remove());
-          clone.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
-          clone.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
-          renderedHtml = clone.outerHTML;
-        }
-        const resp = await fetch("/api/sign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: _signToken, sigName: signVendorName, sigDate: signVendorDate, signature: signVendorSig, renderedHtml }) });
-        const data = await resp.json();
-        if (data.ok) {
-          // Auto-generate PDF from the captured HTML
-          if (el) {
-            const clone2 = el.cloneNode(true);
-            clone2.querySelectorAll("button").forEach(b=>b.remove());
-            clone2.querySelectorAll("input").forEach(inp=>{const sp=document.createElement("span");sp.textContent=inp.value;sp.style.cssText=inp.style.cssText;inp.parentNode.replaceChild(sp,inp);});
-            clone2.querySelectorAll("canvas").forEach(c=>{const img=document.createElement("img");img.src=c.toDataURL();img.style.cssText=c.style.cssText;c.parentNode.replaceChild(img,c);});
-            clone2.style.borderRadius="0";clone2.style.boxShadow="none";
-            const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-            const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);idoc.close();
-            idoc.body.appendChild(idoc.adoptNode(clone2));setTimeout(()=>{idoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-          }
-          setSignSubmitted(true);
-        }
-        else showAlert(data.error || "Submission failed");
-      } catch (err) { showAlert("Error: " + err.message); }
-      setSignSubmitting(false);
-    };
-
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-    return (
-      <div className="sign-outer-wrap" style={{minHeight:"100vh",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-        <style>{`@viewport{width:device-width}@media(max-width:639px){.sign-field-row{flex-direction:column!important}.sign-field-label{width:100%!important;min-width:0!important;border-right:none!important;border-bottom:1px solid #eee!important}.sign-sig-cols{flex-direction:column!important}.sign-sig-left{border-right:none!important;border-bottom:1px solid #eee!important}}@media print{.sign-header-bar,.no-print,.sign-success-banner{display:none!important}body{background:#fff!important;margin:0!important;padding:0!important;}@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}.sign-outer-wrap{background:#fff!important;min-height:auto!important}.sign-inner-wrap{margin:0!important;padding:0!important;max-width:none!important}#onna-sign-print{box-shadow:none!important;border-radius:0!important;margin:0!important}}`}</style>
-        {!_printMode && <div className="sign-header-bar" style={{background:"#1d1d1f",padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{color:"#fff",fontSize:16,fontWeight:700,letterSpacing:1.5}}>ONNA</span>
-          <span style={{color:"#888",fontSize:12,fontWeight:400}}>Contract Signing</span>
-        </div>}
-        <div className="sign-inner-wrap" style={{maxWidth:860,margin:"20px auto",padding:"0 14px"}}>
-          {signLoading && <div style={{textAlign:"center",padding:60,color:"#888"}}>Loading contract...</div>}
-          {signError && <div style={{textAlign:"center",padding:60,color:"#c0392b"}}>{signError}</div>}
-          {signData && (() => {
-            const isSignedOrSubmitted = signData.status === "signed" || signSubmitted;
-            const snap = signData.contractSnapshot || {};
-            const ctType = signData.ct || signData.contractType || snap.contractType || snap.activeType || "commission_se";
-            const ctDef = CONTRACT_DOC_TYPES.find(c=>c.id===ctType) || CONTRACT_DOC_TYPES[0];
-            const fv = snap.fieldValues || snap.fv || {};
-            const getVal = (key) => fv[key] || fv[`${ctType}_${key}`] || ctDef.fields.find(f=>f.key===key)?.defaultValue || "";
-            const generalTerms = (snap.generalTermsEdits||{}).custom || snap.gte || (snap.generalTermsEdits||{})[ctType] || GENERAL_TERMS_DOC[ctType] || "";
-            // In print mode or after signing, use stored vendor signature data
-            const readOnlySig = _printMode || isSignedOrSubmitted;
-            const vs = signData.vendorSig || {};
-            const printVendorSig = signSubmitted ? signVendorSig : (vs.signature || "");
-            const printVendorName = signSubmitted ? signVendorName : (vs.sigName || "");
-            const printVendorDate = signSubmitted ? signVendorDate : (vs.sigDate || "");
-            return (
-              <div id="onna-sign-print" style={{background:"#fff",borderRadius:_printMode?0:14,padding:isMobile?"28px 16px 20px":"48px 40px 32px",boxShadow:_printMode?"none":"0 2px 12px rgba(0,0,0,0.06)"}}>
-                {isSignedOrSubmitted && !_printMode && (
-                  <div className="sign-success-banner" style={{background:"#f0faf4",border:"1px solid #c8efd4",borderRadius:10,padding:"12px 18px",marginBottom:20,textAlign:"center"}}>
-                    <span style={{fontSize:14,fontWeight:600,color:"#1a5a30"}}>{signSubmitted ? "Signature submitted successfully" : "This contract has been signed"}</span>
-                    {!signSubmitted && signData.signedAt && <div style={{fontSize:12,color:"#888",marginTop:4}}>Signed on {new Date(signData.signedAt).toLocaleDateString()}</div>}
-                  </div>
-                )}
-                {snap.prodLogo && <img src={snap.prodLogo} alt="" style={{maxHeight:36,maxWidth:140,objectFit:"contain",marginBottom:4}}/>}
-                <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
-                <div style={{textAlign:"center",fontFamily:CT_FONT,fontSize:isMobile?10:12,fontWeight:700,letterSpacing:CT_LS_HDR,textTransform:"uppercase",marginBottom:12}}>{ctDef.title}</div>
-                {(signData.projectName || signData.label) && <div style={{fontFamily:CT_FONT,fontSize:9,color:"#1a1a1a",letterSpacing:CT_LS,marginBottom:14}}>{signData.projectName && <span>Project: {signData.projectName}</span>}{signData.projectName && signData.label && <span style={{margin:"0 6px"}}>|</span>}{signData.label && <span>{signData.label}</span>}</div>}
-
-                {/* Head Terms (read-only) */}
-                {ctDef.headTermsLabel && (<>
-                  <div style={{background:"#f4f4f4",padding:"6px 12px",borderBottom:"1px solid #ddd"}}>
-                    <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR}}>{ctDef.headTermsLabel}</span>
-                  </div>
-                  {ctDef.fields.map(field => (
-                    <div key={field.key} className="sign-field-row" style={{display:"flex",borderBottom:"1px solid #eee",minHeight:28}}>
-                      <div className="sign-field-label" style={{width:180,minWidth:180,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS}}>{field.label}</span>
-                      </div>
-                      <div style={{flex:1,padding:"8px 12px"}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{getVal(field.key)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </>)}
-
-                {/* General Terms (read-only) */}
-                <div style={{marginTop:24}}>
-                  <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>GENERAL TERMS</div>
-                  <div style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS,lineHeight:1.6,color:"#1a1a1a",padding:"12px",whiteSpace:"pre-wrap",wordBreak:"break-word",border:"1px solid #eee",borderTop:"none"}}>{generalTerms}</div>
-                </div>
-
-                {/* Signature Block */}
-                <div style={{marginTop:24}}>
-                  <div style={{background:"#000",color:"#fff",fontFamily:CT_FONT,fontSize:10,fontWeight:700,letterSpacing:CT_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase"}}>SIGNATURE</div>
-                  <div className="sign-sig-cols" style={{display:"flex",borderBottom:"1px solid #eee"}}>
-                    {/* Left side (ONNA) - read only */}
-                    <div className="sign-sig-left" style={{flex:1,padding:"12px",borderRight:"1px solid #eee"}}>
-                      <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigLeft}</div>
-                      <div style={{marginBottom:8}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
-                        <div style={{height:60,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          {(snap.signatures||{}).left || (snap.signatures||{})[`${ctType}_left`] ? <img src={(snap.signatures||{}).left || (snap.signatures||{})[`${ctType}_left`]} alt="" style={{maxHeight:56,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
-                        </div>
-                      </div>
-                      {["name","date"].map(f=>(
-                        <div key={f} style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>{f==="name"?"Print Name:":"Date:"}</span>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{(snap.sigNames||{})[`left_${f}`] || (snap.sigNames||{})[`${ctType}_left_${f}`]||"—"}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Right side (Vendor) */}
-                    <div style={{flex:1,padding:"12px"}}>
-                      <div style={{fontFamily:CT_FONT,fontSize:9,fontWeight:700,letterSpacing:CT_LS,marginBottom:12}}>{ctDef.sigRight}</div>
-                      <div style={{marginBottom:8}}>
-                        <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,display:"block",marginBottom:4}}>Signature:</span>
-                        {readOnlySig ? (
-                          <div style={{height:80,border:"1px solid #ddd",borderRadius:2,background:"#fafafa",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                            {printVendorSig ? <img src={printVendorSig} alt="" style={{maxHeight:76,maxWidth:"100%"}}/> : <span style={{fontSize:9,color:"#bbb"}}>—</span>}
-                          </div>
-                        ) : <SignaturePad value={signVendorSig} onChange={setSignVendorSig} height={80}/>}
-                      </div>
-                      {readOnlySig ? (<>
-                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{printVendorName || "—"}</span>
-                        </div>
-                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Date:</span>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,letterSpacing:CT_LS}}>{printVendorDate || "—"}</span>
-                        </div>
-                      </>) : (<>
-                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Print Name:</span>
-                          <input value={signVendorName} onChange={e=>setSignVendorName(e.target.value)} placeholder="Print name..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
-                        </div>
-                        <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"baseline",flexWrap:"wrap"}}>
-                          <span style={{fontFamily:CT_FONT,fontSize:10,fontWeight:500,letterSpacing:CT_LS,minWidth:70}}>Date:</span>
-                          <input value={signVendorDate} onChange={e=>setSignVendorDate(e.target.value)} placeholder="Date..." style={{flex:1,minWidth:120,fontFamily:CT_FONT,fontSize:12,border:"none",borderBottom:"1px solid #ccc",outline:"none",padding:"4px 4px",background:"transparent"}}/>
-                        </div>
-                      </>)}
-                    </div>
-                  </div>
-                </div>
-
-                {!_printMode && !isSignedOrSubmitted && <div style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
-                  {(() => { const canSubmit = !!(signVendorSig && signVendorName.trim() && signVendorDate.trim()); return <button onClick={submitVendorSig} disabled={signSubmitting || !canSubmit} style={{padding:"12px 36px",borderRadius:10,background:canSubmit?"#1a5a30":"#999",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:canSubmit?"pointer":"not-allowed",fontFamily:"inherit",opacity:signSubmitting?0.6:1,width:isMobile?"100%":"auto",transition:"background 0.2s"}}>{signSubmitting?"Submitting…":"Submit Signature"}</button>; })()}
-                </div>}
-                {_printMode && <div className="no-print" style={{textAlign:"center",marginTop:24,paddingBottom:8}}>
-                  <button onClick={()=>{
-                    const el=document.getElementById("onna-sign-print");if(!el)return;
-                    const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll(".no-print").forEach(b=>b.remove());clone.querySelectorAll(".sign-success-banner").forEach(b=>b.remove());
-                    clone.style.borderRadius="0";clone.style.boxShadow="none";
-                    const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-                    const idoc=iframe.contentDocument;idoc.open();idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);idoc.close();
-                    idoc.body.appendChild(idoc.adoptNode(clone));setTimeout(()=>{idoc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
-                  }} style={{padding:"12px 36px",borderRadius:10,background:"#1a5a30",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Download as PDF</button>
-                </div>}
-              </div>
-            ); })()}
-        </div>
-      </div>
-    );
+    return <SigningPage signData={signData} signLoading={signLoading} signError={signError} signSubmitted={signSubmitted} signVendorName={signVendorName} setSignVendorName={setSignVendorName} signVendorDate={signVendorDate} setSignVendorDate={setSignVendorDate} signVendorSig={signVendorSig} setSignVendorSig={setSignVendorSig} signSubmitting={signSubmitting} setSignSubmitting={setSignSubmitting} setSignSubmitted={setSignSubmitted} _signToken={_signToken} _printMode={_printMode} showAlert={showAlert}/>;
   }
 
   if (!authed) return (
@@ -1786,9 +1051,6 @@ function OnnaDashboardInner() {
 
   const generateContract = (p) => _generateContract(p, contractType, contractFields, setContractLoading, setGeneratedContract);
 
-  const riskSystemPrompt = `You are a production coordinator for ONNA (Dubai & London). Generate a Risk Assessment using markdown tables.\n\nFormat:\nRISK ASSESSMENT\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nLOCATION: [location]\nCREW ON SET: [number]\nTIMING: [times]\n\n1. ENVIRONMENTAL & TERRAIN RISKS\n| Hazard | Risk Level | Who is at Risk | Mitigation Strategy |\n|--------|------------|----------------|---------------------|\n\n2. [SHOOT-SPECIFIC SECTION]\n| Hazard | Risk Level | Who is at Risk | Mitigation Strategy |\n|--------|------------|----------------|---------------------|\n\n3. TECHNICAL EQUIPMENT RISKS\n| Hazard | Risk Level | Who is at Risk | Mitigation Strategy |\n|--------|------------|----------------|---------------------|\n\n4. BRAND & PRIVACY\n| Hazard | Risk Level | Who is at Risk | Control Measures |\n|--------|------------|----------------|------------------|\n\n5. PROFESSIONAL CODE OF CONDUCT\n• Client Relations, Anti-Harassment (Zero Tolerance), General Conduct\n\n6. LIABILITY WAIVER\n• Transport, Health, Safety Gear\n\nEMERGENCY RESPONSE PLAN\n| Contact | Details |\n|---------|---------|\n| Emergency | 999 / 998 / 997 |\n| Production Lead (Emily) | +971 585 608 616 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
-
-  const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const changeTab = tab => _changeTab(tab, { setActiveTab, setSelectedProject, setProjectSection, setCreativeSubSection, setBudgetSubSection, setDocumentsSubSection, setScheduleSubSection, setTravelSubSection, setPermitsSubSection, setStylingSubSection, setCastingSubSection, setActiveCastingDeckVersion, setActiveCastingTableVersion, setActiveCSVersion, setLocSubSection, setActiveRecceVersion, setVaultLocked, setVaultKey, setVaultPass, setVaultResources, setVaultErr, setVaultPwSearch });
 
@@ -2087,6 +1349,56 @@ function OnnaDashboardInner() {
     return null;
   };
 
+  // ── Modal props bundle ──
+  const _mp = {T, isMobile, api, BtnPrimary, BtnSecondary, Sel, OutreachBadge, StarIcon,
+    activeTab, changeTab, TABS, buildPath, setAuthed,
+    selectedLead, setSelectedLead, selectedOutreach, setSelectedOutreach,
+    addContactForm, setAddContactForm,
+    addNewOption, customLeadCats, setCustomLeadCats, customLeadLocs, setCustomLeadLocs,
+    allLeadCats, allLeadLocs, allVendorCats, allVendorLocs,
+    customVendorCats, setCustomVendorCats, customVendorLocs, setCustomVendorLocs,
+    OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, promoteToClient,
+    setLocalLeads, setLeadStatusOverrides, setOutreach,
+    archiveItem, pruneCustom, setXContacts, pushUndo,
+    showRateModal, setShowRateModal, rateInput, setRateInput,
+    editVendor, setEditVendor, vendors, setVendors,
+    newVendor, setNewVendor, newLead, setNewLead,
+    DIETARY_TAGS, DIETARY_TAG_COLORS,
+    showCatManager, setShowCatManager, catEdit, setCatEdit, catEditVal, setCatEditVal, catSaving,
+    LEAD_CATEGORIES, VENDORS_CATEGORIES, hiddenLeadBuiltins, hiddenVendorBuiltins,
+    renameCat, deleteCat,
+    pendingProjectTask, setPendingProjectTask,
+    pendingDragToProject, setPendingDragToProject,
+    allProjectsMerged, setProjectTodos, setTodos, setTodoFilter, projectTodos,
+    selectedTodo, setSelectedTodo,
+    showAddProject, setShowAddProject, newProject, setNewProject,
+    showFromTemplate, setShowFromTemplate, templateProject, setTemplateProject,
+    showAddLead, setShowAddLead,
+    showAddVendor, setShowAddVendor, showAlert,
+    setLocalProjects, localProjects, archivedProjects,
+    callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore,
+    contractDocStore, setContractDocStore, projectEstimates, setProjectEstimates,
+    projectNotes, setProjectNotes,
+    getProjectCastingTables, setProjectCasting,
+    projectInfo, setProjectInfo,
+    projectCreativeLinks, setProjectCreativeLinks,
+    projectFileStore, setProjectFileStore,
+    projectActuals, setProjectActuals,
+    setSelectedProject, setProjectSection, selectedProject,
+    csDuplicateModal, setCsDuplicateModal, csDuplicateSearch, setCsDuplicateSearch,
+    raDuplicateModal, setRaDuplicateModal, raDuplicateSearch, setRaDuplicateSearch,
+    duplicateModal, setDuplicateModal, duplicateSearch, setDuplicateSearch,
+    cpsStore, setCpsStore, shotListStore, setShotListStore,
+    storyboardStore, setStoryboardStore, postProdStore, setPostProdStore,
+    castingDeckStore, setCastingDeckStore, castingTableStore, setCastingTableStore,
+    fittingStore, setFittingStore, locDeckStore, setLocDeckStore,
+    recceReportStore, setRecceReportStore, dietaryStore, setDietaryStore,
+    travelItineraryStore, setTravelItineraryStore,
+    showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
+    showTimeoutWarning, setShowTimeoutWarning,
+    _modal, _closeModal, _modalInputRef,
+    undoToastMsg, mobileMenuOpen, setMobileMenuOpen};
+
   // ─── RENDER ─────────────────────────────────────────────────────────────────
   const currentTab = TABS.find(t=>t.id===activeTab)||(activeTab==="Settings"?{id:"Settings",label:"Settings"}:TABS[0]);
 
@@ -2094,32 +1406,7 @@ function OnnaDashboardInner() {
 
   return (
     <div style={{minHeight:"100vh",background:T.bg,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif",color:T.text,display:"flex"}}>
-      <style>{`
-        @keyframes spin{to{transform:rotate(360deg);}}
-        *{box-sizing:border-box;}
-        ::placeholder{color:#aeaeb2;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-thumb{background:#d1d1d6;border-radius:3px;}
-        ::-webkit-scrollbar-track{background:transparent;}
-        .nav-btn{width:100%;text-align:left;padding:9px 11px;border-radius:10px;border:none;background:transparent;color:#6e6e73;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.12s;display:flex;align-items:center;gap:9px;letter-spacing:0.04em;}
-        .nav-btn:hover{color:#1d1d1f;background:rgba(0,0,0,0.05);}
-        .nav-btn.active{background:rgba(0,0,0,0.08);color:#1d1d1f;font-weight:700;}
-        .row:hover{background:#f5f5f7!important;cursor:pointer;}
-        .proj-card:hover{border-color:#c7c7cc!important;box-shadow:0 8px 24px rgba(0,0,0,0.10)!important;transform:translateY(-2px);}
-        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:${isMobile?"flex-end":"center"};justify-content:center;}
-        input:focus,textarea:focus,select:focus{outline:none;border-color:#6e6e73!important;box-shadow:0 0 0 3px rgba(0,0,0,0.06)!important;}
-        .todo-item:hover .todo-del{opacity:1;} .todo-del{opacity:0;transition:opacity 0.12s;}
-        .todo-item:hover{background:#f5f5f7;border-radius:8px;}
-        .mob-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-        .bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border:none;background:transparent;cursor:pointer;font-family:inherit;transition:color 0.12s;}
-        @keyframes sparkle{0%,100%{opacity:0;transform:scale(0.2) rotate(0deg);}50%{opacity:1;transform:scale(1) rotate(90deg);}}
-        @keyframes bop{0%,80%,100%{transform:scale(1) translateY(0)}40%{transform:scale(1.4) translateY(-6px)}}
-        @keyframes floatStar{0%{transform:translate(0,0) scale(0.8);opacity:0.6;}25%{transform:translate(4px,-5px) scale(1.1);opacity:1;}50%{transform:translate(8px,2px) scale(0.9);opacity:0.8;}75%{transform:translate(3px,6px) scale(1);opacity:1;}100%{transform:translate(0,0) scale(0.8);opacity:0.6;}}
-        .agent-card{transition:all 0.15s ease;cursor:pointer;}
-        .agent-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,0.1)!important;}
-        .agent-chat-msg{animation:fadeInMsg 0.18s ease;}
-        @keyframes fadeInMsg{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
-      `}</style>
+      <style>{`.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:${isMobile?"flex-end":"center"};justify-content:center;}`}</style>
 
       {/* ── SIDEBAR (desktop only) ── */}
       <div style={{width:220,flexShrink:0,background:"rgba(255,255,255,0.82)",borderRight:`1px solid ${T.border}`,display:isMobile?"none":"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
@@ -2471,54 +1758,6 @@ function OnnaDashboardInner() {
                           {items.map(s=>{
                             const isExpanded=sopEditId===("view_"+s.id);
                             const agentDef=s.agent?AGENT_DEFS.find(a=>a.id===s.agent):null;
-  const _mp = {T, isMobile, api, BtnPrimary, BtnSecondary, Sel, OutreachBadge, StarIcon,
-    activeTab, changeTab, TABS, buildPath, setAuthed,
-    selectedLead, setSelectedLead, selectedOutreach, setSelectedOutreach,
-    addContactForm, setAddContactForm,
-    addNewOption, customLeadCats, setCustomLeadCats, customLeadLocs, setCustomLeadLocs,
-    allLeadCats, allLeadLocs, allVendorCats, allVendorLocs,
-    customVendorCats, setCustomVendorCats, customVendorLocs, setCustomVendorLocs,
-    OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, promoteToClient,
-    setLocalLeads, setLeadStatusOverrides, setOutreach,
-    archiveItem, pruneCustom, setXContacts, pushUndo,
-    showRateModal, setShowRateModal, rateInput, setRateInput,
-    editVendor, setEditVendor, vendors, setVendors,
-    newVendor, setNewVendor, newLead, setNewLead,
-    DIETARY_TAGS, DIETARY_TAG_COLORS,
-    showCatManager, setShowCatManager, catEdit, setCatEdit, catEditVal, setCatEditVal, catSaving,
-    LEAD_CATEGORIES, VENDORS_CATEGORIES, hiddenLeadBuiltins, hiddenVendorBuiltins,
-    renameCat, deleteCat,
-    pendingProjectTask, setPendingProjectTask,
-    pendingDragToProject, setPendingDragToProject,
-    allProjectsMerged, setProjectTodos, setTodos, setTodoFilter, projectTodos,
-    selectedTodo, setSelectedTodo,
-    showAddProject, setShowAddProject, newProject, setNewProject,
-    showFromTemplate, setShowFromTemplate, templateProject, setTemplateProject,
-    showAddLead, setShowAddLead,
-    showAddVendor, setShowAddVendor, showAlert,
-    setLocalProjects, localProjects, archivedProjects,
-    callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore,
-    contractDocStore, setContractDocStore, projectEstimates, setProjectEstimates,
-    projectNotes, setProjectNotes,
-    getProjectCastingTables, setProjectCasting,
-    projectInfo, setProjectInfo,
-    projectCreativeLinks, setProjectCreativeLinks,
-    projectFileStore, setProjectFileStore,
-    projectActuals, setProjectActuals,
-    setSelectedProject, setProjectSection, selectedProject,
-    csDuplicateModal, setCsDuplicateModal, csDuplicateSearch, setCsDuplicateSearch,
-    raDuplicateModal, setRaDuplicateModal, raDuplicateSearch, setRaDuplicateSearch,
-    duplicateModal, setDuplicateModal, duplicateSearch, setDuplicateSearch,
-    cpsStore, setCpsStore, shotListStore, setShotListStore,
-    storyboardStore, setStoryboardStore, postProdStore, setPostProdStore,
-    castingDeckStore, setCastingDeckStore, castingTableStore, setCastingTableStore,
-    fittingStore, setFittingStore, locDeckStore, setLocDeckStore,
-    recceReportStore, setRecceReportStore, dietaryStore, setDietaryStore,
-    travelItineraryStore, setTravelItineraryStore,
-    showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
-    showTimeoutWarning, setShowTimeoutWarning,
-    _modal, _closeModal, _modalInputRef,
-    undoToastMsg, mobileMenuOpen, setMobileMenuOpen};
 
                             return (
                               <div key={s.id} style={{marginBottom:6,borderRadius:12,border:`1px solid ${T.border}`,background:"#fafafa",overflow:"hidden"}}>
