@@ -75,6 +75,7 @@ import FittingConnie from "./components/docs/FittingConnie";
 // Seed data
 import { SEED_LEADS, SEED_CLIENTS, SEED_PROJECTS, initVendors, initOutreach, savedCallSheets, savedRiskAssessments } from "./data/initVendors";
 // Agent components
+import AgentCard from "./components/agents/AgentCard";
 import EstimateView from "./components/agents/EstimateView";
 // Shared UI components
 import { Badge, Pill, StatCard, TH, TD, SearchBar, Sel, OutreachBadge, THFilter, SectionBtn, UploadZone, BtnPrimary, BtnSecondary, BtnExport, renderSopMarkdown, AIDocPanel, DashNotes, ProjectTodoList } from "./components/ui/SharedUI";
