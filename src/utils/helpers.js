@@ -1,3 +1,18 @@
+// ─── THEME ──────────────────────────────────────────────────────────────────
+export const T = {
+  bg:       "#f5f5f7",
+  surface:  "#ffffff",
+  border:   "#d2d2d7",
+  borderSub:"#e8e8ed",
+  text:     "#1d1d1f",
+  sub:      "#6e6e73",
+  muted:    "#aeaeb2",
+  accent:   "#1d1d1f",
+  link:     "#0066cc",
+  inBg:     "#f0faf4", inColor:"#1a7f37",
+  outBg:    "#fff3f0", outColor:"#c0392b",
+};
+
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
 const idbOpen=()=>new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,IDB_VER);r.onupgradeneeded=e=>{e.target.result.createObjectStore(IDB_STORE)};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
