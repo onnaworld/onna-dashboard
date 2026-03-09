@@ -78,6 +78,11 @@ import { SEED_LEADS, SEED_CLIENTS, SEED_PROJECTS, initVendors, initOutreach, sav
 import EstimateView from "./components/agents/EstimateView";
 // Shared UI components
 import { Badge, Pill, StatCard, TH, TD, SearchBar, Sel, OutreachBadge, THFilter, SectionBtn, UploadZone, BtnPrimary, BtnSecondary, BtnExport, renderSopMarkdown, AIDocPanel, DashNotes, ProjectTodoList } from "./components/ui/SharedUI";
+// Extracted handler modules
+import { doLogin as _doLogin, doResetRequest as _doResetRequest, doResetConfirm as _doResetConfirm, pushNav, changeTab as _changeTab, navigateToDoc as _navigateToDoc, addTodoFromInput as _addTodoFromInput, archiveItem as _archiveItem, restoreItem as _restoreItem, permanentlyDelete as _permanentlyDelete, processProjectAI as _processProjectAI, fetchGCalEvents as _fetchGCalEvents, fetchOutlookCal as _fetchOutlookCal, connectGCal as _connectGCal, doHydrateProject } from "./handlers/projectHandlers";
+import { processOutreach as _processOutreach, promoteToClient as _promoteToClient, addNewOption as _addNewOption, pruneCustom, deleteCat as _deleteCat, renameCat as _renameCat } from "./handlers/vendorHandlers";
+import { syncProjectInfoToDocs as _syncProjectInfoToDocs, generateContract as _generateContract, getProjectCastingTables as _getProjectCastingTablesFn, getProjectCasting as _getProjectCastingFn, addCastingTable as _addCastingTable, addCastingRow as _addCastingRow, updateCastingRow as _updateCastingRow, removeCastingRow as _removeCastingRow, updateCastingTableTitle as _updateCastingTableTitle, removeCastingTable as _removeCastingTable, uploadFromLink as _uploadFromLink } from "./handlers/documentHandlers";
+import { doPushUndo, doPerformUndo, fmtInline, renderAgentMd, sendAgentMessage as _sendAgentMessage } from "./handlers/agentHandlers.jsx";
 
 function buildFinnSystem(project, actualsSnapshot, estimateTotals) {
   return `You are Finance Finn, ONNA's expense tracking assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live budget tracker (actuals) database.
@@ -838,38 +843,9 @@ function OnnaDashboardInner() {
     return () => { setSaveStatusCallback(null); };
   }, []);
 
-  const doLogin = async () => {
-    if (!lgUser.trim()||!lgPass.trim()) return;
-    setLgLoading(true); setLgErr("");
-    try {
-      const data = await fetch(_proxy("/api/auth/login"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:lgUser,password:lgPass})}).then(r=>r.json());
-      if (data.token) { localStorage.setItem("onna_token",data.token); window.location.reload(); }
-      else setLgErr("Incorrect username or password");
-    } catch { setLgErr("Could not connect. Please try again."); }
-    setLgLoading(false);
-  };
-
-  const doResetRequest = async () => {
-    setLgLoading(true);
-    try {
-      const data = await fetch(_proxy("/api/auth/reset-request"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:lgEmail})}).then(r=>r.json());
-      if (data.reset_url) { window.location.href=data.reset_url; return; } // SMTP not configured
-    } catch {}
-    setLgStep("forgot-sent"); setLgLoading(false);
-  };
-
-  const doResetConfirm = async () => {
-    if (!lgNewPass||lgNewPass.length<8){setLgErr("Password must be at least 8 characters");return;}
-    if (!/[A-Z]/.test(lgNewPass)||!/[0-9]/.test(lgNewPass)){setLgErr("Password must include at least one uppercase letter and one number");return;}
-    if (lgNewPass!==lgNewPass2){setLgErr("Passwords do not match");return;}
-    setLgLoading(true); setLgErr("");
-    try {
-      const data = await fetch(_proxy("/api/auth/reset-confirm"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:_urlReset,password:lgNewPass})}).then(r=>r.json());
-      if (data.ok) setLgStep("reset-done");
-      else setLgErr(data.error||"Reset failed. Link may have expired.");
-    } catch { setLgErr("Could not connect. Please try again."); }
-    setLgLoading(false);
-  };
+  const doLogin = () => _doLogin(lgUser, lgPass, setLgLoading, setLgErr);
+  const doResetRequest = () => _doResetRequest(lgEmail, setLgLoading, setLgStep);
+  const doResetConfirm = () => _doResetConfirm(lgNewPass, lgNewPass2, _urlReset, setLgLoading, setLgErr, setLgStep);
 
   // Auto-logout after 30 min inactivity with 1-minute warning
   useEffect(()=>{
@@ -1327,63 +1303,11 @@ function OnnaDashboardInner() {
   const undoStack = useRef([]);
   const undoToastRef = useRef(null);
   const pushUndo = useCallback((label) => {
-    const clone = (v) => JSON.parse(JSON.stringify(v));
-    undoStack.current.push({
-      label,
-      todos: clone(todos),
-      projectTodos: clone(projectTodos),
-      outreach: clone(outreach),
-      vendors: clone(vendors),
-      localProjects: clone(localProjects),
-      archivedTodos: clone(archivedTodos),
-      riskAssessmentStore: clone(riskAssessmentStore),
-      cpsStore: clone(cpsStore),
-      shotListStore: clone(shotListStore),
-      storyboardStore: clone(storyboardStore),
-      callSheetStore: clone(callSheetStore),
-      contractDocStore: clone(contractDocStore),
-      postProdStore: clone(postProdStore),
-      fittingStore: clone(fittingStore),
-      locDeckStore: clone(locDeckStore),
-      recceReportStore: clone(recceReportStore),
-      castingDeckStore: clone(castingDeckStore),
-      castingTableStore: clone(castingTableStore),
-      travelItineraryStore: clone(travelItineraryStore),
-      dietaryStore: clone(dietaryStore),
-      projectEstimates: clone(projectEstimates),
-      archive: clone(archive),
-    });
-    if (undoStack.current.length > 50) undoStack.current.shift();
+    doPushUndo(label, undoStack, { todos, projectTodos, outreach, vendors, localProjects, archivedTodos, riskAssessmentStore, cpsStore, shotListStore, storyboardStore, callSheetStore, contractDocStore, postProdStore, fittingStore, locDeckStore, recceReportStore, castingDeckStore, castingTableStore, travelItineraryStore, dietaryStore, projectEstimates, archive });
   }, [todos, projectTodos, outreach, vendors, localProjects, archivedTodos, riskAssessmentStore, cpsStore, shotListStore, storyboardStore, callSheetStore, contractDocStore, postProdStore, fittingStore, locDeckStore, recceReportStore, castingDeckStore, castingTableStore, travelItineraryStore, dietaryStore, projectEstimates, archive]);
 
   const performUndo = useCallback(() => {
-    if (undoStack.current.length === 0) return;
-    const snap = undoStack.current.pop();
-    setTodos(snap.todos);
-    setProjectTodos(snap.projectTodos);
-    setOutreach(snap.outreach);
-    setVendors(snap.vendors);
-    setLocalProjects(snap.localProjects);
-    setArchivedTodos(snap.archivedTodos);
-    if (snap.riskAssessmentStore) setRiskAssessmentStore(snap.riskAssessmentStore);
-    if (snap.cpsStore) setCpsStore(snap.cpsStore);
-    if (snap.shotListStore) setShotListStore(snap.shotListStore);
-    if (snap.storyboardStore) setStoryboardStore(snap.storyboardStore);
-    if (snap.callSheetStore) setCallSheetStore(snap.callSheetStore);
-    if (snap.contractDocStore) setContractDocStore(snap.contractDocStore);
-    if (snap.postProdStore) setPostProdStore(snap.postProdStore);
-    if (snap.fittingStore) setFittingStore(snap.fittingStore);
-    if (snap.locDeckStore) setLocDeckStore(snap.locDeckStore);
-    if (snap.recceReportStore) setRecceReportStore(snap.recceReportStore);
-    if (snap.castingDeckStore) setCastingDeckStore(snap.castingDeckStore);
-    if (snap.castingTableStore) setCastingTableStore(snap.castingTableStore);
-    if (snap.travelItineraryStore) setTravelItineraryStore(snap.travelItineraryStore);
-    if (snap.dietaryStore) setDietaryStore(snap.dietaryStore);
-    if (snap.projectEstimates) setProjectEstimates(snap.projectEstimates);
-    if (snap.archive) setArchive(snap.archive);
-    setUndoToastMsg("Undo: " + (snap.label || "action"));
-    clearTimeout(undoToastRef.current);
-    undoToastRef.current = setTimeout(() => setUndoToastMsg(""), 1800);
+    doPerformUndo(undoStack, undoToastRef, { setTodos, setProjectTodos, setOutreach, setVendors, setLocalProjects, setArchivedTodos, setRiskAssessmentStore, setCpsStore, setShotListStore, setStoryboardStore, setCallSheetStore, setContractDocStore, setPostProdStore, setFittingStore, setLocDeckStore, setRecceReportStore, setCastingDeckStore, setCastingTableStore, setTravelItineraryStore, setDietaryStore, setProjectEstimates, setArchive, setUndoToastMsg });
   }, []);
 
   useEffect(() => {
@@ -1399,20 +1323,7 @@ function OnnaDashboardInner() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [performUndo,activeTab]);
-  const addTodoFromInput = (text) => {
-    if (!text) return;
-    pushUndo("add task");
-    const tab = todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;
-    const subType = todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;
-    if (todoFilter.startsWith("project-")) {
-      const pid = Number(todoFilter.replace("project-",""));
-      setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));
-    } else if (todoTopFilter==="project") {
-      setPendingProjectTask(text);
-    } else {
-      setTodos(prev=>[...prev,{id:Date.now(),text,done:false,type:"general",tab:tab||"onna",subType,details:""}]);
-    }
-  };
+  const addTodoFromInput = (text) => _addTodoFromInput(text, todoTopFilter, todoFilter, pushUndo, setProjectTodos, setPendingProjectTask, setTodos);
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
@@ -1499,78 +1410,7 @@ function OnnaDashboardInner() {
   useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
-  const syncProjectInfoToDocs = (pid, infoOverride) => {
-    const info = infoOverride || (projectInfoRef.current||{})[pid];
-    if(!info) return;
-    // Call Sheets
-    setCallSheetStore(prev=>{
-      const arr=prev[pid]; if(!arr||!arr.length) return prev;
-      let changed=false;
-      const next=arr.map(cs=>{
-        const c={...cs};
-        if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
-        if(info.shootDate && c.date!==info.shootDate){c.date=info.shootDate;changed=true;}
-        if(info.shootLocation && c.venueRows){
-          const locRow=c.venueRows.find(r=>r.label==="LOCATIONS");
-          if(locRow&&locRow.value!==info.shootLocation){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"?{...r,value:info.shootLocation}:r);changed=true;}
-        }
-        return c;
-      });
-      return changed?{...prev,[pid]:next}:prev;
-    });
-    // Risk Assessments
-    setRiskAssessmentStore(prev=>{
-      const arr=prev[pid]; if(!arr||!arr.length) return prev;
-      let changed=false;
-      const next=arr.map(ra=>{
-        const c={...ra};
-        if(info.shootName && c.shootName!==info.shootName){c.shootName=info.shootName;changed=true;}
-        if(info.shootDate && c.shootDate!==info.shootDate){c.shootDate=info.shootDate;changed=true;}
-        if(info.shootLocation && c.locations!==info.shootLocation){c.locations=info.shootLocation;changed=true;}
-        if(info.crewOnSet && c.crewOnSet!==info.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
-        return c;
-      });
-      return changed?{...prev,[pid]:next}:prev;
-    });
-    // Contracts
-    setContractDocStore(prev=>{
-      const arr=prev[pid]; if(!arr||!arr.length) return prev;
-      let changed=false;
-      const next=arr.map(ct=>{
-        const type=ct.contractType||"commission_se";
-        const typeDef=CONTRACT_DOC_TYPES.find(c=>c.id===type);
-        if(!typeDef) return ct;
-        const fv={...(ct.fieldValues||{})};
-        if(info.usage && fv.usage!==info.usage){fv.usage=info.usage;changed=true;}
-        if((type==="talent"||type==="talent_psc")&&info.shootLocation&&fv.venue!==info.shootLocation){fv.venue=info.shootLocation;changed=true;}
-        if((type==="talent"||type==="talent_psc")&&info.shootName&&fv.campaign!==info.shootName){fv.campaign=info.shootName;changed=true;}
-        return changed?{...ct,fieldValues:fv}:ct;
-      });
-      return changed?{...prev,[pid]:next}:prev;
-    });
-    // Budget Estimates
-    const proj = (localProjectsRef.current||[]).find(p=>p.id===pid);
-    setProjectEstimates(prev=>{
-      const arr=prev[pid]; if(!arr||!arr.length) return prev;
-      let changed=false;
-      const next=arr.map(est=>{
-        const ts={...(est.ts||ESTIMATE_INIT.ts)};
-        if(proj&&proj.client && ts.client!==proj.client){ts.client=proj.client;changed=true;}
-        if(info.shootName && ts.project!==info.shootName){ts.project=info.shootName;changed=true;}
-        if(info.usage && ts.usage!==info.usage){ts.usage=info.usage;changed=true;}
-        if(info.shootDate && ts.shootDate!==info.shootDate){ts.shootDate=info.shootDate;changed=true;}
-        if(info.shootLocation && ts.location!==info.shootLocation){ts.location=info.shootLocation;changed=true;}
-        // Services Agreement fields (by index: 3=Campaign, 5=Timetable/ShootDate, 7=Usage)
-        const saInit={}; EST_SA_FIELDS.forEach((_f,i)=>{saInit[i]=EST_SA_FIELDS[i].defaultValue;});
-        const sa={...(est.saFields||saInit)};
-        if(info.shootName && sa[3]!==info.shootName){sa[3]=info.shootName;changed=true;}
-        if(info.usage && sa[7]!==info.usage){sa[7]=info.usage;changed=true;}
-        if(info.shootDate && sa[5]!==info.shootDate){sa[5]=info.shootDate;changed=true;}
-        return changed?{...est,ts,saFields:sa}:est;
-      });
-      return changed?{...prev,[pid]:next}:prev;
-    });
-  };
+  const syncProjectInfoToDocs = (pid, infoOverride) => _syncProjectInfoToDocs(pid, infoOverride, projectInfoRef, localProjectsRef, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates);
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {
@@ -1637,50 +1477,8 @@ function OnnaDashboardInner() {
     document.head.appendChild(s);
   },[]);
 
-  const fetchGCalEvents = async (token, month) => {
-    setGcalLoading(true);
-    const yr = month.getFullYear(), mo = month.getMonth();
-    const timeMin = new Date(yr, mo, 1).toISOString();
-    const timeMax = new Date(yr, mo+1, 0, 23, 59, 59).toISOString();
-    try {
-      const params = new URLSearchParams({timeMin, timeMax, singleEvents:"true", orderBy:"startTime", maxResults:"250"});
-      const [calListRes, colorsRes] = await Promise.all([
-        fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250&showHidden=true",{headers:{Authorization:`Bearer ${token}`}}),
-        fetch("https://www.googleapis.com/calendar/v3/colors",{headers:{Authorization:`Bearer ${token}`}})
-      ]);
-      const calList = await calListRes.json();
-      const colorsData = await colorsRes.json().catch(()=>({}));
-      if (colorsData.event) setGcalEventColors(colorsData.event);
-      const calItems = calList.items||[];
-      const allEventsArr = await Promise.all(calItems.map(cal=>
-        fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,{headers:{Authorization:`Bearer ${token}`}})
-          .then(r=>r.json()).then(d=>Array.isArray(d.items)?d.items.map(e=>({...e,calendarColor:cal.backgroundColor,calendarFg:cal.foregroundColor})):[]).catch(()=>[])
-      ));
-      setGcalEvents(allEventsArr.flat().sort((a,b)=>new Date(a.start?.dateTime||a.start?.date)-new Date(b.start?.dateTime||b.start?.date)));
-    } catch {}
-    setGcalLoading(false);
-  };
-
-  const fetchOutlookCal = async () => {
-    setOutlookLoading(true);
-    setOutlookError("");
-    try {
-      const res = await fetch("/api/proxy-ics");
-      if (!res.ok) {
-        const body = await res.text().catch(()=>"");
-        throw new Error(`Proxy ${res.status}: ${body.slice(0,120)}`);
-      }
-      const text = await res.text();
-      const evs = parseICS(text);
-      setOutlookEvents(evs);
-      try{sessionStorage.setItem('onna_outlook_evs',JSON.stringify(evs));}catch{}
-    } catch(err) {
-      console.error("Outlook ICS fetch failed:", err);
-      setOutlookError(err.message||"Failed");
-      try{const c=sessionStorage.getItem('onna_outlook_evs');if(c)setOutlookEvents(JSON.parse(c));}catch{}
-    }
-    setOutlookLoading(false);
-  };
+  const fetchGCalEvents = (token, month) => _fetchGCalEvents(token, month, setGcalLoading, setGcalEventColors, setGcalEvents);
+  const fetchOutlookCal = () => _fetchOutlookCal(setOutlookLoading, setOutlookError, setOutlookEvents);
 
   // Silent re-auth: if user previously connected but token is gone/expired, auto-reconnect
   useEffect(()=>{
@@ -1730,23 +1528,7 @@ function OnnaDashboardInner() {
   // Auto-fetch Outlook ICS on mount (public feed, no auth needed)
   useEffect(()=>{ if (authed) fetchOutlookCal(); },[authed]); // eslint-disable-line
 
-  const connectGCal = () => {
-    if (!window.google?.accounts?.oauth2) {
-      showAlert("Google Identity Services not loaded yet — please wait a moment and try again.");
-      return;
-    }
-    window.google.accounts.oauth2.initTokenClient({
-      client_id: GCAL_CLIENT_ID,
-      scope: "https://www.googleapis.com/auth/calendar.readonly",
-      callback: (resp) => {
-        if (resp.access_token) {
-          setGcalToken(resp.access_token);
-          try{localStorage.setItem('onna_gcal_token',resp.access_token);localStorage.setItem('onna_gcal_exp',String(Date.now()+55*60*1000));localStorage.setItem('onna_gcal_connected','1');}catch{}
-          fetchGCalEvents(resp.access_token, calMonth);
-        }
-      },
-    }).requestAccessToken();
-  };
+  const connectGCal = () => _connectGCal(showAlert, calMonth, setGcalToken, fetchGCalEvents);
 
   // ── Load all data from backend ───────────────────────────────────────────
   useEffect(()=>{
@@ -1834,28 +1616,7 @@ function OnnaDashboardInner() {
   const globalHydratedRef = useRef(false);
   const hydratedProjectsRef = useRef(new Set());
   const hydrateProject = useCallback((pid) => {
-    return api.get(`/api/project-data/${pid}`).then(d => {
-      if (!d) return;
-      if (d.callsheets) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
-      if (d.riskassessments) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
-      if (d.contracts_doc) setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc}));
-      if (d.estimates) setProjectEstimates(prev => ({...prev, [pid]: d.estimates}));
-      if (d.dietaries) setDietaryStore(prev => ({...prev, [pid]: d.dietaries}));
-      if (d.travel_itineraries) setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries}));
-      if (d.shotlists) setShotListStore(prev => ({...prev, [pid]: d.shotlists}));
-      if (d.storyboards) setStoryboardStore(prev => ({...prev, [pid]: d.storyboards}));
-      if (d.fittings) setFittingStore(prev => ({...prev, [pid]: d.fittings}));
-      if (d.loc_decks) setLocDeckStore(prev => ({...prev, [pid]: d.loc_decks}));
-      if (d.cps) setCpsStore(prev => ({...prev, [pid]: d.cps}));
-      if (d.postprod) setPostProdStore(prev => ({...prev, [pid]: d.postprod}));
-      if (d.casting_tables) setCastingTableStore(prev => ({...prev, [pid]: d.casting_tables}));
-      if (d.casting_decks) setCastingDeckStore(prev => ({...prev, [pid]: d.casting_decks}));
-      if (d.recce_reports) setRecceReportStore(prev => ({...prev, [pid]: d.recce_reports}));
-      if (d.project_info) setProjectInfo(prev => ({...prev, [pid]: d.project_info}));
-      if (d.creative_links) setProjectCreativeLinks(prev => ({...prev, [pid]: d.creative_links}));
-      if (d.project_actuals) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
-      if (d.project_casting) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
-    }).catch(() => {});
+    return doHydrateProject(pid, { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting });
   }, []); // eslint-disable-line
   useEffect(() => {
     if (!selectedProject || !authed) return;
@@ -2000,412 +1761,49 @@ function OnnaDashboardInner() {
   });
   const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("general")?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
-  const getProjectCastingTables = id => {
-    const val = projectCasting[id];
-    if (!val || (Array.isArray(val) && val.length === 0)) return [{id:1,title:"Casting",rows:[]}];
-    if (Array.isArray(val) && val.length > 0 && !val[0].rows) return [{id:1,title:"Casting",rows:val}];
-    return val;
-  };
-  const getProjectCasting = id => getProjectCastingTables(id).reduce((a,t)=>[...a,...t.rows],[]);
-  const addCastingTable = id => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:[...tables,{id:Date.now(),title:"Untitled",rows:[]}]};});
-  const addCastingRow = (id,tableId) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,rows:[...t.rows,{id:Date.now(),agency:"",name:"",email:"",option:"First Option",notes:"",link:"",headshot:null}]}:t)};});
-  const updateCastingRow = (id,tableId,rowId,field,val) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,rows:t.rows.map(r=>r.id===rowId?{...r,[field]:val}:r)}:t)};});
-  const removeCastingRow = (id,tableId,rowId) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,rows:t.rows.filter(r=>r.id!==rowId)}:t)};});
-  const updateCastingTableTitle = (id,tableId,title) => setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.map(t=>t.id===tableId?{...t,title}:t)};});
-  const removeCastingTable = (id,tableId) => {if(!confirm("Delete this casting table?"))return;setProjectCasting(prev=>{const tables=getProjectCastingTables(id);return {...prev,[id]:tables.filter(t=>t.id!==tableId)};});};
+  const getProjectCastingTables = id => _getProjectCastingTablesFn(id, projectCasting);
+  const getProjectCasting = id => _getProjectCastingFn(id, projectCasting);
+  const addCastingTable = id => _addCastingTable(id, projectCasting, setProjectCasting);
+  const addCastingRow = (id,tableId) => _addCastingRow(id, tableId, projectCasting, setProjectCasting);
+  const updateCastingRow = (id,tableId,rowId,field,val) => _updateCastingRow(id, tableId, rowId, field, val, projectCasting, setProjectCasting);
+  const removeCastingRow = (id,tableId,rowId) => _removeCastingRow(id, tableId, rowId, projectCasting, setProjectCasting);
+  const updateCastingTableTitle = (id,tableId,title) => _updateCastingTableTitle(id, tableId, title, projectCasting, setProjectCasting);
+  const removeCastingTable = (id,tableId) => _removeCastingTable(id, tableId, projectCasting, setProjectCasting);
 
-  const _aiSystem = `Extract contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","phone":"","date":"YYYY-MM-DD","category":"","location":"","source":"Cold Outreach","notes":""}. Use location format like "Dubai, UAE" or "London, UK". If no date, use today's date.`;
-
-  const processOutreach = async () => {
-    if (!outreachMsg.trim()) return;
-    setOutreachLoading(true);
-    try {
-      const data = await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:800,system:_aiSystem,messages:[{role:"user",content:outreachMsg}]});
-      const parsed = JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
-      const entries = (Array.isArray(parsed)?parsed:[parsed]).map(e=>({...e,status:"not_contacted",value:0}));
-      const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
-      const newOutreach = saved.filter(e=>e.id);
-      setOutreach(prev=>[...prev,...newOutreach]);
-      setOutreachMsg("");
-    } catch {}
-    setOutreachLoading(false);
-  };
+  const processOutreach = () => _processOutreach(outreachMsg, setOutreachLoading, setOutreach, setOutreachMsg);
 
 
-  // Promote a lead/outreach entry to a client record when status → "client"
-  const promoteToClient = async (entity) => {
-    const company = (entity.company||"").trim();
-    if (!company) return;
-    if (localClients.some(c=>(c.company||"").toLowerCase()===company.toLowerCase())) return;
-    const newClient = {
-      company,
-      name: entity.contact||entity.clientName||"",
-      email: entity.email||"",
-      phone: entity.phone||"",
-      country: entity.location||"",
-      category: entity.category||"",
-      role: entity.role||"",
-      value: entity.value||"",
-      date: entity.date||"",
-      source: entity.source||"",
-      notes: entity.notes||"",
-    };
-    const saved = await api.post("/api/clients", newClient);
-    if (saved.id) setLocalClients(prev=>[...prev,saved]);
-  };
+  const promoteToClient = (entity) => _promoteToClient(entity, localClients, setLocalClients);
 
 
 
-  const processProjectAI = async p => {
-    if (!aiMsg.trim()&&!attachedFile) return;
-    setAiLoading(true);
-    let fileData=null;
-    if (attachedFile) fileData = await new Promise(resolve=>{const r=new FileReader();r.onload=e=>resolve(e.target.result.split(",")[1]);r.readAsDataURL(attachedFile);});
-    const messages=[{role:"user",content:attachedFile?[{type:"image",source:{type:"base64",media_type:attachedFile.type,data:fileData}},{type:"text",text:`${aiMsg}\n\nExtract all financial info and return ONLY a JSON array, no markdown.`}]:aiMsg}];
-    try {
-      const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:1200,system:"Extract expense/income entries for ONNA. Return ONLY a raw JSON array. Each entry: supplier, category, subCategory, invoiceNumber, receiptLink, datePaid, amount (number only), direction (in/out), notes.",messages});
-      const parsed=JSON.parse((data?.content?.[0]?.text||"").replace(/```json|```/g,"").trim());
-      setProjectEntries(prev=>({...prev,[p.id]:[...(prev[p.id]||[]),...(Array.isArray(parsed)?parsed:[parsed]).map((e,i)=>({...e,id:Date.now()+i}))]}));
-      setAiMsg(""); setAttachedFile(null);
-    } catch {}
-    setAiLoading(false);
-  };
+  const processProjectAI = (p) => _processProjectAI(p, aiMsg, attachedFile, setAiLoading, setProjectEntries, setAiMsg, setAttachedFile);
 
-  // ── Agent markdown renderer ───────────────────────────────────────────────────
-  const fmtInline = (text) => {
-    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-    return parts.map((p,i)=>{
-      if (p.startsWith("")&&p.endsWith("")) return <strong key={i}>{p.slice(2,-2)}</strong>;
-      if (p.startsWith("`")&&p.endsWith("`")) return <code key={i} style={{background:"rgba(0,0,0,0.07)",borderRadius:4,padding:"1px 5px",fontSize:"0.88em",fontFamily:"monospace"}}>{p.slice(1,-1)}</code>;
-      return <span key={i}>{p}</span>;
-    });
-  };
-  const renderAgentMd = (text) => {
-    if (!text) return null;
-    const lines = text.split("\n");
-    const out = []; let inCode=false; let codeLines=[]; let inTable=false; let tableRows=[];
-    const flushTable = (key) => {
-      if (!tableRows.length) return;
-      out.push(<div key={`t${key}`} style={{overflowX:"auto",marginBottom:6}}>
-        <table style={{borderCollapse:"collapse",fontSize:11.5,width:"100%"}}>
-          {tableRows.map((r,ri)=><tr key={ri}>{r.map((c,ci)=>{
-            const Tag=ri===0?"th":"td";
-            return <Tag key={ci} style={{border:"1px solid #d1d1d6",padding:"4px 8px",textAlign:"left",background:ri===0?"#f5f5f7":"transparent",whiteSpace:"nowrap"}}>{fmtInline(c.trim())}</Tag>;
-          })}</tr>)}
-        </table></div>);
-      tableRows=[];
-    };
-    lines.forEach((line,i)=>{
-      if (line.startsWith("```")) {
-        if (inCode) { out.push(<pre key={i} style={{background:"#f2f2f7",borderRadius:8,padding:"10px 12px",overflowX:"auto",fontSize:11.5,lineHeight:1.5,margin:"4px 0",fontFamily:"monospace"}}>{codeLines.join("\n")}</pre>); codeLines=[]; inCode=false; }
-        else { if(inTable){flushTable(i);inTable=false;} inCode=true; } return;
-      }
-      if (inCode) { codeLines.push(line); return; }
-      if (line.startsWith("|")) {
-        const cells = line.split("|").slice(1,-1);
-        if (!cells.every(c=>/^[-: ]+$/.test(c))) { inTable=true; tableRows.push(cells); }
-        return;
-      }
-      if (inTable) { flushTable(i); inTable=false; }
-      if (line.startsWith("### ")) { out.push(<div key={i} style={{fontWeight:700,fontSize:12.5,marginTop:10,marginBottom:2,color:"#1d1d1f"}}>{fmtInline(line.slice(4))}</div>); return; }
-      if (line.startsWith("## "))  { out.push(<div key={i} style={{fontWeight:700,fontSize:14,marginTop:12,marginBottom:4,color:"#1d1d1f"}}>{fmtInline(line.slice(3))}</div>); return; }
-      if (line.startsWith("# "))   { out.push(<div key={i} style={{fontWeight:700,fontSize:16,marginTop:14,marginBottom:6,color:"#1d1d1f"}}>{fmtInline(line.slice(2))}</div>); return; }
-      if (line.match(/^[-*]\s/))   { out.push(<div key={i} style={{display:"flex",gap:6,marginBottom:1.5}}><span style={{flexShrink:0,marginTop:2}}>•</span><span style={{lineHeight:1.55}}>{fmtInline(line.slice(2))}</span></div>); return; }
-      const numMatch = line.match(/^(\d+)\.\s(.*)$/);
-      if (numMatch) { out.push(<div key={i} style={{display:"flex",gap:6,marginBottom:1.5}}><span style={{flexShrink:0,minWidth:16,textAlign:"right",marginTop:2}}>{numMatch[1]}.</span><span style={{lineHeight:1.55}}>{fmtInline(numMatch[2])}</span></div>); return; }
-      if (!line.trim()) { out.push(<div key={i} style={{height:5}}/>); return; }
-      out.push(<div key={i} style={{lineHeight:1.6,marginBottom:1}}>{fmtInline(line)}</div>); });
-    if (inTable) flushTable("end");
-    return out;
-  };
+  // ── Agent markdown renderer (extracted to handlers/agentHandlers.js) ──────
 
-  // ── Agent streaming chat ──────────────────────────────────────────────────────
-  const sendAgentMessage = async (agentId, userText) => {
-    if (!userText.trim() || agentStreaming) return;
-    const userMsg = {role:"user", content:userText.trim()};
-    const history = [...(agentChats[agentId]||[]), userMsg];
-    setAgentChats(prev=>({...prev,[agentId]:history}));
-    setAgentInput("");
-    setAgentStreaming(true);
-    setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:"",streaming:true}]}));
-    try {
-      const messages = history.map(m=>({role:m.role,content:m.content}));
-      const res = await fetch(`/api/agents/${agentId}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages})});
-      if (!res.ok) {
-        const e = await res.json().catch(()=>({error:`HTTP ${res.status}`}));
-        setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:`Error: ${e.error||"Unknown error"}`,streaming:false}]}));
-        setAgentStreaming(false); return;
-      }
-      const reader = res.body.getReader(); const decoder = new TextDecoder();
-      let fullText=""; let buffer="";
-      while (true) {
-        const {done,value} = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value,{stream:true});
-        const lines = buffer.split("\n"); buffer = lines.pop()||"";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6).trim();
-          if (!raw||raw==="[DONE]") continue;
-          try {
-            const ev = JSON.parse(raw);
-            if (ev.type==="content_block_delta"&&ev.delta?.type==="text_delta") {
-              fullText += ev.delta.text;
-              setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:fullText,streaming:true}]}));
-            }
-            if (ev.type==="message_stop") {
-              setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:fullText,streaming:false}]}));
-            }
-            if (ev.error) {
-              fullText += (fullText?"\n\n":"")+`⚠️ ${ev.error}`;
-              setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:fullText,streaming:false}]}));
-            }
-          } catch {}
-        }
-      }
-      setAgentChats(prev=>({...prev,[agentId]:prev[agentId].map((m,i)=>i===prev[agentId].length-1?{...m,streaming:false}:m)}));
-    } catch(err) {
-      setAgentChats(prev=>({...prev,[agentId]:[...history,{role:"assistant",content:`Error: ${err.message}`,streaming:false}]}));
-    }
-    setAgentStreaming(false);
-    setTimeout(()=>agentChatEndRef.current?.scrollIntoView({behavior:"smooth"}),50);
-  };
+  const sendAgentMessage = (agentId, userText) => _sendAgentMessage(agentId, userText, agentStreaming, agentChats, setAgentChats, setAgentInput, setAgentStreaming, agentChatEndRef);
 
-  const generateContract = async p => {
-    setContractLoading(true); setGeneratedContract("");
-    const templates = {
-      "Commissioning Agreement – Self Employed":`You are generating a COMMISSIONING AGREEMENT for ONNA. Fill in ALL fields with the provided details and output a complete, professional agreement. Structure:\n\nONNA\nCOMMISSIONING AGREEMENT\n\nCOMMERCIAL TERMS\nCommencement Date: [date]\nCommissioner: ONNA FILM TV RADIO PRODUCTION SERVICES LLC\nCommissionee: [commissionee name]\nRole/Services: [role]\nProject: [project]\nDeadline: [deadline]\nFee: [fee]\nPayment Terms: [payment terms]\nDeliverables: [deliverables]\nUsage Rights: [usage rights]\n\nSIGNATURE\nSigned for ONNA: _______________  Date: ______\nSigned by Commissionee: _______________  Date: ______\n\nGENERAL TERMS\n[Include all standard ONNA general terms: IP assignment, confidentiality, warranties, indemnity, termination, force majeure, governing law — Dubai courts]`,
-      "Commissioning Agreement – Via PSC":`Generate a COMMISSIONING AGREEMENT VIA PSC for ONNA. Commercial terms:\n\nONNA\nCOMMISSIONING AGREEMENT – VIA PSC\n\nCOMMERCIAL TERMS\nCommencement Date: [date]\nCommissioner: ONNA FILM TV RADIO PRODUCTION SERVICES LLC\nCommissionee (PSC): [commissionee name]\nIndividual: [individual name]\nRole/Services: [role]\nProject: [project]\nDeadline: [deadline]\nFee: [fee]\nPayment Terms: [payment terms]\nDeliverables: [deliverables]\nUsage Rights: [usage rights]\n\nSIGNATURE\nSigned for ONNA: _______________  Date: ______\nSigned by PSC: _______________  Date: ______\n\nGENERAL TERMS\n[Include all standard PSC terms: IP assignment by PSC and Individual jointly, confidentiality, warranties, joint indemnity, termination, governing law — Dubai]`,
-      "Talent Agreement":`Generate a TALENT AGREEMENT for ONNA. Structure:\n\nONNA\nTALENT AGREEMENT – COMMERCIAL TERMS\n\nCommencement Date: [date]\nAgency: ONNA FILM TV RADIO PRODUCTION SERVICES LLC\nClient/Brand: [project client]\nTalent Name: [commissionee]\nRole/Services: [role]\nShoot Date: [shoot date]\nFee: [fee]\nPayment Terms: NET 60 days from invoice\nDeliverables/Usage: [usage rights]\nDeadline: [deadline]\n\nSIGNATURE\nSigned for ONNA: _______________  Date: ______\nSigned by Talent/Agent: _______________  Date: ______\n\nGENERAL TERMS\n[Include: commencement, supply of services, warranties, image waiver, IP assignment, charges/payment, termination, governing law — Dubai/UK]`,
-      "Talent Agreement – Via PSC":`Generate a TALENT AGREEMENT VIA PSC for ONNA. Structure:\n\nONNA\nTALENT AGREEMENT VIA PSC – COMMERCIAL TERMS\n\nCommencement Date: [date]\nAgency: ONNA FILM TV RADIO PRODUCTION SERVICES LLC\nClient/Brand: [project client]\nPSC Name: [commissionee]\nTalent Name: [individual]\nRole/Services: [role]\nShoot Date: [shoot date]\nFee: [fee]\nDeliverables/Usage: [usage rights]\n\nSIGNATURE\nSigned for ONNA: _______________  Date: ______\nSigned by PSC: _______________  Date: ______\n\nGENERAL TERMS\n[Include PSC-specific terms: PSC procures talent compliance, joint IP assignment, image waiver, indemnity, payment via PSC, governing law — Dubai/UK]`,
-    };
-    try {
-      const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:2000,system:templates[contractType]||templates["Commissioning Agreement – Self Employed"],messages:[{role:"user",content:`Generate the contract with these details:\nProject: ${p.client} — ${p.name}\nCommissionee: ${contractFields.commissionee}\nIndividual: ${contractFields.individual}\nRole: ${contractFields.role}\nFee: ${contractFields.fee}\nShoot Date: ${contractFields.shootDate}\nDeliverables: ${contractFields.deliverables}\nUsage Rights: ${contractFields.usageRights}\nPayment Terms: ${contractFields.paymentTerms}\nDeadline: ${contractFields.deadline}\nProject Ref: ${contractFields.projectRef}`}]});
-      setGeneratedContract(data?.content?.[0]?.text || data?.error || "No output received.");
-    } catch(e) { setGeneratedContract("Error: " + e.message); }
-    setContractLoading(false);
-  };
+  const generateContract = (p) => _generateContract(p, contractType, contractFields, setContractLoading, setGeneratedContract);
 
   const riskSystemPrompt = `You are a production coordinator for ONNA (Dubai & London). Generate a Risk Assessment using markdown tables.\n\nFormat:\nRISK ASSESSMENT\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nLOCATION: [location]\nCREW ON SET: [number]\nTIMING: [times]\n\n1. ENVIRONMENTAL & TERRAIN RISKS\n| Hazard | Risk Level | Who is at Risk | Mitigation Strategy |\n|--------|------------|----------------|---------------------|\n\n2. [SHOOT-SPECIFIC SECTION]\n| Hazard | Risk Level | Who is at Risk | Mitigation Strategy |\n|--------|------------|----------------|---------------------|\n\n3. TECHNICAL EQUIPMENT RISKS\n| Hazard | Risk Level | Who is at Risk | Mitigation Strategy |\n|--------|------------|----------------|---------------------|\n\n4. BRAND & PRIVACY\n| Hazard | Risk Level | Who is at Risk | Control Measures |\n|--------|------------|----------------|------------------|\n\n5. PROFESSIONAL CODE OF CONDUCT\n• Client Relations, Anti-Harassment (Zero Tolerance), General Conduct\n\n6. LIABILITY WAIVER\n• Transport, Health, Safety Gear\n\nEMERGENCY RESPONSE PLAN\n| Contact | Details |\n|---------|---------|\n| Emergency | 999 / 998 / 997 |\n| Production Lead (Emily) | +971 585 608 616 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
   const callSheetSystemPrompt = `You are a production coordinator for ONNA. Generate a Call Sheet using markdown tables.\n\nCALL SHEET\nALL CREW MUST BRING VALID EMIRATES ID TO SET\n\nSHOOT NAME: [name]\nSHOOT DATE: [date]\nSHOOT ADDRESS: [address]\n\nPRODUCTION ON SET: EMILY LUCAS +971 585 608 616\n\nSCHEDULE\n| Time | Activity |\n|------|-----------|\n\nCREW\n| Role | Name | Mobile | Email | Call Time |\n|------|------|--------|-------|-----------|\n| PRODUCER | EMILY LUCAS | +971 585 608 616 | EMILY@ONNAPRODUCTION.COM | [time] |\n\nINVOICING\n| | |\n|-|-|\n| Payment Terms | NET 30 days |\n| Send To | accounts@onnaproduction.com |\n| Billing | ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC., OFFICE F1-022, DUBAI |\n\nEMERGENCY SERVICES\n| Service | Contact |\n|---------|---------|\n| Police/Ambulance/Fire | 999 / 998 / 997 |\n\n@ONNAPRODUCTION | DUBAI & LONDON`;
 
-  const changeTab = tab => {
-    setActiveTab(tab); setSelectedProject(null); setProjectSection("Home"); setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
-    pushNav(tab, null, null, null);
-    if (tab!=="Resources") { setVaultLocked(true); setVaultKey(null); setVaultPass(""); setVaultResources([]); setVaultErr(""); setVaultPwSearch(""); }
-    if (tab==="Notes") setActiveTab("Information");
-  };
+  const changeTab = tab => _changeTab(tab, { setActiveTab, setSelectedProject, setProjectSection, setCreativeSubSection, setBudgetSubSection, setDocumentsSubSection, setScheduleSubSection, setTravelSubSection, setPermitsSubSection, setStylingSubSection, setCastingSubSection, setActiveCastingDeckVersion, setActiveCastingTableVersion, setActiveCSVersion, setLocSubSection, setActiveRecceVersion, setVaultLocked, setVaultKey, setVaultPass, setVaultResources, setVaultErr, setVaultPwSearch });
 
-  const pushNav = (tab, project, section, subSection) => {
-    const path = buildPath(tab, project?.id||null, section||null, subSection||null);
-    window.history.pushState({tab,projectId:project?.id||null,section:section||null,subSection:subSection||null}, "", path);
-  };
+  const navigateToDoc = (projectObj, section, subSection, opts) => _navigateToDoc(projectObj, section, subSection, opts, { setActiveTab, setSelectedProject, setProjectSection, setDocumentsSubSection, setActiveCSVersion, setActiveDietaryVersion, setActiveRAVersion, setActiveContractVersion, setBudgetSubSection, setAgentActiveIdx });
 
-  // ── Navigate to document list view from agent chat ──────────────────────
-  const navigateToDoc = (projectObj, section, subSection, opts) => {
-    setActiveTab("Projects");
-    setSelectedProject(projectObj);
-    setProjectSection(section);
-    if(section==="Documents"){ setDocumentsSubSection(subSection); setActiveCSVersion(null); setActiveDietaryVersion(opts?.dietaryIdx??null); setActiveRAVersion(null); setActiveContractVersion(null); }
-    if(section==="Budget"){ setBudgetSubSection(subSection||"estimates"); }
-    pushNav("Projects", projectObj, section, subSection);
-    setAgentActiveIdx(null);
-  };
+  const addNewOption = (currentList, setter, storageKey, prompt_label) => _addNewOption(currentList, setter, storageKey, prompt_label, showPrompt);
 
-  // ── Add-new helper for dynamic dropdowns ──────────────────────────────────
-  const addNewOption = async (currentList, setter, storageKey, prompt_label) => {
-    const val = await showPrompt(prompt_label);
-    if (!val || !val.trim()) return null;
-    const trimmed = val.trim();
-    if (currentList.includes(trimmed)) return trimmed;
-    const updated = [...currentList, trimmed];
-    setter(updated);
-    try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}
-    return trimmed;
-  };
-
-  // Remove custom options that are no longer used by any item
-  const pruneCustom = (items, fieldName, customList, setter, storageKey) => {
-    const used = new Set(items.map(i=>i[fieldName]).filter(Boolean));
-    const pruned = customList.filter(opt=>used.has(opt));
-    if (pruned.length !== customList.length) {
-      setter(pruned);
-      try { localStorage.setItem(storageKey, JSON.stringify(pruned)); } catch {}
-    }
-  };
-
-  // ── Category manager helpers ──────────────────────────────────────────────
-  const deleteCat = async (type, cat) => {
-    setCatSaving(true);
-    const isLead = type === 'lead';
-    const builtin = isLead ? LEAD_CATEGORIES.includes(cat) : VENDORS_CATEGORIES.includes(cat);
-    const records = isLead ? localLeads : vendors;
-    const affected = records.filter(r => r.category === cat);
-    for (const r of affected) {
-      const {id, ...fields} = r;
-      try {
-        if (isLead) {
-          await api.put(`/api/leads/${id}`, {...fields, category:'', value:Number(fields.value)||0});
-          setLocalLeads(prev => prev.map(x => x.id===id ? {...x,category:''} : x));
-        } else {
-          await api.put(`/api/vendors/${id}`, {...fields, category:''});
-          setVendors(prev => prev.map(x => x.id===id ? {...x,category:''} : x));
-        }
-      } catch {}
-    }
-    if (builtin) {
-      const key = isLead ? 'onna_hidden_lead_cats' : 'onna_hidden_vendor_cats';
-      const setter = isLead ? setHiddenLeadBuiltins : setHiddenVendorBuiltins;
-      setter(prev => { const u=[...prev,cat]; try{localStorage.setItem(key,JSON.stringify(u));}catch{} return u; });
-    } else {
-      if (isLead) {
-        const u = customLeadCats.filter(c=>c!==cat);
-        setCustomLeadCats(u); try{localStorage.setItem('onna_lead_cats',JSON.stringify(u));}catch{}
-      } else {
-        const u = customVendorCats.filter(c=>c!==cat);
-        setCustomVendorCats(u); try{localStorage.setItem('onna_vendor_cats',JSON.stringify(u));}catch{}
-      }
-    }
-    setCatSaving(false);
-  };
-
-  const renameCat = async (type, oldCat, newCat) => {
-    if (!newCat.trim() || newCat.trim()===oldCat) { setCatEdit(null); return; }
-    setCatSaving(true);
-    const isLead = type === 'lead';
-    const records = isLead ? localLeads : vendors;
-    const affected = records.filter(r => r.category === oldCat);
-    for (const r of affected) {
-      const {id, ...fields} = r;
-      try {
-        if (isLead) {
-          await api.put(`/api/leads/${id}`, {...fields, category:newCat.trim(), value:Number(fields.value)||0});
-          setLocalLeads(prev => prev.map(x => x.id===id ? {...x,category:newCat.trim()} : x));
-        } else {
-          await api.put(`/api/vendors/${id}`, {...fields, category:newCat.trim()});
-          setVendors(prev => prev.map(x => x.id===id ? {...x,category:newCat.trim()} : x));
-        }
-      } catch {}
-    }
-    if (isLead) {
-      const u = customLeadCats.map(c=>c===oldCat?newCat.trim():c);
-      setCustomLeadCats(u); try{localStorage.setItem('onna_lead_cats',JSON.stringify(u));}catch{}
-    } else {
-      const u = customVendorCats.map(c=>c===oldCat?newCat.trim():c);
-      setCustomVendorCats(u); try{localStorage.setItem('onna_vendor_cats',JSON.stringify(u));}catch{}
-    }
-    setCatEdit(null); setCatSaving(false);
-  };
+  const catSetters = { localLeads, vendors, setLocalLeads, setVendors, customLeadCats, customVendorCats, setCustomLeadCats, setCustomVendorCats, setHiddenLeadBuiltins, setHiddenVendorBuiltins };
+  const deleteCat = (type, cat) => _deleteCat(type, cat, setCatSaving, catSetters);
+  const renameCat = (type, oldCat, newCat) => _renameCat(type, oldCat, newCat, setCatSaving, setCatEdit, catSetters);
 
 
 
-  // ── Archive helpers ──────────────────────────────────────────────────────────
-  const archiveItem = (table, item) => {
-    const entry = {id:Date.now(), table, item, deletedAt:new Date().toISOString()};
-    setArchive(prev=>{
-      const updated=[entry,...prev];
-      try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
-      return updated;
-    });
-  };
-
-  const restoreItem = async (entry) => {
-    const {id:archiveId, table, item} = entry;
-    if (table==='estimates') {
-      const {projectId, estimate} = item;
-      setProjectEstimates(prev=>({...prev,[projectId]:[...(prev[projectId]||[]),estimate]}));
-      setArchive(prev=>{
-        const updated=prev.filter(e=>e.id!==archiveId);
-        try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
-        return updated;
-      });
-      return;
-    }
-    if (table==='todos') {
-      setTodos(prev=>[...prev,item]);
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='dashNotes') {
-      setDashNotesList(prev=>[item,...prev]);
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='notes') {
-      setNotes(prev=>[item,...prev]);
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='projects') {
-      setLocalProjects(prev=>[...prev,item]);
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='callSheets') {
-      const {projectId, callSheet} = item;
-      setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(callSheet);return s;});
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='riskAssessments') {
-      const {projectId, riskAssessment} = item;
-      setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(riskAssessment);return s;});
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='contracts') {
-      const {projectId, contract} = item;
-      setContractDocStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(contract);return s;});
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='travelItineraries') {
-      const {projectId, travelItinerary} = item;
-      setTravelItineraryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(travelItinerary);return s;});
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='dietaries') {
-      const {projectId, dietary} = item;
-      setDietaryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(dietary);return s;});
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='locationDecks') {
-      const {projectId, locationDeck} = item;
-      setLocDeckStore(prev=>{const s=JSON.parse(JSON.stringify(prev));if(!s[projectId])s[projectId]=[];s[projectId].push(locationDeck);return s;});
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    if (table==='clients') {
-      const {id:_cId, ...clientFields} = item;
-      const saved = await api.post('/api/clients', clientFields);
-      if (saved.id) setLocalClients(prev=>[...prev,saved]);
-      setArchive(prev=>{const updated=prev.filter(e=>e.id!==archiveId);try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}return updated;});
-      return;
-    }
-    const {id:_origId, ...fields} = item;
-    const saved = await api.post(`/api/${table}`, fields);
-    if (saved.id) {
-      if (table==='leads') setLocalLeads(prev=>[...prev,saved]);
-      else if (table==='vendors') setVendors(prev=>[...prev,saved]);
-      else if (table==='outreach') setOutreach(prev=>[...prev,saved]);
-    }
-    setArchive(prev=>{
-      const updated=prev.filter(e=>e.id!==archiveId);
-      try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
-      return updated;
-    });
-  };
-
-  const permanentlyDelete = (archiveId) => {
-    setArchive(prev=>{
-      const updated=prev.filter(e=>e.id!==archiveId);
-      try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
-      return updated;
-    });
-  };
+  const archiveItem = (table, item) => _archiveItem(table, item, setArchive);
+  const restoreItem = (entry) => _restoreItem(entry, { setProjectEstimates, setTodos, setDashNotesList, setNotes, setLocalProjects, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setTravelItineraryStore, setDietaryStore, setLocDeckStore, setLocalClients, setLocalLeads, setVendors, setOutreach, setArchive });
+  const permanentlyDelete = (archiveId) => _permanentlyDelete(archiveId, setArchive);
 
   const allLeadLocs  = ["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA",...customLeadLocs,"＋ Add location"];
   const allLeadCats  = [...LEAD_CATEGORIES.filter(c=>!hiddenLeadBuiltins.includes(c)),...customLeadCats,"＋ Add category"];
@@ -2441,17 +1839,7 @@ function OnnaDashboardInner() {
       </div>
     );
 
-    const uploadFromLink = (url, category) => {
-      setLinkUploading(true);setLinkUploadProgress(0);
-      const xhr=new XMLHttpRequest();
-      xhr.open("POST","/api/proxy-download");
-      xhr.setRequestHeader("Content-Type","application/json");
-      xhr.upload.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(Math.round((e.loaded/e.total)*50));};
-      xhr.onprogress=e=>{if(e.lengthComputable)setLinkUploadProgress(50+Math.round((e.loaded/e.total)*50));else setLinkUploadProgress(75);};
-      xhr.onload=()=>{try{const data=JSON.parse(xhr.responseText);if(data.error)throw new Error(data.error);setLinkUploadProgress(100);const entry={id:Date.now()+Math.random(),name:data.filename,size:data.size,type:data.contentType,data:data.dataUrl,createdAt:Date.now()};setProjectFileStore(prev=>({...prev,[p.id]:{...(prev[p.id]||{}),[category]:[...((prev[p.id]||{})[category]||[]),entry]}}));setTimeout(()=>{setLinkUploading(false);setLinkUploadProgress(null);},800);}catch(e){showAlert("Upload failed: "+e.message);setLinkUploading(false);setLinkUploadProgress(null);}};
-      xhr.onerror=()=>{showAlert("Upload failed: network error");setLinkUploading(false);setLinkUploadProgress(null);};
-      xhr.send(JSON.stringify({url}));
-    };
+    const uploadFromLink = (url, category) => _uploadFromLink(url, category, p.id, setLinkUploading, setLinkUploadProgress, setProjectFileStore, showAlert);
 
     if (projectSection==="Home") return (
       <div>

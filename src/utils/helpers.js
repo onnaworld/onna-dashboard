@@ -216,7 +216,7 @@ export const actualsGrandEffective = (sections) => sections.reduce((s, sec) => s
 export const actualsGrandZohoTotal = (sections) => sections.reduce((s, sec) => s + actualsSectionZohoTotal(sec), 0);
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-const _proxy = (path) => `/api/proxy?target=${encodeURIComponent(path)}`;
+export const _proxy = (path) => `/api/proxy?target=${encodeURIComponent(path)}`;
 export const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 export const getToken = () => localStorage.getItem("onna_token") || "";
 const _h = (extra={}) => ({"Authorization":`Bearer ${getToken()}`,...extra});
