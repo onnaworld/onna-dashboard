@@ -28,6 +28,7 @@ import { handlePollyIntent } from "./components/agents/ProducerPolly";
 import { handleTabbyIntent } from "./components/agents/TalentTabby";
 import { TI_FLIGHT_COLS, TI_CAR_COLS, TI_HOTEL_COLS, TI_ROOMING_COLS, TI_MOVEMENT_COLS, tiMkMove, tiMkDay, TRAVEL_ITINERARY_INIT, handleTinaIntent } from "./components/agents/TravelTina";
 import { ProjectProvider, useProject } from "./context/ProjectContext";
+import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 
 // ─── INDEXEDDB FILE STORAGE ──────────────────────────────────────────────────
 const IDB_NAME="onna_files"; const IDB_STORE="files"; const IDB_VER=1;
@@ -8773,7 +8774,9 @@ function _closeModal(value) {
 export default function OnnaDashboard() {
   return (
     <ProjectProvider idbGet={idbGet} idbSet={idbSet} debouncedDocSave={debouncedDocSave}>
+    <VendorLeadProvider initVendors={initVendors}>
       <OnnaDashboardInner />
+    </VendorLeadProvider>
     </ProjectProvider>
   );
 }
@@ -9138,17 +9141,24 @@ function OnnaDashboardInner() {
   const [addContactForm,setAddContactForm]               = useState(null); // {type,name,email,phone,role}
 
   useEffect(()=>{try{localStorage.removeItem('onna_dash_widget_sizes');}catch{}},[]);
-  const [outreach,setOutreach]                           = useState(initOutreach);
-  const [outreachMsg,setOutreachMsg]                     = useState("");
-  const [outreachLoading,setOutreachLoading]             = useState(false);
 
-  const [vendors,setVendors]                         = useState(()=>{try{const c=localStorage.getItem('onna_cache_vendors');return c?JSON.parse(c):initVendors}catch{return initVendors}});
-  useEffect(()=>{try{if(vendors.length)localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors));}catch{}},[vendors]);
-  const [bbCat,setBbCat]                                 = useState("All");
-  const [bbLocation,setBbLocation]                       = useState("All");
-  const [showRateModal,setShowRateModal]                 = useState(null);
-  const [rateInput,setRateInput]                         = useState("");
-  const [editVendor,setEditVendor]                       = useState(null);
+  // ── Vendor / Lead / Outreach state from VendorLeadContext ──
+  const {
+    vendors,setVendors,bbCat,setBbCat,bbLocation,setBbLocation,
+    showRateModal,setShowRateModal,rateInput,setRateInput,
+    editVendor,setEditVendor,newVendor,setNewVendor,
+    newLead,setNewLead,localLeads,setLocalLeads,
+    leadStatusOverrides,setLeadStatusOverrides,
+    outreach,setOutreach,outreachMsg,setOutreachMsg,
+    outreachLoading,setOutreachLoading,
+    customLeadLocs,setCustomLeadLocs,customLeadCats,setCustomLeadCats,
+    customVendorCats,setCustomVendorCats,
+    hiddenLeadBuiltins,setHiddenLeadBuiltins,
+    hiddenVendorBuiltins,setHiddenVendorBuiltins,
+    showCatManager,setShowCatManager,
+    catEdit,setCatEdit,catEditVal,setCatEditVal,catSaving,setCatSaving,
+    customVendorLocs,setCustomVendorLocs,
+  } = useVendorLead();
 
   // ── Project state from ProjectContext ──
   const {
@@ -9332,11 +9342,8 @@ function OnnaDashboardInner() {
 
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
-  const [newLead,setNewLead]                 = useState({company:"",contact:"",email:"",phone:"",role:"",date:"",source:"Referral",status:"not_contacted",value:"",category:"Production Companies",location:"Dubai, UAE"});
-  const [newVendor,setNewVendor]             = useState({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});
   const localProjectsRef                      = useRef([]);
   const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const seenClient=new Set();const deduped=arr.filter(p=>{const k=(p.client||"").trim().toLowerCase();if(seenClient.has(k))return false;seenClient.add(k);return true;}).map(p=>/columbia|ima/i.test(p.client||"")?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{}return deduped;}catch{return []}});
-  const [localLeads,setLocalLeads]           = useState(()=>{try{const c=localStorage.getItem('onna_cache_leads');return c?JSON.parse(c):[]}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
@@ -9366,17 +9373,6 @@ function OnnaDashboardInner() {
   const [notesLoading,setNotesLoading]       = useState(false);
   useEffect(()=>{if(!globalHydratedRef.current)return;try{if(notes.length)localStorage.setItem('onna_cache_notes',JSON.stringify(notes));}catch{}},[notes]);
 
-  const [leadStatusOverrides,setLeadStatusOverrides] = useState({});
-  const [customLeadLocs,setCustomLeadLocs]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
-  const [customLeadCats,setCustomLeadCats]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_cats')||'[]')}catch{return []}});
-  const [customVendorCats,setCustomVendorCats] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_cats')||'[]')}catch{return []}});
-  const [hiddenLeadBuiltins,setHiddenLeadBuiltins] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_hidden_lead_cats')||'[]')}catch{return []}});
-  const [hiddenVendorBuiltins,setHiddenVendorBuiltins] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_hidden_vendor_cats')||'[]')}catch{return []}});
-  const [showCatManager,setShowCatManager] = useState(false);
-  const [catEdit,setCatEdit] = useState(null);
-  const [catEditVal,setCatEditVal] = useState("");
-  const [catSaving,setCatSaving] = useState(false);
-  const [customVendorLocs,setCustomVendorLocs] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archived_projects')||'[]')}catch{return []}});
   const [archivedTodos,setArchivedTodos]     = useState([]);
