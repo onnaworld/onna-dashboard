@@ -83,4 +83,113 @@ function applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectC
 }
 
 
+
+// ─── CARRIE INTENT HANDLER ──────────────────────────────────────────────────
+export async function handleCarrieIntent({
+  input, history, intro, agent,
+  setMsgs, setLoading, setMood,
+  carrieCtx, setCarrieCtx,
+  projectCasting, setProjectCasting, getProjectCastingTables,
+  buildCarrieSystem, applyCarriePatch,
+  exportCastingPDF, downloadCSV,
+  vendorsProp, fuzzyMatchProject, localProjects,
+}) {
+  if (agent.id !== "carrie" || !projectCasting || !setProjectCasting) return false;
+
+
+      if(!carrieCtx){
+        if(!localProjects?.length){
+          setMsgs([...history,{role:"assistant",content:"No projects found. Create a project first, then come back to me!"}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        const project = fuzzyMatchProject(localProjects,input);
+        if(!project){
+          const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's casting should I work on?\n\n${list}\n\nTell me the project name to get started!`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        setCarrieCtx({projectId:project.id});
+        setMsgs([...history,{role:"assistant",content:`Got it — I'm now working on casting for **${project.name}**. I can see all your casting data. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      const lower=input.toLowerCase();
+      if(/\b(switch|change|different|new)\s+(project|casting)\b/i.test(input)){
+        setCarrieCtx(null);
+        const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+        setMsgs([...history,{role:"assistant",content:`Sure! Which project's casting should I work on?\n\n${list}`}]);
+        setLoading(false);setMood("idle");return true;
+      }
+      const switchProject=fuzzyMatchProject(localProjects,input,carrieCtx.projectId);
+      if(switchProject){
+        setCarrieCtx({projectId:switchProject.id});
+        setMsgs([...history,{role:"assistant",content:`Switched to **${switchProject.name}**. I can see all the casting data. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
+      const {projectId}=carrieCtx;
+      let project=localProjects?.find(p=>p.id===projectId);
+      if(!project){setCarrieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return true;}
+
+      const castingTables = getProjectCastingTables(projectId);
+      let snap = `Project: ${project.name}\nCasting Tables:\n`;
+      castingTables.forEach(t => {
+        snap += `  [tableId:${t.id}] "${t.title}" — ${t.rows.length} model(s)\n`;
+        t.rows.forEach(r => {
+          snap += `    [rowId:${r.id}] agency:${r.agency||"(empty)"} | name:${r.name||"(empty)"} | email:${r.email||"(empty)"} | option:${r.option||"(empty)"} | notes:${r.notes||"(empty)"} | link:${r.link||"(empty)"}\n`;
+        }); });
+
+      let vendorSummary = "";
+      if (vendorsProp && vendorsProp.length > 0) {
+        vendorSummary = vendorsProp.map(v => `${v.name||""}|${v.category||""}|${v.email||""}|${v.phone||""}`).join("\n");
+      }
+
+      const carrieSystem = buildCarrieSystem(project, snap, vendorSummary);
+      const castCols = [{key:"agency",label:"Agency"},{key:"name",label:"Name"},{key:"email",label:"Email"},{key:"option",label:"Option"},{key:"notes",label:"Notes"},{key:"link",label:"Link"}];
+
+      try{
+        const carrieIntro = intro;
+        const apiMessages=history.map((m,mi)=>{
+          if(m.role==="assistant"){
+            if(mi===0) return{role:m.role,content:carrieIntro};
+            return{role:m.role,content:typeof m.content==="string"?m.content:""};
+          }
+          return{role:m.role,content:m.content};
+        });
+        const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:carrieSystem,messages:apiMessages})});
+        if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return true;}
+        const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+
+        const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
+        if(jsonMatch){
+          try{
+            const patch = JSON.parse(jsonMatch[1].trim());
+            const result = applyCarriePatch(patch, projectId, getProjectCastingTables, setProjectCasting);
+            const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
+
+            if (result && result.action === "exportPDF") {
+              const updatedTables = getProjectCastingTables(projectId);
+              exportCastingPDF(updatedTables, castCols, "Casting");
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Casting PDF exported."}]);
+            } else if (result && result.action === "exportCSV") {
+              const updatedTables = getProjectCastingTables(projectId);
+              const allRows = updatedTables.flatMap(t=>t.rows.map(r=>({...r,table:t.title})));
+              const cols = [{key:"table",label:"Table"},...castCols];
+              downloadCSV(allRows, cols, "Casting.csv");
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Casting CSV exported."}]);
+            } else {
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Casting table updated."}]);
+            }
+          }catch(pe){
+            setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
+          }
+        }else{
+          setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
+        }
+        setMood("excited");setTimeout(()=>setMood("idle"),2500);
+      }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
+      setLoading(false);return true;
+}
+
 export { buildCarrieSystem, applyCarriePatch };
