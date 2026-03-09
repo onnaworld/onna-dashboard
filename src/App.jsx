@@ -7105,6 +7105,15 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         return;
       }
       setMsgs(history);setInput("");
+      // ── Go back to previous question ──
+      const isBack=/^(back|go back|prev|previous|undo)$/i.test(input.trim());
+      if(isBack&&pendingConv.idx>0){
+        const prevIdx=pendingConv.idx-1;
+        const prevQ=pendingConv.questions[prevIdx];
+        setPendingConv({...pendingConv,idx:prevIdx,_awaitingNewCat:false});
+        setMsgs([...history,{role:"assistant",content:`${prevQ.q} (or 'x' to skip)`}]);
+        return;
+      }
       const isSkip=/^(x|skip|n\/a|none|-|pass|don'?t have(?: that)?|i don'?t|not sure|leave(?: it)? blank|unsure|nothing|blank)$/i.test(input.trim());
       const conv=pendingConv;
       const q=conv.questions[conv.idx];
@@ -7787,7 +7796,7 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
         codyUploadedDoc,setCodyUploadedDoc,
         codySignPanel,setCodySignPanel,
         codyPickerPid,setCodyPickerPid,
-        contractDocStore,codySetContractDocStore,
+        contractDocStore,setContractDocStore:codySetContractDocStore,
         localProjects,curAttachments,
         fuzzyMatchProject,syncProjectInfoToDocs,
         popAgentUndo,projectInfoRef,onNavigateToDoc,
@@ -8059,17 +8068,25 @@ function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVe
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{background:"#f5f5f7",border:"1px solid #e5e5ea",borderRadius:"6px 16px 16px 16px"}}><_AgentDots color="#6e6e73"/></div></div>}
     </div>
 
-    {/* dropdown option buttons for category/location questions */}
-    {pendingConv&&!pendingConv._awaitingNewCat&&pendingConv.questions[pendingConv.idx]?.options&&(
+    {/* Q&A bubbles: options + skip + back */}
+    {pendingConv&&!pendingConv._awaitingNewCat&&!pendingConv._awaitingTypeChoice&&!pendingConv._awaitingUpdateName&&pendingConv.questions[pendingConv.idx]&&(
       <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:"8px 12px 2px",background:"white",borderTop:"1px solid #f2f2f7",flexShrink:0}}>
-        {pendingConv.questions[pendingConv.idx].options.map(opt=>(
+        {pendingConv.questions[pendingConv.idx]?.options&&pendingConv.questions[pendingConv.idx].options.map(opt=>(
           <button key={opt} type="button" onClick={()=>{setInput(opt);setTimeout(send,0);}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:11.5,fontWeight:500,color:"#1d1d1f",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";e.currentTarget.style.borderColor="#c7c7cc";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";e.currentTarget.style.borderColor="#e5e5ea";}}>
             {opt}
           </button>
         ))}
-        {pendingConv.questions[pendingConv.idx].addNew&&(
+        {pendingConv.questions[pendingConv.idx]?.addNew&&(
           <button type="button" onClick={()=>{setInput("");setMsgs(prev=>[...prev,{role:"assistant",content:`Type a new ${pendingConv.questions[pendingConv.idx].key} below and press Enter.`}]);const ta=document.querySelector('[data-vinnie-ta]');if(ta){ta.focus();ta.placeholder="Type new "+pendingConv.questions[pendingConv.idx].key+"...";}}} style={{padding:"5px 10px",borderRadius:8,border:"1px dashed #d4aa20",background:"#fffef5",fontSize:11.5,fontWeight:600,color:"#7a5800",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#fef3c0";}} onMouseOut={e=>{e.currentTarget.style.background="#fffef5";}}>
             + Add New
+          </button>
+        )}
+        <button type="button" onClick={()=>{setInput("skip");setTimeout(send,0);}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:11.5,fontWeight:500,color:"#86868b",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";}}>
+          Skip
+        </button>
+        {pendingConv.idx>0&&(
+          <button type="button" onClick={()=>{setInput("back");setTimeout(send,0);}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid #e5e5ea",background:"#f5f5f7",fontSize:11.5,fontWeight:500,color:"#86868b",cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}} onMouseOver={e=>{e.currentTarget.style.background="#e8e8ed";}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7";}}>
+            ← Back
           </button>
         )}
       </div>
