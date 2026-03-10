@@ -1333,42 +1333,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       setMood("idle");return;
     }
 
-    // ── Vinnie: if last assistant message was the outreach prompt, treat next input as outreach entry ──
-    if(agent.id==="logistical"&&!pendingConv){
-      const _lastAst=msgs.filter(m=>m.role==="assistant").slice(-1)[0];
-      if(_lastAst&&/Who did you contact\?|log it with today|let's fill in the details/i.test(_lastAst.content)&&!/^[123]$/.test(input.trim())){
-        const today=new Date().toISOString().slice(0,10);
-        const _blankLead={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
-        const _blankLQs=buildQuestions(_blankLead,"lead");
-        setPendingConv({entry:_blankLead,type:"lead",saveAsOutreach:true,updateId:null,questions:_blankLQs,idx:0});
-        setMsgs([...history,{role:"assistant",content:`New outreach entry — parsing your details...\n\n${_blankLQs[0]?.q||"Contact name?"}`}]);
-        setLoading(true);setMood("thinking");
-        // AI parse in background
-        (async()=>{try{
-          const sys=`You are an expert at parsing natural language contact descriptions into structured data. Extract ALL info you can infer and return ONLY a raw JSON object (no markdown, no array).\n\nRules:\n- Names: anything that looks like a person's name → "contact"\n- Emails: anything with @ → "email"\n- Phone numbers: digits with +/spaces/dashes → "phone"\n- Category: fuzzy match to closest from: Production Companies, Creative Agencies, Beauty & Fragrance, Jewellery & Watches, Fashion, Editorial, Sports, Hospitality, Market Research, Commercial\n- Location: any city/country mentioned, default "Dubai, UAE"\n- Date: use today (${today}) unless explicitly stated\n- Status: default "not_contacted" unless user says warm/open/cold\n\nFields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","date":"YYYY-MM-DD","category":"","location":"Dubai, UAE","source":"Direct","notes":"","status":"not_contacted"}.`;
-          const data=await api.post("/api/ai",{model:"claude-sonnet-4-6",max_tokens:600,system:sys,messages:[{role:"user",content:input.trim()}]});
-          const parsed=JSON.parse((data?.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());
-          const entry={...parsed,_type:"lead",date:parsed.date||today,status:parsed.status||"not_contacted"};
-          const name=entry.contact||entry.company||"this contact";
-          setPendingConv(prev=>{
-            if(!prev)return prev;
-            const merged={...prev.entry};
-            for(const k of Object.keys(entry)){if(k!=="_type"&&entry[k]&&!merged[k])merged[k]=entry[k];}
-            const newQs=buildQuestions(merged,"lead");
-            const newIdx=Math.min(prev.idx,newQs.length?newQs.length-1:0);
-            const msg=newQs.length>0?`Got it — ${name} pulled. Let me fill in the gaps. ('x' to skip)\n\n${newQs[newIdx].q}`:`Got it — review details for ${name} and hit Save.`;
-            setMsgs(p=>[...p.slice(0,-1),{role:"assistant",content:msg}]);
-            if(newQs.length===0){setTimeout(()=>{setPendingConv(null);showEntry(merged,"lead",null,true);},0);return prev;}
-            return{...prev,entry:merged,questions:newQs,idx:newIdx,saveAsOutreach:true};
-          });
-        }catch(e){
-          setMsgs(prev=>[...prev.slice(0,-1),{role:"assistant",content:"Hmm, I had trouble parsing that. Answer the fields one by one, or 'x' to skip."}]);
-        }})();
-        setLoading(false);setMood("idle");
-        return;
-      }
-    }
-
     // ── Vinnie intent dispatcher ──
     if(agent.id==="logistical"){
       const _vinnieHandled=await handleVinnieIntent({
