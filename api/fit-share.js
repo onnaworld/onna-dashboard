@@ -238,16 +238,18 @@ body{margin:0;padding:24px;font-family:'Avenir','Avenir Next','Nunito Sans',sans
 var SHARE_TOKEN="${token.replace(/"/g, '\\"')}";
 var _feedback=${existingFeedback}||{};
 var _saveTimer=null;
+var _dirty=false;
 var _toast=document.getElementById('saveToast');
 function showToast(){_toast.classList.add('show');setTimeout(function(){_toast.classList.remove('show');},1500);}
 function saveFeedback(){
+  _dirty=true;
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(function(){
     fetch(window.location.pathname,{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({token:SHARE_TOKEN,feedback:_feedback})
-    }).then(function(){showToast();}).catch(function(){});
+    }).then(function(){_dirty=false;showToast();}).catch(function(){_dirty=false;});
   },800);
 }
 document.querySelectorAll('span').forEach(function(s){
@@ -390,10 +392,11 @@ document.querySelectorAll('span').forEach(function(s){
     });
   }
   setInterval(function(){
+    if(_dirty)return;
     fetch(window.location.pathname+'?token='+encodeURIComponent(SHARE_TOKEN)+'&feedbackOnly=1')
     .then(function(r){return r.json();})
     .then(function(d){
-      if(!d.feedback)return;
+      if(_dirty||!d.feedback)return;
       var h=JSON.stringify(d.feedback);
       if(h===lastHash)return;
       lastHash=h;
