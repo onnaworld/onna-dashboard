@@ -109,21 +109,6 @@ export default function Projects({
                       </div>
                       <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 999, background: projStatusBg[p.status] || "#f5f5f7", color: projStatusColor[p.status] || T.muted, fontWeight: 500, whiteSpace: "nowrap" }}>{p.status}</span>
                     </div>
-                    <div style={{ borderTop: `1px solid ${T.borderSub}` }} />
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Revenue</div>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AED {getProjRevenue(p).toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Profit</div>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AED {profit.toLocaleString()}</div>
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontSize: 11.5, color: T.muted }}>Margin</span><span style={{ fontSize: 11.5, fontWeight: 600, color: T.text }}>{margin}%</span></div>
-                      <div style={{ height: 3, borderRadius: 999, background: T.borderSub }}><div style={{ width: `${margin}%`, height: "100%", borderRadius: 999, background: T.accent }} /></div>
-                    </div>
                   </a>
                   <div style={{ display: "flex", gap: 8, marginTop: -3 }}>
                     <button
@@ -168,21 +153,6 @@ export default function Projects({
                     <div style={{ fontSize: 14, fontWeight: 600, color: T.text, letterSpacing: "-0.01em" }}>{p.name}</div>
                   </div>
                   <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 999, background: projStatusBg[p.status] || "#f5f5f7", color: projStatusColor[p.status] || T.muted, fontWeight: 500, whiteSpace: "nowrap" }}>{p.status}</span>
-                </div>
-                <div style={{ borderTop: `1px solid ${T.borderSub}` }} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Revenue</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AED {getProjRevenue(p).toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Profit</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AED {profit.toLocaleString()}</div>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ fontSize: 11.5, color: T.muted }}>Margin</span><span style={{ fontSize: 11.5, fontWeight: 600, color: T.text }}>{margin}%</span></div>
-                  <div style={{ height: 3, borderRadius: 999, background: T.borderSub }}><div style={{ width: `${margin}%`, height: "100%", borderRadius: 999, background: T.accent }} /></div>
                 </div>
               </a>
               <div style={{ display: "flex", gap: 8, marginTop: -3 }}>
