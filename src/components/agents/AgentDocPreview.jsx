@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { renderHtmlToDocPages, exportDocPreview, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, makeDocUpdater } from "../../utils/helpers";
 import { showAlert, showPrompt } from "../../utils/modal";
 import { CALLSHEET_INIT, DIETARY_INIT, ESTIMATE_INIT,
-  CS_FONT, CS_LS, CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage,
+  CS_FONT, CS_LS, CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage, CSXbtn,
   RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR } from "../ui/DocHelpers";
 import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_INIT, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC } from "./ContractCody";
