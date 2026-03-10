@@ -201,37 +201,25 @@ export default function Budget({
       const key = expIdx !== undefined ? `${secIdx}-${rowIdx}-e${expIdx}` : `${secIdx}-${rowIdx}`;
       return tallyItems.some(t => t.key === key);
     };
-    const tallyEstTotal = tallyItems.reduce((s, t) => s + t.estimate, 0);
-    const tallyActTotal = tallyItems.reduce((s, t) => s + t.actuals, 0);
+    const tallyEstTotal = Math.round(tallyItems.reduce((s, t) => s + t.estimate, 0) * 100) / 100;
+    const tallyActTotal = Math.round(tallyItems.reduce((s, t) => s + t.actuals, 0) * 100) / 100;
 
-    // Receipt upload with OCR
-    const receiptInputRef = React.useRef(null);
-    const [receiptTarget, setReceiptTarget] = React.useState(null); // {si, ri, ei}
+    // Receipt link with OCR — paste a URL, optionally scan for amount
     const [receiptLoading, setReceiptLoading] = React.useState(null); // "si-ri-ei" key
     const [receiptOcrResult, setReceiptOcrResult] = React.useState(null); // {si, ri, ei, amount, vendor, description, currency}
-    const handleReceiptUpload = async (file, si, ri, ei) => {
+    const handleReceiptLink = async (si, ri, ei) => {
+      const url = window.prompt("Paste receipt link (image or PDF URL):");
+      if (!url || !url.trim()) return;
+      const trimmed = url.trim();
+      updateExpense(si, ri, ei, "receiptLink", trimmed);
+      // Try OCR on the link
       const loadKey = `${si}-${ri}-${ei}`;
       setReceiptLoading(loadKey);
       try {
-        // Read file as base64
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        const [header, data] = base64.split(",");
-        const mediaType = header.match(/data:(.*?);/)?.[1] || "image/jpeg";
-
-        // Store the receipt as a data URL link
-        updateExpense(si, ri, ei, "receiptLink", base64);
-        updateExpense(si, ri, ei, "receiptFileName", file.name);
-
-        // Call OCR endpoint
         const resp = await fetch("/api/receipt-ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: data, mediaType }),
+          body: JSON.stringify({ url: trimmed }),
         });
         if (resp.ok) {
           const result = await resp.json();
@@ -282,7 +270,6 @@ export default function Budget({
 
     return (
     <div onClick={()=>showColPicker&&setShowColPicker(false)}>
-      <input ref={receiptInputRef} type="file" accept="image/*,.pdf" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f&&receiptTarget){handleReceiptUpload(f,receiptTarget.si,receiptTarget.ri,receiptTarget.ei);}e.target.value="";}} />
       <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>&#8249; Back to Budget</button>
 
       {/* Document container — matches EstimateView style */}
@@ -464,14 +451,11 @@ export default function Budget({
                                 <div style={colStyle("notes",{width:110,flexShrink:0,display:"flex",alignItems:"center",padding:"0 4px",gap:4})}>
                                   {exp.receiptLink ? (
                                     <span style={{display:"flex",alignItems:"center",gap:3,maxWidth:"100%"}}>
-                                      <a href={exp.receiptLink.startsWith("data:")?undefined:exp.receiptLink} onClick={e=>{if(exp.receiptLink.startsWith("data:")){e.preventDefault();const w=window.open();w.document.write(`<img src="${exp.receiptLink}" style="max-width:100%"/>`)}}} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}} title={exp.receiptFileName||exp.receiptLink}>{exp.receiptFileName?"VIEW":"RECEIPT"}</a>
-                                      <span onClick={()=>{updateExpense(si,ri,ei,"receiptLink","");updateExpense(si,ri,ei,"receiptFileName","");}} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                                      <a href={exp.receiptLink} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}} title={exp.receiptLink}>RECEIPT</a>
+                                      <span onClick={()=>updateExpense(si,ri,ei,"receiptLink","")} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                                     </span>
                                   ) : (
-                                    <span style={{display:"flex",alignItems:"center",gap:4}}>
-                                      <span onClick={()=>{setReceiptTarget({si,ri,ei});receiptInputRef.current?.click();}} style={{fontFamily:EST_F,fontSize:8,color:receiptLoading===`${si}-${ri}-${ei}`?"#999":"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{receiptLoading===`${si}-${ri}-${ei}`?"SCANNING...":"+ RECEIPT"}</span>
-                                      <span onClick={()=>{const url=window.prompt("Paste receipt link:");if(url&&url.trim())updateExpense(si,ri,ei,"receiptLink",url.trim());}} style={{fontFamily:EST_F,fontSize:8,color:"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>+ LINK</span>
-                                    </span>
+                                    <span onClick={()=>handleReceiptLink(si,ri,ei)} style={{fontFamily:EST_F,fontSize:8,color:receiptLoading===`${si}-${ri}-${ei}`?"#999":"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{if(receiptLoading!==`${si}-${ri}-${ei}`)e.target.style.color="#0066cc"}} onMouseLeave={e=>{if(receiptLoading!==`${si}-${ri}-${ei}`)e.target.style.color="#ccc"}}>{receiptLoading===`${si}-${ri}-${ei}`?"SCANNING...":"+ RECEIPT"}</span>
                                   )}
                                 </div>
                                 <div style={colStyle("days",{width:45,flexShrink:0})}></div>

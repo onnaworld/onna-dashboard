@@ -173,7 +173,7 @@ export const exportDocPreview=(preview,originalDoc,pageIndex)=>{
 };
 
 // ─── ESTIMATE CALC HELPERS ───────────────────────────────────────────────────
-export const estFmt = (n) => { const v = parseFloat(n); return isNaN(v) ? "" : v.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+export const estFmt = (n) => { const v = parseFloat(n); return isNaN(v) ? "" : (Math.round(v * 100) / 100).toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 export const estNum = (n) => { const v = parseFloat(String(n).replace(/,/g, "")); return isNaN(v) ? 0 : v; };
 export const estRowTotal = (r) => { const d=estNum(r.days)||1; const q=estNum(r.qty)||1; const rt=estNum(r.rate); return d*q*rt; };
 export const estSectionTotal = (s) => s.rows.reduce((sum,r)=>sum+estRowTotal(r),0);

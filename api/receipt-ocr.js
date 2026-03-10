@@ -1,4 +1,5 @@
 // Receipt OCR — extracts total amount from receipt image using Claude vision
+// Accepts either { url } (image link) or { image, mediaType } (base64)
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
@@ -8,13 +9,18 @@ export default async function handler(req, res) {
   }
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { image, mediaType } = req.body || {};
-  if (!image) return res.status(400).json({ error: "image (base64) required" });
+  const { url, image, mediaType } = req.body || {};
+  if (!url && !image) return res.status(400).json({ error: "url or image (base64) required" });
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
 
   try {
+    // Build image content block — either URL or base64
+    const imageBlock = url
+      ? { type: "image", source: { type: "url", url } }
+      : { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: image } };
+
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -28,13 +34,10 @@ export default async function handler(req, res) {
         messages: [{
           role: "user",
           content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType || "image/jpeg", data: image },
-            },
+            imageBlock,
             {
               type: "text",
-              text: "Extract the total amount from this receipt. Return ONLY a JSON object with these fields: {\"amount\": number, \"currency\": \"AED\" or whatever currency, \"vendor\": \"vendor name if visible\", \"description\": \"brief description of what was purchased\"}. If you cannot read a total, return {\"amount\": 0, \"currency\": \"\", \"vendor\": \"\", \"description\": \"\"}. Return ONLY the JSON, no other text.",
+              text: "Extract the total amount from this receipt or invoice. Return ONLY a JSON object with these fields: {\"amount\": number, \"currency\": \"AED\" or whatever currency, \"vendor\": \"vendor name if visible\", \"description\": \"brief description of what was purchased\"}. If you cannot read a total, return {\"amount\": 0, \"currency\": \"\", \"vendor\": \"\", \"description\": \"\"}. Return ONLY the JSON, no other text.",
             },
           ],
         }],
@@ -48,7 +51,6 @@ export default async function handler(req, res) {
 
     const data = await upstream.json();
     const text = data.content?.[0]?.text || "";
-    // Parse the JSON from Claude's response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return res.status(200).json(JSON.parse(jsonMatch[0]));
