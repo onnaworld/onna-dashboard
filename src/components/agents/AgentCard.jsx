@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
-import { api, docApi, buildPath } from "../../utils/helpers";
+import { api, docApi, buildPath, getXContacts, setXContacts } from "../../utils/helpers";
 import { useUI } from "../../context/UIContext";
 import { useProject } from "../../context/ProjectContext";
 import { useAgentStore } from "../../context/AgentContext";
+import VendorVinnieCard, { useVinnieCard, handleVinnieIntent } from "./VendorVinnie";
+import { handleConnieIntent } from "./CallSheetConnie";
+import { handleBillieIntent } from "./BudgetBillie";
+import { handleCarrieIntent } from "./CastingCarrie";
+import { handleRonnieIntent } from "./RiskAssessmentRonnie";
 
 export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;

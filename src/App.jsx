@@ -16,12 +16,11 @@ import Travel from "./components/project/Travel";
 import Documents from "./components/project/Documents";
 import Budget from "./components/project/Budget";
 import Creative from "./components/project/Creative";
-import VendorVinnieCard, { useVinnieCard, handleVinnieIntent } from "./components/agents/VendorVinnie";
-import { buildConnieSystem, applyConniePatch, buildConniePatchMarkers, revertConnieMarker, revertConnieMarkers, ConnieTabBar, handleConnieIntent } from "./components/agents/CallSheetConnie";
-import { buildRonnieSystem, applyRonniePatch, buildPatchMarkers, revertMarker, RonnieTabBar, handleRonnieIntent } from "./components/agents/RiskAssessmentRonnie";
-import { buildBillieSystem, applyBilliePatch, handleBillieIntent } from "./components/agents/BudgetBillie";
+import { buildConnieSystem, applyConniePatch, buildConniePatchMarkers, revertConnieMarker, revertConnieMarkers, ConnieTabBar } from "./components/agents/CallSheetConnie";
+import { buildRonnieSystem, applyRonniePatch, buildPatchMarkers, revertMarker, RonnieTabBar } from "./components/agents/RiskAssessmentRonnie";
+import { buildBillieSystem, applyBilliePatch } from "./components/agents/BudgetBillie";
 import { CONTRACT_INIT, migrateContract, CONTRACT_TYPE_IDS, CONTRACT_TYPE_LABELS, CONTRACT_FIELDS, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC, buildCodySystem, applyCodyPatch, handleCodyIntent } from "./components/agents/ContractCody";
-import { buildCarrieSystem, applyCarriePatch, handleCarrieIntent } from "./components/agents/CastingCarrie";
+import { buildCarrieSystem, applyCarriePatch } from "./components/agents/CastingCarrie";
 import { handlePerryIntent } from "./components/agents/PostProducerPerry";
 import { handleLillieIntent } from "./components/agents/LocationLillie";
 import { handlePollyIntent } from "./components/agents/ProducerPolly";
@@ -31,7 +30,7 @@ import { ProjectProvider, useProject } from "./context/ProjectContext";
 import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
-import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, OUTLOOK_CAL_ICS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections } from "./utils/helpers";
+import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, OUTLOOK_CAL_ICS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
 import { OutreachModal } from "./components/modals/OutreachModal";
@@ -150,9 +149,7 @@ if (typeof window !== "undefined") {
   window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
 }
 
-// ─── Extra contacts helpers (module-level so all components can use) ──────────
-const getXContacts = (type, id) => { try { return JSON.parse(localStorage.getItem(`onna_xc_${type}_${id}`) || '[]'); } catch { return []; } };
-const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${type}_${id}`, JSON.stringify(arr)); } catch {} };
+// ─── Extra contacts helpers (imported from helpers.js) ──────────
 
 function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPanel}){
   const isAgent=msg.role==="assistant";

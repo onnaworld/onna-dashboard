@@ -998,3 +998,7 @@ export const defaultSections = () => [
     {ref:"18D",desc:"PRODUCTION FEE",notes:"10%",days:"0",qty:"0",rate:"0"},
   ]},
 ];
+
+// ─── Extra contacts helpers ─────────────────────────────────────────────────
+export const getXContacts = (type, id) => { try { return JSON.parse(localStorage.getItem(`onna_xc_${type}_${id}`) || '[]'); } catch { return []; } };
+export const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${type}_${id}`, JSON.stringify(arr)); } catch {} };
