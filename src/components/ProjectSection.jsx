@@ -1,4 +1,5 @@
 import React from "react";
+import { estCalcTotals, defaultSections, actualsGrandExpenseTotal, actualsGrandZohoTotal } from "../utils/helpers";
 import Creative from "./project/Creative";
 import Budget from "./project/Budget";
 import Documents from "./project/Documents";
@@ -120,10 +121,18 @@ export default function ProjectSection({
   const entries    = projectEntries[p.id]||[];
   const quotes     = (projectFileStore[p.id]||{}).quotations||[];
   const allEntries = [...entries,...quotes.map((f,i)=>({id:`q_${i}`,supplier:f.name,category:"Quote",subCategory:"",invoiceNumber:"",receiptLink:"",datePaid:"",amount:"",direction:"out",notes:"Uploaded quote"}))];
-  const totalIn    = entries.filter(e=>e.direction==="in").reduce((a,b)=>a+Number(b.amount),0);
-  const totalOut   = entries.filter(e=>e.direction==="out").reduce((a,b)=>a+Number(b.amount),0);
-  const profit     = totalIn-totalOut;
-  const margin     = totalIn>0?Math.round((profit/totalIn)*100):0;
+  // Revenue from latest estimate grand total
+  const estVersions = projectEstimates[p.id] || [];
+  const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
+  const estRevenue = latestEst ? estCalcTotals(latestEst.sections || defaultSections()).grandTotal : 0;
+  // Expenses from actuals (Zoho finals if available, otherwise expense totals)
+  const actData = projectActuals[p.id];
+  const actZoho = actData ? actualsGrandZohoTotal(actData) : 0;
+  const actExpenses = actData ? actualsGrandExpenseTotal(actData) : 0;
+  const totalIn    = estRevenue;
+  const totalOut   = actZoho > 0 ? actZoho : actExpenses;
+  const profit     = totalIn - totalOut;
+  const margin     = totalIn > 0 ? Math.round((profit / totalIn) * 100) : 0;
 
   const SECTION_META = {
     "Creative":       {emoji:"🎨",count:`${((projectFileStore[p.id]||{}).moodboards||[]).length+((projectFileStore[p.id]||{}).briefs||[]).length} files`},
