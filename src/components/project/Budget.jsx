@@ -199,6 +199,12 @@ export default function Budget({
     const stColors = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
     const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
 
+    // Editable invoiced amount
+    const [invoicedOverride, setInvoicedOverride] = React.useState(() => {
+      try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); return v !== null ? parseFloat(v) : null; } catch { return null; }
+    });
+    const [invoicedEdit, setInvoicedEdit] = React.useState(null);
+
     // Export column picker
     const ALL_COLS = [
       { id:"notes", label:"Notes", w:80 },
@@ -361,11 +367,34 @@ export default function Budget({
           {(() => {
             const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-            const invoicedAmt = estTotals.grandTotal * (advPct / 100);
+            const autoInvoiced = estTotals.grandTotal * (advPct / 100);
+            const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
             return (
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
+            <div style={{flex:1,padding:"8px 10px",borderRight:"1px solid #ddd",textAlign:"center"}}>
+              <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>INVOICED {invoicedOverride===null?`(${advPct}%)`:""}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:2}}>
+                <input
+                  value={invoicedEdit !== null ? invoicedEdit : estFmt(invoicedAmt)}
+                  onFocus={e => { setInvoicedEdit(String(Math.round(invoicedAmt * 100) / 100)); e.target.select(); }}
+                  onChange={e => setInvoicedEdit(e.target.value)}
+                  onBlur={() => {
+                    const v = parseFloat(String(invoicedEdit).replace(/,/g, ""));
+                    if (!isNaN(v) && Math.round(v * 100) !== Math.round(autoInvoiced * 100)) {
+                      setInvoicedOverride(v);
+                      try { localStorage.setItem(`onna_invoiced_${p.id}`, String(v)); } catch {}
+                    } else {
+                      setInvoicedOverride(null);
+                      try { localStorage.removeItem(`onna_invoiced_${p.id}`); } catch {}
+                    }
+                    setInvoicedEdit(null);
+                  }}
+                  onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+                  style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:"#1a1a1a",textAlign:"center",border:"none",outline:"none",background:"transparent",width:90,padding:0}}
+                />
+              </div>
+            </div>
             {[
-              ["INVOICED (" + advPct + "%)", estFmt(invoicedAmt), "#1a1a1a", null],
               ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a", "estimate"],
               ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a", "actuals"],
               ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals"],
