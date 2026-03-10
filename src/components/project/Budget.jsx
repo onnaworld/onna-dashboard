@@ -56,9 +56,9 @@ export default function Budget({
         setProjectActuals(prev => ({ ...prev, [p.id]: buildActualsFromEstimate(estSections) }));
       } else {
         const synced = syncActualsWithEstimate(existing, estSections);
-        const syncedStr = JSON.stringify(synced.map(s => ({ num: s.num, title: s.title, rowCount: s.rows.length, refs: s.rows.map(r => r.ref) })));
-        const existStr = JSON.stringify(existing.map(s => ({ num: s.num, title: s.title, rowCount: s.rows.length, refs: s.rows.map(r => r.ref) })));
-        if (syncedStr !== existStr) {
+        // Compare structure AND estimate field values
+        const fingerprint = (secs) => JSON.stringify(secs.map(s => ({ num: s.num, title: s.title, isFees: s.isFees, rows: s.rows.map(r => ({ ref: r.ref, desc: r.desc, notes: r.notes, days: r.days, qty: r.qty, rate: r.rate })) })));
+        if (fingerprint(synced) !== fingerprint(existing)) {
           setProjectActuals(prev => ({ ...prev, [p.id]: synced }));
         }
       }
