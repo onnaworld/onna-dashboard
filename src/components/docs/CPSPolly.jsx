@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle } from "react";
+import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { showAlert, showPrompt } from "../../utils/modal";
 import { CSEditField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn, validateImg } from "../ui/DocHelpers";
 
 const CPS_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";

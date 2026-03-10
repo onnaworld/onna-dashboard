@@ -64,7 +64,7 @@ export default function ProjectSection({
   postProdStore, setPostProdStore,
   // estimate/budget
   editingEstimate, setEditingEstimate,
-  actualsTrackerTab, setActualsTrackerTab,
+  actualsTrackerTab, setActualsTrackerTab, actualsExpandedRef,
   invoiceTab, setInvoiceTab,
   invoiceSearchTerm, setInvoiceSearchTerm,
   quoteSearchTerm, setQuoteSearchTerm,
@@ -266,6 +266,7 @@ export default function ProjectSection({
       linkUploading={linkUploading} linkUploadProgress={linkUploadProgress} uploadFromLink={uploadFromLink}
       createMenuOpen={createMenuOpen} setCreateMenuOpen={setCreateMenuOpen} setDuplicateModal={setDuplicateModal} setDuplicateSearch={setDuplicateSearch}
       pushUndo={pushUndo} archiveItem={archiveItem} pushNav={pushNav} showAlert={showAlert} showPrompt={showPrompt} buildPath={buildPath}
+      projectInfoRef={projectInfoRef} actualsExpandedRef={actualsExpandedRef}
       EstCell={EstCell} EstimateView={EstimateView} BtnPrimary={BtnPrimary} PRINT_CLEANUP_CSS={PRINT_CLEANUP_CSS}
     />;
   }

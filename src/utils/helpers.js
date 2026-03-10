@@ -999,6 +999,33 @@ export const defaultSections = () => [
   ]},
 ];
 
+// ─── Doc updater utility ────────────────────────────────────────────────────
+export function makeDocUpdater(projectId, vIdx, setStore, initTemplate, initLabel) {
+  const getArr = (store) => store[projectId] || [{id:Date.now(),label:initLabel,...JSON.parse(JSON.stringify(initTemplate))}];
+  const update = (path, val) => {
+    setStore(prev => {
+      const store = JSON.parse(JSON.stringify(prev));
+      const arr = getArr(store);
+      const idx = Math.min(vIdx, arr.length - 1);
+      const d = arr[idx];
+      const k = path.split("."); let o = d;
+      for (let i = 0; i < k.length - 1; i++) o = o[k[i]];
+      o[k[k.length - 1]] = val;
+      arr[idx] = d; store[projectId] = arr; return store;
+    });
+  };
+  const set = (fn) => {
+    setStore(prev => {
+      const store = JSON.parse(JSON.stringify(prev));
+      const arr = getArr(store);
+      const idx = Math.min(vIdx, arr.length - 1);
+      arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx])));
+      store[projectId] = arr; return store;
+    });
+  };
+  return { update, set };
+}
+
 // ─── Extra contacts helpers ─────────────────────────────────────────────────
 export const getXContacts = (type, id) => { try { return JSON.parse(localStorage.getItem(`onna_xc_${type}_${id}`) || '[]'); } catch { return []; } };
 export const setXContacts = (type, id, arr) => { try { localStorage.setItem(`onna_xc_${type}_${id}`, JSON.stringify(arr)); } catch {} };

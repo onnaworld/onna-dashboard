@@ -1,4 +1,8 @@
 import React, { Fragment } from "react";
+import { getToken } from "../../utils/helpers";
+import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR } from "../ui/DocHelpers";
+import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
+import { CONTRACT_DOC_TYPES, CONTRACT_TYPE_LABELS, GENERAL_TERMS_DOC } from "../agents/ContractCody";
 
 export default function Documents({
   T, isMobile, p,
@@ -173,7 +177,7 @@ export default function Documents({
             </div>
 
             <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
-              <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET{cpr&&cpr.markers.length>0&&<span style={{display:"flex",gap:4,marginLeft:12}}><button onClick={acceptAllC} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllC} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></span>}</div>
+              <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET</div>
             </div>
 
             <div style={{padding:"8px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>

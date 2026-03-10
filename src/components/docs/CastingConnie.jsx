@@ -1,6 +1,9 @@
 import React, { useState, useRef, useImperativeHandle } from "react";
-import { validateImg } from "../ui/DocHelpers";
+import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { showAlert } from "../../utils/modal";
+import { validateImg, CS_FONT, CSLogoSlot } from "../ui/DocHelpers";
 
+let _castId = 0;
 const mkCastRole = () => ({ id: "cr" + (++_castId), name: "", description: "" });
 const mkCastEntry = () => ({ id: "ce" + (++_castId), name: "", agency: "", status: "none", image: null, notes: "", email: "", phone: "", portfolio: "", look: "", description: "" });
 const mkCastOption = () => ({ id: "co" + (++_castId), role: "", talent: [mkCastEntry(), mkCastEntry()] });
@@ -337,8 +340,5 @@ ${PRINT_CLEANUP_CSS}
     </div>
   );
 });
-
-/* ======= STORYBOARD CONNIE ======= */
-let _sbId = 0;
 
 export default CastingConnie;

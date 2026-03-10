@@ -1,5 +1,6 @@
 import React, { useState, useRef, useImperativeHandle } from "react";
 import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { showAlert } from "../../utils/modal";
 import { validateImg } from "../ui/DocHelpers";
 
 const CTB_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -192,8 +193,5 @@ const CastingTableConnie = React.forwardRef(function CastingTableConnieInner({ i
     </div>
   );
 });
-
-/* ======= FITTING CONNIE ======= */
-let _fitId = 0;
 
 export default CastingTableConnie;

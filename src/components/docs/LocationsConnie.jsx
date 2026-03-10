@@ -1,6 +1,9 @@
 import React, { useState, useRef, useImperativeHandle } from "react";
-import { validateImg } from "../ui/DocHelpers";
+import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { showAlert } from "../../utils/modal";
+import { validateImg, CS_FONT, CSLogoSlot } from "../ui/DocHelpers";
 
+let _locId = 0;
 export const mkLoc = () => ({ id: "loc" + (++_locId), name: "", address: "", rate: "", notes: "", status: "Scouted", images: [] });
 export const mkDetail = () => ({ id: "det" + (++_locId), name: "", address: "", rate: "", notes: "", images: [null, null, null, null, null, null, null] });
 const LOC_STATUSES = ["Scouted", "Shortlisted", "Approved", "Booked"];
@@ -351,8 +354,5 @@ ${PRINT_CLEANUP_CSS}
     </div>
   );
 });
-
-/* ======= CASTING CONNIE ======= */
-let _castId = 0;
 
 export default LocationsConnie;

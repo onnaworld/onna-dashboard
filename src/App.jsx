@@ -30,7 +30,7 @@ import { ProjectProvider, useProject } from "./context/ProjectContext";
 import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
-import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, OUTLOOK_CAL_ICS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts } from "./utils/helpers";
+import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, OUTLOOK_CAL_ICS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
 import { OutreachModal } from "./components/modals/OutreachModal";
@@ -78,7 +78,6 @@ import { RISK_ASSESSMENT_INIT } from "./data/riskAssessmentInit";
 import { RECCE_RATINGS, RECCE_RATING_C, mkRecceLocation, RECCE_REPORT_INIT, RecceInp, RecceField, RecceImgSlot } from "./data/recceReportInit.jsx";
 import { _YELLOW, _PINK, _BLUE, _PURPLE, _GREEN, _ORANGE, _TEAL, _CORAL } from "./components/agents/AgentCharacters";
 import { AGENT_DEFS } from "./data/agentDefs";
-import { DocPreviewDraggable } from "./components/ui/DocPreview";
 import SigningPage from "./components/SigningPage";
 import Settings from "./components/Settings";
 import ProjectSection from "./components/ProjectSection";
@@ -88,31 +87,7 @@ import { callSheetSystemPrompt } from "./prompts/callsheet";
 import "./styles/global.css";
 
 // ─── Generic doc updater factory ──────────────────────────────────────────────
-function makeDocUpdater(projectId, vIdx, setStore, initTemplate, initLabel) {
-  const getArr = (store) => store[projectId] || [{id:Date.now(),label:initLabel,...JSON.parse(JSON.stringify(initTemplate))}];
-  const update = (path, val) => {
-    setStore(prev => {
-      const store = JSON.parse(JSON.stringify(prev));
-      const arr = getArr(store);
-      const idx = Math.min(vIdx, arr.length - 1);
-      const d = arr[idx];
-      const k = path.split("."); let o = d;
-      for (let i = 0; i < k.length - 1; i++) o = o[k[i]];
-      o[k[k.length - 1]] = val;
-      arr[idx] = d; store[projectId] = arr; return store;
-    });
-  };
-  const set = (fn) => {
-    setStore(prev => {
-      const store = JSON.parse(JSON.stringify(prev));
-      const arr = getArr(store);
-      const idx = Math.min(vIdx, arr.length - 1);
-      arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx])));
-      store[projectId] = arr; return store;
-    });
-  };
-  return { update, set };
-}
+// makeDocUpdater moved to helpers.js
 
 
 
@@ -151,30 +126,7 @@ if (typeof window !== "undefined") {
 
 // ─── Extra contacts helpers (imported from helpers.js) ──────────
 
-function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPanel}){
-  const isAgent=msg.role==="assistant";
-  const handleDragReprocess=useCallback(async(newCfg)=>{
-    if(!codyDocConfigRef)return;
-    codyDocConfigRef.current=newCfg;
-    const result=await processDocSignStamp(newCfg.originalDoc,newCfg);
-    setMsgs(prev=>prev.map(m=>m===msg?{...m,_docPreview:result,_docConfig:newCfg}:m));
-    if(setCodySignPanel)setCodySignPanel({config:newCfg,preview:result});
-  },[msg,codyDocConfigRef,setMsgs,setCodySignPanel]);
-  return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
-    <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
-      {msg._attachments&&msg._attachments.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:msg.content?6:0}}>{msg._attachments.map((att,ai)=><img key={ai} src={att.dataUrl} alt={att.name||"attachment"} style={{maxWidth:160,maxHeight:120,borderRadius:6,objectFit:"cover",border:"1px solid rgba(255,255,255,0.2)"}}/>)}</div>}
-      {msg._docPreview&&msg._docConfig&&codyDocConfigRef?(codySignPanel?<div style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:120}} onClick={()=>setCodySignPanel&&setCodySignPanel({config:msg._docConfig,preview:msg._docPreview})}>
-        <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
-        <div style={{padding:"4px 6px",fontSize:9,fontWeight:600,color:"#0066cc",textAlign:"center"}}>Viewing in panel</div>
-      </div>:<DocPreviewDraggable config={msg._docConfig} onReprocess={handleDragReprocess} onExport={(pi)=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc,pi)}/>):msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
-        <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
-        <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
-        <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
-      </div>}
-      {typeof msg.content === "string" ? msg.content.replace(/\*\*/g, "") : msg.content}
-    </div>
-  </div>;
-}
+// _AgentBubble moved to AgentCard.jsx
 // ─── EstimateView — shared BudgetConnie rendering ─────────────────────────────
 const _LG_CARD = {width:380,background:"#fff",borderRadius:20,padding:"44px 40px 40px",boxShadow:"0 8px 40px rgba(0,0,0,0.1)",border:"1px solid rgba(0,0,0,0.07)"};
 const _LG_WRAP = {minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f5f7",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif"};
@@ -193,28 +145,8 @@ const LgLink = ({onClick,children}) => (
 );
 
 
-// ─── GLOBAL MODAL SYSTEM (replaces alert/prompt) ───────────────────────────
-let _modalResolve = null;
-let _setModalState = null;
-
-function showAlert(msg) {
-  return new Promise(resolve => {
-    _modalResolve = resolve;
-    if (_setModalState) _setModalState({ type: "alert", message: String(msg), show: true });
-  });
-}
-
-function showPrompt(msg, defaultVal = "") {
-  return new Promise(resolve => {
-    _modalResolve = resolve;
-    if (_setModalState) _setModalState({ type: "prompt", message: String(msg), defaultVal, show: true });
-  });
-}
-
-function _closeModal(value) {
-  if (_setModalState) _setModalState({ show: false });
-  if (_modalResolve) { _modalResolve(value); _modalResolve = null; }
-}
+// ─── GLOBAL MODAL SYSTEM (imported from utils/modal.js) ─────────────────────
+import { showAlert, showPrompt, closeModal as _closeModal, registerModalSetter } from "./utils/modal";
 
 export default function OnnaDashboard() {
   const _urlReset = new URLSearchParams(window.location.search).get("reset") || "";
@@ -262,7 +194,7 @@ function OnnaDashboardInner() {
 
   const [_modal, _setModal] = useState({ show: false, type: "alert", message: "", defaultVal: "" });
   const _modalInputRef = useRef(null);
-  useEffect(() => { _setModalState = _setModal; return () => { _setModalState = null; }; }, []);
+  useEffect(() => { registerModalSetter(_setModal); return () => { registerModalSetter(null); }; }, []);
   useEffect(() => { if (_modal.show && _modal.type === "prompt" && _modalInputRef.current) { _modalInputRef.current.focus(); _modalInputRef.current.select(); } }, [_modal.show, _modal.type]);
 
   const [authed,setAuthed]         = useState(()=>!!localStorage.getItem("onna_token") && !_urlReset);
@@ -1122,7 +1054,7 @@ function OnnaDashboardInner() {
     storyboardStore={storyboardStore} setStoryboardStore={setStoryboardStore}
     postProdStore={postProdStore} setPostProdStore={setPostProdStore}
     editingEstimate={editingEstimate} setEditingEstimate={setEditingEstimate}
-    actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab}
+    actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab} actualsExpandedRef={actualsExpandedRef}
     invoiceTab={invoiceTab} setInvoiceTab={setInvoiceTab}
     invoiceSearchTerm={invoiceSearchTerm} setInvoiceSearchTerm={setInvoiceSearchTerm}
     quoteSearchTerm={quoteSearchTerm} setQuoteSearchTerm={setQuoteSearchTerm}

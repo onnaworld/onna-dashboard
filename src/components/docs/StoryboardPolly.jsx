@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle } from "react";
+import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { showAlert } from "../../utils/modal";
 import { validateImg } from "../ui/DocHelpers";
 
+let _sbId = 0;
 export const mkFrame = () => ({
   id: "f" + (++_sbId),
   image: null,

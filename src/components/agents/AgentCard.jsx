@@ -1,13 +1,74 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
-import { api, docApi, buildPath, getXContacts, setXContacts } from "../../utils/helpers";
+import { createPortal } from "react-dom";
+import { api, docApi, buildPath, getXContacts, setXContacts,
+  findVendorOrLead, findAllSimilar, parseQuickEntry, detectFieldKey, fuzzyMatchProject,
+  printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportCastingPDF,
+  loadPdfPages, processDocSignStamp, renderHtmlToDocPages, exportDocPreview,
+  PRINT_CLEANUP_CSS, defaultSections,
+  estSectionTotal, estRowTotal, estCalcTotals, estNum, estFmt,
+  actualsSectionExpenseTotal, actualsSectionZohoTotal, actualsRowExpenseTotal,
+  actualsGrandExpenseTotal, actualsGrandZohoTotal } from "../../utils/helpers";
+import { CALLSHEET_INIT, DIETARY_INIT, DIETARY_TAGS, ESTIMATE_INIT } from "../ui/DocHelpers";
+import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
+import { CONTRACT_INIT, migrateContract, CONTRACT_TYPE_IDS, CONTRACT_TYPE_LABELS,
+  CONTRACT_FIELDS, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC,
+  buildCodySystem, applyCodyPatch, handleCodyIntent } from "./ContractCody";
 import { useUI } from "../../context/UIContext";
 import { useProject } from "../../context/ProjectContext";
 import { useAgentStore } from "../../context/AgentContext";
 import VendorVinnieCard, { useVinnieCard, handleVinnieIntent } from "./VendorVinnie";
-import { handleConnieIntent } from "./CallSheetConnie";
-import { handleBillieIntent } from "./BudgetBillie";
-import { handleCarrieIntent } from "./CastingCarrie";
-import { handleRonnieIntent } from "./RiskAssessmentRonnie";
+import { buildConnieSystem, applyConniePatch, buildConniePatchMarkers, ConnieTabBar, handleConnieIntent } from "./CallSheetConnie";
+import { buildBillieSystem, applyBilliePatch, handleBillieIntent } from "./BudgetBillie";
+import { buildFinnSystem, applyFinnPatch } from "./FinanceFinn";
+import { buildCarrieSystem, applyCarriePatch, handleCarrieIntent } from "./CastingCarrie";
+import { buildRonnieSystem, applyRonniePatch, buildPatchMarkers, RonnieTabBar, handleRonnieIntent } from "./RiskAssessmentRonnie";
+import { handleTinaIntent } from "./TravelTina";
+import { handleTabbyIntent } from "./TalentTabby";
+import { handlePollyIntent } from "./ProducerPolly";
+import { handleLillieIntent } from "./LocationLillie";
+import { handlePerryIntent } from "./PostProducerPerry";
+import { DocPreviewDraggable } from "../ui/DocPreview";
+import AgentDocPreview from "./AgentDocPreview";
+
+// ─── _AgentDots — loading indicator ────────────────────────────────────────
+function _AgentDots({ color = "#6e6e73" }) {
+  return <div style={{display:"flex",gap:4,padding:"10px 14px"}}>{[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:color,opacity:0.5,animation:`agentDotBounce 1.2s ${i*0.15}s infinite ease-in-out`}}/>)}<style>{`@keyframes agentDotBounce{0%,80%,100%{transform:scale(0.7)}40%{transform:scale(1.1)}}`}</style></div>;
+}
+
+// ─── _AgentBubble — chat message bubble ───────────────────────────────────
+function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPanel}){
+  const isAgent=msg.role==="assistant";
+  const handleDragReprocess=useCallback(async(newCfg)=>{
+    if(!codyDocConfigRef)return;
+    codyDocConfigRef.current=newCfg;
+    const result=await processDocSignStamp(newCfg.originalDoc,newCfg);
+    setMsgs(prev=>prev.map(m=>m===msg?{...m,_docPreview:result,_docConfig:newCfg}:m));
+    if(setCodySignPanel)setCodySignPanel({config:newCfg,preview:result});
+  },[msg,codyDocConfigRef,setMsgs,setCodySignPanel]);
+  return<div style={{display:"flex",justifyContent:isAgent?"flex-start":"flex-end",marginBottom:10}}>
+    <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:isAgent?"6px 16px 16px 16px":"16px 6px 16px 16px",background:isAgent?"#f5f5f7":"#1d1d1f",color:isAgent?"#1d1d1f":"#fff",fontSize:13.5,lineHeight:1.6,border:isAgent?"1px solid #e5e5ea":"none",whiteSpace:"pre-wrap",fontFamily:"-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif",userSelect:"text",WebkitUserSelect:"text",cursor:"text"}}>
+      {msg._attachments&&msg._attachments.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:msg.content?6:0}}>{msg._attachments.map((att,ai)=><img key={ai} src={att.dataUrl} alt={att.name||"attachment"} style={{maxWidth:160,maxHeight:120,borderRadius:6,objectFit:"cover",border:"1px solid rgba(255,255,255,0.2)"}}/>)}</div>}
+      {msg._docPreview&&msg._docConfig&&codyDocConfigRef?(codySignPanel?<div style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:120}} onClick={()=>setCodySignPanel&&setCodySignPanel({config:msg._docConfig,preview:msg._docPreview})}>
+        <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
+        <div style={{padding:"4px 6px",fontSize:9,fontWeight:600,color:"#0066cc",textAlign:"center"}}>Viewing in panel</div>
+      </div>:<DocPreviewDraggable config={msg._docConfig} onReprocess={handleDragReprocess} onExport={(pi)=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc,pi)}/>):msg._docPreview&&<div onClick={()=>exportDocPreview(msg._docPreview,msg._docConfig&&msg._docConfig.originalDoc)} style={{cursor:"pointer",borderRadius:8,overflow:"hidden",border:"1px solid #e0e0e0",marginBottom:msg.content?8:0,background:"#fafafa",maxWidth:220}}>
+        <img src={msg._docPreview.pages[0]} alt="preview" style={{width:"100%",height:"auto",display:"block",borderBottom:"1px solid #eee"}}/>
+        <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
+        <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
+      </div>}
+      {typeof msg.content === "string" ? msg.content.replace(/\*\*/g, "") : msg.content}
+    </div>
+  </div>;
+}
+
+// Chrome extension detection (Logan)
+let _loganExtId = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("message", e => {
+    if (e.source === window && e.data?.type === "LOGAN_EXT_READY" && e.data.id) _loganExtId = e.data.id;
+  });
+  window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
+}
 
 export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;

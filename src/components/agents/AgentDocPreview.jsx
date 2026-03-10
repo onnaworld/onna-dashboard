@@ -1,8 +1,17 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { renderHtmlToDocPages, exportDocPreview, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT } from "../../utils/helpers";
+import { renderHtmlToDocPages, exportDocPreview, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, makeDocUpdater } from "../../utils/helpers";
+import { showAlert, showPrompt } from "../../utils/modal";
+import { CALLSHEET_INIT, DIETARY_INIT, ESTIMATE_INIT,
+  CS_FONT, CS_LS, CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage,
+  RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS_HDR } from "../ui/DocHelpers";
+import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
+import { CONTRACT_INIT, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC } from "./ContractCody";
+import { revertConnieMarker, revertConnieMarkers } from "./CallSheetConnie";
+import { revertMarker } from "./RiskAssessmentRonnie";
+import EstimateView from "./EstimateView";
 
-function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
+export default function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
   if (!projectId) return null;
 
   // ── CONNIE: Dietary list view ──

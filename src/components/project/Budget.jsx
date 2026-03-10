@@ -1,6 +1,6 @@
 import React, { Fragment } from "react";
-import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, actualsRowExpenseTotal, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal } from "../../utils/helpers";
-import { EST_F, EST_LS, EST_LS_HDR, ESTIMATE_INIT } from "../ui/DocHelpers";
+import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
+import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT } from "../ui/DocHelpers";
 
 export default function Budget({
   T, isMobile, p,
@@ -15,6 +15,7 @@ export default function Budget({
   linkUploading, linkUploadProgress, uploadFromLink,
   createMenuOpen, setCreateMenuOpen, setDuplicateModal, setDuplicateSearch,
   pushUndo, archiveItem, pushNav, showAlert, showPrompt, buildPath,
+  projectInfoRef, actualsExpandedRef,
   EstCell, EstimateView, BtnPrimary, PRINT_CLEANUP_CSS,
 }) {
   const estimates    = projectEstimates[p.id]||[];

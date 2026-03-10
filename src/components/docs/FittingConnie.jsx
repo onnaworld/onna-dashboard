@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useImperativeHandle } from "react";
-import { validateImg } from "../ui/DocHelpers";
+import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { showAlert } from "../../utils/modal";
+import { validateImg, CSLogoSlot } from "../ui/DocHelpers";
 
+let _fitId = 0;
 export const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
 const mkFitLook = () => ({ id: "lk" + (++_fitId), name: "", description: "", notes: "", status: "Pending", image: null });
 export const mkFitFitting = () => { const fid = ++_fitId; return { id: "fit" + fid, modelId: "m" + fid, talentName: "", lookName: "", description: "", role: "", notes: "", images: [null,null,null,null], imageStatuses: {} }; };
