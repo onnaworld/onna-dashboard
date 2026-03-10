@@ -368,6 +368,9 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   const send=async()=>{
     if(!_inputRef.current.trim()&&!attachments.length)return;
     const input=_inputRef.current;
+    // Immediately clear the textarea so it doesn't linger while handlers run
+    if(_taRef.current)_taRef.current.value="";
+    _inputRef.current="";_setInput("");
     // ── Clear chat intent (runs even while loading) ──────────────────────────
     if(/^(clear(\s+chat|\s+prompt|\s+all|\s+history)?|reset(\s+chat)?|wipe(\s+chat)?|start\s*over|new\s+chat)$/i.test(input.trim())){
       const fresh=[{role:"assistant",content:_introWithProjects}];
@@ -1501,6 +1504,16 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         localProjects,fuzzyMatchProject,projectInfoRef,
       });
       if(_perryHandled)return;
+    }
+
+    // ── Project guard: agents that need a project must select one first ──
+    if(_needsProj[agent.id]&&!docProjectId){
+      const activeProjs=(localProjects||[]).filter(pr=>pr.status!=="Completed"&&pr.name&&!/^TEMPLATE/i.test(pr.name));
+      let reply="Which project should I work on?";
+      if(activeProjs.length>0) reply+="\n\n"+activeProjs.map((pr,i)=>`${i+1}. **${pr.client||""}** — ${pr.name}`).join("\n");
+      else reply+="\n\nNo active projects found. Create one first in the Projects section.";
+      setMsgs([...history,{role:"assistant",content:reply}]);
+      setLoading(false);setMood("idle");return;
     }
 
     setMsgs(history);setInput("");setLoading(true);setMood("thinking");
