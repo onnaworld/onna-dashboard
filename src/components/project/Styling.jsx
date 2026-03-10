@@ -138,7 +138,6 @@ export default function Styling({
       if (fitData?.shareToken && fitData?.fittings && statusFingerprint) {
         syncFeedbackToPortal(fitData.fittings, fitData.shareToken);
       }
-      return () => clearTimeout(fitSyncTimer.current);
     }, [statusFingerprint, fitData?.shareToken, syncFeedbackToPortal]);
 
     if (!fitData) { setActiveFittingVersion(null); return null; }
