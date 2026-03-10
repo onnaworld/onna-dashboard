@@ -23,7 +23,7 @@ export default function Projects({
   // Constants
   PROJECT_SECTIONS,
   // UI components
-  SearchBar, Pill, StatCard,
+  SearchBar, Pill,
 }) {
   // ── Local state (Projects-tab-only) ──
   const [projectYear, setProjectYear] = useState(2026);
@@ -33,9 +33,6 @@ export default function Projects({
   const projStatusColor = { Active: "#147d50", "In Review": "#92680a", Completed: T.muted };
   const projStatusBg = { Active: "#edfaf3", "In Review": "#fff8e8", Completed: "#f5f5f7" };
   const projects = allProjectsMerged.filter(p => p.year === projectYear || p.client === "TEMPLATE");
-  const projRev = projects.reduce((a, b) => a + getProjRevenue(b), 0);
-  const projProfit = projects.reduce((a, b) => a + (getProjRevenue(b) - getProjCost(b)), 0);
-  const projMargin = projRev > 0 ? Math.round((projProfit / projRev) * 100) : 0;
 
   if (selectedProject) return (
     <div>
@@ -63,11 +60,6 @@ export default function Projects({
         <SearchBar value={getSearch("Projects")} onChange={v => setSearch("Projects", v)} placeholder="Search projects\u2026" />
         <div style={{ display: "flex", gap: 6 }}>{(() => { const cy = new Date().getFullYear(); const yrs = new Set([2024, 2025, 2026, cy, cy + 1]); allProjectsMerged.forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => <Pill key={y} label={String(y)} active={projectYear === y} onClick={() => setProjectYear(y)} />)}</div>
         <span style={{ marginLeft: "auto", fontSize: 12, color: T.muted }}>{projects.length} projects</span>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14, marginBottom: 20 }}>
-        <StatCard label="Total Revenue" value={`AED ${(projRev / 1000).toFixed(0)}k`} />
-        <StatCard label="Total Profit" value={`AED ${(projProfit / 1000).toFixed(0)}k`} />
-        <StatCard label="Avg Margin" value={`${projMargin}%`} />
       </div>
       {/* Archive drop zone */}
       <div
