@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
-import { estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals } from "../../utils/helpers";
-import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS } from "../ui/DocHelpers";
+import { estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, defaultSections } from "../../utils/helpers";
+import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { CSLogoSlot } from "../ui/DocHelpers";
 
 const EST_CURRENCIES = [

@@ -1,4 +1,5 @@
 import React from "react";
+import { defaultSections } from "../../utils/helpers";
 
 // ─── BILLIE (ESTIMATE) UTILITY FUNCTIONS ────────────────────────────────────
 
