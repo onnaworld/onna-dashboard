@@ -137,6 +137,31 @@ export default function Budget({
       });
     };
 
+    // Drag-and-drop expenses between rows
+    const [dragExp, setDragExp] = React.useState(null); // {si, ri, ei}
+    const [dropTarget, setDropTarget] = React.useState(null); // {si, ri}
+    const moveExpense = (fromSi, fromRi, fromEi, toSi, toRi) => {
+      if (fromSi === toSi && fromRi === toRi) return; // same row, no-op
+      setProjectActuals(prev => {
+        const store = JSON.parse(JSON.stringify(prev));
+        const src = store[p.id][fromSi].rows[fromRi].expenses;
+        const [exp] = src.splice(fromEi, 1);
+        if (!store[p.id][toSi].rows[toRi].expenses) store[p.id][toSi].rows[toRi].expenses = [];
+        store[p.id][toSi].rows[toRi].expenses.push(exp);
+        return store;
+      });
+      // Auto-expand the target row
+      const targetKey = `${toSi}-${toRi}`;
+      if (!expandedRows[targetKey]) {
+        actualsExpandedRef.current[targetKey] = true;
+        setExpandedRows(prev => {
+          const next = {...prev, [targetKey]: true};
+          try { localStorage.setItem(expandStorageKey, JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+    };
+
     const trackerTab = actualsTrackerTab;
     const setTrackerTab = setActualsTrackerTab;
     const expandStorageKey = `onna_expanded_${p.id}`;
@@ -418,7 +443,11 @@ export default function Budget({
                     const isExpanded = expandedRows[rowKey];
                     return (
                       <Fragment key={ri}>
-                        <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:ROW_COLOR_MAP[row.rowColor||(row.highlighted?"toReconcile":"")]||"transparent"}}>
+                        <div
+                          onDragOver={e=>{if(dragExp){e.preventDefault();e.dataTransfer.dropEffect="move";setDropTarget({si,ri});}}}
+                          onDragLeave={()=>setDropTarget(null)}
+                          onDrop={e=>{e.preventDefault();if(dragExp){moveExpense(dragExp.si,dragExp.ri,dragExp.ei,si,ri);setDragExp(null);setDropTarget(null);}}}
+                          style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:dropTarget?.si===si&&dropTarget?.ri===ri?"#e3f2fd":ROW_COLOR_MAP[row.rowColor||(row.highlighted?"toReconcile":"")]||"transparent",transition:"background 0.15s"}}>
                           <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                           <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
                           <div style={colStyle("notes",{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS})}>{row.notes}</div>
@@ -445,8 +474,11 @@ export default function Budget({
                         {isExpanded && (
                           <div style={{background:"#fafafa",borderBottom:"1px solid #eee"}}>
                             {(row.expenses||[]).map((exp, ei) => (
-                              <div key={exp.id} style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
-                                <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center"}}>{"\u2514"}</div>
+                              <div key={exp.id} draggable data-noprint-drag
+                                onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain","");setDragExp({si,ri,ei});}}
+                                onDragEnd={()=>{setDragExp(null);setDropTarget(null);}}
+                                style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0",opacity:dragExp?.si===si&&dragExp?.ri===ri&&dragExp?.ei===ei?0.4:1}}>
+                                <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center",cursor:"grab"}} title="Drag to move to another line">&#x2630;</div>
                                 <div style={{flex:1,minWidth:0}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
                                 <div style={colStyle("notes",{width:110,flexShrink:0,display:"flex",alignItems:"center",padding:"0 4px",gap:4})}>
                                   {exp.receiptLink ? (
