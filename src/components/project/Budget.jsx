@@ -201,6 +201,9 @@ export default function Budget({
     const colVisible = (id) => !hiddenCols[id];
     const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true;return n;});
     const colStyle = (id, base) => colVisible(id) ? base : {...base, display:"none"};
+    // Dynamic min-width: base (ref 40 + desc ~120 + actions 42) + visible column widths
+    const visibleColWidth = ALL_COLS.filter(c => colVisible(c.id)).reduce((s, c) => s + c.w, 0);
+    const dynamicMinWidth = 200 + visibleColWidth;
 
     // Tally scratchpad — local state, not persisted
     const [tallyItems, setTallyItems] = React.useState([]);
@@ -302,7 +305,7 @@ export default function Budget({
 
       {/* Document container — matches EstimateView style */}
       <div style={{ overflowX:showColPicker?"visible":"auto",margin:isMobile?"0 -16px":"0",padding:isMobile?"0 16px":"0" }}>
-      <div style={{ maxWidth:1000,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700,position:"relative" }}>
+      <div style={{ maxWidth:1000,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:dynamicMinWidth,position:"relative" }}>
         {/* Tab bar */}
         <div style={{ display:"flex",borderBottom:"2px solid #000",position:"relative",zIndex:50 }}>
           {[{id:"summary",label:"SUMMARY"},{id:"detail",label:"ACTUALS TRACKER"}].map(t=><div key={t.id} onClick={()=>setTrackerTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:trackerTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:trackerTab===t.id?"#000":"#f5f5f5",color:trackerTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
