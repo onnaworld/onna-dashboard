@@ -206,6 +206,53 @@ export const buildActualsFromEstimate = (estimateSections) => {
   }));
 };
 
+export const syncActualsWithEstimate = (existingActuals, estimateSections) => {
+  const estSecs = estimateSections || defaultSections();
+  const actByNum = {};
+  (existingActuals || []).forEach(s => { actByNum[s.num || s.id] = s; });
+
+  return estSecs.map(estSec => {
+    const key = estSec.num || estSec.id;
+    const actSec = actByNum[key];
+    if (!actSec) {
+      // New section from estimate — init with empty actuals
+      return {
+        ...JSON.parse(JSON.stringify(estSec)),
+        rows: estSec.rows.map(r => ({
+          ...JSON.parse(JSON.stringify(r)),
+          expenses: [], zohoAmount: "0", status: "",
+        })),
+      };
+    }
+    // Existing section — merge rows by ref
+    const actRowByRef = {};
+    actSec.rows.forEach(r => { if (r.ref) actRowByRef[r.ref] = r; });
+
+    const mergedRows = estSec.rows.map(estRow => {
+      const actRow = actRowByRef[estRow.ref];
+      if (!actRow) {
+        // New row from estimate
+        return { ...JSON.parse(JSON.stringify(estRow)), expenses: [], zohoAmount: "0", status: "" };
+      }
+      // Existing row — update estimate fields, keep actuals data
+      return {
+        ...JSON.parse(JSON.stringify(actRow)),
+        desc: estRow.desc,
+        notes: estRow.notes,
+        days: estRow.days,
+        qty: estRow.qty,
+        rate: estRow.rate,
+      };
+    });
+
+    return {
+      ...JSON.parse(JSON.stringify(estSec)),
+      rows: mergedRows,
+      isFees: estSec.isFees,
+    };
+  });
+};
+
 export const actualsRowExpenseTotal = (row) => (row.expenses || []).reduce((s, e) => s + estNum(e.amount), 0);
 export const actualsRowEffective = (row) => { const a = estNum(row.actualsAmount); return a ? a : actualsRowExpenseTotal(row); };
 export const actualsSectionExpenseTotal = (sec) => sec.rows.reduce((s, r) => s + actualsRowExpenseTotal(r), 0);

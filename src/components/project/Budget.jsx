@@ -1,5 +1,5 @@
 import React, { Fragment } from "react";
-import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
+import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT } from "../ui/DocHelpers";
 
 export default function Budget({
@@ -49,10 +49,19 @@ export default function Budget({
     const estTotals = estCalcTotals(estSections);
     const actProdLogo = latestEst?.prodLogo || null;
 
-    // Auto-init actuals from estimate if not yet created
-    if (!projectActuals[p.id] && latestEst) {
-      const init = buildActualsFromEstimate(estSections);
-      setProjectActuals(prev => ({ ...prev, [p.id]: init }));
+    // Auto-sync actuals with estimate — merges new sections/rows without wiping existing data
+    if (latestEst) {
+      const existing = projectActuals[p.id];
+      if (!existing) {
+        setProjectActuals(prev => ({ ...prev, [p.id]: buildActualsFromEstimate(estSections) }));
+      } else {
+        const synced = syncActualsWithEstimate(existing, estSections);
+        const syncedStr = JSON.stringify(synced.map(s => ({ num: s.num, title: s.title, rowCount: s.rows.length, refs: s.rows.map(r => r.ref) })));
+        const existStr = JSON.stringify(existing.map(s => ({ num: s.num, title: s.title, rowCount: s.rows.length, refs: s.rows.map(r => r.ref) })));
+        if (syncedStr !== existStr) {
+          setProjectActuals(prev => ({ ...prev, [p.id]: synced }));
+        }
+      }
     }
     const actSections = projectActuals[p.id] || buildActualsFromEstimate(estSections);
 
