@@ -386,6 +386,19 @@ export default function Budget({
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:4}}>BUDGET TRACKER</div>
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
 
+          {/* Notes section */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:6}}>NOTES</div>
+            <textarea
+              data-noprint-hide
+              value={budgetNotes}
+              onChange={e => saveBudgetNotes(e.target.value)}
+              placeholder="Add notes..."
+              style={{width:"100%",minHeight:60,padding:"8px 10px",borderRadius:6,border:"1px solid #e0e0e0",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",resize:"vertical",outline:"none",boxSizing:"border-box",lineHeight:1.5}}
+            />
+            <div data-print-only style={{display:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",whiteSpace:"pre-wrap",lineHeight:1.5,padding:"4px 0"}}>{budgetNotes}</div>
+          </div>
+
           {/* Summary cards row */}
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
             <div style={{flex:1,padding:"8px 10px",borderRight:"1px solid #ddd",textAlign:"center"}}>
@@ -638,19 +651,6 @@ export default function Budget({
             </div>
           )}
 
-          {/* Notes section */}
-          <div style={{marginTop:20}}>
-            <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:6}}>NOTES</div>
-            <textarea
-              data-noprint-hide
-              value={budgetNotes}
-              onChange={e => saveBudgetNotes(e.target.value)}
-              placeholder="Add notes..."
-              style={{width:"100%",minHeight:60,padding:"8px 10px",borderRadius:6,border:"1px solid #e0e0e0",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",resize:"vertical",outline:"none",boxSizing:"border-box",lineHeight:1.5}}
-            />
-            {/* Static version for print */}
-            <div data-print-only style={{display:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",whiteSpace:"pre-wrap",lineHeight:1.5,padding:"4px 0"}}>{budgetNotes}</div>
-          </div>
         </div>
       </div>
       </div>
