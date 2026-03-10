@@ -135,10 +135,65 @@ export default function Styling({
     }, [fitData?.fittings]);
 
     useEffect(() => {
+      if (isSyncing.current) return; // skip if change came from portal poll
       if (fitData?.shareToken && fitData?.fittings && statusFingerprint) {
         syncFeedbackToPortal(fitData.fittings, fitData.shareToken);
       }
     }, [statusFingerprint, fitData?.shareToken, syncFeedbackToPortal]);
+
+    // Poll portal feedback and sync back to dashboard
+    const lastFeedbackHash = useRef("");
+    const isSyncing = useRef(false);
+    useEffect(() => {
+      if (!fitData?.shareToken || !fitData?.fittings) return;
+      const token = fitData.shareToken;
+      const interval = setInterval(async () => {
+        if (isSyncing.current) return;
+        try {
+          const resp = await fetch(`/api/fit-share?token=${encodeURIComponent(token)}&feedbackOnly=1`);
+          if (!resp.ok) return;
+          const data = await resp.json();
+          if (!data.feedback) return;
+          const hash = JSON.stringify(data.feedback);
+          if (hash === lastFeedbackHash.current) return;
+          lastFeedbackHash.current = hash;
+          // Map portal card indices back to fittings
+          isSyncing.current = true;
+          setFittingStore(prev => {
+            const store = JSON.parse(JSON.stringify(prev));
+            const fittings = store[p.id]?.[fitIdx]?.fittings;
+            if (!fittings) { isSyncing.current = false; return prev; }
+            let ci = 0;
+            let changed = false;
+            fittings.forEach(fit => {
+              (fit.images || []).forEach((img, n) => {
+                const fb = data.feedback["c" + ci];
+                const newStatus = fb?.status || "none";
+                const oldStatus = (fit.imageStatuses || {})[n] || "none";
+                if (newStatus !== oldStatus) {
+                  if (!fit.imageStatuses) fit.imageStatuses = {};
+                  fit.imageStatuses[n] = newStatus === "none" ? undefined : newStatus;
+                  if (newStatus === "none") delete fit.imageStatuses[n];
+                  changed = true;
+                }
+                if (fb?.note != null) {
+                  const oldNote = (fit.imageNotes || {})[n] || "";
+                  if (fb.note !== oldNote) {
+                    if (!fit.imageNotes) fit.imageNotes = {};
+                    fit.imageNotes[n] = fb.note;
+                    changed = true;
+                  }
+                }
+                ci++;
+              });
+            });
+            isSyncing.current = false;
+            return changed ? store : prev;
+          });
+        } catch { isSyncing.current = false; }
+      }, 5000);
+      return () => clearInterval(interval);
+    }, [fitData?.shareToken, fitIdx, p.id, setFittingStore]);
 
     if (!fitData) { setActiveFittingVersion(null); return null; }
 
