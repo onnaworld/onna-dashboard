@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
@@ -8,16 +8,17 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const [notesErr, setNotesErr]       = useState("");
   const notesFetchedRef               = useRef(false);
 
-  // Lazy-fetch on first render — wait until global hydration is done
-  React.useEffect(() => {
-    if (!hydrated || notesFetchedRef.current || notesLoading) return;
+  // Fetch notes on mount — show cached cards immediately, refresh in background
+  useEffect(() => {
+    if (notesFetchedRef.current) return;
     notesFetchedRef.current = true;
+    // Only show loading spinner if there are no cached notes to display
     if (notes.length === 0) setNotesLoading(true);
     api.get("/api/notes").then(data => {
       if (Array.isArray(data) && data.length) setNotes(data);
       setNotesLoading(false);
     }).catch(() => setNotesLoading(false));
-  }, [hydrated]); // eslint-disable-line
+  }, []); // eslint-disable-line
 
   return (
     <div>
@@ -61,7 +62,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       ) : (
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
           {notes.map(n=>(
-            <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",gap:8}}>
+            <div key={n.id} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",display:"flex",flexDirection:"column",gap:8}}>
               {n.title&&<div style={{fontSize:14,fontWeight:700,color:T.text,letterSpacing:"-0.01em"}}>{n.title}</div>}
               <div style={{fontSize:13,color:T.sub,lineHeight:1.65,whiteSpace:"pre-wrap",flexGrow:1}}>{n.content}</div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6,paddingTop:10,borderTop:`1px solid ${T.borderSub}`}}>

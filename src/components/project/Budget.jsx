@@ -139,18 +139,56 @@ export default function Budget({
 
     const trackerTab = actualsTrackerTab;
     const setTrackerTab = setActualsTrackerTab;
-    const toggleExpand = (key) => { actualsExpandedRef.current[key] = !actualsExpandedRef.current[key]; setProjectActuals(prev => ({...prev})); };
+    const expandStorageKey = `onna_expanded_${p.id}`;
+    const [expandedRows, setExpandedRows] = React.useState(() => {
+      try { const s = localStorage.getItem(expandStorageKey); if (s) return JSON.parse(s); } catch {}
+      const init = {};
+      Object.keys(actualsExpandedRef.current || {}).forEach(k => { if (actualsExpandedRef.current[k]) init[k] = true; });
+      return init;
+    });
+    const toggleExpand = (key) => {
+      actualsExpandedRef.current[key] = !actualsExpandedRef.current[key];
+      setExpandedRows(prev => {
+        const next = {...prev}; if (next[key]) delete next[key]; else next[key] = true;
+        try { localStorage.setItem(expandStorageKey, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    };
 
     const actHdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
     const stColors = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
     const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
 
+    // Export column picker
+    const ALL_COLS = [
+      { id:"notes", label:"Notes", w:110 },
+      { id:"days", label:"Days", w:45 },
+      { id:"qty", label:"Qty", w:35 },
+      { id:"rate", label:"Rate", w:70 },
+      { id:"estimate", label:"Estimate", w:80 },
+      { id:"actuals", label:"Actuals", w:80 },
+      { id:"finals", label:"Finals", w:80 },
+      { id:"variance", label:"Variance", w:70 },
+      { id:"status", label:"Status", w:60 },
+    ];
+    const [hiddenCols, setHiddenCols] = React.useState({});
+    const [showColPicker, setShowColPicker] = React.useState(false);
+    const colVisible = (id) => !hiddenCols[id];
+    const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true;return n;});
+    const colStyle = (id, base) => colVisible(id) ? base : {...base, display:"none"};
+
     // Tally scratchpad — local state, not persisted
     const [tallyItems, setTallyItems] = React.useState([]);
-    const toggleTally = (secIdx, rowIdx) => {
-      const key = `${secIdx}-${rowIdx}`;
+    const toggleTally = (secIdx, rowIdx, expIdx) => {
+      const key = expIdx !== undefined ? `${secIdx}-${rowIdx}-e${expIdx}` : `${secIdx}-${rowIdx}`;
       setTallyItems(prev => {
         if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
+        if (expIdx !== undefined) {
+          const exp = actSections[secIdx]?.rows[rowIdx]?.expenses?.[expIdx];
+          if (!exp) return prev;
+          const amt = parseFloat(exp.amount) || 0;
+          return [...prev, { key, ref: "", desc: exp.desc || "Expense", estimate: 0, actuals: amt }];
+        }
         const row = actSections[secIdx]?.rows[rowIdx];
         const estRow = estSections[secIdx]?.rows[rowIdx];
         if (!row) return prev;
@@ -159,12 +197,68 @@ export default function Budget({
         return [...prev, { key, ref: row.ref, desc: row.desc, estimate: estVal, actuals: actVal }];
       });
     };
-    const isTallied = (secIdx, rowIdx) => tallyItems.some(t => t.key === `${secIdx}-${rowIdx}`);
+    const isTallied = (secIdx, rowIdx, expIdx) => {
+      const key = expIdx !== undefined ? `${secIdx}-${rowIdx}-e${expIdx}` : `${secIdx}-${rowIdx}`;
+      return tallyItems.some(t => t.key === key);
+    };
     const tallyEstTotal = tallyItems.reduce((s, t) => s + t.estimate, 0);
     const tallyActTotal = tallyItems.reduce((s, t) => s + t.actuals, 0);
 
+    // Receipt upload with OCR
+    const receiptInputRef = React.useRef(null);
+    const [receiptTarget, setReceiptTarget] = React.useState(null); // {si, ri, ei}
+    const [receiptLoading, setReceiptLoading] = React.useState(null); // "si-ri-ei" key
+    const [receiptOcrResult, setReceiptOcrResult] = React.useState(null); // {si, ri, ei, amount, vendor, description, currency}
+    const handleReceiptUpload = async (file, si, ri, ei) => {
+      const loadKey = `${si}-${ri}-${ei}`;
+      setReceiptLoading(loadKey);
+      try {
+        // Read file as base64
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const [header, data] = base64.split(",");
+        const mediaType = header.match(/data:(.*?);/)?.[1] || "image/jpeg";
+
+        // Store the receipt as a data URL link
+        updateExpense(si, ri, ei, "receiptLink", base64);
+        updateExpense(si, ri, ei, "receiptFileName", file.name);
+
+        // Call OCR endpoint
+        const resp = await fetch("/api/receipt-ocr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: data, mediaType }),
+        });
+        if (resp.ok) {
+          const result = await resp.json();
+          if (result.amount && result.amount > 0) {
+            setReceiptOcrResult({ si, ri, ei, ...result });
+          }
+        }
+      } catch (err) {
+        console.error("Receipt OCR error:", err);
+      } finally {
+        setReceiptLoading(null);
+      }
+    };
+    const applyReceiptOcr = () => {
+      if (!receiptOcrResult) return;
+      const { si, ri, ei, amount, vendor, description } = receiptOcrResult;
+      updateExpense(si, ri, ei, "amount", String(amount));
+      if (vendor) {
+        const desc = description ? `${vendor} — ${description}` : vendor;
+        updateExpense(si, ri, ei, "desc", desc);
+      }
+      setReceiptOcrResult(null);
+    };
+
     // Print export — inject print styles and print directly
     const doActPrint = () => {
+      setShowColPicker(false);
       const styleId = "actuals-print-style";
       let style = document.getElementById(styleId);
       if (!style) {
@@ -187,20 +281,38 @@ export default function Budget({
     };
 
     return (
-    <div>
+    <div onClick={()=>showColPicker&&setShowColPicker(false)}>
+      <input ref={receiptInputRef} type="file" accept="image/*,.pdf" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f&&receiptTarget){handleReceiptUpload(f,receiptTarget.si,receiptTarget.ri,receiptTarget.ei);}e.target.value="";}} />
       <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>&#8249; Back to Budget</button>
 
       {/* Document container — matches EstimateView style */}
-      <div style={{ overflowX:"auto",margin:isMobile?"0 -16px":"0",padding:isMobile?"0 16px":"0" }}>
-      <div style={{ maxWidth:1000,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700 }}>
+      <div style={{ overflowX:showColPicker?"visible":"auto",margin:isMobile?"0 -16px":"0",padding:isMobile?"0 16px":"0" }}>
+      <div style={{ maxWidth:1000,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700,position:"relative" }}>
         {/* Tab bar */}
-        <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
+        <div style={{ display:"flex",borderBottom:"2px solid #000",position:"relative",zIndex:50 }}>
           {[{id:"summary",label:"SUMMARY"},{id:"detail",label:"ACTUALS TRACKER"}].map(t=><div key={t.id} onClick={()=>setTrackerTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:trackerTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:trackerTab===t.id?"#000":"#f5f5f5",color:trackerTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
-          <div style={{ marginLeft:"auto",display:"flex" }}>
+          <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
+            <div onClick={e=>{e.stopPropagation();setShowColPicker(p=>!p);}} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showColPicker?"#333":"#f5f5f5",color:showColPicker?"#fff":"#666",textTransform:"uppercase",borderLeft:"1px solid #ddd",transition:"all .15s" }}
+              onMouseEnter={e=>{if(!showColPicker){e.target.style.background="#e8e8e8";e.target.style.color="#333";}}} onMouseLeave={e=>{if(!showColPicker){e.target.style.background="#f5f5f5";e.target.style.color="#666";}}}>{Object.keys(hiddenCols).length>0?`COLUMNS (${ALL_COLS.length-Object.keys(hiddenCols).length}/${ALL_COLS.length})`:"COLUMNS ▾"}</div>
             <div onClick={doActPrint} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
               onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>EXPORT PDF</div>
           </div>
         </div>
+        {showColPicker && (
+          <div data-noprint style={{position:"absolute",top:38,right:0,background:"#fff",border:"1px solid #ddd",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,0.15)",zIndex:9999,padding:"8px 0",minWidth:200}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:"6px 14px 10px",fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase",borderBottom:"1px solid #f0f0f0"}}>Show / Hide Columns</div>
+            {ALL_COLS.map(c=>(
+              <div key={c.id} onClick={()=>toggleCol(c.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px",cursor:"pointer",fontFamily:EST_F,fontSize:12,letterSpacing:EST_LS,color:colVisible(c.id)?"#1a1a1a":"#bbb",transition:"background .1s"}} onMouseEnter={e=>{e.currentTarget.style.background="#f5f5f7"}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
+                <span style={{width:16,height:16,borderRadius:3,border:colVisible(c.id)?"2px solid #1976D2":"2px solid #ccc",background:colVisible(c.id)?"#1976D2":"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:11,color:"#fff",lineHeight:1}}>{colVisible(c.id)?"\u2713":""}</span>
+                {c.label}
+              </div>
+            ))}
+            <div style={{borderTop:"1px solid #f0f0f0",padding:"8px 14px 6px",display:"flex",gap:12}}>
+              <span onClick={()=>setHiddenCols({})} style={{fontFamily:EST_F,fontSize:10,color:"#1976D2",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>SELECT ALL</span>
+              <span onClick={()=>{const h={};ALL_COLS.forEach(c=>{h[c.id]=true});setHiddenCols(h);}} style={{fontFamily:EST_F,fontSize:10,color:"#999",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>DESELECT ALL</span>
+            </div>
+          </div>
+        )}
 
         <div id="actuals-print-area" style={{ padding:"40px 40px" }}>
           {/* Logo + header */}
@@ -233,10 +345,10 @@ export default function Budget({
             <div>
               <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
                 <div style={{flex:1,...actHdr}}>SECTION</div>
-                <div style={{width:110,...actHdr,textAlign:"right"}}>ESTIMATE</div>
-                <div style={{width:110,...actHdr,textAlign:"right"}}>ACTUALS</div>
-                <div style={{width:110,...actHdr,textAlign:"right"}}>FINALS</div>
-                <div style={{width:110,...actHdr,textAlign:"right"}}>VARIANCE</div>
+                <div style={colStyle("estimate",{width:110,...actHdr,textAlign:"right"})}>ESTIMATE</div>
+                <div style={colStyle("actuals",{width:110,...actHdr,textAlign:"right"})}>ACTUALS</div>
+                <div style={colStyle("finals",{width:110,...actHdr,textAlign:"right"})}>FINALS</div>
+                <div style={colStyle("variance",{width:110,...actHdr,textAlign:"right"})}>VARIANCE</div>
               </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
@@ -253,18 +365,18 @@ export default function Budget({
                   <div key={si} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
                     <div style={{width:24,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
                     <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
-                    <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estSecTot)}</div>
-                    <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExp)}</div>
-                    <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZoho)}</div>
-                    <div style={{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:sv>=0?"#147d50":"#c0392b"}}>{(sv>=0?"+":"")}{estFmt(sv)}</div>
+                    <div style={colStyle("estimate",{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(estSecTot)}</div>
+                    <div style={colStyle("actuals",{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actExp)}</div>
+                    <div style={colStyle("finals",{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actZoho)}</div>
+                    <div style={colStyle("variance",{width:110,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:sv>=0?"#147d50":"#c0392b"})}>{(sv>=0?"+":"")}{estFmt(sv)}</div>
                   </div>
                 ); })}
               <div style={{display:"flex",borderTop:"2px solid #000"}}>
                 <div style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
-                <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
-                <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExpenseTotal)}</div>
-                <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZohoTotal)}</div>
-                <div style={{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:actVariance>=0?"#147d50":"#c0392b"}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
+                <div style={colStyle("estimate",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(estTotals.grandTotal)}</div>
+                <div style={colStyle("actuals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actExpenseTotal)}</div>
+                <div style={colStyle("finals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actZohoTotal)}</div>
+                <div style={colStyle("variance",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:actVariance>=0?"#147d50":"#c0392b"})}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
               </div>
             </div>
           )}
@@ -290,15 +402,15 @@ export default function Budget({
                   <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
                     <div style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
                     <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
-                    <div style={{width:110,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
-                    <div style={{width:45,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
-                    <div style={{width:35,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
-                    <div style={{width:70,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
-                    <div style={{width:80,textAlign:"right",padding:"0 4px",flexShrink:0}}>ESTIMATE</div>
-                    <div style={{width:80,textAlign:"right",padding:"0 4px",flexShrink:0}}>ACTUALS</div>
-                    <div style={{width:80,textAlign:"right",padding:"0 4px",flexShrink:0}}>FINALS</div>
-                    <div style={{width:70,textAlign:"right",padding:"0 4px",flexShrink:0}}>VARIANCE</div>
-                    <div style={{width:60,textAlign:"center",padding:"0 4px",flexShrink:0}}>STATUS</div>
+                    <div style={colStyle("notes",{width:110,padding:"0 6px",fontSize:9,flexShrink:0})}>NOTES</div>
+                    <div style={colStyle("days",{width:45,textAlign:"center",padding:"0 4px",flexShrink:0})}>DAYS</div>
+                    <div style={colStyle("qty",{width:35,textAlign:"center",padding:"0 4px",flexShrink:0})}>QTY</div>
+                    <div style={colStyle("rate",{width:70,textAlign:"right",padding:"0 4px",flexShrink:0})}>RATE</div>
+                    <div style={colStyle("estimate",{width:80,textAlign:"right",padding:"0 4px",flexShrink:0})}>ESTIMATE</div>
+                    <div style={colStyle("actuals",{width:80,textAlign:"right",padding:"0 4px",flexShrink:0})}>ACTUALS</div>
+                    <div style={colStyle("finals",{width:80,textAlign:"right",padding:"0 4px",flexShrink:0})}>FINALS</div>
+                    <div style={colStyle("variance",{width:70,textAlign:"right",padding:"0 4px",flexShrink:0})}>VARIANCE</div>
+                    <div style={colStyle("status",{width:60,textAlign:"center",padding:"0 4px",flexShrink:0})}>STATUS</div>
                     <div style={{width:24,flexShrink:0}} data-noprint></div>
                     <div style={{width:18,flexShrink:0}} data-noprint></div>
                   </div>
@@ -316,21 +428,21 @@ export default function Budget({
                     const actVal = actualsRowEffective(row);
                     const rv = estVal - actVal;
                     const rowKey = `${si}-${ri}`;
-                    const isExpanded = actualsExpandedRef.current[rowKey];
+                    const isExpanded = expandedRows[rowKey];
                     return (
                       <Fragment key={ri}>
                         <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:ROW_COLOR_MAP[row.rowColor||(row.highlighted?"toReconcile":"")]||"transparent"}}>
                           <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                           <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
-                          <div style={{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS}}>{row.notes}</div>
-                          <div style={{width:45,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.days)>0?"#1a1a1a":"#ccc"}}>{row.days}</div>
-                          <div style={{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"}}>{row.qty}</div>
-                          <div style={{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"}}>{estFmt(estNum(row.rate))}</div>
-                          <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"}}>{estFmt(estVal)}</div>
-                          <div style={{width:80,flexShrink:0}}><EstCell value={row.actualsAmount||String(expTotal||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
-                          <div style={{width:80,flexShrink:0}}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
-                          <div style={{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{(rv>=0?"+":"") + estFmt(rv)}</div>
-                          <div style={{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <div style={colStyle("notes",{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS})}>{row.notes}</div>
+                          <div style={colStyle("days",{width:45,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.days)>0?"#1a1a1a":"#ccc"})}>{row.days}</div>
+                          <div style={colStyle("qty",{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"})}>{row.qty}</div>
+                          <div style={colStyle("rate",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"})}>{estFmt(estNum(row.rate))}</div>
+                          <div style={colStyle("estimate",{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"})}>{estFmt(estVal)}</div>
+                          <div style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={row.actualsAmount||String(expTotal||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
+                          <div style={colStyle("finals",{width:80,flexShrink:0})}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
+                          <div style={colStyle("variance",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"})}>{(rv>=0?"+":"") + estFmt(rv)}</div>
+                          <div style={colStyle("status",{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"})}>
                             <span onClick={()=>{const idx=ACTUALS_STATUSES.indexOf(row.status);updateActRow(si,ri,"status",ACTUALS_STATUSES[(idx+1)%ACTUALS_STATUSES.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",background:stBg[row.status]||"transparent",color:stColors[row.status]||"#ccc",textTransform:"uppercase"}}>{row.status||"\u2014"}</span>
                           </div>
                           <div style={{width:24,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}} data-noprint>
@@ -349,30 +461,35 @@ export default function Budget({
                               <div key={exp.id} style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
                                 <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center"}}>{"\u2514"}</div>
                                 <div style={{flex:1,minWidth:0}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                <div style={{width:110,flexShrink:0,display:"flex",alignItems:"center",padding:"0 4px"}}>
+                                <div style={colStyle("notes",{width:110,flexShrink:0,display:"flex",alignItems:"center",padding:"0 4px",gap:4})}>
                                   {exp.receiptLink ? (
                                     <span style={{display:"flex",alignItems:"center",gap:3,maxWidth:"100%"}}>
-                                      <a href={exp.receiptLink} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={exp.receiptLink}>RECEIPT</a>
-                                      <span onClick={()=>updateExpense(si,ri,ei,"receiptLink","")} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                                      <a href={exp.receiptLink.startsWith("data:")?undefined:exp.receiptLink} onClick={e=>{if(exp.receiptLink.startsWith("data:")){e.preventDefault();const w=window.open();w.document.write(`<img src="${exp.receiptLink}" style="max-width:100%"/>`)}}} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}} title={exp.receiptFileName||exp.receiptLink}>{exp.receiptFileName?"VIEW":"RECEIPT"}</a>
+                                      <span onClick={()=>{updateExpense(si,ri,ei,"receiptLink","");updateExpense(si,ri,ei,"receiptFileName","");}} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                                     </span>
                                   ) : (
-                                    <span onClick={()=>{const url=window.prompt("Paste receipt link:");if(url&&url.trim())updateExpense(si,ri,ei,"receiptLink",url.trim());}} style={{fontFamily:EST_F,fontSize:8,color:"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>+ LINK</span>
+                                    <span style={{display:"flex",alignItems:"center",gap:4}}>
+                                      <span onClick={()=>{setReceiptTarget({si,ri,ei});receiptInputRef.current?.click();}} style={{fontFamily:EST_F,fontSize:8,color:receiptLoading===`${si}-${ri}-${ei}`?"#999":"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{receiptLoading===`${si}-${ri}-${ei}`?"SCANNING...":"+ RECEIPT"}</span>
+                                      <span onClick={()=>{const url=window.prompt("Paste receipt link:");if(url&&url.trim())updateExpense(si,ri,ei,"receiptLink",url.trim());}} style={{fontFamily:EST_F,fontSize:8,color:"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>+ LINK</span>
+                                    </span>
                                   )}
                                 </div>
-                                <div style={{width:45,flexShrink:0}}></div>
-                                <div style={{width:35,flexShrink:0}}></div>
-                                <div style={{width:70,flexShrink:0}}></div>
-                                <div style={{width:80,flexShrink:0}}></div>
-                                <div style={{width:80,flexShrink:0}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
-                                <div style={{width:80,flexShrink:0}}></div>
-                                <div style={{width:70,flexShrink:0}}></div>
-                                <div style={{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                <div style={colStyle("days",{width:45,flexShrink:0})}></div>
+                                <div style={colStyle("qty",{width:35,flexShrink:0})}></div>
+                                <div style={colStyle("rate",{width:70,flexShrink:0})}></div>
+                                <div style={colStyle("estimate",{width:80,flexShrink:0})}></div>
+                                <div style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
+                                <div style={colStyle("finals",{width:80,flexShrink:0})}></div>
+                                <div style={colStyle("variance",{width:70,flexShrink:0})}></div>
+                                <div style={colStyle("status",{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"})}>
                                   <span onClick={()=>{const sts=["","Pending","Paid","Unpaid"];const idx=sts.indexOf(exp.status||"");updateExpense(si,ri,ei,"status",sts[(idx+1)%sts.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",textTransform:"uppercase",background:({"":"transparent",Pending:"#fff8e8",Paid:"#edfaf3",Unpaid:"#fff3f0"})[exp.status||""]||"transparent",color:({"":"#ccc",Pending:"#92680a",Paid:"#147d50",Unpaid:"#c0392b"})[exp.status||""]||"#ccc"}}>{exp.status||"\u2014"}</span>
                                 </div>
                                 <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
                                   <span onClick={()=>deleteExpense(si, ri, ei)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                                 </div>
-                                <div style={{width:18,flexShrink:0}}></div>
+                                <div style={{width:18,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
+                                  <span onClick={()=>toggleTally(si,ri,ei)} title="Add to tally" style={{cursor:"pointer",fontSize:9,color:isTallied(si,ri,ei)?"#0066cc":"#ddd",userSelect:"none",lineHeight:1,fontWeight:700}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{if(!isTallied(si,ri,ei))e.target.style.color="#ddd"}}>+</span>
+                                </div>
                               </div>
                             ))}
                             <div style={{display:"flex"}}>
@@ -387,11 +504,11 @@ export default function Budget({
                   <div style={{display:"flex",justifyContent:"flex-end",borderBottom:"2px solid #000"}}>
                     <div style={{display:"flex",gap:0,padding:"4px 0"}}>
                       <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>TOTAL</div>
-                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(secEstTotal)}</div>
-                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"}}>{estFmt(actualsSectionExpenseTotal(sec))}</div>
-                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(actualsSectionZohoTotal(sec))}</div>
-                      <div style={{width:70,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionEffective(sec))>=0?"#147d50":"#c0392b"}}>{(secEstTotal-actualsSectionEffective(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionEffective(sec))}</div>
-                      <div style={{width:60}}></div>
+                      <div style={colStyle("estimate",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS})}>{estFmt(secEstTotal)}</div>
+                      <div style={colStyle("actuals",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"})}>{estFmt(actualsSectionExpenseTotal(sec))}</div>
+                      <div style={colStyle("finals",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS})}>{estFmt(actualsSectionZohoTotal(sec))}</div>
+                      <div style={colStyle("variance",{width:70,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionEffective(sec))>=0?"#147d50":"#c0392b"})}>{(secEstTotal-actualsSectionEffective(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionEffective(sec))}</div>
+                      <div style={colStyle("status",{width:60})}></div>
                       <div style={{width:24}}></div>
                       <div style={{width:18}}></div>
                     </div>
@@ -402,11 +519,11 @@ export default function Budget({
               {/* Grand total bar */}
               <div style={{display:"flex",background:"#000",color:"#fff",marginTop:4}}>
                 <div style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textAlign:"right"}}>GRAND TOTAL</div>
-                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
-                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExpenseTotal)}</div>
-                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZohoTotal)}</div>
-                <div style={{width:70,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
-                <div style={{width:60}}></div>
+                <div style={colStyle("estimate",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(estTotals.grandTotal)}</div>
+                <div style={colStyle("actuals",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actExpenseTotal)}</div>
+                <div style={colStyle("finals",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actZohoTotal)}</div>
+                <div style={colStyle("variance",{width:70,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
+                <div style={colStyle("status",{width:60})}></div>
                 <div style={{width:24}}></div>
                 <div style={{width:18}}></div>
               </div>
@@ -415,6 +532,25 @@ export default function Budget({
         </div>
       </div>
       </div>
+
+      {/* Receipt OCR confirmation modal */}
+      {receiptOcrResult && (
+        <div onClick={()=>setReceiptOcrResult(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,padding:"24px 28px",width:380,maxWidth:"90vw",boxShadow:"0 20px 50px rgba(0,0,0,0.2)",fontFamily:EST_F}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#1d1d1f",marginBottom:16,letterSpacing:"-0.02em"}}>Sync Data from Receipt?</div>
+            <div style={{fontSize:11,color:"#666",marginBottom:12,letterSpacing:EST_LS}}>The following was extracted from the receipt:</div>
+            <div style={{background:"#f8f8f8",borderRadius:8,padding:"12px 14px",marginBottom:16}}>
+              {receiptOcrResult.vendor && <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#999",fontWeight:600,letterSpacing:EST_LS}}>VENDOR</span><span style={{fontSize:11,color:"#1a1a1a",fontWeight:600}}>{receiptOcrResult.vendor}</span></div>}
+              {receiptOcrResult.description && <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#999",fontWeight:600,letterSpacing:EST_LS}}>DESCRIPTION</span><span style={{fontSize:11,color:"#1a1a1a"}}>{receiptOcrResult.description}</span></div>}
+              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:10,color:"#999",fontWeight:600,letterSpacing:EST_LS}}>AMOUNT</span><span style={{fontSize:13,color:"#1a1a1a",fontWeight:700}}>{receiptOcrResult.currency} {parseFloat(receiptOcrResult.amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={()=>setReceiptOcrResult(null)} style={{background:"#f5f5f7",border:"1px solid #ddd",color:"#666",padding:"8px 16px",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:EST_F,letterSpacing:EST_LS}}>SKIP</button>
+              <button onClick={applyReceiptOcr} style={{background:"#000",border:"none",color:"#fff",padding:"8px 16px",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:EST_F,letterSpacing:EST_LS}}>SYNC DATA</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating tally scratchpad */}
       {tallyItems.length > 0 && (
