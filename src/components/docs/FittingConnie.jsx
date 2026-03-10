@@ -228,17 +228,33 @@ ${PRINT_CLEANUP_CSS}
       if (Object.keys(dashFeedback).length > 0) body.feedback = dashFeedback;
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
-      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!resp.ok) { const txt = await resp.text().catch(() => ""); showAlert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
+      const payload = JSON.stringify(body);
+      const sizeMB = (payload.length / 1048576).toFixed(1);
+      console.log("[fit-share] POST payload size:", sizeMB + "MB");
+      if (payload.length > 4400000) {
+        showAlert(`Content too large (${sizeMB}MB). Try reducing image count or quality.`);
+        return;
+      }
+      const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => "");
+        console.error("[fit-share] POST failed:", resp.status, txt.slice(0, 200));
+        showAlert("Sync failed (" + resp.status + "): " + (resp.status === 413 ? "Content too large" : txt.slice(0, 100)));
+        return;
+      }
       const data = await resp.json();
+      console.log("[fit-share] POST success:", data);
       if (data.url) {
         if (onShareUrl) {
           onShareUrl(data.url, data.token, data.id);
-          if (data.updated) showAlert("Portal link updated!");
+          showAlert(data.updated ? "Portal link updated! Refresh the client link to see changes." : "Share link created!");
         }
         else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
       } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
-    } catch (err) { showAlert("Error generating link: " + err.message); }
+    } catch (err) {
+      console.error("[fit-share] Error:", err);
+      showAlert("Error generating link: " + err.message);
+    }
   };
 
   useImperativeHandle(fwdRef, () => ({ share: generateSharePage }));
