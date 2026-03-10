@@ -207,15 +207,19 @@ export default function Budget({
                 const secEstTotal = estSec ? estSectionTotal(estSec) : 0;
                 return (
                 <div key={si} style={{marginBottom:16}}>
-                  {/* Section header — black bar like estimates */}
+                  {/* Section header — matches estimate format with actuals columns */}
                   <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
                     <div style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
                     <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
-                    <div style={{width:90,textAlign:"right",padding:"0 6px",flexShrink:0}}>ESTIMATE</div>
-                    <div style={{width:90,textAlign:"right",padding:"0 6px",flexShrink:0}}>ACTUALS</div>
-                    <div style={{width:90,textAlign:"right",padding:"0 6px",flexShrink:0}}>FINALS</div>
-                    <div style={{width:80,textAlign:"right",padding:"0 6px",flexShrink:0}}>VARIANCE</div>
-                    <div style={{width:70,textAlign:"center",padding:"0 4px",flexShrink:0}}>STATUS</div>
+                    <div style={{width:110,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
+                    <div style={{width:45,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
+                    <div style={{width:35,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
+                    <div style={{width:70,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
+                    <div style={{width:80,textAlign:"right",padding:"0 4px",flexShrink:0}}>ESTIMATE</div>
+                    <div style={{width:80,textAlign:"right",padding:"0 4px",flexShrink:0}}>ACTUALS</div>
+                    <div style={{width:80,textAlign:"right",padding:"0 4px",flexShrink:0}}>FINALS</div>
+                    <div style={{width:70,textAlign:"right",padding:"0 4px",flexShrink:0}}>VARIANCE</div>
+                    <div style={{width:60,textAlign:"center",padding:"0 4px",flexShrink:0}}>STATUS</div>
                     <div style={{width:24,flexShrink:0}} data-noprint></div>
                   </div>
                   {/* Rows */}
@@ -233,29 +237,37 @@ export default function Budget({
                         <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch"}}>
                           <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                           <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
-                          <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"}}>{estFmt(estVal)}</div>
-                          <div style={{width:90,flexShrink:0}}><EstCell value={row.actualsAmount||String(expTotal||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
-                          <div style={{width:90,flexShrink:0}}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
-                          <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{(rv>=0?"+":"") + estFmt(rv)}</div>
-                          <div style={{width:70,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <div style={{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS}}>{row.notes}</div>
+                          <div style={{width:45,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.days)>0?"#1a1a1a":"#ccc"}}>{row.days}</div>
+                          <div style={{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"}}>{row.qty}</div>
+                          <div style={{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"}}>{estFmt(estNum(row.rate))}</div>
+                          <div style={{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"}}>{estFmt(estVal)}</div>
+                          <div style={{width:80,flexShrink:0}}><EstCell value={row.actualsAmount||String(expTotal||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
+                          <div style={{width:80,flexShrink:0}}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
+                          <div style={{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"}}>{(rv>=0?"+":"") + estFmt(rv)}</div>
+                          <div style={{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                             <span onClick={()=>{const idx=ACTUALS_STATUSES.indexOf(row.status);updateActRow(si,ri,"status",ACTUALS_STATUSES[(idx+1)%ACTUALS_STATUSES.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",background:stBg[row.status]||"transparent",color:stColors[row.status]||"#ccc",textTransform:"uppercase"}}>{row.status||"\u2014"}</span>
                           </div>
                           <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
                             <span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:11,color:"#999",userSelect:"none"}}>{isExpanded?"\u25BE":"\u25B8"}</span>
                           </div>
                         </div>
-                        {/* Expandable expenses dropdown — aligned with master row columns */}
+                        {/* Expandable expenses dropdown */}
                         {isExpanded && (
                           <div style={{background:"#fafafa",borderBottom:"1px solid #eee"}}>
                             {(row.expenses||[]).map((exp, ei) => (
                               <div key={exp.id} style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
                                 <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center"}}>{"\u2514"}</div>
                                 <div style={{flex:1,minWidth:0}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                <div style={{width:90,flexShrink:0}}></div>
-                                <div style={{width:90,flexShrink:0}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
-                                <div style={{width:90,flexShrink:0}}></div>
+                                <div style={{width:110,flexShrink:0}}></div>
+                                <div style={{width:45,flexShrink:0}}></div>
+                                <div style={{width:35,flexShrink:0}}></div>
+                                <div style={{width:70,flexShrink:0}}></div>
                                 <div style={{width:80,flexShrink:0}}></div>
-                                <div style={{width:70,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                <div style={{width:80,flexShrink:0}}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
+                                <div style={{width:80,flexShrink:0}}></div>
+                                <div style={{width:70,flexShrink:0}}></div>
+                                <div style={{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                   <span onClick={()=>{const sts=["","Pending","Paid","Unpaid"];const idx=sts.indexOf(exp.status||"");updateExpense(si,ri,ei,"status",sts[(idx+1)%sts.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",textTransform:"uppercase",background:({"":"transparent",Pending:"#fff8e8",Paid:"#edfaf3",Unpaid:"#fff3f0"})[exp.status||""]||"transparent",color:({"":"#ccc",Pending:"#92680a",Paid:"#147d50",Unpaid:"#c0392b"})[exp.status||""]||"#ccc"}}>{exp.status||"\u2014"}</span>
                                 </div>
                                 <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
@@ -275,11 +287,11 @@ export default function Budget({
                   <div style={{display:"flex",justifyContent:"flex-end",borderBottom:"2px solid #000"}}>
                     <div style={{display:"flex",gap:0,padding:"4px 0"}}>
                       <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>TOTAL</div>
-                      <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(secEstTotal)}</div>
-                      <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"}}>{estFmt(actualsSectionExpenseTotal(sec))}</div>
-                      <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(actualsSectionZohoTotal(sec))}</div>
-                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionEffective(sec))>=0?"#147d50":"#c0392b"}}>{(secEstTotal-actualsSectionEffective(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionEffective(sec))}</div>
-                      <div style={{width:70}}></div>
+                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(secEstTotal)}</div>
+                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"}}>{estFmt(actualsSectionExpenseTotal(sec))}</div>
+                      <div style={{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{estFmt(actualsSectionZohoTotal(sec))}</div>
+                      <div style={{width:70,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionEffective(sec))>=0?"#147d50":"#c0392b"}}>{(secEstTotal-actualsSectionEffective(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionEffective(sec))}</div>
+                      <div style={{width:60}}></div>
                       <div style={{width:24}}></div>
                     </div>
                   </div>
@@ -289,11 +301,11 @@ export default function Budget({
               {/* Grand total bar */}
               <div style={{display:"flex",background:"#000",color:"#fff",marginTop:4}}>
                 <div style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textAlign:"right"}}>GRAND TOTAL</div>
-                <div style={{width:90,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
-                <div style={{width:90,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExpenseTotal)}</div>
-                <div style={{width:90,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZohoTotal)}</div>
-                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
-                <div style={{width:70}}></div>
+                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(estTotals.grandTotal)}</div>
+                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actExpenseTotal)}</div>
+                <div style={{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(actZohoTotal)}</div>
+                <div style={{width:70,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
+                <div style={{width:60}}></div>
                 <div style={{width:24}}></div>
               </div>
             </div>
