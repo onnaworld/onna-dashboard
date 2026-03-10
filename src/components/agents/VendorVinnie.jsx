@@ -373,7 +373,7 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
 
 export function useVinnieCard({ agent, isMobile, pendingConv, pendingLead, pendingType, pendingId, leadEdit, getXContacts }) {
   const isVinnie = agent.id === "logistical";
-  const hasVinnieCard = isVinnie && !isMobile && ((pendingConv && !pendingConv._awaitingTypeChoice && !pendingConv._awaitingUpdateName) || !!pendingLead);
+  const hasVinnieCard = isVinnie && !isMobile && ((pendingConv && !pendingConv._awaitingTypeChoice && !pendingConv._awaitingUpdateName && !pendingConv._awaitingUpdateAction) || !!pendingLead);
   return { isVinnie, hasVinnieCard };
 }
 
