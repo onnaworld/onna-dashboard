@@ -426,17 +426,19 @@ export default function Budget({
           </div>
 
           {/* Notes bar */}
-          <div style={{display:"flex",alignItems:"flex-start",background:"#1a1a1a",marginBottom:20,padding:"8px 12px",gap:10}}>
-            <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",flexShrink:0,paddingTop:2}}>NOTES</div>
+          <div style={{marginBottom:20}}>
+            <div style={{background:"#000",padding:"6px 12px"}}>
+              <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#fff"}}>NOTES</div>
+            </div>
             <textarea
               data-noprint-hide
               value={budgetNotes}
               onChange={e => saveBudgetNotes(e.target.value)}
               placeholder="Add notes..."
-              rows={1}
-              style={{flex:1,background:"transparent",border:"none",outline:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#fff",resize:"vertical",lineHeight:1.5,padding:"0 0 0 4px",minHeight:16}}
+              rows={2}
+              style={{width:"100%",background:"#f9f9f9",border:"1px solid #e0e0e0",borderTop:"none",outline:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",resize:"vertical",lineHeight:1.5,padding:"8px 12px",minHeight:32,boxSizing:"border-box"}}
             />
-            <div data-print-only style={{display:"none",flex:1,fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#fff",whiteSpace:"pre-wrap",lineHeight:1.5,padding:"0 0 0 4px"}}>{budgetNotes}</div>
+            <div data-print-only style={{display:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",whiteSpace:"pre-wrap",lineHeight:1.5,padding:"8px 12px",background:"#f9f9f9",border:"1px solid #e0e0e0",borderTop:"none"}}>{budgetNotes}</div>
           </div>
 
           {/* Summary Tab */}

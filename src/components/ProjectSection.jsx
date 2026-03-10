@@ -1,5 +1,5 @@
 import React from "react";
-import { estCalcTotals, defaultSections, actualsGrandExpenseTotal, actualsGrandZohoTotal } from "../utils/helpers";
+import { estCalcTotals, defaultSections, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal } from "../utils/helpers";
 import Creative from "./project/Creative";
 import Budget from "./project/Budget";
 import Documents from "./project/Documents";
@@ -129,8 +129,9 @@ export default function ProjectSection({
   const actData = projectActuals[p.id];
   const actZoho = actData ? actualsGrandZohoTotal(actData) : 0;
   const actExpenses = actData ? actualsGrandExpenseTotal(actData) : 0;
+  const actEffective = actData ? actualsGrandEffective(actData) : 0;
   const totalIn    = estRevenue;
-  const totalOut   = actExpenses;
+  const totalOut   = actEffective;
   const profit     = totalIn - totalOut;
   const margin     = totalIn > 0 ? Math.round((profit / totalIn) * 100) : 0;
 
