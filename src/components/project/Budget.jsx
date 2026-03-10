@@ -21,6 +21,66 @@ export default function Budget({
   const estimates    = projectEstimates[p.id]||[];
   const versionLabels= ["V1","V2","V3","V4","V5"];
 
+  // Budget tracker notes — persisted per project (must be top-level for hooks stability)
+  const budgetNotesKey = `onna_budget_notes_${p.id}`;
+  const [budgetNotes, setBudgetNotes] = React.useState(() => {
+    try { return localStorage.getItem(budgetNotesKey) || ""; } catch { return ""; }
+  });
+  // Sync state when switching projects
+  React.useEffect(() => {
+    try { setBudgetNotes(localStorage.getItem(budgetNotesKey) || ""); } catch { setBudgetNotes(""); }
+  }, [budgetNotesKey]);
+  const saveBudgetNotes = (val) => {
+    setBudgetNotes(val);
+    try { localStorage.setItem(budgetNotesKey, val); } catch {}
+  };
+
+  // Hidden columns — persisted per project (must be top-level for hooks stability)
+  const hiddenColsKey = `onna_hidden_cols_${p.id}`;
+  const [hiddenCols, setHiddenCols] = React.useState(() => {
+    try { const s = localStorage.getItem(hiddenColsKey); if (s) return JSON.parse(s); } catch {}
+    return {};
+  });
+  React.useEffect(() => {
+    try { const s = localStorage.getItem(hiddenColsKey); if (s) setHiddenCols(JSON.parse(s)); else setHiddenCols({}); } catch { setHiddenCols({}); }
+  }, [hiddenColsKey]);
+  const [showColPicker, setShowColPicker] = React.useState(false);
+  const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true; try{localStorage.setItem(hiddenColsKey,JSON.stringify(n));}catch{} return n;});
+
+  // All remaining hooks must be top-level to satisfy React rules of hooks
+  const [dragExp, setDragExp] = React.useState(null);
+  const [dropTarget, setDropTarget] = React.useState(null);
+
+  const collapsedSecKey = `onna_collapsed_sec_${p.id}`;
+  const [collapsedSecs, setCollapsedSecs] = React.useState(() => {
+    try { const s = localStorage.getItem(collapsedSecKey); if (s) return JSON.parse(s); } catch {}
+    return {};
+  });
+  React.useEffect(() => {
+    try { const s = localStorage.getItem(collapsedSecKey); if (s) setCollapsedSecs(JSON.parse(s)); else setCollapsedSecs({}); } catch { setCollapsedSecs({}); }
+  }, [collapsedSecKey]);
+
+  const expandStorageKey = `onna_expanded_${p.id}`;
+  const [expandedRows, setExpandedRows] = React.useState(() => {
+    try { const s = localStorage.getItem(expandStorageKey); if (s) return JSON.parse(s); } catch {}
+    return {};
+  });
+  React.useEffect(() => {
+    try { const s = localStorage.getItem(expandStorageKey); if (s) setExpandedRows(JSON.parse(s)); else setExpandedRows({}); } catch { setExpandedRows({}); }
+  }, [expandStorageKey]);
+
+  const [invoicedOverride, setInvoicedOverride] = React.useState(() => {
+    try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); return v !== null ? parseFloat(v) : null; } catch { return null; }
+  });
+  React.useEffect(() => {
+    try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); setInvoicedOverride(v !== null ? parseFloat(v) : null); } catch { setInvoicedOverride(null); }
+  }, [p.id]);
+  const [invoicedEdit, setInvoicedEdit] = React.useState(null);
+
+  const [tallyItems, setTallyItems] = React.useState([]);
+  const [receiptLoading, setReceiptLoading] = React.useState(null);
+  const [receiptOcrResult, setReceiptOcrResult] = React.useState(null);
+
   // Budget sub-navigation
   if (!budgetSubSection) return (
     <div>
@@ -138,8 +198,6 @@ export default function Budget({
     };
 
     // Drag-and-drop expenses between rows
-    const [dragExp, setDragExp] = React.useState(null); // {si, ri, ei}
-    const [dropTarget, setDropTarget] = React.useState(null); // {si, ri}
     const moveExpense = (fromSi, fromRi, fromEi, toSi, toRi) => {
       if (fromSi === toSi && fromRi === toRi) return; // same row, no-op
       setProjectActuals(prev => {
@@ -165,12 +223,6 @@ export default function Budget({
     const trackerTab = actualsTrackerTab;
     const setTrackerTab = setActualsTrackerTab;
 
-    // Collapsed sections — persisted per project
-    const collapsedSecKey = `onna_collapsed_sec_${p.id}`;
-    const [collapsedSecs, setCollapsedSecs] = React.useState(() => {
-      try { const s = localStorage.getItem(collapsedSecKey); if (s) return JSON.parse(s); } catch {}
-      return {};
-    });
     const toggleSection = (si) => {
       setCollapsedSecs(prev => {
         const next = {...prev}; if (next[si]) delete next[si]; else next[si] = true;
@@ -179,13 +231,6 @@ export default function Budget({
       });
     };
 
-    const expandStorageKey = `onna_expanded_${p.id}`;
-    const [expandedRows, setExpandedRows] = React.useState(() => {
-      try { const s = localStorage.getItem(expandStorageKey); if (s) return JSON.parse(s); } catch {}
-      const init = {};
-      Object.keys(actualsExpandedRef.current || {}).forEach(k => { if (actualsExpandedRef.current[k]) init[k] = true; });
-      return init;
-    });
     const toggleExpand = (key) => {
       actualsExpandedRef.current[key] = !actualsExpandedRef.current[key];
       setExpandedRows(prev => {
@@ -199,28 +244,12 @@ export default function Budget({
     const stColors = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
     const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
 
-    // Editable invoiced amount
-    const [invoicedOverride, setInvoicedOverride] = React.useState(() => {
-      try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); return v !== null ? parseFloat(v) : null; } catch { return null; }
-    });
-    const [invoicedEdit, setInvoicedEdit] = React.useState(null);
-
     // Invoiced amount calculation (hoisted for use across tabs)
     const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
     const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
     const autoInvoiced = estTotals.grandTotal * (advPct / 100);
     const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
     const finalInvoice = invoicedAmt - actExpenseTotal;
-
-    // Budget tracker notes — persisted per project
-    const budgetNotesKey = `onna_budget_notes_${p.id}`;
-    const [budgetNotes, setBudgetNotes] = React.useState(() => {
-      try { return localStorage.getItem(budgetNotesKey) || ""; } catch { return ""; }
-    });
-    const saveBudgetNotes = (val) => {
-      setBudgetNotes(val);
-      try { localStorage.setItem(budgetNotesKey, val); } catch {}
-    };
 
     // Export column picker
     const ALL_COLS = [
@@ -234,21 +263,12 @@ export default function Budget({
       { id:"variance", label:"Variance", w:70 },
       { id:"status", label:"Status", w:60 },
     ];
-    const hiddenColsKey = `onna_hidden_cols_${p.id}`;
-    const [hiddenCols, setHiddenCols] = React.useState(() => {
-      try { const s = localStorage.getItem(hiddenColsKey); if (s) return JSON.parse(s); } catch {}
-      return {};
-    });
-    const [showColPicker, setShowColPicker] = React.useState(false);
     const colVisible = (id) => !hiddenCols[id];
-    const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true; try{localStorage.setItem(hiddenColsKey,JSON.stringify(n));}catch{} return n;});
     const colStyle = (id, base) => colVisible(id) ? base : {...base, display:"none"};
     // Dynamic min-width: base (ref 40 + desc ~120 + actions 42) + visible column widths
     const visibleColWidth = ALL_COLS.filter(c => colVisible(c.id)).reduce((s, c) => s + c.w, 0);
     const dynamicMinWidth = 200 + visibleColWidth;
 
-    // Tally scratchpad — local state, not persisted
-    const [tallyItems, setTallyItems] = React.useState([]);
     const toggleTally = (secIdx, rowIdx, expIdx) => {
       const key = expIdx !== undefined ? `${secIdx}-${rowIdx}-e${expIdx}` : `${secIdx}-${rowIdx}`;
       setTallyItems(prev => {
@@ -274,9 +294,6 @@ export default function Budget({
     const tallyEstTotal = Math.round(tallyItems.reduce((s, t) => s + t.estimate, 0) * 100) / 100;
     const tallyActTotal = Math.round(tallyItems.reduce((s, t) => s + t.actuals, 0) * 100) / 100;
 
-    // Receipt link with OCR — paste a URL, optionally scan for amount
-    const [receiptLoading, setReceiptLoading] = React.useState(null); // "si-ri-ei" key
-    const [receiptOcrResult, setReceiptOcrResult] = React.useState(null); // {si, ri, ei, amount, vendor, description, currency}
     const handleReceiptLink = async (si, ri, ei) => {
       const url = window.prompt("Paste receipt link (image or PDF URL):");
       if (!url || !url.trim()) return;
