@@ -420,6 +420,11 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
     console.log('[VINNIE-DEBUG] send() pendingConv check:', { hasPendingConv: !!pendingConv, agentId: agent.id, input: input.trim().substring(0, 30) });
+    // ── Break out of Q&A if user starts a new creation command ──
+    if(pendingConv&&agent.id==="logistical"&&/^(?:new|create|add)\s+(?:vendor|supplier|lead|contact|outreach)/i.test(input.trim().replace(/^(?:hey|hi|hello|yo)?\s*(?:vinnie|vin)\s*[,.]?\s*/i,""))){
+      console.log('[VINNIE-DEBUG] Breaking out of Q&A for new creation command');
+      setPendingConv(null);setPending(null);
+    }
     if(pendingConv){
       // ── Awaiting type choice (from bare "new") ──
       if(pendingConv._awaitingTypeChoice){
