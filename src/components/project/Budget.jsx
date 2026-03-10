@@ -111,12 +111,19 @@ export default function Budget({
       });
     };
 
-    // Toggle highlight on a row
-    const toggleHighlight = (secIdx, rowIdx) => {
+    // Cycle row color: none → toReconcile (yellow) → reconciled (green) → none
+    const ROW_COLORS = ["", "toReconcile", "reconciled"];
+    const ROW_COLOR_MAP = { "": "transparent", toReconcile: "#FFF9C4", reconciled: "#E8F5E9" };
+    const ROW_COLOR_DOT = { "": "#ddd", toReconcile: "#c9a800", reconciled: "#2e7d32" };
+    const cycleRowColor = (secIdx, rowIdx) => {
       setProjectActuals(prev => {
         const store = JSON.parse(JSON.stringify(prev));
         if (!store[p.id]) return prev;
-        store[p.id][secIdx].rows[rowIdx].highlighted = !store[p.id][secIdx].rows[rowIdx].highlighted;
+        const row = store[p.id][secIdx].rows[rowIdx];
+        const cur = row.rowColor || (row.highlighted ? "toReconcile" : "");
+        const next = ROW_COLORS[(ROW_COLORS.indexOf(cur) + 1) % ROW_COLORS.length];
+        row.rowColor = next;
+        row.highlighted = false; // migrate old field
         return store;
       });
     };
@@ -261,6 +268,11 @@ export default function Budget({
           {/* Detail Tab */}
           {trackerTab==="detail" && (
             <div>
+              <div data-noprint style={{display:"flex",gap:16,alignItems:"center",marginBottom:12,padding:"6px 0"}}>
+                <span style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase"}}>KEY:</span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#FFF9C4",border:"1px solid #e0d88a",flexShrink:0}}></span><span style={{fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#666"}}>TO RECONCILE</span></span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#E8F5E9",border:"1px solid #a5d6a7",flexShrink:0}}></span><span style={{fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#666"}}>RECONCILED</span></span>
+              </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
                 const secEstTotal = estSec ? estSectionTotal(estSec) : 0;
@@ -294,7 +306,7 @@ export default function Budget({
                     const isExpanded = actualsExpandedRef.current[rowKey];
                     return (
                       <Fragment key={ri}>
-                        <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:row.highlighted?EST_YELLOW:"transparent"}}>
+                        <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:ROW_COLOR_MAP[row.rowColor||(row.highlighted?"toReconcile":"")]||"transparent"}}>
                           <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                           <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
                           <div style={{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS}}>{row.notes}</div>
@@ -313,7 +325,7 @@ export default function Budget({
                           </div>
                           <div style={{width:18,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3}} data-noprint>
                             <span onClick={()=>toggleTally(si,ri)} title="Add to tally" style={{cursor:"pointer",fontSize:9,color:isTallied(si,ri)?"#0066cc":"#ddd",userSelect:"none",lineHeight:1,fontWeight:700}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{if(!isTallied(si,ri))e.target.style.color="#ddd"}}>+</span>
-                            <span onClick={()=>toggleHighlight(si,ri)} title="Highlight" style={{cursor:"pointer",fontSize:9,color:row.highlighted?"#c9a800":"#ddd",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#c9a800"}} onMouseLeave={e=>{if(!row.highlighted)e.target.style.color="#ddd"}}>{"\u25CF"}</span>
+                            <span onClick={()=>cycleRowColor(si,ri)} title="Cycle: To Reconcile / Reconciled / None" style={{cursor:"pointer",fontSize:9,color:ROW_COLOR_DOT[row.rowColor||(row.highlighted?"toReconcile":"")]||"#ddd",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.opacity="0.7"}} onMouseLeave={e=>{e.target.style.opacity="1"}}>{"\u25CF"}</span>
                             <span onClick={()=>deleteActRow(si,ri)} title="Delete row" style={{cursor:"pointer",fontSize:11,color:"#ccc",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                           </div>
                         </div>

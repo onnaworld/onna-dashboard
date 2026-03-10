@@ -234,15 +234,14 @@ export const syncActualsWithEstimate = (existingActuals, estimateSections) => {
         // New row from estimate
         return { ...JSON.parse(JSON.stringify(estRow)), expenses: [], zohoAmount: "0", status: "" };
       }
-      // Existing row — update estimate fields, keep actuals data
-      return {
-        ...JSON.parse(JSON.stringify(actRow)),
-        desc: estRow.desc,
-        notes: estRow.notes,
-        days: estRow.days,
-        qty: estRow.qty,
-        rate: estRow.rate,
-      };
+      // Existing row — update estimate fields, keep actuals data (including highlighted, reconcile)
+      const merged = JSON.parse(JSON.stringify(actRow));
+      merged.desc = estRow.desc;
+      merged.notes = estRow.notes;
+      merged.days = estRow.days;
+      merged.qty = estRow.qty;
+      merged.rate = estRow.rate;
+      return merged;
     });
 
     return {
