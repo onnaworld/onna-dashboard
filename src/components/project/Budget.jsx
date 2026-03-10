@@ -164,6 +164,21 @@ export default function Budget({
 
     const trackerTab = actualsTrackerTab;
     const setTrackerTab = setActualsTrackerTab;
+
+    // Collapsed sections — persisted per project
+    const collapsedSecKey = `onna_collapsed_sec_${p.id}`;
+    const [collapsedSecs, setCollapsedSecs] = React.useState(() => {
+      try { const s = localStorage.getItem(collapsedSecKey); if (s) return JSON.parse(s); } catch {}
+      return {};
+    });
+    const toggleSection = (si) => {
+      setCollapsedSecs(prev => {
+        const next = {...prev}; if (next[si]) delete next[si]; else next[si] = true;
+        try { localStorage.setItem(collapsedSecKey, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    };
+
     const expandStorageKey = `onna_expanded_${p.id}`;
     const [expandedRows, setExpandedRows] = React.useState(() => {
       try { const s = localStorage.getItem(expandStorageKey); if (s) return JSON.parse(s); } catch {}
@@ -186,7 +201,7 @@ export default function Budget({
 
     // Export column picker
     const ALL_COLS = [
-      { id:"notes", label:"Notes", w:110 },
+      { id:"notes", label:"Notes", w:80 },
       { id:"days", label:"Days", w:45 },
       { id:"qty", label:"Qty", w:35 },
       { id:"rate", label:"Rate", w:70 },
@@ -416,11 +431,11 @@ export default function Budget({
                 }, 0) : estSectionTotal(estSec)) : 0;
                 return (
                 <div key={si} style={{marginBottom:16}}>
-                  {/* Section header — matches estimate format with actuals columns */}
-                  <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
+                  {/* Section header — clickable to collapse/expand */}
+                  <div onClick={()=>toggleSection(si)} style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
                     <div data-col style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
-                    <div data-col-desc style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
-                    <div data-col style={colStyle("notes",{width:110,padding:"0 6px",fontSize:9,flexShrink:0})}>NOTES</div>
+                    <div data-col-desc style={{flex:1,padding:"0 6px",display:"flex",alignItems:"center",gap:6}}>{sec.title} <span style={{fontSize:8,opacity:0.6}}>{collapsedSecs[si]?"\u25B6":"\u25BC"}</span></div>
+                    <div data-col style={colStyle("notes",{flex:1,minWidth:80,padding:"0 6px",fontSize:9})}>NOTES</div>
                     <div data-col style={colStyle("days",{width:45,textAlign:"center",padding:"0 4px",flexShrink:0})}>DAYS</div>
                     <div data-col style={colStyle("qty",{width:35,textAlign:"center",padding:"0 4px",flexShrink:0})}>QTY</div>
                     <div data-col style={colStyle("rate",{width:70,textAlign:"right",padding:"0 4px",flexShrink:0})}>RATE</div>
@@ -432,8 +447,8 @@ export default function Budget({
                     <div style={{width:24,flexShrink:0}} data-noprint></div>
                     <div style={{width:18,flexShrink:0}} data-noprint></div>
                   </div>
-                  {/* Rows */}
-                  {sec.rows.map((row, ri) => {
+                  {/* Rows — hidden when section is collapsed */}
+                  {!collapsedSecs[si] && sec.rows.map((row, ri) => {
                     const estRow = estSec?.rows[ri];
                     const isFeeSec = estSec?.isFees;
                     let estVal = estRow ? estRowTotal(estRow) : 0;
@@ -456,7 +471,7 @@ export default function Budget({
                           style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:dropTarget?.si===si&&dropTarget?.ri===ri?"#e3f2fd":ROW_COLOR_MAP[row.rowColor||(row.highlighted?"toReconcile":"")]||"transparent",transition:"background 0.15s"}}>
                           <div data-col style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                           <div data-col-desc style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
-                          <div data-col style={colStyle("notes",{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS})}>{row.notes}</div>
+                          <div data-col style={colStyle("notes",{flex:1,minWidth:80,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS})}>{row.notes}</div>
                           <div data-col style={colStyle("days",{width:45,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.days)>0?"#1a1a1a":"#ccc"})}>{row.days}</div>
                           <div data-col style={colStyle("qty",{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"})}>{row.qty}</div>
                           <div data-col style={colStyle("rate",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"})}>{estFmt(estNum(row.rate))}</div>
@@ -486,7 +501,7 @@ export default function Budget({
                                 style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0",opacity:dragExp?.si===si&&dragExp?.ri===ri&&dragExp?.ei===ei?0.4:1}}>
                                 <div data-col style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center",cursor:"grab"}} title="Drag to move to another line">&#x2630;</div>
                                 <div data-col-desc style={{flex:1,minWidth:0}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                <div data-col style={colStyle("notes",{width:110,flexShrink:0,display:"flex",alignItems:"center",padding:"0 4px",gap:4})}>
+                                <div data-col style={colStyle("notes",{flex:1,minWidth:80,display:"flex",alignItems:"center",padding:"0 4px",gap:4})}>
                                   {exp.receiptLink ? (
                                     <span style={{display:"flex",alignItems:"center",gap:3,maxWidth:"100%"}}>
                                       <a href={exp.receiptLink} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}} title={exp.receiptLink}>RECEIPT</a>
