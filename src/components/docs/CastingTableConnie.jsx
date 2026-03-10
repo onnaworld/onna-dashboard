@@ -6,7 +6,7 @@ const CTB_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const CTB_LS = 0.5;
 const CTB_YEL = "#FFFDE7";
 let _ctId = 0;
-const ctMkRole = () => ({ id: "cr" + (++_ctId), role: "", models: [ctMkModel(), ctMkModel(), ctMkModel()] });
+export const ctMkRole = () => ({ id: "cr" + (++_ctId), role: "", models: [ctMkModel(), ctMkModel(), ctMkModel()] });
 const ctMkModel = () => ({ id: "cm" + (++_ctId), agency: "", name: "", email: "", option: "First Option", notes: "", image: null, synced: false });
 const CTB_OPTIONS = ["First Option", "Second Option", "Third Option", "Shortlist", "Confirmed", "Declined", "Unavailable"];
 const CTB_OPT_C = {

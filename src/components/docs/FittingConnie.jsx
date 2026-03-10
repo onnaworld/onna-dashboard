@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useImperativeHandle } from "react";
 import { validateImg } from "../ui/DocHelpers";
 
-const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
+export const mkFitTalent = () => ({ id: "t" + (++_fitId), name: "", role: "", looks: [mkFitLook(), mkFitLook(), mkFitLook(), mkFitLook()] });
 const mkFitLook = () => ({ id: "lk" + (++_fitId), name: "", description: "", notes: "", status: "Pending", image: null });
-const mkFitFitting = () => { const fid = ++_fitId; return { id: "fit" + fid, modelId: "m" + fid, talentName: "", lookName: "", description: "", role: "", notes: "", images: [null,null,null,null], imageStatuses: {} }; };
+export const mkFitFitting = () => { const fid = ++_fitId; return { id: "fit" + fid, modelId: "m" + fid, talentName: "", lookName: "", description: "", role: "", notes: "", images: [null,null,null,null], imageStatuses: {} }; };
 
 const FIT_STATUSES = ["Pending", "Option", "Approved", "Pulled", "Returned"];
 const FIT_STATUS_C = {

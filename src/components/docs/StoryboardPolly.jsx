@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle } from "react";
 import { validateImg } from "../ui/DocHelpers";
 
-const mkFrame = () => ({
+export const mkFrame = () => ({
   id: "f" + (++_sbId),
   image: null,
   caption: "",

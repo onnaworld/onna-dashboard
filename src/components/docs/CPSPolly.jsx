@@ -91,7 +91,7 @@ const CPS_PHASE_COLORS = {
 /* ======= DEFAULT SCHEDULE ======= */
 const cpsTaskInit = (id, task, owner, dur, opts = {}) => ({ id, task, owner, startDate: "", endDate: "", duration: dur, status: "Not Started", notes: opts.notes || "", milestone: opts.milestone || false, blockedBy: opts.blockedBy || "" });
 
-const cpsDefaultPhases = () => [
+export const cpsDefaultPhases = () => [
   { id: 1, name: "BRIEFING & KICKOFF", collapsed: false, tasks: [
     cpsTaskInit(101, "Receive client brief", "[Producer]", "1 day"),
     cpsTaskInit(102, "Internal briefing & creative alignment", "[Producer]", "1 day"),

@@ -53,14 +53,14 @@ import { TimeoutWarning, GlobalAlertModal, UndoToast } from "./components/modals
 // Doc helper components & constants
 import { MAX_IMG_SIZE, validateImg, CS_FONT, CS_LS, CS_YELLOW, RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CSEditField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn, TIHl, TICell, TITableSection, DIETARY_TAGS, DIETARY_TAG_COLORS, DietaryTagSelect, DIETARY_INIT, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EstHl, EstCell, EstSignaturePad, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT, CALLSHEET_INIT } from "./components/ui/DocHelpers";
 // Doc components
-import CPSPolly from "./components/docs/CPSPolly";
+import CPSPolly, { cpsDefaultPhases } from "./components/docs/CPSPolly";
 import ShotListPolly from "./components/docs/ShotListPolly";
-import LocationsConnie from "./components/docs/LocationsConnie";
-import CastingConnie from "./components/docs/CastingConnie";
-import StoryboardPolly from "./components/docs/StoryboardPolly";
-import PostPolly from "./components/docs/PostPolly";
-import CastingTableConnie from "./components/docs/CastingTableConnie";
-import FittingConnie from "./components/docs/FittingConnie";
+import LocationsConnie, { mkLoc, mkDetail } from "./components/docs/LocationsConnie";
+import CastingConnie, { CAST_INIT } from "./components/docs/CastingConnie";
+import StoryboardPolly, { mkFrame } from "./components/docs/StoryboardPolly";
+import PostPolly, { ppMkVideo, ppMkStill, ppDefaultSchedule } from "./components/docs/PostPolly";
+import CastingTableConnie, { ctMkRole } from "./components/docs/CastingTableConnie";
+import FittingConnie, { mkFitTalent, mkFitFitting } from "./components/docs/FittingConnie";
 // Seed data
 import { SEED_LEADS, SEED_CLIENTS, SEED_PROJECTS, initVendors, initOutreach, savedCallSheets, savedRiskAssessments } from "./data/initVendors";
 // Agent components

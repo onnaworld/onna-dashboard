@@ -41,11 +41,11 @@ const PP_FMT_V = ["MP4", "MOV", "ProRes", "H.264", "H.265", "GIF", "Other"];
 const PP_FMT_S = ["JPEG", "PNG", "TIFF", "PSD", "PDF", "RAW", "Other"];
 
 let _ppId = 0;
-const ppMkVideo = () => ({ id: "pv" + (++_ppId), name: "", platform: "", ratio: "", resolution: "", format: "", duration: "", fps: "", notes: "", status: "Pending" });
-const ppMkStill = () => ({ id: "ps" + (++_ppId), name: "", platform: "", ratio: "", resolution: "", format: "", notes: "", status: "Pending" });
+export const ppMkVideo = () => ({ id: "pv" + (++_ppId), name: "", platform: "", ratio: "", resolution: "", format: "", duration: "", fps: "", notes: "", status: "Pending" });
+export const ppMkStill = () => ({ id: "ps" + (++_ppId), name: "", platform: "", ratio: "", resolution: "", format: "", notes: "", status: "Pending" });
 const ppMkTask = () => ({ id: "pt" + (++_ppId), task: "", owner: "", startDate: "", endDate: "", duration: "", status: "Not Started", notes: "" });
 
-const ppDefaultSchedule = () => [
+export const ppDefaultSchedule = () => [
   { ...ppMkTask(), task: "Selects & string-out", duration: "3 days" }, { ...ppMkTask(), task: "Offline edit v1", duration: "5 days" },
   { ...ppMkTask(), task: "Internal review", duration: "2 days" }, { ...ppMkTask(), task: "Client review \u2014 edit v1", duration: "3 days" },
   { ...ppMkTask(), task: "Amends / edit v2", duration: "3 days" }, { ...ppMkTask(), task: "Client review \u2014 edit v2", duration: "3 days" },

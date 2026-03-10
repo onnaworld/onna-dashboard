@@ -1,8 +1,8 @@
 import React, { useState, useRef, useImperativeHandle } from "react";
 import { validateImg } from "../ui/DocHelpers";
 
-const mkLoc = () => ({ id: "loc" + (++_locId), name: "", address: "", rate: "", notes: "", status: "Scouted", images: [] });
-const mkDetail = () => ({ id: "det" + (++_locId), name: "", address: "", rate: "", notes: "", images: [null, null, null, null, null, null, null] });
+export const mkLoc = () => ({ id: "loc" + (++_locId), name: "", address: "", rate: "", notes: "", status: "Scouted", images: [] });
+export const mkDetail = () => ({ id: "det" + (++_locId), name: "", address: "", rate: "", notes: "", images: [null, null, null, null, null, null, null] });
 const LOC_STATUSES = ["Scouted", "Shortlisted", "Approved", "Booked"];
 const LOC_STATUS_C = {
   "Scouted": { bg: "#f4f4f4", text: "#999", border: "#ddd" },

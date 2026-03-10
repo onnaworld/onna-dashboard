@@ -11,7 +11,7 @@ const CAST_STATUS_C = {
   "Approved":{bg:"#E8F5E9",text:"#2E7D32",border:"#A5D6A7"},
   "Booked":{bg:"#000",text:"#fff",border:"#000"}
 };
-const CAST_INIT = () => ({
+export const CAST_INIT = () => ({
   project: { name: "", client: "", date: "", director: "", agencyLogo: null, clientLogo: null },
   confirmed: [{ id: "cr1", role: "Lead", talent: [mkCastEntry()] }],
   options: [mkCastOption()],
