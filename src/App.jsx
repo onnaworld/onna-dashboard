@@ -1134,7 +1134,6 @@ function OnnaDashboardInner() {
     castFileSearchTerm={castFileSearchTerm} setCastFileSearchTerm={setCastFileSearchTerm}
     styleSearchTerm={styleSearchTerm} setStyleSearchTerm={setStyleSearchTerm}
     linkUploading={linkUploading} setLinkUploading={setLinkUploading} linkUploadProgress={linkUploadProgress} setLinkUploadProgress={setLinkUploadProgress}
-    sigShareUrl={sigShareUrl} setSigShareUrl={setSigShareUrl} sigShareLoading={sigShareLoading} setSigShareLoading={setSigShareLoading}
     ctSignShareUrl={ctSignShareUrl} setCtSignShareUrl={setCtSignShareUrl} ctSignShareLoading={ctSignShareLoading} setCtSignShareLoading={setCtSignShareLoading}
     ctTypeModalOpen={ctTypeModalOpen} setCtTypeModalOpen={setCtTypeModalOpen}
     dietaryTab={dietaryTab} setDietaryTab={setDietaryTab}

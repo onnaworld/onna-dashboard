@@ -76,7 +76,6 @@ export default function ProjectSection({
   // link upload
   linkUploading, setLinkUploading, linkUploadProgress, setLinkUploadProgress,
   // share/export states
-  sigShareUrl, setSigShareUrl, sigShareLoading, setSigShareLoading,
   ctSignShareUrl, setCtSignShareUrl, ctSignShareLoading, setCtSignShareLoading,
   ctTypeModalOpen, setCtTypeModalOpen,
   dietaryTab, setDietaryTab,
@@ -280,7 +279,6 @@ export default function ProjectSection({
       contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion} setActiveContractVersion={setActiveContractVersion}
       dietaryStore={dietaryStore} setDietaryStore={setDietaryStore} activeDietaryVersion={activeDietaryVersion} setActiveDietaryVersion={setActiveDietaryVersion}
       dietaryTab={dietaryTab} setDietaryTab={setDietaryTab}
-      sigShareUrl={sigShareUrl} setSigShareUrl={setSigShareUrl} sigShareLoading={sigShareLoading} setSigShareLoading={setSigShareLoading}
       ctSignShareUrl={ctSignShareUrl} setCtSignShareUrl={setCtSignShareUrl} ctSignShareLoading={ctSignShareLoading} setCtSignShareLoading={setCtSignShareLoading}
       ctTypeModalOpen={ctTypeModalOpen} setCtTypeModalOpen={setCtTypeModalOpen}
       permitsSubSection={permitsSubSection} setPermitsSubSection={setPermitsSubSection}

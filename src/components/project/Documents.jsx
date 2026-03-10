@@ -8,7 +8,6 @@ export default function Documents({
   contractDocStore, setContractDocStore, activeContractVersion, setActiveContractVersion,
   dietaryStore, setDietaryStore, activeDietaryVersion, setActiveDietaryVersion,
   dietaryTab, setDietaryTab,
-  sigShareUrl, setSigShareUrl, sigShareLoading, setSigShareLoading,
   ctSignShareUrl, setCtSignShareUrl, ctSignShareLoading, setCtSignShareLoading,
   ctTypeModalOpen, setCtTypeModalOpen,
   permitsSubSection, setPermitsSubSection,
