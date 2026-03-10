@@ -171,15 +171,15 @@ export default function Styling({
       if (fitShareTabs.size === 0) return;
       setFitShareLoading(true);
       try {
+        // Always regenerate full HTML so images/content sync through
+        if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], existingFitToken, fitData.shareResourceId);
+      } catch (err) {
+        // If full sync fails (payload too large), fall back to feedback-only
         if (existingFitToken) {
-          // Already have a link — just push feedback, don't regenerate HTML
-          await pushFeedbackOnly();
-          showAlert("Approvals synced to portal!");
-        } else {
-          // First time — generate full HTML share
-          if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], null, null);
-        }
-      } catch (err) { showAlert("Error: " + err.message); }
+          try { await pushFeedbackOnly(); showAlert("Images too large for full sync — approvals synced only. Try removing some images."); }
+          catch { showAlert("Error: " + err.message); }
+        } else { showAlert("Error: " + err.message); }
+      }
       setFitShareLoading(false);
     };
     const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });

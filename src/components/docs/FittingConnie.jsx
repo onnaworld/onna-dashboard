@@ -180,16 +180,33 @@ ${PRINT_CLEANUP_CSS}
       try {
         const compressed = await new Promise((resolve, reject) => {
           const t = new Image(); t.onload = () => {
-            const maxW = 800; const scale = Math.min(1, maxW / t.naturalWidth);
+            const maxW = 600; const scale = Math.min(1, maxW / t.naturalWidth);
             const cv = document.createElement("canvas"); cv.width = t.naturalWidth * scale; cv.height = t.naturalHeight * scale;
             cv.getContext("2d").drawImage(t, 0, 0, cv.width, cv.height);
-            resolve(cv.toDataURL("image/jpeg", 0.65));
+            resolve(cv.toDataURL("image/jpeg", 0.5));
           }; t.onerror = reject; t.src = img.src;
         });
         img.src = compressed;
       } catch {}
     }
-    const html = clone.innerHTML;
+    // If payload still too large, compress further
+    let html = clone.innerHTML;
+    if (html.length > 3_500_000) {
+      for (const img of clone.querySelectorAll('img[src^="data:"]')) {
+        try {
+          const compressed = await new Promise((resolve, reject) => {
+            const t = new Image(); t.onload = () => {
+              const maxW = 400; const scale = Math.min(1, maxW / t.naturalWidth);
+              const cv = document.createElement("canvas"); cv.width = t.naturalWidth * scale; cv.height = t.naturalHeight * scale;
+              cv.getContext("2d").drawImage(t, 0, 0, cv.width, cv.height);
+              resolve(cv.toDataURL("image/jpeg", 0.35));
+            }; t.onerror = reject; t.src = img.src;
+          });
+          img.src = compressed;
+        } catch {}
+      }
+      html = clone.innerHTML;
+    }
     setPrintTabs(null);
     if (!html) return;
 
