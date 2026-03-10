@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useState } from "react";
 import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
 
@@ -137,6 +137,24 @@ export default function Budget({
     const actHdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
     const stColors = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
     const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
+
+    // Tally scratchpad — local state, not persisted
+    const [tallyItems, setTallyItems] = React.useState([]);
+    const toggleTally = (secIdx, rowIdx) => {
+      const key = `${secIdx}-${rowIdx}`;
+      setTallyItems(prev => {
+        if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
+        const row = actSections[secIdx]?.rows[rowIdx];
+        const estRow = estSections[secIdx]?.rows[rowIdx];
+        if (!row) return prev;
+        const estVal = estRow ? estRowTotal(estRow) : 0;
+        const actVal = actualsRowEffective(row);
+        return [...prev, { key, ref: row.ref, desc: row.desc, estimate: estVal, actuals: actVal }];
+      });
+    };
+    const isTallied = (secIdx, rowIdx) => tallyItems.some(t => t.key === `${secIdx}-${rowIdx}`);
+    const tallyEstTotal = tallyItems.reduce((s, t) => s + t.estimate, 0);
+    const tallyActTotal = tallyItems.reduce((s, t) => s + t.actuals, 0);
 
     // Print export — inject print styles and print directly
     const doActPrint = () => {
@@ -293,8 +311,9 @@ export default function Budget({
                           <div style={{width:24,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}} data-noprint>
                             <span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:11,color:"#999",userSelect:"none"}}>{isExpanded?"\u25BE":"\u25B8"}</span>
                           </div>
-                          <div style={{width:18,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4}} data-noprint>
-                            <span onClick={()=>toggleHighlight(si,ri)} title="Highlight" style={{cursor:"pointer",fontSize:9,color:row.highlighted?"#c9a800":"#ddd",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#c9a800"}} onMouseLeave={e=>{e.target.style.color=row.highlighted?"#c9a800":"#ddd"}}>{"\u25CF"}</span>
+                          <div style={{width:18,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3}} data-noprint>
+                            <span onClick={()=>toggleTally(si,ri)} title="Add to tally" style={{cursor:"pointer",fontSize:9,color:isTallied(si,ri)?"#0066cc":"#ddd",userSelect:"none",lineHeight:1,fontWeight:700}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{if(!isTallied(si,ri))e.target.style.color="#ddd"}}>+</span>
+                            <span onClick={()=>toggleHighlight(si,ri)} title="Highlight" style={{cursor:"pointer",fontSize:9,color:row.highlighted?"#c9a800":"#ddd",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#c9a800"}} onMouseLeave={e=>{if(!row.highlighted)e.target.style.color="#ddd"}}>{"\u25CF"}</span>
                             <span onClick={()=>deleteActRow(si,ri)} title="Delete row" style={{cursor:"pointer",fontSize:11,color:"#ccc",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                           </div>
                         </div>
@@ -362,6 +381,40 @@ export default function Budget({
         </div>
       </div>
       </div>
+
+      {/* Floating tally scratchpad */}
+      {tallyItems.length > 0 && (
+        <div data-noprint style={{position:"fixed",bottom:24,right:24,width:320,background:"#fff",border:"1px solid #ddd",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",zIndex:9000,fontFamily:EST_F,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f8f8f8",borderBottom:"1px solid #eee"}}>
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#666"}}>TALLY ({tallyItems.length} items)</span>
+            <span onClick={()=>setTallyItems([])} style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer",textTransform:"uppercase"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#999"}}>CLEAR</span>
+          </div>
+          <div style={{maxHeight:240,overflowY:"auto",padding:"6px 0"}}>
+            {tallyItems.map(t => (
+              <div key={t.key} style={{display:"flex",alignItems:"center",padding:"4px 14px",gap:8,borderBottom:"1px solid #f5f5f5"}}>
+                <span onClick={()=>setTallyItems(prev=>prev.filter(x=>x.key!==t.key))} style={{cursor:"pointer",fontSize:11,color:"#ccc",flexShrink:0}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                <span style={{fontSize:8,color:"#999",fontWeight:700,letterSpacing:EST_LS,flexShrink:0,width:28}}>{t.ref}</span>
+                <span style={{fontSize:9,color:"#333",letterSpacing:EST_LS,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc}</span>
+                <span style={{fontSize:9,fontWeight:600,letterSpacing:EST_LS,color:"#1a1a1a",flexShrink:0,textAlign:"right",minWidth:60}}>{estFmt(t.estimate)}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{borderTop:"2px solid #000",padding:"8px 14px",display:"flex",flexDirection:"column",gap:4}}>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>Estimate Total</span>
+              <span style={{fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#1a1a1a"}}>{estFmt(tallyEstTotal)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>Actuals Total</span>
+              <span style={{fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#0066cc"}}>{estFmt(tallyActTotal)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #eee",paddingTop:4}}>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>Difference</span>
+              <span style={{fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:(tallyEstTotal-tallyActTotal)>=0?"#147d50":"#c0392b"}}>{(tallyEstTotal-tallyActTotal>=0?"+":"")}{estFmt(tallyEstTotal-tallyActTotal)}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     );
   }
