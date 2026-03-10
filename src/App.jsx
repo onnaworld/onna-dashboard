@@ -474,7 +474,7 @@ function OnnaDashboardInner() {
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
   const localProjectsRef                      = useRef([]);
-  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');if(!c)return[];const arr=JSON.parse(c);const seenClient=new Set();const deduped=arr.filter(p=>{const k=(p.client||"").trim().toLowerCase();if(seenClient.has(k))return false;seenClient.add(k);return true;}).map(p=>/columbia|ima/i.test(p.client||"")?{...p,client:"TEMPLATE",name:"Template Project",revenue:0,cost:0}:p);try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{}return deduped;}catch{return []}});
+  const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[];}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
   const [apiLoading,setApiLoading]           = useState(true);
   const [apiError,setApiError]               = useState(null);
