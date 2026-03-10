@@ -9,6 +9,15 @@ export default async function handler(req, res) {
   const { url } = req.body || {};
   if (!url || typeof url !== "string") return res.status(400).json({ error: "Missing url" });
 
+  // SSRF protection: only allow known file-hosting domains
+  const ALLOWED_HOSTS = ["dropbox.com", "dropboxusercontent.com", "drive.google.com", "docs.google.com", "googleapis.com"];
+  try {
+    const parsed = new URL(url.trim());
+    if (!ALLOWED_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h))) {
+      return res.status(400).json({ error: "URL domain not allowed" });
+    }
+  } catch { return res.status(400).json({ error: "Invalid URL" }); }
+
   // Convert Dropbox share links to direct download
   let dlUrl = url.trim();
   if (dlUrl.includes("dropbox.com")) {
@@ -48,6 +57,6 @@ export default async function handler(req, res) {
       dataUrl: `data:${contentType};base64,${base64}`,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Download failed" });
   }
 }

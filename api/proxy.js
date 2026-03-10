@@ -28,7 +28,7 @@ function rateLimit(ip, target) {
 
 function setCors(req, res) {
   const origin = req.headers.origin || "";
-  if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".vercel.app") || origin.startsWith("http://localhost")) {
+  if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   } else {
     res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0]);
@@ -53,6 +53,10 @@ export default async function handler(req, res) {
   }
 
   const url = new URL(target, BACKEND);
+  // SSRF protection: ensure resolved URL points to our backend
+  if (url.origin !== new URL(BACKEND).origin) {
+    return res.status(400).json({ error: "Invalid target" });
+  }
   // Forward additional query params (skip 'target')
   for (const [key, val] of Object.entries(req.query)) {
     if (key === "target") continue;
@@ -75,6 +79,6 @@ export default async function handler(req, res) {
     const body = await backendRes.text();
     return res.status(backendRes.status).send(body);
   } catch (err) {
-    return res.status(502).json({ error: "Proxy error", detail: err.message });
+    return res.status(502).json({ error: "Proxy error" });
   }
 }

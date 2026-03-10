@@ -1,4 +1,5 @@
 // Vercel serverless function — external vendor contract signing
+import { randomUUID } from "crypto";
 const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
 const SVC_USER = process.env.ONNA_SVC_USER || "";
@@ -93,8 +94,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing contractSnapshot or contractType" });
       }
 
-      const slugParts = [projectName, label].filter(Boolean).join("_");
-      const token = labelToSlug(slugParts || contractType);
+      const token = randomUUID();
 
       // URL: clean slug only, data lives in backend
       const url = `https://app.onna.digital?sign=${encodeURIComponent(token)}`;
@@ -315,7 +315,19 @@ table.sigs td{width:50%;padding:14px;border:1px solid #eee;vertical-align:top}
       parsed.status = "signed";
       parsed.vendorSig = { sigName: sigName || "", sigDate: sigDate || "", signature };
       parsed.signedAt = new Date().toISOString();
-      if (renderedHtml) parsed.renderedHtml = renderedHtml;
+      if (renderedHtml) {
+        // Sanitize: strip script tags, event handlers, javascript: URLs
+        let sanitized = renderedHtml
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<script[^>]*>/gi, "")
+          .replace(/\bon\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, "")
+          .replace(/javascript\s*:/gi, "blocked:")
+          .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+          .replace(/<iframe[^>]*>/gi, "")
+          .replace(/<object[\s\S]*?<\/object>/gi, "")
+          .replace(/<embed[^>]*>/gi, "");
+        parsed.renderedHtml = sanitized;
+      }
 
       const updateResp = await fetch(`${BACKEND}/api/resources/${id}`, {
         method: "PUT",
@@ -369,6 +381,6 @@ table.sigs td{width:50%;padding:14px;border:1px solid #eee;vertical-align:top}
 
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
