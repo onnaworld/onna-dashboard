@@ -125,7 +125,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
               <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {baseCurrency}</div>
               <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {secondCurrency}</div>
             </div>
-            {sections.map((sec)=>{const t=estSectionTotal(sec);return(
+            {sections.filter(s=>!s.isFees).map((sec)=>{const t=estSectionTotal(sec);return(
               <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
                 <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
                 <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
@@ -138,6 +138,21 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal)}</div>
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal*xRate)}</div>
             </div>
+            {sections.filter(s=>s.isFees).map((sec)=>{
+              const feeSecTotal = sec.rows.reduce((sum, row) => {
+                const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
+                return sum + estRowTotal(row);
+              }, 0);
+              return(
+              <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
+                <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
+                <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
+                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(feeSecTotal)}</div>
+                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(feeSecTotal*xRate)}</div>
+              </div>
+            );})}
+
             <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>VAT (5%)</div>
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*0.05)}</div>
