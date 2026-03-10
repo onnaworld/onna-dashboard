@@ -240,7 +240,11 @@ export default function Budget({
               </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
-                const estSecTot = estSec ? estSectionTotal(estSec) : 0;
+                const estSecTot = estSec ? (estSec.isFees ? estSec.rows.reduce((sum, row) => {
+                  const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                  if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
+                  return sum + estRowTotal(row);
+                }, 0) : estSectionTotal(estSec)) : 0;
                 const actExp = actualsSectionExpenseTotal(sec);
                 const actEff = actualsSectionEffective(sec);
                 const actZoho = actualsSectionZohoTotal(sec);
@@ -275,7 +279,11 @@ export default function Budget({
               </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
-                const secEstTotal = estSec ? estSectionTotal(estSec) : 0;
+                const secEstTotal = estSec ? (estSec.isFees ? estSec.rows.reduce((sum, row) => {
+                  const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                  if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
+                  return sum + estRowTotal(row);
+                }, 0) : estSectionTotal(estSec)) : 0;
                 return (
                 <div key={si} style={{marginBottom:16}}>
                   {/* Section header — matches estimate format with actuals columns */}
@@ -297,7 +305,12 @@ export default function Budget({
                   {/* Rows */}
                   {sec.rows.map((row, ri) => {
                     const estRow = estSec?.rows[ri];
-                    const estVal = estRow ? estRowTotal(estRow) : 0;
+                    const isFeeSec = estSec?.isFees;
+                    let estVal = estRow ? estRowTotal(estRow) : 0;
+                    if (isFeeSec && estRow) {
+                      const pctMatch = (estRow.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                      if (pctMatch) estVal = estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
+                    }
                     const expTotal = actualsRowExpenseTotal(row);
                     const zohoVal = estNum(row.zohoAmount);
                     const actVal = actualsRowEffective(row);
