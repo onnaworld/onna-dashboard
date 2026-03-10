@@ -1,5 +1,5 @@
 // Vercel serverless function — Casting Deck share link generator
-const BACKEND = "https://onna-backend.vercel.app";
+const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
 const SVC_USER = process.env.ONNA_SVC_USER || "";
 const SVC_PASS = process.env.ONNA_SVC_PASS || "";
