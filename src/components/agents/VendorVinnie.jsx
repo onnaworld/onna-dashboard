@@ -389,8 +389,8 @@ export default function VendorVinnieCard({
   const _isXContactMode = pendingConv && pendingConv._saveAsXContact;
   const _cardEntry = _isXContactMode
     ? (() => { const xc = pendingConv._saveAsXContact; const e = pendingConv.entry; const existing = getXContacts(xc.type, xc.id); const inProgress = { name: e.contact || e.name || "", role: e.role || "", email: e.email || "", phone: e.phone || "", _inProgress: true }; return { ...xc.record, _xContacts: [...existing, inProgress] }; })()
-    : pendingConv ? pendingConv.entry : (pendingLead ? leadEdit : null);
-  const _cardType = _isXContactMode ? pendingConv._saveAsXContact.type : (pendingConv ? pendingConv.type : pendingType);
+    : (pendingConv && pendingConv.entry) ? pendingConv.entry : (pendingLead ? leadEdit : null);
+  const _cardType = _isXContactMode ? pendingConv._saveAsXContact.type : ((pendingConv && pendingConv.entry) ? pendingConv.type : pendingType);
   const _cardIsEditable = !!pendingLead && !pendingConv;
   const _cardIsNew = pendingConv ? !pendingConv.updateId : !pendingId;
   const _isOutreach = pendingConv?.saveAsOutreach;
