@@ -1,6 +1,6 @@
 import React, { Fragment } from "react";
 import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
-import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT } from "../ui/DocHelpers";
+import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
 
 export default function Budget({
   T, isMobile, p,
@@ -96,6 +96,27 @@ export default function Budget({
       setProjectActuals(prev => {
         const store = JSON.parse(JSON.stringify(prev));
         store[p.id][secIdx].rows[rowIdx].expenses[expIdx][field] = value;
+        return store;
+      });
+    };
+
+    // Delete a row from actuals
+    const deleteActRow = (secIdx, rowIdx) => {
+      setProjectActuals(prev => {
+        const store = JSON.parse(JSON.stringify(prev));
+        if (!store[p.id]) return prev;
+        if (store[p.id][secIdx].rows.length <= 1) return prev; // keep at least 1 row
+        store[p.id][secIdx].rows.splice(rowIdx, 1);
+        return store;
+      });
+    };
+
+    // Toggle highlight on a row
+    const toggleHighlight = (secIdx, rowIdx) => {
+      setProjectActuals(prev => {
+        const store = JSON.parse(JSON.stringify(prev));
+        if (!store[p.id]) return prev;
+        store[p.id][secIdx].rows[rowIdx].highlighted = !store[p.id][secIdx].rows[rowIdx].highlighted;
         return store;
       });
     };
@@ -241,6 +262,7 @@ export default function Budget({
                     <div style={{width:70,textAlign:"right",padding:"0 4px",flexShrink:0}}>VARIANCE</div>
                     <div style={{width:60,textAlign:"center",padding:"0 4px",flexShrink:0}}>STATUS</div>
                     <div style={{width:24,flexShrink:0}} data-noprint></div>
+                    <div style={{width:18,flexShrink:0}} data-noprint></div>
                   </div>
                   {/* Rows */}
                   {sec.rows.map((row, ri) => {
@@ -254,7 +276,7 @@ export default function Budget({
                     const isExpanded = actualsExpandedRef.current[rowKey];
                     return (
                       <Fragment key={ri}>
-                        <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch"}}>
+                        <div style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",background:row.highlighted?EST_YELLOW:"transparent"}}>
                           <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                           <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,minWidth:0}}>{row.desc}</div>
                           <div style={{width:110,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#666",letterSpacing:EST_LS}}>{row.notes}</div>
@@ -268,8 +290,12 @@ export default function Budget({
                           <div style={{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                             <span onClick={()=>{const idx=ACTUALS_STATUSES.indexOf(row.status);updateActRow(si,ri,"status",ACTUALS_STATUSES[(idx+1)%ACTUALS_STATUSES.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",background:stBg[row.status]||"transparent",color:stColors[row.status]||"#ccc",textTransform:"uppercase"}}>{row.status||"\u2014"}</span>
                           </div>
-                          <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
+                          <div style={{width:24,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}} data-noprint>
                             <span onClick={()=>toggleExpand(rowKey)} style={{cursor:"pointer",fontSize:11,color:"#999",userSelect:"none"}}>{isExpanded?"\u25BE":"\u25B8"}</span>
+                          </div>
+                          <div style={{width:18,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4}} data-noprint>
+                            <span onClick={()=>toggleHighlight(si,ri)} title="Highlight" style={{cursor:"pointer",fontSize:9,color:row.highlighted?"#c9a800":"#ddd",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#c9a800"}} onMouseLeave={e=>{e.target.style.color=row.highlighted?"#c9a800":"#ddd"}}>{"\u25CF"}</span>
+                            <span onClick={()=>deleteActRow(si,ri)} title="Delete row" style={{cursor:"pointer",fontSize:11,color:"#ccc",userSelect:"none",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                           </div>
                         </div>
                         {/* Expandable expenses dropdown */}
@@ -293,6 +319,7 @@ export default function Budget({
                                 <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} data-noprint>
                                   <span onClick={()=>deleteExpense(si, ri, ei)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                                 </div>
+                                <div style={{width:18,flexShrink:0}}></div>
                               </div>
                             ))}
                             <div style={{display:"flex"}}>
@@ -313,6 +340,7 @@ export default function Budget({
                       <div style={{width:70,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionEffective(sec))>=0?"#147d50":"#c0392b"}}>{(secEstTotal-actualsSectionEffective(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionEffective(sec))}</div>
                       <div style={{width:60}}></div>
                       <div style={{width:24}}></div>
+                      <div style={{width:18}}></div>
                     </div>
                   </div>
                 </div>
@@ -327,6 +355,7 @@ export default function Budget({
                 <div style={{width:70,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
                 <div style={{width:60}}></div>
                 <div style={{width:24}}></div>
+                <div style={{width:18}}></div>
               </div>
             </div>
           )}
