@@ -218,7 +218,7 @@ export default function ProjectSection({
                 </div>
                 {dashSelectedNoteId===note.id&&(
                   <div style={{padding:"0 18px 14px"}}>
-                    <div contentEditable suppressContentEditableWarning ref={el=>{if(el&&!el._initialized){el.innerHTML=note.content||"";el._initialized=true;}}} onInput={e=>{const html=e.currentTarget.innerHTML;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:html,updatedAt:Date.now()}:n));}} style={{minHeight:60,fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit"}} placeholder="Write something..."/>
+                    <textarea value={note.content||""} onChange={e=>{const val=e.target.value;setDashNotesList(prev=>prev.map(n=>n.id===note.id?{...n,content:val,updatedAt:Date.now()}:n));}} placeholder="Write something..." style={{minHeight:60,width:"100%",fontSize:13,color:T.text,lineHeight:1.6,outline:"none",padding:"4px 0",fontFamily:"inherit",border:"none",background:"transparent",resize:"vertical",boxSizing:"border-box"}}/>
                   </div>
                 )}
               </div>
