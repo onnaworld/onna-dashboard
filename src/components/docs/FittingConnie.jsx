@@ -192,8 +192,23 @@ ${PRINT_CLEANUP_CSS}
     const html = clone.innerHTML;
     setPrintTabs(null);
     if (!html) return;
+
+    // Build feedback from dashboard imageStatuses so portal reflects current approvals
+    const dashFeedback = {};
+    let cardIdx = 0;
+    fittings.forEach(fit => {
+      (fit.images || []).forEach((img, n) => {
+        const st = (fit.imageStatuses || {})[n];
+        if (st && st !== "none") {
+          dashFeedback["c" + cardIdx] = { status: st, note: (fit.imageNotes || {})[n] || "" };
+        }
+        cardIdx++;
+      });
+    });
+
     try {
       const body = { html, projectName: project.name || "", clientName: project.client || "", mode: tabsArr.join("+") };
+      if (Object.keys(dashFeedback).length > 0) body.feedback = dashFeedback;
       if (existingToken) body.token = existingToken;
       if (existingResourceId) body.resourceId = existingResourceId;
       const resp = await fetch("/api/fit-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

@@ -104,13 +104,33 @@ export default async function handler(req, res) {
 
       const useAuth = await resolveAuth(auth);
 
-      const blobData = JSON.stringify({
+      const { feedback: incomingFeedback } = req.body;
+
+      // When updating, preserve existing feedback from the backend and merge with dashboard state
+      let mergedFeedback = incomingFeedback || null;
+      if (resourceId) {
+        try {
+          const getResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, { headers: backendHeaders(useAuth) });
+          if (getResp.ok) {
+            const existing = await getResp.json();
+            const existingBlob = typeof existing.blob === "string" ? JSON.parse(existing.blob) : existing.blob;
+            if (existingBlob.feedback) {
+              // Merge: dashboard feedback takes priority, fill in from existing
+              mergedFeedback = { ...(existingBlob.feedback || {}), ...(incomingFeedback || {}) };
+            }
+          }
+        } catch {}
+      }
+
+      const blobObj = {
         token,
         html,
         projectName: projectName || "",
         mode: mode || "fitting",
         createdAt: new Date().toISOString(),
-      });
+      };
+      if (mergedFeedback) blobObj.feedback = mergedFeedback;
+      const blobData = JSON.stringify(blobObj);
 
       if (resourceId) {
         try {
