@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 
     // POST — create or update Fitting share
     if (req.method === "POST") {
-      const { html, projectName, clientName, mode, token: existingToken, resourceId } = req.body;
+      const { html, projectName, clientName, mode, token: existingToken, resourceId, feedback: incomingFeedback } = req.body;
       if (!html) return res.status(400).json({ error: "Missing html" });
 
       const clientSlug = makeSlug(clientName);
@@ -104,22 +104,21 @@ export default async function handler(req, res) {
 
       const useAuth = await resolveAuth(auth);
 
-      const { feedback: incomingFeedback } = req.body;
-
-      // When updating, preserve existing feedback from the backend and merge with dashboard state
+      // When updating, preserve existing feedback and merge with dashboard state
       let mergedFeedback = incomingFeedback || null;
-      if (resourceId) {
-        try {
-          const getResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, { headers: backendHeaders(useAuth) });
-          if (getResp.ok) {
-            const existing = await getResp.json();
-            const existingBlob = typeof existing.blob === "string" ? JSON.parse(existing.blob) : existing.blob;
+
+      // Always find the existing resource by token for reliable updates
+      let existingResource = null;
+      if (existingToken) {
+        existingResource = await findShareByToken(existingToken, useAuth);
+        if (existingResource) {
+          try {
+            const existingBlob = typeof existingResource.blob === "string" ? JSON.parse(existingResource.blob) : existingResource.blob;
             if (existingBlob.feedback) {
-              // Merge: dashboard feedback takes priority, fill in from existing
               mergedFeedback = { ...(existingBlob.feedback || {}), ...(incomingFeedback || {}) };
             }
-          }
-        } catch {}
+          } catch {}
+        }
       }
 
       const blobObj = {
@@ -132,40 +131,23 @@ export default async function handler(req, res) {
       if (mergedFeedback) blobObj.feedback = mergedFeedback;
       const blobData = JSON.stringify(blobObj);
 
-      if (resourceId) {
-        try {
-          const putResp = await fetch(`${BACKEND}/api/resources/${resourceId}`, {
+      // Update existing resource if found
+      if (existingResource) {
+        const eid = existingResource.id || existingResource._id;
+        if (eid) {
+          const putResp = await fetch(`${BACKEND}/api/resources/${eid}`, {
             method: "PUT",
             headers: backendHeaders(useAuth),
             body: JSON.stringify({ type: "fit_share", blob: blobData }),
           });
           if (putResp.ok) {
-            const putData = await putResp.json();
-            return res.status(200).json({ token, url, id: putData.id || putData._id || resourceId });
+            return res.status(200).json({ token, url, id: eid });
           }
-        } catch {}
+          // If PUT failed, fall through to create new
+        }
       }
 
-      if (existingToken) {
-        try {
-          const listResp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
-          if (listResp.ok) {
-            const entries = await listResp.json();
-            const list = Array.isArray(entries) ? entries : entries.data || [];
-            for (const e of list) {
-              if (e.type !== "fit_share") continue;
-              try {
-                const blob = typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob;
-                if (blob.token === existingToken) {
-                  const eid = e.id || e._id;
-                  if (eid) await fetch(`${BACKEND}/api/resources/${eid}`, { method: "DELETE", headers: backendHeaders(useAuth) });
-                }
-              } catch {}
-            }
-          }
-        } catch {}
-      }
-
+      // Create new resource
       const payload = { type: "fit_share", blob: blobData };
       const resp = await fetch(`${BACKEND}/api/resources`, {
         method: "POST",
@@ -191,6 +173,7 @@ export default async function handler(req, res) {
 
       // If feedbackOnly=1, return just the feedback data as JSON
       if (feedbackOnly === "1") {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         return res.status(200).json({
           feedback: parsed.feedback || null,
           feedbackUpdatedAt: parsed.feedbackUpdatedAt || null,
@@ -408,6 +391,7 @@ document.querySelectorAll('span').forEach(function(s){
 </body></html>`;
 
       res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       return res.status(200).send(page);
     }
 
