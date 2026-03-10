@@ -205,6 +205,23 @@ export default function Budget({
     });
     const [invoicedEdit, setInvoicedEdit] = React.useState(null);
 
+    // Invoiced amount calculation (hoisted for use across tabs)
+    const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
+    const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
+    const autoInvoiced = estTotals.grandTotal * (advPct / 100);
+    const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
+    const finalInvoice = invoicedAmt - actExpenseTotal;
+
+    // Budget tracker notes — persisted per project
+    const budgetNotesKey = `onna_budget_notes_${p.id}`;
+    const [budgetNotes, setBudgetNotes] = React.useState(() => {
+      try { return localStorage.getItem(budgetNotesKey) || ""; } catch { return ""; }
+    });
+    const saveBudgetNotes = (val) => {
+      setBudgetNotes(val);
+      try { localStorage.setItem(budgetNotesKey, val); } catch {}
+    };
+
     // Export column picker
     const ALL_COLS = [
       { id:"notes", label:"Notes", w:80 },
@@ -217,10 +234,14 @@ export default function Budget({
       { id:"variance", label:"Variance", w:70 },
       { id:"status", label:"Status", w:60 },
     ];
-    const [hiddenCols, setHiddenCols] = React.useState({});
+    const hiddenColsKey = `onna_hidden_cols_${p.id}`;
+    const [hiddenCols, setHiddenCols] = React.useState(() => {
+      try { const s = localStorage.getItem(hiddenColsKey); if (s) return JSON.parse(s); } catch {}
+      return {};
+    });
     const [showColPicker, setShowColPicker] = React.useState(false);
     const colVisible = (id) => !hiddenCols[id];
-    const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true;return n;});
+    const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true; try{localStorage.setItem(hiddenColsKey,JSON.stringify(n));}catch{} return n;});
     const colStyle = (id, base) => colVisible(id) ? base : {...base, display:"none"};
     // Dynamic min-width: base (ref 40 + desc ~120 + actions 42) + visible column widths
     const visibleColWidth = ALL_COLS.filter(c => colVisible(c.id)).reduce((s, c) => s + c.w, 0);
@@ -310,6 +331,8 @@ export default function Budget({
           #actuals-print-area, #actuals-print-area * { visibility: visible !important; }
           #actuals-print-area { position: absolute !important; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 20mm 18mm !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
           #actuals-print-area [data-noprint] { display: none !important; }
+          #actuals-print-area [data-noprint-hide] { display: none !important; }
+          #actuals-print-area [data-print-only] { display: block !important; }
           #actuals-print-area [data-noprint-drag] { cursor: default !important; }
           #actuals-print-area button { display: none !important; }
           #actuals-print-area [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
@@ -347,8 +370,8 @@ export default function Budget({
               </div>
             ))}
             <div style={{borderTop:"1px solid #f0f0f0",padding:"8px 14px 6px",display:"flex",gap:12}}>
-              <span onClick={()=>setHiddenCols({})} style={{fontFamily:EST_F,fontSize:10,color:"#1976D2",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>SELECT ALL</span>
-              <span onClick={()=>{const h={};ALL_COLS.forEach(c=>{h[c.id]=true});setHiddenCols(h);}} style={{fontFamily:EST_F,fontSize:10,color:"#999",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>DESELECT ALL</span>
+              <span onClick={()=>{setHiddenCols({});try{localStorage.setItem(hiddenColsKey,JSON.stringify({}));}catch{}}} style={{fontFamily:EST_F,fontSize:10,color:"#1976D2",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>SELECT ALL</span>
+              <span onClick={()=>{const h={};ALL_COLS.forEach(c=>{h[c.id]=true});setHiddenCols(h);try{localStorage.setItem(hiddenColsKey,JSON.stringify(h));}catch{}}} style={{fontFamily:EST_F,fontSize:10,color:"#999",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>DESELECT ALL</span>
             </div>
           </div>
         )}
@@ -364,12 +387,6 @@ export default function Budget({
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
 
           {/* Summary cards row */}
-          {(() => {
-            const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
-            const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-            const autoInvoiced = estTotals.grandTotal * (advPct / 100);
-            const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
-            return (
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
             <div style={{flex:1,padding:"8px 10px",borderRight:"1px solid #ddd",textAlign:"center"}}>
               <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>INVOICED {invoicedOverride===null?`(${advPct}%)`:""}</div>
@@ -407,7 +424,6 @@ export default function Budget({
               </div>
             ))}
           </div>
-            ); })()}
 
           {/* Summary Tab */}
           {trackerTab==="summary" && (
@@ -446,6 +462,14 @@ export default function Budget({
                 <div data-col style={colStyle("actuals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actExpenseTotal)}</div>
                 <div data-col style={colStyle("finals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actZohoTotal)}</div>
                 <div data-col style={colStyle("variance",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:actVariance>=0?"#147d50":"#c0392b"})}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
+              </div>
+              {/* Final Invoice bar */}
+              <div style={{display:"flex",background:"#1a1a1a",color:"#fff",borderTop:"1px solid #333"}}>
+                <div data-col-desc style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>INVOICE − ACTUALS</div>
+                <div data-col style={colStyle("estimate",{width:110,padding:"6px 6px"})}></div>
+                <div data-col style={colStyle("actuals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:finalInvoice>=0?"#4caf50":"#ef5350"})}>{(finalInvoice>=0?"+":"")}{estFmt(finalInvoice)}</div>
+                <div data-col style={colStyle("finals",{width:110,padding:"6px 6px"})}></div>
+                <div data-col style={colStyle("variance",{width:110,padding:"6px 6px"})}></div>
               </div>
             </div>
           )}
@@ -600,8 +624,33 @@ export default function Budget({
                 <div style={{width:24}}></div>
                 <div style={{width:18}}></div>
               </div>
+              {/* Final Invoice bar */}
+              <div style={{display:"flex",background:"#1a1a1a",color:"#fff",borderTop:"1px solid #333"}}>
+                <div data-col-desc style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textAlign:"right"}}>INVOICE − ACTUALS</div>
+                <div data-col style={colStyle("estimate",{width:80,padding:"6px 6px"})}></div>
+                <div data-col style={colStyle("actuals",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:finalInvoice>=0?"#4caf50":"#ef5350"})}>{(finalInvoice>=0?"+":"")}{estFmt(finalInvoice)}</div>
+                <div data-col style={colStyle("finals",{width:80,padding:"6px 6px"})}></div>
+                <div data-col style={colStyle("variance",{width:70,padding:"6px 6px"})}></div>
+                <div data-col style={colStyle("status",{width:60})}></div>
+                <div style={{width:24}}></div>
+                <div style={{width:18}}></div>
+              </div>
             </div>
           )}
+
+          {/* Notes section */}
+          <div style={{marginTop:20}}>
+            <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:6}}>NOTES</div>
+            <textarea
+              data-noprint-hide
+              value={budgetNotes}
+              onChange={e => saveBudgetNotes(e.target.value)}
+              placeholder="Add notes..."
+              style={{width:"100%",minHeight:60,padding:"8px 10px",borderRadius:6,border:"1px solid #e0e0e0",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",resize:"vertical",outline:"none",boxSizing:"border-box",lineHeight:1.5}}
+            />
+            {/* Static version for print */}
+            <div data-print-only style={{display:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",whiteSpace:"pre-wrap",lineHeight:1.5,padding:"4px 0"}}>{budgetNotes}</div>
+          </div>
         </div>
       </div>
       </div>
