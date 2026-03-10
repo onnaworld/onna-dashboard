@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       if (!match) return res.status(404).json({ error: "Share not found" });
 
       const parsed = typeof match.blob === "string" ? JSON.parse(match.blob) : match.blob;
-      parsed.feedback = feedback;
+      parsed.feedback = { ...(parsed.feedback || {}), ...feedback };
       parsed.feedbackUpdatedAt = new Date().toISOString();
 
       const eid = match.id || match._id;
@@ -360,6 +360,46 @@ document.querySelectorAll('span').forEach(function(s){
       saveFeedback();
     });
   });
+})();
+/* Poll for dashboard updates every 5s */
+(function(){
+  var ACTION_C={approved:{bg:"#2E7D32"},shortlisted:{bg:"#E65100"},rejected:{bg:"#C62828"}};
+  var lastHash='';
+  function applyRemoteFeedback(fb){
+    var cards=document.querySelectorAll('[data-fit-card]');
+    cards.forEach(function(card,ci){
+      var cfb=fb['c'+ci];
+      var st=cfb&&cfb.status?cfb.status:'none';
+      var cur=(_feedback['c'+ci]||{}).status||'none';
+      if(st===cur)return;
+      if(!_feedback['c'+ci])_feedback['c'+ci]={};
+      _feedback['c'+ci].status=st;
+      var btns=card.querySelectorAll('[data-fit-action]');
+      btns.forEach(function(b){
+        var a=b.getAttribute('data-fit-action');
+        var ac=ACTION_C[a];
+        if(a===st){b.style.background=ac.bg;b.style.color='#fff';}
+        else{b.style.background='#fff';b.style.color=ac?ac.bg:'#999';}
+      });
+      card.style.border=st!=='none'&&ACTION_C[st]?'3px solid '+ACTION_C[st].bg:'1px solid #eee';
+      if(cfb&&cfb.note!=null){
+        _feedback['c'+ci].note=cfb.note;
+        var ni=card.querySelector('[data-fit-note]');
+        if(ni){ni.value=cfb.note;ni.style.background=cfb.note?'#FFFDE7':'transparent';}
+      }
+    });
+  }
+  setInterval(function(){
+    fetch(window.location.pathname+'?token='+encodeURIComponent(SHARE_TOKEN)+'&feedbackOnly=1')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d.feedback)return;
+      var h=JSON.stringify(d.feedback);
+      if(h===lastHash)return;
+      lastHash=h;
+      applyRemoteFeedback(d.feedback);
+    }).catch(function(){});
+  },5000);
 })();
 </script>
 </body></html>`;

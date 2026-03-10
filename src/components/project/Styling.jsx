@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 
 export default function Styling({
   T, isMobile, p,
@@ -97,6 +97,42 @@ export default function Styling({
 
     const fitIdx = activeFittingVersion;
     const fitData = fitVersions[fitIdx];
+
+    // Auto-sync approval statuses to portal when fittings change
+    const fitSyncTimer = useRef(null);
+    const syncFeedbackToPortal = useCallback((fittings, token) => {
+      if (!token || !fittings) return;
+      clearTimeout(fitSyncTimer.current);
+      fitSyncTimer.current = setTimeout(async () => {
+        // Build feedback map matching portal card indices
+        const feedback = {};
+        let ci = 0;
+        fittings.forEach(fit => {
+          (fit.images || []).forEach((img, n) => {
+            const st = (fit.imageStatuses || {})[n];
+            if (st && st !== "none") {
+              feedback["c" + ci] = { status: st, note: (fit.imageNotes || {})[n] || "" };
+            }
+            ci++;
+          });
+        });
+        try {
+          await fetch("/api/fit-share", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, feedback }),
+          });
+        } catch {}
+      }, 1200);
+    }, []);
+
+    useEffect(() => {
+      if (fitData?.shareToken && fitData?.fittings) {
+        syncFeedbackToPortal(fitData.fittings, fitData.shareToken);
+      }
+      return () => clearTimeout(fitSyncTimer.current);
+    }, [fitData?.fittings, fitData?.shareToken, syncFeedbackToPortal]);
+
     if (!fitData) { setActiveFittingVersion(null); return null; }
 
     const fitBack = <button onClick={()=>setActiveFittingVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Fitting Decks</button>;
