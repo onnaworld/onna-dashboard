@@ -134,11 +134,11 @@ export default function Dashboard({
             </div>
             {/* Top-level filter tabs with drag-and-drop targets */}
             <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
-              {[["todo","ONNA"],["general","Personal"],["project","Projects"]].map(([val,label])=>(
+              {[["todo","ONNA"],["project","Projects"]].map(([val,label])=>(
                 <button key={val} onClick={()=>setTodoFilter(val)}
                   onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                   onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                  onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task){pushUndo('move to project');setPendingDragToProject(task);};return;}const targetTab=val==="todo"?"onna":"personal";pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:targetTab,subType:undefined}:t));setTodoFilter(val);}}
+                  onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task){pushUndo('move to project');setPendingDragToProject(task);};return;}pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType:undefined}:t));setTodoFilter(val);}}
                   style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
               ))}
             </div>
@@ -150,18 +150,6 @@ export default function Dashboard({
                     onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                     onDragLeave={e=>{e.currentTarget.style.outline="none";}}
                     onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="todo-later"?"later":undefined;pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType}:t));setTodoFilter(val);}}
-                    style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
-                ))}
-              </div>
-            )}
-            {/* Sub-filter row — Personal */}
-            {todoTopFilter==="general"&&(
-              <div style={{display:"flex",gap:5,paddingBottom:10}}>
-                {[["general","All"],["general-now","Now"],["general-later","Later"]].map(([val,label])=>(
-                  <button key={val} onClick={()=>setTodoFilter(val)}
-                    onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
-                    onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                    onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=val==="general-later"?"later":undefined;pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"personal",subType}:t));setTodoFilter(val);}}
                     style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s"}}>{label}</button>
                 ))}
               </div>
@@ -197,7 +185,7 @@ export default function Dashboard({
           </div>
           {/* Add input — shown when 5+ tasks */}
           <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa",flexShrink:0}}>
-            <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"||todoFilter==="general-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+            <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-later"?"Add later task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
             <button onClick={()=>{if(newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
           </div>
         </div>

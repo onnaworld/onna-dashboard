@@ -487,7 +487,7 @@ function OnnaDashboardInner() {
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archived_projects')||'[]')}catch{return []}});
   const [archivedTodos,setArchivedTodos]     = useState([]);
-  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab?t:["later","longterm"].includes(t.subType)?{...t,tab:"personal"}:{...t,tab:"onna"})}catch(e){return []}});
+  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"})}catch(e){return []}});
   const [todoDragId,setTodoDragId] = useState(null);
   const [newTodo,setNewTodo]         = useState("");
   const [todoFilter,setTodoFilter]   = useState("todo");
@@ -789,7 +789,7 @@ function OnnaDashboardInner() {
       try {
         const gd = await api.get('/api/global-data');
         if (gd) {
-          if (gd.todos) setTodos(gd.todos.map(t => t.tab ? t : ["later","longterm"].includes(t.subType) ? {...t, tab:"personal"} : {...t, tab:"onna"}));
+          if (gd.todos) setTodos(gd.todos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"}));
           if (gd.ptodos) setProjectTodos(gd.ptodos);
           if (gd.notes_list) setDashNotesList(gd.notes_list);
           if (gd.archive) setArchive(gd.archive);
@@ -951,13 +951,10 @@ function OnnaDashboardInner() {
     if (todoFilter==="todo") return t._source==="general" && t.tab==="onna";
     if (todoFilter==="todo-now") return t._source==="general" && t.tab==="onna" && !t.subType;
     if (todoFilter==="todo-later") return t._source==="general" && t.tab==="onna" && t.subType==="later";
-    if (todoFilter==="general") return t._source==="general" && t.tab==="personal";
-    if (todoFilter==="general-now") return t._source==="general" && t.tab==="personal" && !t.subType;
-    if (todoFilter==="general-later") return t._source==="general" && t.tab==="personal" && t.subType==="later";
     if (todoFilter==="project") return t._source==="project";
     if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-","")); return true;
   });
-  const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("general")?"general":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
+  const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
   const getProjectCastingTables = id => _getProjectCastingTablesFn(id, projectCasting);
   const getProjectCasting = id => _getProjectCastingFn(id, projectCasting);

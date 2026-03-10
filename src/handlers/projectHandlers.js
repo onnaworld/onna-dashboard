@@ -66,7 +66,7 @@ export const navigateToDoc = (projectObj, section, subSection, opts, setters) =>
 export const addTodoFromInput = (text, todoTopFilter, todoFilter, pushUndo, setProjectTodos, setPendingProjectTask, setTodos) => {
   if (!text) return;
   pushUndo("add task");
-  const tab = todoTopFilter==="todo"?"onna":todoTopFilter==="general"?"personal":undefined;
+  const tab = "onna";
   const subType = todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;
   if (todoFilter.startsWith("project-")) {
     const pid = Number(todoFilter.replace("project-",""));
