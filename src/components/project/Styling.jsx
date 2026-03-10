@@ -126,12 +126,20 @@ export default function Styling({
       }, 1200);
     }, []);
 
+    // Build a fingerprint of approval statuses to detect changes
+    const statusFingerprint = React.useMemo(() => {
+      if (!fitData?.fittings) return "";
+      return fitData.fittings.map(f =>
+        (f.images || []).map((_, n) => (f.imageStatuses || {})[n] || "").join(",")
+      ).join("|");
+    }, [fitData?.fittings]);
+
     useEffect(() => {
-      if (fitData?.shareToken && fitData?.fittings) {
+      if (fitData?.shareToken && fitData?.fittings && statusFingerprint) {
         syncFeedbackToPortal(fitData.fittings, fitData.shareToken);
       }
       return () => clearTimeout(fitSyncTimer.current);
-    }, [fitData?.fittings, fitData?.shareToken, syncFeedbackToPortal]);
+    }, [statusFingerprint, fitData?.shareToken, syncFeedbackToPortal]);
 
     if (!fitData) { setActiveFittingVersion(null); return null; }
 
@@ -140,11 +148,38 @@ export default function Styling({
     const fitShareTitle = `ONNA | ${fitData.label || "Fitting Deck"}`;
     const existingFitToken = fitData.shareToken || null;
     const displayFitShareUrl = existingFitToken ? `https://app.onna.digital/api/fit-share?token=${encodeURIComponent(existingFitToken)}` : null;
+    const pushFeedbackOnly = async () => {
+      if (!existingFitToken || !fitData.fittings) return;
+      const feedback = {};
+      let ci = 0;
+      fitData.fittings.forEach(fit => {
+        (fit.images || []).forEach((img, n) => {
+          const st = (fit.imageStatuses || {})[n];
+          if (st && st !== "none") {
+            feedback["c" + ci] = { status: st, note: (fit.imageNotes || {})[n] || "" };
+          }
+          ci++;
+        });
+      });
+      await fetch("/api/fit-share", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: existingFitToken, feedback }),
+      });
+    };
     const sendFitShare = async () => {
       if (fitShareTabs.size === 0) return;
       setFitShareLoading(true);
-      try { if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], existingFitToken, fitData.shareResourceId); }
-      catch (err) { showAlert("Error: " + err.message); }
+      try {
+        if (existingFitToken) {
+          // Already have a link — just push feedback, don't regenerate HTML
+          await pushFeedbackOnly();
+          showAlert("Approvals synced to portal!");
+        } else {
+          // First time — generate full HTML share
+          if (fitDeckRef.current) await fitDeckRef.current.share([...fitShareTabs], null, null);
+        }
+      } catch (err) { showAlert("Error: " + err.message); }
       setFitShareLoading(false);
     };
     const toggleFitShareTab = (t) => setFitShareTabs(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; });
@@ -154,7 +189,7 @@ export default function Styling({
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>FITTING</span>
-            <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0}} placeholder="Version label"/>
+            <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,minWidth:280,flex:1}} placeholder="Version label"/>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             {["confirmed","options"].map(t => (
