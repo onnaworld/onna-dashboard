@@ -434,7 +434,19 @@ export default function Budget({
               data-noprint-hide
               value={budgetNotes}
               onChange={e => saveBudgetNotes(e.target.value)}
-              placeholder="Add notes..."
+              onFocus={e => { if (!budgetNotes) saveBudgetNotes("- "); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const ta = e.target;
+                  const pos = ta.selectionStart;
+                  const val = ta.value;
+                  const newVal = val.slice(0, pos) + "\n- " + val.slice(pos);
+                  saveBudgetNotes(newVal);
+                  requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = pos + 3; });
+                }
+              }}
+              placeholder="- Add notes..."
               rows={2}
               style={{width:"100%",background:"#f9f9f9",border:"1px solid #e0e0e0",borderTop:"none",outline:"none",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#1a1a1a",resize:"vertical",lineHeight:1.5,padding:"8px 12px",minHeight:32,boxSizing:"border-box"}}
             />
