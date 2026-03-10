@@ -432,10 +432,10 @@ export default function Budget({
                 return (
                 <div key={si} style={{marginBottom:16}}>
                   {/* Section header — clickable to collapse/expand */}
-                  <div onClick={()=>toggleSection(si)} style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+                  <div onClick={()=>toggleSection(si)} style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:"pointer",userSelect:"none",borderBottom:collapsedSecs[si]?"2px solid #000":"none"}}>
                     <div data-col style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
                     <div data-col-desc style={{flex:1,padding:"0 6px",display:"flex",alignItems:"center",gap:6}}>{sec.title} <span style={{fontSize:8,opacity:0.6}}>{collapsedSecs[si]?"\u25B6":"\u25BC"}</span></div>
-                    <div data-col style={colStyle("notes",{flex:1,minWidth:80,padding:"0 6px",fontSize:9})}>NOTES</div>
+                    {!collapsedSecs[si] && <><div data-col style={colStyle("notes",{flex:1,minWidth:80,padding:"0 6px",fontSize:9})}>NOTES</div>
                     <div data-col style={colStyle("days",{width:45,textAlign:"center",padding:"0 4px",flexShrink:0})}>DAYS</div>
                     <div data-col style={colStyle("qty",{width:35,textAlign:"center",padding:"0 4px",flexShrink:0})}>QTY</div>
                     <div data-col style={colStyle("rate",{width:70,textAlign:"right",padding:"0 4px",flexShrink:0})}>RATE</div>
@@ -445,7 +445,7 @@ export default function Budget({
                     <div data-col style={colStyle("variance",{width:70,textAlign:"right",padding:"0 4px",flexShrink:0})}>VARIANCE</div>
                     <div data-col style={colStyle("status",{width:60,textAlign:"center",padding:"0 4px",flexShrink:0})}>STATUS</div>
                     <div style={{width:24,flexShrink:0}} data-noprint></div>
-                    <div style={{width:18,flexShrink:0}} data-noprint></div>
+                    <div style={{width:18,flexShrink:0}} data-noprint></div></>}
                   </div>
                   {/* Rows — hidden when section is collapsed */}
                   {!collapsedSecs[si] && sec.rows.map((row, ri) => {
@@ -537,8 +537,8 @@ export default function Budget({
                         )}
                       </Fragment>
                     ); })}
-                  {/* Section total */}
-                  <div style={{display:"flex",justifyContent:"flex-end",borderBottom:"2px solid #000"}}>
+                  {/* Section total — hidden when collapsed */}
+                  {!collapsedSecs[si] && <div style={{display:"flex",justifyContent:"flex-end",borderBottom:"2px solid #000"}}>
                     <div style={{display:"flex",gap:0,padding:"4px 0"}}>
                       <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>TOTAL</div>
                       <div data-col style={colStyle("estimate",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS})}>{estFmt(secEstTotal)}</div>
@@ -549,7 +549,7 @@ export default function Budget({
                       <div style={{width:24}}></div>
                       <div style={{width:18}}></div>
                     </div>
-                  </div>
+                  </div>}
                 </div>
                 ); })}
 
