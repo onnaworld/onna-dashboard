@@ -228,11 +228,15 @@ function saveFeedback(){
   _dirty=true;
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(function(){
-    fetch(window.location.pathname,{
+    fetch('/api/fit-share',{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({token:SHARE_TOKEN,feedback:_feedback})
-    }).then(function(){_dirty=false;showToast();}).catch(function(){_dirty=false;});
+    }).then(function(r){
+      _dirty=false;
+      if(r.ok){showToast();}
+      else{r.text().then(function(t){console.error('Save failed:',r.status,t);});}
+    }).catch(function(e){_dirty=false;console.error('Save error:',e);});
   },800);
 }
 document.querySelectorAll('span').forEach(function(s){

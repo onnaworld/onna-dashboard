@@ -185,22 +185,20 @@ export default function Styling({
     return (
       <div>
         {fitBack}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-            <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555",flexShrink:0}}>FITTING</span>
-            <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,flex:1,minWidth:0}} placeholder="Version label"/>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            {["confirmed","options"].map(t => (
-              <label key={t} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:fitShareTabs.has(t)?"#1565C0":"#999",cursor:"pointer",userSelect:"none"}}>
-                <input type="checkbox" checked={fitShareTabs.has(t)} onChange={()=>toggleFitShareTab(t)} style={{accentColor:"#1976D2"}}/>
-                {t === "confirmed" ? "Confirmed" : "Options"}
-              </label>
-            ))}
-            <button onClick={sendFitShare} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingFitToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
-              {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Sync" : "Generate Link"}
-            </button>
-          </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+          <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555",flexShrink:0}}>FITTING</span>
+          <input value={fitData.label||""} onChange={e=>{setFittingStore(prev=>{const s=JSON.parse(JSON.stringify(prev));s[p.id][fitIdx].label=e.target.value;return s;});}} style={{fontSize:14,fontWeight:600,color:T.text,background:"transparent",border:"none",borderBottom:`1px solid ${T.border}`,outline:"none",fontFamily:"inherit",padding:"2px 0",flex:1}} placeholder="Version label"/>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:14}}>
+          {["confirmed","options"].map(t => (
+            <label key={t} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color:fitShareTabs.has(t)?"#1565C0":"#999",cursor:"pointer",userSelect:"none"}}>
+              <input type="checkbox" checked={fitShareTabs.has(t)} onChange={()=>toggleFitShareTab(t)} style={{accentColor:"#1976D2"}}/>
+              {t === "confirmed" ? "Confirmed" : "Options"}
+            </label>
+          ))}
+          <button onClick={sendFitShare} disabled={fitShareLoading||fitShareTabs.size===0} style={{padding:"5px 16px",borderRadius:8,background:existingFitToken?"#1976D2":"#1d1d1f",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:(fitShareLoading||fitShareTabs.size===0)?0.5:1}}>
+            {fitShareLoading ? "Generating\u2026" : existingFitToken ? "Sync" : "Generate Link"}
+          </button>
         </div>
         {displayFitShareUrl && (
           <div style={{background:"#e3f2fd",border:"1px solid #90caf9",borderRadius:10,padding:"14px 18px",marginBottom:14}}>
