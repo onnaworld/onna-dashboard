@@ -361,8 +361,7 @@ export default function Budget({
           {(() => {
             const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-            const totalIncVat = estTotals.grandTotal + estTotals.grandTotal * 0.05;
-            const invoicedAmt = totalIncVat * (advPct / 100);
+            const invoicedAmt = estTotals.grandTotal * (advPct / 100);
             return (
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
             {[
