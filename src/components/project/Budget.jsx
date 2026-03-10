@@ -86,7 +86,7 @@ export default function Budget({
       setProjectActuals(prev => {
         const store = JSON.parse(JSON.stringify(prev));
         if (!store[p.id]) store[p.id] = buildActualsFromEstimate(estSections);
-        store[p.id][secIdx].rows[rowIdx].expenses.push({ id: Date.now(), vendor: "", desc: "", amount: "0", status: "" });
+        store[p.id][secIdx].rows[rowIdx].expenses.push({ id: Date.now(), vendor: "", desc: "", amount: "0", status: "", receiptLink: "" });
         return store;
       });
     };
@@ -336,7 +336,16 @@ export default function Budget({
                               <div key={exp.id} style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0"}}>
                                 <div style={{width:40,flexShrink:0,padding:"3px 6px",fontFamily:EST_F,fontSize:8,color:"#ccc",display:"flex",alignItems:"center"}}>{"\u2514"}</div>
                                 <div style={{flex:1,minWidth:0}}><EstCell value={exp.desc} onChange={v2 => updateExpense(si, ri, ei, "desc", v2)} style={{fontSize:9,color:"#666"}} /></div>
-                                <div style={{width:110,flexShrink:0}}></div>
+                                <div style={{width:110,flexShrink:0,display:"flex",alignItems:"center",padding:"0 4px"}}>
+                                  {exp.receiptLink ? (
+                                    <span style={{display:"flex",alignItems:"center",gap:3,maxWidth:"100%"}}>
+                                      <a href={exp.receiptLink} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={exp.receiptLink}>RECEIPT</a>
+                                      <span onClick={()=>updateExpense(si,ri,ei,"receiptLink","")} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                                    </span>
+                                  ) : (
+                                    <span onClick={()=>{const url=window.prompt("Paste receipt link:");if(url&&url.trim())updateExpense(si,ri,ei,"receiptLink",url.trim());}} style={{fontFamily:EST_F,fontSize:8,color:"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{e.target.style.color="#0066cc"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>+ LINK</span>
+                                  )}
+                                </div>
                                 <div style={{width:45,flexShrink:0}}></div>
                                 <div style={{width:35,flexShrink:0}}></div>
                                 <div style={{width:70,flexShrink:0}}></div>
