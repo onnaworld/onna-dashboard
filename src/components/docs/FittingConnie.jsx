@@ -277,8 +277,98 @@ ${PRINT_CLEANUP_CSS}
                 </div>
               )}
               <div style={{ display: "grid", gridTemplateColumns: _fitMobile ? "1fr" : "repeat(3, 1fr)", gap: 8 }}>
-                {approved.map((a, ai) => (
-                  <div key={a.fitId + "-" + a.imgIdx} style={{ border: "1px solid #eee", borderRadius: 2, overflow: "hidden", background: "#fff" }}>
+                {approved.map((a, ai) => {
+                  const saveSelphy = async () => {
+                    // Canon Selphy 4x6" at 300dpi = 1200x1800px
+                    const W = 1200, H = 1800;
+                    const cv = document.createElement("canvas");
+                    cv.width = W; cv.height = H;
+                    const ctx = cv.getContext("2d");
+                    // White background
+                    ctx.fillStyle = "#fff";
+                    ctx.fillRect(0, 0, W, H);
+                    // Load image
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    await new Promise((resolve, reject) => {
+                      img.onload = resolve; img.onerror = reject; img.src = a.img;
+                    });
+                    // Header bar
+                    const headerH = 80;
+                    ctx.fillStyle = "#f8f8f8";
+                    ctx.fillRect(0, 0, W, headerH);
+                    ctx.strokeStyle = "#eee"; ctx.lineWidth = 1;
+                    ctx.strokeRect(0, 0, W, headerH);
+                    // Approved badge
+                    ctx.fillStyle = "#E8F5E9";
+                    const badgeW = 160, badgeH = 34, badgeX = 24, badgeY = 23;
+                    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+                    ctx.fillStyle = "#2E7D32";
+                    ctx.font = "bold 18px 'Avenir', 'Avenir Next', sans-serif";
+                    ctx.fillText("APPROVED", badgeX + 14, badgeY + 23);
+                    // Talent name
+                    ctx.fillStyle = "#1a1a1a";
+                    ctx.font = "bold 26px 'Avenir', 'Avenir Next', sans-serif";
+                    ctx.fillText(a.talentName, badgeX + badgeW + 16, badgeY + 24);
+                    // Role
+                    if (a.role) {
+                      const nameW = ctx.measureText(a.talentName).width;
+                      ctx.fillStyle = "#999";
+                      ctx.font = "22px 'Avenir', 'Avenir Next', sans-serif";
+                      ctx.fillText(a.role, badgeX + badgeW + 16 + nameW + 16, badgeY + 24);
+                    }
+                    // Image area — fill width, maintain aspect ratio
+                    const imgAreaTop = headerH;
+                    const footerH = 140;
+                    const imgAreaH = H - headerH - footerH;
+                    const imgAspect = img.naturalWidth / img.naturalHeight;
+                    const areaAspect = W / imgAreaH;
+                    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+                    if (imgAspect > areaAspect) { sw = img.naturalHeight * areaAspect; sx = (img.naturalWidth - sw) / 2; }
+                    else { sh = img.naturalWidth / areaAspect; sy = (img.naturalHeight - sh) / 2; }
+                    ctx.drawImage(img, sx, sy, sw, sh, 0, imgAreaTop, W, imgAreaH);
+                    // Footer
+                    const footerTop = H - footerH;
+                    ctx.fillStyle = "#fff";
+                    ctx.fillRect(0, footerTop, W, footerH);
+                    ctx.strokeStyle = "#eee";
+                    ctx.beginPath(); ctx.moveTo(0, footerTop); ctx.lineTo(W, footerTop); ctx.stroke();
+                    let textY = footerTop + 30;
+                    if (a.lookName) {
+                      ctx.fillStyle = "#1a1a1a";
+                      ctx.font = "bold 24px 'Avenir', 'Avenir Next', sans-serif";
+                      ctx.fillText(a.lookName, 24, textY);
+                      textY += 30;
+                    }
+                    if (a.description) {
+                      ctx.fillStyle = "#666";
+                      ctx.font = "22px 'Avenir', 'Avenir Next', sans-serif";
+                      // Word wrap
+                      const words = a.description.split(" ");
+                      let line = "";
+                      for (const word of words) {
+                        const test = line + (line ? " " : "") + word;
+                        if (ctx.measureText(test).width > W - 48 && line) {
+                          ctx.fillText(line, 24, textY); textY += 26; line = word;
+                        } else { line = test; }
+                      }
+                      if (line) { ctx.fillText(line, 24, textY); textY += 26; }
+                    }
+                    if (a.note) {
+                      ctx.fillStyle = "#999";
+                      ctx.font = "italic 20px 'Avenir', 'Avenir Next', sans-serif";
+                      ctx.fillText(a.note, 24, textY);
+                    }
+                    // Download
+                    const link = document.createElement("a");
+                    link.download = `${(a.talentName || "look").replace(/\s+/g, "_")}_${a.lookName || ai + 1}_selphy.jpg`;
+                    link.href = cv.toDataURL("image/jpeg", 0.95);
+                    link.click();
+                  };
+                  return (
+                  <div key={a.fitId + "-" + a.imgIdx} style={{ border: "1px solid #eee", borderRadius: 2, overflow: "hidden", background: "#fff", position: "relative" }}>
+                    <div data-hide="1" onClick={saveSelphy} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: 4, padding: "3px 8px", cursor: "pointer", zIndex: 2, fontFamily: F, fontSize: 7, fontWeight: 700, letterSpacing: LS, textTransform: "uppercase" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.85)"} onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.6)"}>SAVE</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", background: "#f8f8f8", borderBottom: "1px solid #eee" }}>
                       <div style={{ fontFamily: F, fontSize: 6, fontWeight: 700, letterSpacing: LS, background: "#E8F5E9", color: "#2E7D32", padding: "2px 6px", borderRadius: 2, textTransform: "uppercase", flexShrink: 0 }}>Approved</div>
                       <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#1a1a1a" }}>{a.talentName}</span>
@@ -293,7 +383,7 @@ ${PRINT_CLEANUP_CSS}
                       {a.note && <div style={{ fontFamily: F, fontSize: 7, color: "#999", fontStyle: "italic" }}>{a.note}</div>}
                     </div>
                   </div>
-                ))}
+                  );})}
               </div>
             </div>
           );
