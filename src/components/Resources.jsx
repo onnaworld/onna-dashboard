@@ -147,7 +147,22 @@ export default function Resources({
 
             {vaultView === "passwords" && (
               <div>
-                <button onClick={() => { setVaultEditId(null); setVaultAddPwOpen(true); setVaultNewPw({ name: "", url: "", username: "", password: "", notes: "" }); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.sub, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 2px rgba(0,0,0,0.04)", marginBottom: 14 }}>+ Add Password</button>
+                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  <button onClick={() => { setVaultEditId(null); setVaultAddPwOpen(true); setVaultNewPw({ name: "", url: "", username: "", password: "", notes: "" }); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.sub, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>+ Add Password</button>
+                  {vaultResources.filter(r => r.type === "password").length > 0 && (
+                    <button onClick={() => {
+                      const pws = vaultResources.filter(r => r.type === "password").sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                      const csv = "Name,URL,Username,Password,Notes\n" + pws.map(e =>
+                        [e.name, e.url, e.username, e.password, e.notes].map(v => `"${(v || "").replace(/"/g, '""')}"`).join(",")
+                      ).join("\n");
+                      const blob = new Blob([csv], { type: "text/csv" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url; a.download = `onna-passwords-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+                      setTimeout(() => URL.revokeObjectURL(url), 10000);
+                      showAlert("Exported! Delete the CSV after importing elsewhere — it contains plaintext passwords.");
+                    }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, background: T.surface, border: `1px solid ${T.border}`, color: T.sub, fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>Export CSV</button>
+                  )}
+                </div>
                 <div style={{ marginBottom: 12 }}>
                   <input value={vaultPwSearch} onChange={e => setVaultPwSearch(e.target.value)} placeholder="Search passwords\u2026" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 13, fontFamily: "inherit", color: T.text, background: T.surface, boxSizing: "border-box" }} />
                 </div>
