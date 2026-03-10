@@ -1218,7 +1218,7 @@ function OnnaDashboardInner() {
         budgetSubSection={budgetSubSection} setBudgetSubSection={setBudgetSubSection}
         projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} editingEstimate={editingEstimate} setEditingEstimate={setEditingEstimate}
         projectActuals={projectActuals} setProjectActuals={setProjectActuals} actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab}
-        trackerTab={trackerTab} setTrackerTab={setTrackerTab}
+
         quotes={quotes} invoiceTab={invoiceTab} setInvoiceTab={setInvoiceTab}
         invoiceSearchTerm={invoiceSearchTerm} setInvoiceSearchTerm={setInvoiceSearchTerm} quoteSearchTerm={quoteSearchTerm} setQuoteSearchTerm={setQuoteSearchTerm}
         previewFile={previewFile} setPreviewFile={setPreviewFile}

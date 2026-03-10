@@ -5,7 +5,7 @@ export default function Budget({
   budgetSubSection, setBudgetSubSection,
   projectEstimates, setProjectEstimates, editingEstimate, setEditingEstimate,
   projectActuals, setProjectActuals, actualsTrackerTab, setActualsTrackerTab,
-  trackerTab, setTrackerTab,
+
   quotes, invoiceTab, setInvoiceTab,
   invoiceSearchTerm, setInvoiceSearchTerm, quoteSearchTerm, setQuoteSearchTerm,
   previewFile, setPreviewFile,
