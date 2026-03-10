@@ -104,21 +104,29 @@ export default async function handler(req, res) {
 
       const useAuth = await resolveAuth(auth);
 
-      // When updating, preserve existing feedback and merge with dashboard state
-      let mergedFeedback = incomingFeedback || null;
-
-      // Always find the existing resource by token for reliable updates
-      let existingResource = null;
+      // Find ALL existing resources with this token (clean up duplicates)
+      let allMatches = [];
       if (existingToken) {
-        existingResource = await findShareByToken(existingToken, useAuth);
-        if (existingResource) {
-          try {
-            const existingBlob = typeof existingResource.blob === "string" ? JSON.parse(existingResource.blob) : existingResource.blob;
-            if (existingBlob.feedback) {
-              mergedFeedback = { ...(existingBlob.feedback || {}), ...(incomingFeedback || {}) };
+        try {
+          const listResp = await fetch(`${BACKEND}/api/resources`, { headers: backendHeaders(useAuth) });
+          if (listResp.ok) {
+            const entries = await listResp.json();
+            const list = Array.isArray(entries) ? entries : entries.data || [];
+            for (const e of list) {
+              if (e.type !== "fit_share") continue;
+              try {
+                const blob = typeof e.blob === "string" ? JSON.parse(e.blob) : e.blob;
+                if (blob.token === existingToken) allMatches.push({ entry: e, blob });
+              } catch {}
             }
-          } catch {}
-        }
+          }
+        } catch {}
+      }
+
+      // Merge feedback from existing resource
+      let mergedFeedback = incomingFeedback || null;
+      if (allMatches.length > 0 && allMatches[0].blob.feedback) {
+        mergedFeedback = { ...(allMatches[0].blob.feedback || {}), ...(incomingFeedback || {}) };
       }
 
       const blobObj = {
@@ -131,19 +139,11 @@ export default async function handler(req, res) {
       if (mergedFeedback) blobObj.feedback = mergedFeedback;
       const blobData = JSON.stringify(blobObj);
 
-      // Update existing resource if found
-      if (existingResource) {
-        const eid = existingResource.id || existingResource._id;
+      // Delete ALL old duplicates, then create fresh
+      for (const m of allMatches) {
+        const eid = m.entry.id || m.entry._id;
         if (eid) {
-          const putResp = await fetch(`${BACKEND}/api/resources/${eid}`, {
-            method: "PUT",
-            headers: backendHeaders(useAuth),
-            body: JSON.stringify({ type: "fit_share", blob: blobData }),
-          });
-          if (putResp.ok) {
-            return res.status(200).json({ token, url, id: eid });
-          }
-          // If PUT failed, fall through to create new
+          try { await fetch(`${BACKEND}/api/resources/${eid}`, { method: "DELETE", headers: backendHeaders(useAuth) }); } catch {}
         }
       }
 
@@ -157,7 +157,7 @@ export default async function handler(req, res) {
       const data = await resp.json();
       if (!resp.ok) return res.status(500).json({ error: "Backend storage failed", detail: data });
 
-      return res.status(200).json({ token, url, id: data.id || data._id });
+      return res.status(200).json({ token, url, id: data.id || data._id, updated: allMatches.length > 0 });
     }
 
     // GET — fetch Fitting share by token

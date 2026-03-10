@@ -232,7 +232,10 @@ ${PRINT_CLEANUP_CSS}
       if (!resp.ok) { const txt = await resp.text().catch(() => ""); showAlert("Failed to generate link: " + (resp.status === 413 ? "Content too large — remove some images" : resp.statusText + " " + txt.slice(0, 100))); return; }
       const data = await resp.json();
       if (data.url) {
-        if (onShareUrl) onShareUrl(data.url, data.token, data.id);
+        if (onShareUrl) {
+          onShareUrl(data.url, data.token, data.id);
+          if (data.updated) showAlert("Portal link updated!");
+        }
         else { await navigator.clipboard.writeText(data.url).catch(() => {}); showAlert("Link copied to clipboard!\n\n" + data.url); }
       } else { showAlert("Failed to generate link: " + (data.error || "Unknown error")); }
     } catch (err) { showAlert("Error generating link: " + err.message); }
