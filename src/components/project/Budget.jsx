@@ -358,8 +358,15 @@ export default function Budget({
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
 
           {/* Summary cards row */}
+          {(() => {
+            const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
+            const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
+            const totalIncVat = estTotals.grandTotal + estTotals.grandTotal * 0.05;
+            const invoicedAmt = totalIncVat * (advPct / 100);
+            return (
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
             {[
+              ["INVOICED (" + advPct + "%)", estFmt(invoicedAmt), "#1a1a1a", null],
               ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a", "estimate"],
               ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a", "actuals"],
               ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals"],
@@ -372,6 +379,7 @@ export default function Budget({
               </div>
             ))}
           </div>
+            ); })()}
 
           {/* Summary Tab */}
           {trackerTab==="summary" && (
