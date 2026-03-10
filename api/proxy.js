@@ -1,5 +1,5 @@
 // Vercel serverless proxy — injects API_SECRET server-side
-const BACKEND = "https://onna-backend.vercel.app";
+const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
 const ALLOWED_ORIGINS = ["https://app.onna.digital", "https://app.onna.world"];
 
