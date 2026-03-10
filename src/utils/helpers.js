@@ -267,7 +267,7 @@ export const _proxy = (path) => `/api/proxy?target=${encodeURIComponent(path)}`;
 export const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 export const getToken = () => localStorage.getItem("onna_token") || "";
 const _h = (extra={}) => ({"Authorization":`Bearer ${getToken()}`,...extra});
-const _guard = r => { if(r.status===401){localStorage.removeItem("onna_token");window.location.reload();} return r.json(); };
+const _guard = r => { if(r.status===401){const t=getToken();if(t){localStorage.removeItem("onna_token");window.location.reload();}return Promise.reject(new Error("Unauthorized"));} return r.json(); };
 export const api = {
   get:    (path)       => fetch(_proxy(path),{headers:_h()}).then(_guard),
   post:   (path, body) => fetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
