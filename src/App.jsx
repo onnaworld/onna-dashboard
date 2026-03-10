@@ -860,6 +860,7 @@ function OnnaDashboardInner() {
         else if (sec==="Documents") setDocumentsSubSection(parsed.subSection);
         else if (sec==="Schedule") setScheduleSubSection(parsed.subSection);
         else if (sec==="Travel") setTravelSubSection(parsed.subSection);
+        else if (sec==="Styling") setStylingSubSection(parsed.subSection);
       }
     }
     window.history.replaceState({tab:parsed.tab||activeTab,projectId:parsed.project?.id||null,section:parsed.section||null,subSection:parsed.subSection||null}, "", window.location.pathname);
@@ -882,6 +883,7 @@ function OnnaDashboardInner() {
             else if (sec==="Documents") setDocumentsSubSection(state.subSection);
             else if (sec==="Schedule") setScheduleSubSection(state.subSection);
             else if (sec==="Travel") setTravelSubSection(state.subSection);
+            else if (sec==="Styling") setStylingSubSection(state.subSection);
           }
         } else {
           setSelectedProject(null);
@@ -902,6 +904,7 @@ function OnnaDashboardInner() {
             else if (sec==="Documents") setDocumentsSubSection(parsed.subSection);
             else if (sec==="Schedule") setScheduleSubSection(parsed.subSection);
             else if (sec==="Travel") setTravelSubSection(parsed.subSection);
+            else if (sec==="Styling") setStylingSubSection(parsed.subSection);
           }
         } else {
           setSelectedProject(null);

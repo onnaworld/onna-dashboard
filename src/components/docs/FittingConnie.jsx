@@ -288,10 +288,10 @@ ${PRINT_CLEANUP_CSS}
         </div>
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
         <div style={{ display: "flex", gap: _fitMobile ? 8 : 12, marginBottom: 6, flexWrap: "wrap", justifyContent: "space-between" }}>
-          {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client Name"], ["DATE", "date", "Date"], ["STYLIST", "stylist", "Stylist"]].map(([lbl, key, ph]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto" }}>
-              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS }}>{lbl}:</span>
-              <FitInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ width: 110, borderBottom: "1px solid #eee" }} />
+          {[["PROJECT", "name", "Project Name", 240], ["CLIENT", "client", "Client Name", 160], ["DATE", "date", "Date", 100], ["STYLIST", "stylist", "Stylist", 120]].map(([lbl, key, ph, w]) => (
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: key === "name" ? 2 : 1, minWidth: _fitMobile ? "45%" : "auto" }}>
+              <span style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, flexShrink: 0 }}>{lbl}:</span>
+              <FitInp value={project[key]} onChange={v => setProject(p => ({ ...p, [key]: v }))} placeholder={ph} style={{ flex: 1, minWidth: 60, borderBottom: "1px solid #eee" }} />
             </div>
           ))}
         </div>

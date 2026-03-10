@@ -18,6 +18,27 @@ export default function Styling({
     {key:"files",    emoji:"\ud83d\udcc1", label:"Files & Uploads"},
   ];
 
+  // Persist activeFittingVersion per project
+  const fitVerKey = `onna_fit_ver_${p.id}`;
+  useEffect(() => {
+    if (stylingSubSection === "fitting" && activeFittingVersion === null) {
+      try {
+        const saved = localStorage.getItem(fitVerKey);
+        if (saved !== null) {
+          const idx = parseInt(saved);
+          const fitVersions = fittingStore[p.id] || [];
+          if (!isNaN(idx) && idx >= 0 && idx < fitVersions.length) setActiveFittingVersion(idx);
+        }
+      } catch {}
+    }
+  }, [stylingSubSection]); // eslint-disable-line
+  useEffect(() => {
+    try {
+      if (activeFittingVersion !== null) localStorage.setItem(fitVerKey, String(activeFittingVersion));
+      else localStorage.removeItem(fitVerKey);
+    } catch {}
+  }, [activeFittingVersion, fitVerKey]);
+
   if (!stylingSubSection) return (
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
       {STYLING_CARDS.map(c=>(
