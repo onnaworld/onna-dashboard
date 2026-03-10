@@ -117,8 +117,28 @@ export default function Budget({
     const stColors = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
     const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
 
-    // Print export — clone the document and print
-    const doActPrint = () => { const el=document.getElementById("actuals-print-area"); if(!el)return; const clone=el.cloneNode(true); clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove()); clone.querySelectorAll('button').forEach(n=>n.remove()); const w=window.open("","_blank"); w.document.write('<html><head><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");body{margin:0;padding:0;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;min-width:900px}@media print{@page{margin:0;size:A4 landscape;}body{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:10mm 8mm;}}${PRINT_CLEANUP_CSS}</style></head><body>'); w.document.write(clone.innerHTML); w.document.write("</body></html>"); w.document.close(); setTimeout(()=>{w.document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());w.print();},500); };
+    // Print export — inject print styles and print directly
+    const doActPrint = () => {
+      const styleId = "actuals-print-style";
+      let style = document.getElementById(styleId);
+      if (!style) {
+        style = document.createElement("style");
+        style.id = styleId;
+        document.head.appendChild(style);
+      }
+      style.textContent = `
+        @media print {
+          @page { margin: 15mm 12mm; size: A4 landscape; }
+          body * { visibility: hidden !important; }
+          #actuals-print-area, #actuals-print-area * { visibility: visible !important; }
+          #actuals-print-area { position: absolute !important; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 0 !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #actuals-print-area [data-noprint] { display: none !important; }
+          #actuals-print-area button { display: none !important; }
+          nav, header, aside, .sidebar, [class*="lusha"], [id*="lusha"], [class*="Lusha"], [class*="grammarly"], [class*="lastpass"], [class*="honey"], [class*="chrome-extension"] { display: none !important; }
+        }
+      `;
+      window.print();
+    };
 
     return (
     <div>
