@@ -252,14 +252,15 @@ export const syncActualsWithEstimate = (existingActuals, estimateSections) => {
   });
 };
 
-export const actualsRowExpenseTotal = (row) => (row.expenses || []).reduce((s, e) => s + estNum(e.amount), 0);
+const r2 = (n) => Math.round(n * 100) / 100;
+export const actualsRowExpenseTotal = (row) => r2((row.expenses || []).reduce((s, e) => s + estNum(e.amount), 0));
 export const actualsRowEffective = (row) => { const a = estNum(row.actualsAmount); return a ? a : actualsRowExpenseTotal(row); };
-export const actualsSectionExpenseTotal = (sec) => sec.rows.reduce((s, r) => s + actualsRowExpenseTotal(r), 0);
-export const actualsSectionEffective = (sec) => sec.rows.reduce((s, r) => s + actualsRowEffective(r), 0);
-export const actualsSectionZohoTotal = (sec) => sec.rows.reduce((s, r) => s + estNum(r.zohoAmount), 0);
-export const actualsGrandExpenseTotal = (sections) => sections.reduce((s, sec) => s + actualsSectionExpenseTotal(sec), 0);
-export const actualsGrandEffective = (sections) => sections.reduce((s, sec) => s + actualsSectionEffective(sec), 0);
-export const actualsGrandZohoTotal = (sections) => sections.reduce((s, sec) => s + actualsSectionZohoTotal(sec), 0);
+export const actualsSectionExpenseTotal = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowExpenseTotal(r), 0));
+export const actualsSectionEffective = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowEffective(r), 0));
+export const actualsSectionZohoTotal = (sec) => r2(sec.rows.reduce((s, r) => s + estNum(r.zohoAmount), 0));
+export const actualsGrandExpenseTotal = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionExpenseTotal(sec), 0));
+export const actualsGrandEffective = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionEffective(sec), 0));
+export const actualsGrandZohoTotal = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionZohoTotal(sec), 0));
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 export const _proxy = (path) => `/api/relay?target=${encodeURIComponent(path)}`;
