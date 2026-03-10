@@ -244,6 +244,7 @@ export const configApi = {
 
 // ─── Debounced save to Turso (dual-write alongside localStorage) ───────────
 const _saveTimers = {};
+const _pendingFlush = {};
 const _prevStoreSnaps = {};
 let _pendingSaves = 0;
 let _onSaveStatus = null;
@@ -263,7 +264,9 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
     const key = `${table}:${pid}`;
     clearTimeout(_saveTimers[key]);
     _notifySaving();
+    _pendingFlush[key] = () => { docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaved); };
     _saveTimers[key] = setTimeout(() => {
+      delete _pendingFlush[key];
       docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaved);
     }, delay);
   });
@@ -271,20 +274,30 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
 export const debouncedGlobalSave = (table, data, delay = 2000) => {
   clearTimeout(_saveTimers[table]);
   _notifySaving();
+  _pendingFlush[table] = () => { globalApi.put(table, data).then(_notifySaved).catch(_notifySaved); };
   _saveTimers[table] = setTimeout(() => {
+    delete _pendingFlush[table];
     globalApi.put(table, data).then(_notifySaved).catch(_notifySaved);
   }, delay);
 };
 export const debouncedConfigSave = (key, data, delay = 2000) => {
-  clearTimeout(_saveTimers[`cfg:${key}`]);
+  const fk = `cfg:${key}`;
+  clearTimeout(_saveTimers[fk]);
   _notifySaving();
-  _saveTimers[`cfg:${key}`] = setTimeout(() => {
+  _pendingFlush[fk] = () => { configApi.put(key, data).then(_notifySaved).catch(_notifySaved); };
+  _saveTimers[fk] = setTimeout(() => {
+    delete _pendingFlush[fk];
     configApi.put(key, data).then(_notifySaved).catch(_notifySaved);
   }, delay);
 };
 export const flushAllSaves = () => {
   Object.keys(_saveTimers).forEach(k => {
     clearTimeout(_saveTimers[k]);
+    delete _saveTimers[k];
+  });
+  Object.keys(_pendingFlush).forEach(k => {
+    try { _pendingFlush[k](); } catch {}
+    delete _pendingFlush[k];
   });
 };
 
