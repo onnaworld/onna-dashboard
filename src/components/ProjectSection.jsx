@@ -130,7 +130,7 @@ export default function ProjectSection({
   const actZoho = actData ? actualsGrandZohoTotal(actData) : 0;
   const actExpenses = actData ? actualsGrandExpenseTotal(actData) : 0;
   const totalIn    = estRevenue;
-  const totalOut   = actZoho > 0 ? actZoho : actExpenses;
+  const totalOut   = actExpenses;
   const profit     = totalIn - totalOut;
   const margin     = totalIn > 0 ? Math.round((profit / totalIn) * 100) : 0;
 
