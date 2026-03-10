@@ -20,9 +20,10 @@ export function GenericDuplicateModal({ duplicateModal, setDuplicateModal, dupli
     const q=duplicateSearch.toLowerCase().trim();
     const results=[];
     Object.entries(conf.store||{}).forEach(([pid,items])=>{
-      const proj=localProjects?.find(p=>p.id===pid)||(archivedProjects||[]).find(p=>p.id===pid);
-      const projName=proj?.name||"Unknown Project";
-      const client=proj?.client||"";
+      const proj=localProjects?.find(p=>String(p.id)===String(pid))||(archivedProjects||[]).find(p=>String(p.id)===String(pid));
+      if(!proj)return; // skip orphaned data from deleted projects
+      const projName=proj.name||"Untitled Project";
+      const client=proj.client||"";
       const _getLabel=conf.getLabelFn||(item=>item[conf.labelKey]||"Untitled");
       (items||[]).forEach(item=>{
         results.push({item,projName,client,projectId:pid,label:_getLabel(item),source:"active"});
@@ -49,7 +50,7 @@ export function GenericDuplicateModal({ duplicateModal, setDuplicateModal, dupli
         <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:18,width:500,maxWidth:"94vw",maxHeight:"70vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
           <div style={{padding:"20px 24px 0",flexShrink:0}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Duplicate Existing {conf.title}</div>
+              <div style={{fontSize:16,fontWeight:700,color:"#1d1d1f",letterSpacing:"-0.02em"}}>Copy {conf.title} from Project</div>
               <button onClick={()=>{setDuplicateModal(null);setDuplicateSearch("");}} style={{background:"#f5f5f7",border:"none",color:"#86868b",width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
             <input value={duplicateSearch} onChange={e=>setDuplicateSearch(e.target.value)} placeholder={`Search by project, client, or ${conf.title.toLowerCase()} name...`} autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px solid #e0e0e0",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}} />
