@@ -175,16 +175,6 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
         {(estTab === "estimates" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
           {sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
             const isFeesSection = sec.isFees;
-            const subtotalRow = isFeesSection ? (
-              <div style={{borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:12,display:"flex",justifyContent:"flex-end"}}>
-                <div style={{display:"flex",gap:0,padding:"6px 0"}}>
-                  <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>SUBTOTAL</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>{baseCurrency} {estFmt(subtotal)}</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS}}>USD {estFmt(subtotal*xRate)}</div>
-                  <div style={{width:24}}></div>
-                </div>
-              </div>
-            ) : null;
             const getRowDisplay = (row) => {
               let tot = estRowTotal(row);
               let autoCalc = false;
@@ -203,7 +193,6 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
               : secTot;
             return(
             <div key={sec.id}>
-              {subtotalRow}
               <div style={{marginBottom:12}}>
               <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
                 <div style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
