@@ -1,4 +1,4 @@
-import React, { Fragment, useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, defaultSections, PRINT_CLEANUP_CSS } from "../../utils/helpers";
 import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { CSLogoSlot } from "../ui/DocHelpers";
@@ -132,21 +132,19 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                 if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
                 return sum + estRowTotal(row);
               }, 0) : estSectionTotal(sec);
-              return(<Fragment key={sec.id}>
-              {isF && <div style={{display:"flex",borderTop:"2px solid #000"}}>
-                <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUBTOTAL</div>
-                <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal)}</div>
-                <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(subtotal*xRate)}</div>
-              </div>}
-              <div style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
+              return(
+              <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
                 <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
                 <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
                 <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
                 <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>
-              </div>
-              </Fragment>);
+              </div>);
             })}
-
+            <div style={{display:"flex",borderTop:"2px solid #000"}}>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>
+            </div>
             <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>VAT (5%)</div>
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*0.05)}</div>

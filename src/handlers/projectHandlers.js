@@ -273,7 +273,7 @@ export const doHydrateProject = (pid, setters) => {
     if (d.callsheets) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
     if (d.riskassessments) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
     if (d.contracts_doc) setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc}));
-    if (d.estimates) setProjectEstimates(prev => ({...prev, [pid]: d.estimates}));
+    setProjectEstimates(prev => ({...prev, [pid]: d.estimates || prev[pid] || []}));
     if (d.dietaries) setDietaryStore(prev => ({...prev, [pid]: d.dietaries}));
     if (d.travel_itineraries) setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries}));
     if (d.shotlists) setShotListStore(prev => ({...prev, [pid]: d.shotlists}));

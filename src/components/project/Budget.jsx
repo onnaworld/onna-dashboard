@@ -512,7 +512,7 @@ export default function Budget({
           );
         })()}
       </div>
-      {estimates.length===0?<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>:(
+      {estimates.length===0?(projectEstimates[p.id]===undefined?<div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>Loading estimates…</div></div>:<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>):(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {estimates.map((est)=>{
             const secs = est.sections || defaultSections();
