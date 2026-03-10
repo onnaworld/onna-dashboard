@@ -299,6 +299,7 @@ export const setSaveStatusCallback = (cb) => { _onSaveStatus = cb; };
 const _notifySaving = () => { _pendingSaves++; if (_onSaveStatus) _onSaveStatus("saving"); };
 const _notifySaved = () => { _pendingSaves = Math.max(0, _pendingSaves - 1); if (_pendingSaves === 0 && _onSaveStatus) _onSaveStatus("saved"); };
 export const debouncedDocSave = (table, storeObj, delay = 2000) => {
+  if (!getToken()) return;
   const prev = _prevStoreSnaps[table] || {};
   const changedPids = Object.keys(storeObj).filter(pid => {
     const cur = JSON.stringify(storeObj[pid]);
@@ -319,6 +320,7 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
   });
 };
 export const debouncedGlobalSave = (table, data, delay = 2000) => {
+  if (!getToken()) return;
   clearTimeout(_saveTimers[table]);
   _notifySaving();
   _pendingFlush[table] = () => { globalApi.put(table, data).then(_notifySaved).catch(_notifySaved); };
@@ -328,6 +330,7 @@ export const debouncedGlobalSave = (table, data, delay = 2000) => {
   }, delay);
 };
 export const debouncedConfigSave = (key, data, delay = 2000) => {
+  if (!getToken()) return;
   const fk = `cfg:${key}`;
   clearTimeout(_saveTimers[fk]);
   _notifySaving();
@@ -342,6 +345,7 @@ export const flushAllSaves = () => {
     clearTimeout(_saveTimers[k]);
     delete _saveTimers[k];
   });
+  if (!getToken()) { Object.keys(_pendingFlush).forEach(k => delete _pendingFlush[k]); return; }
   Object.keys(_pendingFlush).forEach(k => {
     try { _pendingFlush[k](); } catch {}
     delete _pendingFlush[k];
