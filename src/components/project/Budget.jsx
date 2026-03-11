@@ -21,45 +21,27 @@ export default function Budget({
   const estimates    = projectEstimates[p.id]||[];
   const versionLabels= ["V1","V2","V3","V4","V5"];
 
-  // Budget tracker notes — persisted via projectActuals (synced to API/IDB)
-  const _actMeta = projectActuals[`_meta_${p.id}`] || {};
-  const [budgetNotes, setBudgetNotes] = React.useState(_actMeta.budgetNotes || "");
-  React.useEffect(() => {
-    const meta = projectActuals[`_meta_${p.id}`] || {};
-    setBudgetNotes(meta.budgetNotes || "");
-  }, [p.id]);
-  const saveBudgetNotes = (val) => {
-    setBudgetNotes(val);
-    setProjectActuals(prev => ({ ...prev, [`_meta_${p.id}`]: { ...(prev[`_meta_${p.id}`] || {}), budgetNotes: val } }));
-  };
+  // All budget tracker meta (notes, hidden cols, collapsed sections, expanded rows)
+  // read/write directly from projectActuals so they persist via IDB/API automatically.
+  const _meta = projectActuals[`_meta_${p.id}`] || {};
+  const budgetNotes = _meta.budgetNotes || "";
+  const hiddenCols = _meta.hiddenCols || {};
+  const collapsedSecs = _meta.collapsedSecs || {};
+  const expandedRows = _meta.expandedRows || {};
 
-  // Hidden columns — persisted via projectActuals
-  const [hiddenCols, setHiddenCols] = React.useState(() => {
-    return (projectActuals[`_meta_${p.id}`] || {}).hiddenCols || {};
-  });
-  React.useEffect(() => {
-    setHiddenCols((projectActuals[`_meta_${p.id}`] || {}).hiddenCols || {});
-  }, [p.id]);
+  const _setMeta = (patch) => setProjectActuals(prev => ({
+    ...prev, [`_meta_${p.id}`]: { ...(prev[`_meta_${p.id}`] || {}), ...patch }
+  }));
+  const saveBudgetNotes = (val) => _setMeta({ budgetNotes: val });
+  const toggleCol = (id) => { const n = { ...hiddenCols }; if (n[id]) delete n[id]; else n[id] = true; _setMeta({ hiddenCols: n }); };
+  const setCollapsedSecs = (next) => _setMeta({ collapsedSecs: typeof next === "function" ? next(collapsedSecs) : next });
+  const setExpandedRows = (next) => { const val = typeof next === "function" ? next(expandedRows) : next; _setMeta({ expandedRows: val }); };
+
   const [showColPicker, setShowColPicker] = React.useState(false);
-  const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true; setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), hiddenCols: n } })); return n;});
 
   // All remaining hooks must be top-level to satisfy React rules of hooks
   const [dragExp, setDragExp] = React.useState(null);
   const [dropTarget, setDropTarget] = React.useState(null);
-
-  const [collapsedSecs, setCollapsedSecs] = React.useState(() => {
-    return (projectActuals[`_meta_${p.id}`] || {}).collapsedSecs || {};
-  });
-  React.useEffect(() => {
-    setCollapsedSecs((projectActuals[`_meta_${p.id}`] || {}).collapsedSecs || {});
-  }, [p.id]);
-
-  const [expandedRows, setExpandedRows] = React.useState(() => {
-    return (projectActuals[`_meta_${p.id}`] || {}).expandedRows || {};
-  });
-  React.useEffect(() => {
-    setExpandedRows((projectActuals[`_meta_${p.id}`] || {}).expandedRows || {});
-  }, [p.id]);
 
   const [invoicedOverride, setInvoicedOverride] = React.useState(() => {
     try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); return v !== null ? parseFloat(v) : null; } catch { return null; }
@@ -204,11 +186,7 @@ export default function Budget({
       const targetKey = `${toSi}-${toRi}`;
       if (!expandedRows[targetKey]) {
         actualsExpandedRef.current[targetKey] = true;
-        setExpandedRows(prev => {
-          const next = {...prev, [targetKey]: true};
-          setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), expandedRows: next } }));
-          return next;
-        });
+        setExpandedRows({...expandedRows, [targetKey]: true});
       }
     };
 
@@ -216,20 +194,14 @@ export default function Budget({
     const setTrackerTab = setActualsTrackerTab;
 
     const toggleSection = (si) => {
-      setCollapsedSecs(prev => {
-        const next = {...prev}; if (next[si]) delete next[si]; else next[si] = true;
-        setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), collapsedSecs: next } }));
-        return next;
-      });
+      const next = {...collapsedSecs}; if (next[si]) delete next[si]; else next[si] = true;
+      setCollapsedSecs(next);
     };
 
     const toggleExpand = (key) => {
       actualsExpandedRef.current[key] = !actualsExpandedRef.current[key];
-      setExpandedRows(prev => {
-        const next = {...prev}; if (next[key]) delete next[key]; else next[key] = true;
-        setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), expandedRows: next } }));
-        return next;
-      });
+      const next = {...expandedRows}; if (next[key]) delete next[key]; else next[key] = true;
+      setExpandedRows(next);
     };
 
     const actHdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
