@@ -57,7 +57,7 @@ export default function Projects({
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-        <SearchBar value={getSearch("Projects")} onChange={v => setSearch("Projects", v)} placeholder="Search projects\u2026" />
+        <SearchBar value={getSearch("Projects")} onChange={v => setSearch("Projects", v)} placeholder="Search projects…" />
         <div style={{ display: "flex", gap: 6 }}>{(() => { const cy = new Date().getFullYear(); const yrs = new Set([2024, 2025, 2026, cy, cy + 1]); allProjectsMerged.forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => <Pill key={y} label={String(y)} active={projectYear === y} onClick={() => setProjectYear(y)} />)}</div>
         <span style={{ marginLeft: "auto", fontSize: 12, color: T.muted }}>{projects.length} projects</span>
       </div>
