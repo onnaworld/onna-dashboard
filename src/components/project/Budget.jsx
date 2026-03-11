@@ -294,34 +294,37 @@ export default function Budget({
       setReceiptOcrResult(null);
     };
 
-    // Print export — clone into iframe so <a> hyperlinks are preserved in PDF
+    // Print export — open new window with cloned DOM for reliable hyperlinks in PDF
     const doActPrint = () => {
       setShowColPicker(false);
       const src = document.getElementById("actuals-print-area");
       if (!src) return;
-      const iframe = document.createElement("iframe");
-      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open();
-      doc.write(`<!DOCTYPE html><html><head><style>
-        @page { margin: 0; size: A4 portrait; }
+      const clone = src.cloneNode(true);
+      // Remove all data-noprint elements (× buttons, add buttons, etc.)
+      clone.querySelectorAll("[data-noprint]").forEach(el => el.remove());
+      clone.querySelectorAll("[data-noprint-hide]").forEach(el => el.remove());
+      // Remove all <button> elements
+      clone.querySelectorAll("button").forEach(el => el.remove());
+      // Force-show collapsed expense sections
+      clone.querySelectorAll("[data-print-expand]").forEach(el => { el.style.display = "block"; });
+      // Force-show print-only elements
+      clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
+      // Remove drag handles
+      clone.querySelectorAll("[data-noprint-drag]").forEach(el => { el.removeAttribute("draggable"); el.style.cursor = "default"; });
+      // Ensure links are styled as hyperlinks
+      clone.querySelectorAll("a[href]").forEach(el => { el.style.color = "#0066cc"; el.style.textDecoration = "underline"; });
+      const w = window.open("", "_blank");
+      w.document.write(`<!DOCTYPE html><html><head><style>
+        @page { margin: 10mm 12mm; size: A4 portrait; }
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 20mm 18mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        a { color: #0066cc !important; text-decoration: underline !important; cursor: pointer; }
-        button { display: none !important; }
-        [data-noprint] { display: none !important; }
-        [data-noprint-hide] { display: none !important; }
-        [data-print-only] { display: block !important; }
-        [data-noprint-drag] { cursor: default !important; }
-        [data-print-expand] { display: block !important; }
-        [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
-        [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
-      </style></head><body>${src.innerHTML}</body></html>`);
-      doc.close();
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      setTimeout(() => document.body.removeChild(iframe), 1000);
+        body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: ${EST_F}; }
+        a { color: #0066cc; text-decoration: underline; }
+      </style></head><body></body></html>`);
+      w.document.body.appendChild(w.document.adoptNode(clone));
+      w.document.close();
+      w.focus();
+      w.print();
+      w.close();
     };
 
     return (
