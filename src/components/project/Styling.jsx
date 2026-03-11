@@ -39,6 +39,105 @@ export default function Styling({
     } catch {}
   }, [activeFittingVersion, fitVerKey]);
 
+  // All hooks must be top-level (before any conditional returns) per React rules
+  const fitSyncTimer = useRef(null);
+  const lastFeedbackHash = useRef("");
+  const isSyncing = useRef(false);
+
+  const fitVersions_hook = fittingStore[p.id] || [];
+  const fitIdx_hook = activeFittingVersion;
+  const fitData_hook = (fitIdx_hook !== null && fitVersions_hook.length > 0) ? fitVersions_hook[fitIdx_hook] : null;
+
+  const syncFeedbackToPortal = useCallback((fittings, token) => {
+    if (!token || !fittings) return;
+    clearTimeout(fitSyncTimer.current);
+    fitSyncTimer.current = setTimeout(async () => {
+      const feedback = {};
+      let ci = 0;
+      fittings.forEach(fit => {
+        (fit.images || []).forEach((img, n) => {
+          const st = (fit.imageStatuses || {})[n];
+          if (st && st !== "none") {
+            feedback["c" + ci] = { status: st, note: (fit.imageNotes || {})[n] || "" };
+          }
+          ci++;
+        });
+      });
+      try {
+        await fetch("/api/fit-share", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, feedback }),
+        });
+      } catch {}
+    }, 1200);
+  }, []);
+
+  const statusFingerprint = React.useMemo(() => {
+    if (!fitData_hook?.fittings) return "";
+    return fitData_hook.fittings.map(f =>
+      (f.images || []).map((_, n) => (f.imageStatuses || {})[n] || "").join(",")
+    ).join("|");
+  }, [fitData_hook?.fittings]);
+
+  useEffect(() => {
+    if (isSyncing.current) return;
+    if (fitData_hook?.shareToken && fitData_hook?.fittings && statusFingerprint) {
+      syncFeedbackToPortal(fitData_hook.fittings, fitData_hook.shareToken);
+    }
+  }, [statusFingerprint, fitData_hook?.shareToken, syncFeedbackToPortal]);
+
+  useEffect(() => {
+    if (!fitData_hook?.shareToken || !fitData_hook?.fittings) return;
+    const token = fitData_hook.shareToken;
+    const currentFitIdx = fitIdx_hook;
+    const interval = setInterval(async () => {
+      if (isSyncing.current) return;
+      try {
+        const resp = await fetch(`/api/fit-share?token=${encodeURIComponent(token)}&feedbackOnly=1`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.feedback) return;
+        const hash = JSON.stringify(data.feedback);
+        if (hash === lastFeedbackHash.current) return;
+        lastFeedbackHash.current = hash;
+        isSyncing.current = true;
+        setFittingStore(prev => {
+          const store = JSON.parse(JSON.stringify(prev));
+          const fittings = store[p.id]?.[currentFitIdx]?.fittings;
+          if (!fittings) { isSyncing.current = false; return prev; }
+          let ci = 0;
+          let changed = false;
+          fittings.forEach(fit => {
+            (fit.images || []).forEach((img, n) => {
+              const fb = data.feedback["c" + ci];
+              const newStatus = fb?.status || "none";
+              const oldStatus = (fit.imageStatuses || {})[n] || "none";
+              if (newStatus !== oldStatus) {
+                if (!fit.imageStatuses) fit.imageStatuses = {};
+                fit.imageStatuses[n] = newStatus === "none" ? undefined : newStatus;
+                if (newStatus === "none") delete fit.imageStatuses[n];
+                changed = true;
+              }
+              if (fb?.note != null) {
+                const oldNote = (fit.imageNotes || {})[n] || "";
+                if (fb.note !== oldNote) {
+                  if (!fit.imageNotes) fit.imageNotes = {};
+                  fit.imageNotes[n] = fb.note;
+                  changed = true;
+                }
+              }
+              ci++;
+            });
+          });
+          isSyncing.current = false;
+          return changed ? store : prev;
+        });
+      } catch { isSyncing.current = false; }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [fitData_hook?.shareToken, fitIdx_hook, p.id, setFittingStore]);
+
   if (!stylingSubSection) return (
     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
       {STYLING_CARDS.map(c=>(
@@ -118,103 +217,6 @@ export default function Styling({
 
     const fitIdx = activeFittingVersion;
     const fitData = fitVersions[fitIdx];
-
-    // Auto-sync approval statuses to portal when fittings change
-    const fitSyncTimer = useRef(null);
-    const syncFeedbackToPortal = useCallback((fittings, token) => {
-      if (!token || !fittings) return;
-      clearTimeout(fitSyncTimer.current);
-      fitSyncTimer.current = setTimeout(async () => {
-        // Build feedback map matching portal card indices
-        const feedback = {};
-        let ci = 0;
-        fittings.forEach(fit => {
-          (fit.images || []).forEach((img, n) => {
-            const st = (fit.imageStatuses || {})[n];
-            if (st && st !== "none") {
-              feedback["c" + ci] = { status: st, note: (fit.imageNotes || {})[n] || "" };
-            }
-            ci++;
-          });
-        });
-        try {
-          await fetch("/api/fit-share", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token, feedback }),
-          });
-        } catch {}
-      }, 1200);
-    }, []);
-
-    // Build a fingerprint of approval statuses to detect changes
-    const statusFingerprint = React.useMemo(() => {
-      if (!fitData?.fittings) return "";
-      return fitData.fittings.map(f =>
-        (f.images || []).map((_, n) => (f.imageStatuses || {})[n] || "").join(",")
-      ).join("|");
-    }, [fitData?.fittings]);
-
-    useEffect(() => {
-      if (isSyncing.current) return; // skip if change came from portal poll
-      if (fitData?.shareToken && fitData?.fittings && statusFingerprint) {
-        syncFeedbackToPortal(fitData.fittings, fitData.shareToken);
-      }
-    }, [statusFingerprint, fitData?.shareToken, syncFeedbackToPortal]);
-
-    // Poll portal feedback and sync back to dashboard
-    const lastFeedbackHash = useRef("");
-    const isSyncing = useRef(false);
-    useEffect(() => {
-      if (!fitData?.shareToken || !fitData?.fittings) return;
-      const token = fitData.shareToken;
-      const interval = setInterval(async () => {
-        if (isSyncing.current) return;
-        try {
-          const resp = await fetch(`/api/fit-share?token=${encodeURIComponent(token)}&feedbackOnly=1`);
-          if (!resp.ok) return;
-          const data = await resp.json();
-          if (!data.feedback) return;
-          const hash = JSON.stringify(data.feedback);
-          if (hash === lastFeedbackHash.current) return;
-          lastFeedbackHash.current = hash;
-          // Map portal card indices back to fittings
-          isSyncing.current = true;
-          setFittingStore(prev => {
-            const store = JSON.parse(JSON.stringify(prev));
-            const fittings = store[p.id]?.[fitIdx]?.fittings;
-            if (!fittings) { isSyncing.current = false; return prev; }
-            let ci = 0;
-            let changed = false;
-            fittings.forEach(fit => {
-              (fit.images || []).forEach((img, n) => {
-                const fb = data.feedback["c" + ci];
-                const newStatus = fb?.status || "none";
-                const oldStatus = (fit.imageStatuses || {})[n] || "none";
-                if (newStatus !== oldStatus) {
-                  if (!fit.imageStatuses) fit.imageStatuses = {};
-                  fit.imageStatuses[n] = newStatus === "none" ? undefined : newStatus;
-                  if (newStatus === "none") delete fit.imageStatuses[n];
-                  changed = true;
-                }
-                if (fb?.note != null) {
-                  const oldNote = (fit.imageNotes || {})[n] || "";
-                  if (fb.note !== oldNote) {
-                    if (!fit.imageNotes) fit.imageNotes = {};
-                    fit.imageNotes[n] = fb.note;
-                    changed = true;
-                  }
-                }
-                ci++;
-              });
-            });
-            isSyncing.current = false;
-            return changed ? store : prev;
-          });
-        } catch { isSyncing.current = false; }
-      }, 5000);
-      return () => clearInterval(interval);
-    }, [fitData?.shareToken, fitIdx, p.id, setFittingStore]);
 
     if (!fitData) { setActiveFittingVersion(null); return null; }
 
