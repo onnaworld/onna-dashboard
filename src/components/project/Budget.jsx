@@ -98,8 +98,9 @@ export default function Budget({
     const actExpenseTotal = actualsGrandExpenseTotal(actSections);
     const actEffectiveTotal = actualsGrandEffective(actSections);
     const actZohoTotal = actualsGrandZohoTotal(actSections);
-    const actVariance = estTotals.grandTotal - actEffectiveTotal;
-    const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((actEffectiveTotal / estTotals.grandTotal) * 100) : 0;
+    const actBestTotal = actSections.reduce((s, sec) => s + sec.rows.reduce((rs, r) => { const z = estNum(r.zohoAmount); return rs + (z ? z : actualsRowEffective(r)); }, 0), 0);
+    const actVariance = estTotals.grandTotal - actBestTotal;
+    const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((actBestTotal / estTotals.grandTotal) * 1000) / 10 : 0;
 
     // Update a row in actuals
     const updateActRow = (secIdx, rowIdx, field, value) => {
