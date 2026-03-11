@@ -21,53 +21,45 @@ export default function Budget({
   const estimates    = projectEstimates[p.id]||[];
   const versionLabels= ["V1","V2","V3","V4","V5"];
 
-  // Budget tracker notes — persisted per project (must be top-level for hooks stability)
-  const budgetNotesKey = `onna_budget_notes_${p.id}`;
-  const [budgetNotes, setBudgetNotes] = React.useState(() => {
-    try { return localStorage.getItem(budgetNotesKey) || ""; } catch { return ""; }
-  });
-  // Sync state when switching projects
+  // Budget tracker notes — persisted via projectActuals (synced to API/IDB)
+  const _actMeta = projectActuals[`_meta_${p.id}`] || {};
+  const [budgetNotes, setBudgetNotes] = React.useState(_actMeta.budgetNotes || "");
   React.useEffect(() => {
-    try { setBudgetNotes(localStorage.getItem(budgetNotesKey) || ""); } catch { setBudgetNotes(""); }
-  }, [budgetNotesKey]);
+    const meta = projectActuals[`_meta_${p.id}`] || {};
+    setBudgetNotes(meta.budgetNotes || "");
+  }, [p.id]);
   const saveBudgetNotes = (val) => {
     setBudgetNotes(val);
-    try { localStorage.setItem(budgetNotesKey, val); } catch {}
+    setProjectActuals(prev => ({ ...prev, [`_meta_${p.id}`]: { ...(prev[`_meta_${p.id}`] || {}), budgetNotes: val } }));
   };
 
-  // Hidden columns — persisted per project (must be top-level for hooks stability)
-  const hiddenColsKey = `onna_hidden_cols_${p.id}`;
+  // Hidden columns — persisted via projectActuals
   const [hiddenCols, setHiddenCols] = React.useState(() => {
-    try { const s = localStorage.getItem(hiddenColsKey); if (s) return JSON.parse(s); } catch {}
-    return {};
+    return (projectActuals[`_meta_${p.id}`] || {}).hiddenCols || {};
   });
   React.useEffect(() => {
-    try { const s = localStorage.getItem(hiddenColsKey); if (s) setHiddenCols(JSON.parse(s)); else setHiddenCols({}); } catch { setHiddenCols({}); }
-  }, [hiddenColsKey]);
+    setHiddenCols((projectActuals[`_meta_${p.id}`] || {}).hiddenCols || {});
+  }, [p.id]);
   const [showColPicker, setShowColPicker] = React.useState(false);
-  const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true; try{localStorage.setItem(hiddenColsKey,JSON.stringify(n));}catch{} return n;});
+  const toggleCol = (id) => setHiddenCols(prev => {const n={...prev};if(n[id])delete n[id];else n[id]=true; setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), hiddenCols: n } })); return n;});
 
   // All remaining hooks must be top-level to satisfy React rules of hooks
   const [dragExp, setDragExp] = React.useState(null);
   const [dropTarget, setDropTarget] = React.useState(null);
 
-  const collapsedSecKey = `onna_collapsed_sec_${p.id}`;
   const [collapsedSecs, setCollapsedSecs] = React.useState(() => {
-    try { const s = localStorage.getItem(collapsedSecKey); if (s) return JSON.parse(s); } catch {}
-    return {};
+    return (projectActuals[`_meta_${p.id}`] || {}).collapsedSecs || {};
   });
   React.useEffect(() => {
-    try { const s = localStorage.getItem(collapsedSecKey); if (s) setCollapsedSecs(JSON.parse(s)); else setCollapsedSecs({}); } catch { setCollapsedSecs({}); }
-  }, [collapsedSecKey]);
+    setCollapsedSecs((projectActuals[`_meta_${p.id}`] || {}).collapsedSecs || {});
+  }, [p.id]);
 
-  const expandStorageKey = `onna_expanded_${p.id}`;
   const [expandedRows, setExpandedRows] = React.useState(() => {
-    try { const s = localStorage.getItem(expandStorageKey); if (s) return JSON.parse(s); } catch {}
-    return {};
+    return (projectActuals[`_meta_${p.id}`] || {}).expandedRows || {};
   });
   React.useEffect(() => {
-    try { const s = localStorage.getItem(expandStorageKey); if (s) setExpandedRows(JSON.parse(s)); else setExpandedRows({}); } catch { setExpandedRows({}); }
-  }, [expandStorageKey]);
+    setExpandedRows((projectActuals[`_meta_${p.id}`] || {}).expandedRows || {});
+  }, [p.id]);
 
   const [invoicedOverride, setInvoicedOverride] = React.useState(() => {
     try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); return v !== null ? parseFloat(v) : null; } catch { return null; }
@@ -214,7 +206,7 @@ export default function Budget({
         actualsExpandedRef.current[targetKey] = true;
         setExpandedRows(prev => {
           const next = {...prev, [targetKey]: true};
-          try { localStorage.setItem(expandStorageKey, JSON.stringify(next)); } catch {}
+          setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), expandedRows: next } }));
           return next;
         });
       }
@@ -226,7 +218,7 @@ export default function Budget({
     const toggleSection = (si) => {
       setCollapsedSecs(prev => {
         const next = {...prev}; if (next[si]) delete next[si]; else next[si] = true;
-        try { localStorage.setItem(collapsedSecKey, JSON.stringify(next)); } catch {}
+        setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), collapsedSecs: next } }));
         return next;
       });
     };
@@ -235,7 +227,7 @@ export default function Budget({
       actualsExpandedRef.current[key] = !actualsExpandedRef.current[key];
       setExpandedRows(prev => {
         const next = {...prev}; if (next[key]) delete next[key]; else next[key] = true;
-        try { localStorage.setItem(expandStorageKey, JSON.stringify(next)); } catch {}
+        setProjectActuals(pa => ({ ...pa, [`_meta_${p.id}`]: { ...(pa[`_meta_${p.id}`] || {}), expandedRows: next } }));
         return next;
       });
     };
@@ -581,7 +573,7 @@ export default function Budget({
                           <div data-col style={colStyle("qty",{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"})}>{row.qty}</div>
                           <div data-col style={colStyle("rate",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"})}>{estFmt(estNum(row.rate))}</div>
                           <div data-col style={colStyle("estimate",{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"})}>{estFmt(estVal)}</div>
-                          <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={row.actualsAmount||String(expTotal||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
+                          <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={row.actualsAmount||(expTotal?expTotal.toFixed(2):"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
                           <div data-col style={colStyle("finals",{width:80,flexShrink:0})}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
                           <div data-col style={colStyle("variance",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"})}>{(rv>=0?"+":"") + estFmt(rv)}</div>
                           <div data-col style={colStyle("status",{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"})}>
