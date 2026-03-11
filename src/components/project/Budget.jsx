@@ -43,12 +43,8 @@ export default function Budget({
   const [dragExp, setDragExp] = React.useState(null);
   const [dropTarget, setDropTarget] = React.useState(null);
 
-  const [invoicedOverride, setInvoicedOverride] = React.useState(() => {
-    try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); return v !== null ? parseFloat(v) : null; } catch { return null; }
-  });
-  React.useEffect(() => {
-    try { const v = localStorage.getItem(`onna_invoiced_${p.id}`); setInvoicedOverride(v !== null ? parseFloat(v) : null); } catch { setInvoicedOverride(null); }
-  }, [p.id]);
+  const invoicedOverride = _meta.invoicedOverride != null ? _meta.invoicedOverride : null;
+  const setInvoicedOverride = (v) => _setMeta({ invoicedOverride: v });
   const [invoicedEdit, setInvoicedEdit] = React.useState(null);
 
   const [tallyItems, setTallyItems] = React.useState([]);
@@ -380,13 +376,13 @@ export default function Budget({
                   onFocus={e => { setInvoicedEdit(String(Math.round(invoicedAmt * 100) / 100)); e.target.select(); }}
                   onChange={e => setInvoicedEdit(e.target.value)}
                   onBlur={() => {
-                    const v = parseFloat(String(invoicedEdit).replace(/,/g, ""));
-                    if (!isNaN(v) && Math.round(v * 100) !== Math.round(autoInvoiced * 100)) {
-                      setInvoicedOverride(v);
-                      try { localStorage.setItem(`onna_invoiced_${p.id}`, String(v)); } catch {}
-                    } else {
+                    const raw = String(invoicedEdit || "").replace(/,/g, "").trim();
+                    if (raw === "") {
+                      // Cleared — revert to auto-calc
                       setInvoicedOverride(null);
-                      try { localStorage.removeItem(`onna_invoiced_${p.id}`); } catch {}
+                    } else {
+                      const v = parseFloat(raw);
+                      if (!isNaN(v)) setInvoicedOverride(v);
                     }
                     setInvoicedEdit(null);
                   }}
