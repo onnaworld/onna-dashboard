@@ -323,9 +323,9 @@ export default function Budget({
       if (!style) { style = document.createElement("style"); style.id = styleId; document.head.appendChild(style); }
       style.textContent = `
         @media print {
-          @page { margin: 12mm 10mm; size: A4 portrait; }
+          @page { margin: 0; size: A4 portrait; }
           body > *:not(#actuals-print-wrapper) { display: none !important; }
-          #actuals-print-wrapper { display: block !important; padding: 0 !important; margin: 0 !important; width: 100% !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
+          #actuals-print-wrapper { display: block !important; padding: 40px !important; margin: 0 !important; width: 100% !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
           #actuals-print-wrapper [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
           #actuals-print-wrapper [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
           #actuals-print-wrapper a[href] { color: #0066cc !important; text-decoration: underline !important; }
