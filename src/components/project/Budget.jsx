@@ -241,14 +241,16 @@ export default function Budget({
           const exp = actSections[secIdx]?.rows[rowIdx]?.expenses?.[expIdx];
           if (!exp) return prev;
           const amt = parseFloat(exp.amount) || 0;
-          return [...prev, { key, ref: "", desc: exp.desc || "Expense", estimate: 0, actuals: amt }];
+          const fin = parseFloat(exp.finalsAmount) || 0;
+          return [...prev, { key, ref: "", desc: exp.desc || "Expense", estimate: 0, actuals: amt, finals: fin }];
         }
         const row = actSections[secIdx]?.rows[rowIdx];
         const estRow = estSections[secIdx]?.rows[rowIdx];
         if (!row) return prev;
         const estVal = estRow ? estRowTotal(estRow) : 0;
         const actVal = actualsRowEffective(row);
-        return [...prev, { key, ref: row.ref, desc: row.desc, estimate: estVal, actuals: actVal }];
+        const finVal = estNum(row.zohoAmount);
+        return [...prev, { key, ref: row.ref, desc: row.desc, estimate: estVal, actuals: actVal, finals: finVal }];
       });
     };
     const isTallied = (secIdx, rowIdx, expIdx) => {
@@ -257,6 +259,7 @@ export default function Budget({
     };
     const tallyEstTotal = Math.round(tallyItems.reduce((s, t) => s + t.estimate, 0) * 100) / 100;
     const tallyActTotal = Math.round(tallyItems.reduce((s, t) => s + t.actuals, 0) * 100) / 100;
+    const tallyFinTotal = Math.round(tallyItems.reduce((s, t) => s + (t.finals || 0), 0) * 100) / 100;
 
     const handleReceiptLink = async (si, ri, ei) => {
       const url = window.prompt("Paste receipt link (image or PDF URL):");
@@ -585,7 +588,7 @@ export default function Budget({
                                 <div data-col style={colStyle("rate",{width:70,flexShrink:0})}></div>
                                 <div data-col style={colStyle("estimate",{width:80,flexShrink:0})}></div>
                                 <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={exp.amount} onChange={v2 => updateExpense(si, ri, ei, "amount", v2)} align="right" /></div>
-                                <div data-col style={colStyle("finals",{width:80,flexShrink:0})}></div>
+                                <div data-col style={colStyle("finals",{width:80,flexShrink:0})}><EstCell value={exp.finalsAmount||""} onChange={v2 => updateExpense(si, ri, ei, "finalsAmount", v2)} align="right" /></div>
                                 <div data-col style={colStyle("variance",{width:70,flexShrink:0})}></div>
                                 <div style={colStyle("status",{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"})}>
                                   <span onClick={()=>{const sts=["","Pending","Paid","Unpaid"];const idx=sts.indexOf(exp.status||"");updateExpense(si,ri,ei,"status",sts[(idx+1)%sts.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",textTransform:"uppercase",background:({"":"transparent",Pending:"#fff8e8",Paid:"#edfaf3",Unpaid:"#fff3f0"})[exp.status||""]||"transparent",color:({"":"#ccc",Pending:"#92680a",Paid:"#147d50",Unpaid:"#c0392b"})[exp.status||""]||"#ccc"}}>{exp.status||"\u2014"}</span>
@@ -695,6 +698,10 @@ export default function Budget({
             <div style={{display:"flex",justifyContent:"space-between"}}>
               <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>Actuals Total</span>
               <span style={{fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#0066cc"}}>{estFmt(tallyActTotal)}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>Finals Total</span>
+              <span style={{fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#1a1a1a"}}>{estFmt(tallyFinTotal)}</span>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #eee",paddingTop:4}}>
               <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>Difference</span>
