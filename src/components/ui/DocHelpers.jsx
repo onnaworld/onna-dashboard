@@ -198,7 +198,7 @@ const EstCell = ({ value, onChange, style = {}, align = "left" }) => {
       minHeight: 18, textAlign: align, whiteSpace: "pre-wrap", transition: "all .1s", ...style }}
     onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-    {value ? <EstHl text={value} /> : <span style={{ color: "#ccc" }}>&mdash;</span>}
+    {value ? <EstHl text={(() => { const n = parseFloat(String(value).replace(/,/g, "")); return (!isNaN(n) && String(value).replace(/,/g, "").match(/^\-?\d+\.?\d*$/)) ? (Math.round(n * 100) / 100).toString() : value; })()} /> : <span style={{ color: "#ccc" }}>&mdash;</span>}
   </div>;
 };
 
