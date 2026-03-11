@@ -294,7 +294,7 @@ export default function Budget({
       setReceiptOcrResult(null);
     };
 
-    // Print export — inject print styles and use window.print()
+    // Print export — inject print styles and print directly
     const doActPrint = () => {
       setShowColPicker(false);
       const styleId = "actuals-print-style";
@@ -307,7 +307,7 @@ export default function Budget({
       style.textContent = `
         @media print {
           @page { margin: 0; size: A4 portrait; }
-          body * { visibility: hidden !important; }
+          body * { visibility: hidden !important; position: static !important; }
           #actuals-print-area, #actuals-print-area * { visibility: visible !important; }
           #actuals-print-area { position: absolute !important; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 20mm 18mm !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
           #actuals-print-area [data-noprint] { display: none !important; }
