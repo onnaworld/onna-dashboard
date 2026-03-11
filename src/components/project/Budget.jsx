@@ -294,37 +294,35 @@ export default function Budget({
       setReceiptOcrResult(null);
     };
 
-    // Print export — open new window with cloned DOM for reliable hyperlinks in PDF
+    // Print export — inject print styles and use window.print()
     const doActPrint = () => {
       setShowColPicker(false);
-      const src = document.getElementById("actuals-print-area");
-      if (!src) return;
-      const clone = src.cloneNode(true);
-      // Remove all data-noprint elements (× buttons, add buttons, etc.)
-      clone.querySelectorAll("[data-noprint]").forEach(el => el.remove());
-      clone.querySelectorAll("[data-noprint-hide]").forEach(el => el.remove());
-      // Remove all <button> elements
-      clone.querySelectorAll("button").forEach(el => el.remove());
-      // Force-show collapsed expense sections
-      clone.querySelectorAll("[data-print-expand]").forEach(el => { el.style.display = "block"; });
-      // Force-show print-only elements
-      clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
-      // Remove drag handles
-      clone.querySelectorAll("[data-noprint-drag]").forEach(el => { el.removeAttribute("draggable"); el.style.cursor = "default"; });
-      // Ensure links are styled as hyperlinks
-      clone.querySelectorAll("a[href]").forEach(el => { el.style.color = "#0066cc"; el.style.textDecoration = "underline"; });
-      const w = window.open("", "_blank");
-      w.document.write(`<!DOCTYPE html><html><head><style>
-        @page { margin: 10mm 12mm; size: A4 portrait; }
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: ${EST_F}; }
-        a { color: #0066cc; text-decoration: underline; }
-      </style></head><body></body></html>`);
-      w.document.body.appendChild(w.document.adoptNode(clone));
-      w.document.close();
-      w.focus();
-      w.print();
-      w.close();
+      const styleId = "actuals-print-style";
+      let style = document.getElementById(styleId);
+      if (!style) {
+        style = document.createElement("style");
+        style.id = styleId;
+        document.head.appendChild(style);
+      }
+      style.textContent = `
+        @media print {
+          @page { margin: 0; size: A4 portrait; }
+          body * { visibility: hidden !important; }
+          #actuals-print-area, #actuals-print-area * { visibility: visible !important; }
+          #actuals-print-area { position: absolute !important; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 20mm 18mm !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
+          #actuals-print-area [data-noprint] { display: none !important; }
+          #actuals-print-area [data-noprint-hide] { display: none !important; }
+          #actuals-print-area [data-print-only] { display: block !important; }
+          #actuals-print-area [data-noprint-drag] { cursor: default !important; }
+          #actuals-print-area button { display: none !important; }
+          #actuals-print-area [data-print-expand] { display: block !important; }
+          #actuals-print-area a[href] { color: #0066cc !important; text-decoration: underline !important; }
+          #actuals-print-area [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
+          #actuals-print-area [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
+          nav, header, aside, .sidebar, [class*="lusha"], [id*="lusha"], [class*="Lusha"], [class*="grammarly"], [class*="lastpass"], [class*="honey"], [class*="chrome-extension"] { display: none !important; }
+        }
+      `;
+      window.print();
     };
 
     return (
