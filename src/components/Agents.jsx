@@ -4,7 +4,7 @@ export default function Agents({
   isMobile, agentActiveIdx, setAgentActiveIdx: _setAgentActiveIdx,
   AGENT_DEFS, AgentCard,
   // AgentCard props
-  vendors, localLeads, setVendors, setLocalLeads,
+  vendors, localLeads, setVendors, setLocalLeads, outreach, setOutreach,
   callSheetStore, setCallSheetStore, selectedProject, allProjectsMerged,
   activeCSVersion, dietaryStore, setDietaryStore,
   riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, setActiveRAVersion,
@@ -105,6 +105,8 @@ export default function Agents({
                 allLeads={a.id==="logistical"?localLeads:undefined}
                 onUpdateVendor={a.id==="logistical"?(id,fields)=>{setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));}:undefined}
                 onUpdateLead={a.id==="logistical"?(id,fields)=>{setLocalLeads(prev=>prev.map(l=>l.id===id?{...l,...fields}:l));}:undefined}
+                onNewLead={a.id==="logistical"?(lead)=>{setLocalLeads(prev=>[...prev,lead]);}:undefined}
+                onNewOutreach={a.id==="logistical"?(entry)=>{setOutreach(prev=>[...prev,entry]);}:undefined}
                 callSheetStore={a.id==="compliance"?callSheetStore:undefined}
                 setCallSheetStore={a.id==="compliance"?setCallSheetStore:undefined}
                 selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie"||a.id==="tina"||a.id==="tabby"||a.id==="polly"||a.id==="lillie"||a.id==="perry")?selectedProject:undefined}

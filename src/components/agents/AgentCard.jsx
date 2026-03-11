@@ -70,7 +70,7 @@ if (typeof window !== "undefined") {
   window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
 }
 
-export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore}){
+export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true,tina:true,tabby:true,polly:true,lillie:true,perry:true};
   const _buildIntro=()=>{
@@ -329,18 +329,20 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       if(pendingType==="vendor"){
         const fields={name:leadEdit.name||"",company:leadEdit.company||"",category:leadEdit.category||"",email:leadEdit.email||"",phone:leadEdit.phone||"",website:leadEdit.website||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",rateCard:leadEdit.rateCard||""};
         if(pendingId){await api.put(`/api/vendors/${pendingId}`,fields);onUpdateVendor?.(pendingId,fields);setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} updated.`}]);}
-        else{const saved=await api.post("/api/vendors",fields);if(saved?.id||saved?.name)setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved to Vendors.`}]);else{setMsgs(p=>[...p,{role:"assistant",content:`⚠️ ${saved?.error||"Save failed"}`}]);setSaving(false);return;}}
+        else{const saved=await api.post("/api/vendors",fields);if(saved?.id||saved?.name){setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.name||"Vendor"} saved to Vendors.`}]);}else{setMsgs(p=>[...p,{role:"assistant",content:`⚠️ ${saved?.error||"Save failed"}`}]);setSaving(false);return;}}
       }else{
         const fields={company:leadEdit.company||"",contact:leadEdit.contact||"",email:leadEdit.email||"",phone:leadEdit.phone||"",role:leadEdit.role||"",value:Number(leadEdit.value)||0,category:leadEdit.category||"",location:leadEdit.location||"Dubai, UAE",notes:leadEdit.notes||"",source:leadEdit.source||"Direct",date:leadEdit.date||new Date().toISOString().split("T")[0],status:leadEdit.status||"cold"};
         if(pendingId){await api.put(`/api/leads/${pendingId}`,fields);onUpdateLead?.(pendingId,fields);setMsgs(p=>[...p,{role:"assistant",content:`✓ ${leadEdit.contact||"Lead"} updated.`}]);}
         else{
           const saved=await api.post("/api/leads",fields);
           if(!saved?.id&&!saved?.company){setMsgs(p=>[...p,{role:"assistant",content:`⚠️ ${saved?.error||"Save failed"}`}]);setSaving(false);return;}
+          // Update local leads state so UI reflects immediately
+          if(saved?.id)onNewLead?.({...fields,id:saved.id});
           let msg=`✓ ${leadEdit.contact||leadEdit.company||"Lead"} saved to pipeline!`;
           if(saveAsOutreach){
             const os=(!leadEdit.status||leadEdit.status==="not_contacted")?"cold":leadEdit.status;
             const oF={clientName:leadEdit.contact||"",company:leadEdit.company||"",role:leadEdit.role||"",email:leadEdit.email||"",phone:leadEdit.phone||"",category:leadEdit.category||"",date:leadEdit.date||new Date().toISOString().split("T")[0],notes:leadEdit.notes||"",status:os,value:Number(leadEdit.value)||0,location:leadEdit.location||"Dubai, UAE",source:leadEdit.source||"Direct"};
-            try{await api.post("/api/outreach",oF);msg+="\nAlso logged to Outreach Tracker ✓";}catch(e){msg+=`\n(Outreach save failed: ${e.message})`;}
+            try{const oSaved=await api.post("/api/outreach",oF);onNewOutreach?.({...oF,id:oSaved?.id||Date.now()});msg+="\nAlso logged to Outreach Tracker ✓";}catch(e){msg+=`\n(Outreach save failed: ${e.message})`;}
           }
           setMsgs(p=>[...p,{role:"assistant",content:msg}]);
         }
