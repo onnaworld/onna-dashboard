@@ -294,35 +294,42 @@ export default function Budget({
       setReceiptOcrResult(null);
     };
 
-    // Print export — inject print styles and print directly
+    // Print export — move print area to body root so links stay clickable in PDF
     const doActPrint = () => {
       setShowColPicker(false);
+      const src = document.getElementById("actuals-print-area");
+      if (!src) return;
+      // Clone into a wrapper appended directly to <body>
+      const wrapper = document.createElement("div");
+      wrapper.id = "actuals-print-wrapper";
+      const clone = src.cloneNode(true);
+      clone.removeAttribute("id");
+      // Clean up clone for print
+      clone.querySelectorAll("[data-noprint]").forEach(el => el.remove());
+      clone.querySelectorAll("[data-noprint-hide]").forEach(el => el.remove());
+      clone.querySelectorAll("button").forEach(el => el.remove());
+      clone.querySelectorAll("[data-print-expand]").forEach(el => { el.style.display = "block"; });
+      clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
+      clone.querySelectorAll("[data-noprint-drag]").forEach(el => { el.removeAttribute("draggable"); el.style.cursor = "default"; });
+      clone.querySelectorAll("a[href]").forEach(el => { el.style.color = "#0066cc"; el.style.textDecoration = "underline"; });
+      wrapper.appendChild(clone);
+      // Inject print styles
       const styleId = "actuals-print-style";
       let style = document.getElementById(styleId);
-      if (!style) {
-        style = document.createElement("style");
-        style.id = styleId;
-        document.head.appendChild(style);
-      }
+      if (!style) { style = document.createElement("style"); style.id = styleId; document.head.appendChild(style); }
       style.textContent = `
         @media print {
           @page { margin: 0; size: A4 portrait; }
-          body * { visibility: hidden !important; position: static !important; }
-          #actuals-print-area, #actuals-print-area * { visibility: visible !important; }
-          #actuals-print-area { position: absolute !important; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 20mm 18mm !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
-          #actuals-print-area [data-noprint] { display: none !important; }
-          #actuals-print-area [data-noprint-hide] { display: none !important; }
-          #actuals-print-area [data-print-only] { display: block !important; }
-          #actuals-print-area [data-noprint-drag] { cursor: default !important; }
-          #actuals-print-area button { display: none !important; }
-          #actuals-print-area [data-print-expand] { display: block !important; }
-          #actuals-print-area a[href] { color: #0066cc !important; text-decoration: underline !important; }
-          #actuals-print-area [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
-          #actuals-print-area [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
-          nav, header, aside, .sidebar, [class*="lusha"], [id*="lusha"], [class*="Lusha"], [class*="grammarly"], [class*="lastpass"], [class*="honey"], [class*="chrome-extension"] { display: none !important; }
+          body > *:not(#actuals-print-wrapper) { display: none !important; }
+          #actuals-print-wrapper { display: block !important; padding: 20mm 18mm !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
+          #actuals-print-wrapper [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
+          #actuals-print-wrapper [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
+          #actuals-print-wrapper a[href] { color: #0066cc !important; text-decoration: underline !important; }
         }
       `;
+      document.body.appendChild(wrapper);
       window.print();
+      wrapper.remove();
     };
 
     return (
