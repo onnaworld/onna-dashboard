@@ -564,7 +564,7 @@ export default function Budget({
                           </div>
                         </div>
                         {/* Expandable expenses dropdown */}
-                        {<div data-print-expand style={{background:"#fafafa",borderBottom:"1px solid #eee",display:isExpanded?"block":"none"}}>
+                        <div data-print-expand style={{background:"#fafafa",borderBottom:"1px solid #eee",display:isExpanded?"block":"none"}}>
                             {(row.expenses||[]).map((exp, ei) => (
                               <div key={exp.id} draggable data-noprint-drag
                                 onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain","");setDragExp({si,ri,ei});}}
@@ -605,7 +605,6 @@ export default function Budget({
                               <div onClick={()=>addExpense(si, ri)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}} data-noprint>+ Add Expense</div>
                             </div>
                           </div>
-                        </div>}
                       </Fragment>
                     ); })}
                   {/* Section total — hidden when collapsed */}
