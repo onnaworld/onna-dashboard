@@ -8,12 +8,11 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const [notesErr, setNotesErr]       = useState("");
   const notesFetchedRef               = useRef(false);
 
-  // Fetch notes on mount — show cached cards immediately, refresh in background
+  // Notes are pre-fetched at app startup; only fetch here if cache is empty
   useEffect(() => {
-    if (notesFetchedRef.current) return;
+    if (notesFetchedRef.current || notes.length > 0) return;
     notesFetchedRef.current = true;
-    // Only show loading spinner if there are no cached notes to display
-    if (notes.length === 0) setNotesLoading(true);
+    setNotesLoading(true);
     api.get("/api/notes").then(data => {
       if (Array.isArray(data) && data.length) setNotes(data);
       setNotesLoading(false);

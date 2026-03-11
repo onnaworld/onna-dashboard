@@ -294,33 +294,34 @@ export default function Budget({
       setReceiptOcrResult(null);
     };
 
-    // Print export — inject print styles and print directly
+    // Print export — clone into iframe so <a> hyperlinks are preserved in PDF
     const doActPrint = () => {
       setShowColPicker(false);
-      const styleId = "actuals-print-style";
-      let style = document.getElementById(styleId);
-      if (!style) {
-        style = document.createElement("style");
-        style.id = styleId;
-        document.head.appendChild(style);
-      }
-      style.textContent = `
-        @media print {
-          @page { margin: 0; size: A4 portrait; }
-          body * { visibility: hidden !important; position: static !important; }
-          #actuals-print-area, #actuals-print-area * { visibility: visible !important; }
-          #actuals-print-area { position: absolute !important; left: 0; top: 0; width: 100% !important; max-width: none !important; padding: 20mm 18mm !important; margin: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
-          #actuals-print-area [data-noprint] { display: none !important; }
-          #actuals-print-area [data-noprint-hide] { display: none !important; }
-          #actuals-print-area [data-print-only] { display: block !important; }
-          #actuals-print-area [data-noprint-drag] { cursor: default !important; }
-          #actuals-print-area button { display: none !important; }
-          #actuals-print-area [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
-          #actuals-print-area [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
-          nav, header, aside, .sidebar, [class*="lusha"], [id*="lusha"], [class*="Lusha"], [class*="grammarly"], [class*="lastpass"], [class*="honey"], [class*="chrome-extension"] { display: none !important; }
-        }
-      `;
-      window.print();
+      const src = document.getElementById("actuals-print-area");
+      if (!src) return;
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><style>
+        @page { margin: 0; size: A4 portrait; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 20mm 18mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        a { color: #0066cc !important; text-decoration: underline !important; cursor: pointer; }
+        button { display: none !important; }
+        [data-noprint] { display: none !important; }
+        [data-noprint-hide] { display: none !important; }
+        [data-print-only] { display: block !important; }
+        [data-noprint-drag] { cursor: default !important; }
+        [data-print-expand] { display: block !important; }
+        [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
+        [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
+      </style></head><body>${src.innerHTML}</body></html>`);
+      doc.close();
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
     };
 
     return (
@@ -560,8 +561,7 @@ export default function Budget({
                           </div>
                         </div>
                         {/* Expandable expenses dropdown */}
-                        {isExpanded && (
-                          <div style={{background:"#fafafa",borderBottom:"1px solid #eee"}}>
+                        {<div data-print-expand style={{background:"#fafafa",borderBottom:"1px solid #eee",display:isExpanded?"block":"none"}}>
                             {(row.expenses||[]).map((exp, ei) => (
                               <div key={exp.id} draggable data-noprint-drag
                                 onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain","");setDragExp({si,ri,ei});}}
@@ -573,7 +573,7 @@ export default function Budget({
                                   {exp.receiptLink ? (
                                     <span style={{display:"flex",alignItems:"center",gap:3,maxWidth:"100%"}}>
                                       <a href={exp.receiptLink} target="_blank" rel="noopener noreferrer" style={{fontFamily:EST_F,fontSize:8,color:"#0066cc",letterSpacing:EST_LS,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}} title={exp.receiptLink}>RECEIPT</a>
-                                      <span onClick={()=>updateExpense(si,ri,ei,"receiptLink","")} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                                      <span data-noprint onClick={()=>updateExpense(si,ri,ei,"receiptLink","")} style={{cursor:"pointer",fontSize:9,color:"#ccc",lineHeight:1}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
                                     </span>
                                   ) : (
                                     <span onClick={()=>handleReceiptLink(si,ri,ei)} style={{fontFamily:EST_F,fontSize:8,color:receiptLoading===`${si}-${ri}-${ei}`?"#999":"#ccc",letterSpacing:EST_LS,cursor:"pointer",userSelect:"none"}} onMouseEnter={e=>{if(receiptLoading!==`${si}-${ri}-${ei}`)e.target.style.color="#0066cc"}} onMouseLeave={e=>{if(receiptLoading!==`${si}-${ri}-${ei}`)e.target.style.color="#ccc"}}>{receiptLoading===`${si}-${ri}-${ei}`?"SCANNING...":"+ RECEIPT"}</span>
@@ -602,7 +602,7 @@ export default function Budget({
                               <div onClick={()=>addExpense(si, ri)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}} data-noprint>+ Add Expense</div>
                             </div>
                           </div>
-                        )}
+                        </div>}
                       </Fragment>
                     ); })}
                   {/* Section total — hidden when collapsed */}
