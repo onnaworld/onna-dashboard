@@ -98,9 +98,10 @@ export default function Budget({
     const actExpenseTotal = actualsGrandExpenseTotal(actSections);
     const actEffectiveTotal = actualsGrandEffective(actSections);
     const actZohoTotal = actualsGrandZohoTotal(actSections);
-    const actBestTotal = actSections.reduce((s, sec) => s + sec.rows.reduce((rs, r) => { const z = estNum(r.zohoAmount); return rs + (z ? z : actualsRowEffective(r)); }, 0), 0);
-    const actVariance = estTotals.grandTotal - actBestTotal;
-    const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((actBestTotal / estTotals.grandTotal) * 1000) / 10 : 0;
+    const budgetUsedMode = _meta.budgetUsedMode || "actuals";
+    const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actEffectiveTotal;
+    const actVariance = estTotals.grandTotal - actEffectiveTotal;
+    const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((budgetUsedBase / estTotals.grandTotal) * 1000) / 10 : 0;
 
     // Update a row in actuals
     const updateActRow = (secIdx, rowIdx, field, value) => {
@@ -410,13 +411,16 @@ export default function Budget({
               ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a", "actuals"],
               ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals"],
               ["VARIANCE", (actVariance>=0?"+":"") + estFmt(actVariance), actVariance>=0?"#147d50":"#c0392b", "variance"],
-              ["BUDGET USED", budgetUsedPct + "%", budgetUsedPct>100?"#c0392b":budgetUsedPct>80?"#92680a":"#147d50", null],
             ].filter(([,,,colId]) => !colId || colVisible(colId)).map(([lbl,val,clr],i,arr)=>(
               <div key={lbl} style={{flex:1,padding:"8px 10px",borderRight:i<arr.length-1?"1px solid #ddd":"none",textAlign:"center"}}>
                 <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>{lbl}</div>
                 <div style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:clr}}>{val}</div>
               </div>
             ))}
+            <div onClick={()=>_setMeta({budgetUsedMode: budgetUsedMode==="finals"?"actuals":"finals"})} style={{flex:1,padding:"8px 10px",textAlign:"center",cursor:"pointer",userSelect:"none"}} title="Click to toggle actuals / finals">
+              <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>BUDGET USED ({budgetUsedMode==="finals"?"FINALS":"ACTUALS"})</div>
+              <div style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:budgetUsedPct>100?"#c0392b":budgetUsedPct>80?"#92680a":"#147d50"}}>{budgetUsedPct}%</div>
+            </div>
           </div>
 
           {/* Notes bar */}
