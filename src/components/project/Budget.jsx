@@ -312,6 +312,10 @@ export default function Budget({
       clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
       clone.querySelectorAll("[data-noprint-drag]").forEach(el => { el.removeAttribute("draggable"); el.style.cursor = "default"; });
       clone.querySelectorAll("a[href]").forEach(el => { el.style.color = "#0066cc"; el.style.textDecoration = "underline"; });
+      clone.style.maxWidth = "none";
+      clone.style.width = "100%";
+      clone.style.padding = "0";
+      clone.style.margin = "0";
       wrapper.appendChild(clone);
       // Inject print styles
       const styleId = "actuals-print-style";
