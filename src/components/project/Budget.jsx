@@ -334,7 +334,9 @@ export default function Budget({
         }
       `;
       document.body.appendChild(wrapper);
-      const cleanup = () => { wrapper.remove(); window.removeEventListener("afterprint", cleanup); };
+      const origTitle = document.title;
+      document.title = " ";
+      const cleanup = () => { wrapper.remove(); document.title = origTitle; window.removeEventListener("afterprint", cleanup); };
       window.addEventListener("afterprint", cleanup);
       setTimeout(() => window.print(), 100);
     };
