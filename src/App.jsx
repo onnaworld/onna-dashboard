@@ -525,7 +525,7 @@ function OnnaDashboardInner() {
   useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
   useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
-  useEffect(()=>{try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
+  useEffect(()=>{if(!globalHydratedRef.current&&dashNotesList.length===0)return;try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
@@ -793,7 +793,24 @@ function OnnaDashboardInner() {
         if (gd) {
           if (gd.todos) setTodos(gd.todos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"}));
           if (gd.ptodos) setProjectTodos(gd.ptodos);
-          if (gd.notes_list) setDashNotesList(gd.notes_list);
+          if (gd.notes_list && Array.isArray(gd.notes_list)) {
+            setDashNotesList(prev => {
+              if (!prev.length) return gd.notes_list;
+              // Merge: keep any local notes not in Turso, add any Turso notes not in local
+              const localIds = new Set(prev.map(n => n.id));
+              const tursoIds = new Set(gd.notes_list.map(n => n.id));
+              const merged = [...prev];
+              for (const tn of gd.notes_list) {
+                if (!localIds.has(tn.id)) merged.push(tn);
+                else {
+                  // Prefer whichever was updated more recently
+                  const li = merged.findIndex(n => n.id === tn.id);
+                  if (li !== -1 && tn.updatedAt && merged[li].updatedAt && tn.updatedAt > merged[li].updatedAt) merged[li] = tn;
+                }
+              }
+              return merged;
+            });
+          }
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
           if (gd.user_config) {

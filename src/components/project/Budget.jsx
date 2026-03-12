@@ -99,7 +99,7 @@ export default function Budget({
     const actEffectiveTotal = actualsGrandEffective(actSections);
     const actZohoTotal = actualsGrandZohoTotal(actSections);
     const budgetUsedMode = _meta.budgetUsedMode || "actuals";
-    const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actEffectiveTotal;
+    const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actExpenseTotal;
     const actVariance = estTotals.grandTotal - actEffectiveTotal;
     const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((budgetUsedBase / estTotals.grandTotal) * 1000) / 10 : 0;
 
@@ -334,8 +334,9 @@ export default function Budget({
         }
       `;
       document.body.appendChild(wrapper);
-      window.print();
-      wrapper.remove();
+      const cleanup = () => { wrapper.remove(); window.removeEventListener("afterprint", cleanup); };
+      window.addEventListener("afterprint", cleanup);
+      setTimeout(() => window.print(), 100);
     };
 
     return (
@@ -562,7 +563,7 @@ export default function Budget({
                           <div data-col style={colStyle("qty",{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"})}>{row.qty}</div>
                           <div data-col style={colStyle("rate",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"})}>{estFmt(estNum(row.rate))}</div>
                           <div data-col style={colStyle("estimate",{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"})}>{estFmt(estVal)}</div>
-                          <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={row.actualsAmount||(expTotal?String(expTotal):"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
+                          <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={expTotal?String(expTotal):(row.actualsAmount||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
                           <div data-col style={colStyle("finals",{width:80,flexShrink:0})}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
                           <div data-col style={colStyle("variance",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"})}>{(rv>=0?"+":"") + estFmt(rv)}</div>
                           <div data-col style={colStyle("status",{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"})}>
