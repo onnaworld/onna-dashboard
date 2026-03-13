@@ -24,6 +24,11 @@ let _pdfjs=null;
 export const ensurePdfJs=()=>{if(_pdfjs)return Promise.resolve(_pdfjs);return new Promise((res,rej)=>{if(window.pdfjsLib){_pdfjs=window.pdfjsLib;return res(_pdfjs);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";_pdfjs=window.pdfjsLib;res(_pdfjs);};s.onerror=()=>rej(new Error("Failed to load pdf.js"));document.head.appendChild(s);});};
 export const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=atob(dataUrl.split(",")[1]);const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);const doc=await pdfjs.getDocument({data:arr}).promise;const pages=[];for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i);const vp=pg.getViewport({scale:2});const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;pages.push(c.toDataURL("image/png"));}return pages;};
 
+// ─── DOCX PAGE LOADER (mammoth.js from CDN) ─────────────────────────────────
+let _mammoth=null;
+const ensureMammoth=()=>{if(_mammoth)return Promise.resolve(_mammoth);return new Promise((res,rej)=>{if(window.mammoth){_mammoth=window.mammoth;return res(_mammoth);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";s.onload=()=>{_mammoth=window.mammoth;res(_mammoth);};s.onerror=()=>rej(new Error("Failed to load mammoth.js"));document.head.appendChild(s);});};
+export const loadDocxPages=async(arrayBuffer)=>{const mammoth=await ensureMammoth();const result=await mammoth.convertToHtml({arrayBuffer});const html=result.value;const pages=await renderHtmlToDocPages(html,"document");return pages;};
+
 // ─── SIGN / STAMP / LETTERHEAD compositing ──────────────────────────────────
 export const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>res(img);img.onerror=()=>rej(new Error("Failed to load "+src));img.src=src;});
 export const _scanWhiteTop=(pgImg)=>{
