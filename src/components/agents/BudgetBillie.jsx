@@ -139,7 +139,93 @@ function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProj
   return versionIdx;
 }
 
-export { buildBillieSystem, applyBilliePatch };
+// ─── BILLIE PATCH MARKERS (✓/✕ review flow) ────────────────────────────────
+function buildBilliePatchMarkers(patch, preVer) {
+  const markers = [];
+  // Top sheet field changes
+  if (patch.ts) {
+    const preTs = preVer.ts || {};
+    Object.keys(patch.ts).forEach(k => {
+      if (patch.ts[k] !== (preTs[k] || "")) markers.push("est:ts:" + k);
+    });
+  }
+  if (patch.notes !== undefined) markers.push("est:ts:notes");
+  // Row updates by ref
+  if (patch.rows) {
+    Object.keys(patch.rows).forEach(ref => markers.push("est:row:" + ref));
+  }
+  // Added rows
+  const rowsToAdd = patch.addRows ? patch.addRows : patch.addRow ? [patch.addRow] : [];
+  rowsToAdd.forEach((_, i) => markers.push("est:addRow:" + i));
+  // Removed row
+  if (patch.removeRow) markers.push("est:removeRow:" + patch.removeRow);
+  return markers;
+}
+
+function _revertBillieField(ver, marker, preSnapshot) {
+  if (marker.startsWith("est:ts:")) {
+    const k = marker.slice(7);
+    if (!ver.ts) ver.ts = {};
+    const preTs = preSnapshot.ts || {};
+    ver.ts[k] = preTs[k] !== undefined ? preTs[k] : "";
+  } else if (marker.startsWith("est:row:")) {
+    const ref = marker.slice(8);
+    const preSections = preSnapshot.sections || [];
+    const curSections = ver.sections || [];
+    for (const preSec of preSections) {
+      const preRow = preSec.rows.find(r => r.ref === ref);
+      if (preRow) {
+        for (const curSec of curSections) {
+          const ci = curSec.rows.findIndex(r => r.ref === ref);
+          if (ci >= 0) { curSec.rows[ci] = JSON.parse(JSON.stringify(preRow)); break; }
+        }
+        break;
+      }
+    }
+  } else if (marker.startsWith("est:addRow:")) {
+    // Revert an added row — find and remove it (it was added at end of its section)
+    const curSections = ver.sections || [];
+    const preSections = preSnapshot.sections || [];
+    for (let si = 0; si < curSections.length; si++) {
+      const preRefs = new Set((preSections[si]?.rows || []).map(r => r.ref));
+      const toRemove = curSections[si].rows.findIndex(r => !preRefs.has(r.ref));
+      if (toRemove >= 0 && curSections[si].rows.length > 1) {
+        curSections[si].rows.splice(toRemove, 1);
+        break;
+      }
+    }
+  } else if (marker.startsWith("est:removeRow:")) {
+    // Revert a removed row — restore it from pre-snapshot
+    const ref = marker.slice(14);
+    const preSections = preSnapshot.sections || [];
+    for (const preSec of preSections) {
+      const preRow = preSec.rows.find(r => r.ref === ref);
+      if (preRow) {
+        const curSec = (ver.sections || []).find(s => s.num === preSec.num || s.id === preSec.id);
+        if (curSec) curSec.rows.push(JSON.parse(JSON.stringify(preRow)));
+        break;
+      }
+    }
+  }
+}
+
+function revertBillieMarker(marker, preSnapshot, projectId, vIdx, setStore) {
+  revertBillieMarkers([marker], preSnapshot, projectId, vIdx, setStore);
+}
+
+function revertBillieMarkers(markers, preSnapshot, projectId, vIdx, setStore) {
+  setStore(prev => {
+    const store = JSON.parse(JSON.stringify(prev));
+    const arr = store[projectId] || [];
+    const ver = arr[vIdx]; if (!ver) return store;
+    markers.forEach(m => _revertBillieField(ver, m, preSnapshot));
+    arr[vIdx] = ver;
+    store[projectId] = arr;
+    return store;
+  });
+}
+
+export { buildBillieSystem, applyBilliePatch, buildBilliePatchMarkers, revertBillieMarker, revertBillieMarkers };
 
 export function BillieTabBar({
   agent, billieTabs, setBillieTabs, billieCtx, setBillieCtx,
@@ -163,7 +249,7 @@ export function BillieTabBar({
             <span onClick={e=>{e.stopPropagation();if(!confirm("Delete this estimate? It will be moved to trash."))return;const pid=tab.projectId;const vIdx=tab.vIdx;const estData=(projectEstimates?.[pid]||[])[vIdx];if(estData&&onArchiveCallSheet)onArchiveCallSheet('estimates',{projectId:pid,estimate:JSON.parse(JSON.stringify(estData))});setProjectEstimates(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[pid]||[];arr.splice(vIdx,1);store[pid]=arr;return store;});setBillieTabs(prev=>{const next=prev.filter((_,j)=>j!==i).map(t=>t.projectId===pid&&t.vIdx>vIdx?{...t,vIdx:t.vIdx-1}:t);if(isActive){if(next.length>0){const switchTo=next[0];setBillieCtx({projectId:switchTo.projectId,vIdx:switchTo.vIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(switchTo.vIdx);setMsgs(p=>[...p,{role:"assistant",content:`Deleted and switched to ${switchTo.label}.`}]);}else{setBillieCtx(null);setMsgs(p=>[...p,{role:"assistant",content:"Estimate deleted. Pick a project to start a new one!"}]);}}return next;});}} style={{marginLeft:2,cursor:"pointer",opacity:0.5,fontSize:11,lineHeight:1}}>\u00d7</span>
           </div>
         ); })}
-      <div onClick={()=>{const _pid=billieCtx?.projectId||billieTabs[billieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi5=(projectInfoRef.current||{})[proj.id];ne.ts={...ne.ts,version:"[Untitled]",client:proj.client||"",project:_pi5?.shootName||proj.name||""};setProjectEstimates(prev=>({...prev,[proj.id]:[...(prev[proj.id]||[]),ne]}));const newIdx=(projectEstimates?.[proj.id]||[]).length;setBillieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);addBillieTab(proj.id,newIdx,`${proj.name} \u00b7 [Untitled]`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created a new estimate for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
+      <div onClick={()=>{const _pid=billieCtx?.projectId||billieTabs[billieTabs.length-1]?.projectId;if(_pid){const proj=localProjects?.find(p=>p.id===_pid);if(proj){const _curVs=projectEstimates?.[proj.id]||[];const _autoLbl=`V${_curVs.length+1}`;const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};const _pi5=(projectInfoRef.current||{})[proj.id];ne.ts={...ne.ts,version:_autoLbl,client:proj.client||"",project:_pi5?.shootName||proj.name||""};setProjectEstimates(prev=>({...prev,[proj.id]:[...(prev[proj.id]||[]),ne]}));const newIdx=_curVs.length;setBillieCtx({projectId:proj.id,vIdx:newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);addBillieTab(proj.id,newIdx,`${proj.name} \u00b7 ${_autoLbl}`);setMsgs(prev=>[...prev,{role:"assistant",content:`Created ${_autoLbl} for ${proj.name}. What would you like to do?`}]);}}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:8,border:"1.5px dashed #ccc",background:"transparent",fontSize:14,color:"#999",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>+</div>
     </div>
   );
 }
@@ -188,7 +274,8 @@ export async function handleBillieIntent({
   estSectionTotal, estRowTotal, estCalcTotals, estNum, estFmt,
   actualsSectionExpenseTotal, actualsSectionZohoTotal,
   actualsRowExpenseTotal, actualsGrandExpenseTotal, actualsGrandZohoTotal,
-  buildBillieSystem, applyBilliePatch,
+  buildBillieSystem, applyBilliePatch, buildBilliePatchMarkers,
+  billiePendingReview, setBilliePendingReview,
   buildFinnSystem, applyFinnPatch,
 }) {
   if (agent.id !== "billie") return false;
@@ -214,12 +301,12 @@ export async function handleBillieIntent({
         }
         const estVersions = projectEstimates?.[project.id] || [];
         if(estVersions.length===0){
-          // Auto-create [Untitled] estimate
+          // Auto-create V1 estimate
           const ne={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
-          const _pi5=(projectInfoRef.current||{})[project.id];ne.ts={...ne.ts,version:"[Untitled]",client:project.client||"",project:_pi5?.shootName||project.name||""};
+          const _pi5=(projectInfoRef.current||{})[project.id];ne.ts={...ne.ts,version:"V1",client:project.client||"",project:_pi5?.shootName||project.name||""};
           setProjectEstimates(prev=>({...prev,[project.id]:[...(prev[project.id]||[]),ne]}));
           setBillieCtx({projectId:project.id,vIdx:0});if(setActiveEstimateVersion)setActiveEstimateVersion(0);
-          addBillieTab(project.id,0,`${project.name} · [Untitled]`);
+          addBillieTab(project.id,0,`${project.name} · V1`);
           const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setProjectEstimates(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[project.id]||[];if(arr.length>0&&!arr[arr.length-1].prodLogo)arr[arr.length-1].prodLogo=dataUrl;return s;});}catch{}};logoImg.src="/onna-default-logo.png";
           setMsgs([...history,{role:"assistant",content:`✓ Created a new estimate for ${project.name}. What would you like to do?`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
@@ -280,8 +367,12 @@ export async function handleBillieIntent({
       if(switchProject){
         const swVersions=projectEstimates?.[switchProject.id]||[];
         if(swVersions.length===0){
-          setBillieCtx({projectId:switchProject.id,pendingCreate:true});
-          setMsgs([...history,{role:"assistant",content:`No estimates for ${switchProject.name} yet. What should I call this estimate?`}]);
+          const _swNe={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+          const _swPi=(projectInfoRef.current||{})[switchProject.id];_swNe.ts={..._swNe.ts,version:"V1",client:switchProject.client||"",project:_swPi?.shootName||switchProject.name||""};
+          setProjectEstimates(prev=>({...prev,[switchProject.id]:[...(prev[switchProject.id]||[]),_swNe]}));
+          setBillieCtx({projectId:switchProject.id,vIdx:0});if(setActiveEstimateVersion)setActiveEstimateVersion(0);
+          addBillieTab(switchProject.id,0,`${switchProject.name} · V1`);
+          setMsgs([...history,{role:"assistant",content:`Created V1 estimate for ${switchProject.name}. What would you like to do?`}]);
         }else if(swVersions.length===1){
           setBillieCtx({projectId:switchProject.id,vIdx:0});if(setActiveEstimateVersion)setActiveEstimateVersion(0);
           setMsgs([...history,{role:"assistant",content:`Switched to ${switchProject.name} (${swVersions[0].ts?.version||"V1"}). What would you like to do?`}]);
@@ -306,9 +397,17 @@ export async function handleBillieIntent({
       }
 
       if(/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
-        setBillieCtx({projectId,pendingCreate:true});
-        setMsgs([...history,{role:"assistant",content:`What should I call this new estimate?`}]);
-        setLoading(false);setMood("idle");return true;
+        const _curVersions=projectEstimates?.[projectId]||[];
+        const _nextNum=_curVersions.length+1;
+        const _autoLabel=`V${_nextNum}`;
+        const _newEst={...JSON.parse(JSON.stringify(ESTIMATE_INIT)),id:Date.now()};
+        const _pi6=(projectInfoRef.current||{})[projectId];_newEst.ts={..._newEst.ts,version:_autoLabel,client:project.client||"",project:_pi6?.shootName||project.name||""};
+        setProjectEstimates(prev=>({...prev,[projectId]:[...(prev[projectId]||[]),_newEst]}));
+        const _newIdx=_curVersions.length;
+        setBillieCtx({projectId,vIdx:_newIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(_newIdx);
+        addBillieTab(projectId,_newIdx,`${project.name} · ${_autoLabel}`);
+        setMsgs([...history,{role:"assistant",content:`✓ Created ${_autoLabel} for ${project.name}. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
       }
 
       if(/\b(switch|change|different|new)\s+(project|budget)\b/i.test(input)){
@@ -461,7 +560,7 @@ export async function handleBillieIntent({
               const pages=await loadPdfPages(chosen.dataUrl);
               const capped=pages.slice(0,10);
               if(pages.length>10) setMsgs(prev=>[...prev.slice(0,-1),{...prev[prev.length-1]},{role:"assistant",content:`PDF has ${pages.length} pages — using first 10 for analysis.`}]);
-              injected=capped.map((pg,i)=>({name:`${chosen.name}_p${i+1}`,type:"image/png",dataUrl:pg}));
+              injected=capped.map((pg,i)=>({name:`${chosen.name}_p${i+1}`,type:"image/jpeg",dataUrl:pg}));
             }else{
               injected=[{name:chosen.name,type:chosen.type||"image/jpeg",dataUrl:chosen.dataUrl}];
             }
@@ -489,7 +588,7 @@ export async function handleBillieIntent({
               const pages=await loadPdfPages(chosen.dataUrl);
               const capped=pages.slice(0,10);
               if(pages.length>10) setMsgs(m=>[...m,{role:"assistant",content:`PDF has ${pages.length} pages — using first 10 for analysis.`}]);
-              injected=capped.map((pg,i)=>({name:`${chosen.name}_p${i+1}`,type:"image/png",dataUrl:pg}));
+              injected=capped.map((pg,i)=>({name:`${chosen.name}_p${i+1}`,type:"image/jpeg",dataUrl:pg}));
             }else{
               injected=[{name:chosen.name,type:chosen.type||"image/jpeg",dataUrl:chosen.dataUrl}];
             }
@@ -536,15 +635,33 @@ export async function handleBillieIntent({
         if(jsonMatch){
           try{
             const patch = JSON.parse(jsonMatch[1].trim());
-            const newIdx = applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
-            setTimeout(()=>syncProjectInfoToDocs(project.id),100);
-            if (patch.saveAsVersion && newIdx !== vIdx) {
-              setBillieCtx(prev => ({...prev, vIdx: newIdx}));
-              if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);
-            }
             const cleanText = fullText.replace(/```json[\s\S]*?```/g,"").trim();
-            const msg = patch.saveAsVersion ? `✓ Saved as new version: ${patch.saveAsVersion}` : "✓ Estimate updated.";
-            setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+msg}]);
+            // For saveAsVersion, skip review flow
+            if (patch.saveAsVersion) {
+              const newIdx = applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
+              setTimeout(()=>syncProjectInfoToDocs(project.id),100);
+              if (newIdx !== vIdx) {
+                setBillieCtx(prev => ({...prev, vIdx: newIdx}));
+                if(setActiveEstimateVersion)setActiveEstimateVersion(newIdx);
+              }
+              setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+`✓ Saved as new version: ${patch.saveAsVersion}`}]);
+            } else {
+              // Build markers for review
+              const existingReview = billiePendingReview && billiePendingReview.projectId===project.id && billiePendingReview.vIdx===vIdx ? billiePendingReview : null;
+              const preSnapshot = existingReview ? existingReview.preSnapshot : JSON.parse(JSON.stringify(ver));
+              const newMarkers = buildBilliePatchMarkers(patch, ver);
+              const newIdx = applyBilliePatch(patch, project.id, vIdx, estVersions, setProjectEstimates);
+              setTimeout(()=>syncProjectInfoToDocs(project.id),100);
+              if (newMarkers.length > 0 && setBilliePendingReview) {
+                const mergedMarkers = existingReview ? [...new Set([...existingReview.markers, ...newMarkers])] : newMarkers;
+                setBilliePendingReview({ preSnapshot, markers: mergedMarkers, projectId: project.id, vIdx });
+                setMsgs([...history,{role:"assistant",content:(cleanText||"Changes applied.")+"\n\nReview the highlighted changes on the left — ✓ to keep, ✕ to revert."}]);
+              } else if (existingReview && existingReview.markers.length > 0) {
+                setMsgs([...history,{role:"assistant",content:(cleanText||"Done.")+"\n\nYou still have pending changes to review on the left."}]);
+              } else {
+                setMsgs([...history,{role:"assistant",content:(cleanText?cleanText+"\n\n":"")+"✓ Estimate updated."}]);
+              }
+            }
           }catch(pe){
             setMsgs([...history,{role:"assistant",content:fullText+"\n\n⚠️ Could not parse patch: "+pe.message}]);
           }

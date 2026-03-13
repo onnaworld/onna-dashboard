@@ -10,7 +10,7 @@ const EST_CURRENCIES = [
   { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 3.9841, USD: 1.0848, GBP: 0.8587, SAR: 4.0682 } },
   { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9794, USD: 0.2667, GBP: 0.2111, EUR: 0.2458 } },
 ];
-function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
+function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
   const printRef = useRef(null);
@@ -25,6 +25,11 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
   const tcsText = estData.tcsText || DEFAULT_TCS;
   const saSigs = estData.saSigs || {};
   const prodLogo = estData.prodLogo || null;
+
+  const _bprMarkers = pendingReview ? new Set(pendingReview.markers) : null;
+  const _hasBM = (m) => _bprMarkers && _bprMarkers.has(m);
+  const _bRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
+  const _bHL = {borderLeft:"3px solid #4caf50",paddingLeft:4,marginLeft:-7};
 
   const tsSet = (k, v) => onSet(d => ({...d, ts: {...(d.ts||ESTIMATE_INIT.ts), [k]: v}}));
   const logoSet = (v) => onSet(d => ({...d, prodLogo: v}));
@@ -112,12 +117,15 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
             <EstCell value={ts.version} onChange={v=>tsSet("version",v)} style={{fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center"}} />
           </div>
           <div style={{marginBottom:10}}>
-            {[["DATE:",ts.date,"date"],["CLIENT:",ts.client,"client"],["ATTENTION:",ts.attention,"attention"],["PROJECT:",ts.project,"project"],["PHOTOGRAPHER / DIRECTOR:",ts.photographer,"photographer"],["DELIVERABLES:",ts.deliverables,"deliverables"],["DEADLINES:",ts.deadlines,"deadlines"],["USAGE TERMS:",ts.usage,"usage"],["SHOOT DATE:",ts.shootDate,"shootDate"],["NUMBER OF SHOOT DAYS:",ts.shootDays,"shootDays"],["SHOOT HOURS:",ts.shootHours,"shootHours"],["SHOOT LOCATION:",ts.location,"location"],["PAYMENT TERMS:",ts.payment,"payment"]].map(([lbl,val,key])=>
-              <div key={key} style={{display:"flex",gap:4,marginBottom:0,minHeight:20,alignItems:"baseline"}}>
+            {[["DATE:",ts.date,"date"],["CLIENT:",ts.client,"client"],["ATTENTION:",ts.attention,"attention"],["PROJECT:",ts.project,"project"],["PHOTOGRAPHER / DIRECTOR:",ts.photographer,"photographer"],["DELIVERABLES:",ts.deliverables,"deliverables"],["DEADLINES:",ts.deadlines,"deadlines"],["USAGE TERMS:",ts.usage,"usage"],["SHOOT DATE:",ts.shootDate,"shootDate"],["NUMBER OF SHOOT DAYS:",ts.shootDays,"shootDays"],["SHOOT HOURS:",ts.shootHours,"shootHours"],["SHOOT LOCATION:",ts.location,"location"],["PAYMENT TERMS:",ts.payment,"payment"]].map(([lbl,val,key])=>{
+              const _tsm = "est:ts:"+key; const _tsHas = _hasBM(_tsm);
+              return(
+              <div key={key} style={{display:"flex",gap:4,marginBottom:0,minHeight:20,alignItems:"baseline",position:"relative",...(_tsHas?{background:"#E8F5E9"}:{})}}>
+                {_tsHas&&<span style={{position:"absolute",left:-28,top:2,display:"flex",gap:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_tsm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_tsm)} style={_bRevBtn("decline")}>{"✕"}</button></span>}
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,minWidth:190,flexShrink:0}}>{lbl}</span>
                 <EstCell value={val} onChange={v=>tsSet(key,v)} style={{letterSpacing:EST_LS}} />
-              </div>
-            )}
+              </div>);
+            })}
           </div>
           <div style={{borderTop:"2px solid #000",marginTop:8}}>
             <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
@@ -205,8 +213,9 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27 }) {
                 <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>
                 <div style={{width:24,flexShrink:0}}></div>
               </div>
-              {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);return(
-                <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch"}}>
+              {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);return(
+                <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",...(_rHas?{background:"#E8F5E9"}:{})}}>
+                  {_rHas&&<div style={{position:"absolute",left:-28,top:4,display:"flex",gap:1,zIndex:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_rm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_rm)} style={_bRevBtn("decline")}>{"✕"}</button></div>}
                   <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                   <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
                   <div style={{width:120,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>

@@ -9,9 +9,10 @@ import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_INIT, CONTRACT_DOC_TYPES, GENERAL_TERMS_DOC } from "./ContractCody";
 import { revertConnieMarker, revertConnieMarkers } from "./CallSheetConnie";
 import { revertMarker } from "./RiskAssessmentRonnie";
+import { revertBillieMarker, revertBillieMarkers } from "./BudgetBillie";
 import EstimateView from "./EstimateView";
 
-export default function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
+export default function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, billiePendingReview, setBilliePendingReview, onBillieReviewDone, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
   if (!projectId) return null;
 
   // ── CONNIE: Dietary list view ──
@@ -438,10 +439,20 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
     const estData = estVersions[estIdx] || estVersions[0];
     const {set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, JSON.parse(JSON.stringify(ESTIMATE_INIT)), "V1");
 
+    const bpr = billiePendingReview && billiePendingReview.projectId===projectId && billiePendingReview.vIdx===estIdx ? billiePendingReview : null;
+    const finishBReview = () => { if(setBilliePendingReview) setBilliePendingReview(null); if(onBillieReviewDone) onBillieReviewDone(); };
+    const acceptBM = (m) => { if(!setBilliePendingReview||!bpr) return; const next = bpr.markers.filter(x=>x!==m); if(next.length===0){ finishBReview(); } else { setBilliePendingReview({...bpr, markers:next}); } };
+    const declineBM = (m) => { if(!setBilliePendingReview||!bpr) return; revertBillieMarker(m, bpr.preSnapshot, bpr.projectId, bpr.vIdx, setProjectEstimates); const next = bpr.markers.filter(x=>x!==m); if(next.length===0){ finishBReview(); } else { setBilliePendingReview({...bpr, markers:next}); } };
+    const acceptAllB = () => { if(!bpr) return; finishBReview(); };
+    const declineAllB = () => { if(!bpr) return; revertBillieMarkers(bpr.markers, bpr.preSnapshot, bpr.projectId, bpr.vIdx, setProjectEstimates); finishBReview(); };
+
     return (
       <div style={{overflowY:"auto",overflowX:"auto",padding:0,background:"#fff",height:"100%"}}>
-        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",gap:6}}>Estimate — <input value={estData.ts?.version||""} onChange={e=>{const v=e.target.value;estSet(d=>({...d,ts:{...(d.ts||ESTIMATE_INIT.ts),version:v}}));}} placeholder={`V${estIdx+1}`} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #e0e0e0",fontSize:10,fontWeight:600,fontFamily:"inherit",color:"#555",width:180,letterSpacing:1,textTransform:"uppercase",background:"transparent"}} onFocus={e=>{e.target.style.borderColor="#7ab87a";e.target.style.background="#f3fff3";}} onBlur={e=>{e.target.style.borderColor="#e0e0e0";e.target.style.background="transparent";}}/></div>
-        <EstimateView estData={estData} onSet={estSet} />
+        <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{display:"flex",alignItems:"center",gap:6}}>Estimate — <input value={estData.ts?.version||""} onChange={e=>{const v=e.target.value;estSet(d=>({...d,ts:{...(d.ts||ESTIMATE_INIT.ts),version:v}}));}} placeholder={`V${estIdx+1}`} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #e0e0e0",fontSize:10,fontWeight:600,fontFamily:"inherit",color:"#555",width:180,letterSpacing:1,textTransform:"uppercase",background:"transparent"}} onFocus={e=>{e.target.style.borderColor="#7ab87a";e.target.style.background="#f3fff3";}} onBlur={e=>{e.target.style.borderColor="#e0e0e0";e.target.style.background="transparent";}}/></span>
+          {bpr&&bpr.markers.length>0&&(<div style={{display:"flex",gap:4}}><button onClick={acceptAllB} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllB} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></div>)}
+        </div>
+        <EstimateView estData={estData} onSet={estSet} pendingReview={bpr} onAcceptMarker={acceptBM} onDeclineMarker={declineBM} />
       </div>
     );
   }
