@@ -218,7 +218,7 @@ function OnnaDashboardInner() {
     if (!authed) return;
     const TIMEOUT = 30*60*1000;
     const WARNING = 60*1000;
-    const doLogout = ()=>{setShowTimeoutWarning(false);localStorage.removeItem("onna_token");setAuthed(false);};
+    const doLogout = ()=>{setShowTimeoutWarning(false);localStorage.removeItem("onna_token");window.location.reload();};
     const schedule = ()=>{
       clearTimeout(warningRef.current); clearTimeout(timeoutRef.current);
       setShowTimeoutWarning(false);
