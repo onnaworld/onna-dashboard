@@ -102,7 +102,8 @@ export const renderHtmlToDocPages = async (htmlContent, docName) => {
         await new Promise(r => setTimeout(r, 100));
         const captureH = Math.max(body.scrollHeight, body.offsetHeight);
         const pages = [];
-        const logoImg = await _loadImg(logoUrl).catch(() => null);
+        let logoImg = null;
+        try { const li = await _loadImg(logoUrl); const lc = document.createElement("canvas"); lc.width = li.width; lc.height = li.height; lc.getContext("2d").drawImage(li, 0, 0); logoImg = await _loadImg(lc.toDataURL("image/png")); } catch(e) {}
         for (let p = 0; p < numPages; p++) {
           const canvas = document.createElement("canvas");
           canvas.width = A4_W * 2; canvas.height = A4_H * 2;
@@ -127,7 +128,8 @@ export const renderHtmlToDocPages = async (htmlContent, docName) => {
             clone.style.left = "0";
             clone.style.overflow = "hidden";
             const serializer = new XMLSerializer();
-            const htmlStr = serializer.serializeToString(idoc.documentElement);
+            let htmlStr = serializer.serializeToString(idoc.documentElement);
+            htmlStr = htmlStr.replace(/url\([^)]*\)/gi, 'url()').replace(/<img[^>]*>/gi, '');
             const svgStr = `<svg xmlns="${svgNS}" width="${A4_W}" height="${contentAreaH}">
               <foreignObject width="${A4_W}" height="${contentAreaH}">
                 <html xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0;">
