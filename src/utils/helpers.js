@@ -27,7 +27,40 @@ export const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const
 // ─── DOCX PAGE LOADER (mammoth.js from CDN) ─────────────────────────────────
 let _mammoth=null;
 const ensureMammoth=()=>{if(_mammoth)return Promise.resolve(_mammoth);return new Promise((res,rej)=>{if(window.mammoth){_mammoth=window.mammoth;return res(_mammoth);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";s.onload=()=>{_mammoth=window.mammoth;res(_mammoth);};s.onerror=()=>rej(new Error("Failed to load mammoth.js"));document.head.appendChild(s);});};
-export const loadDocxPages=async(arrayBuffer)=>{const mammoth=await ensureMammoth();const result=await mammoth.convertToHtml({arrayBuffer});const html=result.value;const pages=await renderHtmlToDocPages(html,"document");return pages;};
+let _h2c=null;
+const ensureHtml2Canvas=()=>{if(_h2c)return Promise.resolve(_h2c);return new Promise((res,rej)=>{if(window.html2canvas){_h2c=window.html2canvas;return res(_h2c);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";s.onload=()=>{_h2c=window.html2canvas;res(_h2c);};s.onerror=()=>rej(new Error("Failed to load html2canvas"));document.head.appendChild(s);});};
+export const loadDocxPages=async(arrayBuffer)=>{
+  const mammoth=await ensureMammoth();
+  const html2canvas=await ensureHtml2Canvas();
+  const result=await mammoth.convertToHtml({arrayBuffer});
+  const html=result.value;
+  const A4_W=794,A4_H=1123,MARGIN=60;
+  // Render HTML in a hidden div
+  const container=document.createElement("div");
+  container.style.cssText=`position:fixed;left:-9999px;top:0;width:${A4_W}px;font-family:'Avenir','Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#222;padding:${MARGIN}px;background:#fff;`;
+  container.innerHTML=html;
+  document.body.appendChild(container);
+  await new Promise(r=>setTimeout(r,200));
+  const totalH=container.scrollHeight;
+  const pageContentH=A4_H-(MARGIN*2);
+  const numPages=Math.max(1,Math.ceil(totalH/pageContentH));
+  const pages=[];
+  for(let p=0;p<numPages;p++){
+    const pageDiv=document.createElement("div");
+    pageDiv.style.cssText=`width:${A4_W}px;height:${A4_H}px;overflow:hidden;background:#fff;position:relative;`;
+    const inner=document.createElement("div");
+    inner.style.cssText=`position:absolute;top:${-p*pageContentH+MARGIN}px;left:0;width:${A4_W}px;padding:0 ${MARGIN}px;`;
+    inner.innerHTML=html;
+    pageDiv.appendChild(inner);
+    document.body.appendChild(pageDiv);
+    await new Promise(r=>setTimeout(r,50));
+    const canvas=await html2canvas(pageDiv,{scale:2,useCORS:true,allowTaint:false,width:A4_W,height:A4_H});
+    pages.push(canvas.toDataURL("image/png"));
+    document.body.removeChild(pageDiv);
+  }
+  document.body.removeChild(container);
+  return pages;
+};
 
 // ─── SIGN / STAMP / LETTERHEAD compositing ──────────────────────────────────
 export const _loadImg=(src)=>new Promise((res,rej)=>{const img=new Image();img.crossOrigin="anonymous";img.onload=()=>res(img);img.onerror=()=>rej(new Error("Failed to load "+src));img.src=src;});
