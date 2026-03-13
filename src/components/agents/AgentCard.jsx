@@ -70,7 +70,7 @@ if (typeof window !== "undefined") {
   window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
 }
 
-export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore}){
+export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore,onCreateProject}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true,tina:true,tabby:true,polly:true,lillie:true,perry:true};
   const _buildIntro=()=>{
@@ -101,6 +101,29 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   const _pendingDupRef=useRef(null);
   const setPendingDuplicate=(v)=>{_pendingDupRef.current=v;_setPendingDuplicate(v);};
   const [attachments,setAttachments]=useState([]);
+  const [isDragging,setIsDragging]=useState(false);
+  const _dragAgents=useMemo(()=>new Set(["billie","compliance","researcher","contracts"]),[]);
+  const _handleDroppedFiles=useCallback(async(files)=>{
+    for(const f of files){
+      const isPdf=f.type==="application/pdf"||f.name.toLowerCase().endsWith(".pdf");
+      const isDocx=f.name.toLowerCase().endsWith(".docx")||f.name.toLowerCase().endsWith(".doc")||f.type==="application/vnd.openxmlformats-officedocument.wordprocessingml.document"||f.type==="application/msword";
+      if(agent.id==="contracts"){
+        // Contracts agent: route docs through Cody's upload flow
+        const isImg=f.type.startsWith("image/");
+        try{
+          if(isPdf){const reader=new FileReader();reader.onload=async ev=>{try{const pages=await loadPdfPages(ev.target.result);codyDocConfigRef.current=null;setCodyUploadedDoc({name:f.name,type:"application/pdf",pages});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name} (${pages.length} page${pages.length>1?"s":""})`},{role:"assistant",content:`Got it! I've loaded "${f.name}" (${pages.length} page${pages.length>1?"s":""}). What would you like me to do?\n\n• "Sign this" — add signature (last page by default)\n• "Stamp all pages" — add stamp to every page\n• "Sign and stamp on company letterhead"\n• "Sign page 3" — apply to a specific page`}]);}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load PDF: ${err.message}`}]);}};reader.readAsDataURL(f);
+          }else if(isDocx){setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`Loading Word document...`}]);const arrayBuffer=await f.arrayBuffer();const pages=await loadDocxPages(arrayBuffer);codyDocConfigRef.current=null;setCodyUploadedDoc({name:f.name,type:"application/docx",pages});setMsgs(prev=>{const m=[...prev];m.pop();return[...m,{role:"assistant",content:`Got it! I've loaded "${f.name}" (${pages.length} page${pages.length>1?"s":""}). What would you like me to do?\n\n• "Sign this"\n• "Stamp all pages"\n• "Sign and stamp on company letterhead"`}];});
+          }else if(isImg){const reader=new FileReader();reader.onload=ev=>{codyDocConfigRef.current=null;setCodyUploadedDoc({name:f.name,type:f.type,pages:[ev.target.result]});setMsgs(prev=>[...prev,{role:"user",content:`📄 Uploaded: ${f.name}`},{role:"assistant",content:`Got "${f.name}"! What would you like me to do — sign, stamp, or put on letterhead?`}]);};reader.readAsDataURL(f);
+          }
+        }catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load document: ${err.message}`}]);}
+      }else{
+        // Billie, compliance, researcher: images + PDFs → attachments
+        const reader=new FileReader();const dataUrl=await new Promise((res,rej)=>{reader.onload=ev=>res(ev.target.result);reader.onerror=rej;reader.readAsDataURL(f);});
+        if(isPdf&&(agent.id==="billie")){try{const pages=await loadPdfPages(dataUrl);const capped=pages.slice(0,10);if(pages.length>10)setMsgs(prev=>[...prev,{role:"assistant",content:`PDF has ${pages.length} pages — using first 10 for analysis.`}]);capped.forEach((pg,i)=>{setAttachments(prev=>[...prev,{name:`${f.name}_p${i+1}`,type:"image/png",dataUrl:pg}]);});}catch(err){setMsgs(prev=>[...prev,{role:"assistant",content:`Failed to load PDF: ${err.message}`}]);}}
+        else{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl}]);}
+      }
+    }
+  },[agent.id,setAttachments,setMsgs,setCodyUploadedDoc,codyDocConfigRef]);
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');const p=s?JSON.parse(s):null;if(p&&p._mode){localStorage.removeItem('onna_connie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
   const [connieDietMode,setConnieDietMode]=useState(null); // projectId string when dietary side panel is active
   const [csCreateMenuConnie,setCsCreateMenuConnie]=useState(false); // local dropdown for Connie "+" button
@@ -128,6 +151,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   const [pollyCtx,setPollyCtx]=useState(()=>{try{const s=localStorage.getItem('onna_polly_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const [lillieCtx,setLillieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_lillie_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
   const [perryCtx,setPerryCtx]=useState(()=>{try{const s=localStorage.getItem('onna_perry_ctx');return s?JSON.parse(s):null;}catch{return null;}}); // {projectId}
+  const [pendingProjectCreate,setPendingProjectCreate]=useState(null); // {step:"client"|"name", client?:string}
   const lastSearchRef=useRef(null); // stores last Outlook search result for "update vendor X"
   const attachRef=useRef(null);
   const billieAttachRef=useRef(null);
@@ -1335,6 +1359,51 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       setMood("idle");return;
     }
 
+    // ── Shared: create project intent (all agents) ──
+    if(onCreateProject&&pendingProjectCreate){
+      if(pendingProjectCreate.step==="client"){
+        const client=input.trim();
+        if(!client){setMsgs([...history,{role:"assistant",content:"What's the client name?"}]);setInput("");setLoading(false);setMood("idle");return;}
+        setPendingProjectCreate({step:"name",client});
+        setMsgs([...history,{role:"assistant",content:`Client: **${client}**. What should the project be called?`}]);
+        setInput("");setLoading(false);setMood("idle");return;
+      }
+      if(pendingProjectCreate.step==="name"){
+        const projName=input.trim();
+        if(!projName){setMsgs([...history,{role:"assistant",content:"What's the project name?"}]);setInput("");setLoading(false);setMood("idle");return;}
+        try{
+          const saved=await api.post("/api/projects",{client:pendingProjectCreate.client,name:projName,revenue:0,cost:0,status:"Active",year:new Date().getFullYear()});
+          if(saved&&saved.id){onCreateProject(saved);setPendingProjectCreate(null);setMsgs([...history,{role:"assistant",content:`Project created: **${saved.client} — ${saved.name}**`}]);setInput("");setLoading(false);setMood("idle");return;}
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Failed to create project: ${err.message||"unknown error"}`}]);setInput("");setLoading(false);setMood("idle");setPendingProjectCreate(null);return;}
+      }
+    }
+    if(onCreateProject&&/(?:create|new|start|set\s*up)\s+(?:a\s+)?project/i.test(input)){
+      // Try to extract "called X for Y" or "for Y called X" patterns
+      const m1=input.match(/project\s+(?:called|named)\s+["""]?(.+?)["""]?\s+for\s+["""]?(.+?)["""]?\s*$/i);
+      const m2=input.match(/project\s+for\s+["""]?(.+?)["""]?\s+(?:called|named)\s+["""]?(.+?)["""]?\s*$/i);
+      const m3=input.match(/project\s+["""](.+?)["""]\s+for\s+["""]?(.+?)["""]?\s*$/i);
+      const m4=input.match(/project\s+for\s+["""]?(.+?)["""]?\s*$/i);
+      let client=null,projName=null;
+      if(m1){projName=m1[1].trim();client=m1[2].trim();}
+      else if(m2){client=m2[1].trim();projName=m2[2].trim();}
+      else if(m3){projName=m3[1].trim();client=m3[2].trim();}
+      if(client&&projName){
+        try{
+          const saved=await api.post("/api/projects",{client,name:projName,revenue:0,cost:0,status:"Active",year:new Date().getFullYear()});
+          if(saved&&saved.id){onCreateProject(saved);setMsgs([...history,{role:"assistant",content:`Project created: **${saved.client} — ${saved.name}**`}]);setInput("");setLoading(false);setMood("idle");return;}
+        }catch(err){setMsgs([...history,{role:"assistant",content:`Failed to create project: ${err.message||"unknown error"}`}]);setInput("");setLoading(false);setMood("idle");return;}
+      }else if(m4){
+        // Got client only from "project for X"
+        setPendingProjectCreate({step:"name",client:m4[1].trim()});
+        setMsgs([...history,{role:"assistant",content:`Client: **${m4[1].trim()}**. What should the project be called?`}]);
+        setInput("");setLoading(false);setMood("idle");return;
+      }else{
+        setPendingProjectCreate({step:"client"});
+        setMsgs([...history,{role:"assistant",content:"Sure! What's the client name?"}]);
+        setInput("");setLoading(false);setMood("idle");return;
+      }
+    }
+
     // ── Vinnie intent dispatcher ──
     if(agent.id==="logistical"){
       const _vinnieHandled=await handleVinnieIntent({
@@ -1691,6 +1760,12 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     ) : _renderAgentChat()}
   </>);
 
+  const _dragCounter=useRef(0);
+  const _onDragEnter=useCallback(e=>{if(!_dragAgents.has(agent.id))return;e.preventDefault();_dragCounter.current++;setIsDragging(true);},[agent.id,_dragAgents]);
+  const _onDragLeave=useCallback(e=>{e.preventDefault();_dragCounter.current--;if(_dragCounter.current<=0){_dragCounter.current=0;setIsDragging(false);}},[]);
+  const _onDragOver=useCallback(e=>{if(!_dragAgents.has(agent.id))return;e.preventDefault();e.dataTransfer.dropEffect="copy";},[agent.id,_dragAgents]);
+  const _onDrop=useCallback(e=>{e.preventDefault();_dragCounter.current=0;setIsDragging(false);if(!_dragAgents.has(agent.id))return;const files=Array.from(e.dataTransfer.files||[]);if(files.length)_handleDroppedFiles(files);},[agent.id,_dragAgents,_handleDroppedFiles]);
+
   function _renderAgentChat() { return (<>
     <ConnieTabBar agent={agent} connieTabs={connieTabs} setConnieTabs={setConnieTabs} connieCtx={connieCtx} setConnieCtx={setConnieCtx} connieDietMode={connieDietMode} setConnieDietMode={setConnieDietMode} callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} onArchiveCallSheet={onArchiveCallSheet} csCreateMenuConnie={csCreateMenuConnie} setCsCreateMenuConnie={setCsCreateMenuConnie} csCreateBtnRef={csCreateBtnRef} localProjects={localProjects} setMsgs={setMsgs} projectInfoRef={projectInfoRef} addConnieTab={addConnieTab} onOpenDuplicateCS={onOpenDuplicateCS} CALLSHEET_INIT={CALLSHEET_INIT} />
 
@@ -1744,7 +1819,8 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     )}
 
         {/* inline chat messages */}
-    <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0}}>
+    <div ref={chatRef} onDragEnter={_onDragEnter} onDragLeave={_onDragLeave} onDragOver={_onDragOver} onDrop={_onDrop} style={{flex:1,overflowY:"auto",padding:"14px 16px",background:"white",minHeight:0,position:"relative"}}>
+      {isDragging&&_dragAgents.has(agent.id)&&<div style={{position:"absolute",inset:0,zIndex:10,background:"rgba(255,255,255,0.85)",border:"2px dashed #7ab87a",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}><div style={{fontSize:14,fontWeight:600,color:"#4a8a4a",fontFamily:"inherit"}}>Drop files here</div></div>}
       {msgs.map((m,i)=>(<div key={i}>
           <_AgentBubble msg={m} codyDocConfigRef={codyDocConfigRef} setMsgs={setMsgs} codySignPanel={codySignPanel} setCodySignPanel={setCodySignPanel}/>
         </div>))}

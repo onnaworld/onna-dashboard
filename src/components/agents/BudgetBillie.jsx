@@ -42,6 +42,15 @@ INSTRUCTIONS:
 - When discussing totals, show the base currency (${baseCurrency}). The UI automatically shows the secondary currency (${secondCurrency}) conversion.
 - Be warm, concise and professional.
 - NEVER say you don't have access to data, can't see the estimate, or need the user to share information. You have FULL access.
+NATURAL LANGUAGE EDIT HANDLING:
+- "change to X-day shoot" / "make it a 2 day shoot" → update the "days" field on ALL relevant crew/equipment rows AND set ts.shootDays to X. Output a single JSON patch covering all affected rows.
+- "make sure location covers permits for X, Y, Z" → add line items in Section 16 (Locations & Permits) for each permit type mentioned (filming permit, drone permit, road closure, etc.) with reasonable market rates.
+- "but change this to..." / "actually make it..." → modify the CURRENT estimate in place. Do NOT create a new version unless the user explicitly says "save as V2" or "create new version".
+- "double the crew rates" / "increase rates by 20%" → apply the multiplier to the rate field on all relevant crew rows in a single JSON patch.
+- "add a second camera day" / "add an extra shoot day" → increment days on camera, lighting, grip, and related crew rows.
+- "remove all styling" / "cut the wardrobe" → set rate to "0" on those rows (or use removeRow if the user explicitly says "delete").
+- When the user references multiple changes in one message, combine them into a SINGLE JSON patch.
+
 - When images are attached (PDF pages, briefs, moodboards), ANALYZE them for budget-relevant info: crew roles, equipment, locations, shoot days, talent, deliverables, post-production. Extract into a JSON patch.
 - From a brief: look for project scope, deliverables, shoot dates, locations, crew, talent, equipment, post-production, explicit budget figures.
 - From a moodboard: infer production requirements from visual style — studio vs location, lighting complexity, special effects, props, wardrobe scale.
@@ -309,6 +318,46 @@ export async function handleBillieIntent({
         setLoading(false);setMood("idle");return true;
       }
 
+      // ── Mirror / copy budget from another project ──
+      const _mirrorMatch = /\b(mirror|copy|duplicate|replicate|base it on|use the budget from|pull the budget from|same as)\b/i.test(input);
+      if(_mirrorMatch){
+        const sourceProject = fuzzyMatchProject(localProjects, input, projectId);
+        if(!sourceProject){
+          const list = localProjects.filter(p=>p.id!==projectId).map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`Which project's budget should I mirror from?\n\n${list}\n\nPick a number or name.`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        const sourceVersions = projectEstimates?.[sourceProject.id] || [];
+        if(sourceVersions.length===0){
+          setMsgs([...history,{role:"assistant",content:`${sourceProject.name} doesn't have any estimates yet — nothing to mirror.`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        // If multiple versions, use the latest (could ask, but keep it simple)
+        const srcIdx = sourceVersions.length - 1;
+        const srcVer = sourceVersions[srcIdx];
+        const srcLabel = srcVer.ts?.version || `V${srcIdx+1}`;
+        const srcSections = srcVer.sections || defaultSections();
+        const srcTs = srcVer.ts || {};
+        let srcSnap = `Version: ${srcTs.version||"V1"} | Client: ${srcTs.client||""} | Project: ${srcTs.project||""}\n`;
+        srcSnap += `Shoot Date: ${srcTs.shootDate||""} | Days: ${srcTs.shootDays||""} | Location: ${srcTs.location||""}\n`;
+        srcSnap += "Sections:\n";
+        srcSections.forEach(sec => {
+          const secT = estSectionTotal(sec);
+          if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0)) {
+            srcSnap += `  ${sec.num}. ${sec.title} — ${estFmt(secT)}\n`;
+            sec.rows.forEach(r => {
+              const rt = estRowTotal(r);
+              if (rt > 0) srcSnap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate}\n`;
+            });
+          }
+        });
+        const { subtotal: srcSub, feesTotal: srcFees, grandTotal: srcGt } = estCalcTotals(srcSections);
+        srcSnap += `Subtotal: ${estFmt(srcSub)} | Fees: ${estFmt(srcFees)} | Grand Total: ${estFmt(srcGt)}\n`;
+        // Inject into billie context so it gets added to system prompt
+        setBillieCtx(prev=>({...prev,_mirrorSnap:srcSnap,_mirrorProject:sourceProject.name,_mirrorLabel:srcLabel}));
+        // Don't return — fall through to normal Billie send with the enriched system prompt
+      }
+
       // ── Detect expense/actuals intent → route to actuals handler ──
       const _isExpenseIntent = /\b(expense|actual|actuals|zoho|spend|spent|cost|paid|invoice|invoiced|overrun|variance|log\s+.*(expense|cost|payment)|track\s+.*(actual|spend|expense)|status.*(paid|pending|invoiced))\b/i.test(input);
       if(_isExpenseIntent&&projectActuals&&setProjectActuals){
@@ -454,7 +503,12 @@ export async function handleBillieIntent({
         }
       }
 
-      const billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2);
+      let billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2);
+      // Inject mirror/reference estimate if present
+      if(billieCtx._mirrorSnap){
+        billieSystem += `\n\nREFERENCE ESTIMATE (from "${billieCtx._mirrorProject}" — ${billieCtx._mirrorLabel}):\n${billieCtx._mirrorSnap}\nThe user wants to mirror/adapt this budget. Map line items to existing refs where possible, add new rows for items not in the template. Adjust rates/days/qty as instructed.`;
+        setBillieCtx(prev=>{const{_mirrorSnap,_mirrorProject,_mirrorLabel,...rest}=prev;return rest;});
+      }
 
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       try{
