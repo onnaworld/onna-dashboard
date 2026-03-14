@@ -371,7 +371,7 @@ export default function Finance({
             {/* Overheads */}
             <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
               <div style={{ padding: "16px 20px 0" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Operating Overheads (Monthly)</div>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Operating Overheads</div>
               </div>
               <div className="mob-table-wrap">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -391,12 +391,29 @@ export default function Finance({
                           </div>
                         </td>
                         <td style={tdR}>
-                          <input value={o.amount} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], amount: e.target.value }; setOverheads(n); }}
+                          <input value={o.amount} onChange={e => {
+                            const n = [...overheads];
+                            const monthly = e.target.value;
+                            const monthlyVal = parseFloat(monthly) || 0;
+                            n[i] = { ...n[i], amount: monthly, annual: String(monthlyVal ? Math.round(monthlyVal * 12 * 100) / 100 : 0) };
+                            setOverheads(n);
+                          }}
                             placeholder="0" inputMode="numeric"
                             style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
                             onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
                         </td>
-                        <td style={{ ...tdR, color: T.sub }}>{fmtFull((parseFloat(o.amount) || 0) * 12)}</td>
+                        <td style={tdR}>
+                          <input value={o.annual != null ? o.annual : (parseFloat(o.amount) || 0) * 12 || ""} onChange={e => {
+                            const ann = e.target.value;
+                            const n = [...overheads];
+                            const annVal = parseFloat(ann) || 0;
+                            n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / 12) * 100) / 100 : 0) };
+                            setOverheads(n);
+                          }}
+                            placeholder="0" inputMode="numeric"
+                            style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
+                            onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                        </td>
                       </tr>
                     ))}
                     <tr><td colSpan={3} style={{ padding: "8px 14px", borderBottom: "none" }}>
@@ -456,6 +473,8 @@ export default function Finance({
           T={T} isMobile={isMobile}
           cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore}
           activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion}
+          syncedOverheads={overheads} syncedRevenue={projData.thisYearRev} syncedCost={projData.thisYearCost}
+          syncedProjects={projData.thisYear} getProjRevenue={getProjRevenue} getProjCost={getProjCost}
         />
       )}
 
@@ -800,7 +819,7 @@ function TaxVATTab({ T, isMobile, taxData, setTaxData, projData, cardS, kpiLabel
 /* ═══════════════════════════════════════════════════════════════════════════════
    Cash Flow Document Component — Monthly Tracker
    ═══════════════════════════════════════════════════════════════════════════════ */
-function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion }) {
+function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost }) {
   const pid = "_global";
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
@@ -879,6 +898,29 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     return n < 0 ? "(" + fmt(Math.abs(n)) + ")" : fmt(n);
   }, [fmt]);
 
+  /* ── Synced data from P&L ── */
+  const syncedData = useMemo(() => {
+    // Overhead monthly amounts spread across 12 months
+    const ohRows = (syncedOverheads || []).filter(o => parseFloat(o.amount) > 0).map(o => ({
+      label: o.label,
+      monthly: parseFloat(o.amount) || 0,
+    }));
+    const ohMonthlyTotal = ohRows.reduce((s, o) => s + o.monthly, 0);
+
+    // Project revenue & cost (spread evenly across 12 months as a baseline)
+    const projRevMonthly = (syncedRevenue || 0) / 12;
+    const projCostMonthly = (syncedCost || 0) / 12;
+
+    // Per-project breakdown for the synced inflows section
+    const projRows = (syncedProjects || []).map(p => ({
+      name: p.name || p.title || "Untitled",
+      rev: getProjRevenue ? getProjRevenue(p) : 0,
+      cost: getProjCost ? getProjCost(p) : 0,
+    })).filter(p => p.rev > 0 || p.cost > 0);
+
+    return { ohRows, ohMonthlyTotal, projRevMonthly, projCostMonthly, projRows };
+  }, [syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost]);
+
   /* ── Calculations ── */
   const calcs = useMemo(() => {
     if (!data) return null;
@@ -889,18 +931,24 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     };
     const rowTotal = (row) => (row.v || []).reduce((s, v) => s + pv(v), 0);
 
+    // Manual entries
     const inC = sumCols(data.inflows);
     const outC = sumCols(data.outflows);
     const capC = sumCols(data.capex);
-    const inA = inC.reduce((a, b) => a + b, 0);
-    const outA = outC.reduce((a, b) => a + b, 0);
+
+    // Add synced data to each month
+    const syncInC = inC.map(v => v + syncedData.projRevMonthly);
+    const syncOutC = outC.map(v => v + syncedData.ohMonthlyTotal + syncedData.projCostMonthly);
+
+    const inA = syncInC.reduce((a, b) => a + b, 0);
+    const outA = syncOutC.reduce((a, b) => a + b, 0);
     const capA = capC.reduce((a, b) => a + b, 0);
 
     const vr = (data.vatRate || 0) / 100;
-    const vatC = inC.map((v, m) => { const net = v - outC[m]; return net > 0 ? net * vr : 0; });
+    const vatC = syncInC.map((v, m) => { const net = v - syncOutC[m]; return net > 0 ? net * vr : 0; });
     const vatA = vatC.reduce((a, b) => a + b, 0);
 
-    const netC = inC.map((v, m) => v - outC[m] - capC[m]);
+    const netC = syncInC.map((v, m) => v - syncOutC[m] - capC[m]);
     const netA = inA - outA - capA;
 
     const ob = pv(data.openingBalance);
@@ -908,8 +956,12 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     let run = ob;
     for (let m = 0; m < 12; m++) { run += netC[m]; closeC.push(run); }
 
-    return { inC, outC, capC, inA, outA, capA, vatC, vatA, netC, netA, ob, closeC, rowTotal };
-  }, [data]);
+    // Keep raw manual totals for display
+    const manualInC = inC;
+    const manualOutC = outC;
+
+    return { inC: syncInC, outC: syncOutC, capC, inA, outA, capA, vatC, vatA, netC, netA, ob, closeC, rowTotal, manualInC, manualOutC };
+  }, [data, syncedData]);
 
   /* ── Row mutation helpers ── */
   const setVal = (type, i, m, val) => {
@@ -1042,7 +1094,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
           </div>
 
           {data && calcs && (
-            <div>
+            <div style={{ background: "#fff", borderRadius: 16, padding: isMobile ? 16 : 32, border: "1px solid #e8e8e8", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               {/* ── Logo header ── */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 4 }}>
                 <CSLogoSlot label="Production Logo" image={data.prodLogo} onUpload={v => update("prodLogo", v)} onRemove={() => update("prodLogo", null)} />
@@ -1116,8 +1168,30 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                       <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>
                     </tr>
 
+                    {/* Synced Project Revenue */}
+                    {syncedData.projRows.length > 0 && (
+                      <>
+                        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#1a6e3e", color: "#fff", padding: "6px 0" }}>Project Revenue (Synced from P&L)</td></tr>
+                        {syncedData.projRows.map((p, i) => {
+                          const monthly = p.rev / 12;
+                          return (
+                            <tr key={"sync-rev-" + i}>
+                              <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#1a6e3e", fontStyle: "italic" }}>{p.name}</td>
+                              {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...cellS, color: "#1a6e3e" }}>{monthly ? fmt(monthly) : "—"}</td>)}
+                              <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#1a6e3e" }}>{p.rev ? fmt(p.rev) : "—"}</td>
+                            </tr>
+                          );
+                        })}
+                        <tr>
+                          <td style={{ ...subS, textAlign: "left", paddingLeft: 0, color: "#1a6e3e", background: "#e8f5e9" }}>Synced Revenue</td>
+                          {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...subS, color: "#1a6e3e", background: "#e8f5e9" }}>{syncedData.projRevMonthly ? fmt(syncedData.projRevMonthly) : "—"}</td>)}
+                          <td style={{ ...subS, paddingRight: 0, color: "#1a6e3e", background: "#e8f5e9" }}>{syncedRevenue ? fmt(syncedRevenue) : "—"}</td>
+                        </tr>
+                      </>
+                    )}
+
                     {/* Inflows */}
-                    {renderSection("inflows", "Operating Inflows")}
+                    {renderSection("inflows", "Additional Inflows")}
                     {/* Subtotal */}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Inflows</td>
@@ -1125,8 +1199,34 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                       <td style={{ ...subS, paddingRight: 0 }}>{calcs.inA ? fmt(calcs.inA) : "—"}</td>
                     </tr>
 
+                    {/* Synced Operating Overheads */}
+                    {syncedData.ohRows.length > 0 && (
+                      <>
+                        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#b0271d", color: "#fff", padding: "6px 0" }}>Operating Overheads (Synced from P&L)</td></tr>
+                        {syncedData.ohRows.map((o, i) => (
+                          <tr key={"sync-oh-" + i}>
+                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>{o.label}</td>
+                            {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{o.monthly ? fmt(o.monthly) : "—"}</td>)}
+                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{o.monthly ? fmt(o.monthly * 12) : "—"}</td>
+                          </tr>
+                        ))}
+                        {syncedData.projRows.length > 0 && (
+                          <tr>
+                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>Project Direct Costs</td>
+                            {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{syncedData.projCostMonthly ? fmt(syncedData.projCostMonthly) : "—"}</td>)}
+                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{syncedCost ? fmt(syncedCost) : "—"}</td>
+                          </tr>
+                        )}
+                        <tr>
+                          <td style={{ ...subS, textAlign: "left", paddingLeft: 0, color: "#b0271d", background: "#fce4ec" }}>Synced Outflows</td>
+                          {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...subS, color: "#b0271d", background: "#fce4ec" }}>{(syncedData.ohMonthlyTotal + syncedData.projCostMonthly) ? fmt(syncedData.ohMonthlyTotal + syncedData.projCostMonthly) : "—"}</td>)}
+                          <td style={{ ...subS, paddingRight: 0, color: "#b0271d", background: "#fce4ec" }}>{(syncedData.ohMonthlyTotal + syncedData.projCostMonthly) ? fmt((syncedData.ohMonthlyTotal + syncedData.projCostMonthly) * 12) : "—"}</td>
+                        </tr>
+                      </>
+                    )}
+
                     {/* Outflows */}
-                    {renderSection("outflows", "Operating Outflows")}
+                    {renderSection("outflows", "Additional Outflows")}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Outflows</td>
                       {calcs.outC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
