@@ -130,6 +130,7 @@ export default function Budget({
     const updateExpense = (secIdx, rowIdx, expIdx, field, value) => {
       setProjectActuals(prev => {
         const store = JSON.parse(JSON.stringify(prev));
+        if (!store[p.id]) store[p.id] = buildActualsFromEstimate(estSections);
         store[p.id][secIdx].rows[rowIdx].expenses[expIdx][field] = value;
         return store;
       });
@@ -167,6 +168,7 @@ export default function Budget({
     const deleteExpense = (secIdx, rowIdx, expIdx) => {
       setProjectActuals(prev => {
         const store = JSON.parse(JSON.stringify(prev));
+        if (!store[p.id]) return prev;
         store[p.id][secIdx].rows[rowIdx].expenses.splice(expIdx, 1);
         return store;
       });
@@ -177,6 +179,7 @@ export default function Budget({
       if (fromSi === toSi && fromRi === toRi) return; // same row, no-op
       setProjectActuals(prev => {
         const store = JSON.parse(JSON.stringify(prev));
+        if (!store[p.id]) store[p.id] = buildActualsFromEstimate(estSections);
         const src = store[p.id][fromSi].rows[fromRi].expenses;
         const [exp] = src.splice(fromEi, 1);
         if (!store[p.id][toSi].rows[toRi].expenses) store[p.id][toSi].rows[toRi].expenses = [];

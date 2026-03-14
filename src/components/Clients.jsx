@@ -458,48 +458,28 @@ export default function Clients({
         );
       })()}
 
-      {leadsView === "outreach" && (
+      {leadsView === "outreach" && (() => {
+        const notContactedCount = allLeadsCombined.filter(l => l.status === "not_contacted").length;
+        const allOutreachRows = showNotContacted
+          ? allLeadsCombined.filter(l => l.status === "not_contacted")
+              .map(l => ({ ...l, _isLead: !l._fromOutreach, clientName: l.contact }))
+          : outreach.filter(o => o.status !== "not_contacted" && o.status !== "client")
+              .map(o => ({ ...o, _fromOutreach: true, contact: o.clientName }));
+        const q = getSearch("Outreach").toLowerCase();
+        const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
+        const _hc2 = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
+        const visibleRows = allOutreachRows.filter(o => {
+          return (!q || [o.company,o.clientName,o.contact,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || _hc2(o.category, outreachCatFilter)) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter)) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter);
+        }).sort((a, b) => outreachSort === "az"
+          ? (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase())
+          : (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0)));
+        return (
         <div>
-          {/* ── NOT CONTACTED queue ── */}
-          {(() => {
-            const notContacted = allLeadsCombined.filter(l => l.status === "not_contacted");
-            if (notContacted.length === 0) return null;
-            return (
-              <div style={{ marginBottom: 22 }}>
-                <div onClick={() => setShowNotContacted(p => !p)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: showNotContacted ? 0 : 0, userSelect: "none" }}>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Not Contacted</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, background: "#fff3e0", color: "#c0392b", padding: "1px 7px", borderRadius: 999 }}>{notContacted.length}</span>
-                  <span style={{ fontSize: 11, color: T.muted, transition: "transform 0.15s", display: "inline-block", transform: showNotContacted ? "rotate(0)" : "rotate(-90deg)" }}>▾</span>
-                </div>
-                {showNotContacted && (
-                  <div className="mob-table-wrap" style={{ borderRadius: 12, border: `1px solid ${T.border}`, marginTop: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 500 : "auto" }}>
-                      <thead><tr>
-                        <TH>Company</TH><TH>Contact</TH><TH>Email</TH><TH>Category</TH><TH>Location</TH><TH />
-                      </tr></thead>
-                      <tbody>
-                        {notContacted.map(l => (
-                          <tr key={`nc_${l._fromOutreach?"o":"l"}_${l.id}`} className="row" {...dragRowProps(l)} style={{ cursor: "grab" }}
-                            onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}>
-                            <TD bold>{l.company}</TD>
-                            <TD>{l.contact || "\u2014"}</TD>
-                            <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}>{l.email ? <a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{l.email}</a> : "\u2014"}</td>
-                            <TD muted>{l.category || "\u2014"}</TD>
-                            <TD muted>{l.location || "\u2014"}</TD>
-                            <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}>
-                              <button onClick={async () => { const next = "cold"; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } showToast(`${l.company} → Cold`); }}
-                                style={{ padding: "3px 10px", borderRadius: 7, background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>→ Cold</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, flexShrink: 0 }}>
+              <button onClick={() => setShowNotContacted(false)} style={{ padding: "5px 14px", background: !showNotContacted ? T.accent : "#f5f5f7", border: "none", color: !showNotContacted ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Contacted</button>
+              <button onClick={() => setShowNotContacted(true)} style={{ padding: "5px 14px", background: showNotContacted ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: showNotContacted ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Not Contacted ({notContactedCount})</button>
+            </div>
             <SearchBar value={getSearch("Outreach")} onChange={v => setSearch("Outreach", v)} placeholder="Search outreach..." />
             <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} minWidth={170} />
             <Sel value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} minWidth={170} />
@@ -507,45 +487,49 @@ export default function Clients({
               <button onClick={() => setOutreachSort("date")} style={{ padding: "5px 11px", background: outreachSort === "date" ? T.accent : "#f5f5f7", border: "none", color: outreachSort === "date" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Recent first</button>
               <button onClick={() => setOutreachSort("az")} style={{ padding: "5px 11px", background: outreachSort === "az" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "az" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>A{"\u2013"}Z</button>
             </div>
-            <span style={{ fontSize: 12, color: T.muted }}>{filteredOutreach.length} contacts</span>
-            <button onClick={() => downloadCSV(filteredOutreach, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "outreach.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
-            <button onClick={() => exportTablePDF(filteredOutreach, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }], "Outreach Tracker")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
+            <span style={{ fontSize: 12, color: T.muted }}>{visibleRows.length} contacts</span>
+            <button onClick={() => downloadCSV(visibleRows, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "outreach.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
+            <button onClick={() => exportTablePDF(visibleRows, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }], showNotContacted ? "Not Contacted" : "Outreach Tracker")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
             <BtnPrimary onClick={() => setShowAddOutreach(true)}>+ New Outreach</BtnPrimary>
           </div>
-          <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
+          {!showNotContacted && <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
             {[["cold", "No response", T.sub, "#f5f5f7"], ["warm", "Responded", "#1a56db", "#eef4ff"], ["open", "Meeting arranged", "#147d50", "#edfaf3"], ["client", "Converted to client", "#7c3aed", "#f3e8ff"]].map(([s, l, c, bg]) => (
               <div key={s} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: bg, border: `1.5px solid ${c}` }} /><span style={{ color: c, fontWeight: 600 }}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{ color: T.muted }}>{"\u2014"} {l}</span></div>
             ))}
             <span style={{ fontSize: 11.5, color: T.muted, marginLeft: "auto" }}>Click badge to cycle</span>
-          </div>
+          </div>}
           <div className="mob-table-wrap" style={{ borderRadius: 16, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 660 : "auto" }}>
               <thead><tr>
                 <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                 <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} />
                 <THFilter label="Location" value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} />
-                <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={[{ value: "All", label: "All" }, ...OUTREACH_STATUSES.filter(s => s !== "not_contacted").map(s => ({ value: s, label: OUTREACH_STATUS_LABELS[s] }))]} />
+                <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={showNotContacted ? [{value:"All",label:"All"},{value:"not_contacted",label:"Not Contacted"}] : [{ value: "All", label: "All" }, ...OUTREACH_STATUSES.filter(s => s !== "not_contacted").map(s => ({ value: s, label: OUTREACH_STATUS_LABELS[s] }))]} />
                 <THFilter label="Date Contacted" value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths} />
                 <TH />
               </tr></thead>
               <tbody>
-                {filteredOutreach.map(o => (
-                  <tr key={o.id} className="row" {...dragRowProps({...o, _fromOutreach: true, contact: o.clientName})} onClick={() => setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) })} style={{ cursor: "grab" }}>
-                    <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
-                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}><a href={`mailto:${o.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{o.email}</a></td>
-                    <TD muted>{o.category}</TD>
+                {visibleRows.map(o => {
+                  const isFromOutreach = !!o._fromOutreach;
+                  const openModal = () => { if (isFromOutreach) { const orig = outreach.find(x => x.id === o.id) || o; setSelectedOutreach({ ...orig, _xContacts: getXContacts('outreach', orig.id) }); } else { setSelectedLead({ ...o, _xContacts: getXContacts('lead', o.id) }); } };
+                  return (
+                  <tr key={`${isFromOutreach?"o":"l"}_${o.id}`} className="row" {...dragRowProps(o)} onClick={openModal} style={{ cursor: "grab" }}>
+                    <TD bold>{o.company}</TD><TD>{o.clientName || o.contact || "\u2014"}</TD><TD muted>{o.role || ""}</TD>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}>{o.email ? <a href={`mailto:${o.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{o.email}</a> : "\u2014"}</td>
+                    <TD muted>{o.category || "\u2014"}</TD>
                     <TD muted>{o.location || "\u2014"}</TD>
-                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={o.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status) + 1) % OUTREACH_STATUSES.length]; await api.put(`/api/outreach/${o.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === o.id ? { ...x, status: next } : x)); if(next==="client"){const comp=(o.company||"").trim().toLowerCase();if(!localClients.some(c=>(c.company||"").trim().toLowerCase()===comp)){const nc={company:o.company,name:o.clientName||"",email:o.email||"",phone:o.phone||"",category:o.category||"",country:o.location||"",status:"client",notes:o.notes||"",source:o.source||""};const saved=await api.post("/api/clients",nc);if(saved?.id)setLocalClients(prev=>[...prev,{...nc,id:saved.id}]);}} }} /></td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={o.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status) + 1) % OUTREACH_STATUSES.length]; if (isFromOutreach) { await api.put(`/api/outreach/${o.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === o.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${o.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === o.id ? { ...x, status: next } : x)); } if(next==="client"){const comp=(o.company||"").trim().toLowerCase();if(!localClients.some(c=>(c.company||"").trim().toLowerCase()===comp)){const nc={company:o.company,name:o.clientName||o.contact||"",email:o.email||"",phone:o.phone||"",category:o.category||"",country:o.location||"",status:"client",notes:o.notes||"",source:o.source||""};const saved=await api.post("/api/clients",nc);if(saved?.id)setLocalClients(prev=>[...prev,{...nc,id:saved.id}]);}} }} /></td>
                     <TD muted>{formatDate(o.date)}</TD>
-                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><button onClick={async () => { archiveItem('outreach', o); await api.delete(`/api/outreach/${o.id}`); setOutreach(prev => prev.filter(x => x.id !== o.id)); }} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: 0 }}>{"\u00d7"}</button></td>
-                  </tr>
-                ))}
-                {filteredOutreach.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No outreach contacts found.</td></tr>}
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}>{isFromOutreach && <button onClick={async () => { archiveItem('outreach', o); await api.delete(`/api/outreach/${o.id}`); setOutreach(prev => prev.filter(x => x.id !== o.id)); }} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: 0 }}>{"\u00d7"}</button>}</td>
+                  </tr>);
+                })}
+                {visibleRows.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>{showNotContacted ? "No uncontacted leads found." : "No outreach contacts found."}</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── ADD CLIENT MODAL ── */}
       {showAddClient&&(
