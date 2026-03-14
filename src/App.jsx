@@ -1176,7 +1176,8 @@ function OnnaDashboardInner() {
     showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
     showTimeoutWarning, setShowTimeoutWarning,
     _modal, _closeModal, _modalInputRef,
-    undoToastMsg, mobileMenuOpen, setMobileMenuOpen};
+    undoToastMsg, mobileMenuOpen, setMobileMenuOpen,
+    localClients, setLocalClients};
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
   const currentTab = TABS.find(t=>t.id===activeTab)||(activeTab==="Settings"?{id:"Settings",label:"Settings"}:TABS[0]);

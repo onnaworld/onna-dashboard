@@ -179,6 +179,7 @@ export const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
 export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onArchive}) => {
   const editorRef = useRef(null);
   const [hoveredNoteId,setHoveredNoteId] = useState(null);
+  const [expandedNotes,setExpandedNotes] = useState(()=>new Set());
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
 
   useEffect(()=>{
@@ -197,23 +198,56 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
     const n={id:Date.now(),title:"",content:"",updatedAt:Date.now()};
     setNotes(prev=>[n,...prev]); setSelectedId(n.id);
   };
+  const createSubNote = (parentId,e) => {
+    e?.stopPropagation();
+    const n={id:Date.now(),title:"",content:"",updatedAt:Date.now(),parentId};
+    setNotes(prev=>[n,...prev]); setSelectedId(n.id);
+    setExpandedNotes(prev=>{const s=new Set(prev);s.add(parentId);return s;});
+  };
   const deleteNote = (id,e) => {
     e?.stopPropagation();
-    if (!window.confirm("Delete this note?")) return;
+    const children = notes.filter(n=>n.parentId===id);
+    const msg = children.length > 0 ? "Delete this note and its sub-notes?" : "Delete this note?";
+    if (!window.confirm(msg)) return;
     const note = notes.find(n=>n.id===id);
     if (note && onArchive) onArchive('dashNotes', note);
-    setNotes(prev=>prev.filter(n=>n.id!==id));
-    if (selectedId===id) setSelectedId(null);
+    const idsToDelete = new Set([id, ...children.map(c=>c.id)]);
+    setNotes(prev=>prev.filter(n=>!idsToDelete.has(n.id)));
+    if (idsToDelete.has(selectedId)) setSelectedId(null);
+  };
+  const toggleExpand = (id,e) => {
+    e.stopPropagation();
+    setExpandedNotes(prev=>{const s=new Set(prev);if(s.has(id))s.delete(id);else s.add(id);return s;});
   };
   const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
   const getPlain = (html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
   const getTitle = (n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note";
   const getPreview = (n) => { const p=getPlain(n.content).replace(/\n+/g," ").trim(); return p.slice(0,60); };
   const fmtDate = (ts) => { if(!ts)return""; const d=new Date(ts),now=new Date(); if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString([],{month:"short",day:"numeric"}); };
-  const sorted = [...notes].sort((a,b)=>b.updatedAt-a.updatedAt);
+  const topLevel = [...notes].filter(n=>!n.parentId).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const childrenOf = (pid) => notes.filter(n=>n.parentId===pid).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const hasChildren = (id) => notes.some(n=>n.parentId===id);
   const showList = !isMobile||!selectedNote;
   const showEditor = !isMobile||!!selectedNote;
   const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
+  const renderNoteItem = (n,isChild) => (
+    <div key={n.id} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6}}>
+      {!isChild && hasChildren(n.id) ? (
+        <button onClick={e=>toggleExpand(n.id,e)} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,padding:"2px 0",lineHeight:1,flexShrink:0,marginTop:2,color:T.muted,width:14,textAlign:"center"}}>{expandedNotes.has(n.id)?"▼":"▶"}</button>
+      ) : !isChild ? <span style={{width:14,flexShrink:0}}/> : null}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
+        <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
+          <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
+          <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
+        </div>
+      </div>
+      {hoveredNoteId===n.id&&<>
+        <button onClick={e=>createSubNote(n.parentId||n.id,e)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Add sub-note">+</button>
+        <button onClick={e=>deleteNote(n.id,e)} style={{background:"none",border:"none",color:"#c0392b",cursor:"pointer",fontSize:15,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Delete note">×</button>
+      </>}
+    </div>
+  );
   return (
     <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,0.06)",display:"flex",height:isMobile?520:500,background:T.surface}}>
       {showList&&(
@@ -223,18 +257,12 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
             <button onClick={createNote} style={{width:22,height:22,borderRadius:6,background:T.accent,border:"none",color:"#fff",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>+</button>
           </div>
           <div style={{flex:1,overflowY:"auto"}}>
-            {sorted.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
-            {sorted.map(n=>(
-              <div key={n.id} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6}}>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
-                  <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
-                    <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
-                    <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
-                  </div>
-                </div>
-                {hoveredNoteId===n.id&&<button onClick={e=>deleteNote(n.id,e)} style={{background:"none",border:"none",color:"#c0392b",cursor:"pointer",fontSize:15,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Delete note">×</button>}
-              </div>
+            {topLevel.length===0&&!notes.some(n=>n.parentId)&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
+            {topLevel.map(n=>(
+              <React.Fragment key={n.id}>
+                {renderNoteItem(n,false)}
+                {expandedNotes.has(n.id)&&childrenOf(n.id).map(c=>renderNoteItem(c,true))}
+              </React.Fragment>
             ))}
           </div>
         </div>

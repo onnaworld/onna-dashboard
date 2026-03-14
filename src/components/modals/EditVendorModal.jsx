@@ -1,6 +1,36 @@
 import React from "react";
 
-export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts }) {
+export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localClients, setLocalClients }) {
+  const vendorToClient = async (move) => {
+    const company = (editVendor.company||editVendor.name||"").trim();
+    if (!company) return;
+    if (localClients.some(c=>(c.company||"").toLowerCase()===company.toLowerCase())) {
+      alert(`${company} is already a client.`);
+      return;
+    }
+    const newClient = {
+      company,
+      name: editVendor.name||"",
+      email: editVendor.email||"",
+      phone: editVendor.phone||"",
+      country: editVendor.location||"",
+      category: editVendor.category||"",
+      notes: editVendor.notes||"",
+    };
+    try {
+      const saved = await api.post("/api/clients", newClient);
+      if (saved.id) setLocalClients(prev=>[...prev,saved]);
+    } catch { return; }
+    if (move) {
+      archiveItem('vendors', editVendor);
+      await api.delete(`/api/vendors/${editVendor.id}`);
+      const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
+      setVendors(updatedVendors);
+      pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
+      pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
+    }
+    setEditVendor(null);
+  };
   return (
     <div className="modal-bg" onClick={()=>setEditVendor(null)}>
       <div style={{borderRadius:20,padding:28,width:580,maxWidth:"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -97,17 +127,21 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, ed
             style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
         </div>
   
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <button onClick={async()=>{
-            if(!window.confirm(`Delete ${editVendor.name}?`)) return;
-            archiveItem('vendors', editVendor);
-            await api.delete(`/api/vendors/${editVendor.id}`);
-            const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
-            setVendors(updatedVendors);
-            pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
-            pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
-            setEditVendor(null);
-          }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",gap:12,alignItems:"center"}}>
+            <button onClick={async()=>{
+              if(!window.confirm(`Delete ${editVendor.name}?`)) return;
+              archiveItem('vendors', editVendor);
+              await api.delete(`/api/vendors/${editVendor.id}`);
+              const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
+              setVendors(updatedVendors);
+              pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
+              pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
+              setEditVendor(null);
+            }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
+            <button onClick={()=>vendorToClient(false)} style={{background:"none",border:"none",color:"#7c3aed",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Copy to Client</button>
+            <button onClick={()=>{if(window.confirm(`Move ${editVendor.name||editVendor.company} to Clients? This will remove it from Vendors.`))vendorToClient(true);}} style={{background:"none",border:"none",color:"#1a56db",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Move to Client</button>
+          </div>
           <div style={{display:"flex",gap:8}}>
             <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
             <BtnPrimary onClick={async()=>{
