@@ -45,6 +45,9 @@ const CASHFLOW_INIT = () => ({
   notes: "",
 });
 
+/* ── Parse numbers with commas ── */
+const parseNum = (v) => parseFloat(String(v).replace(/,/g, "")) || 0;
+
 /* ── Shared helpers ── */
 const fmtK = (n) => {
   if (n === 0) return "AED 0";
@@ -184,9 +187,17 @@ export default function Finance({
   /* ── P&L calculations ── */
   const pnlData = useMemo(() => {
     const ovTotal = overheads.reduce((s, o) => {
-      const catAmt = parseFloat(o.amount) || 0;
-      const subsAmt = (o.subs || []).reduce((ss, sub) => ss + (parseFloat(sub.amount) || 0), 0);
-      return s + catAmt + subsAmt;
+      const freq = o.frequency || "monthly";
+      const catAmt = parseNum(o.amount);
+      const catMonthly = freq === "monthly" ? catAmt : freq === "custom" ? catAmt * ((o.months || []).length || 1) / 12 : catAmt / 12;
+      const subsAmt = (o.subs || []).reduce((ss, sub) => {
+        const sf = sub.frequency || "monthly";
+        const sa = parseNum(sub.amount);
+        if (sf === "monthly") return ss + sa;
+        if (sf === "custom") return ss + sa * ((sub.months || []).length || 1) / 12;
+        return ss + sa / 12;
+      }, 0);
+      return s + catMonthly + subsAmt;
     }, 0);
     const grossProfit = projData.thisYearRev - projData.thisYearCost;
     const grossMargin = projData.thisYearRev > 0 ? (grossProfit / projData.thisYearRev) * 100 : 0;
@@ -425,70 +436,92 @@ export default function Finance({
                     {overheads.map((o, i) => {
                       const freq = o.frequency || "monthly";
                       const subs = o.subs || [];
-                      const subsTotal = subs.reduce((s, sub) => s + (parseFloat(sub.amount) || 0), 0);
-                      const catTotal = (parseFloat(o.amount) || 0) + subsTotal;
+                      const collapsed = o._collapsed;
                       const hasSubs = subs.length > 0;
+                      const freqSelect = (val, onChange, monthsVal, onMonthsChange, isSmall) => (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                          <select value={val} onChange={e => onChange(e.target.value)}
+                            style={{ border: "none", outline: "none", background: "transparent", fontSize: isSmall ? 10 : 11, color: T.text, fontFamily: "inherit", cursor: "pointer" }}>
+                            <option value="monthly">Monthly</option>
+                            <option value="annual">One-off</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                          {val === "annual" && (
+                            <select value={monthsVal || "1"} onChange={e => onMonthsChange(e.target.value)}
+                              style={{ border: `1px solid ${T.border}`, outline: "none", background: "transparent", fontSize: isSmall ? 10 : 11, color: T.text, fontFamily: "inherit", cursor: "pointer", padding: "2px 4px", borderRadius: 4 }}>
+                              {MONTH_LABELS_FULL.map((m, mi) => <option key={mi} value={mi + 1}>{m}</option>)}
+                            </select>
+                          )}
+                          {val === "custom" && (
+                            <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                              {["J","F","M","A","M","J","J","A","S","O","N","D"].map((ml, mi) => {
+                                const active = (monthsVal || []).includes(mi + 1);
+                                return <button key={mi} onClick={() => { const cur = monthsVal || []; onMonthsChange(active ? cur.filter(x => x !== mi + 1) : [...cur, mi + 1].sort((a,b)=>a-b)); }}
+                                  style={{ width: 20, height: 20, borderRadius: 4, fontSize: 8, fontWeight: 600, border: active ? `1px solid ${T.accent}` : `1px solid ${T.border}`, background: active ? T.accent : "transparent", color: active ? "#fff" : T.muted, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>{ml}</button>;
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                      const amtInput = (val, onChange, isSmall) => (
+                        <input value={val || ""} onChange={e => onChange(e.target.value)}
+                          placeholder="0"
+                          style={{ border: "none", outline: "none", background: "transparent", fontSize: isSmall ? 12 : 12.5, color: isSmall ? T.sub : T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
+                          onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                      );
+                      const calcAnnual = (amt, f, months) => {
+                        const v = parseNum(amt);
+                        if (f === "monthly") return v * 12;
+                        if (f === "custom") return v * ((months || []).length || 0);
+                        return v;
+                      };
                       return (
                       <React.Fragment key={i}>
                       <tr onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "hidden"; }}>
                         <td style={tdS}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <button className="oh-del" onClick={() => setOverheads(prev => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
+                            {hasSubs && <button onClick={() => { const n = [...overheads]; n[i] = { ...n[i], _collapsed: !collapsed }; setOverheads(n); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.muted, fontSize: 10, padding: 0, lineHeight: 1, flexShrink: 0, transition: "transform 0.15s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</button>}
                             <input value={o.label} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], label: e.target.value }; setOverheads(n); }}
                               style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, fontWeight: 600, color: T.text, fontFamily: "inherit", width: "100%" }} />
-                            <button className="oh-add-sub" onClick={() => { const n = [...overheads]; n[i] = { ...n[i], subs: [...subs, { label: "Sub-item", amount: "" }] }; setOverheads(n); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1, flexShrink: 0 }} onMouseEnter={e => e.target.style.color = T.accent} onMouseLeave={e => e.target.style.color = "#ccc"} title="Add sub-category">+</button>
+                            <button className="oh-add-sub" onClick={() => { const n = [...overheads]; n[i] = { ...n[i], _collapsed: false, subs: [...subs, { label: "Sub-item", amount: "", frequency: "monthly" }] }; setOverheads(n); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1, flexShrink: 0 }} onMouseEnter={e => e.target.style.color = T.accent} onMouseLeave={e => e.target.style.color = "#ccc"} title="Add sub-category">+</button>
                           </div>
                         </td>
                         <td style={tdS}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <select value={freq} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], frequency: e.target.value }; setOverheads(n); }}
-                              style={{ border: "none", outline: "none", background: "transparent", fontSize: 11, color: T.text, fontFamily: "inherit", cursor: "pointer" }}>
-                              <option value="monthly">Monthly</option>
-                              <option value="annual">One-off</option>
-                            </select>
-                            {freq === "annual" && (
-                              <select value={o.month || "1"} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], month: e.target.value }; setOverheads(n); }}
-                                style={{ border: `1px solid ${T.border}`, outline: "none", background: "transparent", fontSize: 11, color: T.text, fontFamily: "inherit", cursor: "pointer", padding: "2px 4px", borderRadius: 4 }}>
-                                {MONTH_LABELS_FULL.map((m, mi) => <option key={mi} value={mi + 1}>{m}</option>)}
-                              </select>
-                            )}
-                          </div>
+                          {freqSelect(freq, v => { const n = [...overheads]; n[i] = { ...n[i], frequency: v }; setOverheads(n); }, freq === "custom" ? (o.months || []) : (o.month || "1"), v => { const n = [...overheads]; n[i] = freq === "custom" ? { ...n[i], months: v } : { ...n[i], month: v }; setOverheads(n); })}
                         </td>
                         <td style={tdR}>
-                          {freq === "monthly" ? (
-                            <input value={o.amount} onChange={e => {
-                              const n = [...overheads];
-                              const monthly = e.target.value;
-                              const monthlyVal = parseFloat(monthly) || 0;
-                              n[i] = { ...n[i], amount: monthly, annual: String(monthlyVal ? Math.round(monthlyVal * 12 * 100) / 100 : 0) };
-                              setOverheads(n);
-                            }}
-                              placeholder="0" inputMode="numeric"
-                              style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
-                              onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
-                          ) : (
-                            <span style={{ fontSize: 11, color: T.muted }}>—</span>
-                          )}
+                          {amtInput(o.amount, v => {
+                            const n = [...overheads];
+                            const monthlyVal = parseNum(v);
+                            n[i] = { ...n[i], amount: v, annual: String(calcAnnual(v, freq, o.months)) };
+                            setOverheads(n);
+                          })}
                         </td>
                         <td style={tdR}>
-                          <input value={freq === "annual" ? (o.annual || o.amount || "") : (o.annual != null ? o.annual : (parseFloat(o.amount) || 0) * 12 || "")} onChange={e => {
+                          <input value={o.annual != null ? o.annual : calcAnnual(o.amount, freq, o.months) || ""} onChange={e => {
                             const ann = e.target.value;
                             const n = [...overheads];
-                            const annVal = parseFloat(ann) || 0;
-                            if (freq === "annual") {
-                              n[i] = { ...n[i], annual: ann, amount: ann };
-                            } else {
+                            const annVal = parseNum(ann);
+                            if (freq === "monthly") {
                               n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / 12) * 100) / 100 : 0) };
+                            } else if (freq === "custom") {
+                              const mc = (o.months || []).length || 1;
+                              n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / mc) * 100) / 100 : 0) };
+                            } else {
+                              n[i] = { ...n[i], annual: ann, amount: ann };
                             }
                             setOverheads(n);
                           }}
-                            placeholder="0" inputMode="numeric"
+                            placeholder="0"
                             style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
                             onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
                         </td>
                       </tr>
-                      {/* Sub-categories */}
-                      {subs.map((sub, si) => (
+                      {/* Sub-categories (collapsible) */}
+                      {!collapsed && subs.map((sub, si) => {
+                        const sf = sub.frequency || "monthly";
+                        return (
                         <tr key={`${i}-sub-${si}`} onMouseEnter={e => { const d = e.currentTarget.querySelector(".sub-del"); if (d) d.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".sub-del"); if (d) d.style.visibility = "hidden"; }}>
                           <td style={{ ...tdS, paddingLeft: 38 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -497,16 +530,16 @@ export default function Finance({
                                 style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: T.sub, fontFamily: "inherit", width: "100%" }} />
                             </div>
                           </td>
-                          <td style={tdS}></td>
-                          <td style={tdR}>
-                            <input value={sub.amount || ""} onChange={e => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], amount: e.target.value }; n[i] = { ...n[i], subs: s }; setOverheads(n); }}
-                              placeholder="0" inputMode="numeric"
-                              style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: T.sub, fontFamily: "inherit", textAlign: "right", width: 100 }}
-                              onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                          <td style={tdS}>
+                            {freqSelect(sf, v => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], frequency: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, sf === "custom" ? (sub.months || []) : (sub.month || "1"), v => { const n = [...overheads]; const s = [...subs]; s[si] = sf === "custom" ? { ...s[si], months: v } : { ...s[si], month: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, true)}
                           </td>
-                          <td style={{ ...tdR, color: T.muted, fontSize: 12 }}>{fmtFull((parseFloat(sub.amount) || 0) * 12)}</td>
+                          <td style={tdR}>
+                            {amtInput(sub.amount, v => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], amount: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, true)}
+                          </td>
+                          <td style={{ ...tdR, color: T.muted, fontSize: 12 }}>{fmtFull(calcAnnual(sub.amount, sf, sub.months))}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                       </React.Fragment>
                       );
                     })}
@@ -538,7 +571,7 @@ export default function Finance({
                   { label: "Total Direct Costs", value: -projData.thisYearCost, bold: true, border: true },
                   { label: "GROSS PROFIT", value: pnlData.grossProfit, bold: true, highlight: true, pct: pnlData.grossMargin },
                   { label: "", spacer: true },
-                  ...overheads.filter(o => parseFloat(o.amount) > 0).map(o => ({ label: "  " + o.label, value: -(parseFloat(o.amount) || 0), indent: true })),
+                  ...overheads.filter(o => parseNum(o.amount) > 0).map(o => ({ label: "  " + o.label, value: -(parseNum(o.amount)), indent: true })),
                   { label: "Total Overheads", value: -pnlData.ovTotal, bold: true, border: true },
                   { label: "NET PROFIT", value: pnlData.netProfit, bold: true, highlight: true, pct: pnlData.netMargin, final: true },
                 ].map((row, i) => {
@@ -994,21 +1027,33 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
   /* ── Synced data from P&L ── */
   const syncedData = useMemo(() => {
-    // Overhead rows with month mapping
-    const ohRows = (syncedOverheads || []).filter(o => parseFloat(o.amount) > 0).map(o => {
-      const monthly = parseFloat(o.amount) || 0;
-      const freq = o.frequency || "monthly";
+    // Map a single overhead item (or sub) to 12-month columns
+    const mapOhToCol = (item) => {
+      const amt = parseNum(item.amount);
+      if (!amt) return null;
+      const freq = item.frequency || "monthly";
       const cols = Array(12).fill(0);
       if (freq === "monthly") {
-        cols.fill(monthly);
+        cols.fill(amt);
+      } else if (freq === "custom") {
+        (item.months || []).forEach(m => { const idx = calMonthToIdx(m); cols[idx] = amt; });
       } else {
-        // One-off: place in specific month (calMonth → FY index)
-        const calMonth = parseInt(o.month) || 1;
-        const fyIdx = calMonthToIdx(calMonth);
-        const annualVal = parseFloat(o.annual) || monthly * 12;
-        cols[fyIdx] = annualVal;
+        const calMonth = parseInt(item.month) || 1;
+        const idx = calMonthToIdx(calMonth);
+        const annualVal = parseNum(item.annual) || amt;
+        cols[idx] = annualVal;
       }
-      return { label: o.label, cols, annual: cols.reduce((a, b) => a + b, 0), frequency: freq, month: o.month };
+      return { label: item.label, cols, annual: cols.reduce((a, b) => a + b, 0), frequency: freq, month: item.month };
+    };
+    // Build rows from both parent overheads and their subs
+    const ohRows = [];
+    (syncedOverheads || []).forEach(o => {
+      const row = mapOhToCol(o);
+      if (row) ohRows.push(row);
+      (o.subs || []).forEach(sub => {
+        const sr = mapOhToCol(sub);
+        if (sr) ohRows.push({ ...sr, label: `  ${o.label} › ${sub.label}` });
+      });
     });
     const ohColTotals = Array(12).fill(0);
     ohRows.forEach(o => o.cols.forEach((v, m) => { ohColTotals[m] += v; }));
