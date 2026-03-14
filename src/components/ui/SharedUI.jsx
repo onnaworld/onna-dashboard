@@ -231,15 +231,15 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   const showEditor = !isMobile||!!selectedNote;
   const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
   const renderNoteItem = (n,isChild) => (
-    <div key={n.id} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":"transparent",transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6}}>
+    <div key={n.id} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":isChild?"#f5f5f7":"transparent",borderLeft:!isChild&&hasChildren(n.id)?`3px solid ${T.accent}`:"3px solid transparent",transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6}}>
       {!isChild && hasChildren(n.id) ? (
         <button onClick={e=>toggleExpand(n.id,e)} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,padding:"2px 0",lineHeight:1,flexShrink:0,marginTop:2,color:T.muted,width:14,textAlign:"center"}}>{expandedNotes.has(n.id)?"▼":"▶"}</button>
       ) : !isChild ? <span style={{width:14,flexShrink:0}}/> : null}
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
+        <div style={{fontSize:isChild?12:13,fontWeight:isChild?600:700,color:isChild?T.muted:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
         <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
           <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
-          <span style={{fontSize:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
+          <span style={{fontSize:isChild?10:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
         </div>
       </div>
       {hoveredNoteId===n.id&&<>
