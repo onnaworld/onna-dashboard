@@ -45,14 +45,6 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
           <button onClick={()=>setEditVendor(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
         </div>
 
-        {/* Notes */}
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
-          <textarea value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))} rows={6}
-            placeholder="Parking, access, contacts on set, booking lead time…"
-            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-        </div>
-
         {/* Contact details */}
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
           {[["Name","name"],["Company","company"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
@@ -71,7 +63,15 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
             <LocationPicker value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={allVendorLocs} addNewOption={addNewOption} customLocs={customVendorLocs} setCustomLocs={setCustomVendorLocs} storageKey="onna_vendor_locs"/>
           </div>
         </div>
-  
+
+        {/* Notes */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
+          <textarea value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))} rows={6}
+            placeholder="Parking, access, contacts on set, booking lead time…"
+            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
+        </div>
+
         {/* Rate card */}
         <div style={{marginBottom:14}}>
           <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Rate Card</div>

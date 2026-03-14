@@ -275,14 +275,6 @@ export default function Clients({
                   </div>}
                 </div>
 
-                {/* Notes */}
-                <div style={{marginBottom:24}}>
-                  <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
-                  <textarea value={selectedClient.notes||""} onChange={e=>setSelectedClient(p=>({...p,notes:e.target.value}))} rows={5}
-                    placeholder="Notes about this client..."
-                    style={{width:"100%",padding:"12px 14px",borderRadius:10,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-                </div>
-
                 {/* Editable fields */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:20}}>
                   {[["Company","company"],["Contact Name","name"],["Email","email"],["Phone","phone"]].map(([label,key])=>(
@@ -307,6 +299,14 @@ export default function Clients({
                       <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Notes */}
+                <div style={{marginBottom:24}}>
+                  <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Notes</div>
+                  <textarea value={selectedClient.notes||""} onChange={e=>setSelectedClient(p=>({...p,notes:e.target.value}))} rows={5}
+                    placeholder="Notes about this client..."
+                    style={{width:"100%",padding:"12px 14px",borderRadius:10,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13.5,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
                 </div>
 
                 {/* Projects list */}
