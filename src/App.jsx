@@ -7,6 +7,7 @@ import Vendors from "./components/Vendors";
 import Clients from "./components/Clients";
 import ProjectsTab from "./components/Projects";
 import Finance from "./components/Finance";
+import Expenses from "./components/Expenses";
 import Resources from "./components/Resources";
 import Schedule from "./components/project/Schedule";
 import Styling from "./components/project/Styling";
@@ -30,6 +31,7 @@ import { ProjectProvider, useProject } from "./context/ProjectContext";
 import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
+import { TodoProvider, useTodo } from "./context/TodoContext";
 import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
@@ -76,7 +78,7 @@ import { doPushUndo, doPerformUndo, fmtInline, renderAgentMd, sendAgentMessage a
 import { buildFinnSystem, applyFinnPatch } from "./components/agents/FinanceFinn";
 import { RISK_ASSESSMENT_INIT } from "./data/riskAssessmentInit";
 import { RECCE_RATINGS, RECCE_RATING_C, mkRecceLocation, RECCE_REPORT_INIT, RecceInp, RecceField, RecceImgSlot } from "./data/recceReportInit.jsx";
-import { _YELLOW, _PINK, _BLUE, _PURPLE, _GREEN, _ORANGE, _TEAL, _CORAL } from "./components/agents/AgentCharacters";
+import { _YELLOW, _PINK, _BLUE, _PURPLE, _GREEN, _ORANGE, _TEAL, _CORAL, _PEACH } from "./components/agents/AgentCharacters";
 import { AGENT_DEFS } from "./data/agentDefs";
 import SigningPage from "./components/SigningPage";
 import Settings from "./components/Settings";
@@ -104,6 +106,7 @@ const TABS = [
   {id:"Clients",   label:"CLIENTS",   starColor:_ORANGE},
   {id:"Projects",  label:"PROJECTS",  starColor:_GREEN},
   {id:"Finance",   label:"FINANCE",   starColor:_TEAL},
+  {id:"Expenses",  label:"EXPENSES",  starColor:_PEACH},
   {id:"Resources", label:"RESOURCES", starColor:_BLUE},
   {id:"Information",label:"INFORMATION",starColor:_CORAL},
 ];
@@ -156,7 +159,9 @@ export default function OnnaDashboard() {
     <ProjectProvider idbGet={idbGet} idbSet={idbSet} debouncedDocSave={debouncedDocSave}>
     <VendorLeadProvider initVendors={initVendors}>
     <AgentProvider debouncedDocSave={debouncedDocSave}>
+    <TodoProvider>
       <OnnaDashboardInner />
+    </TodoProvider>
     </AgentProvider>
     </VendorLeadProvider>
     </ProjectProvider>
@@ -191,6 +196,18 @@ function OnnaDashboardInner() {
     selectedLead,setSelectedLead,selectedOutreach,setSelectedOutreach,
     addContactForm,setAddContactForm,undoToastMsg,setUndoToastMsg,
   } = useUI();
+
+  // ── Todo state from TodoContext ──
+  const {
+    todos, setTodos, projectTodos, setProjectTodos, archivedTodos, setArchivedTodos,
+    newTodo, setNewTodo, todoFilter, setTodoFilter, selectedTodo, setSelectedTodo,
+    todoDragId, setTodoDragId, pendingProjectTask, setPendingProjectTask,
+    pendingDragToProject, setPendingDragToProject,
+    dashNotesList, setDashNotesList, dashSelectedNoteId, setDashSelectedNoteId,
+    setActiveProjects: setTodoActiveProjects,
+    hydrateTodos, hydrateProjectTodos, hydrateDashNotes, markHydrated: markTodoHydrated,
+    generalTodos, projectTodosFlat, allProjectTodosFlat, allTodos, filteredTodos, todoTopFilter,
+  } = useTodo();
 
   const [_modal, _setModal] = useState({ show: false, type: "alert", message: "", defaultVal: "" });
   const _modalInputRef = useRef(null);
@@ -485,18 +502,7 @@ function OnnaDashboardInner() {
   const [notesLoading,setNotesLoading]       = useState(false);
   useEffect(()=>{if(!globalHydratedRef.current)return;try{if(notes.length)localStorage.setItem('onna_cache_notes',JSON.stringify(notes));}catch{}},[notes]);
 
-  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
   const [archivedProjects,setArchivedProjects] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_archived_projects')||'[]')}catch{return []}});
-  const [archivedTodos,setArchivedTodos]     = useState([]);
-  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"})}catch(e){return []}});
-  const [todoDragId,setTodoDragId] = useState(null);
-  const [newTodo,setNewTodo]         = useState("");
-  const [todoFilter,setTodoFilter]   = useState("todo");
-  const [selectedTodo,setSelectedTodo] = useState(null);
-  const [pendingProjectTask,setPendingProjectTask] = useState(null);
-  const [pendingDragToProject,setPendingDragToProject] = useState(null);
-  const [dashNotesList,setDashNotesList] = useState(()=>{try{const s=localStorage.getItem('onna_notes_list');return s?JSON.parse(s):[]}catch{return []}});
-  const [dashSelectedNoteId,setDashSelectedNoteId] = useState(null);
 
   // ─── GLOBAL UNDO (Cmd+Z) ──────────────────────────────────────────────────
   const undoStack = useRef([]);
@@ -523,10 +529,7 @@ function OnnaDashboardInner() {
     return () => window.removeEventListener('keydown', handler);
   }, [performUndo,activeTab]);
   const addTodoFromInput = (text) => _addTodoFromInput(text, todoTopFilter, todoFilter, pushUndo, setProjectTodos, setPendingProjectTask, setTodos);
-  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
-  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(globalHydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
-  useEffect(()=>{if(!globalHydratedRef.current&&dashNotesList.length===0)return;try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
@@ -798,43 +801,9 @@ function OnnaDashboardInner() {
       try {
         const gd = await api.get('/api/global-data');
         if (gd) {
-          if (gd.todos && gd.todos.length) setTodos(prev => {
-            const merged = gd.todos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"});
-            // If local has items the backend doesn't, keep them (merge by id)
-            if (prev.length) {
-              const backendIds = new Set(merged.map(t => t.id));
-              for (const lt of prev) { if (!backendIds.has(lt.id)) merged.push(lt); }
-            }
-            return merged;
-          });
-          if (gd.ptodos && Object.keys(gd.ptodos).length) setProjectTodos(prev => {
-            if (!Object.keys(prev).length) return gd.ptodos;
-            const merged = {...gd.ptodos};
-            for (const [pid, tasks] of Object.entries(prev)) {
-              if (!merged[pid]) { merged[pid] = tasks; continue; }
-              const backendIds = new Set(merged[pid].map(t => t.id));
-              for (const lt of tasks) { if (!backendIds.has(lt.id)) merged[pid].push(lt); }
-            }
-            return merged;
-          });
-          if (gd.notes_list && Array.isArray(gd.notes_list)) {
-            setDashNotesList(prev => {
-              if (!prev.length) return gd.notes_list;
-              // Merge: keep any local notes not in Turso, add any Turso notes not in local
-              const localIds = new Set(prev.map(n => n.id));
-              const tursoIds = new Set(gd.notes_list.map(n => n.id));
-              const merged = [...prev];
-              for (const tn of gd.notes_list) {
-                if (!localIds.has(tn.id)) merged.push(tn);
-                else {
-                  // Prefer whichever was updated more recently
-                  const li = merged.findIndex(n => n.id === tn.id);
-                  if (li !== -1 && tn.updatedAt && merged[li].updatedAt && tn.updatedAt > merged[li].updatedAt) merged[li] = tn;
-                }
-              }
-              return merged;
-            });
-          }
+          if (gd.todos && gd.todos.length) hydrateTodos(gd.todos);
+          if (gd.ptodos && Object.keys(gd.ptodos).length) hydrateProjectTodos(gd.ptodos);
+          if (gd.notes_list && Array.isArray(gd.notes_list)) hydrateDashNotes(gd.notes_list);
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
           if (gd.user_config) {
@@ -848,6 +817,7 @@ function OnnaDashboardInner() {
         }
       } catch {}
       globalHydratedRef.current = true;
+      markTodoHydrated();
 
     }).catch(()=>setApiLoading(false));
     return ()=>{ cancelled=true; };
@@ -981,34 +951,11 @@ function OnnaDashboardInner() {
   const getProjCost = (p) => { const c = costCache[p.id]; return c !== null && c !== undefined ? c : p.cost; };
   // projects2026, rev2026, profit2026, totalPipeline, newCount moved to Finance component
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
+  useEffect(()=>{setTodoActiveProjects(activeProjects);},[activeProjects]);
   // projects, projRev, projProfit, projMargin moved to Projects component
 
   const _hasLoc = (loc,filter) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(l=>l.trim()===filter);return loc.trim()===filter;};
   const filteredBB = vendors.filter(b=>{const s=getSearch("Vendors")?.toLowerCase();return (bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||_hasLoc(b.location,bbLocation))&&(!s||[b.name,b.company,b.category,b.location,b.email,b.phone,b.website,b.notes,b.rateCard].some(v=>v&&v.toLowerCase().includes(s)));});
-
-  // Dashboard todos — general and project kept strictly separate (projects = active only)
-  const activeProjectIds = new Set(activeProjects.map(p=>p.id));
-  const allProjectTodosFlat = Object.entries(projectTodos).flatMap(([pid,tlist])=>
-    activeProjectIds.has(Number(pid)) ? (tlist||[]).map(t=>({...t,_source:"project",projectId:Number(pid)})) : []
-  );
-  const generalTodos = todos.filter(t=>!archivedTodos.find(a=>a.id===t.id)).map(t=>({...t,_source:"general"}));
-  const projectTodosFlat = allProjectTodosFlat.filter(t=>!archivedTodos.find(a=>a.id===t.id));
-  const allTodos = [...generalTodos,...projectTodosFlat];
-  const filteredTodos = allTodos.filter(t=>{
-    if (todoFilter==="todo") return t._source==="general" && t.tab==="onna";
-    if (todoFilter==="todo-mon") return t._source==="general" && t.tab==="onna" && t.subType==="monday";
-    if (todoFilter==="todo-tue") return t._source==="general" && t.tab==="onna" && t.subType==="tuesday";
-    if (todoFilter==="todo-wed") return t._source==="general" && t.tab==="onna" && t.subType==="wednesday";
-    if (todoFilter==="todo-thu") return t._source==="general" && t.tab==="onna" && t.subType==="thursday";
-    if (todoFilter==="todo-fri") return t._source==="general" && t.tab==="onna" && t.subType==="friday";
-    if (todoFilter==="todo-sat") return t._source==="general" && t.tab==="onna" && t.subType==="saturday";
-    if (todoFilter==="todo-sun") return t._source==="general" && t.tab==="onna" && t.subType==="sunday";
-    if (todoFilter==="todo-longterm") return t._source==="general" && t.tab==="onna" && t.subType==="longterm";
-    if (todoFilter==="todo-week") return t._source==="general" && t.tab==="onna";
-    if (todoFilter==="project") return t._source==="project";
-    if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-","")); return true;
-  });
-  const todoTopFilter = ["todo","todo-mon","todo-tue","todo-wed","todo-thu","todo-fri","todo-sat","todo-sun","todo-longterm","todo-week"].includes(todoFilter)?"todo":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
   const getProjectCastingTables = id => _getProjectCastingTablesFn(id, projectCasting);
   const getProjectCasting = id => _getProjectCastingFn(id, projectCasting);
@@ -1288,6 +1235,8 @@ function OnnaDashboardInner() {
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
           {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals}/>}
+
+          {activeTab==="Expenses"&&<Expenses T={T} isMobile={isMobile} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg}/>}
 
           {activeTab==="Resources"&&<Resources T={T} isMobile={isMobile} api={api}
             vaultLocked={vaultLocked} setVaultLocked={setVaultLocked}
