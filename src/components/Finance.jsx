@@ -429,12 +429,13 @@ export default function Finance({
                       const hasSubs = subs.length > 0;
                       return (
                       <React.Fragment key={i}>
-                      <tr onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; }}>
+                      <tr onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "hidden"; }}>
                         <td style={tdS}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <button className="oh-del" onClick={() => setOverheads(prev => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
                             <input value={o.label} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], label: e.target.value }; setOverheads(n); }}
                               style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, fontWeight: 600, color: T.text, fontFamily: "inherit", width: "100%" }} />
+                            <button className="oh-add-sub" onClick={() => { const n = [...overheads]; n[i] = { ...n[i], subs: [...subs, { label: "Sub-item", amount: "" }] }; setOverheads(n); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1, flexShrink: 0 }} onMouseEnter={e => e.target.style.color = T.accent} onMouseLeave={e => e.target.style.color = "#ccc"} title="Add sub-category">+</button>
                           </div>
                         </td>
                         <td style={tdS}>
@@ -505,11 +506,6 @@ export default function Finance({
                           <td style={{ ...tdR, color: T.muted, fontSize: 12 }}>{fmtFull((parseFloat(sub.amount) || 0) * 12)}</td>
                         </tr>
                       ))}
-                      <tr><td colSpan={4} style={{ paddingLeft: 38, paddingTop: 2, paddingBottom: 6, borderBottom: `1px solid ${T.borderSub || T.border}` }}>
-                        <button onClick={() => { const n = [...overheads]; n[i] = { ...n[i], subs: [...subs, { label: "Sub-item", amount: "" }] }; setOverheads(n); }}
-                          style={{ fontSize: 10, color: T.muted, background: "none", border: "none", padding: "2px 0", cursor: "pointer", fontFamily: "inherit" }}
-                          onMouseEnter={e => e.target.style.color = T.accent} onMouseLeave={e => e.target.style.color = T.muted}>+ sub-category</button>
-                      </td></tr>
                       </React.Fragment>
                       );
                     })}
