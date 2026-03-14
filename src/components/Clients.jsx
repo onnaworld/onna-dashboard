@@ -43,7 +43,7 @@ export default function Clients({
   const [outreachMonthFilter, setOutreachMonthFilter] = useState("All");
 
   // Not Contacted section toggle
-  const [showNotContacted, setShowNotContacted] = useState(true);
+  const [showNotContacted, setShowNotContacted] = useState(false);
 
   // Selected client (edit modal)
   const [selectedClient, setSelectedClient] = useState(null);
