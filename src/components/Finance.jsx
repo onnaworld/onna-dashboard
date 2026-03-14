@@ -59,16 +59,23 @@ const cardS = (T) => ({ borderRadius: 16, padding: "20px 22px", background: T.su
 const kpiLabelS = { fontSize: 11, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 };
 const kpiValS = { fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 };
 
+/* ── Month helpers for financial year mapping (Jul=0 .. Jun=11) ── */
+const MONTH_LABELS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const calMonthToFY = (calMonth) => {
+  // Calendar month 1-12 → FY index 0-11 (Jul=0, Aug=1, ..., Jun=11)
+  return calMonth >= 7 ? calMonth - 7 : calMonth + 5;
+};
+
 /* ── Default overheads for P&L ── */
 const DEFAULT_OVERHEADS = () => [
-  { label: "Office & Studio Rent", amount: "" },
-  { label: "Salaries (Non-Project)", amount: "" },
-  { label: "Insurance", amount: "" },
-  { label: "Software & Subscriptions", amount: "" },
-  { label: "Marketing & Business Dev", amount: "" },
-  { label: "Legal & Accounting", amount: "" },
-  { label: "Utilities & Communications", amount: "" },
-  { label: "Other Overheads", amount: "" },
+  { label: "Office & Studio Rent", amount: "", frequency: "monthly" },
+  { label: "Salaries (Non-Project)", amount: "", frequency: "monthly" },
+  { label: "Insurance", amount: "", frequency: "monthly" },
+  { label: "Software & Subscriptions", amount: "", frequency: "monthly" },
+  { label: "Marketing & Business Dev", amount: "", frequency: "monthly" },
+  { label: "Legal & Accounting", amount: "", frequency: "monthly" },
+  { label: "Utilities & Communications", amount: "", frequency: "monthly" },
+  { label: "Other Overheads", amount: "", frequency: "monthly" },
 ];
 
 /* ── Default AR/AP items ── */
@@ -377,11 +384,14 @@ export default function Finance({
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
                     <th style={thS}>Category</th>
+                    <th style={thS}>Frequency</th>
                     <th style={{ ...thS, textAlign: "right" }}>Monthly</th>
                     <th style={{ ...thS, textAlign: "right" }}>Annual</th>
                   </tr></thead>
                   <tbody>
-                    {overheads.map((o, i) => (
+                    {overheads.map((o, i) => {
+                      const freq = o.frequency || "monthly";
+                      return (
                       <tr key={i} onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; }}>
                         <td style={tdS}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -390,24 +400,47 @@ export default function Finance({
                               style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", width: "100%" }} />
                           </div>
                         </td>
-                        <td style={tdR}>
-                          <input value={o.amount} onChange={e => {
-                            const n = [...overheads];
-                            const monthly = e.target.value;
-                            const monthlyVal = parseFloat(monthly) || 0;
-                            n[i] = { ...n[i], amount: monthly, annual: String(monthlyVal ? Math.round(monthlyVal * 12 * 100) / 100 : 0) };
-                            setOverheads(n);
-                          }}
-                            placeholder="0" inputMode="numeric"
-                            style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
-                            onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                        <td style={tdS}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <select value={freq} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], frequency: e.target.value }; setOverheads(n); }}
+                              style={{ border: "none", outline: "none", background: "transparent", fontSize: 11, color: T.text, fontFamily: "inherit", cursor: "pointer" }}>
+                              <option value="monthly">Monthly</option>
+                              <option value="annual">One-off</option>
+                            </select>
+                            {freq === "annual" && (
+                              <select value={o.month || "1"} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], month: e.target.value }; setOverheads(n); }}
+                                style={{ border: `1px solid ${T.border}`, outline: "none", background: "transparent", fontSize: 11, color: T.text, fontFamily: "inherit", cursor: "pointer", padding: "2px 4px", borderRadius: 4 }}>
+                                {MONTH_LABELS_FULL.map((m, mi) => <option key={mi} value={mi + 1}>{m}</option>)}
+                              </select>
+                            )}
+                          </div>
                         </td>
                         <td style={tdR}>
-                          <input value={o.annual != null ? o.annual : (parseFloat(o.amount) || 0) * 12 || ""} onChange={e => {
+                          {freq === "monthly" ? (
+                            <input value={o.amount} onChange={e => {
+                              const n = [...overheads];
+                              const monthly = e.target.value;
+                              const monthlyVal = parseFloat(monthly) || 0;
+                              n[i] = { ...n[i], amount: monthly, annual: String(monthlyVal ? Math.round(monthlyVal * 12 * 100) / 100 : 0) };
+                              setOverheads(n);
+                            }}
+                              placeholder="0" inputMode="numeric"
+                              style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
+                              onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                          ) : (
+                            <span style={{ fontSize: 11, color: T.muted }}>—</span>
+                          )}
+                        </td>
+                        <td style={tdR}>
+                          <input value={freq === "annual" ? (o.annual || o.amount || "") : (o.annual != null ? o.annual : (parseFloat(o.amount) || 0) * 12 || "")} onChange={e => {
                             const ann = e.target.value;
                             const n = [...overheads];
                             const annVal = parseFloat(ann) || 0;
-                            n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / 12) * 100) / 100 : 0) };
+                            if (freq === "annual") {
+                              n[i] = { ...n[i], annual: ann, amount: ann };
+                            } else {
+                              n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / 12) * 100) / 100 : 0) };
+                            }
                             setOverheads(n);
                           }}
                             placeholder="0" inputMode="numeric"
@@ -415,13 +448,14 @@ export default function Finance({
                             onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
                         </td>
                       </tr>
-                    ))}
-                    <tr><td colSpan={3} style={{ padding: "8px 14px", borderBottom: "none" }}>
-                      <button onClick={() => setOverheads(prev => [...prev, { label: "New Overhead", amount: "" }])}
+                      );
+                    })}
+                    <tr><td colSpan={4} style={{ padding: "8px 14px", borderBottom: "none" }}>
+                      <button onClick={() => setOverheads(prev => [...prev, { label: "New Overhead", amount: "", frequency: "monthly" }])}
                         style={{ fontSize: 11, color: T.muted, background: "none", border: "1px dashed " + T.border, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>+ Add row</button>
                     </td></tr>
                     <tr style={{ background: T.bg }}>
-                      <td style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total Overheads</td>
+                      <td colSpan={2} style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total Overheads</td>
                       <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.ovTotal)}</td>
                       <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.ovTotal * 12)}</td>
                     </tr>
@@ -900,26 +934,51 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
   /* ── Synced data from P&L ── */
   const syncedData = useMemo(() => {
-    // Overhead monthly amounts spread across 12 months
-    const ohRows = (syncedOverheads || []).filter(o => parseFloat(o.amount) > 0).map(o => ({
-      label: o.label,
-      monthly: parseFloat(o.amount) || 0,
-    }));
-    const ohMonthlyTotal = ohRows.reduce((s, o) => s + o.monthly, 0);
+    // Overhead rows with month mapping
+    const ohRows = (syncedOverheads || []).filter(o => parseFloat(o.amount) > 0).map(o => {
+      const monthly = parseFloat(o.amount) || 0;
+      const freq = o.frequency || "monthly";
+      const cols = Array(12).fill(0);
+      if (freq === "monthly") {
+        cols.fill(monthly);
+      } else {
+        // One-off: place in specific month (calMonth → FY index)
+        const calMonth = parseInt(o.month) || 1;
+        const fyIdx = calMonthToFY(calMonth);
+        const annualVal = parseFloat(o.annual) || monthly * 12;
+        cols[fyIdx] = annualVal;
+      }
+      return { label: o.label, cols, annual: cols.reduce((a, b) => a + b, 0), frequency: freq, month: o.month };
+    });
+    const ohColTotals = Array(12).fill(0);
+    ohRows.forEach(o => o.cols.forEach((v, m) => { ohColTotals[m] += v; }));
 
-    // Project revenue & cost (spread evenly across 12 months as a baseline)
-    const projRevMonthly = (syncedRevenue || 0) / 12;
-    const projCostMonthly = (syncedCost || 0) / 12;
+    // Per-project breakdown mapped to their specific month
+    const projRows = (syncedProjects || []).map(p => {
+      const rev = getProjRevenue ? getProjRevenue(p) : 0;
+      const cost = getProjCost ? getProjCost(p) : 0;
+      const calMonth = p.month || 1;
+      const fyIdx = calMonthToFY(calMonth);
+      const revCols = Array(12).fill(0);
+      const costCols = Array(12).fill(0);
+      revCols[fyIdx] = rev;
+      costCols[fyIdx] = cost;
+      return { name: p.name || p.title || "Untitled", rev, cost, revCols, costCols, fyIdx };
+    }).filter(p => p.rev > 0 || p.cost > 0);
 
-    // Per-project breakdown for the synced inflows section
-    const projRows = (syncedProjects || []).map(p => ({
-      name: p.name || p.title || "Untitled",
-      rev: getProjRevenue ? getProjRevenue(p) : 0,
-      cost: getProjCost ? getProjCost(p) : 0,
-    })).filter(p => p.rev > 0 || p.cost > 0);
+    // Sum project columns
+    const projRevCols = Array(12).fill(0);
+    const projCostCols = Array(12).fill(0);
+    projRows.forEach(p => {
+      p.revCols.forEach((v, m) => { projRevCols[m] += v; });
+      p.costCols.forEach((v, m) => { projCostCols[m] += v; });
+    });
 
-    return { ohRows, ohMonthlyTotal, projRevMonthly, projCostMonthly, projRows };
-  }, [syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost]);
+    const totalSyncedRevenue = projRevCols.reduce((a, b) => a + b, 0);
+    const totalSyncedCost = projCostCols.reduce((a, b) => a + b, 0);
+
+    return { ohRows, ohColTotals, projRows, projRevCols, projCostCols, totalSyncedRevenue, totalSyncedCost };
+  }, [syncedOverheads, syncedProjects, getProjRevenue, getProjCost]);
 
   /* ── Calculations ── */
   const calcs = useMemo(() => {
@@ -936,9 +995,9 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     const outC = sumCols(data.outflows);
     const capC = sumCols(data.capex);
 
-    // Add synced data to each month
-    const syncInC = inC.map(v => v + syncedData.projRevMonthly);
-    const syncOutC = outC.map(v => v + syncedData.ohMonthlyTotal + syncedData.projCostMonthly);
+    // Add synced data per month (project rev/cost mapped to specific months)
+    const syncInC = inC.map((v, m) => v + (syncedData.projRevCols[m] || 0));
+    const syncOutC = outC.map((v, m) => v + (syncedData.ohColTotals[m] || 0) + (syncedData.projCostCols[m] || 0));
 
     const inA = syncInC.reduce((a, b) => a + b, 0);
     const outA = syncOutC.reduce((a, b) => a + b, 0);
@@ -1172,20 +1231,17 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     {syncedData.projRows.length > 0 && (
                       <>
                         <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#1a6e3e", color: "#fff", padding: "6px 0" }}>Project Revenue (Synced from P&L)</td></tr>
-                        {syncedData.projRows.map((p, i) => {
-                          const monthly = p.rev / 12;
-                          return (
+                        {syncedData.projRows.map((p, i) => (
                             <tr key={"sync-rev-" + i}>
                               <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#1a6e3e", fontStyle: "italic" }}>{p.name}</td>
-                              {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...cellS, color: "#1a6e3e" }}>{monthly ? fmt(monthly) : "—"}</td>)}
+                              {p.revCols.map((v, m) => <td key={m} style={{ ...cellS, color: "#1a6e3e" }}>{v ? fmt(v) : "—"}</td>)}
                               <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#1a6e3e" }}>{p.rev ? fmt(p.rev) : "—"}</td>
                             </tr>
-                          );
-                        })}
+                        ))}
                         <tr>
                           <td style={{ ...subS, textAlign: "left", paddingLeft: 0, color: "#1a6e3e", background: "#e8f5e9" }}>Synced Revenue</td>
-                          {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...subS, color: "#1a6e3e", background: "#e8f5e9" }}>{syncedData.projRevMonthly ? fmt(syncedData.projRevMonthly) : "—"}</td>)}
-                          <td style={{ ...subS, paddingRight: 0, color: "#1a6e3e", background: "#e8f5e9" }}>{syncedRevenue ? fmt(syncedRevenue) : "—"}</td>
+                          {syncedData.projRevCols.map((v, m) => <td key={m} style={{ ...subS, color: "#1a6e3e", background: "#e8f5e9" }}>{v ? fmt(v) : "—"}</td>)}
+                          <td style={{ ...subS, paddingRight: 0, color: "#1a6e3e", background: "#e8f5e9" }}>{syncedData.totalSyncedRevenue ? fmt(syncedData.totalSyncedRevenue) : "—"}</td>
                         </tr>
                       </>
                     )}
@@ -1200,27 +1256,30 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     </tr>
 
                     {/* Synced Operating Overheads */}
-                    {syncedData.ohRows.length > 0 && (
+                    {(syncedData.ohRows.length > 0 || syncedData.projRows.length > 0) && (
                       <>
-                        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#b0271d", color: "#fff", padding: "6px 0" }}>Operating Overheads (Synced from P&L)</td></tr>
+                        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#b0271d", color: "#fff", padding: "6px 0" }}>Synced Outflows (from P&L & Projects)</td></tr>
                         {syncedData.ohRows.map((o, i) => (
                           <tr key={"sync-oh-" + i}>
-                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>{o.label}</td>
-                            {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{o.monthly ? fmt(o.monthly) : "—"}</td>)}
-                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{o.monthly ? fmt(o.monthly * 12) : "—"}</td>
+                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>{o.label}{o.frequency !== "monthly" ? ` (${MONTH_LABELS_FULL[(parseInt(o.month)||1)-1]})` : ""}</td>
+                            {o.cols.map((v, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{v ? fmt(v) : "—"}</td>)}
+                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{o.annual ? fmt(o.annual) : "—"}</td>
                           </tr>
                         ))}
-                        {syncedData.projRows.length > 0 && (
-                          <tr>
-                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>Project Direct Costs</td>
-                            {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{syncedData.projCostMonthly ? fmt(syncedData.projCostMonthly) : "—"}</td>)}
-                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{syncedCost ? fmt(syncedCost) : "—"}</td>
+                        {syncedData.projRows.map((p, i) => (
+                          <tr key={"sync-cost-" + i}>
+                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>{p.name} (Cost)</td>
+                            {p.costCols.map((v, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{v ? fmt(v) : "—"}</td>)}
+                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{p.cost ? fmt(p.cost) : "—"}</td>
                           </tr>
-                        )}
+                        ))}
                         <tr>
                           <td style={{ ...subS, textAlign: "left", paddingLeft: 0, color: "#b0271d", background: "#fce4ec" }}>Synced Outflows</td>
-                          {Array(12).fill(0).map((_, m) => <td key={m} style={{ ...subS, color: "#b0271d", background: "#fce4ec" }}>{(syncedData.ohMonthlyTotal + syncedData.projCostMonthly) ? fmt(syncedData.ohMonthlyTotal + syncedData.projCostMonthly) : "—"}</td>)}
-                          <td style={{ ...subS, paddingRight: 0, color: "#b0271d", background: "#fce4ec" }}>{(syncedData.ohMonthlyTotal + syncedData.projCostMonthly) ? fmt((syncedData.ohMonthlyTotal + syncedData.projCostMonthly) * 12) : "—"}</td>
+                          {syncedData.ohColTotals.map((v, m) => {
+                            const total = v + (syncedData.projCostCols[m] || 0);
+                            return <td key={m} style={{ ...subS, color: "#b0271d", background: "#fce4ec" }}>{total ? fmt(total) : "—"}</td>;
+                          })}
+                          <td style={{ ...subS, paddingRight: 0, color: "#b0271d", background: "#fce4ec" }}>{(syncedData.ohColTotals.reduce((a,b)=>a+b,0) + syncedData.totalSyncedCost) ? fmt(syncedData.ohColTotals.reduce((a,b)=>a+b,0) + syncedData.totalSyncedCost) : "—"}</td>
                         </tr>
                       </>
                     )}

@@ -473,7 +473,7 @@ function OnnaDashboardInner() {
   useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('sops',sops);},[sops]);
 
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
-  const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
+  const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:new Date().getFullYear(),month:new Date().getMonth()+1});
   const localProjectsRef                      = useRef([]);
   const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[];}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
@@ -955,7 +955,7 @@ function OnnaDashboardInner() {
     const cache={};
     allProjectsMerged.forEach(p=>{
       const act=projectActuals[p.id];
-      cache[p.id]=act?actualsGrandZohoTotal(act):null;
+      cache[p.id]=act?actualsGrandEffective(act):null;
     });
     return cache;
   },[allProjectsMerged,projectActuals]);
