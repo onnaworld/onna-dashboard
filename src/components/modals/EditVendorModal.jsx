@@ -130,21 +130,21 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, ed
             style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
         </div>
   
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <div style={{display:"flex",gap:12,alignItems:"center"}}>
-            <button onClick={async()=>{
-              if(!window.confirm(`Delete ${editVendor.name}?`)) return;
-              archiveItem('vendors', editVendor);
-              await api.delete(`/api/vendors/${editVendor.id}`);
-              const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
-              setVendors(updatedVendors);
-              pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
-              pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
-              setEditVendor(null);
-            }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
-            <button onClick={()=>vendorToLead(false)} style={{background:"none",border:"none",color:"#7c3aed",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Copy to Lead</button>
-            <button onClick={()=>{if(window.confirm(`Move ${editVendor.name||editVendor.company} to Leads? This will remove it from Vendors.`))vendorToLead(true);}} style={{background:"none",border:"none",color:"#1a56db",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Move to Lead</button>
-          </div>
+        <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+          <button onClick={()=>vendorToLead(false)} style={{padding:"7px 16px",borderRadius:9,background:"#f3f0ff",border:"1px solid #d8d0f8",color:"#7c3aed",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy to Lead</button>
+          <button onClick={()=>{if(window.confirm(`Move ${editVendor.name||editVendor.company} to Leads? This will remove it from Vendors.`))vendorToLead(true);}} style={{padding:"7px 16px",borderRadius:9,background:"#eff6ff",border:"1px solid #bfdbfe",color:"#1a56db",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Move to Lead</button>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <button onClick={async()=>{
+            if(!window.confirm(`Delete ${editVendor.name}?`)) return;
+            archiveItem('vendors', editVendor);
+            await api.delete(`/api/vendors/${editVendor.id}`);
+            const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
+            setVendors(updatedVendors);
+            pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
+            pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
+            setEditVendor(null);
+          }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
           <div style={{display:"flex",gap:8}}>
             <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
             <BtnPrimary onClick={async()=>{
