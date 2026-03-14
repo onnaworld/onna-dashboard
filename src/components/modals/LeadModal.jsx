@@ -1,6 +1,7 @@
 import React from "react";
 
-export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedLead, setSelectedLead, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setLocalLeads, setLeadStatusOverrides, archiveItem, pruneCustom, setXContacts }) {
+export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedLead, setSelectedLead, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setLocalLeads, setLeadStatusOverrides, archiveItem, pruneCustom, setXContacts, setUndoToastMsg }) {
+  const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   return (
     <div className="modal-bg" onClick={()=>setSelectedLead(null)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -106,6 +107,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Loc
               await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
               setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
               setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
+              showToast("Saved ✓");
               setSelectedLead(null);
             }}>Save Changes</BtnPrimary>
           </div>

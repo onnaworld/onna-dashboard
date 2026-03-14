@@ -1,6 +1,7 @@
 import React from "react";
 
-export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts }) {
+export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts, setUndoToastMsg }) {
+  const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   return (
     <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -95,6 +96,7 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
               setXContacts('outreach', id, _xContacts||[]);
               await api.put(`/api/outreach/${id}`,{...fields,value:Number(fields.value)||0});
               setOutreach(prev=>prev.map(x=>x.id===id?{...selectedOutreach,value:Number(fields.value)||0}:x));
+              showToast("Saved ✓");
               setSelectedOutreach(null);
             }}>Save Changes</BtnPrimary>
           </div>

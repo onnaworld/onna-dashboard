@@ -1,6 +1,7 @@
 import React from "react";
 
-export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads }) {
+export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads, setUndoToastMsg }) {
+  const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   const vendorToLead = async (move) => {
     const company = (editVendor.company||editVendor.name||"").trim();
     if (!company) return;
@@ -32,6 +33,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
       pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
       pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
     }
+    showToast(move?"Moved to Leads ✓":"Copied to Leads ✓");
     setEditVendor(null);
   };
   return (
@@ -153,6 +155,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
               setXContacts('vendor', id, _xContacts||[]);
               await api.put(`/api/vendors/${id}`,fields);
               setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
+              showToast("Saved ✓");
               setEditVendor(null);
             }}>Save Changes</BtnPrimary>
           </div>

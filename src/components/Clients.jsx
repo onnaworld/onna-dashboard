@@ -22,7 +22,9 @@ export default function Clients({
   OUTREACH_STATUS_LABELS, OUTREACH_STATUSES, LEAD_CATEGORIES,
   // UI components
   Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge, LocationPicker,
+  setUndoToastMsg,
 }) {
+  const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   // ── Local state (Clients-tab-only) ──
   const [leadsView, setLeadsView] = useState(() => localStorage.getItem("onna_leads_view") || "dashboard");
   React.useEffect(() => { localStorage.setItem("onna_leads_view", leadsView); }, [leadsView]);
@@ -39,6 +41,9 @@ export default function Clients({
   const [outreachStatusFilter, setOutreachStatusFilter] = useState("All");
   const [outreachLocFilter, setOutreachLocFilter] = useState("All");
   const [outreachMonthFilter, setOutreachMonthFilter] = useState("All");
+
+  // Not Contacted section toggle
+  const [showNotContacted, setShowNotContacted] = useState(true);
 
   // Selected client (edit modal)
   const [selectedClient, setSelectedClient] = useState(null);
@@ -332,7 +337,7 @@ export default function Clients({
                   <button onClick={async()=>{if(!confirm(`Delete ${selectedClient.company}?`))return;archiveItem('clients',selectedClient);await api.delete(`/api/clients/${selectedClient.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==selectedClient.id));setSelectedClient(null);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete client</button>
                   <div style={{display:"flex",gap:8}}>
                     <BtnSecondary onClick={()=>setSelectedClient(null)}>Cancel</BtnSecondary>
-                    <BtnPrimary onClick={async()=>{const {id,_fromClient,_fromLead,_fromOutreach,...fields}=selectedClient;if((selectedClient.status||"client")!=="client"&&_fromClient){const newLead={company:selectedClient.company,contact:selectedClient.name||"",role:selectedClient.role||"",email:selectedClient.email||"",phone:selectedClient.phone||"",category:selectedClient.category||"",location:selectedClient.country||"",status:selectedClient.status,date:selectedClient.date||"",value:selectedClient.value||"",notes:selectedClient.notes||"",source:selectedClient.source||""};const saved=await api.post("/api/leads",newLead);if(saved?.id)setLocalLeads(prev=>[...prev,{...newLead,id:saved.id}]);await api.delete(`/api/clients/${id}`);setLocalClients(prev=>prev.filter(x=>x.id!==id));}else if(_fromLead&&_fromOutreach){await api.put(`/api/outreach/${id}`,{...fields,clientName:fields.name,location:fields.country});setOutreach(prev=>prev.map(x=>x.id===id?{...x,...fields,clientName:fields.name,location:fields.country}:x));}else if(_fromLead){await api.put(`/api/leads/${id}`,{...fields,contact:fields.name,location:fields.country});setLocalLeads(prev=>prev.map(x=>x.id===id?{...x,...fields,contact:fields.name,location:fields.country}:x));}else{await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));}setSelectedClient(null);}}>Save Changes</BtnPrimary>
+                    <BtnPrimary onClick={async()=>{const {id,_fromClient,_fromLead,_fromOutreach,...fields}=selectedClient;if((selectedClient.status||"client")!=="client"&&_fromClient){const newLead={company:selectedClient.company,contact:selectedClient.name||"",role:selectedClient.role||"",email:selectedClient.email||"",phone:selectedClient.phone||"",category:selectedClient.category||"",location:selectedClient.country||"",status:selectedClient.status,date:selectedClient.date||"",value:selectedClient.value||"",notes:selectedClient.notes||"",source:selectedClient.source||""};const saved=await api.post("/api/leads",newLead);if(saved?.id)setLocalLeads(prev=>[...prev,{...newLead,id:saved.id}]);await api.delete(`/api/clients/${id}`);setLocalClients(prev=>prev.filter(x=>x.id!==id));}else if(_fromLead&&_fromOutreach){await api.put(`/api/outreach/${id}`,{...fields,clientName:fields.name,location:fields.country});setOutreach(prev=>prev.map(x=>x.id===id?{...x,...fields,clientName:fields.name,location:fields.country}:x));}else if(_fromLead){await api.put(`/api/leads/${id}`,{...fields,contact:fields.name,location:fields.country});setLocalLeads(prev=>prev.map(x=>x.id===id?{...x,...fields,contact:fields.name,location:fields.country}:x));}else{await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));}showToast("Saved ✓");setSelectedClient(null);}}>Save Changes</BtnPrimary>
                   </div>
                 </div>
               </div>
@@ -395,6 +400,35 @@ export default function Clients({
 
       {leadsView === "outreach" && (
         <div>
+          {/* ── NOT CONTACTED queue ── */}
+          {(() => {
+            const notContacted = allLeadsCombined.filter(l => l.status === "not_contacted");
+            if (notContacted.length === 0) return null;
+            return (
+              <div style={{ marginBottom: 20 }}>
+                <div onClick={() => setShowNotContacted(p => !p)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: showNotContacted ? 10 : 0 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#c0392b", letterSpacing: "0.05em", textTransform: "uppercase" }}>To Contact</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, background: "#fff3e0", color: "#c0392b", padding: "1px 8px", borderRadius: 999 }}>{notContacted.length}</span>
+                  <span style={{ fontSize: 13, color: T.muted, transform: showNotContacted ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.15s" }}>▾</span>
+                </div>
+                {showNotContacted && (
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
+                    {notContacted.map(l => (
+                      <div key={`nc_${l._fromOutreach?"o":"l"}_${l.id}`} onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "#fff8f0", border: "1px solid #ffe0b2", cursor: "pointer" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.company}</div>
+                          <div style={{ fontSize: 11, color: T.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[l.contact, l.category, l.location].filter(Boolean).join(" · ")}</div>
+                        </div>
+                        <button onClick={async e => { e.stopPropagation(); const next = "cold"; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } showToast(`${l.company} marked as Cold`); }}
+                          style={{ flexShrink: 0, marginLeft: 8, padding: "4px 10px", borderRadius: 7, background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Mark Cold</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
             <SearchBar value={getSearch("Outreach")} onChange={v => setSearch("Outreach", v)} placeholder="Search outreach..." />
             <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} minWidth={170} />

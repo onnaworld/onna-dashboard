@@ -62,13 +62,17 @@ const parseLocs = v => {
 
 export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,setCustomLocs,storageKey}) => {
   const [open,setOpen] = useState(false);
+  const [search,setSearch] = useState("");
   const ref = useRef(null);
+  const searchRef = useRef(null);
   const locs = parseLocs(value);
   const available = options.filter(o=>o!=="All"&&o!=="＋ Add location");
+  const filtered = search ? available.filter(loc=>loc.toLowerCase().includes(search.toLowerCase())) : available;
   useEffect(()=>{
-    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setSearch("");}};
     document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
   },[]);
+  useEffect(()=>{if(open&&searchRef.current)searchRef.current.focus();},[open]);
   const toggle = loc => {
     const next = locs.includes(loc)?locs.filter(l=>l!==loc):[...locs,loc];
     onChange(next.join(SEP));
@@ -80,7 +84,7 @@ export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,s
   };
   return (
     <div ref={ref} style={{position:"relative"}}>
-      <div onClick={()=>setOpen(!open)} style={{minHeight:36,padding:"6px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
+      <div onClick={()=>{setOpen(!open);if(open)setSearch("");}} style={{minHeight:36,padding:"6px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
         {locs.length===0&&<span style={{fontSize:12,color:T.muted,padding:"2px 0"}}>Select locations…</span>}
         {locs.map(l=>(
           <span key={l} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:7,background:"#e8e8ed",fontSize:11,color:T.text,fontWeight:500}}>
@@ -91,7 +95,12 @@ export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,s
       </div>
       {open&&(
         <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,marginTop:4,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",maxHeight:220,overflowY:"auto",padding:"4px 0"}}>
-          {available.map(loc=>(
+          <div style={{padding:"4px 8px 4px",position:"sticky",top:0,background:T.surface,zIndex:1}}>
+            <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search locations…"
+              style={{width:"100%",padding:"6px 10px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit",outline:"none"}}
+              onClick={e=>e.stopPropagation()}/>
+          </div>
+          {filtered.map(loc=>(
             <label key={loc} onClick={()=>toggle(loc)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",cursor:"pointer",fontSize:12,color:T.text,fontFamily:"inherit",background:locs.includes(loc)?"#f5f5f7":"transparent"}}>
               <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${locs.includes(loc)?"#F5D13A":T.border}`,background:locs.includes(loc)?"#F5D13A":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:11,color:"#3d2800",fontWeight:700}}>{locs.includes(loc)?"✓":""}</span>
               {loc}
