@@ -22,7 +22,7 @@ export function FromTemplateModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, 
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Year</div>
-            <Sel value={String(templateProject.year)} onChange={v=>setTemplateProject(p=>({...p,year:Number(v)}))} options={["2024","2025","2026","2027"]}/>
+            <Sel value={String(templateProject.year)} onChange={v=>setTemplateProject(p=>({...p,year:Number(v)}))} options={(()=>{try{const s=localStorage.getItem("onna_available_years");return s?JSON.parse(s).sort().map(String):["2025","2026"];}catch{return ["2025","2026"];}})()}/>
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>

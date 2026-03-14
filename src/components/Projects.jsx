@@ -26,8 +26,12 @@ export default function Projects({
   SearchBar, Pill,
 }) {
   // ── Local state (Projects-tab-only) ──
-  const [projectYear, setProjectYear] = useState(2026);
+  const [projectYear, setProjectYear] = useState(new Date().getFullYear());
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
+  const [availableYears, setAvailableYears] = useState(() => {
+    try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; }
+  });
+  React.useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} }, [availableYears]);
 
   // ── Computed values ──
   const projStatusColor = { Active: "#147d50", "In Review": "#92680a", Completed: T.muted };
@@ -58,7 +62,10 @@ export default function Projects({
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <SearchBar value={getSearch("Projects")} onChange={v => setSearch("Projects", v)} placeholder="Search projects…" />
-        <div style={{ display: "flex", gap: 6 }}>{(() => { const cy = new Date().getFullYear(); const yrs = new Set([2024, 2025, 2026, cy, cy + 1]); allProjectsMerged.forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => <Pill key={y} label={String(y)} active={projectYear === y} onClick={() => setProjectYear(y)} />)}</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {(() => { const yrs = new Set(availableYears); allProjectsMerged.forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => <Pill key={y} label={String(y)} active={projectYear === y} onClick={() => setProjectYear(y)} />)}
+          <button onClick={() => { const next = Math.max(...availableYears, new Date().getFullYear()) + 1; setAvailableYears(prev => [...prev, next].sort()); }} style={{ width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add year">+</button>
+        </div>
         <span style={{ marginLeft: "auto", fontSize: 12, color: T.muted }}>{projects.length} projects</span>
       </div>
       {/* Archive drop zone */}

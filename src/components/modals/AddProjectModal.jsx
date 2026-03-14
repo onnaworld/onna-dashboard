@@ -30,7 +30,7 @@ export function AddProjectModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, sh
               </select>
               <select value={newProject.year||new Date().getFullYear()} onChange={e=>setNewProject(p=>({...p,year:Number(e.target.value)}))}
                 style={{width:85,padding:"9px 12px",borderRadius:9,background:"#fafafa",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",cursor:"pointer"}}>
-                {[2024,2025,2026,2027,2028].map(y=><option key={y} value={y}>{y}</option>)}
+                {(()=>{try{const s=localStorage.getItem("onna_available_years");return s?JSON.parse(s):[2025,2026];}catch{return [2025,2026];}})().sort().map(y=><option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           </div>

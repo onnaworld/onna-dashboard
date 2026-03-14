@@ -15,7 +15,7 @@ const CASHFLOW_INIT = () => ({
   clientLogo: null,
   currency: "AED",
   year: new Date().getFullYear(),
-  availableYears: [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1],
+  availableYears: (() => { try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; } })(),
   openingBalance: 0,
   vatRate: 5,
   inflows: [
@@ -98,6 +98,13 @@ export default function Finance({
 }) {
   const [financeTab, setFinanceTab] = useState("overview");
 
+  /* ── Available years (shared via localStorage) ── */
+  const [availableYears, setAvailableYears] = useState(() => {
+    try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; }
+  });
+  useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} }, [availableYears]);
+  const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
+
   /* ── Persisted overheads for P&L ── */
   const [overheads, setOverheads] = useState(() => {
     try { const s = localStorage.getItem("onna_pnl_overheads"); return s ? JSON.parse(s) : DEFAULT_OVERHEADS(); } catch { return DEFAULT_OVERHEADS(); }
@@ -122,8 +129,8 @@ export default function Finance({
     const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
     const active = nonTemplate.filter(p => p.status === "Active");
     const completed = nonTemplate.filter(p => p.status === "Completed" || p.status === "Wrapped");
-    const thisYear = nonTemplate.filter(p => p.year === 2026);
-    const lastYear = nonTemplate.filter(p => p.year === 2025);
+    const thisYear = nonTemplate.filter(p => p.year === financeYear);
+    const lastYear = nonTemplate.filter(p => p.year === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
     const sumCost = (arr) => arr.reduce((a, b) => a + getProjCost(b), 0);
@@ -171,7 +178,7 @@ export default function Finance({
       pipeline, newLeads,
       projBreakdown, topProjects, overBudget,
     };
-  }, [allProjectsMerged, localLeads, getProjRevenue, getProjCost, projectEstimates, projectActuals]);
+  }, [allProjectsMerged, localLeads, getProjRevenue, getProjCost, projectEstimates, projectActuals, financeYear]);
 
   /* ── P&L calculations ── */
   const pnlData = useMemo(() => {
@@ -248,20 +255,35 @@ export default function Finance({
         ))}
       </div>
 
+      {/* ── Year selector bar ── */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, alignItems: "center" }}>
+        {(() => { const yrs = new Set(availableYears); (allProjectsMerged || []).forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => (
+          <button key={y} onClick={() => setFinanceYear(y)}
+            style={{
+              padding: "6px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: financeYear === y ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+              background: financeYear === y ? T.accent : T.surface,
+              color: financeYear === y ? "#fff" : T.text,
+              cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+            }}>{y}</button>
+        ))}
+        <button onClick={() => { const next = Math.max(...availableYears, new Date().getFullYear()) + 1; setAvailableYears(prev => [...prev, next].sort()); }} style={{ width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add year">+</button>
+      </div>
+
       {/* ═══ OVERVIEW ═══ */}
       {financeTab === "overview" && (
         <div>
           {/* KPI cards */}
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 22 }}>
             {[
-              { label: "Revenue 2026", value: fmtK(projData.thisYearRev), sub: projData.thisYear.length + " projects", color: T.text },
-              { label: "Profit 2026", value: fmtK(projData.thisYearProfit), sub: projData.thisYearMargin + "% margin", color: projData.thisYearProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+              { label: `Revenue ${financeYear}`, value: fmtK(projData.thisYearRev), sub: projData.thisYear.length + " projects", color: T.text },
+              { label: `Profit ${financeYear}`, value: fmtK(projData.thisYearProfit), sub: projData.thisYearMargin + "% margin", color: projData.thisYearProfit >= 0 ? "#1a6e3e" : "#b0271d" },
               { label: "Pipeline", value: apiLoading ? "\u2014" : fmtK(projData.pipeline), sub: projData.newLeads + " new leads", color: T.text },
               { label: "Active Projects", value: projData.active.length, sub: projData.completed.length + " completed", color: T.text },
               { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
               { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
               { label: "Outstanding AR", value: fmtK(arapCalcs.totalAR), sub: arapCalcs.overdueAR > 0 ? fmtK(arapCalcs.overdueAR) + " overdue" : "none overdue", color: arapCalcs.overdueAR > 0 ? "#b06000" : T.text },
-              { label: "YoY Growth", value: projData.lastYearRev > 0 ? fmtPct(((projData.thisYearRev - projData.lastYearRev) / projData.lastYearRev) * 100) : "N/A", sub: "vs 2025", color: projData.thisYearRev >= projData.lastYearRev ? "#1a6e3e" : "#b0271d" },
+              { label: "YoY Growth", value: projData.lastYearRev > 0 ? fmtPct(((projData.thisYearRev - projData.lastYearRev) / projData.lastYearRev) * 100) : "N/A", sub: `vs ${financeYear - 1}`, color: projData.thisYearRev >= projData.lastYearRev ? "#1a6e3e" : "#b0271d" },
             ].map((s, i) => (
               <div key={i} style={cardS(T)}>
                 <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
@@ -343,7 +365,7 @@ export default function Finance({
             {/* Revenue by project */}
             <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
               <div style={{ padding: "16px 20px 0" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project (2026)</div>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({financeYear})</div>
               </div>
               <div className="mob-table-wrap">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -365,7 +387,7 @@ export default function Finance({
                         </tr>
                       );
                     })}
-                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No 2026 projects</td></tr>}
+                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No {financeYear} projects</td></tr>}
                     {/* Total row */}
                     {pnlData.revByProject.length > 0 && (
                       <tr style={{ background: T.bg }}>
@@ -504,7 +526,7 @@ export default function Finance({
           {/* P&L Statement summary */}
           <div style={{ ...cardS(T), marginTop: 14, padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Profit & Loss Statement — 2026</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement — " + financeYear}</div>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
@@ -1227,13 +1249,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                 <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
                 <span style={ctrlLblS}>Year</span>
                 <select value={data.year || new Date().getFullYear()} onChange={e => update("year", Number(e.target.value))} style={ctrlSelS}>
-                  {(data.availableYears || [new Date().getFullYear()]).sort().map(y => <option key={y} value={y}>{y}</option>)}
+                  {(() => { try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s).sort() : [2025, 2026]; } catch { return [2025, 2026]; } })().map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
-                <button onClick={() => {
-                  const years = data.availableYears || [new Date().getFullYear()];
-                  const next = Math.max(...years) + 1;
-                  update(d => ({ ...d, availableYears: [...years, next], year: next }));
-                }} style={{ fontFamily: F, fontSize: 10, fontWeight: 700, color: "#999", background: "none", border: "1px dashed #ccc", padding: "4px 8px", cursor: "pointer", borderRadius: 4 }} title="Add year">+ Year</button>
                 <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
                 <span style={ctrlLblS}>Opening Balance</span>
                 <input value={data.openingBalance || ""} onChange={e => update("openingBalance", e.target.value)} style={{ ...ctrlInpS, width: 120 }} placeholder="0" />
