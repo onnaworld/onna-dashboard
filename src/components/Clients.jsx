@@ -197,6 +197,7 @@ export default function Clients({
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
             <SearchBar value={getSearch("Leads")} onChange={v => setSearch("Leads", v)} placeholder="Search leads..." />
+            <Sel value={leadStatus} onChange={setLeadStatus} options={["All", ...OUTREACH_STATUSES.map(s => ({value:s,label:OUTREACH_STATUS_LABELS[s]}))]} minWidth={140} />
             <Sel value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES, ...customLeadCats]} minWidth={170} />
             <Sel value={leadLoc} onChange={setLeadLoc} options={leadLocations} minWidth={170} />
             <span style={{ fontSize: 12, color: T.muted }}>{filteredLeads.length} leads</span>
@@ -493,7 +494,7 @@ export default function Clients({
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-                <Sel value={newOutreach.status} onChange={v=>setNewOutreach(p=>({...p,status:v}))} options={OUTREACH_STATUSES.filter(s=>s!=="not_contacted").map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth={200}/>
+                <Sel value={newOutreach.status} onChange={v=>setNewOutreach(p=>({...p,status:v}))} options={OUTREACH_STATUSES.map(s=>({value:s,label:OUTREACH_STATUS_LABELS[s]}))} minWidth={200}/>
               </div>
               <div style={{gridColumn:"span 2"}}>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Notes</div>
