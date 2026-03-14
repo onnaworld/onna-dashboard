@@ -61,7 +61,9 @@ export default function Clients({
   const _outreachKeys = new Set(outreach.map(o => o.company.trim().toLowerCase()));
   const _pureLeads = allLeadsMerged.filter(l => !_outreachKeys.has(l.company.trim().toLowerCase()));
   const _outreachAsLeads = outreach.map(o => ({ id: o.id, _fromOutreach: true, company: o.company, contact: o.clientName, role: o.role, email: o.email, category: o.category, status: o.status, date: o.date, value: o.value, location: o.location, notes: o.notes, phone: o.phone }));
-  const allLeadsCombined = [..._pureLeads, ..._outreachAsLeads];
+  const _isCompetitor = l => { const c=(l.category||""); return c==="Market Research"||(c.includes("|")&&c.split("|").some(x=>x.trim()==="Market Research")); };
+  const allLeadsCombined = [..._pureLeads, ..._outreachAsLeads].filter(l => !_isCompetitor(l));
+  const competitorLeads = [..._pureLeads, ..._outreachAsLeads].filter(l => _isCompetitor(l));
   const leadMonths = ["All", ...Array.from(new Set(allLeadsCombined.map(l => getMonthLabel(l.date)).filter(Boolean)))];
   const leadLocations = ["All", ...Array.from(new Set(allLeadsCombined.flatMap(l => (l.location||"").includes("|")?(l.location||"").split("|").map(s=>s.trim()).filter(Boolean):[l.location].filter(Boolean)))).sort()];
 
@@ -101,6 +103,7 @@ export default function Clients({
         <Pill label="Outreach Tracker" active={leadsView === "outreach"} onClick={() => setLeadsView("outreach")} />
         <Pill label="Leads" active={leadsView === "leads"} onClick={() => setLeadsView("leads")} />
         <Pill label="Clients" active={leadsView === "clients"} onClick={() => setLeadsView("clients")} />
+        <Pill label="Competitors" active={leadsView === "competitors"} onClick={() => setLeadsView("competitors")} />
       </div>
 
       {leadsView === "dashboard" && (() => {
@@ -565,6 +568,45 @@ export default function Clients({
           </div>
         </div>
       )}
+
+      {leadsView === "competitors" && (() => {
+        const cq = getSearch("Competitors").toLowerCase();
+        const filtered = competitorLeads.filter(l => !cq || [l.company,l.contact,l.role,l.email,l.phone,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(cq)))
+          .sort((a, b) => (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
+        return (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+              <SearchBar value={getSearch("Competitors")} onChange={v => setSearch("Competitors", v)} placeholder="Search competitors..." />
+              <span style={{ fontSize: 12, color: T.muted }}>{filtered.length} competitors</span>
+              <button onClick={() => downloadCSV(filtered, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "location", label: "Location" }, { key: "status", label: "Status" }, { key: "notes", label: "Notes" }], "competitors.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
+              <button onClick={() => exportTablePDF(filtered, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "email", label: "Email" }, { key: "location", label: "Location" }, { key: "status", label: "Status" }], "Competitors")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
+            </div>
+            <div className="mob-table-wrap" style={{ borderRadius: 16, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 580 : "auto" }}>
+                <thead><tr>
+                  <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH><TH>Phone</TH><TH>Location</TH><TH>Status</TH><TH>Notes</TH>
+                </tr></thead>
+                <tbody>
+                  {filtered.map(l => (
+                    <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" style={{ cursor: "pointer" }}
+                      onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}>
+                      <TD bold>{l.company}</TD>
+                      <TD>{l.contact || "\u2014"}</TD>
+                      <TD muted>{l.role || "\u2014"}</TD>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}>{l.email ? <a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{l.email}</a> : "\u2014"}</td>
+                      <TD muted>{l.phone || "\u2014"}</TD>
+                      <TD muted>{l.location || "\u2014"}</TD>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={l.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status) + 1) % OUTREACH_STATUSES.length]; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } }} /></td>
+                      <TD muted>{l.notes ? (l.notes.length > 40 ? l.notes.slice(0, 40) + "…" : l.notes) : "\u2014"}</TD>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && <tr><td colSpan={8} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No competitors found. Add leads with category "Market Research" to see them here.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
