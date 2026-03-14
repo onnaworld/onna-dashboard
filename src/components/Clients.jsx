@@ -159,7 +159,7 @@ export default function Clients({
               <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.contact || "\u2014"}{lead.category ? ` \u00b7 ${lead.category}` : ""}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-              <OutreachBadge status={lead.status} />
+              <OutreachBadge status={lead.status} onClick={async (e) => { e.stopPropagation(); const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(lead.status) + 1) % OUTREACH_STATUSES.length]; if (lead._fromOutreach) { await api.put(`/api/outreach/${lead.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === lead.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${lead.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === lead.id ? { ...x, status: next } : x)); } }} />
               {showDate && lead.date && <span style={{ fontSize: 10.5, color: T.muted }}>{formatDate(lead.date)}</span>}
             </div>
             {lead.email && <a href={`mailto:${lead.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 11, color: T.link, textDecoration: "none", background: "#f0f4ff", padding: "4px 9px", borderRadius: 7, whiteSpace: "nowrap", flexShrink: 0 }}>Email</a>}
