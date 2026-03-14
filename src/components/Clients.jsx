@@ -405,25 +405,35 @@ export default function Clients({
             const notContacted = allLeadsCombined.filter(l => l.status === "not_contacted");
             if (notContacted.length === 0) return null;
             return (
-              <div style={{ marginBottom: 20 }}>
-                <div onClick={() => setShowNotContacted(p => !p)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: showNotContacted ? 10 : 0 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#c0392b", letterSpacing: "0.05em", textTransform: "uppercase" }}>To Contact</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, background: "#fff3e0", color: "#c0392b", padding: "1px 8px", borderRadius: 999 }}>{notContacted.length}</span>
-                  <span style={{ fontSize: 13, color: T.muted, transform: showNotContacted ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.15s" }}>▾</span>
+              <div style={{ marginBottom: 22 }}>
+                <div onClick={() => setShowNotContacted(p => !p)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: showNotContacted ? 0 : 0, userSelect: "none" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}>Not Contacted</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, background: "#fff3e0", color: "#c0392b", padding: "1px 7px", borderRadius: 999 }}>{notContacted.length}</span>
+                  <span style={{ fontSize: 11, color: T.muted, transition: "transform 0.15s", display: "inline-block", transform: showNotContacted ? "rotate(0)" : "rotate(-90deg)" }}>▾</span>
                 </div>
                 {showNotContacted && (
-                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
-                    {notContacted.map(l => (
-                      <div key={`nc_${l._fromOutreach?"o":"l"}_${l.id}`} onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}
-                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "#fff8f0", border: "1px solid #ffe0b2", cursor: "pointer" }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.company}</div>
-                          <div style={{ fontSize: 11, color: T.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[l.contact, l.category, l.location].filter(Boolean).join(" · ")}</div>
-                        </div>
-                        <button onClick={async e => { e.stopPropagation(); const next = "cold"; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } showToast(`${l.company} marked as Cold`); }}
-                          style={{ flexShrink: 0, marginLeft: 8, padding: "4px 10px", borderRadius: 7, background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Mark Cold</button>
-                      </div>
-                    ))}
+                  <div className="mob-table-wrap" style={{ borderRadius: 12, border: `1px solid ${T.border}`, marginTop: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 500 : "auto" }}>
+                      <thead><tr>
+                        <TH>Company</TH><TH>Contact</TH><TH>Email</TH><TH>Category</TH><TH>Location</TH><TH />
+                      </tr></thead>
+                      <tbody>
+                        {notContacted.map(l => (
+                          <tr key={`nc_${l._fromOutreach?"o":"l"}_${l.id}`} className="row" style={{ cursor: "pointer" }}
+                            onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}>
+                            <TD bold>{l.company}</TD>
+                            <TD>{l.contact || "\u2014"}</TD>
+                            <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}>{l.email ? <a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{l.email}</a> : "\u2014"}</td>
+                            <TD muted>{l.category || "\u2014"}</TD>
+                            <TD muted>{l.location || "\u2014"}</TD>
+                            <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}>
+                              <button onClick={async () => { const next = "cold"; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } showToast(`${l.company} → Cold`); }}
+                                style={{ padding: "3px 10px", borderRadius: 7, background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>→ Cold</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
