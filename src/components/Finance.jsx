@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { CSLogoSlot } from "./ui/DocHelpers";
-import { PRINT_CLEANUP_CSS } from "../utils/helpers";
+import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections } from "../utils/helpers";
 
 /* ── Branded constants (matching estimates/callsheets) ── */
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -43,6 +43,40 @@ const CASHFLOW_INIT = () => ({
   notes: "",
 });
 
+/* ── Shared helpers ── */
+const fmtK = (n) => {
+  if (n === 0) return "AED 0";
+  const abs = Math.abs(n);
+  if (abs >= 1000000) return (n < 0 ? "-" : "") + "AED " + (abs / 1000000).toFixed(1) + "M";
+  if (abs >= 1000) return (n < 0 ? "-" : "") + "AED " + (abs / 1000).toFixed(0) + "k";
+  return "AED " + n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
+};
+const fmtFull = (n) => "AED " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtPct = (n) => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
+
+/* ── Card/Table styles ── */
+const cardS = (T) => ({ borderRadius: 16, padding: "20px 22px", background: T.surface, border: "1px solid " + T.border, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" });
+const kpiLabelS = { fontSize: 11, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 };
+const kpiValS = { fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 };
+
+/* ── Default overheads for P&L ── */
+const DEFAULT_OVERHEADS = () => [
+  { label: "Office & Studio Rent", amount: "" },
+  { label: "Salaries (Non-Project)", amount: "" },
+  { label: "Insurance", amount: "" },
+  { label: "Software & Subscriptions", amount: "" },
+  { label: "Marketing & Business Dev", amount: "" },
+  { label: "Legal & Accounting", amount: "" },
+  { label: "Utilities & Communications", amount: "" },
+  { label: "Other Overheads", amount: "" },
+];
+
+/* ── Default AR/AP items ── */
+const DEFAULT_ARAP = () => ({
+  receivables: [],
+  payables: [],
+});
+
 export default function Finance({
   T, isMobile,
   allProjectsMerged, localLeads,
@@ -52,28 +86,144 @@ export default function Finance({
   activeCashFlowVersion, setActiveCashFlowVersion,
   debouncedDocSave,
   allProjects,
+  projectEstimates, projectActuals,
 }) {
   const [financeTab, setFinanceTab] = useState("overview");
 
-  /* ── Overview sub-tab (original Finance KPIs) ── */
-  const projects2026 = allProjectsMerged.filter(p => p.year === 2026);
-  const rev2026 = projects2026.reduce((a, b) => a + getProjRevenue(b), 0);
-  const profit2026 = projects2026.reduce((a, b) => a + (getProjRevenue(b) - getProjCost(b)), 0);
-  const totalPipeline = localLeads.reduce((a, b) => a + (b.value || 0), 0);
-  const newCount = localLeads.filter(l => l.status === "not_contacted" || l.status === "cold").length;
-  const totalRev = allProjectsMerged.reduce((a, b) => a + getProjRevenue(b), 0);
-  const totalProfit = allProjectsMerged.reduce((a, b) => a + (getProjRevenue(b) - getProjCost(b)), 0);
-  const avgMargin = totalRev > 0 ? Math.round((totalProfit / totalRev) * 100) : 0;
+  /* ── Persisted overheads for P&L ── */
+  const [overheads, setOverheads] = useState(() => {
+    try { const s = localStorage.getItem("onna_pnl_overheads"); return s ? JSON.parse(s) : DEFAULT_OVERHEADS(); } catch { return DEFAULT_OVERHEADS(); }
+  });
+  useEffect(() => { try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(overheads)); } catch {} }, [overheads]);
+
+  /* ── Persisted AR/AP data ── */
+  const [arapData, setArapData] = useState(() => {
+    try { const s = localStorage.getItem("onna_arap_data"); return s ? JSON.parse(s) : DEFAULT_ARAP(); } catch { return DEFAULT_ARAP(); }
+  });
+  useEffect(() => { try { localStorage.setItem("onna_arap_data", JSON.stringify(arapData)); } catch {} }, [arapData]);
+
+  /* ── Persisted Tax data ── */
+  const [taxData, setTaxData] = useState(() => {
+    try { const s = localStorage.getItem("onna_tax_data"); return s ? JSON.parse(s) : { vatRate: 5, filings: [] }; } catch { return { vatRate: 5, filings: [] }; }
+  });
+  useEffect(() => { try { localStorage.setItem("onna_tax_data", JSON.stringify(taxData)); } catch {} }, [taxData]);
+
+  /* ── Computed data from projects ── */
+  const projData = useMemo(() => {
+    const all = allProjectsMerged || [];
+    const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
+    const active = nonTemplate.filter(p => p.status === "Active");
+    const completed = nonTemplate.filter(p => p.status === "Completed" || p.status === "Wrapped");
+    const thisYear = nonTemplate.filter(p => p.year === 2026);
+    const lastYear = nonTemplate.filter(p => p.year === 2025);
+
+    const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
+    const sumCost = (arr) => arr.reduce((a, b) => a + getProjCost(b), 0);
+    const sumProfit = (arr) => arr.reduce((a, b) => a + (getProjRevenue(b) - getProjCost(b)), 0);
+    const margin = (rev, profit) => rev > 0 ? Math.round((profit / rev) * 100) : 0;
+
+    const totalRev = sumRev(nonTemplate);
+    const totalCost = sumCost(nonTemplate);
+    const totalProfit = sumProfit(nonTemplate);
+
+    const thisYearRev = sumRev(thisYear);
+    const thisYearCost = sumCost(thisYear);
+    const thisYearProfit = sumProfit(thisYear);
+    const lastYearRev = sumRev(lastYear);
+
+    const pipeline = (localLeads || []).reduce((a, b) => a + (b.value || 0), 0);
+    const newLeads = (localLeads || []).filter(l => l.status === "not_contacted" || l.status === "cold").length;
+
+    // Per-project breakdown for profitability
+    const projBreakdown = nonTemplate.map(p => {
+      const rev = getProjRevenue(p);
+      const cost = getProjCost(p);
+      const profit = rev - cost;
+      // Get estimate vs actual variance
+      const ests = projectEstimates?.[p.id];
+      const estimateTotal = ests && ests.length > 0 ? estCalcTotals(ests[ests.length - 1].sections || defaultSections()).grandTotal : null;
+      const acts = projectActuals?.[p.id];
+      const actualTotal = acts ? actualsGrandEffective(acts) : null;
+      const variance = estimateTotal !== null && actualTotal !== null ? estimateTotal - actualTotal : null;
+      return { id: p.id, name: p.name || p.title || "Untitled", client: p.client, status: p.status, year: p.year, rev, cost, profit, margin: rev > 0 ? Math.round((profit / rev) * 100) : 0, estimateTotal, actualTotal, variance };
+    });
+
+    // Top 5 projects by revenue
+    const topProjects = [...projBreakdown].sort((a, b) => b.rev - a.rev).slice(0, 5);
+
+    // Projects with budget overruns
+    const overBudget = projBreakdown.filter(p => p.variance !== null && p.variance < 0).sort((a, b) => a.variance - b.variance);
+
+    return {
+      nonTemplate, active, completed, thisYear, lastYear,
+      totalRev, totalCost, totalProfit,
+      thisYearRev, thisYearCost, thisYearProfit, lastYearRev,
+      avgMargin: margin(totalRev, totalProfit),
+      thisYearMargin: margin(thisYearRev, thisYearProfit),
+      pipeline, newLeads,
+      projBreakdown, topProjects, overBudget,
+    };
+  }, [allProjectsMerged, localLeads, getProjRevenue, getProjCost, projectEstimates, projectActuals]);
+
+  /* ── P&L calculations ── */
+  const pnlData = useMemo(() => {
+    const ovTotal = overheads.reduce((s, o) => s + (parseFloat(o.amount) || 0), 0);
+    const grossProfit = projData.thisYearRev - projData.thisYearCost;
+    const grossMargin = projData.thisYearRev > 0 ? (grossProfit / projData.thisYearRev) * 100 : 0;
+    const netProfit = grossProfit - ovTotal;
+    const netMargin = projData.thisYearRev > 0 ? (netProfit / projData.thisYearRev) * 100 : 0;
+
+    // Revenue by project (this year)
+    const revByProject = projData.thisYear.map(p => ({
+      name: p.name || p.title || "Untitled",
+      client: p.client,
+      rev: getProjRevenue(p),
+      cost: getProjCost(p),
+    })).sort((a, b) => b.rev - a.rev);
+
+    // Cost breakdown from actuals sections
+    const costBreakdown = {};
+    projData.thisYear.forEach(p => {
+      const acts = projectActuals?.[p.id];
+      if (!acts) return;
+      acts.forEach(sec => {
+        const title = sec.title || "Other";
+        const total = actualsSectionEffective(sec);
+        costBreakdown[title] = (costBreakdown[title] || 0) + total;
+      });
+    });
+    const costSections = Object.entries(costBreakdown).map(([title, total]) => ({ title, total })).sort((a, b) => b.total - a.total);
+
+    return { ovTotal, grossProfit, grossMargin, netProfit, netMargin, revByProject, costSections };
+  }, [projData, overheads, getProjRevenue, getProjCost, projectActuals]);
+
+  /* ── AR/AP calculations ── */
+  const arapCalcs = useMemo(() => {
+    const totalAR = (arapData.receivables || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const overdueAR = (arapData.receivables || []).filter(r => r.dueDate && new Date(r.dueDate) < new Date() && r.status !== "paid").reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const totalAP = (arapData.payables || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const overdueAP = (arapData.payables || []).filter(r => r.dueDate && new Date(r.dueDate) < new Date() && r.status !== "paid").reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    return { totalAR, overdueAR, totalAP, overdueAP, netPosition: totalAR - totalAP };
+  }, [arapData]);
 
   const subTabs = [
     { key: "overview", label: "Overview" },
+    { key: "pnl", label: "P&L" },
     { key: "cashflow", label: "Cash Flow" },
+    { key: "arap", label: "AR / AP" },
+    { key: "profitability", label: "Profitability" },
+    { key: "tax", label: "Tax & VAT" },
   ];
+
+  /* ── Shared table styles ── */
+  const thS = { fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, padding: "10px 14px", borderBottom: `2px solid ${T.border}`, textAlign: "left" };
+  const tdS = { fontSize: 12.5, padding: "11px 14px", borderBottom: `1px solid ${T.borderSub || T.border}`, color: T.text };
+  const tdR = { ...tdS, textAlign: "right", fontVariantNumeric: "tabular-nums" };
 
   return (
     <div>
       {/* ── Sub-tab bar ── */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 18, flexWrap: "wrap" }}>
         {subTabs.map(st => (
           <button key={st.key} onClick={() => setFinanceTab(st.key)}
             style={{
@@ -86,25 +236,221 @@ export default function Finance({
         ))}
       </div>
 
+      {/* ═══ OVERVIEW ═══ */}
       {financeTab === "overview" && (
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 22 }}>
-          {[
-            { label: "Projects 2026", value: projects2026.length, sub: projects2026.filter(p => p.status === "Active").length + " active" },
-            { label: "Revenue 2026", value: "AED " + (rev2026 / 1000).toFixed(0) + "k", sub: "all projects this year" },
-            { label: "Profit 2026", value: "AED " + (profit2026 / 1000).toFixed(0) + "k", sub: (rev2026 ? Math.round((profit2026 / rev2026) * 100) : 0) + "% margin" },
-            { label: "Pipeline", value: apiLoading ? "\u2014" : "AED " + (totalPipeline / 1000).toFixed(0) + "k", sub: newCount + " new leads" },
-            { label: "Total Revenue", value: "AED " + (totalRev / 1000).toFixed(0) + "k", sub: "all projects" },
-            { label: "Total Profit", value: "AED " + (totalProfit / 1000).toFixed(0) + "k", sub: avgMargin + "% avg margin" },
-          ].map((s, i) => (
-            <div key={i} style={{ borderRadius: 16, padding: "20px 22px", background: T.surface, border: "1px solid " + T.border, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-              <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", color: T.muted, marginBottom: 10 }}>{s.label}</div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: T.text, letterSpacing: "-0.02em", marginBottom: s.sub ? 4 : 0 }}>{s.value}</div>
-              {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
+        <div>
+          {/* KPI cards */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 22 }}>
+            {[
+              { label: "Revenue 2026", value: fmtK(projData.thisYearRev), sub: projData.thisYear.length + " projects", color: T.text },
+              { label: "Profit 2026", value: fmtK(projData.thisYearProfit), sub: projData.thisYearMargin + "% margin", color: projData.thisYearProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+              { label: "Pipeline", value: apiLoading ? "\u2014" : fmtK(projData.pipeline), sub: projData.newLeads + " new leads", color: T.text },
+              { label: "Active Projects", value: projData.active.length, sub: projData.completed.length + " completed", color: T.text },
+              { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
+              { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+              { label: "Outstanding AR", value: fmtK(arapCalcs.totalAR), sub: arapCalcs.overdueAR > 0 ? fmtK(arapCalcs.overdueAR) + " overdue" : "none overdue", color: arapCalcs.overdueAR > 0 ? "#b06000" : T.text },
+              { label: "YoY Growth", value: projData.lastYearRev > 0 ? fmtPct(((projData.thisYearRev - projData.lastYearRev) / projData.lastYearRev) * 100) : "N/A", sub: "vs 2025", color: projData.thisYearRev >= projData.lastYearRev ? "#1a6e3e" : "#b0271d" },
+            ].map((s, i) => (
+              <div key={i} style={cardS(T)}>
+                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
+                <div style={{ ...kpiValS, color: s.color || T.text }}>{s.value}</div>
+                {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+
+          {/* Top projects & budget alerts side by side */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+            {/* Top projects */}
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Top Projects by Revenue</div>
+              </div>
+              <div style={{ padding: 0 }}>
+                {projData.topProjects.map((p, i) => (
+                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderBottom: i < projData.topProjects.length - 1 ? `1px solid ${T.borderSub || T.border}` : "none" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: T.muted }}>{p.client}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{fmtK(p.rev)}</div>
+                      <div style={{ fontSize: 11, color: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }}>{p.margin}% margin</div>
+                    </div>
+                  </div>
+                ))}
+                {projData.topProjects.length === 0 && <div style={{ padding: 20, textAlign: "center", color: T.muted, fontSize: 13 }}>No projects yet</div>}
+              </div>
             </div>
-          ))}
+
+            {/* Budget alerts */}
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Budget Alerts</div>
+              </div>
+              <div style={{ padding: 0 }}>
+                {projData.overBudget.slice(0, 5).map((p, i) => (
+                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderBottom: i < Math.min(projData.overBudget.length, 5) - 1 ? `1px solid ${T.borderSub || T.border}` : "none" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: T.muted }}>Est: {fmtK(p.estimateTotal || 0)}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#b0271d" }}>{fmtK(p.variance)}</div>
+                      <div style={{ fontSize: 11, color: "#b0271d" }}>over budget</div>
+                    </div>
+                  </div>
+                ))}
+                {projData.overBudget.length === 0 && <div style={{ padding: 20, textAlign: "center", color: T.muted, fontSize: 13 }}>All projects on budget</div>}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
+      {/* ═══ P&L ═══ */}
+      {financeTab === "pnl" && (
+        <div>
+          {/* P&L summary cards */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
+            {[
+              { label: "Total Revenue", value: fmtK(projData.thisYearRev), color: T.text },
+              { label: "Direct Costs", value: fmtK(projData.thisYearCost), color: "#b0271d" },
+              { label: "Gross Profit", value: fmtK(pnlData.grossProfit), sub: pnlData.grossMargin.toFixed(1) + "% margin", color: pnlData.grossProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+              { label: "Net Profit", value: fmtK(pnlData.netProfit), sub: pnlData.netMargin.toFixed(1) + "% margin", color: pnlData.netProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+            ].map((s, i) => (
+              <div key={i} style={cardS(T)}>
+                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
+                <div style={{ ...kpiValS, color: s.color }}>{s.value}</div>
+                {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+            {/* Revenue by project */}
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "16px 20px 0" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project (2026)</div>
+              </div>
+              <div className="mob-table-wrap">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    <th style={thS}>Project</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Cost</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Margin</th>
+                  </tr></thead>
+                  <tbody>
+                    {pnlData.revByProject.map((p, i) => {
+                      const margin = p.rev > 0 ? Math.round(((p.rev - p.cost) / p.rev) * 100) : 0;
+                      return (
+                        <tr key={i}>
+                          <td style={tdS}><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 11, color: T.muted }}>{p.client}</div></td>
+                          <td style={tdR}>{fmtFull(p.rev)}</td>
+                          <td style={tdR}>{fmtFull(p.cost)}</td>
+                          <td style={{ ...tdR, color: margin >= 20 ? "#1a6e3e" : margin >= 0 ? "#b06000" : "#b0271d", fontWeight: 600 }}>{margin}%</td>
+                        </tr>
+                      );
+                    })}
+                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No 2026 projects</td></tr>}
+                    {/* Total row */}
+                    {pnlData.revByProject.length > 0 && (
+                      <tr style={{ background: T.bg }}>
+                        <td style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: "none" }}>{fmtFull(projData.thisYearRev)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: "none" }}>{fmtFull(projData.thisYearCost)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: projData.thisYearMargin >= 20 ? "#1a6e3e" : "#b06000" }}>{projData.thisYearMargin}%</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Overheads */}
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "16px 20px 0" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Operating Overheads (Monthly)</div>
+              </div>
+              <div className="mob-table-wrap">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    <th style={thS}>Category</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Monthly</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Annual</th>
+                  </tr></thead>
+                  <tbody>
+                    {overheads.map((o, i) => (
+                      <tr key={i} onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; }}>
+                        <td style={tdS}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <button className="oh-del" onClick={() => setOverheads(prev => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
+                            <input value={o.label} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], label: e.target.value }; setOverheads(n); }}
+                              style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", width: "100%" }} />
+                          </div>
+                        </td>
+                        <td style={tdR}>
+                          <input value={o.amount} onChange={e => { const n = [...overheads]; n[i] = { ...n[i], amount: e.target.value }; setOverheads(n); }}
+                            placeholder="0" inputMode="numeric"
+                            style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
+                            onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                        </td>
+                        <td style={{ ...tdR, color: T.sub }}>{fmtFull((parseFloat(o.amount) || 0) * 12)}</td>
+                      </tr>
+                    ))}
+                    <tr><td colSpan={3} style={{ padding: "8px 14px", borderBottom: "none" }}>
+                      <button onClick={() => setOverheads(prev => [...prev, { label: "New Overhead", amount: "" }])}
+                        style={{ fontSize: 11, color: T.muted, background: "none", border: "1px dashed " + T.border, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>+ Add row</button>
+                    </td></tr>
+                    <tr style={{ background: T.bg }}>
+                      <td style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total Overheads</td>
+                      <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.ovTotal)}</td>
+                      <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.ovTotal * 12)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* P&L Statement summary */}
+          <div style={{ ...cardS(T), marginTop: 14, padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px 0" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Profit & Loss Statement — 2026</div>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody>
+                {[
+                  { label: "Revenue (Project Fees)", value: projData.thisYearRev, bold: true },
+                  ...pnlData.costSections.map(s => ({ label: "  " + s.title, value: -s.total, indent: true })),
+                  { label: "Total Direct Costs", value: -projData.thisYearCost, bold: true, border: true },
+                  { label: "GROSS PROFIT", value: pnlData.grossProfit, bold: true, highlight: true, pct: pnlData.grossMargin },
+                  { label: "", spacer: true },
+                  ...overheads.filter(o => parseFloat(o.amount) > 0).map(o => ({ label: "  " + o.label, value: -(parseFloat(o.amount) || 0), indent: true })),
+                  { label: "Total Overheads", value: -pnlData.ovTotal, bold: true, border: true },
+                  { label: "NET PROFIT", value: pnlData.netProfit, bold: true, highlight: true, pct: pnlData.netMargin, final: true },
+                ].map((row, i) => {
+                  if (row.spacer) return <tr key={i}><td colSpan={3} style={{ padding: 6 }} /></tr>;
+                  return (
+                    <tr key={i} style={row.highlight ? { background: row.final ? "#000" : "#f4f4f2" } : {}}>
+                      <td style={{ ...tdS, fontWeight: row.bold ? 700 : 400, paddingLeft: row.indent ? 34 : 20, color: row.final ? "#fff" : row.indent ? T.sub : T.text, borderTop: row.border ? `2px solid ${T.border}` : "none", fontSize: row.highlight ? 13 : 12.5, letterSpacing: row.highlight ? "0.04em" : 0 }}>{row.label}</td>
+                      <td style={{ ...tdR, fontWeight: row.bold ? 700 : 400, color: row.final ? (row.value >= 0 ? "#7dffc4" : "#ffaaaa") : row.value < 0 ? "#b0271d" : row.value > 0 ? "#1a6e3e" : T.text, borderTop: row.border ? `2px solid ${T.border}` : "none", fontSize: row.highlight ? 13 : 12.5 }}>
+                        {row.value < 0 ? "(" + fmtFull(Math.abs(row.value)) + ")" : fmtFull(row.value)}
+                      </td>
+                      <td style={{ ...tdR, fontSize: 11, color: row.final ? (row.pct >= 0 ? "#7dffc4" : "#ffaaaa") : T.muted, borderTop: row.border ? `2px solid ${T.border}` : "none", width: 80 }}>
+                        {row.pct !== undefined ? row.pct.toFixed(1) + "%" : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CASH FLOW ═══ */}
       {financeTab === "cashflow" && (
         <CashFlowDoc
           T={T} isMobile={isMobile}
@@ -112,6 +458,341 @@ export default function Finance({
           activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion}
         />
       )}
+
+      {/* ═══ AR / AP ═══ */}
+      {financeTab === "arap" && (
+        <div>
+          {/* AR/AP summary cards */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(5,1fr)", gap: 14, marginBottom: 22 }}>
+            {[
+              { label: "Total Receivable", value: fmtK(arapCalcs.totalAR), color: "#1a6e3e" },
+              { label: "Overdue AR", value: fmtK(arapCalcs.overdueAR), color: arapCalcs.overdueAR > 0 ? "#b0271d" : T.text },
+              { label: "Total Payable", value: fmtK(arapCalcs.totalAP), color: "#b0271d" },
+              { label: "Overdue AP", value: fmtK(arapCalcs.overdueAP), color: arapCalcs.overdueAP > 0 ? "#b06000" : T.text },
+              { label: "Net Position", value: fmtK(arapCalcs.netPosition), color: arapCalcs.netPosition >= 0 ? "#1a6e3e" : "#b0271d" },
+            ].map((s, i) => (
+              <div key={i} style={cardS(T)}>
+                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* AR Table */}
+          <ARAPTable T={T} title="Accounts Receivable" type="receivables" data={arapData} setData={setArapData} thS={thS} tdS={tdS} tdR={tdR} isMobile={isMobile} />
+
+          {/* AP Table */}
+          <div style={{ marginTop: 14 }}>
+            <ARAPTable T={T} title="Accounts Payable" type="payables" data={arapData} setData={setArapData} thS={thS} tdS={tdS} tdR={tdR} isMobile={isMobile} />
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PROFITABILITY ═══ */}
+      {financeTab === "profitability" && (
+        <div>
+          {/* Summary */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
+            {[
+              { label: "Avg Project Margin", value: projData.avgMargin + "%", color: projData.avgMargin >= 20 ? "#1a6e3e" : "#b06000" },
+              { label: "Projects Over Budget", value: projData.overBudget.length, sub: "of " + projData.nonTemplate.length + " total", color: projData.overBudget.length > 0 ? "#b0271d" : "#1a6e3e" },
+              { label: "Most Profitable", value: projData.topProjects[0]?.margin ? projData.topProjects[0].margin + "%" : "N/A", sub: projData.topProjects[0]?.name || "", color: "#1a6e3e" },
+            ].map((s, i) => (
+              <div key={i} style={cardS(T)}>
+                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
+                {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+
+          {/* Full project table */}
+          <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px 0" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Project Profitability Comparison</div>
+            </div>
+            <div className="mob-table-wrap">
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={thS}>Project</th>
+                  <th style={thS}>Client</th>
+                  <th style={thS}>Status</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Cost</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Profit</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Margin</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Est vs Act</th>
+                </tr></thead>
+                <tbody>
+                  {projData.projBreakdown.sort((a, b) => b.margin - a.margin).map((p, i) => (
+                    <tr key={p.id}>
+                      <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
+                      <td style={{ ...tdS, color: T.sub }}>{p.client}</td>
+                      <td style={tdS}>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: p.status === "Active" ? "#e8f5e9" : p.status === "Completed" || p.status === "Wrapped" ? "#e3f2fd" : "#f5f5f5", color: p.status === "Active" ? "#2e7d32" : p.status === "Completed" || p.status === "Wrapped" ? "#1565c0" : T.muted }}>
+                          {p.status || "Draft"}
+                        </span>
+                      </td>
+                      <td style={tdR}>{fmtFull(p.rev)}</td>
+                      <td style={tdR}>{fmtFull(p.cost)}</td>
+                      <td style={{ ...tdR, fontWeight: 600, color: p.profit >= 0 ? "#1a6e3e" : "#b0271d" }}>{fmtFull(p.profit)}</td>
+                      <td style={{ ...tdR, fontWeight: 600, color: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }}>
+                        {p.margin}%
+                        <div style={{ height: 3, borderRadius: 2, background: T.border, marginTop: 4 }}>
+                          <div style={{ height: 3, borderRadius: 2, width: Math.min(100, Math.max(0, p.margin)) + "%", background: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }} />
+                        </div>
+                      </td>
+                      <td style={{ ...tdR, color: p.variance === null ? T.muted : p.variance >= 0 ? "#1a6e3e" : "#b0271d", fontWeight: p.variance !== null ? 600 : 400 }}>
+                        {p.variance === null ? "—" : p.variance >= 0 ? "Under " + fmtK(p.variance) : "Over " + fmtK(Math.abs(p.variance))}
+                      </td>
+                    </tr>
+                  ))}
+                  {projData.projBreakdown.length === 0 && <tr><td colSpan={8} style={{ ...tdS, textAlign: "center", color: T.muted }}>No projects</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ TAX & VAT ═══ */}
+      {financeTab === "tax" && (
+        <TaxVATTab T={T} isMobile={isMobile} taxData={taxData} setTaxData={setTaxData} projData={projData} cardS={cardS} kpiLabelS={kpiLabelS} thS={thS} tdS={tdS} tdR={tdR} />
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   AR/AP Table Component
+   ═══════════════════════════════════════════════════════════════════════════════ */
+function ARAPTable({ T, title, type, data, setData, thS, tdS, tdR, isMobile }) {
+  const items = data[type] || [];
+  const statusOptions = ["pending", "invoiced", "partial", "paid", "overdue"];
+
+  const addItem = () => {
+    setData(prev => ({
+      ...prev,
+      [type]: [...(prev[type] || []), { id: Date.now(), entity: "", description: "", amount: "", dueDate: "", status: "pending", invoiceRef: "" }],
+    }));
+  };
+
+  const updateItem = (i, key, val) => {
+    setData(prev => {
+      const arr = [...(prev[type] || [])];
+      arr[i] = { ...arr[i], [key]: val };
+      return { ...prev, [type]: arr };
+    });
+  };
+
+  const deleteItem = (i) => {
+    setData(prev => ({
+      ...prev,
+      [type]: (prev[type] || []).filter((_, idx) => idx !== i),
+    }));
+  };
+
+  const statusColor = (s) => {
+    if (s === "paid") return { bg: "#e8f5e9", color: "#2e7d32" };
+    if (s === "overdue") return { bg: "#fce4ec", color: "#b0271d" };
+    if (s === "invoiced") return { bg: "#e3f2fd", color: "#1565c0" };
+    if (s === "partial") return { bg: "#fff3e0", color: "#e65100" };
+    return { bg: "#f5f5f5", color: "#666" };
+  };
+
+  return (
+    <div style={{ borderRadius: 16, background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px 12px" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>{title}</div>
+        <button onClick={addItem} style={{ fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: `1px solid ${T.accent}`, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>+ Add</button>
+      </div>
+      <div className="mob-table-wrap">
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: isMobile ? 700 : "auto" }}>
+          <thead><tr>
+            <th style={thS}>{type === "receivables" ? "Client" : "Vendor"}</th>
+            <th style={thS}>Description</th>
+            <th style={thS}>Invoice #</th>
+            <th style={{ ...thS, textAlign: "right" }}>Amount</th>
+            <th style={thS}>Due Date</th>
+            <th style={thS}>Status</th>
+            <th style={{ ...thS, width: 40 }}></th>
+          </tr></thead>
+          <tbody>
+            {items.map((item, i) => {
+              const sc = statusColor(item.status);
+              return (
+                <tr key={item.id || i}>
+                  <td style={tdS}>
+                    <input value={item.entity || ""} onChange={e => updateItem(i, "entity", e.target.value)} placeholder={type === "receivables" ? "Client name" : "Vendor name"}
+                      style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", width: "100%" }} />
+                  </td>
+                  <td style={tdS}>
+                    <input value={item.description || ""} onChange={e => updateItem(i, "description", e.target.value)} placeholder="Description"
+                      style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", width: "100%" }} />
+                  </td>
+                  <td style={tdS}>
+                    <input value={item.invoiceRef || ""} onChange={e => updateItem(i, "invoiceRef", e.target.value)} placeholder="INV-001"
+                      style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.sub, fontFamily: "inherit", width: 90 }} />
+                  </td>
+                  <td style={tdR}>
+                    <input value={item.amount || ""} onChange={e => updateItem(i, "amount", e.target.value)} placeholder="0" inputMode="numeric"
+                      style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }} />
+                  </td>
+                  <td style={tdS}>
+                    <input type="date" value={item.dueDate || ""} onChange={e => updateItem(i, "dueDate", e.target.value)}
+                      style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: T.text, fontFamily: "inherit" }} />
+                  </td>
+                  <td style={tdS}>
+                    <select value={item.status || "pending"} onChange={e => updateItem(i, "status", e.target.value)}
+                      style={{ border: "none", outline: "none", fontSize: 10, fontWeight: 600, padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", background: sc.bg, color: sc.color, textTransform: "capitalize" }}>
+                      {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ ...tdS, textAlign: "center" }}>
+                    <button onClick={() => deleteItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
+                  </td>
+                </tr>
+              );
+            })}
+            {items.length === 0 && <tr><td colSpan={7} style={{ padding: 30, textAlign: "center", color: T.muted, fontSize: 13 }}>No {type === "receivables" ? "receivables" : "payables"} recorded. Click + Add to create one.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Tax & VAT Tab Component
+   ═══════════════════════════════════════════════════════════════════════════════ */
+function TaxVATTab({ T, isMobile, taxData, setTaxData, projData, cardS, kpiLabelS, thS, tdS, tdR }) {
+  const vatRate = taxData.vatRate || 5;
+  const filings = taxData.filings || [];
+
+  const totalRevenue = projData.thisYearRev;
+  const vatOnRevenue = totalRevenue * (vatRate / 100);
+  const inputVAT = projData.thisYearCost * (vatRate / 100);
+  const netVATLiability = vatOnRevenue - inputVAT;
+
+  const addFiling = () => {
+    setTaxData(prev => ({
+      ...prev,
+      filings: [...(prev.filings || []), { id: Date.now(), period: "", outputVAT: "", inputVAT: "", netVAT: "", dueDate: "", status: "pending", notes: "" }],
+    }));
+  };
+
+  const updateFiling = (i, key, val) => {
+    setTaxData(prev => {
+      const arr = [...(prev.filings || [])];
+      arr[i] = { ...arr[i], [key]: val };
+      // Auto-calc net
+      if (key === "outputVAT" || key === "inputVAT") {
+        const out = parseFloat(key === "outputVAT" ? val : arr[i].outputVAT) || 0;
+        const inp = parseFloat(key === "inputVAT" ? val : arr[i].inputVAT) || 0;
+        arr[i].netVAT = String(out - inp);
+      }
+      return { ...prev, filings: arr };
+    });
+  };
+
+  const deleteFiling = (i) => {
+    setTaxData(prev => ({ ...prev, filings: (prev.filings || []).filter((_, idx) => idx !== i) }));
+  };
+
+  const totalFiled = filings.filter(f => f.status === "filed" || f.status === "paid").reduce((s, f) => s + (parseFloat(f.netVAT) || 0), 0);
+  const totalPending = filings.filter(f => f.status === "pending" || f.status === "due").reduce((s, f) => s + (parseFloat(f.netVAT) || 0), 0);
+
+  return (
+    <div>
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
+        {[
+          { label: "VAT Rate", value: vatRate + "%", color: T.text },
+          { label: "Est. Output VAT", value: fmtK(vatOnRevenue), sub: "on revenue", color: "#b06000" },
+          { label: "Est. Input VAT", value: fmtK(inputVAT), sub: "on costs (reclaimable)", color: "#1a6e3e" },
+          { label: "Net VAT Liability", value: fmtK(netVATLiability), sub: "estimated annual", color: netVATLiability > 0 ? "#b0271d" : "#1a6e3e" },
+        ].map((s, i) => (
+          <div key={i} style={cardS(T)}>
+            <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.value}</div>
+            {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* VAT rate control */}
+      <div style={{ ...cardS(T), marginBottom: 14, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>VAT Rate %</span>
+        <input value={vatRate} onChange={e => setTaxData(prev => ({ ...prev, vatRate: parseFloat(e.target.value) || 0 }))} type="number" step="0.5" min="0" max="100"
+          style={{ border: `1px solid ${T.border}`, outline: "none", padding: "6px 10px", fontSize: 13, width: 70, borderRadius: 6, fontFamily: "inherit", color: T.text, background: T.surface }} />
+        <span style={{ fontSize: 12, color: T.sub }}>UAE standard: 5% — Adjust for your jurisdiction</span>
+      </div>
+
+      {/* VAT filings table */}
+      <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px 12px" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>VAT Return Filings</div>
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>Filed: {fmtFull(totalFiled)} | Pending: {fmtFull(totalPending)}</div>
+          </div>
+          <button onClick={addFiling} style={{ fontSize: 11, fontWeight: 600, color: T.accent, background: "none", border: `1px solid ${T.accent}`, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>+ Add Filing</button>
+        </div>
+        <div className="mob-table-wrap">
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: isMobile ? 700 : "auto" }}>
+            <thead><tr>
+              <th style={thS}>Period</th>
+              <th style={{ ...thS, textAlign: "right" }}>Output VAT</th>
+              <th style={{ ...thS, textAlign: "right" }}>Input VAT</th>
+              <th style={{ ...thS, textAlign: "right" }}>Net VAT</th>
+              <th style={thS}>Due Date</th>
+              <th style={thS}>Status</th>
+              <th style={thS}>Notes</th>
+              <th style={{ ...thS, width: 40 }}></th>
+            </tr></thead>
+            <tbody>
+              {filings.map((f, i) => {
+                const net = (parseFloat(f.outputVAT) || 0) - (parseFloat(f.inputVAT) || 0);
+                const sc = f.status === "paid" ? { bg: "#e8f5e9", color: "#2e7d32" } : f.status === "filed" ? { bg: "#e3f2fd", color: "#1565c0" } : f.status === "overdue" ? { bg: "#fce4ec", color: "#b0271d" } : { bg: "#fff3e0", color: "#e65100" };
+                return (
+                  <tr key={f.id || i}>
+                    <td style={tdS}>
+                      <input value={f.period || ""} onChange={e => updateFiling(i, "period", e.target.value)} placeholder="Q1 2026"
+                        style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", width: 100 }} />
+                    </td>
+                    <td style={tdR}>
+                      <input value={f.outputVAT || ""} onChange={e => updateFiling(i, "outputVAT", e.target.value)} placeholder="0" inputMode="numeric"
+                        style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 90 }} />
+                    </td>
+                    <td style={tdR}>
+                      <input value={f.inputVAT || ""} onChange={e => updateFiling(i, "inputVAT", e.target.value)} placeholder="0" inputMode="numeric"
+                        style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 90 }} />
+                    </td>
+                    <td style={{ ...tdR, fontWeight: 600, color: net > 0 ? "#b0271d" : "#1a6e3e" }}>{fmtFull(net)}</td>
+                    <td style={tdS}>
+                      <input type="date" value={f.dueDate || ""} onChange={e => updateFiling(i, "dueDate", e.target.value)}
+                        style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: T.text, fontFamily: "inherit" }} />
+                    </td>
+                    <td style={tdS}>
+                      <select value={f.status || "pending"} onChange={e => updateFiling(i, "status", e.target.value)}
+                        style={{ border: "none", outline: "none", fontSize: 10, fontWeight: 600, padding: "3px 8px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit", background: sc.bg, color: sc.color, textTransform: "capitalize" }}>
+                        {["pending", "due", "filed", "paid", "overdue"].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td style={tdS}>
+                      <input value={f.notes || ""} onChange={e => updateFiling(i, "notes", e.target.value)} placeholder="Notes…"
+                        style={{ border: "none", outline: "none", background: "transparent", fontSize: 12, color: T.sub, fontFamily: "inherit", width: "100%" }} />
+                    </td>
+                    <td style={{ ...tdS, textAlign: "center" }}>
+                      <button onClick={() => deleteFiling(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filings.length === 0 && <tr><td colSpan={8} style={{ padding: 30, textAlign: "center", color: T.muted, fontSize: 13 }}>No VAT filings recorded. Click + Add Filing to start tracking.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
