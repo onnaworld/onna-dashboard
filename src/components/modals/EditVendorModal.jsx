@@ -1,25 +1,28 @@
 import React from "react";
 
-export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localClients, setLocalClients }) {
-  const vendorToClient = async (move) => {
+export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads }) {
+  const vendorToLead = async (move) => {
     const company = (editVendor.company||editVendor.name||"").trim();
     if (!company) return;
-    if (localClients.some(c=>(c.company||"").toLowerCase()===company.toLowerCase())) {
-      alert(`${company} is already a client.`);
+    if (localLeads.some(l=>(l.company||"").toLowerCase()===company.toLowerCase())) {
+      alert(`${company} is already a lead.`);
       return;
     }
-    const newClient = {
+    const newLead = {
       company,
-      name: editVendor.name||"",
+      contact: editVendor.name||"",
       email: editVendor.email||"",
       phone: editVendor.phone||"",
-      country: editVendor.location||"",
+      location: editVendor.location||"",
       category: editVendor.category||"",
       notes: editVendor.notes||"",
+      status: "not_contacted",
+      date: new Date().toISOString().slice(0,10),
+      value: "",
     };
     try {
-      const saved = await api.post("/api/clients", newClient);
-      if (saved.id) setLocalClients(prev=>[...prev,saved]);
+      const saved = await api.post("/api/leads", newLead);
+      if (saved.id) setLocalLeads(prev=>[...prev,saved]);
     } catch { return; }
     if (move) {
       archiveItem('vendors', editVendor);
@@ -139,8 +142,8 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, ed
               pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
               setEditVendor(null);
             }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
-            <button onClick={()=>vendorToClient(false)} style={{background:"none",border:"none",color:"#7c3aed",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Copy to Client</button>
-            <button onClick={()=>{if(window.confirm(`Move ${editVendor.name||editVendor.company} to Clients? This will remove it from Vendors.`))vendorToClient(true);}} style={{background:"none",border:"none",color:"#1a56db",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Move to Client</button>
+            <button onClick={()=>vendorToLead(false)} style={{background:"none",border:"none",color:"#7c3aed",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Copy to Lead</button>
+            <button onClick={()=>{if(window.confirm(`Move ${editVendor.name||editVendor.company} to Leads? This will remove it from Vendors.`))vendorToLead(true);}} style={{background:"none",border:"none",color:"#1a56db",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Move to Lead</button>
           </div>
           <div style={{display:"flex",gap:8}}>
             <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>

@@ -1137,7 +1137,7 @@ function OnnaDashboardInner() {
     allLeadCats, allLeadLocs, allVendorCats, allVendorLocs,
     customVendorCats, setCustomVendorCats, customVendorLocs, setCustomVendorLocs,
     OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, promoteToClient,
-    setLocalLeads, setLeadStatusOverrides, setOutreach,
+    localLeads, setLocalLeads, setLeadStatusOverrides, setOutreach,
     archiveItem, pruneCustom, setXContacts, pushUndo,
     showRateModal, setShowRateModal, rateInput, setRateInput,
     editVendor, setEditVendor, vendors, setVendors,
@@ -1176,8 +1176,7 @@ function OnnaDashboardInner() {
     showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
     showTimeoutWarning, setShowTimeoutWarning,
     _modal, _closeModal, _modalInputRef,
-    undoToastMsg, mobileMenuOpen, setMobileMenuOpen,
-    localClients, setLocalClients};
+    undoToastMsg, mobileMenuOpen, setMobileMenuOpen};
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
   const currentTab = TABS.find(t=>t.id===activeTab)||(activeTab==="Settings"?{id:"Settings",label:"Settings"}:TABS[0]);
