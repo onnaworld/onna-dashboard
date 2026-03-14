@@ -1060,7 +1060,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
     // Add synced data per month (project rev/cost mapped to specific months)
     const syncInC = inC.map((v, m) => v + (syncedData.projRevCols[m] || 0));
-    const syncOutC = outC.map((v, m) => v + (syncedData.ohColTotals[m] || 0) + (syncedData.projCostCols[m] || 0));
+    const syncOutC = outC.map((v, m) => v + (syncedData.ohColTotals[m] || 0));
 
     const inA = syncInC.reduce((a, b) => a + b, 0);
     const outA = syncOutC.reduce((a, b) => a + b, 0);
@@ -1167,10 +1167,19 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const renderSection = (type, sectionLabel) => {
     const arr = data[type] || [];
     const isInflows = type === "inflows";
+    const isOutflows = type === "outflows";
     return (
       <>
         {/* Banner */}
         <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>{sectionLabel}</td></tr>
+        {/* Synced P&L overhead sub-rows (outflows only) */}
+        {isOutflows && syncedData.ohRows.map((o, oi) => (
+          <tr key={"oh-sync-" + oi}>
+            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{o.label}{o.frequency !== "monthly" ? ` (${MONTH_LABELS_FULL[(parseInt(o.month)||1)-1]})` : ""}</td>
+            {o.cols.map((v, m) => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#666" }}>{v ? fmt(v) : "—"}</td>)}
+            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{o.annual ? fmt(o.annual) : "—"}</td>
+          </tr>
+        ))}
         {/* Data rows */}
         {arr.map((row, i) => {
           const rt = calcs.rowTotal(row);
@@ -1311,36 +1320,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                       <td style={{ ...subS, paddingRight: 0 }}>{calcs.inA ? fmt(calcs.inA) : "—"}</td>
                     </tr>
 
-                    {/* Synced Operating Overheads */}
-                    {(syncedData.ohRows.length > 0 || syncedData.projRows.length > 0) && (
-                      <>
-                        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#b0271d", color: "#fff", padding: "6px 0" }}>Synced Outflows (from P&L & Projects)</td></tr>
-                        {syncedData.ohRows.map((o, i) => (
-                          <tr key={"sync-oh-" + i}>
-                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>{o.label}{o.frequency !== "monthly" ? ` (${MONTH_LABELS_FULL[(parseInt(o.month)||1)-1]})` : ""}</td>
-                            {o.cols.map((v, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{v ? fmt(v) : "—"}</td>)}
-                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{o.annual ? fmt(o.annual) : "—"}</td>
-                          </tr>
-                        ))}
-                        {syncedData.projRows.map((p, i) => (
-                          <tr key={"sync-cost-" + i}>
-                            <td style={{ ...cellS, textAlign: "left", padding: "5px 0", color: "#b0271d", fontStyle: "italic" }}>{p.name} (Cost)</td>
-                            {p.costCols.map((v, m) => <td key={m} style={{ ...cellS, color: "#b0271d" }}>{v ? fmt(v) : "—"}</td>)}
-                            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", color: "#b0271d" }}>{p.cost ? fmt(p.cost) : "—"}</td>
-                          </tr>
-                        ))}
-                        <tr>
-                          <td style={{ ...subS, textAlign: "left", paddingLeft: 0, color: "#b0271d", background: "#fce4ec" }}>Synced Outflows</td>
-                          {syncedData.ohColTotals.map((v, m) => {
-                            const total = v + (syncedData.projCostCols[m] || 0);
-                            return <td key={m} style={{ ...subS, color: "#b0271d", background: "#fce4ec" }}>{total ? fmt(total) : "—"}</td>;
-                          })}
-                          <td style={{ ...subS, paddingRight: 0, color: "#b0271d", background: "#fce4ec" }}>{(syncedData.ohColTotals.reduce((a,b)=>a+b,0) + syncedData.totalSyncedCost) ? fmt(syncedData.ohColTotals.reduce((a,b)=>a+b,0) + syncedData.totalSyncedCost) : "—"}</td>
-                        </tr>
-                      </>
-                    )}
-
-                    {/* Outflows */}
+                    {/* Outflows (with synced P&L overheads as sub-rows) */}
                     {renderSection("outflows", "Operating Outflows")}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Outflows</td>
