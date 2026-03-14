@@ -52,6 +52,52 @@ export const THFilter = ({label,value,onChange,options}) => (
   </th>
 );
 
+export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,setCustomLocs,storageKey}) => {
+  const [open,setOpen] = useState(false);
+  const ref = useRef(null);
+  const locs = (typeof value==="string"&&value?value.split(", ").map(s=>s.trim()).filter(Boolean):Array.isArray(value)?value:[]);
+  const available = options.filter(o=>o!=="All"&&o!=="＋ Add location");
+  useEffect(()=>{
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  const toggle = loc => {
+    const next = locs.includes(loc)?locs.filter(l=>l!==loc):[...locs,loc];
+    onChange(next.join(", "));
+  };
+  const addNew = () => {
+    if(!addNewOption)return;
+    const n = addNewOption(customLocs,setCustomLocs,storageKey,"New location name:");
+    if(n){const next=[...locs,n];onChange(next.join(", "));}
+  };
+  return (
+    <div ref={ref} style={{position:"relative"}}>
+      <div onClick={()=>setOpen(!open)} style={{minHeight:36,padding:"6px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",flexWrap:"wrap",gap:4,alignItems:"center"}}>
+        {locs.length===0&&<span style={{fontSize:12,color:T.muted,padding:"2px 0"}}>Select locations…</span>}
+        {locs.map(l=>(
+          <span key={l} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"2px 8px",borderRadius:7,background:"#e8e8ed",fontSize:11,color:T.text,fontWeight:500}}>
+            {l}
+            <span onClick={e=>{e.stopPropagation();toggle(l);}} style={{cursor:"pointer",color:T.muted,fontSize:13,lineHeight:1}}>×</span>
+          </span>
+        ))}
+      </div>
+      {open&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,marginTop:4,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",maxHeight:220,overflowY:"auto",padding:"4px 0"}}>
+          {available.map(loc=>(
+            <label key={loc} onClick={()=>toggle(loc)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",cursor:"pointer",fontSize:12,color:T.text,fontFamily:"inherit",background:locs.includes(loc)?"#f5f5f7":"transparent"}}>
+              <span style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${locs.includes(loc)?"#F5D13A":T.border}`,background:locs.includes(loc)?"#F5D13A":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:11,color:"#3d2800",fontWeight:700}}>{locs.includes(loc)?"✓":""}</span>
+              {loc}
+            </label>
+          ))}
+          {addNewOption&&(
+            <div onClick={addNew} style={{padding:"7px 12px",cursor:"pointer",fontSize:12,color:"#d4aa20",fontWeight:600,borderTop:`1px solid ${T.borderSub}`}}>＋ Add location</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SectionBtn = ({label,active,onClick}) => (
   <button onClick={onClick} style={{padding:"6px 13px",borderRadius:9,fontSize:12,fontWeight:500,cursor:"pointer",border:`1px solid ${active?T.accent:T.border}`,fontFamily:"inherit",transition:"all 0.12s",background:active?T.accent:"transparent",color:active?"#fff":T.sub,whiteSpace:"nowrap"}}>{label}</button>
 );
@@ -180,6 +226,9 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   const editorRef = useRef(null);
   const [hoveredNoteId,setHoveredNoteId] = useState(null);
   const [expandedNotes,setExpandedNotes] = useState(()=>new Set());
+  const [dragId,setDragId] = useState(null);
+  const [dropTargetId,setDropTargetId] = useState(null);
+  const [dropZone,setDropZone] = useState(null); // "onto" or "above"
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
 
   useEffect(()=>{
@@ -195,12 +244,14 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
     setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,title:val,updatedAt:Date.now()}:n));
   };
   const createNote = () => {
-    const n={id:Date.now(),title:"",content:"",updatedAt:Date.now()};
+    const minOrder = Math.min(0,...notes.filter(n=>!n.parentId).map(n=>n.sortOrder??0));
+    const n={id:Date.now(),title:"",content:"",updatedAt:Date.now(),sortOrder:minOrder-1};
     setNotes(prev=>[n,...prev]); setSelectedId(n.id);
   };
   const createSubNote = (parentId,e) => {
     e?.stopPropagation();
-    const n={id:Date.now(),title:"",content:"",updatedAt:Date.now(),parentId};
+    const minOrder = Math.min(0,...notes.filter(n=>n.parentId===parentId).map(n=>n.sortOrder??0));
+    const n={id:Date.now(),title:"",content:"",updatedAt:Date.now(),parentId,sortOrder:minOrder-1};
     setNotes(prev=>[n,...prev]); setSelectedId(n.id);
     setExpandedNotes(prev=>{const s=new Set(prev);s.add(parentId);return s;});
   };
@@ -219,19 +270,63 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
     e.stopPropagation();
     setExpandedNotes(prev=>{const s=new Set(prev);if(s.has(id))s.delete(id);else s.add(id);return s;});
   };
+  const handleDragStart = (id,e) => { setDragId(id); e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",id); };
+  const handleDragOver = (targetId,isChild,e) => {
+    e.preventDefault(); e.dataTransfer.dropEffect="move";
+    if (targetId===dragId) return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const y=e.clientY-rect.top;
+    // Top 30% = drop above (make sibling / re-order), bottom 70% = drop onto (make sub-note)
+    const zone = y < rect.height*0.3 ? "above" : "onto";
+    setDropTargetId(targetId); setDropZone(zone);
+  };
+  const handleDragLeave = (e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setDropTargetId(null); setDropZone(null); } };
+  const handleDrop = (targetId,e) => {
+    e.preventDefault();
+    if (!dragId||dragId===targetId) { setDragId(null);setDropTargetId(null);setDropZone(null); return; }
+    const dragNote = notes.find(n=>n.id===dragId);
+    const targetNote = notes.find(n=>n.id===targetId);
+    if (!dragNote||!targetNote) { setDragId(null);setDropTargetId(null);setDropZone(null); return; }
+    if (targetNote.parentId===dragId) { setDragId(null);setDropTargetId(null);setDropZone(null); return; }
+    if (dropZone==="onto") {
+      const newParent = targetNote.parentId || targetNote.id;
+      const siblings = notes.filter(n=>n.parentId===newParent).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
+      const lastOrder = siblings.length > 0 ? (siblings[siblings.length-1].sortOrder??0)+1 : 0;
+      setNotes(prev=>prev.map(n=>n.id===dragId?{...n,parentId:newParent,sortOrder:lastOrder}:n));
+      setExpandedNotes(prev=>{const s=new Set(prev);s.add(newParent);return s;});
+    } else {
+      const siblingParent = targetNote.parentId||undefined;
+      const siblings = notes.filter(n=>siblingParent?(n.parentId===siblingParent):(!n.parentId)).filter(n=>n.id!==dragId).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
+      const targetIdx = siblings.findIndex(n=>n.id===targetId);
+      const reordered = [...siblings.slice(0,targetIdx),{id:dragId},...siblings.slice(targetIdx)];
+      const orderMap = {};
+      reordered.forEach((n,i)=>{ orderMap[n.id]=i; });
+      setNotes(prev=>prev.map(n=>{
+        if(n.id===dragId) return {...n,parentId:siblingParent,sortOrder:orderMap[dragId]??0};
+        if(orderMap[n.id]!==undefined) return {...n,sortOrder:orderMap[n.id]};
+        return n;
+      }));
+    }
+    setDragId(null);setDropTargetId(null);setDropZone(null);
+  };
+  const handleDragEnd = () => { setDragId(null);setDropTargetId(null);setDropZone(null); };
   const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
   const getPlain = (html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
   const getTitle = (n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note";
   const getPreview = (n) => { const p=getPlain(n.content).replace(/\n+/g," ").trim(); return p.slice(0,60); };
   const fmtDate = (ts) => { if(!ts)return""; const d=new Date(ts),now=new Date(); if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString([],{month:"short",day:"numeric"}); };
-  const topLevel = [...notes].filter(n=>!n.parentId).sort((a,b)=>b.updatedAt-a.updatedAt);
-  const childrenOf = (pid) => notes.filter(n=>n.parentId===pid).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const sortNotes = (arr) => arr.sort((a,b)=>{const sa=a.sortOrder??Infinity,sb=b.sortOrder??Infinity; if(sa!==Infinity||sb!==Infinity) return sa-sb; return b.updatedAt-a.updatedAt;});
+  const topLevel = sortNotes([...notes].filter(n=>!n.parentId));
+  const childrenOf = (pid) => sortNotes(notes.filter(n=>n.parentId===pid));
   const hasChildren = (id) => notes.some(n=>n.parentId===id);
   const showList = !isMobile||!selectedNote;
   const showEditor = !isMobile||!!selectedNote;
   const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
-  const renderNoteItem = (n,isChild) => (
-    <div key={n.id} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"pointer",background:selectedId===n.id?"#e8e8ed":isChild?"#f5f5f7":"transparent",borderLeft:!isChild&&hasChildren(n.id)?`3px solid ${T.accent}`:"3px solid transparent",transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6}}>
+  const renderNoteItem = (n,isChild) => {
+    const isDragOver = dropTargetId===n.id && dragId!==n.id;
+    const dropStyle = isDragOver ? (dropZone==="onto" ? {background:"#e0e7ff",borderLeft:`3px solid ${T.accent}`} : {borderTop:`2px solid ${T.accent}`}) : {};
+    return (
+    <div key={n.id} draggable onDragStart={e=>handleDragStart(n.id,e)} onDragOver={e=>handleDragOver(n.id,isChild,e)} onDragLeave={handleDragLeave} onDrop={e=>handleDrop(n.id,e)} onDragEnd={handleDragEnd} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",background:selectedId===n.id?"#e8e8ed":isChild?"#f5f5f7":"transparent",borderLeft:!isChild&&hasChildren(n.id)?`3px solid ${T.accent}`:"3px solid transparent",opacity:dragId===n.id?0.4:1,transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6,...dropStyle}}>
       {!isChild && hasChildren(n.id) ? (
         <button onClick={e=>toggleExpand(n.id,e)} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,padding:"2px 0",lineHeight:1,flexShrink:0,marginTop:2,color:T.muted,width:14,textAlign:"center"}}>{expandedNotes.has(n.id)?"▼":"▶"}</button>
       ) : !isChild ? <span style={{width:14,flexShrink:0}}/> : null}
@@ -247,7 +342,7 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
         <button onClick={e=>deleteNote(n.id,e)} style={{background:"none",border:"none",color:"#c0392b",cursor:"pointer",fontSize:15,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Delete note">×</button>
       </>}
     </div>
-  );
+  );};
   return (
     <div style={{marginTop:isMobile?12:18,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,0.06)",display:"flex",height:isMobile?520:500,background:T.surface}}>
       {showList&&(
@@ -256,7 +351,7 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
             <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
             <button onClick={createNote} style={{width:22,height:22,borderRadius:6,background:T.accent,border:"none",color:"#fff",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>+</button>
           </div>
-          <div style={{flex:1,overflowY:"auto"}}>
+          <div style={{flex:1,overflowY:"auto"}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={e=>{e.preventDefault();if(dragId){const maxOrder=Math.max(0,...notes.filter(n=>!n.parentId).map(n=>n.sortOrder??0));setNotes(prev=>prev.map(n=>n.id===dragId?{...n,parentId:undefined,sortOrder:maxOrder+1}:n));setDragId(null);setDropTargetId(null);setDropZone(null);}}}>
             {topLevel.length===0&&!notes.some(n=>n.parentId)&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
             {topLevel.map(n=>(
               <React.Fragment key={n.id}>
