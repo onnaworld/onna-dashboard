@@ -106,7 +106,6 @@ const TABS = [
   {id:"Clients",   label:"CLIENTS",   starColor:_ORANGE},
   {id:"Projects",  label:"PROJECTS",  starColor:_GREEN},
   {id:"Finance",   label:"FINANCE",   starColor:_TEAL},
-  {id:"Expenses",  label:"EXPENSES",  starColor:_PEACH},
   {id:"Resources", label:"RESOURCES", starColor:_BLUE},
   {id:"Information",label:"INFORMATION",starColor:_CORAL},
 ];
@@ -1234,9 +1233,7 @@ function OnnaDashboardInner() {
 
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
-          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals}/>}
-
-          {activeTab==="Expenses"&&<Expenses T={T} isMobile={isMobile} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg}/>}
+          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg}/>}
 
           {activeTab==="Resources"&&<Resources T={T} isMobile={isMobile} api={api}
             vaultLocked={vaultLocked} setVaultLocked={setVaultLocked}

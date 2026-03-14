@@ -405,7 +405,7 @@ export const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Comm
 export const ACTUALS_STATUSES = ["", "Pending", "Confirmed", "Paid"];
 
 // ─── URL ROUTING HELPERS ───────────────────────────────────────────────────
-export const TAB_SLUGS = {Dashboard:"dashboard",Agents:"agents",Vendors:"vendors",Clients:"clients",Projects:"projects",Finance:"finance",Expenses:"expenses",Resources:"resources",Information:"information",Notes:"notes",Settings:"settings"};
+export const TAB_SLUGS = {Dashboard:"dashboard",Agents:"agents",Vendors:"vendors",Clients:"clients",Projects:"projects",Finance:"finance",Resources:"resources",Information:"information",Notes:"notes",Settings:"settings"};
 export const SLUG_TO_TAB = Object.fromEntries(Object.entries(TAB_SLUGS).map(([k,v])=>[v,k]));
 export const SECTION_SLUGS = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s,s.toLowerCase()]));
 export const SLUG_TO_SECTION = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s.toLowerCase(),s]));

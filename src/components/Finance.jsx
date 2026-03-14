@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
 import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections } from "../utils/helpers";
 
@@ -99,8 +100,19 @@ export default function Finance({
   debouncedDocSave,
   allProjects,
   projectEstimates, projectActuals,
+  SearchBar, Pill, setUndoToastMsg,
 }) {
   const [financeTab, setFinanceTab] = useState("overview");
+  const revBoxRef = useRef(null);
+  const [revBoxH, setRevBoxH] = useState(null);
+  const [customFreqOpen, setCustomFreqOpen] = useState({});
+
+  useEffect(() => {
+    if (!revBoxRef.current) return;
+    const ro = new ResizeObserver(([e]) => setRevBoxH(e.contentRect.height));
+    ro.observe(revBoxRef.current);
+    return () => ro.disconnect();
+  }, [financeTab]);
 
   /* ── Available years (shared via localStorage) ── */
   const [availableYears, setAvailableYears] = useState(() => {
@@ -244,6 +256,7 @@ export default function Finance({
     { key: "arap", label: "AR / AP" },
     { key: "profitability", label: "Profitability" },
     { key: "tax", label: "Tax & VAT" },
+    { key: "expenses", label: "Expenses" },
   ];
 
   /* ── Shared table styles ── */
@@ -378,9 +391,9 @@ export default function Finance({
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, alignItems: "start" }}>
             {/* Revenue by project */}
-            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+            <div ref={revBoxRef} style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
               <div style={{ padding: "16px 20px 0" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({financeYear})</div>
               </div>
@@ -420,11 +433,11 @@ export default function Finance({
             </div>
 
             {/* Overheads */}
-            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px 0" }}>
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden", ...(revBoxH && !isMobile ? { maxHeight: revBoxH, display: "flex", flexDirection: "column" } : {}) }}>
+              <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Operating Overheads</div>
               </div>
-              <div className="mob-table-wrap">
+              <div className="mob-table-wrap" style={{ overflowY: "auto", flex: 1 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
                     <th style={thS}>Category</th>
@@ -704,6 +717,10 @@ export default function Finance({
       {/* ═══ TAX & VAT ═══ */}
       {financeTab === "tax" && (
         <TaxVATTab T={T} isMobile={isMobile} taxData={taxData} setTaxData={setTaxData} projData={projData} cardS={cardS} kpiLabelS={kpiLabelS} thS={thS} tdS={tdS} tdR={tdR} />
+      )}
+
+      {financeTab === "expenses" && (
+        <Expenses T={T} isMobile={isMobile} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg} />
       )}
     </div>
   );
