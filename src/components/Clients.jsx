@@ -56,6 +56,53 @@ export default function Clients({
   const [showAddOutreach, setShowAddOutreach] = useState(false);
   const [newOutreach, setNewOutreach] = useState({company:"",clientName:"",role:"",email:"",phone:"",category:"Production Companies",location:"Dubai, UAE",status:"cold",date:"",value:"",notes:""});
 
+  // ── Drag & drop between tabs ──
+  const [dragItem, setDragItem] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+  const handleRowDragStart = (l, e) => {
+    setDragItem(l);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", l.id);
+  };
+  const handleRowDragEnd = () => { setDragItem(null); setDropTarget(null); };
+  const handlePillDragOver = (tab, e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropTarget(tab); };
+  const handlePillDragLeave = () => setDropTarget(null);
+  const handlePillDrop = async (tab) => {
+    const l = dragItem;
+    setDragItem(null); setDropTarget(null);
+    if (!l) return;
+    const isOutreach = !!l._fromOutreach;
+    const apiPath = isOutreach ? `/api/outreach/${l.id}` : `/api/leads/${l.id}`;
+
+    if (tab === "competitors") {
+      // Set category to Market Research
+      await api.put(apiPath, { category: "Market Research" });
+      if (isOutreach) setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, category: "Market Research" } : x));
+      else setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, category: "Market Research" } : x));
+      showToast(`${l.company} → Competitors`);
+    } else if (tab === "leads" || tab === "outreach") {
+      const wasCompetitor = _isCompetitor(l);
+      const updates = {};
+      if (wasCompetitor) updates.category = "Production Companies";
+      if (tab === "outreach" && (l.status === "not_contacted")) updates.status = "cold";
+      if (Object.keys(updates).length === 0) return;
+      await api.put(apiPath, updates);
+      if (isOutreach) setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, ...updates } : x));
+      else setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, ...updates } : x));
+      showToast(`${l.company} → ${tab === "leads" ? "Leads" : "Outreach"}`);
+    }
+  };
+  const dragRowProps = l => ({
+    draggable: true,
+    onDragStart: e => handleRowDragStart(l, e),
+    onDragEnd: handleRowDragEnd,
+  });
+  const dropPillProps = tab => ({
+    onDragOver: e => handlePillDragOver(tab, e),
+    onDragLeave: handlePillDragLeave,
+    onDrop: e => { e.preventDefault(); handlePillDrop(tab); },
+  });
+
   // ── Computed values ──
   const allLeadsMerged = localLeads.map(l => leadStatusOverrides[l.id] ? { ...l, status: leadStatusOverrides[l.id] } : l);
   const _outreachKeys = new Set(outreach.map(o => o.company.trim().toLowerCase()));
@@ -100,10 +147,17 @@ export default function Clients({
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 22 }}>
         <Pill label="Overview" active={leadsView === "dashboard"} onClick={() => setLeadsView("dashboard")} />
-        <Pill label="Outreach Tracker" active={leadsView === "outreach"} onClick={() => setLeadsView("outreach")} />
-        <Pill label="Leads" active={leadsView === "leads"} onClick={() => setLeadsView("leads")} />
-        <Pill label="Clients" active={leadsView === "clients"} onClick={() => setLeadsView("clients")} />
-        <Pill label="Competitors" active={leadsView === "competitors"} onClick={() => setLeadsView("competitors")} />
+        {["outreach","leads","clients","competitors"].map(tab => {
+          const labels = { outreach: "Outreach Tracker", leads: "Leads", clients: "Clients", competitors: "Competitors" };
+          const isDroppable = tab === "outreach" || tab === "leads" || tab === "competitors";
+          const isOver = dropTarget === tab && dragItem;
+          return (
+            <div key={tab} {...(isDroppable ? dropPillProps(tab) : {})}
+              style={{ borderRadius: 999, border: isOver ? "2px dashed #F5D13A" : "2px solid transparent", transition: "border-color 0.15s" }}>
+              <Pill label={labels[tab]} active={leadsView === tab} onClick={() => setLeadsView(tab)} />
+            </div>
+          );
+        })}
       </div>
 
       {leadsView === "dashboard" && (() => {
@@ -234,7 +288,7 @@ export default function Clients({
               </tr></thead>
               <tbody>
                 {filteredLeads.map(l => (
-                  <tr key={`${l._fromOutreach ? "o" : "l"}_${l.id}`} className="row" onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}>
+                  <tr key={`${l._fromOutreach ? "o" : "l"}_${l.id}`} className="row" {...dragRowProps(l)} onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }} style={{ cursor: "grab" }}>
                     <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role || ""}</TD>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}><a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{l.email}</a></td>
                     <TD muted>{l.category}</TD>
@@ -425,7 +479,7 @@ export default function Clients({
                       </tr></thead>
                       <tbody>
                         {notContacted.map(l => (
-                          <tr key={`nc_${l._fromOutreach?"o":"l"}_${l.id}`} className="row" style={{ cursor: "pointer" }}
+                          <tr key={`nc_${l._fromOutreach?"o":"l"}_${l.id}`} className="row" {...dragRowProps(l)} style={{ cursor: "grab" }}
                             onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}>
                             <TD bold>{l.company}</TD>
                             <TD>{l.contact || "\u2014"}</TD>
@@ -476,7 +530,7 @@ export default function Clients({
               </tr></thead>
               <tbody>
                 {filteredOutreach.map(o => (
-                  <tr key={o.id} className="row" onClick={() => setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) })}>
+                  <tr key={o.id} className="row" {...dragRowProps({...o, _fromOutreach: true, contact: o.clientName})} onClick={() => setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) })} style={{ cursor: "grab" }}>
                     <TD bold>{o.company}</TD><TD>{o.clientName}</TD><TD muted>{o.role}</TD>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}><a href={`mailto:${o.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{o.email}</a></td>
                     <TD muted>{o.category}</TD>
@@ -588,7 +642,7 @@ export default function Clients({
                 </tr></thead>
                 <tbody>
                   {filtered.map(l => (
-                    <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" style={{ cursor: "pointer" }}
+                    <tr key={`${l._fromOutreach?"o":"l"}_${l.id}`} className="row" {...dragRowProps(l)} style={{ cursor: "grab" }}
                       onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }}>
                       <TD bold>{l.company}</TD>
                       <TD>{l.contact || "\u2014"}</TD>
