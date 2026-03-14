@@ -1,17 +1,47 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
 import { CSLogoSlot } from "./ui/DocHelpers";
 import { PRINT_CLEANUP_CSS } from "../utils/helpers";
 
-const CASHFLOW_CATEGORIES = ["Revenue","Cost of Goods","Operating Expense","Tax","Investment","Loan","Transfer","Other"];
+/* ── Branded constants (matching estimates/callsheets) ── */
+const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
+const LS = 0.5;
+const LS_HDR = 1.5;
+const MONTHS = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"];
 
-const CASHFLOW_INIT = {
+const CASHFLOW_INIT = () => ({
   id: Date.now(),
   label: "Cash Flow V1",
   prodLogo: null,
   clientLogo: null,
-  rows: [{ id: 1, date: "", desc: "", category: "Revenue", income: 0, expense: 0 }],
+  currency: "AED",
+  financialYear: "2025 – 2026",
+  openingBalance: 0,
+  vatRate: 5,
+  inflows: [
+    { label: "Client Fees / Project Revenue", v: Array(12).fill("") },
+    { label: "Retainer Income", v: Array(12).fill("") },
+    { label: "Licensing & Syndication", v: Array(12).fill("") },
+    { label: "Grants & Funding", v: Array(12).fill("") },
+    { label: "Other Income", v: Array(12).fill("") },
+  ],
+  outflows: [
+    { label: "Salaries & Freelance Crew", v: Array(12).fill("") },
+    { label: "Equipment & Rentals", v: Array(12).fill("") },
+    { label: "Travel & Accommodation", v: Array(12).fill("") },
+    { label: "Post Production", v: Array(12).fill("") },
+    { label: "Software & Subscriptions", v: Array(12).fill("") },
+    { label: "Marketing & Distribution", v: Array(12).fill("") },
+    { label: "Office & Studio Rent", v: Array(12).fill("") },
+    { label: "Insurance", v: Array(12).fill("") },
+    { label: "Legal & Professional Fees", v: Array(12).fill("") },
+    { label: "Overheads & Admin", v: Array(12).fill("") },
+  ],
+  capex: [
+    { label: "Equipment Purchases", v: Array(12).fill("") },
+    { label: "Software Licences (one-off)", v: Array(12).fill("") },
+  ],
   notes: "",
-};
+});
 
 export default function Finance({
   T, isMobile,
@@ -88,18 +118,17 @@ export default function Finance({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Cash Flow Document Component
+   Cash Flow Document Component — Monthly Tracker
    ═══════════════════════════════════════════════════════════════════════════════ */
 function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, allProjects }) {
   const [selectedProject, setSelectedProject] = useState("");
-  const printRef = useRef();
 
   const pid = selectedProject;
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
   const data = vIdx >= 0 ? versions[vIdx] : null;
 
-  const update = (key, val) => {
+  const update = useCallback((key, val) => {
     if (!pid || vIdx < 0) return;
     setCashFlowStore(prev => {
       const store = JSON.parse(JSON.stringify(prev));
@@ -111,32 +140,12 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       store[pid] = arr;
       return store;
     });
-  };
-
-  const updateRow = (rowId, field, value) => {
-    update(d => {
-      const rows = [...d.rows];
-      const ri = rows.findIndex(r => r.id === rowId);
-      if (ri >= 0) rows[ri] = { ...rows[ri], [field]: value };
-      return { ...d, rows };
-    });
-  };
-
-  const addRow = () => {
-    update(d => ({
-      ...d,
-      rows: [...d.rows, { id: Date.now(), date: "", desc: "", category: "Revenue", income: 0, expense: 0 }],
-    }));
-  };
-
-  const deleteRow = (rowId) => {
-    update(d => ({ ...d, rows: d.rows.filter(r => r.id !== rowId) }));
-  };
+  }, [pid, vIdx, setCashFlowStore]);
 
   const addVersion = () => {
     if (!pid) return;
-    const newV = { ...JSON.parse(JSON.stringify(CASHFLOW_INIT)), id: Date.now(), label: `Cash Flow V${versions.length + 1}` };
-    // Load default logo
+    const newV = CASHFLOW_INIT();
+    newV.label = `Cash Flow V${versions.length + 1}`;
     const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
     logoImg.onload = () => { try { const cv = document.createElement("canvas"); cv.width = logoImg.naturalWidth; cv.height = logoImg.naturalHeight; cv.getContext("2d").drawImage(logoImg, 0, 0); newV.prodLogo = cv.toDataURL("image/png"); } catch {} };
     logoImg.src = "/onna-default-logo.png";
@@ -162,43 +171,164 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     setActiveCashFlowVersion(prev => prev >= idx ? Math.max(0, (prev || 0) - 1) : prev);
   };
 
-  /* ── Running balance calc ── */
-  const rowsWithBalance = useMemo(() => {
-    if (!data) return [];
-    let bal = 0;
-    return data.rows.map(r => {
-      const inc = parseFloat(r.income) || 0;
-      const exp = parseFloat(r.expense) || 0;
-      bal += inc - exp;
-      return { ...r, balance: bal };
-    });
+  /* ── Helpers ── */
+  const pv = (v) => parseFloat(String(v).replace(/[^0-9.\-]/g, "")) || 0;
+
+  const fmt = useCallback((n) => {
+    if (!data) return "0";
+    const c = data.currency || "AED";
+    const abs = Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return (c === "AED" ? "AED " : c === "GBP" ? "£" : c === "USD" ? "$" : "€") + abs;
   }, [data]);
 
-  const totalIncome = useMemo(() => data ? data.rows.reduce((a, r) => a + (parseFloat(r.income) || 0), 0) : 0, [data]);
-  const totalExpenses = useMemo(() => data ? data.rows.reduce((a, r) => a + (parseFloat(r.expense) || 0), 0) : 0, [data]);
-  const netCashFlow = totalIncome - totalExpenses;
+  const fmtSigned = useCallback((n) => {
+    return n < 0 ? "(" + fmt(Math.abs(n)) + ")" : fmt(n);
+  }, [fmt]);
 
-  /* ── PDF Export ── */
+  /* ── Calculations ── */
+  const calcs = useMemo(() => {
+    if (!data) return null;
+    const sumCols = (arr) => {
+      const cols = Array(12).fill(0);
+      (arr || []).forEach(row => { (row.v || []).forEach((v, m) => { cols[m] += pv(v); }); });
+      return cols;
+    };
+    const rowTotal = (row) => (row.v || []).reduce((s, v) => s + pv(v), 0);
+
+    const inC = sumCols(data.inflows);
+    const outC = sumCols(data.outflows);
+    const capC = sumCols(data.capex);
+    const inA = inC.reduce((a, b) => a + b, 0);
+    const outA = outC.reduce((a, b) => a + b, 0);
+    const capA = capC.reduce((a, b) => a + b, 0);
+
+    const vr = (data.vatRate || 0) / 100;
+    const vatC = inC.map((v, m) => { const net = v - outC[m]; return net > 0 ? net * vr : 0; });
+    const vatA = vatC.reduce((a, b) => a + b, 0);
+
+    const netC = inC.map((v, m) => v - outC[m] - capC[m]);
+    const netA = inA - outA - capA;
+
+    const ob = pv(data.openingBalance);
+    const closeC = [];
+    let run = ob;
+    for (let m = 0; m < 12; m++) { run += netC[m]; closeC.push(run); }
+
+    return { inC, outC, capC, inA, outA, capA, vatC, vatA, netC, netA, ob, closeC, rowTotal };
+  }, [data]);
+
+  /* ── Row mutation helpers ── */
+  const setVal = (type, i, m, val) => {
+    update(d => {
+      const arr = [...d[type]];
+      const row = { ...arr[i], v: [...arr[i].v] };
+      const n = pv(val);
+      row.v[m] = n === 0 ? "" : String(n);
+      arr[i] = row;
+      return { ...d, [type]: arr };
+    });
+  };
+
+  const setLabel = (type, i, val) => {
+    update(d => {
+      const arr = [...d[type]];
+      arr[i] = { ...arr[i], label: val };
+      return { ...d, [type]: arr };
+    });
+  };
+
+  const addRow = (type) => {
+    const labels = { inflows: "New Inflow", outflows: "New Outflow", capex: "New CapEx" };
+    update(d => ({
+      ...d,
+      [type]: [...d[type], { label: labels[type], v: Array(12).fill("") }],
+    }));
+  };
+
+  const delRow = (type, i) => {
+    update(d => ({
+      ...d,
+      [type]: d[type].filter((_, idx) => idx !== i),
+    }));
+  };
+
+  /* ── Print / PDF ── */
   const handlePrint = () => {
-    if (!data) return;
+    if (!data || !calcs) return;
+    const c = calcs;
+    const cur = data.currency || "AED";
+    const _fmt = (n) => {
+      const abs = Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      return (cur === "AED" ? "AED " : cur === "GBP" ? "£" : cur === "USD" ? "$" : "€") + abs;
+    };
+    const _fmtS = (n) => n < 0 ? "(" + _fmt(Math.abs(n)) + ")" : _fmt(n);
     const logoHtml = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-    const rowsHtml = rowsWithBalance.map(r => `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px">${r.date||""}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px">${r.desc||""}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px">${r.category||""}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right">${r.income?parseFloat(r.income).toLocaleString():""}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right">${r.expense?parseFloat(r.expense).toLocaleString():""}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:11px;text-align:right;font-weight:600">${r.balance.toLocaleString()}</td></tr>`).join("");
-    const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:20mm}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1d1d1f;margin:0;padding:0}${PRINT_CLEANUP_CSS}table{width:100%;border-collapse:collapse}</style></head><body><div style="padding:40px 40px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">${logoHtml(data.prodLogo)}<div style="display:flex;gap:16px;align-items:center">${logoHtml(data.clientLogo)}</div></div><div style="border-bottom:2.5px solid #000;margin-bottom:16px"></div><h2 style="font-size:16px;margin:0 0 16px;font-weight:700">${data.label||"Cash Flow"}</h2><table><thead><tr style="background:#f5f5f7"><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #ddd">Date</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #ddd">Description</th><th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #ddd">Category</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #ddd">Income</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #ddd">Expense</th><th style="padding:8px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #ddd">Balance</th></tr></thead><tbody>${rowsHtml}<tr style="font-weight:700;border-top:2px solid #333"><td colspan="3" style="padding:8px 10px;font-size:11px">TOTALS</td><td style="padding:8px 10px;text-align:right;font-size:11px">${totalIncome.toLocaleString()}</td><td style="padding:8px 10px;text-align:right;font-size:11px">${totalExpenses.toLocaleString()}</td><td style="padding:8px 10px;text-align:right;font-size:11px">${netCashFlow.toLocaleString()}</td></tr></tbody></table>${data.notes?`<div style="margin-top:20px;font-size:11px;color:#666"><strong>Notes:</strong> ${data.notes}</div>`:""}</div></body></html>`;
+    const thH = MONTHS.map(m => `<th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 4px;text-align:right;white-space:nowrap">${m}</th>`).join("");
+    const sectionRows = (arr, prefix) => arr.map((row, i) => {
+      const rt = c.rowTotal(row);
+      return `<tr><td style="font-family:${F};font-size:11px;padding:5px 0;border-bottom:1px solid #f0f0f0">${row.label}</td>${row.v.map(v => `<td style="font-family:${F};font-size:11px;text-align:right;padding:5px 4px;border-bottom:1px solid #f0f0f0">${pv(v) ? _fmt(pv(v)) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${rt ? _fmt(rt) : "—"}</td></tr>`;
+    }).join("");
+    const subRow = (label, cols, annual) => `<tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#f4f4f2;border-top:1.5px solid #bbb;border-bottom:1.5px solid #bbb;padding:7px 0">${label}</td>${cols.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#f4f4f2;border-top:1.5px solid #bbb;border-bottom:1.5px solid #bbb;padding:7px 4px;text-align:right">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#f4f4f2;border-top:1.5px solid #bbb;border-bottom:1.5px solid #bbb;padding:7px 0;text-align:right">${annual ? _fmt(annual) : "—"}</td></tr>`;
+    const banner = (t) => `<tr><td colspan="14" style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;background:#000;color:#fff;padding:6px 0">${t}</td></tr>`;
+
+    const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:14mm 12mm}body{font-family:${F};color:#000;margin:0;padding:0;-webkit-font-smoothing:antialiased}table{width:100%;border-collapse:collapse}</style></head><body><div style="max-width:1440px;margin:0 auto;padding:40px 40px"><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px">${logoHtml(data.prodLogo)}<div style="display:flex;gap:16px;align-items:center">${logoHtml(data.clientLogo)}</div></div><div style="border-top:2.5px solid #000;margin-bottom:16px"></div><div style="font-family:${F};font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:14px">Cash Flow Tracker</div><div style="border-top:1px solid #ccc;margin-bottom:14px"></div><div style="display:grid;grid-template-columns:repeat(6,1fr);border:1px solid #e0e0e0;margin-bottom:22px">${[
+      { l: "Opening Balance", v: _fmt(c.ob) },
+      { l: "Total Inflows", v: _fmt(c.inA), cls: "color:#1a6e3e" },
+      { l: "Total Outflows", v: _fmt(c.outA + c.capA), cls: "color:#b0271d" },
+      { l: "VAT Liability", v: _fmt(c.vatA), cls: "color:#b06000" },
+      { l: "Net Cash Flow", v: _fmtS(c.netA), cls: c.netA >= 0 ? "color:#1a6e3e" : "color:#b0271d" },
+      { l: "Year-End Balance", v: _fmtS(c.closeC[11] || 0), cls: (c.closeC[11] || 0) >= 0 ? "color:#1a6e3e" : "color:#b0271d" },
+    ].map(s => `<div style="padding:11px 14px;border-right:1px solid #e0e0e0"><div style="font-family:${F};font-size:7.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#999;margin-bottom:4px">${s.l}</div><div style="font-family:${F};font-size:16px;font-weight:700;${s.cls || ""}">${s.v}</div></div>`).join("")}</div><table><thead><tr><th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 0;text-align:left;width:210px">Category</th>${thH}<th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 4px;text-align:right;width:105px">Annual Total</th></tr></thead><tbody><tr><td style="font-family:${F};font-size:11px;font-weight:600;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0">Opening Balance</td>${Array(12).fill(0).map((_, m) => `<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 4px;text-align:right">${m === 0 && c.ob ? _fmt(c.ob) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0;text-align:right;font-weight:600">${c.ob ? _fmt(c.ob) : "—"}</td></tr>${banner("Operating Inflows")}${sectionRows(data.inflows)}${subRow("Total Inflows", c.inC, c.inA)}${banner("Operating Outflows")}${sectionRows(data.outflows)}${subRow("Total Outflows", c.outC, c.outA)}${banner("Capital Expenditure")}${sectionRows(data.capex)}${subRow("Total CapEx", c.capC, c.capA)}<tr><td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 0;color:#b06000">VAT Liability (on Net Revenue)</td>${c.vatC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 4px;text-align:right;color:#b06000">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 0;text-align:right;color:#b06000">${c.vatA ? _fmt(c.vatA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#000;color:#fff;padding:8px 0">Net Cash Flow</td>${c.netC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#000;padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${v ? _fmtS(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#000;padding:8px 0;text-align:right;color:${c.netA >= 0 ? "#7dffc4" : "#ffaaaa"}">${c.netA ? _fmtS(c.netA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#2a2a2a;color:#fff;border-top:2px solid #000;padding:8px 0">Closing Balance</td>${c.closeC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#2a2a2a;border-top:2px solid #000;padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmtS(v)}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#2a2a2a;border-top:2px solid #000;padding:8px 0;text-align:right;color:${(c.closeC[11]||0) >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmtS(c.closeC[11]||0)}</td></tr></tbody></table>${data.notes ? `<div style="margin-top:22px;padding-top:12px;border-top:1px solid #e0e0e0"><div style="font-family:${F};font-size:8.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:6px">Notes</div><div style="font-family:${F};font-size:11px;color:#555;white-space:pre-wrap;line-height:1.7">${data.notes}</div></div>` : ""}<div style="margin-top:18px;padding-top:10px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;font-family:${F};font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:#bbb"><span>onnaworld — onna.digital</span><span>${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}</span></div></div></body></html>`;
     const w = window.open("", "_blank");
     w.document.write(html);
     w.document.close();
-    setTimeout(() => { w.print(); }, 400);
+    setTimeout(() => w.print(), 400);
   };
 
-  const fmtNum = (n) => {
-    const v = parseFloat(n) || 0;
-    return v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  };
+  /* ── Styles ── */
+  const hdrS = { fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", borderBottom: "2.5px solid #000", padding: "6px 4px", textAlign: "right", whiteSpace: "nowrap" };
+  const cellS = { fontFamily: F, fontSize: 11, padding: "2px 4px", textAlign: "right", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" };
+  const inputS = { fontFamily: F, fontSize: 11, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: "#333", padding: "3px 0" };
+  const labelInputS = { fontFamily: F, fontSize: 11, border: "none", background: "transparent", outline: "none", color: "#000", width: 190 };
+  const subS = { fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f4f4f2", borderTop: "1.5px solid #bbb", borderBottom: "1.5px solid #bbb", padding: "7px 4px", textAlign: "right" };
+  const ctrlLblS = { fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginRight: 2 };
+  const ctrlSelS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", background: "#fff", padding: "5px 8px", outline: "none", color: "#000", cursor: "pointer" };
+  const ctrlInpS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", padding: "5px 8px", outline: "none", color: "#000" };
 
-  const thStyle = { padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: T.muted, borderBottom: `2px solid ${T.border}`, whiteSpace: "nowrap" };
-  const tdStyle = { padding: "4px 6px", borderBottom: `1px solid ${T.border}`, verticalAlign: "middle" };
-  const inputStyle = { width: "100%", padding: "5px 8px", borderRadius: 6, border: `1px solid ${T.border}`, fontSize: 12, fontFamily: "inherit", background: T.surface, color: T.text, boxSizing: "border-box" };
-  const numInputStyle = { ...inputStyle, textAlign: "right", width: 100 };
+  /* ── Render section rows ── */
+  const renderSection = (type, sectionLabel) => {
+    const arr = data[type] || [];
+    return (
+      <>
+        {/* Banner */}
+        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>{sectionLabel}</td></tr>
+        {/* Data rows */}
+        {arr.map((row, i) => {
+          const rt = calcs.rowTotal(row);
+          return (
+            <tr key={type + i} onMouseEnter={e => e.currentTarget.querySelector(".cf-del")&& (e.currentTarget.querySelector(".cf-del").style.visibility = "visible")} onMouseLeave={e => e.currentTarget.querySelector(".cf-del") && (e.currentTarget.querySelector(".cf-del").style.visibility = "hidden")}>
+              <td style={{ ...cellS, textAlign: "left", padding: "5px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <button className="cf-del" onClick={() => delRow(type, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 15, lineHeight: 1, padding: 0, visibility: "hidden", flexShrink: 0 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
+                  <input value={row.label} onChange={e => setLabel(type, i, e.target.value)} style={labelInputS} placeholder="Label…" onFocus={e => e.target.style.borderBottom = "1px solid #bbb"} onBlur={e => e.target.style.borderBottom = "none"} />
+                </div>
+              </td>
+              {row.v.map((v, m) => (
+                <td key={m} style={cellS}>
+                  <input value={v} onChange={e => setVal(type, i, m, e.target.value)} style={inputS} placeholder="0" inputMode="numeric" onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }} onBlur={e => { e.target.style.background = "transparent"; }} />
+                </td>
+              ))}
+              <td style={{ ...cellS, fontWeight: 600, padding: "5px 0" }}>{rt ? fmt(rt) : "—"}</td>
+            </tr>
+          );
+        })}
+        {/* Add row */}
+        <tr><td colSpan={14} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
+          <button onClick={() => addRow(type)} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#bbb", background: "none", border: "1px dashed #ddd", padding: "4px 10px", cursor: "pointer" }} onMouseEnter={e => { e.target.style.color = "#000"; e.target.style.borderColor = "#999"; }} onMouseLeave={e => { e.target.style.color = "#bbb"; e.target.style.borderColor = "#ddd"; }}>+ Add row</button>
+        </td></tr>
+      </>
+    );
+  };
 
   return (
     <div>
@@ -244,92 +374,143 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
             </div>
           )}
 
-          {data && (
-            <div ref={printRef}>
+          {data && calcs && (
+            <div>
               {/* ── Logo header ── */}
-              <div style={{ padding: "0 0 0 0", marginBottom: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                  <CSLogoSlot label="Production Logo" image={data.prodLogo} onUpload={v => update("prodLogo", v)} onRemove={() => update("prodLogo", null)} />
-                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <CSLogoSlot label="Client Logo" image={data.clientLogo} onUpload={v => update("clientLogo", v)} onRemove={() => update("clientLogo", null)} />
-                  </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 4 }}>
+                <CSLogoSlot label="Production Logo" image={data.prodLogo} onUpload={v => update("prodLogo", v)} onRemove={() => update("prodLogo", null)} />
+                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                  <CSLogoSlot label="Agency Logo" image={data.clientLogo} onUpload={v => update("clientLogo", v)} onRemove={() => update("clientLogo", null)} />
                 </div>
-                <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
+              </div>
+              <div style={{ borderTop: "2.5px solid #000", marginBottom: 16 }} />
+
+              {/* ── Doc title ── */}
+              <div style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 14 }}>Cash Flow Tracker</div>
+              <div style={{ borderTop: "1px solid #ccc", marginBottom: 14 }} />
+
+              {/* ── Controls ── */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={ctrlLblS}>Currency</span>
+                <select value={data.currency || "AED"} onChange={e => update("currency", e.target.value)} style={ctrlSelS}>
+                  <option value="AED">AED</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                </select>
+                <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
+                <span style={ctrlLblS}>Financial Year</span>
+                <select value={data.financialYear || "2025 – 2026"} onChange={e => update("financialYear", e.target.value)} style={ctrlSelS}>
+                  {["2024 – 2025", "2025 – 2026", "2026 – 2027", "2027 – 2028"].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
+                <span style={ctrlLblS}>Opening Balance</span>
+                <input value={data.openingBalance || ""} onChange={e => update("openingBalance", e.target.value)} style={{ ...ctrlInpS, width: 120 }} placeholder="0" />
+                <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
+                <span style={ctrlLblS}>VAT Rate %</span>
+                <input value={data.vatRate ?? 5} onChange={e => update("vatRate", e.target.value)} style={{ ...ctrlInpS, width: 60 }} placeholder="5" />
               </div>
 
-              {/* ── Version label (editable) ── */}
-              <input value={data.label || ""} onChange={e => update("label", e.target.value)}
-                style={{ fontSize: 16, fontWeight: 700, border: "none", outline: "none", background: "transparent", color: T.text, fontFamily: "inherit", marginBottom: 14, width: "100%", padding: 0 }}
-                placeholder="Cash Flow Title" />
-
-              {/* ── Table ── */}
-              <div style={{ overflowX: "auto", marginBottom: 16 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
-                  <thead>
-                    <tr style={{ background: T.surface }}>
-                      <th style={thStyle}>Date</th>
-                      <th style={{ ...thStyle, minWidth: 160 }}>Description</th>
-                      <th style={thStyle}>Category</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>Income</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>Expense</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>Balance</th>
-                      <th style={{ ...thStyle, width: 36 }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rowsWithBalance.map((r) => (
-                      <tr key={r.id}>
-                        <td style={tdStyle}>
-                          <input type="date" value={r.date || ""} onChange={e => updateRow(r.id, "date", e.target.value)} style={{ ...inputStyle, width: 130 }} />
-                        </td>
-                        <td style={tdStyle}>
-                          <input value={r.desc || ""} onChange={e => updateRow(r.id, "desc", e.target.value)} style={inputStyle} placeholder="Description" />
-                        </td>
-                        <td style={tdStyle}>
-                          <select value={r.category || "Revenue"} onChange={e => updateRow(r.id, "category", e.target.value)}
-                            style={{ ...inputStyle, width: 140 }}>
-                            {CASHFLOW_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        </td>
-                        <td style={tdStyle}>
-                          <input type="number" value={r.income || ""} onChange={e => updateRow(r.id, "income", e.target.value)} style={numInputStyle} placeholder="0" min="0" step="any" />
-                        </td>
-                        <td style={tdStyle}>
-                          <input type="number" value={r.expense || ""} onChange={e => updateRow(r.id, "expense", e.target.value)} style={numInputStyle} placeholder="0" min="0" step="any" />
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontSize: 12, fontWeight: 600, color: r.balance >= 0 ? "#2e7d32" : "#c0392b", paddingRight: 10, whiteSpace: "nowrap" }}>
-                          {fmtNum(r.balance)}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "center" }}>
-                          <button onClick={() => deleteRow(r.id)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 14, fontFamily: "inherit", padding: 2 }} title="Delete row">&times;</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ── Add Row ── */}
-              <button onClick={addRow} style={{ padding: "6px 16px", borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", color: T.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginBottom: 20 }}>+ Add Row</button>
-
-              {/* ── Summary cards ── */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
+              {/* ── Summary strip ── */}
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", border: "1px solid #e0e0e0", marginBottom: 22 }}>
                 {[
-                  { label: "Total Income", value: fmtNum(totalIncome), color: "#2e7d32" },
-                  { label: "Total Expenses", value: fmtNum(totalExpenses), color: "#c0392b" },
-                  { label: "Net Cash Flow", value: fmtNum(netCashFlow), color: netCashFlow >= 0 ? "#2e7d32" : "#c0392b" },
+                  { l: "Opening Balance", v: fmt(calcs.ob), cls: calcs.ob < 0 ? "#b0271d" : "#000" },
+                  { l: "Total Inflows", v: fmt(calcs.inA), cls: "#1a6e3e" },
+                  { l: "Total Outflows", v: fmt(calcs.outA + calcs.capA), cls: "#b0271d" },
+                  { l: "VAT Liability", v: fmt(calcs.vatA), cls: "#b06000" },
+                  { l: "Net Cash Flow", v: fmtSigned(calcs.netA), cls: calcs.netA >= 0 ? "#1a6e3e" : "#b0271d" },
+                  { l: "Year-End Balance", v: fmtSigned(calcs.closeC[11] || 0), cls: (calcs.closeC[11] || 0) >= 0 ? "#1a6e3e" : "#b0271d" },
                 ].map((s, i) => (
-                  <div key={i} style={{ borderRadius: 12, padding: "16px 18px", background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T.muted, marginBottom: 6 }}>{s.label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: s.color, letterSpacing: "-0.02em" }}>{s.value}</div>
+                  <div key={i} style={{ padding: "11px 14px", borderRight: i < 5 ? "1px solid #e0e0e0" : "none" }}>
+                    <div style={{ fontFamily: F, fontSize: 7.5, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginBottom: 4 }}>{s.l}</div>
+                    <div style={{ fontFamily: F, fontSize: 16, fontWeight: 700, color: s.cls }}>{s.v}</div>
                   </div>
                 ))}
               </div>
 
+              {/* ── Main table ── */}
+              <div style={{ overflowX: "auto", margin: isMobile ? "0 -16px" : 0, padding: isMobile ? "0 16px" : 0 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...hdrS, textAlign: "left", width: 210, paddingLeft: 0 }}>Category</th>
+                      {MONTHS.map(m => <th key={m} style={hdrS}>{m}</th>)}
+                      <th style={{ ...hdrS, width: 105 }}>Annual Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Opening balance row */}
+                    <tr>
+                      <td style={{ fontFamily: F, fontSize: 11, fontWeight: 600, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0" }}>Opening Balance</td>
+                      {Array(12).fill(0).map((_, m) => {
+                        const v = m === 0 ? calcs.ob : 0;
+                        return <td key={m} style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 4px", textAlign: "right", color: v < 0 ? "#b0271d" : v > 0 ? "#1a6e3e" : "#000", fontWeight: v ? 600 : 400 }}>{m === 0 && v ? fmt(v) : "—"}</td>;
+                      })}
+                      <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>
+                    </tr>
+
+                    {/* Inflows */}
+                    {renderSection("inflows", "Operating Inflows")}
+                    {/* Subtotal */}
+                    <tr>
+                      <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Inflows</td>
+                      {calcs.inC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
+                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.inA ? fmt(calcs.inA) : "—"}</td>
+                    </tr>
+
+                    {/* Outflows */}
+                    {renderSection("outflows", "Operating Outflows")}
+                    <tr>
+                      <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Outflows</td>
+                      {calcs.outC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
+                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.outA ? fmt(calcs.outA) : "—"}</td>
+                    </tr>
+
+                    {/* CapEx */}
+                    {renderSection("capex", "Capital Expenditure")}
+                    <tr>
+                      <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total CapEx</td>
+                      {calcs.capC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
+                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.capA ? fmt(calcs.capA) : "—"}</td>
+                    </tr>
+
+                    {/* VAT row */}
+                    <tr>
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", color: "#b06000" }}>VAT Liability (on Net Revenue)</td>
+                      {calcs.vatC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 4px", textAlign: "right", color: "#b06000" }}>{v ? fmt(v) : "—"}</td>)}
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", textAlign: "right", color: "#b06000" }}>{calcs.vatA ? fmt(calcs.vatA) : "—"}</td>
+                    </tr>
+
+                    {/* Net cash flow */}
+                    <tr>
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
+                      {calcs.netC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{v ? fmtSigned(v) : "—"}</td>)}
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>
+                    </tr>
+
+                    {/* Closing balance */}
+                    <tr>
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
+                      {calcs.closeC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(v)}</td>)}
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
               {/* ── Notes ── */}
-              <textarea value={data.notes || ""} onChange={e => update("notes", e.target.value)}
-                placeholder="Notes…"
-                style={{ width: "100%", minHeight: 60, padding: "10px 12px", borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 12, fontFamily: "inherit", background: T.surface, color: T.text, resize: "vertical", boxSizing: "border-box" }} />
+              <div style={{ marginTop: 22, paddingTop: 12, borderTop: "1px solid #e0e0e0" }}>
+                <div style={{ fontFamily: F, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>Notes</div>
+                <textarea value={data.notes || ""} onChange={e => update("notes", e.target.value)}
+                  rows={3} placeholder="Assumptions, exchange rates, payment terms, or other notes…"
+                  style={{ fontFamily: F, fontSize: 11, border: "none", outline: "none", resize: "none", width: "100%", color: "#555", background: "transparent", lineHeight: 1.7, boxSizing: "border-box" }} />
+              </div>
+
+              {/* ── Footer ── */}
+              <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #e8e8e8", display: "flex", justifyContent: "space-between", fontFamily: F, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: "#bbb" }}>
+                <span>onnaworld — onna.digital</span>
+                <span>{new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span>
+              </div>
             </div>
           )}
         </>
