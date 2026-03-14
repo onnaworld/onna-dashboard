@@ -74,7 +74,7 @@ export default function Clients({
   const outreachMonths = ["All", ...Array.from(new Set(outreach.map(o => getMonthLabel(o.date)).filter(Boolean)))];
   const outreachLocations = ["All", ...Array.from(new Set(outreach.map(o => o.location).filter(Boolean))).sort()];
   const filteredOutreach = outreach.filter(o => {
-    if (o.status === "not_contacted") return false;
+    if (o.status === "not_contacted" || o.status === "client") return false;
     const q = getSearch("Outreach").toLowerCase();
     return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || o.category === outreachCatFilter) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || (o.location || "") === outreachLocFilter);
   }).sort((a, b) => outreachSort === "az"
@@ -159,7 +159,7 @@ export default function Clients({
               <div style={{ fontSize: 11.5, color: T.muted, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.contact || "\u2014"}{lead.category ? ` \u00b7 ${lead.category}` : ""}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-              <OutreachBadge status={lead.status} onClick={async (e) => { e.stopPropagation(); const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(lead.status) + 1) % OUTREACH_STATUSES.length]; if (lead._fromOutreach) { await api.put(`/api/outreach/${lead.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === lead.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${lead.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === lead.id ? { ...x, status: next } : x)); } }} />
+              <OutreachBadge status={lead.status} onClick={async (e) => { e.stopPropagation(); const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(lead.status) + 1) % OUTREACH_STATUSES.length]; if (lead._fromOutreach) { await api.put(`/api/outreach/${lead.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === lead.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${lead.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === lead.id ? { ...x, status: next } : x)); } if(next==="client"){const comp=(lead.company||"").trim().toLowerCase();if(!localClients.some(c=>(c.company||"").trim().toLowerCase()===comp)){const nc={company:lead.company,name:lead.contact||"",email:lead.email||"",phone:lead.phone||"",category:lead.category||"",country:lead.location||"",status:"client",notes:lead.notes||""};const saved=await api.post("/api/clients",nc);if(saved?.id)setLocalClients(prev=>[...prev,{...nc,id:saved.id}]);}} }} />
               {showDate && lead.date && <span style={{ fontSize: 10.5, color: T.muted }}>{formatDate(lead.date)}</span>}
             </div>
             {lead.email && <a href={`mailto:${lead.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 11, color: T.link, textDecoration: "none", background: "#f0f4ff", padding: "4px 9px", borderRadius: 7, whiteSpace: "nowrap", flexShrink: 0 }}>Email</a>}
@@ -227,7 +227,7 @@ export default function Clients({
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}><a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{l.email}</a></td>
                     <TD muted>{l.category}</TD>
                     <TD muted>{l.location || "\u2014"}</TD>
-                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={l.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status) + 1) % OUTREACH_STATUSES.length]; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } }} /></td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={l.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(l.status) + 1) % OUTREACH_STATUSES.length]; if (l._fromOutreach) { await api.put(`/api/outreach/${l.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } else { await api.put(`/api/leads/${l.id}`, { status: next }); setLocalLeads(prev => prev.map(x => x.id === l.id ? { ...x, status: next } : x)); } if(next==="client"){const comp=(l.company||"").trim().toLowerCase();if(!localClients.some(c=>(c.company||"").trim().toLowerCase()===comp)){const nc={company:l.company,name:l.contact||"",email:l.email||"",phone:l.phone||"",category:l.category||"",country:l.location||"",status:"client",notes:l.notes||"",source:l.source||""};const saved=await api.post("/api/clients",nc);if(saved?.id)setLocalClients(prev=>[...prev,{...nc,id:saved.id}]);}} }} /></td>
                     <TD muted>{formatDate(l.date)}</TD>
                   </tr>
                 ))}
@@ -330,7 +330,7 @@ export default function Clients({
                   <button onClick={async()=>{if(!confirm(`Delete ${selectedClient.company}?`))return;archiveItem('clients',selectedClient);await api.delete(`/api/clients/${selectedClient.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==selectedClient.id));setSelectedClient(null);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete client</button>
                   <div style={{display:"flex",gap:8}}>
                     <BtnSecondary onClick={()=>setSelectedClient(null)}>Cancel</BtnSecondary>
-                    <BtnPrimary onClick={async()=>{const {id,...fields}=selectedClient;await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));setSelectedClient(null);}}>Save Changes</BtnPrimary>
+                    <BtnPrimary onClick={async()=>{const {id,_fromClient,_fromLead,_fromOutreach,...fields}=selectedClient;if((selectedClient.status||"client")!=="client"&&_fromClient){const newLead={company:selectedClient.company,contact:selectedClient.name||"",role:selectedClient.role||"",email:selectedClient.email||"",phone:selectedClient.phone||"",category:selectedClient.category||"",location:selectedClient.country||"",status:selectedClient.status,date:selectedClient.date||"",value:selectedClient.value||"",notes:selectedClient.notes||"",source:selectedClient.source||""};const saved=await api.post("/api/leads",newLead);if(saved?.id)setLocalLeads(prev=>[...prev,{...newLead,id:saved.id}]);await api.delete(`/api/clients/${id}`);setLocalClients(prev=>prev.filter(x=>x.id!==id));}else if(_fromLead&&_fromOutreach){await api.put(`/api/outreach/${id}`,{...fields,clientName:fields.name,location:fields.country});setOutreach(prev=>prev.map(x=>x.id===id?{...x,...fields,clientName:fields.name,location:fields.country}:x));}else if(_fromLead){await api.put(`/api/leads/${id}`,{...fields,contact:fields.name,location:fields.country});setLocalLeads(prev=>prev.map(x=>x.id===id?{...x,...fields,contact:fields.name,location:fields.country}:x));}else{await api.put(`/api/clients/${id}`,fields);setLocalClients(prev=>prev.map(c=>c.id===id?selectedClient:c));}setSelectedClient(null);}}>Save Changes</BtnPrimary>
                   </div>
                 </div>
               </div>
@@ -338,8 +338,11 @@ export default function Clients({
           );
         }
 
+        // Combine actual clients + leads/outreach with "client" status
+        const _clientLeads = allLeadsCombined.filter(l => l.status === "client").map(l => ({ ...l, _fromLead: true, name: l.contact, country: l.location }));
+        const _allClients = [...localClients.map(c => ({ ...c, _fromClient: true })), ..._clientLeads.filter(l => !localClients.some(c => (c.company||"").trim().toLowerCase() === (l.company||"").trim().toLowerCase()))];
         const _cq = getSearch("Clients").toLowerCase();
-        const _filteredClients = localClients.filter(c => {
+        const _filteredClients = _allClients.filter(c => {
           return (!_cq || [c.company,c.name,c.email,c.phone,c.country,c.category,c.notes].some(v=>v&&v.toLowerCase().includes(_cq))) && (clientCountry === "All" || (c.country || "") === clientCountry) && (clientCat === "All" || (c.category || "") === clientCat);
         });
         return (
@@ -374,7 +377,7 @@ export default function Clients({
                         <TD muted>{c.phone || "\u2014"}</TD>
                         <TD muted>{c.category || "\u2014"}</TD>
                         <TD muted>{c.country || "\u2014"}</TD>
-                        <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e=>e.stopPropagation()}><OutreachBadge status={c.status||"client"} onClick={async()=>{const cur=c.status||"client";const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(cur)+1)%OUTREACH_STATUSES.length];await api.put(`/api/clients/${c.id}`,{status:next});setLocalClients(prev=>prev.map(x=>x.id===c.id?{...x,status:next}:x));}}/></td>
+                        <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e=>e.stopPropagation()}><OutreachBadge status={c.status||"client"} onClick={async()=>{const cur=c.status||"client";const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(cur)+1)%OUTREACH_STATUSES.length];if(c._fromLead){if(c._fromOutreach){await api.put(`/api/outreach/${c.id}`,{status:next});setOutreach(prev=>prev.map(x=>x.id===c.id?{...x,status:next}:x));}else{await api.put(`/api/leads/${c.id}`,{status:next});setLocalLeads(prev=>prev.map(x=>x.id===c.id?{...x,status:next}:x));}}else if(c._fromClient&&next!=="client"){const newLead={company:c.company,contact:c.name||"",role:c.role||"",email:c.email||"",phone:c.phone||"",category:c.category||"",location:c.country||"",status:next,date:c.date||"",value:c.value||"",notes:c.notes||"",source:c.source||""};const saved=await api.post("/api/leads",newLead);if(saved?.id)setLocalLeads(prev=>[...prev,{...newLead,id:saved.id}]);await api.delete(`/api/clients/${c.id}`);setLocalClients(prev=>prev.filter(x=>x.id!==c.id));}else{await api.put(`/api/clients/${c.id}`,{status:next});setLocalClients(prev=>prev.map(x=>x.id===c.id?{...x,status:next}:x));}}}/></td>
                         <TD muted>AED {cRevenue.toLocaleString()}</TD>
                         <TD muted>{cProjects.length}</TD>
                       </tr>
@@ -426,7 +429,7 @@ export default function Clients({
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}><a href={`mailto:${o.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{o.email}</a></td>
                     <TD muted>{o.category}</TD>
                     <TD muted>{o.location || "\u2014"}</TD>
-                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={o.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status) + 1) % OUTREACH_STATUSES.length]; await api.put(`/api/outreach/${o.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === o.id ? { ...x, status: next } : x)); }} /></td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><OutreachBadge status={o.status} onClick={async () => { const next = OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(o.status) + 1) % OUTREACH_STATUSES.length]; await api.put(`/api/outreach/${o.id}`, { status: next }); setOutreach(prev => prev.map(x => x.id === o.id ? { ...x, status: next } : x)); if(next==="client"){const comp=(o.company||"").trim().toLowerCase();if(!localClients.some(c=>(c.company||"").trim().toLowerCase()===comp)){const nc={company:o.company,name:o.clientName||"",email:o.email||"",phone:o.phone||"",category:o.category||"",country:o.location||"",status:"client",notes:o.notes||"",source:o.source||""};const saved=await api.post("/api/clients",nc);if(saved?.id)setLocalClients(prev=>[...prev,{...nc,id:saved.id}]);}} }} /></td>
                     <TD muted>{formatDate(o.date)}</TD>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e => e.stopPropagation()}><button onClick={async () => { archiveItem('outreach', o); await api.delete(`/api/outreach/${o.id}`); setOutreach(prev => prev.filter(x => x.id !== o.id)); }} style={{ background: "none", border: "none", color: T.muted, fontSize: 16, cursor: "pointer", padding: 0 }}>{"\u00d7"}</button></td>
                   </tr>
