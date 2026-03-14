@@ -237,6 +237,8 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   const [dragId,setDragId] = useState(null);
   const [dropTargetId,setDropTargetId] = useState(null);
   const [dropZone,setDropZone] = useState(null); // "onto" or "above"
+  const dragRef = useRef(null);
+  const dropZoneRef = useRef(null);
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
 
   useEffect(()=>{
@@ -278,7 +280,7 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
     e.stopPropagation();
     setExpandedNotes(prev=>{const s=new Set(prev);if(s.has(id))s.delete(id);else s.add(id);return s;});
   };
-  const handleDragStart = (id,e) => { setDragId(id); e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",id); };
+  const handleDragStart = (id,e) => { setDragId(id); dragRef.current=id; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",String(id)); };
   const handleDragOver = (targetId,isChild,e) => {
     e.preventDefault(); e.dataTransfer.dropEffect="move";
     if (targetId===dragId) return;
@@ -286,38 +288,46 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
     const y=e.clientY-rect.top;
     // Top 30% = drop above (make sibling / re-order), bottom 70% = drop onto (make sub-note)
     const zone = y < rect.height*0.3 ? "above" : "onto";
-    setDropTargetId(targetId); setDropZone(zone);
+    setDropTargetId(targetId); setDropZone(zone); dropZoneRef.current=zone;
   };
   const handleDragLeave = (e) => { if (!e.currentTarget.contains(e.relatedTarget)) { setDropTargetId(null); setDropZone(null); } };
   const handleDrop = (targetId,e) => {
     e.preventDefault();
-    if (!dragId||dragId===targetId) { setDragId(null);setDropTargetId(null);setDropZone(null); return; }
-    const dragNote = notes.find(n=>n.id===dragId);
-    const targetNote = notes.find(n=>n.id===targetId);
-    if (!dragNote||!targetNote) { setDragId(null);setDropTargetId(null);setDropZone(null); return; }
-    if (targetNote.parentId===dragId) { setDragId(null);setDropTargetId(null);setDropZone(null); return; }
-    if (dropZone==="onto") {
-      const newParent = targetNote.parentId || targetNote.id;
-      const siblings = notes.filter(n=>n.parentId===newParent).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
-      const lastOrder = siblings.length > 0 ? (siblings[siblings.length-1].sortOrder??0)+1 : 0;
-      setNotes(prev=>prev.map(n=>n.id===dragId?{...n,parentId:newParent,sortOrder:lastOrder}:n));
+    const did = dragRef.current;
+    const zone = dropZoneRef.current;
+    const reset = ()=>{setDragId(null);dragRef.current=null;setDropTargetId(null);setDropZone(null);dropZoneRef.current=null;};
+    if (!did||did===targetId) { reset(); return; }
+    setNotes(prev=>{
+      const dragNote = prev.find(n=>n.id===did);
+      const targetNote = prev.find(n=>n.id===targetId);
+      if (!dragNote||!targetNote||targetNote.parentId===did) return prev;
+      if (zone==="onto") {
+        const newParent = targetNote.parentId || targetNote.id;
+        const siblings = prev.filter(n=>n.parentId===newParent).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
+        const lastOrder = siblings.length > 0 ? (siblings[siblings.length-1].sortOrder??0)+1 : 0;
+        return prev.map(n=>n.id===did?{...n,parentId:newParent,sortOrder:lastOrder}:n);
+      } else {
+        const siblingParent = targetNote.parentId||undefined;
+        const siblings = prev.filter(n=>siblingParent?(n.parentId===siblingParent):(!n.parentId)).filter(n=>n.id!==did).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
+        const targetIdx = siblings.findIndex(n=>n.id===targetId);
+        const reordered = [...siblings.slice(0,targetIdx),{id:did},...siblings.slice(targetIdx)];
+        const orderMap = {};
+        reordered.forEach((n,i)=>{ orderMap[n.id]=i; });
+        return prev.map(n=>{
+          if(n.id===did) return {...n,parentId:siblingParent,sortOrder:orderMap[did]??0};
+          if(orderMap[n.id]!==undefined) return {...n,sortOrder:orderMap[n.id]};
+          return n;
+        });
+      }
+    });
+    if (zone==="onto") {
+      const targetNote = notes.find(n=>n.id===targetId);
+      const newParent = targetNote?.parentId || targetId;
       setExpandedNotes(prev=>{const s=new Set(prev);s.add(newParent);return s;});
-    } else {
-      const siblingParent = targetNote.parentId||undefined;
-      const siblings = notes.filter(n=>siblingParent?(n.parentId===siblingParent):(!n.parentId)).filter(n=>n.id!==dragId).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
-      const targetIdx = siblings.findIndex(n=>n.id===targetId);
-      const reordered = [...siblings.slice(0,targetIdx),{id:dragId},...siblings.slice(targetIdx)];
-      const orderMap = {};
-      reordered.forEach((n,i)=>{ orderMap[n.id]=i; });
-      setNotes(prev=>prev.map(n=>{
-        if(n.id===dragId) return {...n,parentId:siblingParent,sortOrder:orderMap[dragId]??0};
-        if(orderMap[n.id]!==undefined) return {...n,sortOrder:orderMap[n.id]};
-        return n;
-      }));
     }
-    setDragId(null);setDropTargetId(null);setDropZone(null);
+    reset();
   };
-  const handleDragEnd = () => { setDragId(null);setDropTargetId(null);setDropZone(null); };
+  const handleDragEnd = () => { setDragId(null);dragRef.current=null;setDropTargetId(null);setDropZone(null);dropZoneRef.current=null; };
   const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
   const getPlain = (html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
   const getTitle = (n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note";
@@ -359,7 +369,7 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
             <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Notes</span>
             <button onClick={createNote} style={{width:22,height:22,borderRadius:6,background:T.accent,border:"none",color:"#fff",fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>+</button>
           </div>
-          <div style={{flex:1,overflowY:"auto"}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={e=>{e.preventDefault();if(dragId){const maxOrder=Math.max(0,...notes.filter(n=>!n.parentId).map(n=>n.sortOrder??0));setNotes(prev=>prev.map(n=>n.id===dragId?{...n,parentId:undefined,sortOrder:maxOrder+1}:n));setDragId(null);setDropTargetId(null);setDropZone(null);}}}>
+          <div style={{flex:1,overflowY:"auto"}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";}} onDrop={e=>{e.preventDefault();const did=dragRef.current;if(did){setNotes(prev=>{const maxOrder=Math.max(0,...prev.filter(n=>!n.parentId).map(n=>n.sortOrder??0));return prev.map(n=>n.id===did?{...n,parentId:undefined,sortOrder:maxOrder+1}:n);});setDragId(null);dragRef.current=null;setDropTargetId(null);setDropZone(null);dropZoneRef.current=null;}}}>
             {topLevel.length===0&&!notes.some(n=>n.parentId)&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No notes yet.<br/>Hit + to create one.</div>}
             {topLevel.map(n=>(
               <React.Fragment key={n.id}>
