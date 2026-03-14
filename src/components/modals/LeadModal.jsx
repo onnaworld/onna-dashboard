@@ -34,7 +34,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Out
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
             <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-              <OutreachBadge status={selectedLead.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedLead.status)+1)%OUTREACH_STATUSES.length];setSelectedLead(p=>({...p,status:next}));if(next==="client")promoteToClient(selectedLead);}}/>
+              <OutreachBadge status={selectedLead.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedLead.status)+1)%OUTREACH_STATUSES.length];setSelectedLead(p=>({...p,status:next}));}}/>
               <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
             </div>
           </div>
@@ -105,7 +105,6 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Out
               await api.put(`/api/leads/${id}`,{...fields,value:Number(fields.value)||0});
               setLocalLeads(prev=>prev.map(l=>l.id===id?selectedLead:l));
               setLeadStatusOverrides(prev=>{const n={...prev};delete n[id];return n;});
-              if(selectedLead.status==="client") promoteToClient(selectedLead);
               setSelectedLead(null);
             }}>Save Changes</BtnPrimary>
           </div>

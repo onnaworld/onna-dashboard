@@ -34,7 +34,7 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Status</div>
             <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
-              <OutreachBadge status={selectedOutreach.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedOutreach.status)+1)%OUTREACH_STATUSES.length];setSelectedOutreach(p=>({...p,status:next}));if(next==="client")promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});}}/>
+              <OutreachBadge status={selectedOutreach.status} onClick={()=>{const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(selectedOutreach.status)+1)%OUTREACH_STATUSES.length];setSelectedOutreach(p=>({...p,status:next}));}}/>
               <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
             </div>
           </div>
@@ -94,7 +94,6 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
               setXContacts('outreach', id, _xContacts||[]);
               await api.put(`/api/outreach/${id}`,{...fields,value:Number(fields.value)||0});
               setOutreach(prev=>prev.map(x=>x.id===id?{...selectedOutreach,value:Number(fields.value)||0}:x));
-              if(selectedOutreach.status==="client") promoteToClient({...selectedOutreach,contact:selectedOutreach.clientName});
               setSelectedOutreach(null);
             }}>Save Changes</BtnPrimary>
           </div>

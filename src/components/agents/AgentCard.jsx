@@ -123,7 +123,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         else{setAttachments(prev=>[...prev,{name:f.name,type:f.type,dataUrl}]);}
       }
     }
-  },[agent.id,setAttachments,setMsgs,setCodyUploadedDoc,codyDocConfigRef]);
+  },[agent.id]);
   const [connieCtx,setConnieCtx]=useState(()=>{try{const s=localStorage.getItem('onna_connie_ctx');const p=s?JSON.parse(s):null;if(p&&p._mode){localStorage.removeItem('onna_connie_ctx');return null;}return p;}catch{return null;}}); // {projectId, vIdx} — confirmed project+day for Connie
   const [connieDietMode,setConnieDietMode]=useState(null); // projectId string when dietary side panel is active
   const [csCreateMenuConnie,setCsCreateMenuConnie]=useState(false); // local dropdown for Connie "+" button
