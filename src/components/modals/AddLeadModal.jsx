@@ -1,6 +1,6 @@
 import React from "react";
 
-export function AddLeadModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, showAddLead, setShowAddLead, newLead, setNewLead, api, setLocalLeads, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, allLeadLocs, customLeadLocs, setCustomLeadLocs, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS }) {
+export function AddLeadModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, showAddLead, setShowAddLead, newLead, setNewLead, api, setLocalLeads, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, allLeadLocs, customLeadLocs, setCustomLeadLocs, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS }) {
   return (
     <div className="modal-bg" onClick={()=>setShowAddLead(false)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -21,7 +21,7 @@ export function AddLeadModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, showA
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-            <Sel value={newLead.location} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewLead(p=>({...p,location:n}));}else setNewLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
+            <LocationPicker value={newLead.location} onChange={v=>setNewLead(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Source</div>

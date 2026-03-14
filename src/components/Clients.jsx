@@ -21,7 +21,7 @@ export default function Clients({
   // Constants
   OUTREACH_STATUS_LABELS, OUTREACH_STATUSES, LEAD_CATEGORIES,
   // UI components
-  Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge,
+  Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge, LocationPicker,
 }) {
   // ── Local state (Clients-tab-only) ──
   const [leadsView, setLeadsView] = useState(() => localStorage.getItem("onna_leads_view") || "dashboard");
@@ -58,25 +58,27 @@ export default function Clients({
   const _outreachAsLeads = outreach.map(o => ({ id: o.id, _fromOutreach: true, company: o.company, contact: o.clientName, role: o.role, email: o.email, category: o.category, status: o.status, date: o.date, value: o.value, location: o.location, notes: o.notes, phone: o.phone }));
   const allLeadsCombined = [..._pureLeads, ..._outreachAsLeads];
   const leadMonths = ["All", ...Array.from(new Set(allLeadsCombined.map(l => getMonthLabel(l.date)).filter(Boolean)))];
-  const leadLocations = ["All", ...Array.from(new Set(allLeadsCombined.map(l => l.location).filter(Boolean))).sort()];
+  const leadLocations = ["All", ...Array.from(new Set(allLeadsCombined.flatMap(l => (l.location||"").includes("|")?(l.location||"").split("|").map(s=>s.trim()).filter(Boolean):[l.location].filter(Boolean)))).sort()];
 
   const filteredLeads = useMemo(() => {
     const q = getSearch("Leads").toLowerCase();
     return allLeadsCombined
       .filter(l => {
         const s = q;
-        return (!s || [l.company,l.contact,l.role,l.email,l.phone,l.category,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(s))) && (leadCat === "All" || l.category === leadCat) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || (l.location || "") === leadLoc);
+        const _hl = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
+        return (!s || [l.company,l.contact,l.role,l.email,l.phone,l.category,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(s))) && (leadCat === "All" || l.category === leadCat) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || _hl(l.location, leadLoc));
       })
       .sort((a, b) => (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
   }, [getSearch("Leads"), leadCat, leadStatus, leadMonth, leadLoc, localLeads, outreach, leadStatusOverrides]);
 
   const outreachCategories = ["All", ...Array.from(new Set(outreach.map(o => o.category).filter(Boolean)))];
   const outreachMonths = ["All", ...Array.from(new Set(outreach.map(o => getMonthLabel(o.date)).filter(Boolean)))];
-  const outreachLocations = ["All", ...Array.from(new Set(outreach.map(o => o.location).filter(Boolean))).sort()];
+  const outreachLocations = ["All", ...Array.from(new Set(outreach.flatMap(o => (o.location||"").includes("|")?(o.location||"").split("|").map(s=>s.trim()).filter(Boolean):[o.location].filter(Boolean)))).sort()];
   const filteredOutreach = outreach.filter(o => {
     if (o.status === "not_contacted" || o.status === "client") return false;
     const q = getSearch("Outreach").toLowerCase();
-    return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || o.category === outreachCatFilter) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || (o.location || "") === outreachLocFilter);
+    const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
+    return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || o.category === outreachCatFilter) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter));
   }).sort((a, b) => outreachSort === "az"
     ? (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase())
     : (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0)));
@@ -108,7 +110,7 @@ export default function Clients({
         const _catMap = {}; allLeadsCombined.forEach(l => { if (l.category) _catMap[l.category] = (_catMap[l.category] || 0) + 1; });
         const catGroups = Object.entries(_catMap).sort((a, b) => b[1] - a[1]).map(([label, count], i) => ({ label, count, color: PAL[i % PAL.length] }));
 
-        const _locMap = {}; allLeadsCombined.forEach(l => { if (l.location) { const k = l.location.split(",")[0].trim(); _locMap[k] = (_locMap[k] || 0) + 1; } });
+        const _locMap = {}; allLeadsCombined.forEach(l => { if (l.location) { const parts = l.location.includes("|")?l.location.split("|").map(s=>s.trim()):[l.location.trim()]; parts.filter(Boolean).forEach(loc=>{ const k=loc.split(",")[0].trim(); _locMap[k]=(_locMap[k]||0)+1; }); } });
         const locGroups = Object.entries(_locMap).sort((a, b) => b[1] - a[1]).map(([label, count], i) => ({ label, count, color: PAL[i % PAL.length] }));
 
         const Donut = ({ title, groups }) => {
@@ -288,7 +290,7 @@ export default function Clients({
                   </div>
                   <div>
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
-                    <Sel value={selectedClient.country||""} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedClient(p=>({...p,country:n}));}else setSelectedClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
+                    <LocationPicker value={selectedClient.country||""} onChange={v=>setSelectedClient(p=>({...p,country:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
                   </div>
                   <div>
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Status</div>
@@ -462,7 +464,7 @@ export default function Clients({
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-                <Sel value={newClient.country} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewClient(p=>({...p,country:n}));}else setNewClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
+                <LocationPicker value={newClient.country} onChange={v=>setNewClient(p=>({...p,country:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
               </div>
               <div style={{gridColumn:"span 2"}}>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Notes</div>
@@ -498,7 +500,7 @@ export default function Clients({
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-                <Sel value={newOutreach.location} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setNewOutreach(p=>({...p,location:n}));}else setNewOutreach(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth={200}/>
+                <LocationPicker value={newOutreach.location} onChange={v=>setNewOutreach(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>

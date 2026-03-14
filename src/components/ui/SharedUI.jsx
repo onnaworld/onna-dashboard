@@ -52,10 +52,18 @@ export const THFilter = ({label,value,onChange,options}) => (
   </th>
 );
 
+const SEP = " | ";
+const parseLocs = v => {
+  if(!v||typeof v!=="string") return [];
+  if(v.includes("|")) return v.split("|").map(s=>s.trim()).filter(Boolean);
+  // backward compat: old single-value locations like "Dubai, UAE"
+  return [v.trim()].filter(Boolean);
+};
+
 export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,setCustomLocs,storageKey}) => {
   const [open,setOpen] = useState(false);
   const ref = useRef(null);
-  const locs = (typeof value==="string"&&value?value.split(", ").map(s=>s.trim()).filter(Boolean):Array.isArray(value)?value:[]);
+  const locs = parseLocs(value);
   const available = options.filter(o=>o!=="All"&&o!=="＋ Add location");
   useEffect(()=>{
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
@@ -63,12 +71,12 @@ export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,s
   },[]);
   const toggle = loc => {
     const next = locs.includes(loc)?locs.filter(l=>l!==loc):[...locs,loc];
-    onChange(next.join(", "));
+    onChange(next.join(SEP));
   };
   const addNew = () => {
     if(!addNewOption)return;
     const n = addNewOption(customLocs,setCustomLocs,storageKey,"New location name:");
-    if(n){const next=[...locs,n];onChange(next.join(", "));}
+    if(n){const next=[...locs,n];onChange(next.join(SEP));}
   };
   return (
     <div ref={ref} style={{position:"relative"}}>

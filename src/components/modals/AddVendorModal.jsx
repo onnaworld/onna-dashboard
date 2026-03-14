@@ -1,6 +1,6 @@
 import React from "react";
 
-export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, showAddVendor, setShowAddVendor, newVendor, setNewVendor, api, setVendors, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, showAlert }) {
+export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, showAddVendor, setShowAddVendor, newVendor, setNewVendor, api, setVendors, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, showAlert }) {
   return (
     <div className="modal-bg" onClick={()=>setShowAddVendor(false)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -21,7 +21,7 @@ export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, sho
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-            <Sel value={newVendor.location} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n)setNewVendor(p=>({...p,location:n}));}else setNewVendor(p=>({...p,location:v}));}} options={allVendorLocs} minWidth={200}/>
+            <LocationPicker value={newVendor.location} onChange={v=>setNewVendor(p=>({...p,location:v}))} options={allVendorLocs} addNewOption={addNewOption} customLocs={customVendorLocs} setCustomLocs={setCustomVendorLocs} storageKey="onna_vendor_locs"/>
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>

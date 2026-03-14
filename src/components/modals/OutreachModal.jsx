@@ -1,6 +1,6 @@
 import React from "react";
 
-export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts }) {
+export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts }) {
   return (
     <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -10,6 +10,12 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
             <div style={{fontSize:12,color:T.muted,marginTop:3}}>{selectedOutreach.category} · {selectedOutreach.location}</div>
           </div>
           <button onClick={()=>setSelectedOutreach(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
+          <textarea value={selectedOutreach.notes||""} onChange={e=>setSelectedOutreach(p=>({...p,notes:e.target.value}))} rows={3}
+            placeholder="Context, next steps, meeting notes…"
+            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
           {[["company","Company"],["clientName","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value (AED)"]].map(([field,label])=>(
@@ -40,7 +46,7 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-            <Sel value={selectedOutreach.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedOutreach(p=>({...p,location:n}));}else setSelectedOutreach(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
+            <LocationPicker value={selectedOutreach.location||""} onChange={v=>setSelectedOutreach(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
           </div>
         </div>
         {/* Additional Contacts */}
@@ -72,12 +78,6 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
               </div>
             </div>
           )}
-        </div>
-        <div style={{marginBottom:18}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
-          <textarea value={selectedOutreach.notes||""} onChange={e=>setSelectedOutreach(p=>({...p,notes:e.target.value}))} rows={3}
-            placeholder="Context, next steps, meeting notes…"
-            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={async()=>{

@@ -1,6 +1,6 @@
 import React from "react";
 
-export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, OutreachBadge, selectedLead, setSelectedLead, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setLocalLeads, setLeadStatusOverrides, archiveItem, pruneCustom, setXContacts }) {
+export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedLead, setSelectedLead, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setLocalLeads, setLeadStatusOverrides, archiveItem, pruneCustom, setXContacts }) {
   return (
     <div className="modal-bg" onClick={()=>setSelectedLead(null)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -10,6 +10,12 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Out
             <div style={{fontSize:12,color:T.muted,marginTop:3}}>{selectedLead.category} · {selectedLead.location}</div>
           </div>
           <button onClick={()=>setSelectedLead(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
+          <textarea value={selectedLead.notes||""} onChange={e=>setSelectedLead(p=>({...p,notes:e.target.value}))} rows={3}
+            placeholder="Comments, next steps, context…"
+            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
           {[["company","Company"],["contact","Contact"],["role","Role"],["email","Email"],["phone","Phone"],["date","Date Contacted"],["value","Deal Value"]].map(([field,label])=>(
@@ -40,7 +46,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Out
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-            <Sel value={selectedLead.location||""} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedLead(p=>({...p,location:n}));}else setSelectedLead(p=>({...p,location:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
+            <LocationPicker value={selectedLead.location||""} onChange={v=>setSelectedLead(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
           </div>
         </div>
         {/* Additional Contacts */}
@@ -72,12 +78,6 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Out
               </div>
             </div>
           )}
-        </div>
-        <div style={{marginBottom:18}}>
-          <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Notes</div>
-          <textarea value={selectedLead.notes||""} onChange={e=>setSelectedLead(p=>({...p,notes:e.target.value}))} rows={3}
-            placeholder="Comments, next steps, context…"
-            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={async()=>{
