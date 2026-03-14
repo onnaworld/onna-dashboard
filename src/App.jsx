@@ -389,6 +389,7 @@ function OnnaDashboardInner() {
     dietaryTab,setDietaryTab,
     projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,
     editingEstimate,setEditingEstimate,
+    cashFlowStore,setCashFlowStore,activeCashFlowVersion,setActiveCashFlowVersion,
     projectNotes,setProjectNotes,projectInfo,setProjectInfo,projectInfoRef,
     actualsTrackerTab,setActualsTrackerTab,actualsExpandedRef,
     contractType,setContractType,contractFields,setContractFields,
@@ -644,6 +645,12 @@ function OnnaDashboardInner() {
           Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
+        // Cash Flows
+        setCashFlowStore(prev => {
+          let changed = false; const s = JSON.parse(JSON.stringify(prev));
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
+          return changed ? s : prev;
+        });
         localStorage.setItem('onna_logo_ver', LOGO_VER);
       } catch {}
     };
@@ -833,7 +840,7 @@ function OnnaDashboardInner() {
   const globalHydratedRef = useRef(false);
   const hydratedProjectsRef = useRef(new Set());
   const hydrateProject = useCallback((pid) => {
-    return doHydrateProject(pid, { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting });
+    return doHydrateProject(pid, { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting });
   }, []); // eslint-disable-line
   useEffect(() => {
     if (!selectedProject || !authed) return;
@@ -1255,7 +1262,7 @@ function OnnaDashboardInner() {
 
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
-          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading}/>}
+          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged}/>}
 
           {activeTab==="Resources"&&<Resources T={T} isMobile={isMobile} api={api}
             vaultLocked={vaultLocked} setVaultLocked={setVaultLocked}

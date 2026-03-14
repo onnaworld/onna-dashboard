@@ -122,6 +122,10 @@ export function AgentProvider({ debouncedDocSave, children }) {
   const [activeEstimateVersion,setActiveEstimateVersion] = useState(0);
   const [editingEstimate,setEditingEstimate]             = useState(null);
 
+  // ── Cash Flows ──
+  const [cashFlowStore,setCashFlowStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_cashflows');return s?JSON.parse(s):{}}catch{return {}}});
+  const [activeCashFlowVersion,setActiveCashFlowVersion] = useState(null);
+
   // ── Project Info / Notes ──
   const [projectNotes,setProjectNotes]                   = useState({});
   const [projectInfo,setProjectInfo]                     = useState(()=>{try{const s=localStorage.getItem('onna_project_info');return s?JSON.parse(s):{}}catch{return {}}});
@@ -153,6 +157,7 @@ export function AgentProvider({ debouncedDocSave, children }) {
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{} debouncedDocSave('travel_itineraries',travelItineraryStore);},[travelItineraryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{} debouncedDocSave('dietaries',dietaryStore);},[dietaryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{} debouncedDocSave('estimates',projectEstimates);},[projectEstimates]);
+  useEffect(()=>{try{localStorage.setItem('onna_cashflows',JSON.stringify(cashFlowStore))}catch{} debouncedDocSave('cashflows',cashFlowStore);},[cashFlowStore]);
   useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{} debouncedDocSave('project_info',projectInfo);},[projectInfo]);
 
   const value = {
@@ -210,6 +215,8 @@ export function AgentProvider({ debouncedDocSave, children }) {
     // Estimates
     projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,
     editingEstimate,setEditingEstimate,
+    // Cash Flows
+    cashFlowStore,setCashFlowStore,activeCashFlowVersion,setActiveCashFlowVersion,
     // Project Info / Notes
     projectNotes,setProjectNotes,projectInfo,setProjectInfo,projectInfoRef,
     // Actuals tracker

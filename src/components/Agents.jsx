@@ -23,6 +23,7 @@ export default function Agents({
   postProdStore, setPostProdStore,
   syncProjectInfoToDocs,
   projectFileStore,
+  setLocalProjects,
 }) {
   const [agentHoverIdx, setAgentHoverIdx] = useState(null);
   const [agentStart, setAgentStart] = useState(0);
@@ -162,6 +163,7 @@ export default function Agents({
                 setPostProdStore={a.id==="perry"?setPostProdStore:undefined}
                 syncProjectInfoToDocs={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?syncProjectInfoToDocs:undefined}
                 projectFileStore={a.id==="billie"?projectFileStore:undefined}
+                onCreateProject={setLocalProjects?(saved)=>{setLocalProjects(prev=>[...prev,saved]);try{localStorage.setItem('onna_cache_projects',JSON.stringify([...allProjectsMerged,saved]))}catch{}}:undefined}
               />
             ))}
           </div>
