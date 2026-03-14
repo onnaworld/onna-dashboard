@@ -46,6 +46,9 @@ export default function Budget({
   const invoicedOverride = _meta.invoicedOverride != null ? _meta.invoicedOverride : null;
   const setInvoicedOverride = (v) => _setMeta({ invoicedOverride: v });
   const [invoicedEdit, setInvoicedEdit] = React.useState(null);
+  const advancePct = _meta.advancePct != null ? _meta.advancePct : null;
+  const setAdvancePct = (v) => _setMeta({ advancePct: v });
+  const [advPctEdit, setAdvPctEdit] = React.useState(null);
 
   const [tallyItems, setTallyItems] = React.useState([]);
   const [receiptLoading, setReceiptLoading] = React.useState(null);
@@ -207,8 +210,9 @@ export default function Budget({
     const stBg = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
 
     // Invoiced amount calculation (hoisted for use across tabs)
+    // Priority: meta override → estimate payment terms → default 75%
     const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
-    const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
+    const advPct = advancePct != null ? advancePct : (pctMatch ? parseInt(pctMatch[1]) : 75);
     const autoInvoiced = estTotals.grandTotal * (advPct / 100);
     const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
     const finalInvoice = invoicedAmt - actExpenseTotal;
@@ -387,7 +391,7 @@ export default function Budget({
           {/* Summary cards row */}
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
             <div style={{flex:1,padding:"8px 10px",borderRight:"1px solid #ddd",textAlign:"center"}}>
-              <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>INVOICED {invoicedOverride===null?`(${advPct}%)`:""}</div>
+              <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2,display:"flex",alignItems:"center",justifyContent:"center",gap:2}}>INVOICED {invoicedOverride===null&&<span style={{cursor:"pointer"}} title="Click to change advance %">(<input value={advPctEdit!==null?advPctEdit:advPct} onFocus={e=>{setAdvPctEdit(String(advPct));e.target.select();}} onChange={e=>setAdvPctEdit(e.target.value)} onBlur={()=>{const v=parseInt(advPctEdit);if(!isNaN(v)&&v>0&&v<=100)setAdvancePct(v);else if(advPctEdit==="")setAdvancePct(null);setAdvPctEdit(null);}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",border:"none",outline:"none",background:"transparent",width:20,textAlign:"center",padding:0}}/>%)</span>}</div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:2}}>
                 <input
                   value={invoicedEdit !== null ? invoicedEdit : estFmt(invoicedAmt)}

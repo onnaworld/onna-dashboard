@@ -290,6 +290,13 @@ export default function Clients({
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
                     <Sel value={selectedClient.country||""} onChange={v=>{if(v==="\uff0b Add location"){const n=addNewOption(customLeadLocs,setCustomLeadLocs,'onna_lead_locs',"New location name:");if(n)setSelectedClient(p=>({...p,country:n}));}else setSelectedClient(p=>({...p,country:v}));}} options={allLeadLocs.filter(l=>l!=="All")} minWidth="100%"/>
                   </div>
+                  <div>
+                    <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Status</div>
+                    <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:4}}>
+                      <OutreachBadge status={selectedClient.status||"client"} onClick={()=>{const cur=selectedClient.status||"client";const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(cur)+1)%OUTREACH_STATUSES.length];setSelectedClient(p=>({...p,status:next}));}}/>
+                      <span style={{fontSize:11,color:T.muted}}>click to cycle</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Notes */}
@@ -344,41 +351,39 @@ export default function Clients({
               <span style={{ fontSize: 12, color: T.muted }}>{_filteredClients.length} clients</span>
               <BtnPrimary onClick={() => setShowAddClient(true)}>+ New Client</BtnPrimary>
             </div>
-            {_filteredClients.length === 0
-              ? <div style={{ borderRadius: 16, padding: 44, textAlign: "center", background: T.surface, border: `1px solid ${T.border}`, color: T.muted, fontSize: 13 }}>No clients yet. Leads marked as &quot;Client&quot; will appear here automatically.</div>
-              : <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14 }}>
-                {_filteredClients.map(c => {
-                  const cKey = (c.company || "").trim().toLowerCase();
-                  const cProjects = localProjects.filter(p => (p.client || "").trim().toLowerCase() === cKey);
-                  const cRevenue = cProjects.reduce((a, p) => a + getProjRevenue(p), 0);
-                  return (
-                    <div key={c.id} className="proj-card" onClick={()=>setSelectedClient({...c})} style={{ borderRadius: 16, padding: 22, background: T.surface, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: T.text, letterSpacing: "-0.01em", lineHeight: 1.3 }}>{c.company}</div>
-                        <span style={{ fontSize: 10, padding: "3px 9px", borderRadius: 999, background: "#f3e8ff", color: "#7c3aed", fontWeight: 500, flexShrink: 0 }}>Client</span>
-                      </div>
-                      {c.name && <div style={{ fontSize: 12.5, color: T.sub, marginBottom: 2, fontWeight: 500 }}>{c.name}</div>}
-                      {(c.category||c.country)&&<div style={{ fontSize: 12, color: T.muted, marginBottom: 12 }}>{[c.category,c.country].filter(Boolean).join(" · ")}</div>}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12, padding: "10px 12px", background: "#fafafa", borderRadius: 10 }}>
-                        <div>
-                          <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 3 }}>Revenue</div>
-                          <div style={{ fontSize: 17, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AED {cRevenue.toLocaleString()}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 3 }}>Projects</div>
-                          <div style={{ fontSize: 17, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>{cProjects.length}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {c.email && <a href={`mailto:${c.email}`} onClick={e=>e.stopPropagation()} style={{ fontSize: 12, color: T.link, textDecoration: "none" }}>{c.email}</a>}
-                        {c.phone && <div style={{ fontSize: 12, color: T.muted }}>{c.phone}</div>}
-                        {c.notes && <div style={{ fontSize: 11.5, color: T.muted, marginTop: 4, fontStyle: "italic" }}>{c.notes}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            }
+            <div className="mob-table-wrap" style={{ borderRadius: 16, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 620 : "auto" }}>
+                <thead><tr>
+                  <TH>Company</TH><TH>Contact</TH><TH>Email</TH><TH>Phone</TH>
+                  <THFilter label="Category" value={clientCat} onChange={setClientCat} options={clientCategories} />
+                  <THFilter label="Location" value={clientCountry} onChange={setClientCountry} options={clientCountries} />
+                  <TH>Status</TH>
+                  <TH>Revenue</TH>
+                  <TH>Projects</TH>
+                </tr></thead>
+                <tbody>
+                  {_filteredClients.map(c => {
+                    const cKey = (c.company || "").trim().toLowerCase();
+                    const cProjects = localProjects.filter(p => (p.client || "").trim().toLowerCase() === cKey);
+                    const cRevenue = cProjects.reduce((a, p) => a + getProjRevenue(p), 0);
+                    return (
+                      <tr key={c.id} className="row" onClick={()=>setSelectedClient({...c})}>
+                        <TD bold>{c.company}</TD>
+                        <TD>{c.name || "\u2014"}</TD>
+                        <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}>{c.email ? <a href={`mailto:${c.email}`} onClick={e=>e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{c.email}</a> : "\u2014"}</td>
+                        <TD muted>{c.phone || "\u2014"}</TD>
+                        <TD muted>{c.category || "\u2014"}</TD>
+                        <TD muted>{c.country || "\u2014"}</TD>
+                        <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }} onClick={e=>e.stopPropagation()}><OutreachBadge status={c.status||"client"} onClick={async()=>{const cur=c.status||"client";const next=OUTREACH_STATUSES[(OUTREACH_STATUSES.indexOf(cur)+1)%OUTREACH_STATUSES.length];await api.put(`/api/clients/${c.id}`,{status:next});setLocalClients(prev=>prev.map(x=>x.id===c.id?{...x,status:next}:x));}}/></td>
+                        <TD muted>AED {cRevenue.toLocaleString()}</TD>
+                        <TD muted>{cProjects.length}</TD>
+                      </tr>
+                    );
+                  })}
+                  {_filteredClients.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No clients yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })()}

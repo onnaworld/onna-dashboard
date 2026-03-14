@@ -121,20 +121,14 @@ export default function ProjectSection({
   const entries    = projectEntries[p.id]||[];
   const quotes     = (projectFileStore[p.id]||{}).quotations||[];
   const allEntries = [...entries,...quotes.map((f,i)=>({id:`q_${i}`,supplier:f.name,category:"Quote",subCategory:"",invoiceNumber:"",receiptLink:"",datePaid:"",amount:"",direction:"out",notes:"Uploaded quote"}))];
-  // Revenue = invoiced amount (override or auto-calc from estimate)
+  // Revenue = 100% estimate total (full project value)
   const estVersions = projectEstimates[p.id] || [];
   const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
   const estTotals = latestEst ? estCalcTotals(latestEst.sections || defaultSections()) : { grandTotal: 0 };
-  const _meta = projectActuals[`_meta_${p.id}`] || {};
-  const invoicedOverride = _meta.invoicedOverride != null ? _meta.invoicedOverride : null;
-  const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
-  const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-  const autoInvoiced = estTotals.grandTotal * (advPct / 100);
-  const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
   // Expenses from actuals
   const actData = projectActuals[p.id];
   const actEffective = actData ? actualsGrandEffective(actData) : 0;
-  const totalIn    = invoicedAmt;
+  const totalIn    = estTotals.grandTotal;
   const totalOut   = actEffective;
   const profit     = totalIn - totalOut;
   const margin     = totalIn > 0 ? Math.round((profit / totalIn) * 100) : 0;
