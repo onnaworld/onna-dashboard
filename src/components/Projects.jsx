@@ -63,7 +63,14 @@ export default function Projects({
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <SearchBar value={getSearch("Projects")} onChange={v => setSearch("Projects", v)} placeholder="Search projects…" />
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {(() => { const yrs = new Set(availableYears); allProjectsMerged.forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => <Pill key={y} label={String(y)} active={projectYear === y} onClick={() => setProjectYear(y)} />)}
+          {(() => { const yrs = new Set(availableYears); allProjectsMerged.forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map((y, _, arr) => (
+            <div key={y} style={{ display: "inline-flex", alignItems: "center", gap: 0, position: "relative" }}>
+              <Pill label={String(y)} active={projectYear === y} onClick={() => setProjectYear(y)} />
+              {y === arr[arr.length - 1] && availableYears.length > 1 && (
+                <button onClick={e => { e.stopPropagation(); if (window.confirm(`Are you sure you want to remove ${y}?`)) { setAvailableYears(prev => prev.filter(yr => yr !== y).sort()); if (projectYear === y) setProjectYear(arr[arr.length - 2]); } }} style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#e0e0e0", border: "none", fontSize: 10, color: "#666", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0 }} title={`Remove ${y}`}>×</button>
+              )}
+            </div>
+          ))}
           <button onClick={() => { const next = Math.max(...availableYears, new Date().getFullYear()) + 1; setAvailableYears(prev => [...prev, next].sort()); }} style={{ width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add year">+</button>
         </div>
         <span style={{ marginLeft: "auto", fontSize: 12, color: T.muted }}>{projects.length} projects</span>

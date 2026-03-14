@@ -246,26 +246,31 @@ export default function Finance({
         {subTabs.map(st => (
           <button key={st.key} onClick={() => setFinanceTab(st.key)}
             style={{
-              padding: "7px 18px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              border: financeTab === st.key ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-              background: financeTab === st.key ? T.accent : T.surface,
-              color: financeTab === st.key ? "#fff" : T.text,
-              cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+              padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+              border: financeTab === st.key ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+              background: financeTab === st.key ? T.accent : "#e8e8ed",
+              color: financeTab === st.key ? "#fff" : T.sub,
+              cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
             }}>{st.label}</button>
         ))}
       </div>
 
       {/* ── Year selector bar ── */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, alignItems: "center" }}>
-        {(() => { const yrs = new Set(availableYears); (allProjectsMerged || []).forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map(y => (
-          <button key={y} onClick={() => setFinanceYear(y)}
-            style={{
-              padding: "6px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              border: financeYear === y ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-              background: financeYear === y ? T.accent : T.surface,
-              color: financeYear === y ? "#fff" : T.text,
-              cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-            }}>{y}</button>
+        {(() => { const yrs = new Set(availableYears); (allProjectsMerged || []).forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map((y, _, arr) => (
+          <div key={y} style={{ display: "inline-flex", alignItems: "center", position: "relative" }}>
+            <button onClick={() => setFinanceYear(y)}
+              style={{
+                padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                border: financeYear === y ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+                background: financeYear === y ? T.accent : "#e8e8ed",
+                color: financeYear === y ? "#fff" : T.sub,
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
+              }}>{y}</button>
+            {y === arr[arr.length - 1] && availableYears.length > 1 && (
+              <button onClick={e => { e.stopPropagation(); if (window.confirm(`Are you sure you want to remove ${y}?`)) { setAvailableYears(prev => prev.filter(yr => yr !== y).sort()); if (financeYear === y) setFinanceYear(arr[arr.length - 2]); } }} style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#e0e0e0", border: "none", fontSize: 10, color: "#666", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, zIndex: 1 }} title={`Remove ${y}`}>×</button>
+            )}
+          </div>
         ))}
         <button onClick={() => { const next = Math.max(...availableYears, new Date().getFullYear()) + 1; setAvailableYears(prev => [...prev, next].sort()); }} style={{ width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add year">+</button>
       </div>
