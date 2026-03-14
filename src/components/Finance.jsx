@@ -110,7 +110,6 @@ export default function Finance({
           T={T} isMobile={isMobile}
           cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore}
           activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion}
-          allProjects={allProjects || allProjectsMerged}
         />
       )}
     </div>
@@ -120,16 +119,31 @@ export default function Finance({
 /* ═══════════════════════════════════════════════════════════════════════════════
    Cash Flow Document Component — Monthly Tracker
    ═══════════════════════════════════════════════════════════════════════════════ */
-function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, allProjects }) {
-  const [selectedProject, setSelectedProject] = useState("");
-
-  const pid = selectedProject;
+function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion }) {
+  const pid = "_global";
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
   const data = vIdx >= 0 ? versions[vIdx] : null;
 
+  // Auto-create first version if none exist
+  React.useEffect(() => {
+    if (versions.length === 0) {
+      const newV = CASHFLOW_INIT();
+      const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
+      logoImg.onload = () => { try { const cv = document.createElement("canvas"); cv.width = logoImg.naturalWidth; cv.height = logoImg.naturalHeight; cv.getContext("2d").drawImage(logoImg, 0, 0); newV.prodLogo = cv.toDataURL("image/png"); } catch {} };
+      logoImg.src = "/onna-default-logo.png";
+      setCashFlowStore(prev => {
+        const store = JSON.parse(JSON.stringify(prev));
+        if (!store[pid]) store[pid] = [];
+        store[pid].push(newV);
+        return store;
+      });
+      setActiveCashFlowVersion(0);
+    }
+  }, []); // eslint-disable-line
+
   const update = useCallback((key, val) => {
-    if (!pid || vIdx < 0) return;
+    if (vIdx < 0) return;
     setCashFlowStore(prev => {
       const store = JSON.parse(JSON.stringify(prev));
       const arr = store[pid] || [];
@@ -143,7 +157,6 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   }, [pid, vIdx, setCashFlowStore]);
 
   const addVersion = () => {
-    if (!pid) return;
     const newV = CASHFLOW_INIT();
     newV.label = `Cash Flow V${versions.length + 1}`;
     const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
@@ -332,30 +345,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
   return (
     <div>
-      {/* ── Project selector ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-        <select value={selectedProject} onChange={e => { setSelectedProject(e.target.value); setActiveCashFlowVersion(null); }}
-          style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 12, fontFamily: "inherit", background: T.surface, color: T.text, minWidth: 200 }}>
-          <option value="">Select project…</option>
-          {(allProjects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        {pid && data && (
-          <button onClick={handlePrint} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.text, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            Print / PDF
-          </button>
-        )}
-      </div>
-
-      {!pid && (
-        <div style={{ borderRadius: 14, background: "#fafafa", border: `1.5px dashed ${T.border}`, padding: 44, textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: T.muted }}>Select a project to view or create a cash flow tracker.</div>
-        </div>
-      )}
-
-      {pid && (
-        <>
-          {/* ── Version bar ── */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0 }}>
+      {/* ── Version bar + Print ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0 }}>
             {versions.map((v, idx) => {
               const isActive = vIdx === idx;
               return (
@@ -366,13 +357,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               );
             })}
             <div onClick={addVersion} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }} title="New Version">+</div>
+            {data && <button onClick={handlePrint} style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.text, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Print / PDF</button>}
           </div>
-
-          {!data && (
-            <div style={{ borderRadius: 14, background: "#fafafa", border: `1.5px dashed ${T.border}`, padding: 44, textAlign: "center" }}>
-              <div style={{ fontSize: 13, color: T.muted }}>No cash flow versions yet. Click "+" to create one.</div>
-            </div>
-          )}
 
           {data && calcs && (
             <div>
@@ -513,8 +499,6 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               </div>
             </div>
           )}
-        </>
-      )}
     </div>
   );
 }
