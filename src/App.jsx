@@ -798,8 +798,25 @@ function OnnaDashboardInner() {
       try {
         const gd = await api.get('/api/global-data');
         if (gd) {
-          if (gd.todos) setTodos(gd.todos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"}));
-          if (gd.ptodos) setProjectTodos(gd.ptodos);
+          if (gd.todos && gd.todos.length) setTodos(prev => {
+            const merged = gd.todos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"});
+            // If local has items the backend doesn't, keep them (merge by id)
+            if (prev.length) {
+              const backendIds = new Set(merged.map(t => t.id));
+              for (const lt of prev) { if (!backendIds.has(lt.id)) merged.push(lt); }
+            }
+            return merged;
+          });
+          if (gd.ptodos && Object.keys(gd.ptodos).length) setProjectTodos(prev => {
+            if (!Object.keys(prev).length) return gd.ptodos;
+            const merged = {...gd.ptodos};
+            for (const [pid, tasks] of Object.entries(prev)) {
+              if (!merged[pid]) { merged[pid] = tasks; continue; }
+              const backendIds = new Set(merged[pid].map(t => t.id));
+              for (const lt of tasks) { if (!backendIds.has(lt.id)) merged[pid].push(lt); }
+            }
+            return merged;
+          });
           if (gd.notes_list && Array.isArray(gd.notes_list)) {
             setDashNotesList(prev => {
               if (!prev.length) return gd.notes_list;
@@ -979,12 +996,19 @@ function OnnaDashboardInner() {
   const allTodos = [...generalTodos,...projectTodosFlat];
   const filteredTodos = allTodos.filter(t=>{
     if (todoFilter==="todo") return t._source==="general" && t.tab==="onna";
-    if (todoFilter==="todo-now") return t._source==="general" && t.tab==="onna" && !t.subType;
-    if (todoFilter==="todo-later") return t._source==="general" && t.tab==="onna" && t.subType==="later";
+    if (todoFilter==="todo-mon") return t._source==="general" && t.tab==="onna" && t.subType==="monday";
+    if (todoFilter==="todo-tue") return t._source==="general" && t.tab==="onna" && t.subType==="tuesday";
+    if (todoFilter==="todo-wed") return t._source==="general" && t.tab==="onna" && t.subType==="wednesday";
+    if (todoFilter==="todo-thu") return t._source==="general" && t.tab==="onna" && t.subType==="thursday";
+    if (todoFilter==="todo-fri") return t._source==="general" && t.tab==="onna" && t.subType==="friday";
+    if (todoFilter==="todo-sat") return t._source==="general" && t.tab==="onna" && t.subType==="saturday";
+    if (todoFilter==="todo-sun") return t._source==="general" && t.tab==="onna" && t.subType==="sunday";
+    if (todoFilter==="todo-longterm") return t._source==="general" && t.tab==="onna" && t.subType==="longterm";
+    if (todoFilter==="todo-week") return t._source==="general" && t.tab==="onna";
     if (todoFilter==="project") return t._source==="project";
     if (todoFilter.startsWith("project-")) return t._source==="project" && t.projectId===Number(todoFilter.replace("project-","")); return true;
   });
-  const todoTopFilter = ["todo","todo-now","todo-later"].includes(todoFilter)?"todo":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
+  const todoTopFilter = ["todo","todo-mon","todo-tue","todo-wed","todo-thu","todo-fri","todo-sat","todo-sun","todo-longterm","todo-week"].includes(todoFilter)?"todo":todoFilter.startsWith("project")||todoFilter==="project"?"project":"todo";
 
   const getProjectCastingTables = id => _getProjectCastingTablesFn(id, projectCasting);
   const getProjectCasting = id => _getProjectCastingFn(id, projectCasting);

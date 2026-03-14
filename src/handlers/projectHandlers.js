@@ -67,7 +67,8 @@ export const addTodoFromInput = (text, todoTopFilter, todoFilter, pushUndo, setP
   if (!text) return;
   pushUndo("add task");
   const tab = "onna";
-  const subType = todoFilter==="todo-later"||todoFilter==="general-later"?"later":undefined;
+  const dayMap = {"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday","todo-longterm":"longterm"};
+  const subType = dayMap[todoFilter] || undefined;
   if (todoFilter.startsWith("project-")) {
     const pid = Number(todoFilter.replace("project-",""));
     setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));
