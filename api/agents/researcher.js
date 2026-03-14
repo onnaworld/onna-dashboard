@@ -82,9 +82,11 @@ When real data has been fetched and included in the conversation, present it cle
 
 Format responses with clear headers and practical bullet points. Be concise but thorough.`;
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+    res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
@@ -100,7 +102,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
 
   // Detect location in latest user message to prefetch real data
   const lastUserMsg = [...messages].reverse().find(m => m.role === "user")?.content || "";

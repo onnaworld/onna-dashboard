@@ -15,9 +15,11 @@ NEVER say you cannot save data, cannot connect to a database, or suggest using e
 
 Be warm, brief and direct. Use plain language — not legalese — when chatting, but produce professional contract language in the final output.`;
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+    res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
@@ -33,7 +35,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
 
   try {
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {

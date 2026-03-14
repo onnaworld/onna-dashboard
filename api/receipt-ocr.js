@@ -1,8 +1,10 @@
 // Receipt OCR — extracts total amount from receipt image using Claude vision
 // Accepts either { url } (image link) or { image, mediaType } (base64)
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+    res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();

@@ -1,7 +1,7 @@
 // Vercel serverless proxy — injects API_SECRET server-side
 const BACKEND = "https://onna-backend-v2.vercel.app";
 const API_SECRET = process.env.API_SECRET || "";
-const ALLOWED_ORIGINS = ["https://app.onna.digital", "https://app.onna.world"];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
 
 // ─── Rate limiting (in-memory, per serverless instance) ─────────────────────
 const RATE_WINDOW = 60 * 1000; // 1 minute

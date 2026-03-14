@@ -112,9 +112,11 @@ When the user describes a shoot, generate a complete line-item budget table:
 - Keep chat replies brief unless outputting a full budget
 - You can also answer questions about Dubai production costs, rates, or logistics`;
 
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+    res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     return res.status(200).end();
@@ -130,7 +132,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
 
   try {
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {

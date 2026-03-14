@@ -13,8 +13,10 @@ const backendHeaders = (authToken) => ({
   ...(authToken ? { "Authorization": authToken } : {}),
 });
 
-const cors = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
+const cors = (req, res) => {
+  const origin = req.headers.origin || "";
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]);
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 };
@@ -80,7 +82,7 @@ async function findByToken(token, authToken, preferSigned = false) {
 }
 
 export default async function handler(req, res) {
-  cors(res);
+  cors(req, res);
   if (req.method === "OPTIONS") return res.status(200).end();
   _svcToken = null; // reset per-request cache
 

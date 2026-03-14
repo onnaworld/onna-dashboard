@@ -333,7 +333,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   };
   const startConv=(entry,type,asOutreach=false,updateId=null)=>{
     const qs=buildQuestions(entry,type);
-    // console.log('[VINNIE-DEBUG] startConv called:', { type, entryKeys: Object.keys(entry||{}), qsLength: qs.length, asOutreach, updateId });
     if(qs.length===0){showEntry(entry,type,updateId,asOutreach);return null;}
     setPendingConv({entry,type,saveAsOutreach:asOutreach,updateId,questions:qs,idx:0});
     return qs[0].q;
@@ -461,10 +460,8 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     }
 
     // ── Pending conversational Q&A → popup at end ─────────────────────────────
-    // console.log('[VINNIE-DEBUG] send() pendingConv check:', { hasPendingConv: !!pendingConv, agentId: agent.id, input: input.trim().substring(0, 30) });
     // ── Break out of Q&A if user starts a new creation command ──
     if(pendingConv&&agent.id==="logistical"&&/^(?:new|create|add)\s+(?:vendor|supplier|lead|contact|outreach)/i.test(input.trim().replace(/^(?:hey|hi|hello|yo)?\s*(?:vinnie|vin)\s*[,.]?\s*/i,""))){
-      // console.log('[VINNIE-DEBUG] Breaking out of Q&A for new creation command');
       setPendingConv(null);setPending(null);
     }
     if(pendingConv){
@@ -1648,7 +1645,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   }
 
   if(!active)return null;
-  // if(_isVinnie) console.log('[VINNIE-DEBUG] RENDER:', { _hasVinnieCard, pendingConv: !!pendingConv, pendingLead: !!pendingLead, isMobile });
   return(<>
     {/* save modal — only on mobile or non-Vinnie agents */}
     {pendingLead&&!_hasVinnieCard&&createPortal(

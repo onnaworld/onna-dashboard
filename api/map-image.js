@@ -1,6 +1,8 @@
 // Vercel serverless — proxy static map images to avoid CORS
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
+
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "https://app.onna.digital");
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(req.headers.origin) ? req.headers.origin : ALLOWED_ORIGINS[0]);
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();

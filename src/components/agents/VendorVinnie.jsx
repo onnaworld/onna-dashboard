@@ -17,7 +17,6 @@ export async function handleVinnieIntent({
   onUpdateVendor, onUpdateLead,
 }) {
   if (agent.id !== "logistical") return false;
-    // console.log('[VINNIE-DEBUG] handleVinnieIntent entered, input:', input.trim().substring(0, 50));
 
     // ── Vinnie: bare "new" / "create" / "add" with no type → ask which type ──
     const _vinInput=input.trim().replace(/\s+/g," ").replace(/^(?:hey|hi|hello|yo)?\s*(?:vinnie|vin)\s*[,.]?\s*/i,"");
@@ -86,7 +85,6 @@ export async function handleVinnieIntent({
     // ── Vinnie: add vendor/supplier ─────────────────────────────────────────
     const _isVendorIntent=agent.id==="logistical"&&/\b(vendor|supplier|add\s+(?:new\s+)?(?:vendor|supplier)|new\s+vendor|new\s+supplier|create\s+vendor|save\s+vendor)\b/i.test(_vinInput)&&!/outreach|tracker|pipeline/i.test(_vinInput)&&!/\b(?:update|edit|modify|change)\s+(?:the\s+)?(?:vendor|supplier|lead|contact)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&!/\b(?:search|find|look\s+up|fetch|get)\s.+?[A-Z][a-z]+\s+[A-Z][a-z]+\b.+?\b(?:and\s+(?:create|add|make|save|start))\b/i.test(_vinInput);
     if(_isVendorIntent){
-      // console.log('[VINNIE-DEBUG] _isVendorIntent matched, _vinInput:', _vinInput);
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       // Bare "create new vendor" / "new vendor" with no data → start blank Q&A from name
       if(/^(?:create|add|new|make|save)?\s*(?:a\s+)?(?:new\s+)?(?:vendor|supplier)\s*[.!?]?\s*$/i.test(_vinInput)){
@@ -149,7 +147,6 @@ Fields: {"name":"","company":"","category":"","email":"","phone":"","website":""
 
     // ── Vinnie: add to outreach tracker / lead ───────────────────────────────
     if(!/\b(vendor|supplier)\b/i.test(input.trim())&&!/\b(?:search|find|look\s+up|fetch|get)\b.{0,80}\b(?:outlook|whatsapp|inbox|emails?|chats?)\b/i.test(_vinInput)&&/outreach|pipeline|tracker|add.*lead|add.*contact|log.*contact|new.*lead|(just|today|yesterday|this morning|this week).{0,20}(contact|spoke|met|call|email|speak|reach)|(contact|spoke|met|called|emailed|reached).{0,30}(today|yesterday|them|him|her)|i.{0,15}(contacted|spoke|met|called|emailed)|just.{0,20}(contact|spoke|met|call|email)/i.test(input.trim())){
-      // console.log('[VINNIE-DEBUG] lead/outreach intent matched, _vinInput:', _vinInput);
       setMsgs(history);setInput("");setLoading(true);setMood("thinking");
       const today=new Date().toISOString().slice(0,10);
       // Bare "create new lead" / "new lead" / "new outreach tracker" with no data → start blank Q&A
@@ -371,14 +368,12 @@ Fields: {"company":"","contact":"","role":"","email":"","phone":"","value":"","d
       }catch{}
     }
 
-  // console.log('[VINNIE-DEBUG] handleVinnieIntent - NO INTENT MATCHED, falling through');
   return false;
 }
 
 export function useVinnieCard({ agent, isMobile, pendingConv, pendingLead, pendingType, pendingId, leadEdit, getXContacts }) {
   const isVinnie = agent.id === "logistical";
   const hasVinnieCard = isVinnie && !isMobile && ((pendingConv && !pendingConv._awaitingTypeChoice && !pendingConv._awaitingUpdateName && !pendingConv._awaitingUpdateAction) || !!pendingLead);
-  // if(isVinnie) console.log('[VINNIE-DEBUG] useVinnieCard:', { isVinnie, isMobile, hasPendingConv: !!pendingConv, pendingConvKeys: pendingConv ? Object.keys(pendingConv) : null, awaitType: pendingConv?._awaitingTypeChoice, awaitName: pendingConv?._awaitingUpdateName, awaitAction: pendingConv?._awaitingUpdateAction, pendingLead: !!pendingLead, hasVinnieCard });
   return { isVinnie, hasVinnieCard };
 }
 
@@ -390,7 +385,6 @@ export default function VendorVinnieCard({
   _VENDOR_CATS, _LEAD_CATS, _SOURCES,
 }) {
   const [_vinnieAddContact, _setVinnieAddContact] = useState(null);
-  // console.log('[VINNIE-DEBUG] VendorVinnieCard rendered:', { hasPendingConv: !!pendingConv, pendingConvEntry: !!pendingConv?.entry, pendingLead: !!pendingLead, leadEdit: !!leadEdit });
 
   const _isXContactMode = pendingConv && pendingConv._saveAsXContact;
   const _cardEntry = _isXContactMode
