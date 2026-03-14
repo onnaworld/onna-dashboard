@@ -1,6 +1,6 @@
 import React from "react";
 
-export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads, setUndoToastMsg }) {
+export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads, setUndoToastMsg }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   const vendorToLead = async (move) => {
     const company = (editVendor.company||editVendor.name||"").trim();
@@ -58,7 +58,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
           ))}
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
-            <Sel value={editVendor.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setEditVendor(p=>({...p,category:n}));}else setEditVendor(p=>({...p,category:v}));}} options={allVendorCats.filter(c=>c!=="All")} minWidth="100%"/>
+            <CategoryPicker value={editVendor.category||""} onChange={v=>setEditVendor(p=>({...p,category:v}))} options={allVendorCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customVendorCats} setCustomCats={setCustomVendorCats} storageKey="onna_vendor_cats"/>
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>

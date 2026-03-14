@@ -1,6 +1,6 @@
 import React from "react";
 
-export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts, setUndoToastMsg }) {
+export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts, setUndoToastMsg }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   return (
     <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
@@ -24,7 +24,7 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:16}}>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Category</div>
-            <Sel value={selectedOutreach.category||""} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedOutreach(p=>({...p,category:n}));}else setSelectedOutreach(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
+            <CategoryPicker value={selectedOutreach.category||""} onChange={v=>setSelectedOutreach(p=>({...p,category:v}))} options={allLeadCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customLeadCats} setCustomCats={setCustomLeadCats} storageKey="onna_lead_cats"/>
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Source</div>

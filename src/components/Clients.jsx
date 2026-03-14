@@ -21,7 +21,7 @@ export default function Clients({
   // Constants
   OUTREACH_STATUS_LABELS, OUTREACH_STATUSES, LEAD_CATEGORIES,
   // UI components
-  Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge, LocationPicker,
+  Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge, LocationPicker, CategoryPicker,
   setUndoToastMsg,
 }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
@@ -71,26 +71,28 @@ export default function Clients({
       .filter(l => {
         const s = q;
         const _hl = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
-        return (!s || [l.company,l.contact,l.role,l.email,l.phone,l.category,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(s))) && (leadCat === "All" || l.category === leadCat) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || _hl(l.location, leadLoc));
+        const _hc = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
+        return (!s || [l.company,l.contact,l.role,l.email,l.phone,l.category,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(s))) && (leadCat === "All" || _hc(l.category, leadCat)) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || _hl(l.location, leadLoc));
       })
       .sort((a, b) => (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
   }, [getSearch("Leads"), leadCat, leadStatus, leadMonth, leadLoc, localLeads, outreach, leadStatusOverrides]);
 
-  const outreachCategories = ["All", ...Array.from(new Set(outreach.map(o => o.category).filter(Boolean)))];
+  const outreachCategories = ["All", ...Array.from(new Set(outreach.flatMap(o => (o.category||"").includes("|")?(o.category||"").split("|").map(s=>s.trim()).filter(Boolean):[o.category].filter(Boolean))))];
   const outreachMonths = ["All", ...Array.from(new Set(outreach.map(o => getMonthLabel(o.date)).filter(Boolean)))];
   const outreachLocations = ["All", ...Array.from(new Set(outreach.flatMap(o => (o.location||"").includes("|")?(o.location||"").split("|").map(s=>s.trim()).filter(Boolean):[o.location].filter(Boolean)))).sort()];
   const filteredOutreach = outreach.filter(o => {
     if (o.status === "not_contacted" || o.status === "client") return false;
     const q = getSearch("Outreach").toLowerCase();
     const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
-    return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || o.category === outreachCatFilter) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter));
+    const _hc2 = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
+    return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || _hc2(o.category, outreachCatFilter)) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter));
   }).sort((a, b) => outreachSort === "az"
     ? (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase())
     : (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0)));
 
   // Client categories and countries for filters
   const clientCountries = ["All", ...Array.from(new Set(localClients.map(c => c.country).filter(Boolean))).sort()];
-  const clientCategories = ["All", ...Array.from(new Set(localClients.map(c => c.category).filter(Boolean))).sort()];
+  const clientCategories = ["All", ...Array.from(new Set(localClients.flatMap(c => (c.category||"").includes("|")?(c.category||"").split("|").map(s=>s.trim()).filter(Boolean):[c.category].filter(Boolean)))).sort()];
 
   return (
     <div>
@@ -112,7 +114,7 @@ export default function Clients({
 
         const stageGroups = STATUSES.map((s, i) => ({ label: STATUS_LABELS[s], count: counts[i], color: COLORS[s] })).filter(g => g.count > 0);
 
-        const _catMap = {}; allLeadsCombined.forEach(l => { if (l.category) _catMap[l.category] = (_catMap[l.category] || 0) + 1; });
+        const _catMap = {}; allLeadsCombined.forEach(l => { if (l.category) { const parts = l.category.includes("|")?l.category.split("|").map(s=>s.trim()):[l.category.trim()]; parts.filter(Boolean).forEach(cat=>{ _catMap[cat]=(_catMap[cat]||0)+1; }); } });
         const catGroups = Object.entries(_catMap).sort((a, b) => b[1] - a[1]).map(([label, count], i) => ({ label, count, color: PAL[i % PAL.length] }));
 
         const _locMap = {}; allLeadsCombined.forEach(l => { if (l.location) { const parts = l.location.includes("|")?l.location.split("|").map(s=>s.trim()):[l.location.trim()]; parts.filter(Boolean).forEach(loc=>{ const k=loc.split(",")[0].trim(); _locMap[k]=(_locMap[k]||0)+1; }); } });
@@ -291,7 +293,7 @@ export default function Clients({
                   ))}
                   <div>
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
-                    <Sel value={selectedClient.category||""} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setSelectedClient(p=>({...p,category:n}));}else setSelectedClient(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth="100%"/>
+                    <CategoryPicker value={selectedClient.category||""} onChange={v=>setSelectedClient(p=>({...p,category:v}))} options={allLeadCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customLeadCats} setCustomCats={setCustomLeadCats} storageKey="onna_lead_cats"/>
                   </div>
                   <div>
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
@@ -350,7 +352,8 @@ export default function Clients({
         const _allClients = [...localClients.map(c => ({ ...c, _fromClient: true })), ..._clientLeads.filter(l => !localClients.some(c => (c.company||"").trim().toLowerCase() === (l.company||"").trim().toLowerCase()))];
         const _cq = getSearch("Clients").toLowerCase();
         const _filteredClients = _allClients.filter(c => {
-          return (!_cq || [c.company,c.name,c.email,c.phone,c.country,c.category,c.notes].some(v=>v&&v.toLowerCase().includes(_cq))) && (clientCountry === "All" || (c.country || "") === clientCountry) && (clientCat === "All" || (c.category || "") === clientCat);
+          const _hcc = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
+          return (!_cq || [c.company,c.name,c.email,c.phone,c.country,c.category,c.notes].some(v=>v&&v.toLowerCase().includes(_cq))) && (clientCountry === "All" || (c.country || "") === clientCountry) && (clientCat === "All" || _hcc(c.category, clientCat));
         });
         return (
           <div>
@@ -504,7 +507,7 @@ export default function Clients({
               ))}
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={newClient.category} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setNewClient(p=>({...p,category:n}));}else setNewClient(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth={200}/>
+                <CategoryPicker value={newClient.category} onChange={v=>setNewClient(p=>({...p,category:v}))} options={allLeadCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customLeadCats} setCustomCats={setCustomLeadCats} storageKey="onna_lead_cats"/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
@@ -540,7 +543,7 @@ export default function Clients({
               ))}
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-                <Sel value={newOutreach.category} onChange={v=>{if(v==="\uff0b Add category"){const n=addNewOption(customLeadCats,setCustomLeadCats,'onna_lead_cats',"New category name:");if(n)setNewOutreach(p=>({...p,category:n}));}else setNewOutreach(p=>({...p,category:v}));}} options={allLeadCats.filter(c=>c!=="All")} minWidth={200}/>
+                <CategoryPicker value={newOutreach.category} onChange={v=>setNewOutreach(p=>({...p,category:v}))} options={allLeadCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customLeadCats} setCustomCats={setCustomLeadCats} storageKey="onna_lead_cats"/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
