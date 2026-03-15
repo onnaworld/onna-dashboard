@@ -1644,6 +1644,12 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     />;
   }
 
+  const _dragCounter=useRef(0);
+  const _onDragEnter=useCallback(e=>{if(!_dragAgents.has(agent.id))return;e.preventDefault();_dragCounter.current++;setIsDragging(true);},[agent.id,_dragAgents]);
+  const _onDragLeave=useCallback(e=>{e.preventDefault();_dragCounter.current--;if(_dragCounter.current<=0){_dragCounter.current=0;setIsDragging(false);}},[]);
+  const _onDragOver=useCallback(e=>{if(!_dragAgents.has(agent.id))return;e.preventDefault();e.dataTransfer.dropEffect="copy";},[agent.id,_dragAgents]);
+  const _onDrop=useCallback(e=>{e.preventDefault();_dragCounter.current=0;setIsDragging(false);if(!_dragAgents.has(agent.id))return;const files=Array.from(e.dataTransfer.files||[]);if(files.length)_handleDroppedFiles(files);},[agent.id,_dragAgents,_handleDroppedFiles]);
+
   if(!active)return null;
   return(<>
     {/* save modal — only on mobile or non-Vinnie agents */}
@@ -1759,12 +1765,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       </div>
     ) : _renderAgentChat()}
   </>);
-
-  const _dragCounter=useRef(0);
-  const _onDragEnter=useCallback(e=>{if(!_dragAgents.has(agent.id))return;e.preventDefault();_dragCounter.current++;setIsDragging(true);},[agent.id,_dragAgents]);
-  const _onDragLeave=useCallback(e=>{e.preventDefault();_dragCounter.current--;if(_dragCounter.current<=0){_dragCounter.current=0;setIsDragging(false);}},[]);
-  const _onDragOver=useCallback(e=>{if(!_dragAgents.has(agent.id))return;e.preventDefault();e.dataTransfer.dropEffect="copy";},[agent.id,_dragAgents]);
-  const _onDrop=useCallback(e=>{e.preventDefault();_dragCounter.current=0;setIsDragging(false);if(!_dragAgents.has(agent.id))return;const files=Array.from(e.dataTransfer.files||[]);if(files.length)_handleDroppedFiles(files);},[agent.id,_dragAgents,_handleDroppedFiles]);
 
   function _renderAgentChat() { return (<>
     <ConnieTabBar agent={agent} connieTabs={connieTabs} setConnieTabs={setConnieTabs} connieCtx={connieCtx} setConnieCtx={setConnieCtx} connieDietMode={connieDietMode} setConnieDietMode={setConnieDietMode} callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} onArchiveCallSheet={onArchiveCallSheet} csCreateMenuConnie={csCreateMenuConnie} setCsCreateMenuConnie={setCsCreateMenuConnie} csCreateBtnRef={csCreateBtnRef} localProjects={localProjects} setMsgs={setMsgs} projectInfoRef={projectInfoRef} addConnieTab={addConnieTab} onOpenDuplicateCS={onOpenDuplicateCS} CALLSHEET_INIT={CALLSHEET_INIT} />
