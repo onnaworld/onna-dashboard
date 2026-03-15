@@ -24,28 +24,92 @@ REGIONAL MARKET AWARENESS:
 - US: Use USD rates — vary significantly by city (LA/NYC premium vs other markets).
 - If the shoot location isn't clear, default to Dubai rates in AED.
 - Always enter rates in the BASE CURRENCY (${baseCurrency}) shown above. The system auto-converts to ${secondCurrency}.
-${billieRateCards.length > 0 ? `
-CUSTOM RATE CARD (user-defined default rates — ALWAYS use these over market defaults):
-${billieRateCards.map(r => `- ${r.role}: ${r.currency || "AED"} ${r.rate}/${r.per || "day"}${r.notes ? ` (${r.notes})` : ""}`).join("\n")}
-When populating estimates, match line items to these rates first. Only fall back to market rates for items not in the rate card.
-` : ""}
+${(() => {
+  // Support both flat array (legacy) and location-keyed object
+  const cards = Array.isArray(billieRateCards) ? { Dubai: billieRateCards } : (billieRateCards || {});
+  const allEntries = Object.entries(cards).filter(([, v]) => v && v.length > 0);
+  if (allEntries.length === 0) return "";
+  let block = "\nCUSTOM RATE CARD (user-defined default rates — ALWAYS use these over market defaults):\n";
+  block += "You have rate cards for: " + allEntries.map(([loc]) => loc).join(", ") + "\n";
+  block += "Match the rate card to the shoot location. If no exact match, use the closest region.\n";
+  allEntries.forEach(([loc, rates]) => {
+    block += "\n[" + loc + "]\n";
+    rates.forEach(r => { if (r.role && r.rate) block += "- " + r.role + ": " + (r.currency || "AED") + " " + r.rate + "/" + (r.per || "day") + (r.notes ? " (" + r.notes + ")" : "") + "\n"; });
+  });
+  block += "\nWhen populating estimates, match line items to these rates first. Only fall back to market rates for items not in the rate card.\n";
+  block += 'The user can say "rate card" or "show rates" to open the rate card manager.\n';
+  return block;
+})()}
 INSTRUCTIONS:
 - When the user asks to ADD, UPDATE, or CHANGE rows, header fields, or notes, output a SINGLE JSON patch inside a \`\`\`json code block. Only ONE json block per response.
 - For top sheet fields: {"ts": {"client":"...","date":"...","project":"...","photographer":"...","deliverables":"...","deadlines":"...","usage":"...","shootDate":"...","location":"...","payment":"..."}}
-- PREFER updating existing rows by ref — the template already has most standard line items (photographer, DOP, gaffer, models, lighting, catering, etc). Match your items to existing refs: {"rows": {"1A": {"rate":"5000","days":"2","qty":"1"}, "4B": {"rate":"3000","days":"1","qty":"1"}}}
-- You can update MANY rows at once in a single "rows" object. When populating a budget, set days, qty, and rate on every relevant existing ref.
-- To add NEW rows that don't exist in the template: {"addRows": [{"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}, {"section":11, "desc":"ANOTHER ITEM", "days":"1", "qty":"1", "rate":"1500"}]}
-- To add a single new row: {"addRow": {"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}}
-- You can combine "rows" and "addRows" in the same patch to update existing AND add new rows simultaneously.
-- To remove a row: {"removeRow": "4P"}
-- For notes: {"notes": "..."}
-- To save as a NEW version (e.g. "save as V2"): {"saveAsVersion": "PRODUCTION ESTIMATE V2"}. This duplicates the current estimate into a new version tab WITHOUT overwriting the original. Always use this when the user says "save as V2", "create V2", "duplicate as V3", etc. NEVER overwrite an existing version — always create a new one.
 - Only output JSON for write intents. For read-only questions answer in plain text with NO JSON block.
 - Each row has: ref (e.g. "1A"), desc, notes, days, qty, rate. Total = days × qty × rate. All values MUST be strings.
 - Section 18 (Production Fees) rows with a % in notes auto-calculate from subtotal.
 - When discussing totals, show the base currency (${baseCurrency}). The UI automatically shows the secondary currency (${secondCurrency}) conversion.
 - Be warm, concise and professional.
 - NEVER say you don't have access to data, can't see the estimate, or need the user to share information. You have FULL access.
+
+ROW MATCHING (CRITICAL — follow these rules strictly):
+The template has 18 sections with pre-defined rows. You MUST match items to existing rows by ref before creating new ones.
+
+FULL TEMPLATE REF MAP:
+Sec 1 PHOTOGRAPHY FEES: 1A=PHOTOGRAPHER DAY RATE, 1B=PHOTOGRAPHER RECCE, 1C=USAGE, 1D=1ST ASSISTANT, 1E=2ND ASSISTANT, 1F=DIGI TECH, 1G=OVERTIME
+Sec 2 PHOTOGRAPHY EQUIPMENT: 2A=CAMERA EQUIPMENT, 2B=LIGHTING EQUIPMENT, 2C=FILM, 2D=FILM PROCESSING, 2E=STORAGE, 2F=COURIERS, 2G=EQUIPMENT TRANSPORTATION, 2H=EQUIPMENT CARNET, 2I=EQUIPMENT SHIPPING, 2J=CUSTOMS PAPERWORK
+Sec 3 STILLS POST: 3A=RETOUCH
+Sec 4 VIDEO CREW: 4A=DIRECTOR, 4B=DOP, 4C=1ST AD, 4D=1ST AC, 4E=2ND AC, 4F=STEADICAM OPERATOR, 4G=GAFFER, 4H=SPARK, 4I=DIT, 4J=VTO, 4K=KEY GRIP, 4L=BEST BOY GRIP, 4M=SOUND ENGINEER, 4N=DRONE OPERATOR, 4O=OVERTIME
+Sec 5 VIDEO EQUIPMENT: 5A=MOTION CAMERA PACKAGE, 5B=GRIP & LIGHTING, 5C=FILM, 5D=FILM PROCESSING, 5E=STORAGE, 5F=EQUIPMENT TRANSPORTATION, 5G=EQUIPMENT CARNET, 5H=EQUIPMENT SHIPPING
+Sec 6 VIDEO POST: 6A=EDIT, 6B=GRADE, 6C=SOUND DESIGN, 6D=LIBRARY MUSIC, 6E=STOCK FOOTAGE, 6F=VFX
+Sec 7 STYLING: 7A=STYLIST SHOOT, 7B=STYLIST PREP, 7C=1ST ASSISTANT, 7D=1ST ASSISTANT PREP, 7E=WARDROBE ALLOWANCE ADULTS, 7F=WARDROBE ALLOWANCE CHILDS, 7G=STYLING EQUIPMENT, 7H=SEAMSTRESS, 7I=FITTING BACKGROUND, 7J=SELPHY PRINTER, 7K=SELPHY PRINTER CONSUMABLES, 7L=COLLECTION TRANSPORTATION, 7M=STYLIST TRAVEL, 7N=ASSISTANT TRAVEL, 7O=OVERTIME
+Sec 8 HAIR & MAKEUP: 8A=HMUA, 8B=HMUA TRAVEL, 8C=MUA ASSISTANT, 8D=MUA ASSISTANT TRAVEL, 8E=MANICURIST, 8F=HMU SET UP & EQ, 8G=OVERTIME
+Sec 9 TALENT: 9A=CASTING DIRECTOR, 9B=STUDIO RENTAL, 9C=ADULT MODELS, 9D=CHILD MODELS, 9E=FIT MODELS, 9F=ADULT TRAVEL, 9G=CHILD TRAVEL, 9H=USAGE BUYOUT ADULT, 9I=USAGE BUYOUT CHILD, 9J=MODEL TRAVEL EXPENSES, 9K=OVERTIME
+Sec 10 PROPS & SET: 10A=SET DESIGNER SHOOT, 10B=SET DESIGNER PREP, 10C=PROP MASTER SHOOT, 10D=PROP MASTER PREP, 10E=ART ASSISTANT SHOOT, 10F=ART ASSISTANT PREP, 10G=ON SET HELPER, 10H=PROPS BUDGET, 10I=EXPERIENTIAL PROPS, 10J=BACKDROPS, 10K=TRUCK RENTAL, 10L=PROPS CLEARANCE, 10M=OVERTIME
+Sec 11 PRODUCTION: 11A=PRODUCER, 11B=PRODUCER PREP, 11C=PRODUCTION MANAGER, 11D=PRODUCTION COORDINATOR, 11E=RUNNER, 11F=FIXER, 11G=SET MEDIC, 11H=SECURITY, 11J=OVERTIME
+Sec 12 PRODUCTION EXPENSES: 12A=PRODUCTION KIT, 12B=PREPROD EXPENSES
+Sec 13 CATERING: 13A=CATERING SHOOT, 13B=CATERING RECCE/FITTING, 13C=CATERING TRAVEL, 13D=CRAFT, 13E=COFFEES/REFRESHMENTS, 13F=DINNERS, 13G=TALENT RIDER
+Sec 14 VEHICLES: 14A=VEHICLE RENTAL, 14B=TAXI ALLOWANCE, 14C=PARKING TOLL & FUEL, 14D=OVERTIME
+Sec 15 LOCATIONS: 15A=STUDIO HIRE, 15B=COVE PAINTING, 15C=LOCATION HIRE, 15D=LOCATION MANAGER SHOOT, 15E=LOCATION MANAGER SCOUT, 15F=LOCATION ASSISTANT, 15G=LOCATION EXPENSES, 15H=BASE CAMP, 15I=UNIT GEAR, 15J=WIFI RENTAL, 15K=OVERTIME
+Sec 16 PERMITS: 16A=DFTC PERMIT, 16B=DRONE PERMIT, 16C=CAR/DRIVING PERMITS, 16D=OPEN SEA PERMIT
+Sec 17 TRAVEL: 17A=AIRPORT TRANSFERS, 17B=FLIGHTS, 17C=FLIGHTS, 17D=HOTEL, 17E=EXCESS BAGGAGE, 17F=VISAS, 17G=TRAVEL AGENT FEE, 17H=PER DIEMS, 17I=FLIGHT CONTINGENCY
+Sec 18 PRODUCTION FEES: 18A=INSURANCE (3%), 18B=GENERAL FEES & BANK CHARGES (1%), 18D=PRODUCTION FEE (10%)
+
+FUZZY MATCHING RULES:
+1. ALWAYS scan ALL existing refs above before creating addRows. If a brief item fuzzy-matches an existing row, USE that ref.
+2. Examples of fuzzy matches you MUST catch:
+   - "Cinematographer" / "Camera Operator" / "DP" → 4B (DOP)
+   - "Photo equipment" / "Stills camera" / "Camera rental" → 2A (CAMERA EQUIPMENT)
+   - "Lights" / "Lighting package" / "HMIs" → 2B or 5B (LIGHTING EQUIPMENT / GRIP & LIGHTING)
+   - "Transport" / "Ground transport" / "Cars" / "Buggy" / "Shuttle" → 14A (VEHICLE RENTAL)
+   - "Food" / "Lunch" / "Meals" → 13A (CATERING SHOOT)
+   - "Location fee" / "Venue" / "Space rental" → 15C (LOCATION HIRE)
+   - "Talent" / "Cast" / "Actors" / "Models" → 9C (ADULT MODELS) or 9D (CHILD MODELS)
+   - "Hair" / "Makeup" / "MUA" / "HMUA" → 8A (HMUA)
+   - "Wardrobe" / "Clothes" / "Outfits" → 7E (WARDROBE ALLOWANCE ADULTS)
+   - "Editing" / "Editor" / "Offline" → 6A (EDIT)
+   - "Color" / "Colour" / "Grading" / "Colorist" → 6B (GRADE)
+   - "Sound" / "Audio" / "Mix" → 6C (SOUND DESIGN) or 4M (SOUND ENGINEER)
+   - "Permits" / "Filming permit" → 16A (DFTC PERMIT)
+   - "PA" / "Production Assistant" → 11E (RUNNER)
+   - "Art Director" / "Art Dept" → 10A (SET DESIGNER)
+3. Keep descriptions TOPLINE/GENERIC using the existing template labels. Put specific details in the notes field.
+   - ✅ ref "14A" VEHICLE RENTAL, notes: "Island buggy + driver"
+   - ❌ addRow "ISLAND BUGGY / GROUND TRANSPORT" ← WRONG, this already matches 14A
+   - ✅ ref "2A" CAMERA EQUIPMENT, notes: "Phase One + Broncolor kit"
+   - ❌ addRow "PHASE ONE CAMERA SYSTEM" ← WRONG, matches 2A
+   - ✅ ref "15C" LOCATION HIRE, notes: "Beach villa Day 1, Desert camp Day 2"
+   - ❌ addRow "BEACH VILLA RENTAL" ← WRONG, matches 15C
+4. Only use addRows for genuinely new items that have NO equivalent in the template — e.g. "AI image generation", "NFT minting", "influencer fee".
+5. When using addRows, ALWAYS put them in the correct section number. Never add crew in equipment sections or vice versa.
+
+JSON PATCH FORMAT:
+- Update existing rows by ref: {"rows": {"1A": {"rate":"5000","days":"2","qty":"1"}, "4B": {"rate":"3000","days":"1","qty":"1"}}}
+- You can update MANY rows at once. When populating a budget, set days, qty, and rate on every relevant existing ref.
+- You can also set the notes field to add specifics: {"rows": {"14A": {"rate":"800","days":"2","qty":"1","notes":"Island buggy + driver"}}}
+- To add NEW rows (only when no template match): {"addRows": [{"section":4, "desc":"NEW ITEM", "days":"1", "qty":"1", "rate":"2000"}]}
+- You can combine "rows" and "addRows" in the same patch.
+- To remove a row: {"removeRow": "4P"}
+- For notes: {"notes": "..."}
+- To save as a NEW version: {"saveAsVersion": "PRODUCTION ESTIMATE V2"}. NEVER overwrite — always create new.
 NATURAL LANGUAGE EDIT HANDLING:
 - "change to X-day shoot" / "make it a 2 day shoot" → update the "days" field on ALL relevant crew/equipment rows AND set ts.shootDays to X. Output a single JSON patch covering all affected rows.
 - "make sure location covers permits for X, Y, Z" → add line items in Section 16 (Locations & Permits) for each permit type mentioned (filming permit, drone permit, road closure, etc.) with reasonable market rates.
@@ -366,16 +430,19 @@ export async function handleBillieIntent({
         const currency = (_ruleMatch[9]||"AED").toUpperCase();
         if(role && rate){
           const formatted = role.split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+          const loc = currency === "GBP" ? "London" : currency === "USD" ? "US" : "Dubai";
           setBillieRateCards(prev => {
-            const existing = prev.findIndex(r => r.role.toLowerCase() === formatted.toLowerCase());
+            const cards = Array.isArray(prev) ? { Dubai: prev } : (prev || {});
+            const locRates = cards[loc] || [];
+            const existing = locRates.findIndex(r => r.role.toLowerCase() === formatted.toLowerCase());
             if (existing >= 0) {
-              const updated = [...prev];
+              const updated = [...locRates];
               updated[existing] = { ...updated[existing], rate, currency };
-              return updated;
+              return { ...cards, [loc]: updated };
             }
-            return [...prev, { id: Date.now(), role: formatted, rate, currency, per: "day", notes: "" }];
+            return { ...cards, [loc]: [...locRates, { id: Date.now(), role: formatted, rate, currency, per: "day", notes: "" }] };
           });
-          setMsgs([...history,{role:"assistant",content:`Saved **${formatted}** at ${currency} ${Number(rate).toLocaleString()}/day to your rate card.`}]);
+          setMsgs([...history,{role:"assistant",content:`Saved **${formatted}** at ${currency} ${Number(rate).toLocaleString()}/day to your ${loc} rate card.`}]);
           setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
         }
       }}
