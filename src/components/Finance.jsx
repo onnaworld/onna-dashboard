@@ -298,17 +298,29 @@ export default function Finance({
 
   return (
     <div>
-      {/* ── Sub-page header with back button ── */}
+      {/* ── Persistent nav bar (visible on all sub-pages) ── */}
       {isSubPage && (
-        <button onClick={() => setFinanceTab(null)}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-            border: `1px solid ${T.border}`, background: T.surface, color: T.text,
-            cursor: "pointer", fontFamily: "inherit", marginBottom: 16,
-          }}>
-          <span style={{ fontSize: 14, lineHeight: 1 }}>&larr;</span> Finance
-        </button>
+        <div style={{ display: "flex", gap: 4, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+          <button onClick={() => setFinanceTab(null)}
+            style={{
+              padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+              border: "1px solid #d1d1d6", background: "#e8e8ed", color: T.sub,
+              cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s",
+              display: "inline-flex", alignItems: "center", gap: 4,
+            }}>
+            <span style={{ fontSize: 13, lineHeight: 1 }}>&larr;</span>
+          </button>
+          {subTabs.map(st => (
+            <button key={st.key} onClick={() => setFinanceTab(st.key)}
+              style={{
+                padding: "5px 12px", borderRadius: 999, fontSize: 11.5, fontWeight: 500,
+                border: financeTab === st.key ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+                background: financeTab === st.key ? T.accent : "#e8e8ed",
+                color: financeTab === st.key ? "#fff" : T.sub,
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
+              }}>{st.emoji} {st.label}</button>
+          ))}
+        </div>
       )}
 
       {/* ═══ HOME — year pills + card grid ═══ */}
@@ -508,47 +520,7 @@ export default function Finance({
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
-            {/* Revenue by project */}
-            <div ref={revBoxRef} style={{ ...cardS(T), padding: 0, overflow: "auto" }}>
-              <div style={{ padding: "16px 20px 0" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({yearLabel})</div>
-              </div>
-              <div className="mob-table-wrap">
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr>
-                    <th style={thS}>Project</th>
-                    <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
-                    <th style={{ ...thS, textAlign: "right" }}>Cost</th>
-                    <th style={{ ...thS, textAlign: "right" }}>Margin</th>
-                  </tr></thead>
-                  <tbody>
-                    {pnlData.revByProject.map((p, i) => {
-                      const margin = p.rev > 0 ? Math.round(((p.rev - p.cost) / p.rev) * 100) : 0;
-                      return (
-                        <tr key={i}>
-                          <td style={tdS}><div style={{ fontWeight: 600 }}>{p.name}</div><div style={{ fontSize: 11, color: T.muted }}>{p.client}</div></td>
-                          <td style={tdR}>{fmtFull(p.rev)}</td>
-                          <td style={tdR}>{fmtFull(p.cost)}</td>
-                          <td style={{ ...tdR, color: margin >= 20 ? "#1a6e3e" : margin >= 0 ? "#b06000" : "#b0271d", fontWeight: 600 }}>{margin}%</td>
-                        </tr>
-                      );
-                    })}
-                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No {yearLabel} projects</td></tr>}
-                    {/* Total row */}
-                    {pnlData.revByProject.length > 0 && (
-                      <tr style={{ background: T.bg }}>
-                        <td style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total</td>
-                        <td style={{ ...tdR, fontWeight: 700, borderBottom: "none" }}>{fmtFull(projData.thisYearRev)}</td>
-                        <td style={{ ...tdR, fontWeight: 700, borderBottom: "none" }}>{fmtFull(projData.thisYearCost)}</td>
-                        <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: projData.thisYearMargin >= 20 ? "#1a6e3e" : "#b06000" }}>{projData.thisYearMargin}%</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
+          <div>
             {/* Overheads */}
             <div style={{ ...cardS(T), padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
               <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
