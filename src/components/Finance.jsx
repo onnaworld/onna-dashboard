@@ -1503,7 +1503,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const cellS = { fontFamily: F, fontSize: 11, padding: "2px 4px", textAlign: "right", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" };
   const inputS = { fontFamily: F, fontSize: 11, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: "#333", padding: "3px 0" };
   const labelInputS = { fontFamily: F, fontSize: 11, border: "none", background: "transparent", outline: "none", color: "#000", width: 190 };
-  const subS = { fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f4f4f2", borderTop: "1.5px solid #bbb", borderBottom: "1.5px solid #bbb", padding: "7px 4px", textAlign: "right" };
+  const subS = { fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f4f4f2", borderTop: "1.5px solid #bbb", borderBottom: "1.5px solid #bbb", padding: "7px 4px", textAlign: "right" };
   const ctrlLblS = { fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginRight: 2 };
   const ctrlSelS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", background: "#fff", padding: "5px 8px", outline: "none", color: "#000", cursor: "pointer" };
   const ctrlInpS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", padding: "5px 8px", outline: "none", color: "#000" };
@@ -1534,14 +1534,14 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
             return (
             <React.Fragment key={"oh-sync-" + oi}>
               <tr style={parentExcluded ? { opacity: 0.4 } : undefined}>
-                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontWeight: 600 }}>
+                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", color: "#555", fontWeight: 600 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span title={parentExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 8, height: 8, borderRadius: "50%", background: parentExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
                     <span style={parentExcluded ? { textDecoration: "line-through" } : undefined}>{o.label}</span>
                   </div>
                 </td>
-                {mCols.map(m => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#555", fontWeight: 600 }}>{parentVals[m] ? fmt(parentVals[m]) : "—"}</td>)}
-                {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{parentTotal ? fmt(parentTotal) : "—"}</td>}
+                {mCols.map(m => <td key={m} style={{ ...cellS, color: "#555", fontWeight: 600 }}>{parentVals[m] ? fmt(parentVals[m]) : "—"}</td>)}
+                {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, color: "#555" }}>{parentTotal ? fmt(parentTotal) : "—"}</td>}
               </tr>
               {!parentExcluded && o.subs.map((sub, si) => {
                 const subExcluded = !!sub._excludeFromCF;
@@ -1549,7 +1549,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                 const subTotal = subVals.reduce((s, v) => s + v, 0);
                 return (
                 <tr key={"oh-sub-" + oi + "-" + si} style={subExcluded ? { opacity: 0.4 } : undefined}>
-                  <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 40px", fontSize: 10, color: "#888", fontStyle: "italic" }}>
+                  <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 40px", color: "#888", fontStyle: "italic" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span title={subExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 7, height: 7, borderRadius: "50%", background: subExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
                       <span style={subExcluded ? { textDecoration: "line-through" } : undefined}>{sub.label}</span>
@@ -1558,15 +1558,15 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                   {mCols.map(m => {
                     const raw = getOvRaw("oh", sub.label, m);
                     const def = sub.cols[m];
-                    return <td key={m} style={{ ...cellS, fontSize: 10, padding: "2px 4px" }}>
+                    return <td key={m} style={cellS}>
                       <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("oh", sub.label, m, e.target.value)}
-                        style={{ ...inputS, fontSize: 10, color: raw !== null ? "#333" : "#888", fontStyle: raw !== null ? "normal" : "italic" }}
+                        style={{ ...inputS, color: raw !== null ? "#333" : "#888", fontStyle: raw !== null ? "normal" : "italic" }}
                         placeholder={def ? String(def) : "0"} inputMode="numeric"
                         onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
                         onBlur={e => { e.target.style.background = "transparent"; }} />
                     </td>;
                   })}
-                  {cfMonth === null && <td style={{ ...cellS, padding: "5px 0", fontSize: 10, color: "#888" }}>{subTotal ? fmt(subTotal) : "—"}</td>}
+                  {cfMonth === null && <td style={{ ...cellS, color: "#888" }}>{subTotal ? fmt(subTotal) : "—"}</td>}
                 </tr>
                 );
               })}
@@ -1577,7 +1577,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
           const rowTotal = rowVals.reduce((s, v) => s + v, 0);
           return (
           <tr key={"oh-sync-" + oi} style={parentExcluded ? { opacity: 0.4 } : undefined}>
-            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontStyle: "italic" }}>
+            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", color: "#555", fontStyle: "italic" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span title={parentExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 8, height: 8, borderRadius: "50%", background: parentExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
                 <span style={parentExcluded ? { textDecoration: "line-through" } : undefined}>{o.label}</span>
@@ -1586,15 +1586,15 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
             {mCols.map(m => {
               const raw = getOvRaw("oh", o.label, m);
               const def = o.cols[m];
-              return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
+              return <td key={m} style={cellS}>
                 <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("oh", o.label, m, e.target.value)}
-                  style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
+                  style={{ ...inputS, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
                   placeholder={def ? String(def) : "0"} inputMode="numeric"
                   onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
                   onBlur={e => { e.target.style.background = "transparent"; }} />
               </td>;
             })}
-            {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
+            {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, color: "#555" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
           </tr>
           );
         })}
@@ -1624,19 +1624,19 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               const rowTotal = rowVals.reduce((s, v) => s + v, 0);
               return (
               <tr key={"proj-rev-" + pi}>
-                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{p.name}</td>
+                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", color: "#666", fontStyle: "italic" }}>{p.name}</td>
                 {mCols.map(m => {
                   const raw = getOvRaw("rev", p.name, m);
                   const def = p.revCols[m];
-                  return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
+                  return <td key={m} style={cellS}>
                     <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("rev", p.name, m, e.target.value)}
-                      style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
+                      style={{ ...inputS, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
                       placeholder={def ? String(def) : "0"} inputMode="numeric"
                       onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
                       onBlur={e => { e.target.style.background = "transparent"; }} />
                   </td>;
                 })}
-                {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
+                {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
               </tr>
               );
             })}
@@ -1743,14 +1743,14 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                   <tbody>
                     {/* Opening balance row — editable per month */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 11, fontWeight: 600, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0" }}>Opening Balance</td>
-                      {(cfMonth !== null ? [cfMonth] : [0,1,2,3,4,5,6,7,8,9,10,11]).map(m => {
+                      <td style={{ ...cellS, textAlign: "left", fontWeight: 600, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0" }}>Opening Balance</td>
+                      {mCols.map(m => {
                         const v = (data.openingBalances || Array(12).fill(""))[m];
                         const manual = String(v || "").trim();
                         const effective = calcs.obArr[m];
                         const isAuto = manual === "" && m > 0;
                         return (
-                        <td key={m} style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "2px 4px", textAlign: "right" }}>
+                        <td key={m} style={{ ...cellS, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8" }}>
                           <input value={manual !== "" ? v : (isAuto && effective ? String(effective) : "")} onChange={e => {
                             const val = e.target.value;
                             update(d => {
@@ -1759,14 +1759,14 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                               return { ...d, openingBalances: arr };
                             });
                           }}
-                            style={{ fontFamily: F, fontSize: 11, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: isAuto ? "#999" : (effective < 0 ? "#b0271d" : effective > 0 ? "#1a6e3e" : "#999"), fontStyle: isAuto ? "italic" : "normal", padding: "3px 0" }}
+                            style={{ ...inputS, fontWeight: 600, color: isAuto ? "#999" : (effective < 0 ? "#b0271d" : effective > 0 ? "#1a6e3e" : "#999"), fontStyle: isAuto ? "italic" : "normal" }}
                             placeholder={isAuto ? fmt(effective) : "0"} inputMode="numeric"
                             onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
-                            onBlur={e => { e.target.style.background = "transparent"; if (manual === "" && m > 0) { /* clear reverts to auto */ } }} />
+                            onBlur={e => { e.target.style.background = "transparent"; }} />
                         </td>
                         );
                       })}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>}
+                      {cfMonth === null && <td style={{ ...cellS, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>}
                     </tr>
 
                     {/* Sales (with synced project revenue as sub-rows under Client Fees) */}
@@ -1785,19 +1785,19 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                       const rowTotal = rowVals.reduce((s, v) => s + v, 0);
                       return (
                       <tr key={"cogs-" + pi}>
-                        <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{p.name}</td>
+                        <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", color: "#666", fontStyle: "italic" }}>{p.name}</td>
                         {mCols.map(m => {
                           const raw = getOvRaw("cogs", p.name, m);
                           const def = p.costCols[m];
-                          return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
+                          return <td key={m} style={cellS}>
                             <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("cogs", p.name, m, e.target.value)}
-                              style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
+                              style={{ ...inputS, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
                               placeholder={def ? String(def) : "0"} inputMode="numeric"
                               onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
                               onBlur={e => { e.target.style.background = "transparent"; }} />
                           </td>;
                         })}
-                        {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
+                        {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
                       </tr>
                       );
                     })}
@@ -1828,16 +1828,16 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
                     {/* Net cash flow */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
-                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 4px", textAlign: "right", color: calcs.netC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netC[m] ? fmtSigned(calcs.netC[m]) : "—"}</td>)}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>}
+                      <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#000", padding: "8px 4px", textAlign: "right", color: calcs.netC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netC[m] ? fmtSigned(calcs.netC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>}
                     </tr>
 
                     {/* Closing balance */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
-                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: calcs.closeC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[m])}</td>)}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>}
+                      <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: calcs.closeC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[m])}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>}
                     </tr>
 
                     {/* Spacer */}
@@ -1845,34 +1845,34 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
                     {/* VAT Inflow — editable, defaults to revenue × VAT rate */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", color: "#1a6e3e" }}>VAT Inflow (on Project Revenue)</td>
+                      <td style={{ ...cellS, textAlign: "left", fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", color: "#1a6e3e" }}>VAT Inflow (on Project Revenue)</td>
                       {mCols.map(m => {
                         const raw = (data.vatInflows || Array(12).fill(""))[m];
                         const isAuto = String(raw || "").trim() === "";
                         return (
-                        <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "2px 4px", textAlign: "right", color: "#1a6e3e" }}>
+                        <td key={m} style={{ ...cellS, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", color: "#1a6e3e" }}>
                           <input value={isAuto ? "" : raw} onChange={e => { const val = e.target.value; update(d => { const arr = [...(d.vatInflows || Array(12).fill(""))]; arr[m] = val; return { ...d, vatInflows: arr }; }); }}
-                            style={{ fontFamily: F, fontSize: 9, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: isAuto ? "#7dba8e" : "#1a6e3e", fontStyle: isAuto ? "italic" : "normal", padding: "3px 0" }}
+                            style={{ ...inputS, fontWeight: 600, color: isAuto ? "#7dba8e" : "#1a6e3e", fontStyle: isAuto ? "italic" : "normal" }}
                             placeholder={calcs.vatInC[m] ? String(Math.round(calcs.vatInC[m] * 100) / 100) : "0"} inputMode="numeric"
                             onFocus={e => { e.target.style.background = "#d0f0dc"; e.target.style.borderRadius = "2px"; }}
                             onBlur={e => { e.target.style.background = "transparent"; }} />
                         </td>
                         );
                       })}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", textAlign: "right", color: "#1a6e3e" }}>{calcs.vatInA ? fmt(calcs.vatInA) : "—"}</td>}
+                      {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", color: "#1a6e3e" }}>{calcs.vatInA ? fmt(calcs.vatInA) : "—"}</td>}
                     </tr>
                     {/* VAT Outflow — manually entered VAT returns */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", color: "#b06000" }}>VAT Outflow (Returns Paid)</td>
+                      <td style={{ ...cellS, textAlign: "left", fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", color: "#b06000" }}>VAT Outflow (Returns Paid)</td>
                       {mCols.map(m => {
                         const v = (data.vatReturns || Array(12).fill(""))[m];
                         return (
-                        <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "2px 4px", textAlign: "right", color: "#b06000" }}>
-                          <input value={v} onChange={e => { const val = pv(e.target.value); update(d => { const arr = [...(d.vatReturns || Array(12).fill(""))]; arr[m] = val === 0 ? "" : String(val); return { ...d, vatReturns: arr }; }); }} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: "#b06000", padding: "3px 0" }} placeholder="0" inputMode="numeric" onFocus={e => { e.target.style.background = "#fff3d0"; e.target.style.borderRadius = "2px"; }} onBlur={e => { e.target.style.background = "transparent"; }} />
+                        <td key={m} style={{ ...cellS, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", color: "#b06000" }}>
+                          <input value={v} onChange={e => { const val = pv(e.target.value); update(d => { const arr = [...(d.vatReturns || Array(12).fill(""))]; arr[m] = val === 0 ? "" : String(val); return { ...d, vatReturns: arr }; }); }} style={{ ...inputS, fontWeight: 600, color: "#b06000" }} placeholder="0" inputMode="numeric" onFocus={e => { e.target.style.background = "#fff3d0"; e.target.style.borderRadius = "2px"; }} onBlur={e => { e.target.style.background = "transparent"; }} />
                         </td>
                         );
                       })}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", textAlign: "right", color: "#b06000" }}>{calcs.vatOutA ? fmt(calcs.vatOutA) : "—"}</td>}
+                      {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", color: "#b06000" }}>{calcs.vatOutA ? fmt(calcs.vatOutA) : "—"}</td>}
                     </tr>
                   </tbody>
                 </table>
