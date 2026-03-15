@@ -278,9 +278,7 @@ export default function Finance({
   }, [arapData]);
 
   const subTabs = [
-    { key: "stats", label: "Stats", emoji: "\ud83d\udcca", sub: "KPI overview" },
-    { key: "top-projects", label: "Top Projects by Revenue", emoji: "\ud83c\udfc6", sub: "Profitability breakdown" },
-    { key: "budget-alerts", label: "Budget Alerts", emoji: "\ud83d\udea8", sub: "Over-budget projects" },
+    { key: "stats", label: "Stats", emoji: "\ud83d\udcca", sub: "KPIs & top projects" },
     { key: "pnl", label: "P&L", emoji: "\ud83d\udcc4", sub: "Profit & loss statement" },
     { key: "cashflow", label: "Cash Flow", emoji: "\ud83d\udcb0", sub: "Monthly cash tracker" },
     { key: "arap", label: "AR / AP", emoji: "\ud83d\udce5", sub: "Receivables & payables" },
@@ -379,10 +377,11 @@ export default function Finance({
         </div>
       </>}
 
-      {/* ═══ STATS PAGE ═══ */}
+      {/* ═══ STATS PAGE (KPIs + Top Projects + Budget Alerts) ═══ */}
       {financeTab === "stats" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: isMobile ? 10 : 14 }}>
+          {/* KPI cards */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: isMobile ? 10 : 14, marginBottom: 22 }}>
             {(financeYear === "all" ? [
               { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
               { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
@@ -405,31 +404,11 @@ export default function Finance({
               </div>
             ))}
           </div>
-        </div>
-      )}
 
-      {/* ═══ TOP PROJECTS PAGE (with profitability metrics) ═══ */}
-      {financeTab === "top-projects" && (
-        <div>
-          {/* Profitability summary cards */}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
-            {[
-              { label: "Avg Project Margin", value: projData.avgMargin + "%", color: projData.avgMargin >= 20 ? "#1a6e3e" : "#b06000" },
-              { label: "Projects Over Budget", value: projData.overBudget.length, sub: "of " + projData.nonTemplate.length + " total", color: projData.overBudget.length > 0 ? "#b0271d" : "#1a6e3e" },
-              { label: "Most Profitable", value: projData.topProjects[0]?.margin ? projData.topProjects[0].margin + "%" : "N/A", sub: projData.topProjects[0]?.name || "", color: "#1a6e3e" },
-            ].map((s, i) => (
-              <div key={i} style={cardS(T)}>
-                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
-                {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
-              </div>
-            ))}
-          </div>
-
-          {/* Full profitability table */}
-          <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+          {/* Top Projects by Revenue — profitability table */}
+          <div style={{ ...cardS(T), padding: 0, overflow: "hidden", marginBottom: 22 }}>
             <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Project Profitability Comparison</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Top Projects by Revenue</div>
             </div>
             <div className="mob-table-wrap">
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -444,7 +423,7 @@ export default function Finance({
                   <th style={{ ...thS, textAlign: "right" }}>Est vs Act</th>
                 </tr></thead>
                 <tbody>
-                  {projData.projBreakdown.sort((a, b) => b.margin - a.margin).map((p, i) => (
+                  {projData.projBreakdown.sort((a, b) => b.rev - a.rev).map((p) => (
                     <tr key={p.id}>
                       <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
                       <td style={{ ...tdS, color: T.sub }}>{p.client}</td>
@@ -472,15 +451,11 @@ export default function Finance({
               </table>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ═══ BUDGET ALERTS PAGE ═══ */}
-      {financeTab === "budget-alerts" && (
-        <div>
+          {/* Budget Alerts */}
           <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${T.border}` }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Over-Budget Projects</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Budget Alerts</div>
             </div>
             <div style={{ padding: 0 }}>
               {projData.overBudget.map((p, i) => (
