@@ -1428,7 +1428,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       obArr.push(ob);
       closeC.push(ob + netC[m]);
     }
-    const ob = obArr[0] || 0; // "All Months" opening balance = January's OB
+    const ob = obArr[new Date().getMonth()] || 0; // current month's opening balance
 
     const manualInC = inC;
     const manualOutC = outC;
@@ -1711,7 +1711,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                 return (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", border: "1px solid #e0e0e0", marginBottom: 22 }}>
                   {[
-                    { l: "Opening Balance", v: fmt(sumOb), cls: sumOb < 0 ? "#b0271d" : "#000" },
+                    { l: isMonth ? "Opening Balance" : "Current Opening Balance", v: fmt(sumOb), cls: sumOb < 0 ? "#b0271d" : "#000" },
                     { l: "Total Sales", v: fmt(sumIn), cls: "#1a6e3e" },
                     { l: "COGS", v: fmt(sumCogs), cls: "#b0271d" },
                     { l: "Total Outflows", v: fmt(sumOut), cls: "#b0271d" },
