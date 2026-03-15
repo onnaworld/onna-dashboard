@@ -391,8 +391,11 @@ export async function handleBillieIntent({
       }
 
       const lower=input.toLowerCase();
+      // Skip project matching when user has attachments or is referencing briefs/moodboards
+      const _hasAttachments = history[history.length-1]?._attachments?.length > 0;
+      const _isBriefIntent = /\b(brief|moodboard|mood\s*board|reference\s*board)\b/i.test(input);
       // Check if user is re-selecting the same project (e.g. typing "columbia" when already on columbia)
-      const sameProjectMatch=fuzzyMatchProject(localProjects,input);
+      const sameProjectMatch=(!_hasAttachments && !_isBriefIntent) ? fuzzyMatchProject(localProjects,input) : null;
       if(sameProjectMatch && sameProjectMatch.id===projectId && !lower.match(/\b(update|set|add|remove|change|row|section|header|rate|qty|days|notes|payment|deliverable|photographer|shoot|location|date)\b/i)){
         const reVersions=projectEstimates?.[projectId]||[];
         if(reVersions.length<=1){
@@ -406,7 +409,7 @@ export async function handleBillieIntent({
         }
         setLoading(false);setMood("idle");return true;
       }
-      const switchProject=fuzzyMatchProject(localProjects,input,projectId);
+      const switchProject=(!_hasAttachments && !_isBriefIntent) ? fuzzyMatchProject(localProjects,input,projectId) : null;
       if(switchProject){
         const swVersions=projectEstimates?.[switchProject.id]||[];
         if(swVersions.length===0){
