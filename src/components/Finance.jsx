@@ -104,7 +104,7 @@ export default function Finance({
   projectEstimates, projectActuals,
   SearchBar, Pill, setUndoToastMsg,
 }) {
-  const [financeTab, setFinanceTab] = useState("overview");
+  const [financeTab, setFinanceTab] = useState(null);
   const revBoxRef = useRef(null);
   const [revBoxH, setRevBoxH] = useState(null);
   const [customFreqOpen, setCustomFreqOpen] = useState({});
@@ -172,8 +172,9 @@ export default function Finance({
     const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
     const active = nonTemplate.filter(p => p.status === "Active");
     const completed = nonTemplate.filter(p => p.status === "Completed" || p.status === "Wrapped");
-    const thisYear = nonTemplate.filter(p => Number(p.year) === financeYear);
-    const lastYear = nonTemplate.filter(p => Number(p.year) === financeYear - 1);
+    const isAllTime = financeYear === "all";
+    const thisYear = isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear);
+    const lastYear = isAllTime ? [] : nonTemplate.filter(p => Number(p.year) === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
     const sumCost = (arr) => arr.reduce((a, b) => a + getProjCost(b), 0);
@@ -277,13 +278,14 @@ export default function Finance({
   }, [arapData]);
 
   const subTabs = [
-    { key: "overview", label: "Overview" },
-    { key: "pnl", label: "P&L" },
-    { key: "cashflow", label: "Cash Flow" },
-    { key: "arap", label: "AR / AP" },
-    { key: "profitability", label: "Profitability" },
-    { key: "tax", label: "Tax & VAT" },
-    { key: "expenses", label: "Expenses" },
+    { key: "stats", label: "Stats", emoji: "\ud83d\udcca", sub: "KPI overview" },
+    { key: "top-projects", label: "Top Projects by Revenue", emoji: "\ud83c\udfc6", sub: "Profitability breakdown" },
+    { key: "budget-alerts", label: "Budget Alerts", emoji: "\ud83d\udea8", sub: "Over-budget projects" },
+    { key: "pnl", label: "P&L", emoji: "\ud83d\udcc4", sub: "Profit & loss statement" },
+    { key: "cashflow", label: "Cash Flow", emoji: "\ud83d\udcb0", sub: "Monthly cash tracker" },
+    { key: "arap", label: "AR / AP", emoji: "\ud83d\udce5", sub: "Receivables & payables" },
+    { key: "tax", label: "Tax & VAT", emoji: "\ud83c\udfe6", sub: "Tax filings & VAT" },
+    { key: "expenses", label: "Expenses", emoji: "\ud83d\udcb3", sub: "Expense tracking" },
   ];
 
   /* ── Shared table styles ── */
@@ -291,109 +293,197 @@ export default function Finance({
   const tdS = { fontSize: 12.5, padding: "11px 14px", borderBottom: `1px solid ${T.borderSub || T.border}`, color: T.text };
   const tdR = { ...tdS, textAlign: "right", fontVariantNumeric: "tabular-nums" };
 
+  const isSubPage = financeTab !== null;
+  const yearLabel = financeYear === "all" ? "All Time" : financeYear;
+
   return (
     <div>
-      {/* ── Sub-tab bar ── */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 18, flexWrap: "wrap" }}>
-        {subTabs.map(st => (
-          <button key={st.key} onClick={() => setFinanceTab(st.key)}
+      {/* ── Sub-page header with back button ── */}
+      {isSubPage && (
+        <button onClick={() => setFinanceTab(null)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            border: `1px solid ${T.border}`, background: T.surface, color: T.text,
+            cursor: "pointer", fontFamily: "inherit", marginBottom: 16,
+          }}>
+          <span style={{ fontSize: 14, lineHeight: 1 }}>&larr;</span> Finance
+        </button>
+      )}
+
+      {/* ═══ HOME — year pills + card grid ═══ */}
+      {!isSubPage && <>
+        {/* Year selector */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 18, alignItems: "center" }}>
+          <button onClick={() => setFinanceYear("all")}
             style={{
               padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
-              border: financeTab === st.key ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
-              background: financeTab === st.key ? T.accent : "#e8e8ed",
-              color: financeTab === st.key ? "#fff" : T.sub,
-              cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
-            }}>{st.label}</button>
-        ))}
-      </div>
+              border: financeYear === "all" ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+              background: financeYear === "all" ? T.accent : "#e8e8ed",
+              color: financeYear === "all" ? "#fff" : T.sub,
+              cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s",
+            }}>All Time</button>
+          {(() => { const yrs = new Set(availableYears); (allProjectsMerged || []).forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map((y, _, arr) => (
+            <div key={y} style={{ display: "inline-flex", alignItems: "center", position: "relative" }}>
+              <button onClick={() => setFinanceYear(y)}
+                style={{
+                  padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                  border: financeYear === y ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+                  background: financeYear === y ? T.accent : "#e8e8ed",
+                  color: financeYear === y ? "#fff" : T.sub,
+                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s",
+                }}>{y}</button>
+              {y === arr[arr.length - 1] && availableYears.length > 1 && (
+                <button onClick={e => { e.stopPropagation(); if (window.confirm(`Remove ${y}?`)) { setAvailableYears(prev => prev.filter(yr => yr !== y).sort()); if (financeYear === y) setFinanceYear(arr[arr.length - 2]); } }} style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#e0e0e0", border: "none", fontSize: 10, color: "#666", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, zIndex: 1 }} title={`Remove ${y}`}>×</button>
+              )}
+            </div>
+          ))}
+          <button onClick={() => { const next = Math.max(...availableYears, new Date().getFullYear()) + 1; setAvailableYears(prev => [...prev, next].sort()); }} style={{ width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add year">+</button>
+        </div>
 
-      {/* ── Year selector bar ── */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, alignItems: "center" }}>
-        {(() => { const yrs = new Set(availableYears); (allProjectsMerged || []).forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map((y, _, arr) => (
-          <div key={y} style={{ display: "inline-flex", alignItems: "center", position: "relative" }}>
-            <button onClick={() => setFinanceYear(y)}
+        {/* Card grid — mirrors Projects tab */}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 10 }}>
+          {subTabs.map(st => (
+            <button key={st.key} onClick={() => setFinanceTab(st.key)}
               style={{
-                padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
-                border: financeYear === y ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
-                background: financeYear === y ? T.accent : "#e8e8ed",
-                color: financeYear === y ? "#fff" : T.sub,
-                cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
-              }}>{y}</button>
-            {y === arr[arr.length - 1] && availableYears.length > 1 && (
-              <button onClick={e => { e.stopPropagation(); if (window.confirm(`Are you sure you want to remove ${y}?`)) { setAvailableYears(prev => prev.filter(yr => yr !== y).sort()); if (financeYear === y) setFinanceYear(arr[arr.length - 2]); } }} style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#e0e0e0", border: "none", fontSize: 10, color: "#666", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, zIndex: 1 }} title={`Remove ${y}`}>×</button>
-            )}
-          </div>
-        ))}
-        <button onClick={() => { const next = Math.max(...availableYears, new Date().getFullYear()) + 1; setAvailableYears(prev => [...prev, next].sort()); }} style={{ width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add year">+</button>
-      </div>
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "16px 18px", borderRadius: 16,
+                background: T.surface, border: `1px solid ${T.border}`,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                textAlign: "left", textDecoration: "none", color: "inherit",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
+            >
+              <span style={{ fontSize: 22, flexShrink: 0 }}>{st.emoji}</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500, color: T.text, marginBottom: 2 }}>{st.label}</div>
+                <div style={{ fontSize: 11, color: T.muted }}>{st.sub}</div>
+              </div>
+              <span style={{ marginLeft: "auto", color: T.muted, fontSize: 16, flexShrink: 0 }}>&rsaquo;</span>
+            </button>
+          ))}
+        </div>
+      </>}
 
-      {/* ═══ OVERVIEW ═══ */}
-      {financeTab === "overview" && (
+      {/* ═══ STATS PAGE ═══ */}
+      {financeTab === "stats" && (
         <div>
-          {/* KPI cards */}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 22 }}>
-            {[
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: isMobile ? 10 : 14 }}>
+            {(financeYear === "all" ? [
+              { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
+              { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+              { label: "Active Projects", value: projData.active.length, sub: projData.completed.length + " completed", color: T.text },
+              { label: "Pipeline", value: apiLoading ? "\u2014" : fmtK(projData.pipeline), sub: projData.newLeads + " new leads", color: T.text },
+              { label: "Outstanding AR", value: fmtK(arapCalcs.totalAR), sub: arapCalcs.overdueAR > 0 ? fmtK(arapCalcs.overdueAR) + " overdue" : "none overdue", color: arapCalcs.overdueAR > 0 ? "#b06000" : T.text },
+              { label: "Avg Margin", value: projData.avgMargin + "%", color: projData.avgMargin >= 20 ? "#1a6e3e" : "#b06000" },
+            ] : [
               { label: `Revenue ${financeYear}`, value: fmtK(projData.thisYearRev), sub: projData.thisYear.length + " projects", color: T.text },
               { label: `Profit ${financeYear}`, value: fmtK(projData.thisYearProfit), sub: projData.thisYearMargin + "% margin", color: projData.thisYearProfit >= 0 ? "#1a6e3e" : "#b0271d" },
               { label: "Pipeline", value: apiLoading ? "\u2014" : fmtK(projData.pipeline), sub: projData.newLeads + " new leads", color: T.text },
               { label: "Active Projects", value: projData.active.length, sub: projData.completed.length + " completed", color: T.text },
-              { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
-              { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
               { label: "Outstanding AR", value: fmtK(arapCalcs.totalAR), sub: arapCalcs.overdueAR > 0 ? fmtK(arapCalcs.overdueAR) + " overdue" : "none overdue", color: arapCalcs.overdueAR > 0 ? "#b06000" : T.text },
               { label: "YoY Growth", value: projData.lastYearRev > 0 ? fmtPct(((projData.thisYearRev - projData.lastYearRev) / projData.lastYearRev) * 100) : "N/A", sub: `vs ${financeYear - 1}`, color: projData.thisYearRev >= projData.lastYearRev ? "#1a6e3e" : "#b0271d" },
+            ]).map((s, i) => (
+              <div key={i} style={cardS(T)}>
+                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
+                <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4, color: s.color || T.text }}>{s.value}</div>
+                {s.sub && <div style={{ fontSize: 13, color: T.sub }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ TOP PROJECTS PAGE (with profitability metrics) ═══ */}
+      {financeTab === "top-projects" && (
+        <div>
+          {/* Profitability summary cards */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
+            {[
+              { label: "Avg Project Margin", value: projData.avgMargin + "%", color: projData.avgMargin >= 20 ? "#1a6e3e" : "#b06000" },
+              { label: "Projects Over Budget", value: projData.overBudget.length, sub: "of " + projData.nonTemplate.length + " total", color: projData.overBudget.length > 0 ? "#b0271d" : "#1a6e3e" },
+              { label: "Most Profitable", value: projData.topProjects[0]?.margin ? projData.topProjects[0].margin + "%" : "N/A", sub: projData.topProjects[0]?.name || "", color: "#1a6e3e" },
             ].map((s, i) => (
               <div key={i} style={cardS(T)}>
                 <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
-                <div style={{ ...kpiValS, color: s.color || T.text }}>{s.value}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
                 {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
               </div>
             ))}
           </div>
 
-          {/* Top projects & budget alerts side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
-            {/* Top projects */}
-            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Top Projects by Revenue</div>
-              </div>
-              <div style={{ padding: 0 }}>
-                {projData.topProjects.map((p, i) => (
-                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderBottom: i < projData.topProjects.length - 1 ? `1px solid ${T.borderSub || T.border}` : "none" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</div>
-                      <div style={{ fontSize: 11, color: T.muted }}>{p.client}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{fmtK(p.rev)}</div>
-                      <div style={{ fontSize: 11, color: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }}>{p.margin}% margin</div>
-                    </div>
-                  </div>
-                ))}
-                {projData.topProjects.length === 0 && <div style={{ padding: 20, textAlign: "center", color: T.muted, fontSize: 13 }}>No projects yet</div>}
-              </div>
+          {/* Full profitability table */}
+          <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px 0" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Project Profitability Comparison</div>
             </div>
+            <div className="mob-table-wrap">
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={thS}>Project</th>
+                  <th style={thS}>Client</th>
+                  <th style={thS}>Status</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Cost</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Profit</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Margin</th>
+                  <th style={{ ...thS, textAlign: "right" }}>Est vs Act</th>
+                </tr></thead>
+                <tbody>
+                  {projData.projBreakdown.sort((a, b) => b.margin - a.margin).map((p, i) => (
+                    <tr key={p.id}>
+                      <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
+                      <td style={{ ...tdS, color: T.sub }}>{p.client}</td>
+                      <td style={tdS}>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: p.status === "Active" ? "#e8f5e9" : p.status === "Completed" || p.status === "Wrapped" ? "#e3f2fd" : "#f5f5f5", color: p.status === "Active" ? "#2e7d32" : p.status === "Completed" || p.status === "Wrapped" ? "#1565c0" : T.muted }}>
+                          {p.status || "Draft"}
+                        </span>
+                      </td>
+                      <td style={tdR}>{fmtFull(p.rev)}</td>
+                      <td style={tdR}>{fmtFull(p.cost)}</td>
+                      <td style={{ ...tdR, fontWeight: 600, color: p.profit >= 0 ? "#1a6e3e" : "#b0271d" }}>{fmtFull(p.profit)}</td>
+                      <td style={{ ...tdR, fontWeight: 600, color: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }}>
+                        {p.margin}%
+                        <div style={{ height: 3, borderRadius: 2, background: T.border, marginTop: 4 }}>
+                          <div style={{ height: 3, borderRadius: 2, width: Math.min(100, Math.max(0, p.margin)) + "%", background: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }} />
+                        </div>
+                      </td>
+                      <td style={{ ...tdR, color: p.variance === null ? T.muted : p.variance >= 0 ? "#1a6e3e" : "#b0271d", fontWeight: p.variance !== null ? 600 : 400 }}>
+                        {p.variance === null ? "\u2014" : p.variance >= 0 ? "Under " + fmtK(p.variance) : "Over " + fmtK(Math.abs(p.variance))}
+                      </td>
+                    </tr>
+                  ))}
+                  {projData.projBreakdown.length === 0 && <tr><td colSpan={8} style={{ ...tdS, textAlign: "center", color: T.muted }}>No projects</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {/* Budget alerts */}
-            <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Budget Alerts</div>
-              </div>
-              <div style={{ padding: 0 }}>
-                {projData.overBudget.slice(0, 5).map((p, i) => (
-                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderBottom: i < Math.min(projData.overBudget.length, 5) - 1 ? `1px solid ${T.borderSub || T.border}` : "none" }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</div>
-                      <div style={{ fontSize: 11, color: T.muted }}>Est: {fmtK(p.estimateTotal || 0)}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#b0271d" }}>{fmtK(p.variance)}</div>
-                      <div style={{ fontSize: 11, color: "#b0271d" }}>over budget</div>
-                    </div>
+      {/* ═══ BUDGET ALERTS PAGE ═══ */}
+      {financeTab === "budget-alerts" && (
+        <div>
+          <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted }}>Over-Budget Projects</div>
+            </div>
+            <div style={{ padding: 0 }}>
+              {projData.overBudget.map((p, i) => (
+                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", borderBottom: i < projData.overBudget.length - 1 ? `1px solid ${T.borderSub || T.border}` : "none" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: T.muted }}>{p.client} &middot; Est: {fmtK(p.estimateTotal || 0)}</div>
                   </div>
-                ))}
-                {projData.overBudget.length === 0 && <div style={{ padding: 20, textAlign: "center", color: T.muted, fontSize: 13 }}>All projects on budget</div>}
-              </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#b0271d" }}>{fmtK(Math.abs(p.variance))}</div>
+                    <div style={{ fontSize: 12, color: "#b0271d" }}>over budget</div>
+                  </div>
+                </div>
+              ))}
+              {projData.overBudget.length === 0 && <div style={{ padding: 24, textAlign: "center", color: T.muted, fontSize: 14 }}>All projects on budget</div>}
             </div>
           </div>
         </div>
@@ -422,7 +512,7 @@ export default function Finance({
             {/* Revenue by project */}
             <div ref={revBoxRef} style={{ ...cardS(T), padding: 0, overflow: "auto" }}>
               <div style={{ padding: "16px 20px 0" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({financeYear})</div>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({yearLabel})</div>
               </div>
               <div className="mob-table-wrap">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -444,7 +534,7 @@ export default function Finance({
                         </tr>
                       );
                     })}
-                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No {financeYear} projects</td></tr>}
+                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No {yearLabel} projects</td></tr>}
                     {/* Total row */}
                     {pnlData.revByProject.length > 0 && (
                       <tr style={{ background: T.bg }}>
@@ -632,7 +722,7 @@ export default function Finance({
           {/* P&L Statement summary */}
           <div style={{ ...cardS(T), marginTop: 14, padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement — " + financeYear}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement \u2014 " + yearLabel}</div>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
@@ -702,73 +792,6 @@ export default function Finance({
           {/* AP Table */}
           <div style={{ marginTop: 14 }}>
             <ARAPTable T={T} title="Accounts Payable" type="payables" data={arapData} setData={setArapData} thS={thS} tdS={tdS} tdR={tdR} isMobile={isMobile} />
-          </div>
-        </div>
-      )}
-
-      {/* ═══ PROFITABILITY ═══ */}
-      {financeTab === "profitability" && (
-        <div>
-          {/* Summary */}
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
-            {[
-              { label: "Avg Project Margin", value: projData.avgMargin + "%", color: projData.avgMargin >= 20 ? "#1a6e3e" : "#b06000" },
-              { label: "Projects Over Budget", value: projData.overBudget.length, sub: "of " + projData.nonTemplate.length + " total", color: projData.overBudget.length > 0 ? "#b0271d" : "#1a6e3e" },
-              { label: "Most Profitable", value: projData.topProjects[0]?.margin ? projData.topProjects[0].margin + "%" : "N/A", sub: projData.topProjects[0]?.name || "", color: "#1a6e3e" },
-            ].map((s, i) => (
-              <div key={i} style={cardS(T)}>
-                <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
-                {s.sub && <div style={{ fontSize: 12, color: T.sub }}>{s.sub}</div>}
-              </div>
-            ))}
-          </div>
-
-          {/* Full project table */}
-          <div style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Project Profitability Comparison</div>
-            </div>
-            <div className="mob-table-wrap">
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr>
-                  <th style={thS}>Project</th>
-                  <th style={thS}>Client</th>
-                  <th style={thS}>Status</th>
-                  <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
-                  <th style={{ ...thS, textAlign: "right" }}>Cost</th>
-                  <th style={{ ...thS, textAlign: "right" }}>Profit</th>
-                  <th style={{ ...thS, textAlign: "right" }}>Margin</th>
-                  <th style={{ ...thS, textAlign: "right" }}>Est vs Act</th>
-                </tr></thead>
-                <tbody>
-                  {projData.projBreakdown.sort((a, b) => b.margin - a.margin).map((p, i) => (
-                    <tr key={p.id}>
-                      <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
-                      <td style={{ ...tdS, color: T.sub }}>{p.client}</td>
-                      <td style={tdS}>
-                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: p.status === "Active" ? "#e8f5e9" : p.status === "Completed" || p.status === "Wrapped" ? "#e3f2fd" : "#f5f5f5", color: p.status === "Active" ? "#2e7d32" : p.status === "Completed" || p.status === "Wrapped" ? "#1565c0" : T.muted }}>
-                          {p.status || "Draft"}
-                        </span>
-                      </td>
-                      <td style={tdR}>{fmtFull(p.rev)}</td>
-                      <td style={tdR}>{fmtFull(p.cost)}</td>
-                      <td style={{ ...tdR, fontWeight: 600, color: p.profit >= 0 ? "#1a6e3e" : "#b0271d" }}>{fmtFull(p.profit)}</td>
-                      <td style={{ ...tdR, fontWeight: 600, color: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }}>
-                        {p.margin}%
-                        <div style={{ height: 3, borderRadius: 2, background: T.border, marginTop: 4 }}>
-                          <div style={{ height: 3, borderRadius: 2, width: Math.min(100, Math.max(0, p.margin)) + "%", background: p.margin >= 20 ? "#1a6e3e" : p.margin >= 0 ? "#b06000" : "#b0271d" }} />
-                        </div>
-                      </td>
-                      <td style={{ ...tdR, color: p.variance === null ? T.muted : p.variance >= 0 ? "#1a6e3e" : "#b0271d", fontWeight: p.variance !== null ? 600 : 400 }}>
-                        {p.variance === null ? "—" : p.variance >= 0 ? "Under " + fmtK(p.variance) : "Over " + fmtK(Math.abs(p.variance))}
-                      </td>
-                    </tr>
-                  ))}
-                  {projData.projBreakdown.length === 0 && <tr><td colSpan={8} style={{ ...tdS, textAlign: "center", color: T.muted }}>No projects</td></tr>}
-                </tbody>
-              </table>
-            </div>
           </div>
         </div>
       )}
