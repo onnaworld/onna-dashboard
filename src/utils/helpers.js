@@ -410,6 +410,8 @@ export const SLUG_TO_TAB = Object.fromEntries(Object.entries(TAB_SLUGS).map(([k,
 export const SECTION_SLUGS = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s,s.toLowerCase()]));
 export const SLUG_TO_SECTION = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s.toLowerCase(),s]));
 
+export const FINANCE_SLUGS = ["stats","pnl","cashflow","arap","tax","expenses"];
+
 export const buildPath = (tab, projectId, section, subSection) => {
   if (tab==="Projects" && projectId) {
     let path = `/projects/${projectId}`;
@@ -418,6 +420,9 @@ export const buildPath = (tab, projectId, section, subSection) => {
       if (subSection) path += `/${subSection}`;
     }
     return path;
+  }
+  if (tab==="Finance" && subSection && FINANCE_SLUGS.includes(subSection)) {
+    return `/finance/${subSection}`;
   }
   return `/${TAB_SLUGS[tab]||tab.toLowerCase()}`;
 };
@@ -435,6 +440,9 @@ export const parseURL = (pathname, projectList) => {
     return {tab:"Projects",project:proj,section:section||"Home",subSection};
   }
   const tab = SLUG_TO_TAB[parts[0]];
+  if (tab==="Finance" && parts[1] && FINANCE_SLUGS.includes(parts[1])) {
+    return {tab, financeTab: parts[1]};
+  }
   return tab ? {tab} : {tab:null};
 };
 

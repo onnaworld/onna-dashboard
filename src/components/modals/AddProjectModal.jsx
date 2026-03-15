@@ -37,7 +37,7 @@ export function AddProjectModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, sh
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <BtnSecondary onClick={()=>setShowAddProject(false)}>Cancel</BtnSecondary>
-          <BtnPrimary onClick={async()=>{if(!newProject.client||!newProject.name)return;const saved=await api.post("/api/projects",{...newProject,revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0,month:newProject.month||new Date().getMonth()+1});if(saved.id)setLocalProjects(prev=>[...prev,saved]);setNewProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:new Date().getFullYear(),month:new Date().getMonth()+1});setShowAddProject(false);}}>Save Project</BtnPrimary>
+          <BtnPrimary onClick={async()=>{if(!newProject.client||!newProject.name)return;const mo=newProject.month||new Date().getMonth()+1;const yr=newProject.year||new Date().getFullYear();const saved=await api.post("/api/projects",{...newProject,revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0,month:mo,year:yr});if(saved.id){const full={...saved,month:saved.month??mo,year:saved.year??yr};setLocalProjects(prev=>{const u=[...prev,full];try{localStorage.setItem('onna_cache_projects',JSON.stringify(u))}catch{}return u;});}setNewProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:new Date().getFullYear(),month:new Date().getMonth()+1});setShowAddProject(false);}}>Save Project</BtnPrimary>
         </div>
       </div>
     </div>

@@ -756,7 +756,7 @@ function OnnaDashboardInner() {
       if (cancelled) return;
       {const projArr=Array.isArray(projects)?projects:[];const deduped=projArr;
         if(!deduped.find(p=>p.client==="TEMPLATE")){const t=await api.post("/api/projects",{client:"TEMPLATE",name:"Template Project",revenue:0,cost:0,status:"Active",year:2026}).catch(()=>null);if(t&&t.id)deduped.unshift(t);}
-        if(deduped.length>0){setLocalProjects(prev=>{if(!prev||prev.length===0)return deduped;const localMap=Object.fromEntries(prev.map(p=>[p.id,p]));const merged=deduped.map(ap=>{const lp=localMap[ap.id];if(!lp)return ap;return {...ap,month:lp.month!==undefined?lp.month:ap.month,year:lp.year!==undefined?lp.year:ap.year};});return merged;});try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{}}}
+        if(deduped.length>0){setLocalProjects(prev=>{if(!prev||prev.length===0){try{localStorage.setItem('onna_cache_projects',JSON.stringify(deduped))}catch{}return deduped;}const localMap=Object.fromEntries(prev.map(p=>[p.id,p]));const merged=deduped.map(ap=>{const lp=localMap[ap.id];if(!lp)return ap;return {...ap,month:lp.month!==undefined?lp.month:ap.month,year:lp.year!==undefined?lp.year:ap.year};});try{localStorage.setItem('onna_cache_projects',JSON.stringify(merged))}catch{}return merged;})}}
       if (Array.isArray(leads)    && leads.length > 0)    { setLocalLeads(leads);    try{localStorage.setItem('onna_cache_leads',JSON.stringify(leads))}catch{} }
       if (Array.isArray(vendors)  && vendors.length > 0)  { setVendors(vendors);     try{localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors))}catch{} }
       if (Array.isArray(outreach) && outreach.length > 0) setOutreach(outreach);
@@ -880,7 +880,7 @@ function OnnaDashboardInner() {
         else if (sec==="Styling") setStylingSubSection(parsed.subSection);
       }
     }
-    window.history.replaceState({tab:parsed.tab||activeTab,projectId:parsed.project?.id||null,section:parsed.section||null,subSection:parsed.subSection||null}, "", window.location.pathname);
+    window.history.replaceState({tab:parsed.tab||activeTab,projectId:parsed.project?.id||null,section:parsed.section||null,subSection:parsed.subSection||null,financeTab:parsed.financeTab||null}, "", window.location.pathname);
   },[allProjectsMerged]); // run once projects are loaded
 
   useEffect(()=>{

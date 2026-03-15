@@ -29,9 +29,11 @@ export function FromTemplateModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, 
           <BtnSecondary onClick={()=>setShowFromTemplate(false)}>Cancel</BtnSecondary>
           <BtnPrimary onClick={async()=>{
             if(!templateProject.client||!templateProject.name)return;
-            const saved=await api.post("/api/projects",{...templateProject,revenue:Number(templateProject.revenue)||0,cost:Number(templateProject.cost)||0});
+            const mo=templateProject.month||new Date().getMonth()+1;const yr=templateProject.year||new Date().getFullYear();
+            const saved=await api.post("/api/projects",{...templateProject,revenue:Number(templateProject.revenue)||0,cost:Number(templateProject.cost)||0,month:mo,year:yr});
             if(!saved.id)return;
-            setLocalProjects(prev=>[...prev,saved]);
+            const full={...saved,month:saved.month??mo,year:saved.year??yr};
+            setLocalProjects(prev=>{const u=[...prev,full];try{localStorage.setItem('onna_cache_projects',JSON.stringify(u))}catch{}return u;});
             const tplId=allProjectsMerged.find(p=>p.client==="TEMPLATE")?.id;
             if(tplId){
               const tplCS=callSheetStore?.[tplId];

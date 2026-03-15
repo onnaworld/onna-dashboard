@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
-import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi } from "../utils/helpers";
+import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, FINANCE_SLUGS } from "../utils/helpers";
 
 /* ── Branded constants (matching estimates/callsheets) ── */
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -104,10 +104,31 @@ export default function Finance({
   projectEstimates, projectActuals,
   SearchBar, Pill, setUndoToastMsg,
 }) {
-  const [financeTab, setFinanceTab] = useState(null);
+  const [financeTab, _setFinanceTab] = useState(() => {
+    const parts = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    if (parts[0] === "finance" && parts[1] && FINANCE_SLUGS.includes(parts[1])) return parts[1];
+    return null;
+  });
+  const setFinanceTab = useCallback((tab) => {
+    _setFinanceTab(tab);
+    const path = tab ? `/finance/${tab}` : "/finance";
+    window.history.pushState({ tab: "Finance", financeTab: tab }, "", path);
+  }, []);
   const revBoxRef = useRef(null);
   const [revBoxH, setRevBoxH] = useState(null);
   const [customFreqOpen, setCustomFreqOpen] = useState({});
+  const [pnlProjectFilter, setPnlProjectFilter] = useState(null); // null = all, or project id
+
+  // Sync financeTab with popstate (back/forward)
+  useEffect(() => {
+    const onPop = () => {
+      const parts = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+      if (parts[0] === "finance" && parts[1] && FINANCE_SLUGS.includes(parts[1])) _setFinanceTab(parts[1]);
+      else if (parts[0] === "finance") _setFinanceTab(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   useEffect(() => {
     if (!revBoxRef.current) return;
@@ -224,7 +245,7 @@ export default function Finance({
     };
   }, [allProjectsMerged, localLeads, getProjRevenue, getProjCost, projectEstimates, projectActuals, financeYear]);
 
-  /* ── P&L calculations ── */
+  /* ── P&L calculations (supports project filter) ── */
   const pnlData = useMemo(() => {
     const ovTotal = overheads.reduce((s, o) => {
       const freq = o.frequency || "monthly";
@@ -239,13 +260,22 @@ export default function Finance({
       }, 0);
       return s + catMonthly + subsAmt;
     }, 0);
-    const grossProfit = projData.thisYearRev - projData.thisYearCost;
-    const grossMargin = projData.thisYearRev > 0 ? (grossProfit / projData.thisYearRev) * 100 : 0;
-    const netProfit = grossProfit - ovTotal;
-    const netMargin = projData.thisYearRev > 0 ? (netProfit / projData.thisYearRev) * 100 : 0;
 
-    // Revenue by project (this year)
-    const revByProject = projData.thisYear.map(p => ({
+    // Filter projects for P&L
+    const pnlProjects = pnlProjectFilter ? projData.thisYear.filter(p => String(p.id) === String(pnlProjectFilter)) : projData.thisYear;
+    const pnlRev = pnlProjects.reduce((s, p) => s + getProjRevenue(p), 0);
+    const pnlCost = pnlProjects.reduce((s, p) => s + getProjCost(p), 0);
+    const isSingleProject = pnlProjectFilter !== null;
+
+    const grossProfit = pnlRev - pnlCost;
+    const grossMargin = pnlRev > 0 ? (grossProfit / pnlRev) * 100 : 0;
+    // Only include overheads when viewing all projects
+    const effectiveOv = isSingleProject ? 0 : ovTotal;
+    const netProfit = grossProfit - effectiveOv;
+    const netMargin = pnlRev > 0 ? (netProfit / pnlRev) * 100 : 0;
+
+    // Revenue by project
+    const revByProject = pnlProjects.map(p => ({
       name: p.name || p.title || "Untitled",
       client: p.client,
       rev: getProjRevenue(p),
@@ -254,7 +284,7 @@ export default function Finance({
 
     // Cost breakdown from actuals sections
     const costBreakdown = {};
-    projData.thisYear.forEach(p => {
+    pnlProjects.forEach(p => {
       const acts = projectActuals?.[p.id];
       if (!acts) return;
       acts.forEach(sec => {
@@ -265,8 +295,8 @@ export default function Finance({
     });
     const costSections = Object.entries(costBreakdown).map(([title, total]) => ({ title, total })).sort((a, b) => b.total - a.total);
 
-    return { ovTotal, grossProfit, grossMargin, netProfit, netMargin, revByProject, costSections };
-  }, [projData, overheads, getProjRevenue, getProjCost, projectActuals]);
+    return { ovTotal, effectiveOv, grossProfit, grossMargin, netProfit, netMargin, revByProject, costSections, pnlRev, pnlCost, isSingleProject };
+  }, [projData, overheads, getProjRevenue, getProjCost, projectActuals, pnlProjectFilter]);
 
   /* ── AR/AP calculations ── */
   const arapCalcs = useMemo(() => {
@@ -479,11 +509,33 @@ export default function Finance({
       {/* ═══ P&L ═══ */}
       {financeTab === "pnl" && (
         <div>
+          {/* Project filter */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={() => setPnlProjectFilter(null)}
+              style={{
+                padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                border: pnlProjectFilter === null ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+                background: pnlProjectFilter === null ? T.accent : "#e8e8ed",
+                color: pnlProjectFilter === null ? "#fff" : T.sub,
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s",
+              }}>All Projects</button>
+            {projData.thisYear.map(p => (
+              <button key={p.id} onClick={() => setPnlProjectFilter(String(p.id))}
+                style={{
+                  padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                  border: String(pnlProjectFilter) === String(p.id) ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+                  background: String(pnlProjectFilter) === String(p.id) ? T.accent : "#e8e8ed",
+                  color: String(pnlProjectFilter) === String(p.id) ? "#fff" : T.sub,
+                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
+                }}>{p.name || p.title || "Untitled"}</button>
+            ))}
+          </div>
+
           {/* P&L summary cards */}
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
             {[
-              { label: "Total Revenue", value: fmtK(projData.thisYearRev), color: T.text },
-              { label: "Direct Costs", value: fmtK(projData.thisYearCost), color: "#b0271d" },
+              { label: "Total Revenue", value: fmtK(pnlData.pnlRev), color: T.text },
+              { label: "Direct Costs", value: fmtK(pnlData.pnlCost), color: "#b0271d" },
               { label: "Gross Profit", value: fmtK(pnlData.grossProfit), sub: pnlData.grossMargin.toFixed(1) + "% margin", color: pnlData.grossProfit >= 0 ? "#1a6e3e" : "#b0271d" },
               { label: "Net Profit", value: fmtK(pnlData.netProfit), sub: pnlData.netMargin.toFixed(1) + "% margin", color: pnlData.netProfit >= 0 ? "#1a6e3e" : "#b0271d" },
             ].map((s, i) => (
@@ -669,18 +721,20 @@ export default function Finance({
           {/* P&L Statement summary */}
           <div style={{ ...cardS(T), marginTop: 14, padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement \u2014 " + yearLabel}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement \u2014 " + yearLabel + (pnlProjectFilter ? " \u2014 " + (projData.thisYear.find(p => String(p.id) === String(pnlProjectFilter))?.name || "") : "")}</div>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
                 {[
-                  { label: "Revenue (Project Fees)", value: projData.thisYearRev, bold: true },
+                  { label: "Revenue (Project Fees)", value: pnlData.pnlRev, bold: true },
                   ...pnlData.costSections.map(s => ({ label: "  " + s.title, value: -s.total, indent: true })),
-                  { label: "Total Direct Costs", value: -projData.thisYearCost, bold: true, border: true },
+                  { label: "Total Direct Costs", value: -pnlData.pnlCost, bold: true, border: true },
                   { label: "GROSS PROFIT", value: pnlData.grossProfit, bold: true, highlight: true, pct: pnlData.grossMargin },
-                  { label: "", spacer: true },
-                  ...overheads.filter(o => parseNum(o.amount) > 0).map(o => ({ label: "  " + o.label, value: -(parseNum(o.amount)), indent: true })),
-                  { label: "Total Overheads", value: -pnlData.ovTotal, bold: true, border: true },
+                  ...(pnlData.isSingleProject ? [] : [
+                    { label: "", spacer: true },
+                    ...overheads.filter(o => parseNum(o.amount) > 0).map(o => ({ label: "  " + o.label, value: -(parseNum(o.amount)), indent: true })),
+                    { label: "Total Overheads", value: -pnlData.effectiveOv, bold: true, border: true },
+                  ]),
                   { label: "NET PROFIT", value: pnlData.netProfit, bold: true, highlight: true, pct: pnlData.netMargin, final: true },
                 ].map((row, i) => {
                   if (row.spacer) return <tr key={i}><td colSpan={3} style={{ padding: 6 }} /></tr>;
@@ -1121,7 +1175,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     const projRows = (syncedProjects || []).map(p => {
       const rev = getProjRevenue ? getProjRevenue(p) : 0;
       const cost = getProjCost ? getProjCost(p) : 0;
-      const calMonth = Number(p.month) || 1;
+      const calMonth = Number(p.month) || (p.created_at ? new Date(p.created_at).getMonth() + 1 : 1);
       const fyIdx = calMonthToIdx(calMonth);
       const revCols = Array(12).fill(0);
       const costCols = Array(12).fill(0);
