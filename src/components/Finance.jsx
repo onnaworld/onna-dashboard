@@ -121,7 +121,7 @@ export default function Finance({
     try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; }
   });
   useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} }, [availableYears]);
-  const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
+  const [financeYear, setFinanceYear] = useState(new Date().getFullYear()); // number or "all"
 
   /* ── Persisted overheads for P&L ── */
   const [overheads, setOverheads] = useState(() => {
@@ -147,8 +147,9 @@ export default function Finance({
     const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
     const active = nonTemplate.filter(p => p.status === "Active");
     const completed = nonTemplate.filter(p => p.status === "Completed" || p.status === "Wrapped");
-    const thisYear = nonTemplate.filter(p => Number(p.year) === financeYear);
-    const lastYear = nonTemplate.filter(p => Number(p.year) === financeYear - 1);
+    const isAllTime = financeYear === "all";
+    const thisYear = isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear);
+    const lastYear = isAllTime ? [] : nonTemplate.filter(p => Number(p.year) === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
     const sumCost = (arr) => arr.reduce((a, b) => a + getProjCost(b), 0);
@@ -268,6 +269,15 @@ export default function Finance({
     <div>
       {/* ── Year selector bar ── */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, alignItems: "center" }}>
+        {/* All Time pill */}
+        <button onClick={() => setFinanceYear("all")}
+          style={{
+            padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+            border: financeYear === "all" ? `1px solid ${T.accent}` : "1px solid #d1d1d6",
+            background: financeYear === "all" ? T.accent : "#e8e8ed",
+            color: financeYear === "all" ? "#fff" : T.sub,
+            cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
+          }}>All Time</button>
         {(() => { const yrs = new Set(availableYears); (allProjectsMerged || []).forEach(p => { if (p.year) yrs.add(p.year); }); return [...yrs].sort(); })().map((y, _, arr) => (
           <div key={y} style={{ display: "inline-flex", alignItems: "center", position: "relative" }}>
             <button onClick={() => setFinanceYear(y)}
@@ -288,16 +298,21 @@ export default function Finance({
 
       {/* ── KPI cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 22 }}>
-        {[
+        {(financeYear === "all" ? [
+          { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
+          { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
+          { label: "Active Projects", value: projData.active.length, sub: projData.completed.length + " completed", color: T.text },
+          { label: "Pipeline", value: apiLoading ? "\u2014" : fmtK(projData.pipeline), sub: projData.newLeads + " new leads", color: T.text },
+          { label: "Outstanding AR", value: fmtK(arapCalcs.totalAR), sub: arapCalcs.overdueAR > 0 ? fmtK(arapCalcs.overdueAR) + " overdue" : "none overdue", color: arapCalcs.overdueAR > 0 ? "#b06000" : T.text },
+          { label: "Avg Margin", value: projData.avgMargin + "%", color: projData.avgMargin >= 20 ? "#1a6e3e" : "#b06000" },
+        ] : [
           { label: `Revenue ${financeYear}`, value: fmtK(projData.thisYearRev), sub: projData.thisYear.length + " projects", color: T.text },
           { label: `Profit ${financeYear}`, value: fmtK(projData.thisYearProfit), sub: projData.thisYearMargin + "% margin", color: projData.thisYearProfit >= 0 ? "#1a6e3e" : "#b0271d" },
           { label: "Pipeline", value: apiLoading ? "\u2014" : fmtK(projData.pipeline), sub: projData.newLeads + " new leads", color: T.text },
           { label: "Active Projects", value: projData.active.length, sub: projData.completed.length + " completed", color: T.text },
-          { label: "All-Time Revenue", value: fmtK(projData.totalRev), sub: projData.nonTemplate.length + " total projects", color: T.text },
-          { label: "All-Time Profit", value: fmtK(projData.totalProfit), sub: projData.avgMargin + "% avg margin", color: projData.totalProfit >= 0 ? "#1a6e3e" : "#b0271d" },
           { label: "Outstanding AR", value: fmtK(arapCalcs.totalAR), sub: arapCalcs.overdueAR > 0 ? fmtK(arapCalcs.overdueAR) + " overdue" : "none overdue", color: arapCalcs.overdueAR > 0 ? "#b06000" : T.text },
           { label: "YoY Growth", value: projData.lastYearRev > 0 ? fmtPct(((projData.thisYearRev - projData.lastYearRev) / projData.lastYearRev) * 100) : "N/A", sub: `vs ${financeYear - 1}`, color: projData.thisYearRev >= projData.lastYearRev ? "#1a6e3e" : "#b0271d" },
-        ].map((s, i) => (
+        ]).map((s, i) => (
           <div key={i} style={cardS(T)}>
             <div style={{ ...kpiLabelS, color: T.muted }}>{s.label}</div>
             <div style={{ ...kpiValS, color: s.color || T.text }}>{s.value}</div>
@@ -419,7 +434,7 @@ export default function Finance({
             {/* Revenue by project */}
             <div ref={revBoxRef} style={{ ...cardS(T), padding: 0, overflow: "auto" }}>
               <div style={{ padding: "16px 20px 0" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({financeYear})</div>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({financeYear === "all" ? "All Time" : financeYear})</div>
               </div>
               <div className="mob-table-wrap">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -441,7 +456,7 @@ export default function Finance({
                         </tr>
                       );
                     })}
-                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No {financeYear} projects</td></tr>}
+                    {pnlData.revByProject.length === 0 && <tr><td colSpan={4} style={{ ...tdS, textAlign: "center", color: T.muted }}>No {financeYear === "all" ? "" : financeYear + " "}projects</td></tr>}
                     {/* Total row */}
                     {pnlData.revByProject.length > 0 && (
                       <tr style={{ background: T.bg }}>
@@ -629,7 +644,7 @@ export default function Finance({
           {/* P&L Statement summary */}
           <div style={{ ...cardS(T), marginTop: 14, padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement — " + financeYear}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"Profit & Loss Statement — " + (financeYear === "all" ? "All Time" : financeYear)}</div>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
