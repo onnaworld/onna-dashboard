@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from "react";
+import React, { Fragment, useState, useRef } from "react";
 
 export default function Dashboard({
   T, isMobile, gcalToken, gcalEvents, gcalLoading, gcalEventColors,
@@ -16,6 +16,9 @@ export default function Dashboard({
   buildPath, pushNav, setActiveTab, setSelectedProject, setProjectSection,
   DashNotes
 }) {
+  const [editingTodoId, setEditingTodoId] = useState(null);
+  const [customLists, setCustomLists] = useState(()=>{try{const s=localStorage.getItem('onna_todo_lists');return s?JSON.parse(s):[];}catch{return [];}});
+  const saveCustomLists=(lists)=>{setCustomLists(lists);try{localStorage.setItem('onna_todo_lists',JSON.stringify(lists));}catch{}};
   const TODO_COLORS = [
     {label:"None",border:"transparent",bg:"transparent",dot:"transparent"},
     {label:"Red",border:"#c46050",bg:"#fdd8d0",dot:"#c46050"},
@@ -163,18 +166,41 @@ export default function Dashboard({
               const todayDay=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][new Date().getDay()];
               const byDay={};days.forEach(d=>{byDay[d]=filteredTodos.filter(t=>t.subType===d);});
               const longterm=filteredTodos.filter(t=>t.subType==="longterm");
-              const unassigned=filteredTodos.filter(t=>!t.subType||(!days.includes(t.subType)&&t.subType!=="longterm"));
+              const unassigned=filteredTodos.filter(t=>!t.subType||(!days.includes(t.subType)&&t.subType!=="longterm"&&!(t.subType||"").startsWith("list:")));
               const cycleColor=(t)=>{const ci=TODO_COLORS.findIndex(c=>c.dot===t.color);const next=TODO_COLORS[(ci+1)%TODO_COLORS.length];pushUndo("color");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,color:next.dot==="transparent"?undefined:next.dot}:x));};
               const tc=(t)=>TODO_COLORS.find(c=>c.dot===t.color)||TODO_COLORS[0];
-              const renderTask=(t)=>{
+              const reorderDrop=(targetId,targetSubType,e)=>{
+                e.preventDefault();e.stopPropagation();e.currentTarget.style.borderTopColor="transparent";
+                const dragId=Number(e.dataTransfer.getData("text/plain"));
+                if(!dragId||dragId===targetId)return;
+                pushUndo("reorder");
+                setTodos(prev=>{
+                  const arr=[...prev];
+                  const fromIdx=arr.findIndex(x=>x.id===dragId);
+                  if(fromIdx<0)return prev;
+                  const [item]=arr.splice(fromIdx,1);
+                  item.subType=targetSubType;
+                  const toIdx=arr.findIndex(x=>x.id===targetId);
+                  if(toIdx<0){arr.push(item);}else{arr.splice(toIdx,0,item);}
+                  return arr;
+                });
+              };
+              const renderTask=(t,sectionSubType)=>{
                 const c=tc(t);const hasBg=c.bg!=="transparent";
                 return (
-                <div key={t.id} className="todo-item" draggable style={{display:"flex",alignItems:"flex-start",gap:5,padding:"4px 3px",borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",fontSize:11,background:hasBg?c.bg+"88":"transparent",borderLeft:hasBg?`3px solid ${c.border}`:"3px solid transparent",borderRadius:hasBg?4:0,marginBottom:hasBg?2:0}}
-                  onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}}>
+                <div key={t.id} className="todo-item" draggable style={{display:"flex",alignItems:"flex-start",gap:5,padding:"5px 3px",borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",fontSize:11,background:hasBg?c.bg+"88":"transparent",borderLeft:hasBg?`3px solid ${c.border}`:"3px solid transparent",borderRadius:hasBg?4:0,marginBottom:hasBg?2:0,borderTop:"2px solid transparent",transition:"border-top-color 0.1s"}}
+                  onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}}
+                  onDragOver={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderTopColor=T.accent;}}
+                  onDragLeave={e=>{e.currentTarget.style.borderTopColor="transparent";}}
+                  onDrop={e=>reorderDrop(t.id,sectionSubType,e)}>
                   <button onClick={e=>{e.stopPropagation();pushUndo("toggle");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));}} style={{width:14,height:14,borderRadius:3,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
                     {t.done&&<span style={{color:"#fff",fontSize:8,lineHeight:1,fontWeight:700}}>✓</span>}
                   </button>
-                  <span onClick={()=>{pushUndo('edit task');setSelectedTodo(t);}} style={{flex:1,minWidth:0,cursor:"pointer",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.text}</span>
+                  {editingTodoId===t.id?(
+                    <input autoFocus defaultValue={t.text} onBlur={e=>{const v=e.target.value.trim();if(v&&v!==t.text){pushUndo("edit");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,text:v}:x));}setEditingTodoId(null);}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();if(e.key==="Escape"){setEditingTodoId(null);}}} onClick={e=>e.stopPropagation()} style={{flex:1,minWidth:0,fontSize:11,padding:"1px 3px",border:`1px solid ${T.accent}`,borderRadius:3,background:"#fff",color:T.text,fontFamily:"inherit",outline:"none"}}/>
+                  ):(
+                    <span onClick={()=>setEditingTodoId(t.id)} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.text}</span>
+                  )}
                   <button title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,flexShrink:0,lineHeight:1,fontSize:12,color:t.color||T.muted,opacity:t.color?1:0.4,transition:"opacity 0.12s"}}>★</button>
                   <button className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:0,lineHeight:1,flexShrink:0}}>×</button>
                 </div>);
@@ -191,18 +217,30 @@ export default function Dashboard({
                     return (
                     <div key={day} {...colDrop(day)} style={{minHeight:isMobile?undefined:80,borderRight:!isMobile&&i<6?`1px solid ${T.borderSub}`:"none",padding:"4px 4px",borderBottom:isMobile?`1px solid ${T.borderSub}`:"none"}}>
                       <div style={{fontSize:10,fontWeight:600,color:isToday?T.accent:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4,textAlign:"center"}}>{dayLabels[i]}</div>
-                      {byDay[day].map(renderTask)}
+                      {byDay[day].map(t=>renderTask(t,day))}
                     </div>);
                   })}
                 </div>
                 <div style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop("longterm")}>
                   <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Long Term</div>
-                  {longterm.map(renderTask)}
+                  {longterm.map(t=>renderTask(t,"longterm"))}
                   {longterm.length===0&&<div style={{fontSize:11,color:T.muted,padding:"4px 3px",opacity:0.5}}>Drag tasks here or add below</div>}
                 </div>
+                {customLists.map(cl=>{
+                  const listTasks=filteredTodos.filter(t=>t.subType===`list:${cl}`);
+                  return (
+                  <div key={cl} style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop(`list:${cl}`)}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                      <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em"}}>{cl}</div>
+                      <button onClick={()=>{if(listTasks.length>0){if(!window.confirm(`Delete "${cl}" list? Tasks will move to Unassigned.`))return;setTodos(prev=>prev.map(t=>t.subType===`list:${cl}`?{...t,subType:undefined}:t));}saveCustomLists(customLists.filter(x=>x!==cl));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:0,lineHeight:1,opacity:0.5}}>×</button>
+                    </div>
+                    {listTasks.map(t=>renderTask(t,`list:${cl}`))}
+                  </div>);
+                })}
+                <button onClick={()=>{const name=window.prompt("List name:");if(!name||!name.trim())return;const n=name.trim();if(customLists.includes(n))return;saveCustomLists([...customLists,n]);}} style={{marginTop:8,background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit",padding:"4px 0",fontWeight:500,opacity:0.6}}>+ New List</button>
                 {unassigned.length>0&&<div style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop(undefined)}>
                   <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Unassigned</div>
-                  {unassigned.map(renderTask)}
+                  {unassigned.map(t=>renderTask(t,undefined))}
                 </div>}
               </div>);
             })():<>
