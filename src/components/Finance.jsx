@@ -17,7 +17,9 @@ const CASHFLOW_INIT = () => ({
   currency: "AED",
   year: new Date().getFullYear(),
   availableYears: (() => { try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; } })(),
-  openingBalance: 0,
+  openingBalance: 0, // legacy single value
+  openingBalances: Array(12).fill(""), // per-month editable
+  syncOverrides: {}, // manual overrides for synced values, keyed like "rev:ProjectName:0"
   vatRate: 5,
   inflows: [
     { label: "Client Fees / Project Revenue", v: Array(12).fill("") },
@@ -145,8 +147,8 @@ export default function Finance({
     const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
     const active = nonTemplate.filter(p => p.status === "Active");
     const completed = nonTemplate.filter(p => p.status === "Completed" || p.status === "Wrapped");
-    const thisYear = nonTemplate.filter(p => p.year === financeYear);
-    const lastYear = nonTemplate.filter(p => p.year === financeYear - 1);
+    const thisYear = nonTemplate.filter(p => Number(p.year) === financeYear);
+    const lastYear = nonTemplate.filter(p => Number(p.year) === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
     const sumCost = (arr) => arr.reduce((a, b) => a + getProjCost(b), 0);
@@ -391,9 +393,9 @@ export default function Finance({
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
             {/* Revenue by project */}
-            <div ref={revBoxRef} style={{ ...cardS(T), padding: 0, overflow: "hidden" }}>
+            <div ref={revBoxRef} style={{ ...cardS(T), padding: 0, overflow: "auto" }}>
               <div style={{ padding: "16px 20px 0" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Revenue by Project ({financeYear})</div>
               </div>
@@ -433,7 +435,7 @@ export default function Finance({
             </div>
 
             {/* Overheads */}
-            <div style={{ ...cardS(T), padding: 0, overflow: "hidden", ...(revBoxH && !isMobile ? { maxHeight: revBoxH, display: "flex", flexDirection: "column" } : {}) }}>
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
               <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>Operating Overheads</div>
               </div>
@@ -451,9 +453,31 @@ export default function Finance({
                       const subs = o.subs || [];
                       const collapsed = o._collapsed;
                       const hasSubs = subs.length > 0;
-                      const freqSelect = (val, onChange, monthsVal, onMonthsChange, isSmall) => (
+                      const calcAnnual = (amt, f, months) => {
+                        const v = parseNum(amt);
+                        if (f === "monthly") return v * 12;
+                        if (f === "custom") return v * ((months || []).length || 0);
+                        return v;
+                      };
+                      const calcMonthly = (amt, f, months) => {
+                        const v = parseNum(amt);
+                        if (f === "monthly") return v;
+                        if (f === "custom") return v * ((months || []).length || 0) / 12;
+                        return v / 12;
+                      };
+                      /* Auto-sync parent total from subs */
+                      const subsMonthlyTotal = hasSubs ? subs.reduce((s, sub) => s + calcMonthly(sub.amount, sub.frequency || "monthly", sub.months), 0) : 0;
+                      const subsAnnualTotal = hasSubs ? subs.reduce((s, sub) => s + calcAnnual(sub.amount, sub.frequency || "monthly", sub.months), 0) : 0;
+                      const displayMonthly = hasSubs ? subsMonthlyTotal : parseNum(o.amount);
+                      const displayAnnual = hasSubs ? subsAnnualTotal : calcAnnual(o.amount, freq, o.months);
+                      const MSHORT = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+                      const freqSelect = (val, onChange, monthsVal, onMonthsChange, isSmall, freqKey) => {
+                        const isOpen = customFreqOpen[freqKey];
+                        const selectedMonths = val === "custom" ? (monthsVal || []) : [];
+                        const summaryText = selectedMonths.length > 0 ? selectedMonths.map(m => MSHORT[m - 1]).join(", ") : "";
+                        return (
                         <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                          <select value={val} onChange={e => onChange(e.target.value)}
+                          <select value={val} onChange={e => { onChange(e.target.value); if (e.target.value === "custom") setCustomFreqOpen(p => ({ ...p, [freqKey]: true })); }}
                             style={{ border: "none", outline: "none", background: "transparent", fontSize: isSmall ? 10 : 11, color: T.text, fontFamily: "inherit", cursor: "pointer" }}>
                             <option value="monthly">Monthly</option>
                             <option value="annual">One-off</option>
@@ -465,29 +489,32 @@ export default function Finance({
                               {MONTH_LABELS_FULL.map((m, mi) => <option key={mi} value={mi + 1}>{m}</option>)}
                             </select>
                           )}
-                          {val === "custom" && (
-                            <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                              {["J","F","M","A","M","J","J","A","S","O","N","D"].map((ml, mi) => {
+                          {val === "custom" && !isOpen && (
+                            <button onClick={() => setCustomFreqOpen(p => ({ ...p, [freqKey]: true }))}
+                              style={{ fontSize: isSmall ? 9 : 10, color: T.accent, background: "none", border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 6px", cursor: "pointer", fontFamily: "inherit" }}>
+                              {summaryText || "Select"}
+                            </button>
+                          )}
+                          {val === "custom" && isOpen && (
+                            <div style={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+                              {MSHORT.map((ml, mi) => {
                                 const active = (monthsVal || []).includes(mi + 1);
                                 return <button key={mi} onClick={() => { const cur = monthsVal || []; onMonthsChange(active ? cur.filter(x => x !== mi + 1) : [...cur, mi + 1].sort((a,b)=>a-b)); }}
                                   style={{ width: 20, height: 20, borderRadius: 4, fontSize: 8, fontWeight: 600, border: active ? `1px solid ${T.accent}` : `1px solid ${T.border}`, background: active ? T.accent : "transparent", color: active ? "#fff" : T.muted, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>{ml}</button>;
                               })}
+                              <button onClick={() => setCustomFreqOpen(p => ({ ...p, [freqKey]: false }))}
+                                style={{ fontSize: 10, color: T.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: "0 4px", fontFamily: "inherit" }}>Done</button>
                             </div>
                           )}
                         </div>
-                      );
+                        );
+                      };
                       const amtInput = (val, onChange, isSmall) => (
                         <input value={val || ""} onChange={e => onChange(e.target.value)}
                           placeholder="0"
                           style={{ border: "none", outline: "none", background: "transparent", fontSize: isSmall ? 12 : 12.5, color: isSmall ? T.sub : T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
                           onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
                       );
-                      const calcAnnual = (amt, f, months) => {
-                        const v = parseNum(amt);
-                        if (f === "monthly") return v * 12;
-                        if (f === "custom") return v * ((months || []).length || 0);
-                        return v;
-                      };
                       return (
                       <React.Fragment key={i}>
                       <tr onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "hidden"; }}>
@@ -501,34 +528,40 @@ export default function Finance({
                           </div>
                         </td>
                         <td style={tdS}>
-                          {freqSelect(freq, v => { const n = [...overheads]; n[i] = { ...n[i], frequency: v }; setOverheads(n); }, freq === "custom" ? (o.months || []) : (o.month || "1"), v => { const n = [...overheads]; n[i] = freq === "custom" ? { ...n[i], months: v } : { ...n[i], month: v }; setOverheads(n); })}
+                          {hasSubs
+                            ? <span style={{ fontSize: 10, color: T.muted }}>Auto</span>
+                            : freqSelect(freq, v => { const n = [...overheads]; n[i] = { ...n[i], frequency: v }; setOverheads(n); }, freq === "custom" ? (o.months || []) : (o.month || "1"), v => { const n = [...overheads]; n[i] = freq === "custom" ? { ...n[i], months: v } : { ...n[i], month: v }; setOverheads(n); }, false, `oh-${i}`)}
                         </td>
                         <td style={tdR}>
-                          {amtInput(o.amount, v => {
-                            const n = [...overheads];
-                            const monthlyVal = parseNum(v);
-                            n[i] = { ...n[i], amount: v, annual: String(calcAnnual(v, freq, o.months)) };
-                            setOverheads(n);
-                          })}
+                          {hasSubs
+                            ? <span style={{ fontSize: 12.5, color: T.muted }}>{fmtFull(displayMonthly)}</span>
+                            : amtInput(o.amount, v => {
+                                const n = [...overheads];
+                                n[i] = { ...n[i], amount: v, annual: String(calcAnnual(v, freq, o.months)) };
+                                setOverheads(n);
+                              })}
                         </td>
                         <td style={tdR}>
-                          <input value={o.annual != null ? o.annual : calcAnnual(o.amount, freq, o.months) || ""} onChange={e => {
-                            const ann = e.target.value;
-                            const n = [...overheads];
-                            const annVal = parseNum(ann);
-                            if (freq === "monthly") {
-                              n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / 12) * 100) / 100 : 0) };
-                            } else if (freq === "custom") {
-                              const mc = (o.months || []).length || 1;
-                              n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / mc) * 100) / 100 : 0) };
-                            } else {
-                              n[i] = { ...n[i], annual: ann, amount: ann };
-                            }
-                            setOverheads(n);
-                          }}
-                            placeholder="0"
-                            style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
-                            onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                          {hasSubs
+                            ? <span style={{ fontSize: 12.5, color: T.muted }}>{fmtFull(displayAnnual)}</span>
+                            : <input value={o.annual != null ? o.annual : calcAnnual(o.amount, freq, o.months) || ""} onChange={e => {
+                                const ann = e.target.value;
+                                const n = [...overheads];
+                                const annVal = parseNum(ann);
+                                if (freq === "monthly") {
+                                  n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / 12) * 100) / 100 : 0) };
+                                } else if (freq === "custom") {
+                                  const mc = (o.months || []).length || 1;
+                                  n[i] = { ...n[i], annual: ann, amount: String(annVal ? Math.round((annVal / mc) * 100) / 100 : 0) };
+                                } else {
+                                  n[i] = { ...n[i], annual: ann, amount: ann };
+                                }
+                                setOverheads(n);
+                              }}
+                                placeholder="0"
+                                style={{ border: "none", outline: "none", background: "transparent", fontSize: 12.5, color: T.text, fontFamily: "inherit", textAlign: "right", width: 100 }}
+                                onFocus={e => e.target.style.background = "#f0f5ff"} onBlur={e => e.target.style.background = "transparent"} />
+                          }
                         </td>
                       </tr>
                       {/* Sub-categories (collapsible) */}
@@ -544,7 +577,7 @@ export default function Finance({
                             </div>
                           </td>
                           <td style={tdS}>
-                            {freqSelect(sf, v => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], frequency: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, sf === "custom" ? (sub.months || []) : (sub.month || "1"), v => { const n = [...overheads]; const s = [...subs]; s[si] = sf === "custom" ? { ...s[si], months: v } : { ...s[si], month: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, true)}
+                            {freqSelect(sf, v => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], frequency: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, sf === "custom" ? (sub.months || []) : (sub.month || "1"), v => { const n = [...overheads]; const s = [...subs]; s[si] = sf === "custom" ? { ...s[si], months: v } : { ...s[si], month: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, true, `oh-${i}-sub-${si}`)}
                           </td>
                           <td style={tdR}>
                             {amtInput(sub.amount, v => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], amount: v }; n[i] = { ...n[i], subs: s }; setOverheads(n); }, true)}
@@ -615,6 +648,7 @@ export default function Finance({
           activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion}
           syncedOverheads={overheads} syncedRevenue={projData.thisYearRev} syncedCost={projData.thisYearCost}
           syncedProjects={projData.thisYear} getProjRevenue={getProjRevenue} getProjCost={getProjCost}
+          financeYear={financeYear}
         />
       )}
 
@@ -963,7 +997,7 @@ function TaxVATTab({ T, isMobile, taxData, setTaxData, projData, cardS, kpiLabel
 /* ═══════════════════════════════════════════════════════════════════════════════
    Cash Flow Document Component — Monthly Tracker
    ═══════════════════════════════════════════════════════════════════════════════ */
-function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost }) {
+function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost, financeYear }) {
   const pid = "_global";
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
@@ -1031,12 +1065,20 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   /* ── Helpers ── */
   const pv = (v) => parseFloat(String(v).replace(/[^0-9.\-]/g, "")) || 0;
 
+  const AED_USD = 3.6725;
+  const baseCurrency = "AED"; // all values stored in AED
+  const displayCurrency = data ? (data.currency || "AED") : "AED";
+  const toDisplay = useCallback((n) => {
+    if (displayCurrency === "USD") return n / AED_USD;
+    return n;
+  }, [displayCurrency]);
+
   const fmt = useCallback((n) => {
     if (!data) return "0";
-    const c = data.currency || "AED";
-    const abs = Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    return (c === "AED" ? "AED " : c === "GBP" ? "£" : c === "USD" ? "$" : "€") + abs;
-  }, [data]);
+    const converted = toDisplay(n);
+    const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return (displayCurrency === "AED" ? "AED " : displayCurrency === "GBP" ? "£" : displayCurrency === "USD" ? "$" : "€") + abs;
+  }, [data, toDisplay, displayCurrency]);
 
   const fmtSigned = useCallback((n) => {
     return n < 0 ? "(" + fmt(Math.abs(n)) + ")" : fmt(n);
@@ -1062,15 +1104,20 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       }
       return { label: item.label, cols, annual: cols.reduce((a, b) => a + b, 0), frequency: freq, month: item.month };
     };
-    // Build rows from both parent overheads and their subs
+    // Build grouped rows: parent overhead with nested subs
     const ohRows = [];
     (syncedOverheads || []).forEach(o => {
-      const row = mapOhToCol(o);
-      if (row) ohRows.push(row);
-      (o.subs || []).forEach(sub => {
-        const sr = mapOhToCol(sub);
-        if (sr) ohRows.push({ ...sr, label: `  ${o.label} › ${sub.label}` });
-      });
+      const subs = (o.subs || []).map(sub => mapOhToCol(sub)).filter(Boolean);
+      const parentRow = mapOhToCol(o);
+      if (subs.length > 0) {
+        // Parent as group header, subs underneath
+        const groupCols = Array(12).fill(0);
+        subs.forEach(s => s.cols.forEach((v, m) => { groupCols[m] += v; }));
+        const groupAnnual = groupCols.reduce((a, b) => a + b, 0);
+        ohRows.push({ label: o.label, cols: groupCols, annual: groupAnnual, isParent: true, subs });
+      } else if (parentRow) {
+        ohRows.push(parentRow);
+      }
     });
     const ohColTotals = Array(12).fill(0);
     ohRows.forEach(o => o.cols.forEach((v, m) => { ohColTotals[m] += v; }));
@@ -1079,13 +1126,13 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     const projRows = (syncedProjects || []).map(p => {
       const rev = getProjRevenue ? getProjRevenue(p) : 0;
       const cost = getProjCost ? getProjCost(p) : 0;
-      const calMonth = p.month || 1;
+      const calMonth = Number(p.month) || 1;
       const fyIdx = calMonthToIdx(calMonth);
       const revCols = Array(12).fill(0);
       const costCols = Array(12).fill(0);
       revCols[fyIdx] = rev;
       costCols[fyIdx] = cost;
-      return { name: p.name || p.title || "Untitled", rev, cost, revCols, costCols, fyIdx };
+      return { name: p.name || p.title || "Untitled", rev, cost, revCols, costCols, fyIdx, month: calMonth };
     }).filter(p => p.rev > 0 || p.cost > 0);
 
     // Sum project columns
@@ -1102,6 +1149,27 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     return { ohRows, ohColTotals, projRows, projRevCols, projCostCols, totalSyncedRevenue, totalSyncedCost };
   }, [syncedOverheads, syncedProjects, getProjRevenue, getProjCost]);
 
+  /* ── Override helpers ── */
+  const ov = data ? (data.syncOverrides || {}) : {};
+  const getOv = (prefix, name, m, defaultVal) => {
+    const key = `${prefix}:${name}:${m}`;
+    if (key in ov && ov[key] !== "") return pv(ov[key]);
+    return defaultVal;
+  };
+  const getOvRaw = (prefix, name, m) => {
+    const key = `${prefix}:${name}:${m}`;
+    return key in ov ? ov[key] : null;
+  };
+  const setOv = (prefix, name, m, val) => {
+    update(d => {
+      const o = { ...(d.syncOverrides || {}) };
+      const key = `${prefix}:${name}:${m}`;
+      if (val === "" || val === null || val === undefined) { delete o[key]; }
+      else { o[key] = val; }
+      return { ...d, syncOverrides: o };
+    });
+  };
+
   /* ── Calculations ── */
   const calcs = useMemo(() => {
     if (!data) return null;
@@ -1111,41 +1179,78 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       return cols;
     };
     const rowTotal = (row) => (row.v || []).reduce((s, v) => s + pv(v), 0);
+    const _ov = data.syncOverrides || {};
 
     // Manual entries
     const inC = sumCols(data.inflows);
     const outC = sumCols(data.outflows);
     const capC = sumCols(data.capex);
 
-    // Add synced data per month (project rev/cost mapped to specific months)
-    const syncInC = inC.map((v, m) => v + (syncedData.projRevCols[m] || 0));
-    const syncOutC = outC.map((v, m) => v + (syncedData.ohColTotals[m] || 0));
+    // Apply overrides to synced project revenue
+    const adjProjRevCols = Array(12).fill(0);
+    (syncedData.projRows || []).forEach(p => {
+      for (let m = 0; m < 12; m++) {
+        const key = `rev:${p.name}:${m}`;
+        adjProjRevCols[m] += (key in _ov && _ov[key] !== "") ? pv(_ov[key]) : (p.revCols[m] || 0);
+      }
+    });
+
+    // Apply overrides to synced project costs (COGS)
+    const adjCogsC = Array(12).fill(0);
+    (syncedData.projRows || []).forEach(p => {
+      for (let m = 0; m < 12; m++) {
+        const key = `cogs:${p.name}:${m}`;
+        adjCogsC[m] += (key in _ov && _ov[key] !== "") ? pv(_ov[key]) : (p.costCols[m] || 0);
+      }
+    });
+
+    // Apply overrides to synced overheads
+    const adjOhCols = Array(12).fill(0);
+    (syncedData.ohRows || []).forEach(o => {
+      if (o.isParent && o.subs) {
+        o.subs.forEach(sub => {
+          for (let m = 0; m < 12; m++) {
+            const key = `oh:${sub.label}:${m}`;
+            adjOhCols[m] += (key in _ov && _ov[key] !== "") ? pv(_ov[key]) : (sub.cols[m] || 0);
+          }
+        });
+      } else {
+        for (let m = 0; m < 12; m++) {
+          const key = `oh:${o.label}:${m}`;
+          adjOhCols[m] += (key in _ov && _ov[key] !== "") ? pv(_ov[key]) : (o.cols[m] || 0);
+        }
+      }
+    });
+
+    const syncInC = inC.map((v, m) => v + adjProjRevCols[m]);
+    const syncOutC = outC.map((v, m) => v + adjOhCols[m]);
+    const cogsC = adjCogsC;
+    const cogsA = cogsC.reduce((a, b) => a + b, 0);
 
     const inA = syncInC.reduce((a, b) => a + b, 0);
     const outA = syncOutC.reduce((a, b) => a + b, 0);
     const capA = capC.reduce((a, b) => a + b, 0);
 
     const vr = (data.vatRate || 0) / 100;
-    // VAT Inflow: VAT collected on project revenue (auto-calculated)
-    const vatInC = syncedData.projRevCols.map(v => v * vr);
+    const vatInC = adjProjRevCols.map(v => v * vr);
     const vatInA = vatInC.reduce((a, b) => a + b, 0);
-    // VAT Outflow: VAT returns paid (manually entered per month)
     const vatOutC = (data.vatReturns || Array(12).fill("")).map(v => pv(v));
     const vatOutA = vatOutC.reduce((a, b) => a + b, 0);
 
-    const netC = syncInC.map((v, m) => v + vatInC[m] - syncOutC[m] - capC[m] - vatOutC[m]);
-    const netA = inA + vatInA - outA - capA - vatOutA;
+    const netC = syncInC.map((v, m) => v - syncOutC[m] - cogsC[m] - capC[m]);
+    const netA = inA - outA - cogsA - capA;
 
-    const ob = pv(data.openingBalance);
+    const obArr = (data.openingBalances || Array(12).fill("")).map(v => pv(v));
+    const hasPerMonth = obArr.some(v => v !== 0);
+    if (!hasPerMonth && data.openingBalance) { obArr[0] = pv(data.openingBalance); }
+    const ob = obArr.reduce((s, v) => s + v, 0);
     const closeC = [];
-    let run = ob;
-    for (let m = 0; m < 12; m++) { run += netC[m]; closeC.push(run); }
+    for (let m = 0; m < 12; m++) { closeC.push(obArr[m] + netC[m]); }
 
-    // Keep raw manual totals for display
     const manualInC = inC;
     const manualOutC = outC;
 
-    return { inC: syncInC, outC: syncOutC, capC, inA, outA, capA, vatInC, vatInA, vatOutC, vatOutA, netC, netA, ob, closeC, rowTotal, manualInC, manualOutC };
+    return { inC: syncInC, outC: syncOutC, cogsC, cogsA, capC, inA, outA, capA, vatInC, vatInA, vatOutC, vatOutA, netC, netA, ob, closeC, rowTotal, manualInC, manualOutC };
   }, [data, syncedData]);
 
   /* ── Row mutation helpers ── */
@@ -1204,12 +1309,12 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
     const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:14mm 12mm}body{font-family:${F};color:#000;margin:0;padding:0;-webkit-font-smoothing:antialiased}table{width:100%;border-collapse:collapse}</style></head><body><div style="max-width:1440px;margin:0 auto;padding:40px 40px"><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px">${logoHtml(data.prodLogo)}<div style="display:flex;gap:16px;align-items:center">${logoHtml(data.clientLogo)}</div></div><div style="border-top:2.5px solid #000;margin-bottom:16px"></div><div style="font-family:${F};font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:14px">Cash Flow Tracker</div><div style="border-top:1px solid #ccc;margin-bottom:14px"></div><div style="display:grid;grid-template-columns:repeat(6,1fr);border:1px solid #e0e0e0;margin-bottom:22px">${[
       { l: "Opening Balance", v: _fmt(c.ob) },
-      { l: "Total Inflows", v: _fmt(c.inA), cls: "color:#1a6e3e" },
+      { l: "Total Sales", v: _fmt(c.inA), cls: "color:#1a6e3e" },
+      { l: "COGS", v: _fmt(c.cogsA), cls: "color:#b0271d" },
       { l: "Total Outflows", v: _fmt(c.outA + c.capA), cls: "color:#b0271d" },
-      { l: "VAT In / Out", v: _fmt(c.vatInA) + " / " + _fmt(c.vatOutA), cls: "color:#b06000" },
       { l: "Net Cash Flow", v: _fmtS(c.netA), cls: c.netA >= 0 ? "color:#1a6e3e" : "color:#b0271d" },
       { l: "Year-End Balance", v: _fmtS(c.closeC[11] || 0), cls: (c.closeC[11] || 0) >= 0 ? "color:#1a6e3e" : "color:#b0271d" },
-    ].map(s => `<div style="padding:11px 14px;border-right:1px solid #e0e0e0"><div style="font-family:${F};font-size:7.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#999;margin-bottom:4px">${s.l}</div><div style="font-family:${F};font-size:16px;font-weight:700;${s.cls || ""}">${s.v}</div></div>`).join("")}</div><table><thead><tr><th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 0;text-align:left;width:210px">Category</th>${thH}<th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 4px;text-align:right;width:105px">Annual Total</th></tr></thead><tbody><tr><td style="font-family:${F};font-size:11px;font-weight:600;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0">Opening Balance</td>${Array(12).fill(0).map((_, m) => `<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 4px;text-align:right">${m === 0 && c.ob ? _fmt(c.ob) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0;text-align:right;font-weight:600">${c.ob ? _fmt(c.ob) : "—"}</td></tr>${banner("Operating Inflows")}${sectionRows(data.inflows)}${subRow("Total Inflows", c.inC, c.inA)}${banner("Operating Outflows")}${sectionRows(data.outflows)}${subRow("Total Outflows", c.outC, c.outA)}${banner("Capital Expenditure")}${sectionRows(data.capex)}${subRow("Total CapEx", c.capC, c.capA)}<tr><td style="font-family:${F};font-size:9px;font-weight:600;background:#f0faf4;border-top:1px solid #c0e8d0;border-bottom:1px solid #c0e8d0;padding:7px 0;color:#1a6e3e">VAT Inflow (on Project Revenue)</td>${c.vatInC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:600;background:#f0faf4;border-top:1px solid #c0e8d0;border-bottom:1px solid #c0e8d0;padding:7px 4px;text-align:right;color:#1a6e3e">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:600;background:#f0faf4;border-top:1px solid #c0e8d0;border-bottom:1px solid #c0e8d0;padding:7px 0;text-align:right;color:#1a6e3e">${c.vatInA ? _fmt(c.vatInA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 0;color:#b06000">VAT Outflow (Returns Paid)</td>${c.vatOutC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 4px;text-align:right;color:#b06000">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 0;text-align:right;color:#b06000">${c.vatOutA ? _fmt(c.vatOutA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#000;color:#fff;padding:8px 0">Net Cash Flow</td>${c.netC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#000;padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${v ? _fmtS(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#000;padding:8px 0;text-align:right;color:${c.netA >= 0 ? "#7dffc4" : "#ffaaaa"}">${c.netA ? _fmtS(c.netA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#2a2a2a;color:#fff;border-top:2px solid #000;padding:8px 0">Closing Balance</td>${c.closeC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#2a2a2a;border-top:2px solid #000;padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmtS(v)}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#2a2a2a;border-top:2px solid #000;padding:8px 0;text-align:right;color:${(c.closeC[11]||0) >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmtS(c.closeC[11]||0)}</td></tr></tbody></table>${data.notes ? `<div style="margin-top:22px;padding-top:12px;border-top:1px solid #e0e0e0"><div style="font-family:${F};font-size:8.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:6px">Notes</div><div style="font-family:${F};font-size:11px;color:#555;white-space:pre-wrap;line-height:1.7">${data.notes}</div></div>` : ""}<div style="margin-top:18px;padding-top:10px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;font-family:${F};font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:#bbb"><span>onnaworld — onna.digital</span><span>${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}</span></div></div></body></html>`;
+    ].map(s => `<div style="padding:11px 14px;border-right:1px solid #e0e0e0"><div style="font-family:${F};font-size:7.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#999;margin-bottom:4px">${s.l}</div><div style="font-family:${F};font-size:16px;font-weight:700;${s.cls || ""}">${s.v}</div></div>`).join("")}</div><table><thead><tr><th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 0;text-align:left;width:210px">Category</th>${thH}<th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 4px;text-align:right;width:105px">Annual Total</th></tr></thead><tbody><tr><td style="font-family:${F};font-size:11px;font-weight:600;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0">Opening Balance</td>${Array(12).fill(0).map((_, m) => `<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 4px;text-align:right">${m === 0 && c.ob ? _fmt(c.ob) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0;text-align:right;font-weight:600">${c.ob ? _fmt(c.ob) : "—"}</td></tr>${banner("Sales")}${sectionRows(data.inflows)}${subRow("Total Sales", c.inC, c.inA)}${banner("Cost of Goods Sold (COGS)")}${subRow("Total COGS", c.cogsC, c.cogsA)}${banner("Operating Outflows")}${sectionRows(data.outflows)}${subRow("Total Outflows", c.outC, c.outA)}${banner("Capital Expenditure")}${sectionRows(data.capex)}${subRow("Total CapEx", c.capC, c.capA)}<tr><td style="font-family:${F};font-size:9px;font-weight:600;background:#f0faf4;border-top:1px solid #c0e8d0;border-bottom:1px solid #c0e8d0;padding:7px 0;color:#1a6e3e">VAT Inflow (on Project Revenue)</td>${c.vatInC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:600;background:#f0faf4;border-top:1px solid #c0e8d0;border-bottom:1px solid #c0e8d0;padding:7px 4px;text-align:right;color:#1a6e3e">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:600;background:#f0faf4;border-top:1px solid #c0e8d0;border-bottom:1px solid #c0e8d0;padding:7px 0;text-align:right;color:#1a6e3e">${c.vatInA ? _fmt(c.vatInA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 0;color:#b06000">VAT Outflow (Returns Paid)</td>${c.vatOutC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 4px;text-align:right;color:#b06000">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:600;background:#fffbf0;border-top:1px solid #e8dfc0;border-bottom:1px solid #e8dfc0;padding:7px 0;text-align:right;color:#b06000">${c.vatOutA ? _fmt(c.vatOutA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#000;color:#fff;padding:8px 0">Net Cash Flow</td>${c.netC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#000;padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${v ? _fmtS(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#000;padding:8px 0;text-align:right;color:${c.netA >= 0 ? "#7dffc4" : "#ffaaaa"}">${c.netA ? _fmtS(c.netA) : "—"}</td></tr><tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#2a2a2a;color:#fff;border-top:2px solid #000;padding:8px 0">Closing Balance</td>${c.closeC.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#2a2a2a;border-top:2px solid #000;padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmtS(v)}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#2a2a2a;border-top:2px solid #000;padding:8px 0;text-align:right;color:${(c.closeC[11]||0) >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmtS(c.closeC[11]||0)}</td></tr></tbody></table>${data.notes ? `<div style="margin-top:22px;padding-top:12px;border-top:1px solid #e0e0e0"><div style="font-family:${F};font-size:8.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:6px">Notes</div><div style="font-family:${F};font-size:11px;color:#555;white-space:pre-wrap;line-height:1.7">${data.notes}</div></div>` : ""}<div style="margin-top:18px;padding-top:10px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;font-family:${F};font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:#bbb"><span>onnaworld — onna.digital</span><span>${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}</span></div></div></body></html>`;
     const w = window.open("", "_blank");
     w.document.write(html);
     w.document.close();
@@ -1235,14 +1340,63 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       <>
         {/* Banner */}
         <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>{sectionLabel}</td></tr>
-        {/* Synced P&L overhead sub-rows (outflows only) */}
-        {isOutflows && syncedData.ohRows.map((o, oi) => (
+        {/* Synced P&L overhead sub-rows (outflows only) — editable */}
+        {isOutflows && syncedData.ohRows.map((o, oi) => {
+          if (o.isParent && o.subs) {
+            // Parent with subs: parent shows auto-total of overridden sub values, subs are editable
+            const parentVals = Array(12).fill(0);
+            o.subs.forEach(sub => { for (let m = 0; m < 12; m++) parentVals[m] += getOv("oh", sub.label, m, sub.cols[m]); });
+            const parentTotal = parentVals.reduce((s, v) => s + v, 0);
+            return (
+            <React.Fragment key={"oh-sync-" + oi}>
+              <tr>
+                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontWeight: 600 }}>{o.label}</td>
+                {parentVals.map((v, m) => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#555", fontWeight: 600 }}>{v ? fmt(v) : "—"}</td>)}
+                <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{parentTotal ? fmt(parentTotal) : "—"}</td>
+              </tr>
+              {o.subs.map((sub, si) => {
+                const subVals = sub.cols.map((def, m) => getOv("oh", sub.label, m, def));
+                const subTotal = subVals.reduce((s, v) => s + v, 0);
+                return (
+                <tr key={"oh-sub-" + oi + "-" + si}>
+                  <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 40px", fontSize: 10, color: "#888", fontStyle: "italic" }}>{sub.label}</td>
+                  {sub.cols.map((def, m) => {
+                    const raw = getOvRaw("oh", sub.label, m);
+                    return <td key={m} style={{ ...cellS, fontSize: 10, padding: "2px 4px" }}>
+                      <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("oh", sub.label, m, e.target.value)}
+                        style={{ ...inputS, fontSize: 10, color: raw !== null ? "#333" : "#888", fontStyle: raw !== null ? "normal" : "italic" }}
+                        placeholder={def ? String(def) : "0"} inputMode="numeric"
+                        onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
+                        onBlur={e => { e.target.style.background = "transparent"; }} />
+                    </td>;
+                  })}
+                  <td style={{ ...cellS, padding: "5px 0", fontSize: 10, color: "#888" }}>{subTotal ? fmt(subTotal) : "—"}</td>
+                </tr>
+                );
+              })}
+            </React.Fragment>
+            );
+          }
+          // No subs: editable directly
+          const rowVals = o.cols.map((def, m) => getOv("oh", o.label, m, def));
+          const rowTotal = rowVals.reduce((s, v) => s + v, 0);
+          return (
           <tr key={"oh-sync-" + oi}>
-            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{o.label}{o.frequency !== "monthly" ? ` (${MONTH_LABELS_FULL[(parseInt(o.month)||1)-1]})` : ""}</td>
-            {o.cols.map((v, m) => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#666" }}>{v ? fmt(v) : "—"}</td>)}
-            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{o.annual ? fmt(o.annual) : "—"}</td>
+            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontStyle: "italic" }}>{o.label}</td>
+            {o.cols.map((def, m) => {
+              const raw = getOvRaw("oh", o.label, m);
+              return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
+                <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("oh", o.label, m, e.target.value)}
+                  style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
+                  placeholder={def ? String(def) : "0"} inputMode="numeric"
+                  onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
+                  onBlur={e => { e.target.style.background = "transparent"; }} />
+              </td>;
+            })}
+            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>
           </tr>
-        ))}
+          );
+        })}
         {/* Data rows */}
         {arr.map((row, i) => {
           const rt = calcs.rowTotal(row);
@@ -1263,14 +1417,27 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               ))}
               <td style={{ ...cellS, fontWeight: 600, padding: "5px 0" }}>{rt ? fmt(rt) : "—"}</td>
             </tr>
-            {/* Synced project revenue sub-rows under Client Fees */}
-            {isClientFees && syncedData.projRows.map((p, pi) => (
+            {/* Synced project revenue sub-rows under Client Fees — editable */}
+            {isClientFees && syncedData.projRows.map((p, pi) => {
+              const rowVals = p.revCols.map((def, m) => getOv("rev", p.name, m, def));
+              const rowTotal = rowVals.reduce((s, v) => s + v, 0);
+              return (
               <tr key={"proj-rev-" + pi}>
                 <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{p.name}</td>
-                {p.revCols.map((v, m) => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#666" }}>{v ? fmt(v) : "—"}</td>)}
-                <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{p.rev ? fmt(p.rev) : "—"}</td>
+                {p.revCols.map((def, m) => {
+                  const raw = getOvRaw("rev", p.name, m);
+                  return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
+                    <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("rev", p.name, m, e.target.value)}
+                      style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
+                      placeholder={def ? String(def) : "0"} inputMode="numeric"
+                      onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
+                      onBlur={e => { e.target.style.background = "transparent"; }} />
+                  </td>;
+                })}
+                <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>
               </tr>
-            ))}
+              );
+            })}
             </React.Fragment>
           );
         })}
@@ -1284,20 +1451,12 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
   return (
     <div>
-      {/* ── Version bar + Print ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0 }}>
-            {versions.map((v, idx) => {
-              const isActive = vIdx === idx;
-              return (
-                <div key={v.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", border: isActive ? `1px solid ${T.accent}` : `1px solid ${T.border}`, background: isActive ? (T.accent + "18") : T.surface, color: isActive ? T.accent : T.muted, transition: "all 0.15s", flexShrink: 0 }}>
-                  <span onClick={() => setActiveCashFlowVersion(idx)}>{v.label}</span>
-                  {versions.length > 1 && <span onClick={(e) => { e.stopPropagation(); deleteVersion(idx); }} style={{ marginLeft: 2, fontSize: 10, color: "#999", cursor: "pointer", lineHeight: 1 }} title="Delete version">&times;</span>}
-                </div>
-              );
-            })}
-            <div onClick={addVersion} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, border: `1.5px dashed ${T.border}`, background: "transparent", fontSize: 14, color: "#999", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }} title="New Version">+</div>
-            {data && <button onClick={handlePrint} style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.text, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Print / PDF</button>}
-          </div>
+      {/* ── Print button ── */}
+      {data && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+          <button onClick={handlePrint} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.text, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Print / PDF</button>
+        </div>
+      )}
 
           {data && calcs && (
             <div style={{ background: "#fff", borderRadius: 16, padding: isMobile ? 16 : 32, border: "1px solid #e8e8e8", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -1316,33 +1475,27 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
               {/* ── Controls ── */}
               <div style={{ display: "flex", gap: 6, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={ctrlLblS}>Currency</span>
-                <select value={data.currency || "AED"} onChange={e => update("currency", e.target.value)} style={ctrlSelS}>
-                  <option value="AED">AED</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                </select>
-                <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
                 <span style={ctrlLblS}>Year</span>
-                <select value={data.year || new Date().getFullYear()} onChange={e => update("year", Number(e.target.value))} style={ctrlSelS}>
-                  {(() => { try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s).sort() : [2025, 2026]; } catch { return [2025, 2026]; } })().map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
+                <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: "#000", padding: "5px 8px" }}>{financeYear}</span>
                 <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
-                <span style={ctrlLblS}>Opening Balance</span>
-                <input value={data.openingBalance || ""} onChange={e => update("openingBalance", e.target.value)} style={{ ...ctrlInpS, width: 120 }} placeholder="0" />
-                <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
-                <span style={ctrlLblS}>VAT Rate %</span>
-                <input value={data.vatRate ?? 5} onChange={e => update("vatRate", e.target.value)} style={{ ...ctrlInpS, width: 60 }} placeholder="5" />
+                <span style={ctrlLblS}>Currency</span>
+                <div style={{ display: "inline-flex", borderRadius: 6, border: "1px solid #ccc", overflow: "hidden" }}>
+                  {["AED", "USD"].map(c => (
+                    <button key={c} onClick={() => update("currency", c)}
+                      style={{ fontFamily: F, fontSize: 11, fontWeight: 600, padding: "5px 12px", border: "none", cursor: "pointer",
+                        background: displayCurrency === c ? "#000" : "#fff",
+                        color: displayCurrency === c ? "#fff" : "#666" }}>{c === "AED" ? "AED" : "USD ($)"}</button>
+                  ))}
+                </div>
               </div>
 
               {/* ── Summary strip ── */}
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", border: "1px solid #e0e0e0", marginBottom: 22 }}>
                 {[
                   { l: "Opening Balance", v: fmt(calcs.ob), cls: calcs.ob < 0 ? "#b0271d" : "#000" },
-                  { l: "Total Inflows", v: fmt(calcs.inA), cls: "#1a6e3e" },
+                  { l: "Total Sales", v: fmt(calcs.inA), cls: "#1a6e3e" },
+                  { l: "COGS", v: fmt(calcs.cogsA), cls: "#b0271d" },
                   { l: "Total Outflows", v: fmt(calcs.outA + calcs.capA), cls: "#b0271d" },
-                  { l: "VAT In / Out", v: fmt(calcs.vatInA) + " / " + fmt(calcs.vatOutA), cls: "#b06000" },
                   { l: "Net Cash Flow", v: fmtSigned(calcs.netA), cls: calcs.netA >= 0 ? "#1a6e3e" : "#b0271d" },
                   { l: "Year-End Balance", v: fmtSigned(calcs.closeC[11] || 0), cls: (calcs.closeC[11] || 0) >= 0 ? "#1a6e3e" : "#b0271d" },
                 ].map((s, i) => (
@@ -1364,23 +1517,66 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Opening balance row */}
+                    {/* Opening balance row — editable per month */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 11, fontWeight: 600, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0" }}>Opening Balance</td>
-                      {Array(12).fill(0).map((_, m) => {
-                        const v = m === 0 ? calcs.ob : 0;
-                        return <td key={m} style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 4px", textAlign: "right", color: v < 0 ? "#b0271d" : v > 0 ? "#1a6e3e" : "#000", fontWeight: v ? 600 : 400 }}>{m === 0 && v ? fmt(v) : "—"}</td>;
-                      })}
+                      {(data.openingBalances || Array(12).fill("")).map((v, m) => (
+                        <td key={m} style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "2px 4px", textAlign: "right" }}>
+                          <input value={v} onChange={e => {
+                            const val = e.target.value;
+                            update(d => {
+                              const arr = [...(d.openingBalances || Array(12).fill(""))];
+                              arr[m] = val;
+                              return { ...d, openingBalances: arr };
+                            });
+                          }}
+                            style={{ fontFamily: F, fontSize: 11, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: pv(v) < 0 ? "#b0271d" : pv(v) > 0 ? "#1a6e3e" : "#999", padding: "3px 0" }}
+                            placeholder="0" inputMode="numeric"
+                            onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
+                            onBlur={e => { e.target.style.background = "transparent"; }} />
+                        </td>
+                      ))}
                       <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>
                     </tr>
 
-                    {/* Inflows (with synced project revenue as sub-rows under Client Fees) */}
-                    {renderSection("inflows", "Operating Inflows")}
+                    {/* Sales (with synced project revenue as sub-rows under Client Fees) */}
+                    {renderSection("inflows", "Sales")}
                     {/* Subtotal */}
                     <tr>
-                      <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Inflows</td>
+                      <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Sales</td>
                       {calcs.inC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
                       <td style={{ ...subS, paddingRight: 0 }}>{calcs.inA ? fmt(calcs.inA) : "—"}</td>
+                    </tr>
+
+                    {/* COGS — synced from project costs */}
+                    <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>Cost of Goods Sold (COGS)</td></tr>
+                    {syncedData.projRows.filter(p => p.cost > 0).map((p, pi) => {
+                      const rowVals = p.costCols.map((def, m) => getOv("cogs", p.name, m, def));
+                      const rowTotal = rowVals.reduce((s, v) => s + v, 0);
+                      return (
+                      <tr key={"cogs-" + pi}>
+                        <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{p.name}</td>
+                        {p.costCols.map((def, m) => {
+                          const raw = getOvRaw("cogs", p.name, m);
+                          return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
+                            <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("cogs", p.name, m, e.target.value)}
+                              style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
+                              placeholder={def ? String(def) : "0"} inputMode="numeric"
+                              onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
+                              onBlur={e => { e.target.style.background = "transparent"; }} />
+                          </td>;
+                        })}
+                        <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>
+                      </tr>
+                      );
+                    })}
+                    {syncedData.projRows.filter(p => p.cost > 0).length === 0 && (
+                      <tr><td colSpan={14} style={{ ...cellS, textAlign: "center", color: "#bbb", padding: "8px 0" }}>No project costs for {financeYear}</td></tr>
+                    )}
+                    <tr>
+                      <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total COGS</td>
+                      {calcs.cogsC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
+                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.cogsA ? fmt(calcs.cogsA) : "—"}</td>
                     </tr>
 
                     {/* Outflows (with synced P&L overheads as sub-rows) */}
@@ -1399,7 +1595,24 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                       <td style={{ ...subS, paddingRight: 0 }}>{calcs.capA ? fmt(calcs.capA) : "—"}</td>
                     </tr>
 
-                    {/* VAT Inflow — auto-calculated from project revenue */}
+                    {/* Net cash flow */}
+                    <tr>
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
+                      {calcs.netC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{v ? fmtSigned(v) : "—"}</td>)}
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>
+                    </tr>
+
+                    {/* Closing balance */}
+                    <tr>
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
+                      {calcs.closeC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(v)}</td>)}
+                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>
+                    </tr>
+
+                    {/* Spacer */}
+                    <tr><td colSpan={14} style={{ padding: 8 }} /></tr>
+
+                    {/* VAT Inflow — informational, not included in net/closing */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", color: "#1a6e3e" }}>VAT Inflow (on Project Revenue)</td>
                       {calcs.vatInC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 4px", textAlign: "right", color: "#1a6e3e" }}>{v ? fmt(v) : "—"}</td>)}
@@ -1414,20 +1627,6 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                         </td>
                       ))}
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", textAlign: "right", color: "#b06000" }}>{calcs.vatOutA ? fmt(calcs.vatOutA) : "—"}</td>
-                    </tr>
-
-                    {/* Net cash flow */}
-                    <tr>
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
-                      {calcs.netC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{v ? fmtSigned(v) : "—"}</td>)}
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>
-                    </tr>
-
-                    {/* Closing balance */}
-                    <tr>
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
-                      {calcs.closeC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(v)}</td>)}
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>
                     </tr>
                   </tbody>
                 </table>

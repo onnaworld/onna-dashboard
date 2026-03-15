@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useState } from "react";
 
 export default function Dashboard({
   T, isMobile, gcalToken, gcalEvents, gcalLoading, gcalEventColors,
@@ -16,15 +16,33 @@ export default function Dashboard({
   buildPath, pushNav, setActiveTab, setSelectedProject, setProjectSection,
   DashNotes
 }) {
+  const [todoView, setTodoView] = useState("weekly");
   return (
     <div>
       {(()=>{
-        const MAIN_DEF=["calendar","projects-todos","notes"];
+        const MAIN_DEF=["calendar-projects","todos","notes"];
         const sectionMap = {
-          "calendar": (
-      <div style={{marginBottom:isMobile?12:18}}>
+          "calendar-projects": (
+      <div style={{marginBottom:isMobile?12:18,display:"grid",gridTemplateColumns:isMobile?"1fr":"340px 1fr",gap:18}}>
 
-      {/* ── Google Calendar Widget ── */}
+      {/* Active Projects — slim sidebar (left) */}
+      <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"10px 14px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
+            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Active Projects</span>
+            <span style={{fontSize:11,color:T.muted,fontWeight:500}}>{activeProjects.length}</span>
+          </div>
+          <div style={{flex:1,overflowY:"auto"}}>
+            {activeProjects.map((p,i)=>(
+              <a key={p.id} href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{padding:"9px 14px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s",textDecoration:"none",color:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{fontSize:12.5,fontWeight:500,color:T.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                <div style={{fontSize:11.5,fontWeight:600,color:T.sub,flexShrink:0,marginLeft:8}}>{(projectTodos[p.id]||[]).length}</div>
+              </a>
+            ))}
+            {activeProjects.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No active projects.</div>}
+          </div>
+        </div>
+      {/* ── Google Calendar Widget (right) ── */}
+      <div style={{minWidth:0}}>
       {(()=>{
         const today = new Date();
         const yr = calMonth.getFullYear();
@@ -41,7 +59,7 @@ export default function Dashboard({
         const DAY_LABELS0 = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
         const monthLabel = calMonth.toLocaleDateString("en-US",{month:"long",year:"numeric"});
         return (
-          <div style={{marginBottom:isMobile?12:18,borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+          <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
             <div style={{padding:"13px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa",flexWrap:"wrap",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Calendar</span>
@@ -98,55 +116,42 @@ export default function Dashboard({
           </div>
         ); })()}
       </div>
+      </div>
           ),
-          "projects-todos": (
+          "todos": (
       <div style={{marginBottom:isMobile?12:18}}>
-
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:isMobile?12:18}}>
-        {/* Active Projects */}
-        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
-          <div style={{padding:"14px 18px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
-            <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Active Projects</span>
-            <span style={{fontSize:12,color:T.muted,fontWeight:500}}>{activeProjects.length}</span>
-          </div>
-          <div style={{overflowY:"auto",maxHeight:480}}>
-            {activeProjects.map((p,i)=>(
-              <a key={p.id} href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{padding:"13px 18px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s",textDecoration:"none",color:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <div>
-                  <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2,fontWeight:500}}>{p.client}</div>
-                  <div style={{fontSize:13.5,fontWeight:500,color:T.text}}>{p.name}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:13,fontWeight:600,color:T.sub}}>{(projectTodos[p.id]||[]).length} task{(projectTodos[p.id]||[]).length!==1?"s":""}</div>
-                </div>
-              </a>
-            ))}
-            {activeProjects.length===0&&<div style={{padding:"28px 18px",textAlign:"center",fontSize:13,color:T.muted}}>No active projects.</div>}
-          </div>
-        </div>
-        {/* To-Do */}
-        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",height:420}}>
+        {/* To-Do — full width */}
+        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",minHeight:300}}>
           {/* Title row */}
           <div style={{padding:"13px 16px 0",background:"#fafafa",borderBottom:`1px solid ${T.borderSub}`}}>
             <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
-              <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>ONNA</span>
+              <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>TO DO LIST</span>
               <span style={{fontSize:11,color:T.muted}}>{allTodos.filter(t=>!t.done).length} open</span>
             </div>
             {/* Top-level filter tabs with drag-and-drop targets */}
             <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
               {[["todo","ONNA"],["project","Projects"]].map(([val,label])=>(
-                <button key={val} onClick={()=>setTodoFilter(val)}
+                <button key={val} onClick={()=>{setTodoFilter(val);if(val==="todo"){setTodoView("weekly");setTodoFilter("todo-week");}}}
                   onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                   onDragLeave={e=>{e.currentTarget.style.outline="none";}}
                   onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task){pushUndo('move to project');setPendingDragToProject(task);};return;}pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType:undefined}:t));setTodoFilter(val);}}
                   style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
               ))}
             </div>
-            {/* Sub-filter row — ONNA */}
-            {todoTopFilter==="todo"&&(()=>{
-              const dayMap={"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday","todo-longterm":"longterm"};
+            {/* View toggle — Weekly / Daily / Later (only for ONNA tab) */}
+            {todoTopFilter==="todo"&&(
+              <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
+                {[["weekly","Weekly"],["daily","Daily"],["later","Later"]].map(([val,label])=>(
+                  <button key={val} onClick={()=>{setTodoView(val);if(val==="weekly")setTodoFilter("todo-week");else if(val==="daily")setTodoFilter("todo");else setTodoFilter("todo-longterm");}}
+                    style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoView===val?"#fff":"transparent",color:todoView===val?T.text:T.muted,boxShadow:todoView===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
+                ))}
+              </div>
+            )}
+            {/* Day sub-tabs — only shown in Daily view */}
+            {todoTopFilter==="todo"&&todoView==="daily"&&(()=>{
+              const dayMap={"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday"};
               const todayDay=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][new Date().getDay()];
-              const tabs=[["todo","All"],["todo-mon","Mon"],["todo-tue","Tue"],["todo-wed","Wed"],["todo-thu","Thu"],["todo-fri","Fri"],["todo-sat","Sat"],["todo-sun","Sun"],["todo-longterm","Long Term"],["todo-week","Week"]];
+              const tabs=[["todo","All"],["todo-mon","Mon"],["todo-tue","Tue"],["todo-wed","Wed"],["todo-thu","Thu"],["todo-fri","Fri"],["todo-sat","Sat"],["todo-sun","Sun"]];
               const dayForTab={"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday"};
               return (
               <div style={{display:"flex",gap:5,paddingBottom:10,overflowX:"auto",whiteSpace:"nowrap",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
@@ -243,7 +248,6 @@ export default function Dashboard({
           </div>
         </div>
       </div>
-      </div>
           ),
           "notes": (
       <div style={{marginBottom:isMobile?12:18}}>
@@ -253,7 +257,7 @@ export default function Dashboard({
       </div>
           ),
         };
-        return ["calendar","projects-todos","notes"].map(k=>(<Fragment key={k}>{sectionMap[k]}</Fragment>));
+        return ["calendar-projects","todos","notes"].map(k=>(<Fragment key={k}>{sectionMap[k]}</Fragment>));
       })()}
 
     </div>
