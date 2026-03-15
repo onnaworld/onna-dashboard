@@ -15,7 +15,7 @@ export function TodoProvider({ children }) {
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
   const [archivedTodos,setArchivedTodos] = useState([]);
   const [newTodo,setNewTodo] = useState("");
-  const [todoFilter,setTodoFilter] = useState("todo");
+  const [todoFilter,setTodoFilter] = useState("todo-week");
   const [selectedTodo,setSelectedTodo] = useState(null);
   const [todoDragId,setTodoDragId] = useState(null);
   const [pendingProjectTask,setPendingProjectTask] = useState(null);
@@ -72,11 +72,17 @@ export function TodoProvider({ children }) {
     });
   };
 
-  const markHydrated = () => { hydratedRef.current = true; };
+  const markHydrated = () => {
+    hydratedRef.current = true;
+    // Force persistence effects to fire so any localStorage-only data gets pushed to Turso
+    setTodos(prev => [...prev]);
+    setProjectTodos(prev => ({...prev}));
+    setDashNotesList(prev => [...prev]);
+  };
 
   // ── Persistence effects ──
-  useEffect(()=>{try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(hydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
-  useEffect(()=>{try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(hydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
+  useEffect(()=>{if(!hydratedRef.current&&todos.length===0)return;try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(hydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
+  useEffect(()=>{if(!hydratedRef.current&&!Object.keys(projectTodos).length)return;try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(hydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
   useEffect(()=>{if(!hydratedRef.current&&dashNotesList.length===0)return;try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(hydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
 
   // ── Computed values ──

@@ -16,7 +16,17 @@ export default function Dashboard({
   buildPath, pushNav, setActiveTab, setSelectedProject, setProjectSection,
   DashNotes
 }) {
-  const [todoView, setTodoView] = useState("weekly");
+  const TODO_COLORS = [
+    {label:"None",border:"transparent",bg:"transparent",dot:"transparent"},
+    {label:"Red",border:"#c46050",bg:"#fdd8d0",dot:"#c46050"},
+    {label:"Orange",border:"#c48520",bg:"#fde8c8",dot:"#c48520"},
+    {label:"Yellow",border:"#d4aa20",bg:"#fef3c0",dot:"#d4aa20"},
+    {label:"Green",border:"#5aaa72",bg:"#c8efd4",dot:"#5aaa72"},
+    {label:"Blue",border:"#6a9eca",bg:"#d8eaf8",dot:"#6a9eca"},
+    {label:"Lavender",border:"#9080b8",bg:"#e0d8f0",dot:"#9080b8"},
+    {label:"Pink",border:"#c47090",bg:"#fdd8e0",dot:"#c47090"},
+    {label:"Mint",border:"#4aaa88",bg:"#c8f0e0",dot:"#4aaa88"},
+  ];
   return (
     <div>
       {(()=>{
@@ -120,54 +130,22 @@ export default function Dashboard({
           ),
           "todos": (
       <div style={{marginBottom:isMobile?12:18}}>
-        {/* To-Do — full width */}
-        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",minHeight:300}}>
+        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",height:isMobile?"auto":520}}>
           {/* Title row */}
-          <div style={{padding:"13px 16px 0",background:"#fafafa",borderBottom:`1px solid ${T.borderSub}`}}>
+          <div style={{padding:"13px 16px 0",background:"#fafafa",borderBottom:`1px solid ${T.borderSub}`,flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
               <span style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,flex:1}}>TO DO LIST</span>
               <span style={{fontSize:11,color:T.muted}}>{allTodos.filter(t=>!t.done).length} open</span>
             </div>
-            {/* Top-level filter tabs with drag-and-drop targets */}
             <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
               {[["todo","ONNA"],["project","Projects"]].map(([val,label])=>(
-                <button key={val} onClick={()=>{setTodoFilter(val);if(val==="todo"){setTodoView("weekly");setTodoFilter("todo-week");}}}
+                <button key={val} onClick={()=>{if(val==="todo")setTodoFilter("todo-week");else setTodoFilter(val);}}
                   onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
                   onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                  onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task){pushUndo('move to project');setPendingDragToProject(task);};return;}pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType:undefined}:t));setTodoFilter(val);}}
+                  onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;if(val==="project"){const task=todos.find(t=>t.id===dragId);if(task){pushUndo('move to project');setPendingDragToProject(task);};return;}pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType:undefined}:t));setTodoFilter("todo-week");}}
                   style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoTopFilter===val?"#fff":"transparent",color:todoTopFilter===val?T.text:T.muted,boxShadow:todoTopFilter===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
               ))}
             </div>
-            {/* View toggle — Weekly / Daily / Later (only for ONNA tab) */}
-            {todoTopFilter==="todo"&&(
-              <div style={{display:"flex",gap:0,borderRadius:8,background:"#ebebed",padding:2,marginBottom:10}}>
-                {[["weekly","Weekly"],["daily","Daily"],["later","Later"]].map(([val,label])=>(
-                  <button key={val} onClick={()=>{setTodoView(val);if(val==="weekly")setTodoFilter("todo-week");else if(val==="daily")setTodoFilter("todo");else setTodoFilter("todo-longterm");}}
-                    style={{flex:1,padding:"5px 0",borderRadius:6,fontSize:11.5,fontWeight:500,cursor:"pointer",border:"none",fontFamily:"inherit",background:todoView===val?"#fff":"transparent",color:todoView===val?T.text:T.muted,boxShadow:todoView===val?"0 1px 2px rgba(0,0,0,0.08)":"none",transition:"all 0.12s"}}>{label}</button>
-                ))}
-              </div>
-            )}
-            {/* Day sub-tabs — only shown in Daily view */}
-            {todoTopFilter==="todo"&&todoView==="daily"&&(()=>{
-              const dayMap={"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday"};
-              const todayDay=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][new Date().getDay()];
-              const tabs=[["todo","All"],["todo-mon","Mon"],["todo-tue","Tue"],["todo-wed","Wed"],["todo-thu","Thu"],["todo-fri","Fri"],["todo-sat","Sat"],["todo-sun","Sun"]];
-              const dayForTab={"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday"};
-              return (
-              <div style={{display:"flex",gap:5,paddingBottom:10,overflowX:"auto",whiteSpace:"nowrap",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
-                {tabs.map(([val,label])=>{
-                  const isToday=dayForTab[val]===todayDay;
-                  return (
-                  <button key={val} onClick={()=>setTodoFilter(val)}
-                    onDragOver={e=>{e.preventDefault();e.currentTarget.style.outline="2px solid "+T.accent;}}
-                    onDragLeave={e=>{e.currentTarget.style.outline="none";}}
-                    onDrop={e=>{e.preventDefault();e.currentTarget.style.outline="none";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;const subType=dayMap[val]||undefined;pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType}:t));setTodoFilter(val);}}
-                    style={{padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${todoFilter===val?T.accent:T.borderSub}`,fontFamily:"inherit",background:todoFilter===val?T.accent:"transparent",color:todoFilter===val?"#fff":T.sub,transition:"all 0.12s",flexShrink:0,position:"relative"}}>
-                    {label}{isToday&&<span style={{position:"absolute",top:-2,right:-2,width:6,height:6,borderRadius:"50%",background:todoFilter===val?"#fff":T.accent}}/>}
-                  </button>);
-                })}
-              </div>);
-            })()}
             {todoTopFilter==="project"&&(
               <div style={{paddingBottom:10}}>
                 <select value={todoFilter} onChange={e=>setTodoFilter(e.target.value)} style={{width:"100%",padding:"7px 28px 7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
@@ -177,25 +155,30 @@ export default function Dashboard({
               </div>
             )}
           </div>
-          {/* Task list — shows ~5 items then scrolls, or weekly grid */}
+          {/* Scrollable content */}
           <div style={{padding:"6px 12px",overflowY:"auto",flex:1,minHeight:0}}>
-            {todoFilter==="todo-week"&&todoTopFilter==="todo"?(()=>{
+            {todoTopFilter==="todo"?(()=>{
               const days=["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
               const dayLabels=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
               const todayDay=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][new Date().getDay()];
               const byDay={};days.forEach(d=>{byDay[d]=filteredTodos.filter(t=>t.subType===d);});
               const longterm=filteredTodos.filter(t=>t.subType==="longterm");
-              const unassigned=filteredTodos.filter(t=>!t.subType||!days.includes(t.subType)&&t.subType!=="longterm");
-              const renderTask=(t)=>(
-                <div key={t.id} className="todo-item" draggable style={{display:"flex",alignItems:"flex-start",gap:5,padding:"4px 3px",borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",fontSize:11}}
+              const unassigned=filteredTodos.filter(t=>!t.subType||(!days.includes(t.subType)&&t.subType!=="longterm"));
+              const cycleColor=(t)=>{const ci=TODO_COLORS.findIndex(c=>c.dot===t.color);const next=TODO_COLORS[(ci+1)%TODO_COLORS.length];pushUndo("color");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,color:next.dot==="transparent"?undefined:next.dot}:x));};
+              const tc=(t)=>TODO_COLORS.find(c=>c.dot===t.color)||TODO_COLORS[0];
+              const renderTask=(t)=>{
+                const c=tc(t);const hasBg=c.bg!=="transparent";
+                return (
+                <div key={t.id} className="todo-item" draggable style={{display:"flex",alignItems:"flex-start",gap:5,padding:"4px 3px",borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",fontSize:11,background:hasBg?c.bg+"88":"transparent",borderLeft:hasBg?`3px solid ${c.border}`:"3px solid transparent",borderRadius:hasBg?4:0,marginBottom:hasBg?2:0}}
                   onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}}>
                   <button onClick={e=>{e.stopPropagation();pushUndo("toggle");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));}} style={{width:14,height:14,borderRadius:3,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
                     {t.done&&<span style={{color:"#fff",fontSize:8,lineHeight:1,fontWeight:700}}>✓</span>}
                   </button>
                   <span onClick={()=>{pushUndo('edit task');setSelectedTodo(t);}} style={{flex:1,minWidth:0,cursor:"pointer",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.text}</span>
+                  <button title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,flexShrink:0,lineHeight:1,fontSize:12,color:t.color||T.muted,opacity:t.color?1:0.4,transition:"opacity 0.12s"}}>★</button>
                   <button className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:0,lineHeight:1,flexShrink:0}}>×</button>
-                </div>
-              );
+                </div>);
+              };
               const colDrop=(day)=>({
                 onDragOver:e=>{e.preventDefault();e.currentTarget.style.background=T.accent+"15";},
                 onDragLeave:e=>{e.currentTarget.style.background="transparent";},
@@ -212,10 +195,11 @@ export default function Dashboard({
                     </div>);
                   })}
                 </div>
-                {longterm.length>0&&<div style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop("longterm")}>
+                <div style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop("longterm")}>
                   <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Long Term</div>
                   {longterm.map(renderTask)}
-                </div>}
+                  {longterm.length===0&&<div style={{fontSize:11,color:T.muted,padding:"4px 3px",opacity:0.5}}>Drag tasks here or add below</div>}
+                </div>
                 {unassigned.length>0&&<div style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop(undefined)}>
                   <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Unassigned</div>
                   {unassigned.map(renderTask)}
@@ -230,7 +214,6 @@ export default function Dashboard({
                 <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{pushUndo('edit task');setSelectedTodo(t);}}>
                   {t._source==="project"&&<span style={{fontSize:10.5,fontWeight:600,color:T.muted,marginRight:5}}>{allProjectsMerged.find(p=>p.id===t.projectId)?.name||"Project"}</span>}
                   <span style={{fontSize:13,color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
-                  {t._source==="general"&&t.subType&&<div style={{fontSize:10,color:T.muted,marginTop:1,textTransform:"capitalize"}}>{t.subType==="longterm"?"Long Term":t.subType}</div>}
                 </div>
                 <div className="todo-del" style={{display:"flex",gap:3}}>
                   <button onClick={e=>{e.stopPropagation();pushUndo('archive');setArchivedTodos(prev=>[...prev,t]);}} title="Archive" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 3px",borderRadius:4,fontFamily:"inherit",opacity:0.6}}>⊘</button>
@@ -241,9 +224,9 @@ export default function Dashboard({
             {(()=>{const emptyCount=Math.max(0,5-filteredTodos.length);return emptyCount>0?Array.from({length:emptyCount}).map((_,i)=>(<div key={`empty-${i}`} style={{padding:"4px 6px",borderBottom:`1px solid ${T.borderSub}`}}><input placeholder="New task…" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){addTodoFromInput(e.target.value.trim());e.target.value="";}}} onBlur={e=>{if(e.target.value.trim()){addTodoFromInput(e.target.value.trim());e.target.value="";}}} style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"transparent",border:"none",color:T.text,fontSize:13,fontFamily:"inherit",outline:"none"}} /></div>)):null;})()}
             </>}
           </div>
-          {/* Add input — shown when 5+ tasks */}
+          {/* Add input */}
           <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa",flexShrink:0}}>
-            <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":todoFilter==="todo-longterm"?"Add long term task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+            <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
             <button onClick={()=>{if(newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
           </div>
         </div>
