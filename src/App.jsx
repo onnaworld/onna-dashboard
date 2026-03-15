@@ -44,6 +44,7 @@ import { FromTemplateModal } from "./components/modals/FromTemplateModal";
 import { AddLeadModal } from "./components/modals/AddLeadModal";
 import { AddVendorModal } from "./components/modals/AddVendorModal";
 import { RateCardModal } from "./components/modals/RateCardModal";
+import { BillieRateCardModal } from "./components/modals/BillieRateCardModal";
 import { EditVendorModal } from "./components/modals/EditVendorModal";
 import { CategoryManagerModal } from "./components/modals/CategoryManagerModal";
 import { DuplicateCallSheetModal } from "./components/modals/DuplicateCallSheetModal";
@@ -454,6 +455,8 @@ function OnnaDashboardInner() {
   const [showAddLead,setShowAddLead]         = useState(false);
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [showArchive,setShowArchive]         = useState(false);
+  const [billieRateCards,setBillieRateCards] = useState(()=>{try{const r=localStorage.getItem('onna_billie_rates');if(r)return JSON.parse(r);}catch{}return[];});
+  const [showBillieRates,setShowBillieRates] = useState(false);
   // showArchivedProjects moved to Projects component
   const [showUserMenu,setShowUserMenu]       = useState(false);
   const [settingsSection,setSettingsSection] = useState("deleted");
@@ -529,6 +532,7 @@ function OnnaDashboardInner() {
   }, [performUndo,activeTab]);
   const addTodoFromInput = (text) => _addTodoFromInput(text, todoTopFilter, todoFilter, pushUndo, setProjectTodos, setPendingProjectTask, setTodos);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
+  useEffect(()=>{try{localStorage.setItem('onna_billie_rates',JSON.stringify(billieRateCards));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('billie_rates',billieRateCards);},[billieRateCards]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d)setProjectActuals(d);setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d)setProjectCasting(d);setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
@@ -805,6 +809,7 @@ function OnnaDashboardInner() {
           if (gd.notes_list && Array.isArray(gd.notes_list)) hydrateDashNotes(gd.notes_list);
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
+          if (gd.billie_rates) setBillieRateCards(gd.billie_rates);
           if (gd.user_config) {
             if (gd.user_config.onna_lead_cats) setCustomLeadCats(gd.user_config.onna_lead_cats);
             if (gd.user_config.onna_lead_locs) setCustomLeadLocs(gd.user_config.onna_lead_locs);
@@ -1145,6 +1150,7 @@ function OnnaDashboardInner() {
     recceReportStore, setRecceReportStore, dietaryStore, setDietaryStore,
     travelItineraryStore, setTravelItineraryStore,
     showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
+    billieRateCards, setBillieRateCards, showBillieRates, setShowBillieRates,
     showTimeoutWarning, setShowTimeoutWarning,
     _modal, _closeModal, _modalInputRef,
     undoToastMsg, setUndoToastMsg, mobileMenuOpen, setMobileMenuOpen};
@@ -1261,7 +1267,7 @@ function OnnaDashboardInner() {
           />}
 
         {/* ── AGENTS TAB ── */}
-        {activeTab==="Agents"&&<Agents isMobile={isMobile} agentActiveIdx={agentActiveIdx} setAgentActiveIdx={setAgentActiveIdx} AGENT_DEFS={AGENT_DEFS} AgentCard={AgentCard} vendors={vendors} localLeads={localLeads} setVendors={setVendors} setLocalLeads={setLocalLeads} outreach={outreach} setOutreach={setOutreach} callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} selectedProject={selectedProject} allProjectsMerged={allProjectsMerged} activeCSVersion={activeCSVersion} dietaryStore={dietaryStore} setDietaryStore={setDietaryStore} riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion} setActiveRAVersion={setActiveRAVersion} contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion} setActiveContractVersion={setActiveContractVersion} projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion} setActiveEstimateVersion={setActiveEstimateVersion} projectActuals={projectActuals} setProjectActuals={setProjectActuals} projectCasting={projectCasting} setProjectCasting={setProjectCasting} getProjectCastingTables={getProjectCastingTables} navigateToDoc={navigateToDoc} pushUndo={pushUndo} projectInfoRef={projectInfoRef} archiveItem={archiveItem} setCsDuplicateModal={setCsDuplicateModal} setCsDuplicateSearch={setCsDuplicateSearch} setRaDuplicateModal={setRaDuplicateModal} setRaDuplicateSearch={setRaDuplicateSearch} travelItineraryStore={travelItineraryStore} setTravelItineraryStore={setTravelItineraryStore} castingDeckStore={castingDeckStore} setCastingDeckStore={setCastingDeckStore} fittingStore={fittingStore} setFittingStore={setFittingStore} castingTableStore={castingTableStore} setCastingTableStore={setCastingTableStore} cpsStore={cpsStore} setCpsStore={setCpsStore} shotListStore={shotListStore} setShotListStore={setShotListStore} storyboardStore={storyboardStore} setStoryboardStore={setStoryboardStore} locDeckStore={locDeckStore} setLocDeckStore={setLocDeckStore} recceReportStore={recceReportStore} setRecceReportStore={setRecceReportStore} postProdStore={postProdStore} setPostProdStore={setPostProdStore} syncProjectInfoToDocs={syncProjectInfoToDocs} projectFileStore={projectFileStore} setLocalProjects={setLocalProjects}/>}
+        {activeTab==="Agents"&&<Agents isMobile={isMobile} agentActiveIdx={agentActiveIdx} setAgentActiveIdx={setAgentActiveIdx} AGENT_DEFS={AGENT_DEFS} AgentCard={AgentCard} vendors={vendors} localLeads={localLeads} setVendors={setVendors} setLocalLeads={setLocalLeads} outreach={outreach} setOutreach={setOutreach} callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} selectedProject={selectedProject} allProjectsMerged={allProjectsMerged} activeCSVersion={activeCSVersion} dietaryStore={dietaryStore} setDietaryStore={setDietaryStore} riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion} setActiveRAVersion={setActiveRAVersion} contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion} setActiveContractVersion={setActiveContractVersion} projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion} setActiveEstimateVersion={setActiveEstimateVersion} projectActuals={projectActuals} setProjectActuals={setProjectActuals} projectCasting={projectCasting} setProjectCasting={setProjectCasting} getProjectCastingTables={getProjectCastingTables} navigateToDoc={navigateToDoc} pushUndo={pushUndo} projectInfoRef={projectInfoRef} archiveItem={archiveItem} setCsDuplicateModal={setCsDuplicateModal} setCsDuplicateSearch={setCsDuplicateSearch} setRaDuplicateModal={setRaDuplicateModal} setRaDuplicateSearch={setRaDuplicateSearch} travelItineraryStore={travelItineraryStore} setTravelItineraryStore={setTravelItineraryStore} castingDeckStore={castingDeckStore} setCastingDeckStore={setCastingDeckStore} fittingStore={fittingStore} setFittingStore={setFittingStore} castingTableStore={castingTableStore} setCastingTableStore={setCastingTableStore} cpsStore={cpsStore} setCpsStore={setCpsStore} shotListStore={shotListStore} setShotListStore={setShotListStore} storyboardStore={storyboardStore} setStoryboardStore={setStoryboardStore} locDeckStore={locDeckStore} setLocDeckStore={setLocDeckStore} recceReportStore={recceReportStore} setRecceReportStore={setRecceReportStore} postProdStore={postProdStore} setPostProdStore={setPostProdStore} syncProjectInfoToDocs={syncProjectInfoToDocs} projectFileStore={projectFileStore} setLocalProjects={setLocalProjects} billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} setShowBillieRates={setShowBillieRates}/>}
 
         {/* ── INFORMATION TAB ── */}
         {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} hydrated={globalHydratedRef.current}/>}
@@ -1292,6 +1298,8 @@ function OnnaDashboardInner() {
       {showAddVendor&&<AddVendorModal {..._mp}/>}
 
       {showRateModal&&<RateCardModal {..._mp}/>}
+
+      {showBillieRates&&<BillieRateCardModal {..._mp}/>}
 
       {editVendor&&<EditVendorModal {..._mp}/>}
 

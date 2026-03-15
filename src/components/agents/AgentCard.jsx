@@ -70,7 +70,7 @@ if (typeof window !== "undefined") {
   window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
 }
 
-export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore,onCreateProject}){
+export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore,onCreateProject,billieRateCards,setBillieRateCards,setShowBillieRates}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true,tina:true,tabby:true,polly:true,lillie:true,perry:true};
   const _buildIntro=()=>{
@@ -1464,6 +1464,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         buildBillieSystem,applyBilliePatch,buildBilliePatchMarkers,
         billiePendingReview,setBilliePendingReview,
         buildFinnSystem,applyFinnPatch,
+        billieRateCards,setBillieRateCards,setShowBillieRates,
       });
       if(_billieHandled)return;
     }

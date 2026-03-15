@@ -4,7 +4,7 @@ import { defaultSections } from "../../utils/helpers";
 // ─── BILLIE (ESTIMATE) UTILITY FUNCTIONS ────────────────────────────────────
 
 // ─── BILLIE (ESTIMATE) HELPERS ───────────────────────────────────────────────
-function buildBillieSystem(project, estData, versionLabel, estSnapshot, baseCurrency = "AED", secondCurrency = "USD") {
+function buildBillieSystem(project, estData, versionLabel, estSnapshot, baseCurrency = "AED", secondCurrency = "USD", billieRateCards = []) {
   return `You are Budget Billie, ONNA's production budget assistant. ONNA is a film, TV and commercial production company based in Dubai and London. You are DIRECTLY CONNECTED to the live estimate database.
 
 CRITICAL: You ALREADY HAVE the full estimate data below. NEVER ask the user to paste, share, or provide estimate details — you can see everything. Just act on their request immediately.
@@ -24,7 +24,11 @@ REGIONAL MARKET AWARENESS:
 - US: Use USD rates — vary significantly by city (LA/NYC premium vs other markets).
 - If the shoot location isn't clear, default to Dubai rates in AED.
 - Always enter rates in the BASE CURRENCY (${baseCurrency}) shown above. The system auto-converts to ${secondCurrency}.
-
+${billieRateCards.length > 0 ? `
+CUSTOM RATE CARD (user-defined default rates — ALWAYS use these over market defaults):
+${billieRateCards.map(r => `- ${r.role}: ${r.currency || "AED"} ${r.rate}/${r.per || "day"}${r.notes ? ` (${r.notes})` : ""}`).join("\n")}
+When populating estimates, match line items to these rates first. Only fall back to market rates for items not in the rate card.
+` : ""}
 INSTRUCTIONS:
 - When the user asks to ADD, UPDATE, or CHANGE rows, header fields, or notes, output a SINGLE JSON patch inside a \`\`\`json code block. Only ONE json block per response.
 - For top sheet fields: {"ts": {"client":"...","date":"...","project":"...","photographer":"...","deliverables":"...","deadlines":"...","usage":"...","shootDate":"...","location":"...","payment":"..."}}
@@ -54,6 +58,15 @@ NATURAL LANGUAGE EDIT HANDLING:
 - When images are attached (PDF pages, briefs, moodboards), ANALYZE them for budget-relevant info: crew roles, equipment, locations, shoot days, talent, deliverables, post-production. Extract into a JSON patch.
 - From a brief: look for project scope, deliverables, shoot dates, locations, crew, talent, equipment, post-production, explicit budget figures.
 - From a moodboard: infer production requirements from visual style — studio vs location, lighting complexity, special effects, props, wardrobe scale.
+
+BRIEF ANALYSIS & DRAFTING:
+- When the user says "draft from brief", "build from brief", "populate from brief", or similar, load the attached/referenced brief and:
+  1. Extract ALL budget-relevant details: shoot days, locations, crew roles, talent, equipment, deliverables, post-production, travel, catering, permits.
+  2. Map each item to an existing estimate row ref where possible (photographer→1A, DOP→1B, etc.).
+  3. For items not in the template, use addRows to create them in the correct section.
+  4. Set realistic rates based on your rate card and regional market awareness.
+  5. Output a SINGLE comprehensive JSON patch that populates the entire estimate from the brief.
+  6. Summarise what you extracted and any assumptions you made.
 
 RESPONSE STYLE:
 - Use bullet points for lists and summaries
@@ -277,6 +290,7 @@ export async function handleBillieIntent({
   buildBillieSystem, applyBilliePatch, buildBilliePatchMarkers,
   billiePendingReview, setBilliePendingReview,
   buildFinnSystem, applyFinnPatch,
+  billieRateCards, setBillieRateCards, setShowBillieRates,
 }) {
   if (agent.id !== "billie") return false;
   if (!projectEstimates || !setProjectEstimates) return false;
@@ -336,6 +350,35 @@ export async function handleBillieIntent({
         else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
         setLoading(false);setMood("idle");return true;
       }
+
+      // Rate card command
+      if(/\b(rate\s*card|show\s*rates|manage\s*rates|edit\s*rates|open\s*rates|my\s*rates)\b/i.test(input)){
+        if(setShowBillieRates) setShowBillieRates(true);
+        setMsgs([...history,{role:"assistant",content:"Opening your rate card — add or edit your default rates there. I'll use them whenever I populate estimates."}]);
+        setLoading(false);setMood("idle");return true;
+      }
+
+      // Inline rate rule: "rule = child models rate 2500" / "set X rate to Y" / "X rate is Y" / "X = Y aed"
+      {const _ruleMatch = input.match(/(?:rule\s*=\s*(.+?)\s+rate\s+(\d[\d,]*)|set\s+(.+?)\s+rate\s+(?:to\s+)?(\d[\d,]*)|(.+?)\s+rate\s+is\s+(\d[\d,]*)|(.+?)\s*=\s*(\d[\d,]*)\s*(aed|usd|gbp|eur|sar))/i);
+      if(_ruleMatch && setBillieRateCards){
+        const role = (_ruleMatch[1]||_ruleMatch[3]||_ruleMatch[5]||_ruleMatch[7]||"").trim();
+        const rate = (_ruleMatch[2]||_ruleMatch[4]||_ruleMatch[6]||_ruleMatch[8]||"").replace(/,/g,"");
+        const currency = (_ruleMatch[9]||"AED").toUpperCase();
+        if(role && rate){
+          const formatted = role.split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+          setBillieRateCards(prev => {
+            const existing = prev.findIndex(r => r.role.toLowerCase() === formatted.toLowerCase());
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...updated[existing], rate, currency };
+              return updated;
+            }
+            return [...prev, { id: Date.now(), role: formatted, rate, currency, per: "day", notes: "" }];
+          });
+          setMsgs([...history,{role:"assistant",content:`Saved **${formatted}** at ${currency} ${Number(rate).toLocaleString()}/day to your rate card.`}]);
+          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+        }
+      }}
 
       // Rename via chat
       {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);
@@ -572,7 +615,7 @@ export async function handleBillieIntent({
           setLoading(false);setMood("idle");return true;
         }
       }
-      const _briefMatch=input.match(/\b(check|read|pull|use|load|look at|analyze|review|build from|build off|reference)\b.*\b(brief|moodboard|mood board|reference board|moodboards|briefs)\b/i)||(input.match(/\b(brief|moodboard|mood board|reference board)\b/i)&&!/\b(create|write|make|draft)\b/i.test(input));
+      const _briefMatch=input.match(/\b(check|read|pull|use|load|look at|analyze|review|build from|build off|reference|draft from|populate from|create from)\b.*\b(brief|moodboard|mood board|reference board|moodboards|briefs)\b/i)||(input.match(/\b(brief|moodboard|mood board|reference board)\b/i)&&!/\b(create|write|make)\b/i.test(input))||(/\b(draft|populate|build)\b.*\b(from|off|using)\b.*\b(brief|moodboard)\b/i.test(input));
       if(_briefMatch&&!_pendingPick){
         const _isMood=/\b(moodboard|mood board|reference board)\b/i.test(input);
         const _cat=_isMood?"moodboards":"briefs";
@@ -602,7 +645,7 @@ export async function handleBillieIntent({
         }
       }
 
-      let billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2);
+      let billieSystem = buildBillieSystem(project, ver, vLabel, snap, bCur, bCur2, billieRateCards || []);
       // Inject mirror/reference estimate if present
       if(billieCtx._mirrorSnap){
         billieSystem += `\n\nREFERENCE ESTIMATE (from "${billieCtx._mirrorProject}" — ${billieCtx._mirrorLabel}):\n${billieCtx._mirrorSnap}\nThe user wants to mirror/adapt this budget. Map line items to existing refs where possible, add new rows for items not in the template. Adjust rates/days/qty as instructed.`;

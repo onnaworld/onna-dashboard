@@ -24,6 +24,7 @@ export default function Agents({
   syncProjectInfoToDocs,
   projectFileStore,
   setLocalProjects,
+  billieRateCards, setBillieRateCards, setShowBillieRates,
 }) {
   const [agentHoverIdx, setAgentHoverIdx] = useState(null);
   const [agentStart, setAgentStart] = useState(0);
@@ -163,6 +164,9 @@ export default function Agents({
                 setPostProdStore={a.id==="perry"?setPostProdStore:undefined}
                 syncProjectInfoToDocs={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie")?syncProjectInfoToDocs:undefined}
                 projectFileStore={a.id==="billie"?projectFileStore:undefined}
+                billieRateCards={a.id==="billie"?billieRateCards:undefined}
+                setBillieRateCards={a.id==="billie"?setBillieRateCards:undefined}
+                setShowBillieRates={a.id==="billie"?setShowBillieRates:undefined}
                 onCreateProject={setLocalProjects?(saved)=>{setLocalProjects(prev=>[...prev,saved]);try{localStorage.setItem('onna_cache_projects',JSON.stringify([...allProjectsMerged,saved]))}catch{}}:undefined}
               />
             ))}
