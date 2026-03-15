@@ -1491,7 +1491,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       el.parentNode.replaceChild(span, el);
     });
     clone.querySelectorAll(".cf-del, button").forEach(el => el.remove());
-    const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:14mm 12mm}body{margin:0;padding:0;-webkit-font-smoothing:antialiased;font-family:${F}}*{box-sizing:border-box}</style></head><body><div style="max-width:1440px;margin:0 auto;padding:40px">${clone.innerHTML}</div></body></html>`;
+    const html = `<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{margin:0;padding:10mm 12mm;-webkit-font-smoothing:antialiased;font-family:${F}}@media print{@page{margin:0;size:A4 landscape;}}</style></head><body>${clone.innerHTML}</body></html>`;
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.left = "-9999px";
