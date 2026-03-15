@@ -203,9 +203,9 @@ export default function Finance({
     const all = allProjectsMerged || [];
     const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
     const active = nonTemplate.filter(p => p.status === "Active");
-    const completed = nonTemplate.filter(p => p.status === "Completed" || p.status === "Wrapped");
+    const completed = nonTemplate.filter(p => p.status === "Archived");
     const isAllTime = financeYear === "all";
-    const thisYear = isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear);
+    const thisYear = (isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear)).filter(p => p.status === "Active");
     const lastYear = isAllTime ? [] : nonTemplate.filter(p => Number(p.year) === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
@@ -236,7 +236,8 @@ export default function Finance({
       const acts = projectActuals?.[p.id];
       const actualTotal = acts ? actualsGrandEffective(acts) : null;
       const variance = estimateTotal !== null && actualTotal !== null ? estimateTotal - actualTotal : null;
-      return { id: p.id, name: p.name || p.title || "Untitled", client: p.client, status: p.status, year: p.year, rev, cost, profit, margin: rev > 0 ? Math.round((profit / rev) * 100) : 0, estimateTotal, actualTotal, variance };
+      const displayName = [p.client, p.name || p.title || "Untitled"].filter(Boolean).join(" | ");
+      return { id: p.id, name: displayName, client: p.client, status: p.status, year: p.year, rev, cost, profit, margin: rev > 0 ? Math.round((profit / rev) * 100) : 0, estimateTotal, actualTotal, variance };
     });
 
     // Top 5 projects by revenue
@@ -290,7 +291,7 @@ export default function Finance({
     // Revenue by project
     const revByProject = pnlProjects.map(p => ({
       id: p.id,
-      name: p.name || p.title || "Untitled",
+      name: [p.client, p.name || p.title || "Untitled"].filter(Boolean).join(" | "),
       client: p.client,
       rev: getPnlRev(p),
       cost: getPnlCost(p),
@@ -460,7 +461,6 @@ export default function Finance({
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr>
                   <th style={thS}>Project</th>
-                  <th style={thS}>Client</th>
                   <th style={thS}>Status</th>
                   <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
                   <th style={{ ...thS, textAlign: "right" }}>Cost</th>
@@ -472,10 +472,9 @@ export default function Finance({
                   {projData.projBreakdown.sort((a, b) => b.rev - a.rev).map((p) => (
                     <tr key={p.id}>
                       <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
-                      <td style={{ ...tdS, color: T.sub }}>{p.client}</td>
                       <td style={tdS}>
-                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: p.status === "Active" ? "#e8f5e9" : p.status === "Completed" || p.status === "Wrapped" ? "#e3f2fd" : "#f5f5f5", color: p.status === "Active" ? "#2e7d32" : p.status === "Completed" || p.status === "Wrapped" ? "#1565c0" : T.muted }}>
-                          {p.status || "Draft"}
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: p.status === "Active" ? "#e8f5e9" : p.status === "Confirmed" ? "#e3f2fd" : p.status === "Proposal" ? "#fff8e1" : "#f5f5f5", color: p.status === "Active" ? "#2e7d32" : p.status === "Confirmed" ? "#1565c0" : p.status === "Proposal" ? "#f57f17" : T.muted }}>
+                          {p.status || "Proposal"}
                         </span>
                       </td>
                       <td style={tdR}>{fmtFull(p.rev)}</td>
@@ -508,7 +507,7 @@ export default function Finance({
                 <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", borderBottom: i < projData.overBudget.length - 1 ? `1px solid ${T.borderSub || T.border}` : "none" }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: T.muted }}>{p.client} &middot; Est: {fmtK(p.estimateTotal || 0)}</div>
+                    <div style={{ fontSize: 12, color: T.muted }}>Est: {fmtK(p.estimateTotal || 0)}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "#b0271d" }}>{fmtK(Math.abs(p.variance))}</div>
@@ -558,7 +557,7 @@ export default function Finance({
                   background: String(pnlProjectFilter) === String(p.id) ? T.accent : "#e8e8ed",
                   color: String(pnlProjectFilter) === String(p.id) ? "#fff" : T.sub,
                   cursor: "pointer", fontFamily: "inherit", transition: "all 0.12s", whiteSpace: "nowrap",
-                }}>{p.name || p.title || "Untitled"}</button>
+                }}>{[p.client, p.name || p.title || "Untitled"].filter(Boolean).join(" | ")}</button>
             ))}
           </div>
           )}
@@ -573,7 +572,6 @@ export default function Finance({
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
                     <th style={thS}>Project</th>
-                    <th style={thS}>Client</th>
                     <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
                     <th style={{ ...thS, textAlign: "right" }}>Direct Costs</th>
                     <th style={{ ...thS, textAlign: "right" }}>Gross Profit</th>
@@ -591,7 +589,6 @@ export default function Finance({
                       return (
                       <tr key={p.id || i} style={i % 2 === 1 ? { background: T.bg } : {}}>
                         <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
-                        <td style={{ ...tdS, color: T.muted }}>{p.client}</td>
                         <td style={{ ...tdR, padding: "2px 14px 2px 4px" }}>
                           <input
                             value={revIsOverride ? revRaw : ""}
@@ -1316,7 +1313,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       const costCols = Array(12).fill(0);
       revCols[fyIdx] = rev;
       costCols[fyIdx] = cost;
-      return { name: p.name || p.title || "Untitled", rev, cost, revCols, costCols, fyIdx, month: calMonth };
+      const displayName = [p.client, p.name || p.title || "Untitled"].filter(Boolean).join(" | ");
+      return { name: displayName, rev, cost, revCols, costCols, fyIdx, month: calMonth };
     }).filter(p => p.rev > 0 || p.cost > 0);
 
     // Sum project columns

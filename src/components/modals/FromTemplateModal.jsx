@@ -18,7 +18,7 @@ export function FromTemplateModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, 
           ))}
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-            <Sel value={templateProject.status} onChange={v=>setTemplateProject(p=>({...p,status:v}))} options={["Active","In Review","Completed"]}/>
+            <Sel value={templateProject.status} onChange={v=>setTemplateProject(p=>({...p,status:v}))} options={["Proposal","Confirmed","Active","Archived"]}/>
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Year</div>
@@ -60,7 +60,7 @@ export function FromTemplateModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, 
               const tplActuals=projectActuals?.[tplId];
               if(tplActuals&&tplActuals.length>0){const cloned=JSON.parse(JSON.stringify(tplActuals));cloned.forEach(s=>s.rows.forEach(r=>{r.expenses=[];r.zohoAmount="0";r.status="";}));setProjectActuals(prev=>({...prev,[saved.id]:cloned}));}
             }
-            setTemplateProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
+            setTemplateProject({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:2026});
             setShowFromTemplate(false);
             setSelectedProject(saved);setProjectSection("Home");
           }}>Create Project</BtnPrimary>

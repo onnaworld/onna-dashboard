@@ -19,7 +19,7 @@ export function AddProjectModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, sh
           ))}
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>
-            <Sel value={newProject.status} onChange={v=>setNewProject(p=>({...p,status:v}))} options={["Active","In Review","Completed"]}/>
+            <Sel value={newProject.status} onChange={v=>setNewProject(p=>({...p,status:v}))} options={["Proposal","Confirmed","Active","Archived"]}/>
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Month / Year</div>
@@ -37,7 +37,7 @@ export function AddProjectModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, sh
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <BtnSecondary onClick={()=>setShowAddProject(false)}>Cancel</BtnSecondary>
-          <BtnPrimary onClick={async()=>{if(!newProject.client||!newProject.name)return;const mo=newProject.month||new Date().getMonth()+1;const yr=newProject.year||new Date().getFullYear();const saved=await api.post("/api/projects",{...newProject,revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0,month:mo,year:yr});if(saved.id){const full={...saved,month:saved.month??mo,year:saved.year??yr};setLocalProjects(prev=>{const u=[...prev,full];try{localStorage.setItem('onna_cache_projects',JSON.stringify(u))}catch{}return u;});}setNewProject({client:"",name:"",revenue:"",cost:"",status:"Active",year:new Date().getFullYear(),month:new Date().getMonth()+1});setShowAddProject(false);}}>Save Project</BtnPrimary>
+          <BtnPrimary onClick={async()=>{if(!newProject.client||!newProject.name)return;const mo=newProject.month||new Date().getMonth()+1;const yr=newProject.year||new Date().getFullYear();const saved=await api.post("/api/projects",{...newProject,revenue:Number(newProject.revenue)||0,cost:Number(newProject.cost)||0,month:mo,year:yr});if(saved.id){const full={...saved,month:saved.month??mo,year:saved.year??yr};setLocalProjects(prev=>{const u=[...prev,full];try{localStorage.setItem('onna_cache_projects',JSON.stringify(u))}catch{}return u;});}setNewProject({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:new Date().getFullYear(),month:new Date().getMonth()+1});setShowAddProject(false);}}>Save Project</BtnPrimary>
         </div>
       </div>
     </div>

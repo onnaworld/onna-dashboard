@@ -34,8 +34,8 @@ export default function Projects({
   React.useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} }, [availableYears]);
 
   // ── Computed values ──
-  const projStatusColor = { Active: "#147d50", "In Review": "#92680a", Completed: T.muted };
-  const projStatusBg = { Active: "#edfaf3", "In Review": "#fff8e8", Completed: "#f5f5f7" };
+  const projStatusColor = { Proposal: "#f57f17", Confirmed: "#1565c0", Active: "#147d50", Archived: T.muted };
+  const projStatusBg = { Proposal: "#fff8e1", Confirmed: "#e3f2fd", Active: "#edfaf3", Archived: "#f5f5f7" };
   const projects = allProjectsMerged.filter(p => p.year === projectYear || p.client === "TEMPLATE");
 
   if (selectedProject) return (

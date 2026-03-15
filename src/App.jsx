@@ -451,7 +451,7 @@ function OnnaDashboardInner() {
 
   const [showAddProject,setShowAddProject]   = useState(false);
   const [showFromTemplate,setShowFromTemplate] = useState(false);
-  const [templateProject,setTemplateProject]   = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:2026});
+  const [templateProject,setTemplateProject]   = useState({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:2026});
   const [showAddLead,setShowAddLead]         = useState(false);
   const [showAddVendor,setShowAddVendor]     = useState(false);
   const [showArchive,setShowArchive]         = useState(false);
@@ -492,7 +492,7 @@ function OnnaDashboardInner() {
   useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('sops',sops);},[sops]);
 
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
-  const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Active",year:new Date().getFullYear(),month:new Date().getMonth()+1});
+  const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:new Date().getFullYear(),month:new Date().getMonth()+1});
   const localProjectsRef                      = useRef([]);
   const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[];}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
