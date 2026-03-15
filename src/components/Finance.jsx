@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
-import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections } from "../utils/helpers";
+import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi } from "../utils/helpers";
 
 /* ── Branded constants (matching estimates/callsheets) ── */
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -116,30 +116,55 @@ export default function Finance({
     return () => ro.disconnect();
   }, [financeTab]);
 
-  /* ── Available years (shared via localStorage) ── */
+  /* ── Available years (shared via localStorage + Turso) ── */
   const [availableYears, setAvailableYears] = useState(() => {
     try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; }
   });
-  useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} }, [availableYears]);
+  const financeHydratedRef = useRef(false);
+  useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("finance_years", availableYears); }, [availableYears]);
   const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
 
-  /* ── Persisted overheads for P&L ── */
+  /* ── Persisted overheads for P&L (localStorage + Turso) ── */
   const [overheads, setOverheads] = useState(() => {
     try { const s = localStorage.getItem("onna_pnl_overheads"); return s ? JSON.parse(s) : DEFAULT_OVERHEADS(); } catch { return DEFAULT_OVERHEADS(); }
   });
-  useEffect(() => { try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(overheads)); } catch {} }, [overheads]);
+  useEffect(() => { try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(overheads)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("pnl_overheads", overheads); }, [overheads]);
 
-  /* ── Persisted AR/AP data ── */
+  /* ── Persisted AR/AP data (localStorage + Turso) ── */
   const [arapData, setArapData] = useState(() => {
     try { const s = localStorage.getItem("onna_arap_data"); return s ? JSON.parse(s) : DEFAULT_ARAP(); } catch { return DEFAULT_ARAP(); }
   });
-  useEffect(() => { try { localStorage.setItem("onna_arap_data", JSON.stringify(arapData)); } catch {} }, [arapData]);
+  useEffect(() => { try { localStorage.setItem("onna_arap_data", JSON.stringify(arapData)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("arap_data", arapData); }, [arapData]);
 
-  /* ── Persisted Tax data ── */
+  /* ── Persisted Tax data (localStorage + Turso) ── */
   const [taxData, setTaxData] = useState(() => {
     try { const s = localStorage.getItem("onna_tax_data"); return s ? JSON.parse(s) : { vatRate: 5, filings: [] }; } catch { return { vatRate: 5, filings: [] }; }
   });
-  useEffect(() => { try { localStorage.setItem("onna_tax_data", JSON.stringify(taxData)); } catch {} }, [taxData]);
+  useEffect(() => { try { localStorage.setItem("onna_tax_data", JSON.stringify(taxData)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("tax_data", taxData); }, [taxData]);
+
+  /* ── Hydrate from Turso on mount, push localStorage → Turso if Turso is empty ── */
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      globalApi.get("pnl_overheads"),
+      globalApi.get("arap_data"),
+      globalApi.get("tax_data"),
+      globalApi.get("finance_years"),
+    ]).then(([oh, ar, tx, yrs]) => {
+      if (cancelled) return;
+      if (oh.status === "fulfilled" && oh.value) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
+      if (ar.status === "fulfilled" && ar.value) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
+      if (tx.status === "fulfilled" && tx.value) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
+      if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
+      financeHydratedRef.current = true;
+      // Push localStorage data to Turso if Turso was empty (one-time migration)
+      if (!(oh.status === "fulfilled" && oh.value)) { try { const ls = localStorage.getItem("onna_pnl_overheads"); if (ls) debouncedGlobalSave("pnl_overheads", JSON.parse(ls), 500); } catch {} }
+      if (!(ar.status === "fulfilled" && ar.value)) { try { const ls = localStorage.getItem("onna_arap_data"); if (ls) debouncedGlobalSave("arap_data", JSON.parse(ls), 500); } catch {} }
+      if (!(tx.status === "fulfilled" && tx.value)) { try { const ls = localStorage.getItem("onna_tax_data"); if (ls) debouncedGlobalSave("tax_data", JSON.parse(ls), 500); } catch {} }
+      if (!(yrs.status === "fulfilled" && yrs.value)) { try { const ls = localStorage.getItem("onna_available_years"); if (ls) debouncedGlobalSave("finance_years", JSON.parse(ls), 500); } catch {} }
+    });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line
 
   /* ── Computed data from projects ── */
   const projData = useMemo(() => {
