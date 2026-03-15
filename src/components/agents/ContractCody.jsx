@@ -1,4 +1,5 @@
 import React from "react";
+import { stripThinking } from "../../utils/helpers";
 
 // ─── CODY CONSTANTS ─────────────────────────────────────────────────────────
 const CT_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
@@ -931,7 +932,8 @@ After the HTML block, add a brief one-sentence confirmation message.`;
           const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:docGenSystem,messages:apiMessages})});
           if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p.slice(0,-1),{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return true;}
           const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
-          while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"user",content:input},{role:"assistant",content:"Drafting your document...\n\n"+fullText}]);}}catch{}}}
+          while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"user",content:input},{role:"assistant",content:"Drafting your document...\n\n"+stripThinking(fullText)}]);}}catch{}}}
+          fullText=stripThinking(fullText);
           // Extract HTML from response
           const htmlMatch=fullText.match(/```html\s*([\s\S]*?)```/);
           if(htmlMatch){
@@ -1350,7 +1352,8 @@ After the HTML block, add a brief one-sentence confirmation message.`;
         const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:codySystem,messages:apiMessages})});
         if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return true;}
         const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
-        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:stripThinking(fullText)}]);}}catch{}}}
+        fullText=stripThinking(fullText);
 
         const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
         if(jsonMatch){

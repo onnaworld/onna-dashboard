@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { stripThinking } from "../../utils/helpers";
 
 // ─── CONNIE (CALL SHEET) UTILITY FUNCTIONS ────────────────────────────────────
 
@@ -765,7 +766,8 @@ export async function handleConnieIntent({
         const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:connieSystem,messages:apiMessages})});
         if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return true;}
         const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";let streamError="";
-        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.error){streamError=typeof ev.error==="string"?ev.error:ev.error.message||JSON.stringify(ev.error);}else if(ev.type==="error"){streamError=ev.error?.message||JSON.stringify(ev);}else if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.error){streamError=typeof ev.error==="string"?ev.error:ev.error.message||JSON.stringify(ev.error);}else if(ev.type==="error"){streamError=ev.error?.message||JSON.stringify(ev);}else if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:stripThinking(fullText)}]);}}catch{}}}
+        fullText=stripThinking(fullText);
         if(!fullText&&streamError){setMsgs([...history,{role:"assistant",content:`Error: ${streamError}`}]);setLoading(false);setMood("idle");return true;}
 
         // Parse JSON patch from response

@@ -602,6 +602,14 @@ export function findVendorOrLead(name,allVendors,allLeads){
   return null;
 }
 
+// Strip AI thinking tags from streamed text
+export function stripThinking(text) {
+  if (!text) return text;
+  let cleaned = text.replace(/<(think|antThinking|thinking)>[\s\S]*?<\/\1>/gi, "");
+  cleaned = cleaned.replace(/<(think|antThinking|thinking)>[\s\S]*/gi, "");
+  return cleaned.trim() || (text.includes("<") ? "..." : text);
+}
+
 // Fuzzy project match: checks project name AND client name, supports partial/typo matching
 export function fuzzyMatchProject(projects, input, excludeId) {
   const lower = input.toLowerCase().trim();

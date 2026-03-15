@@ -1,3 +1,5 @@
+import { stripThinking } from "../../utils/helpers";
+
 // ─── CARRIE (CASTING) UTILITY FUNCTIONS ──────────────────────────────────────
 
 // ─── CARRIE (CASTING) HELPERS ────────────────────────────────────────────────
@@ -160,7 +162,8 @@ export async function handleCarrieIntent({
         const res=await fetch(`/api/agents/${agent.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:carrieSystem,messages:apiMessages})});
         if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return true;}
         const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
-        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+        while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:stripThinking(fullText)}]);}}catch{}}}
+        fullText=stripThinking(fullText);
 
         const jsonMatch = fullText.match(/```json\s*([\s\S]*?)```/);
         if(jsonMatch){

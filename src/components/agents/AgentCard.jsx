@@ -7,7 +7,7 @@ import { api, docApi, buildPath, getXContacts, setXContacts,
   PRINT_CLEANUP_CSS, defaultSections,
   estSectionTotal, estRowTotal, estCalcTotals, estNum, estFmt,
   actualsSectionExpenseTotal, actualsSectionZohoTotal, actualsRowExpenseTotal,
-  actualsGrandExpenseTotal, actualsGrandZohoTotal } from "../../utils/helpers";
+  actualsGrandExpenseTotal, actualsGrandZohoTotal, stripThinking as _stripThinking } from "../../utils/helpers";
 import { CALLSHEET_INIT, DIETARY_INIT, DIETARY_TAGS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_INIT, migrateContract, CONTRACT_TYPE_IDS, CONTRACT_TYPE_LABELS,
@@ -56,7 +56,7 @@ function _AgentBubble({msg,codyDocConfigRef,setMsgs,codySignPanel,setCodySignPan
         <div style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#333"}}>{msg._docPreview.name||"Document"}</div>
         <div style={{padding:"0 10px 8px",fontSize:10,color:"#888",display:"flex",justifyContent:"space-between"}}><span>{msg._docPreview.pages.length} page{msg._docPreview.pages.length>1?"s":""}</span><span style={{color:"#0066cc"}}>Click to export PDF</span></div>
       </div>}
-      {typeof msg.content === "string" ? msg.content.replace(/\*\*/g, "") : msg.content}
+      {typeof msg.content === "string" ? _stripThinking(msg.content).replace(/\*\*/g, "") : msg.content}
     </div>
   </div>;
 }
@@ -1626,6 +1626,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       if(!res.ok){const e=await res.json().catch(()=>({error:`HTTP ${res.status}`}));setMsgs(p=>[...p,{role:"assistant",content:`Error: ${e.error||"Unknown"}`}]);setLoading(false);setMood("idle");return;}
       const reader=res.body.getReader();const decoder=new TextDecoder();let fullText="";let buffer="";
       while(true){const{done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(!raw||raw==="[DONE]")continue;try{const ev=JSON.parse(raw);if(ev.type==="content_block_delta"&&ev.delta?.type==="text_delta"){fullText+=ev.delta.text;setMsgs([...history,{role:"assistant",content:fullText}]);}}catch{}}}
+      fullText=_stripThinking(fullText);
       setMsgs([...history,{role:"assistant",content:fullText||"Hmm, something went wrong!"}]);
       setMood("excited");setTimeout(()=>setMood("idle"),2500);
     }catch(err){setMsgs(p=>[...p,{role:"assistant",content:`Oops! ${err.message}`}]);setMood("idle");}
