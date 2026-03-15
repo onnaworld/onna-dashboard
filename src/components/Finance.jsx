@@ -59,7 +59,7 @@ const fmtK = (n) => {
   if (abs >= 1000) return (n < 0 ? "-" : "") + "AED " + (abs / 1000).toFixed(0) + "k";
   return "AED " + n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
 };
-const fmtFull = (n) => "AED " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const fmtFull = (n) => (n < 0 ? "-" : "") + "AED " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
 
 /* ── Card/Table styles ── */
@@ -1124,14 +1124,15 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   }, [displayCurrency]);
 
   const fmt = useCallback((n) => {
-    if (!data) return "0";
+    if (!data) return "0.00";
     const converted = toDisplay(n);
-    const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    return (displayCurrency === "AED" ? "AED " : displayCurrency === "GBP" ? "£" : displayCurrency === "USD" ? "$" : "€") + abs;
+    const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const prefix = displayCurrency === "AED" ? "AED " : displayCurrency === "GBP" ? "£" : displayCurrency === "USD" ? "$" : "€";
+    return converted < 0 ? "-" + prefix + abs : prefix + abs;
   }, [data, toDisplay, displayCurrency]);
 
   const fmtSigned = useCallback((n) => {
-    return n < 0 ? "(" + fmt(Math.abs(n)) + ")" : fmt(n);
+    return fmt(n);
   }, [fmt]);
 
   /* ── Synced data from P&L ── */
