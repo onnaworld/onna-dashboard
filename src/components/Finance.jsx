@@ -118,6 +118,7 @@ export default function Finance({
   const [revBoxH, setRevBoxH] = useState(null);
   const [customFreqOpen, setCustomFreqOpen] = useState({});
   const [pnlProjectFilter, setPnlProjectFilter] = useState(null); // null = all, or project id
+  const [pnlView, setPnlView] = useState("overview"); // "overview" or "byproject"
 
   // Sync financeTab with popstate (back/forward)
   useEffect(() => {
@@ -163,6 +164,13 @@ export default function Finance({
   });
   useEffect(() => { try { localStorage.setItem("onna_tax_data", JSON.stringify(taxData)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("tax_data", taxData); }, [taxData]);
 
+  /* ── Persisted P&L project overrides (localStorage + Turso) ── */
+  // Keyed by project id: { [pid]: { revenue: "...", cost: "..." } }
+  const [pnlProjectOverrides, setPnlProjectOverrides] = useState(() => {
+    try { const s = localStorage.getItem("onna_pnl_proj_overrides"); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  useEffect(() => { try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(pnlProjectOverrides)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("pnl_proj_overrides", pnlProjectOverrides); }, [pnlProjectOverrides]);
+
   /* ── Hydrate from Turso on mount, push localStorage → Turso if Turso is empty ── */
   useEffect(() => {
     let cancelled = false;
@@ -171,18 +179,21 @@ export default function Finance({
       globalApi.get("arap_data"),
       globalApi.get("tax_data"),
       globalApi.get("finance_years"),
-    ]).then(([oh, ar, tx, yrs]) => {
+      globalApi.get("pnl_proj_overrides"),
+    ]).then(([oh, ar, tx, yrs, po]) => {
       if (cancelled) return;
       if (oh.status === "fulfilled" && oh.value) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
       if (ar.status === "fulfilled" && ar.value) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
       if (tx.status === "fulfilled" && tx.value) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
       if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
+      if (po.status === "fulfilled" && po.value) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
       financeHydratedRef.current = true;
       // Push localStorage data to Turso if Turso was empty (one-time migration)
       if (!(oh.status === "fulfilled" && oh.value)) { try { const ls = localStorage.getItem("onna_pnl_overheads"); if (ls) debouncedGlobalSave("pnl_overheads", JSON.parse(ls), 500); } catch {} }
       if (!(ar.status === "fulfilled" && ar.value)) { try { const ls = localStorage.getItem("onna_arap_data"); if (ls) debouncedGlobalSave("arap_data", JSON.parse(ls), 500); } catch {} }
       if (!(tx.status === "fulfilled" && tx.value)) { try { const ls = localStorage.getItem("onna_tax_data"); if (ls) debouncedGlobalSave("tax_data", JSON.parse(ls), 500); } catch {} }
       if (!(yrs.status === "fulfilled" && yrs.value)) { try { const ls = localStorage.getItem("onna_available_years"); if (ls) debouncedGlobalSave("finance_years", JSON.parse(ls), 500); } catch {} }
+      if (!(po.status === "fulfilled" && po.value)) { try { const ls = localStorage.getItem("onna_pnl_proj_overrides"); if (ls) debouncedGlobalSave("pnl_proj_overrides", JSON.parse(ls), 500); } catch {} }
     });
     return () => { cancelled = true; };
   }, []); // eslint-disable-line
@@ -263,8 +274,10 @@ export default function Finance({
 
     // Filter projects for P&L
     const pnlProjects = pnlProjectFilter ? projData.thisYear.filter(p => String(p.id) === String(pnlProjectFilter)) : projData.thisYear;
-    const pnlRev = pnlProjects.reduce((s, p) => s + getProjRevenue(p), 0);
-    const pnlCost = pnlProjects.reduce((s, p) => s + getProjCost(p), 0);
+    const getPnlRev = (p) => { const ov = pnlProjectOverrides[p.id]; return ov && ov.revenue !== undefined && String(ov.revenue).trim() !== "" ? parseNum(ov.revenue) : getProjRevenue(p); };
+    const getPnlCost = (p) => { const ov = pnlProjectOverrides[p.id]; return ov && ov.cost !== undefined && String(ov.cost).trim() !== "" ? parseNum(ov.cost) : getProjCost(p); };
+    const pnlRev = pnlProjects.reduce((s, p) => s + getPnlRev(p), 0);
+    const pnlCost = pnlProjects.reduce((s, p) => s + getPnlCost(p), 0);
     const isSingleProject = pnlProjectFilter !== null;
 
     const grossProfit = pnlRev - pnlCost;
@@ -276,10 +289,13 @@ export default function Finance({
 
     // Revenue by project
     const revByProject = pnlProjects.map(p => ({
+      id: p.id,
       name: p.name || p.title || "Untitled",
       client: p.client,
-      rev: getProjRevenue(p),
-      cost: getProjCost(p),
+      rev: getPnlRev(p),
+      cost: getPnlCost(p),
+      defaultRev: getProjRevenue(p),
+      defaultCost: getProjCost(p),
     })).sort((a, b) => b.rev - a.rev);
 
     // Cost breakdown from actuals sections
@@ -296,7 +312,7 @@ export default function Finance({
     const costSections = Object.entries(costBreakdown).map(([title, total]) => ({ title, total })).sort((a, b) => b.total - a.total);
 
     return { ovTotal, effectiveOv, grossProfit, grossMargin, netProfit, netMargin, revByProject, costSections, pnlRev, pnlCost, isSingleProject };
-  }, [projData, overheads, getProjRevenue, getProjCost, projectActuals, pnlProjectFilter]);
+  }, [projData, overheads, getProjRevenue, getProjCost, projectActuals, pnlProjectFilter, pnlProjectOverrides]);
 
   /* ── AR/AP calculations ── */
   const arapCalcs = useMemo(() => {
@@ -509,7 +525,22 @@ export default function Finance({
       {/* ═══ P&L ═══ */}
       {financeTab === "pnl" && (
         <div>
-          {/* Project filter */}
+          {/* View toggle: Overview | By Project */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 16 }}>
+            {[{ key: "overview", label: "Overview" }, { key: "byproject", label: "By Project" }].map(v => (
+              <button key={v.key} onClick={() => setPnlView(v.key)}
+                style={{
+                  padding: "7px 20px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  border: `1px solid ${T.border}`, borderRight: v.key === "overview" ? "none" : `1px solid ${T.border}`,
+                  borderRadius: v.key === "overview" ? "8px 0 0 8px" : "0 8px 8px 0",
+                  background: pnlView === v.key ? "#000" : T.surface,
+                  color: pnlView === v.key ? "#fff" : T.sub,
+                }}>{v.label}</button>
+            ))}
+          </div>
+
+          {/* Project filter (overview only) */}
+          {pnlView === "overview" && (
           <div style={{ display: "flex", gap: 6, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
             <button onClick={() => setPnlProjectFilter(null)}
               style={{
@@ -530,7 +561,85 @@ export default function Finance({
                 }}>{p.name || p.title || "Untitled"}</button>
             ))}
           </div>
+          )}
 
+          {/* ═══ BY PROJECT VIEW ═══ */}
+          {pnlView === "byproject" && (
+            <div style={{ ...cardS(T), padding: 0, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ padding: "16px 20px 0" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T.muted, marginBottom: 12 }}>{"P&L by Project \u2014 " + yearLabel}</div>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    <th style={thS}>Project</th>
+                    <th style={thS}>Client</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Revenue</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Direct Costs</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Gross Profit</th>
+                    <th style={{ ...thS, textAlign: "right" }}>Margin</th>
+                  </tr></thead>
+                  <tbody>
+                    {pnlData.revByProject.map((p, i) => {
+                      const ov = pnlProjectOverrides[p.id] || {};
+                      const revRaw = ov.revenue !== undefined ? ov.revenue : "";
+                      const costRaw = ov.cost !== undefined ? ov.cost : "";
+                      const revIsOverride = String(revRaw).trim() !== "";
+                      const costIsOverride = String(costRaw).trim() !== "";
+                      const profit = p.rev - p.cost;
+                      const margin = p.rev > 0 ? ((profit / p.rev) * 100).toFixed(1) : "0.0";
+                      return (
+                      <tr key={p.id || i} style={i % 2 === 1 ? { background: T.bg } : {}}>
+                        <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
+                        <td style={{ ...tdS, color: T.muted }}>{p.client}</td>
+                        <td style={{ ...tdR, padding: "2px 14px 2px 4px" }}>
+                          <input
+                            value={revIsOverride ? revRaw : ""}
+                            placeholder={p.defaultRev ? p.defaultRev.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                            onChange={e => { const val = e.target.value; setPnlProjectOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), revenue: val } })); }}
+                            style={{ fontFamily: "inherit", fontSize: 12.5, border: "none", background: "transparent", outline: "none", textAlign: "right", width: 120, color: revIsOverride ? "#1a6e3e" : "#999", fontStyle: revIsOverride ? "normal" : "italic", padding: "4px 0" }}
+                            inputMode="numeric"
+                            onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "4px"; }}
+                            onBlur={e => { e.target.style.background = "transparent"; }}
+                          />
+                        </td>
+                        <td style={{ ...tdR, padding: "2px 14px 2px 4px" }}>
+                          <input
+                            value={costIsOverride ? costRaw : ""}
+                            placeholder={p.defaultCost ? p.defaultCost.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                            onChange={e => { const val = e.target.value; setPnlProjectOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), cost: val } })); }}
+                            style={{ fontFamily: "inherit", fontSize: 12.5, border: "none", background: "transparent", outline: "none", textAlign: "right", width: 120, color: costIsOverride ? "#b0271d" : "#999", fontStyle: costIsOverride ? "normal" : "italic", padding: "4px 0" }}
+                            inputMode="numeric"
+                            onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "4px"; }}
+                            onBlur={e => { e.target.style.background = "transparent"; }}
+                          />
+                        </td>
+                        <td style={{ ...tdR, fontWeight: 600, color: profit >= 0 ? "#1a6e3e" : "#b0271d" }}>{fmtFull(profit)}</td>
+                        <td style={{ ...tdR, color: parseFloat(margin) >= 20 ? "#1a6e3e" : parseFloat(margin) >= 0 ? "#b06000" : "#b0271d" }}>{margin}%</td>
+                      </tr>
+                      );
+                    })}
+                    {pnlData.revByProject.length === 0 && (
+                      <tr><td colSpan={6} style={{ ...tdS, textAlign: "center", color: T.muted, padding: 24 }}>No projects for {yearLabel}</td></tr>
+                    )}
+                    {/* Totals row */}
+                    {pnlData.revByProject.length > 0 && (
+                      <tr style={{ background: T.bg }}>
+                        <td colSpan={2} style={{ ...tdS, fontWeight: 700, borderTop: `2px solid ${T.border}`, borderBottom: "none" }}>Total</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderTop: `2px solid ${T.border}`, borderBottom: "none", color: "#1a6e3e" }}>{fmtFull(pnlData.pnlRev)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderTop: `2px solid ${T.border}`, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.pnlCost)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderTop: `2px solid ${T.border}`, borderBottom: "none", color: pnlData.grossProfit >= 0 ? "#1a6e3e" : "#b0271d" }}>{fmtFull(pnlData.grossProfit)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderTop: `2px solid ${T.border}`, borderBottom: "none", color: pnlData.grossMargin >= 20 ? "#1a6e3e" : "#b06000" }}>{pnlData.grossMargin.toFixed(1)}%</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ OVERVIEW VIEW ═══ */}
+          {pnlView === "overview" && <>
           {/* P&L summary cards */}
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
             {[
@@ -753,6 +862,7 @@ export default function Finance({
               </tbody>
             </table>
           </div>
+          </>}
         </div>
       )}
 
