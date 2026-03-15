@@ -1051,6 +1051,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
   const data = vIdx >= 0 ? versions[vIdx] : null;
+  const [cfMonth, setCfMonth] = React.useState(null); // null = all months, 0-11 = specific month
 
   // Auto-create first version if none exist
   React.useEffect(() => {
@@ -1385,6 +1386,9 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const ctrlInpS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", padding: "5px 8px", outline: "none", color: "#000" };
 
   /* ── Render section rows ── */
+  const mCols = cfMonth !== null ? [cfMonth] : [0,1,2,3,4,5,6,7,8,9,10,11];
+  const colSpanAll = cfMonth !== null ? 2 : 14;
+
   const renderSection = (type, sectionLabel) => {
     const arr = data[type] || [];
     const isInflows = type === "inflows";
@@ -1392,11 +1396,10 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     return (
       <>
         {/* Banner */}
-        <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>{sectionLabel}</td></tr>
+        <tr><td colSpan={colSpanAll} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>{sectionLabel}</td></tr>
         {/* Synced P&L overhead sub-rows (outflows only) — editable */}
         {isOutflows && syncedData.ohRows.map((o, oi) => {
           if (o.isParent && o.subs) {
-            // Parent with subs: parent shows auto-total of overridden sub values, subs are editable
             const parentVals = Array(12).fill(0);
             o.subs.forEach(sub => { for (let m = 0; m < 12; m++) parentVals[m] += getOv("oh", sub.label, m, sub.cols[m]); });
             const parentTotal = parentVals.reduce((s, v) => s + v, 0);
@@ -1404,8 +1407,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
             <React.Fragment key={"oh-sync-" + oi}>
               <tr>
                 <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontWeight: 600 }}>{o.label}</td>
-                {parentVals.map((v, m) => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#555", fontWeight: 600 }}>{v ? fmt(v) : "—"}</td>)}
-                <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{parentTotal ? fmt(parentTotal) : "—"}</td>
+                {mCols.map(m => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#555", fontWeight: 600 }}>{parentVals[m] ? fmt(parentVals[m]) : "—"}</td>)}
+                {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{parentTotal ? fmt(parentTotal) : "—"}</td>}
               </tr>
               {o.subs.map((sub, si) => {
                 const subVals = sub.cols.map((def, m) => getOv("oh", sub.label, m, def));
@@ -1413,8 +1416,9 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                 return (
                 <tr key={"oh-sub-" + oi + "-" + si}>
                   <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 40px", fontSize: 10, color: "#888", fontStyle: "italic" }}>{sub.label}</td>
-                  {sub.cols.map((def, m) => {
+                  {mCols.map(m => {
                     const raw = getOvRaw("oh", sub.label, m);
+                    const def = sub.cols[m];
                     return <td key={m} style={{ ...cellS, fontSize: 10, padding: "2px 4px" }}>
                       <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("oh", sub.label, m, e.target.value)}
                         style={{ ...inputS, fontSize: 10, color: raw !== null ? "#333" : "#888", fontStyle: raw !== null ? "normal" : "italic" }}
@@ -1423,21 +1427,21 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                         onBlur={e => { e.target.style.background = "transparent"; }} />
                     </td>;
                   })}
-                  <td style={{ ...cellS, padding: "5px 0", fontSize: 10, color: "#888" }}>{subTotal ? fmt(subTotal) : "—"}</td>
+                  {cfMonth === null && <td style={{ ...cellS, padding: "5px 0", fontSize: 10, color: "#888" }}>{subTotal ? fmt(subTotal) : "—"}</td>}
                 </tr>
                 );
               })}
             </React.Fragment>
             );
           }
-          // No subs: editable directly
           const rowVals = o.cols.map((def, m) => getOv("oh", o.label, m, def));
           const rowTotal = rowVals.reduce((s, v) => s + v, 0);
           return (
           <tr key={"oh-sync-" + oi}>
             <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontStyle: "italic" }}>{o.label}</td>
-            {o.cols.map((def, m) => {
+            {mCols.map(m => {
               const raw = getOvRaw("oh", o.label, m);
+              const def = o.cols[m];
               return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
                 <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("oh", o.label, m, e.target.value)}
                   style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
@@ -1446,7 +1450,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                   onBlur={e => { e.target.style.background = "transparent"; }} />
               </td>;
             })}
-            <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>
+            {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
           </tr>
           );
         })}
@@ -1463,12 +1467,12 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                   <input value={row.label} onChange={e => setLabel(type, i, e.target.value)} style={labelInputS} placeholder="Label…" onFocus={e => e.target.style.borderBottom = "1px solid #bbb"} onBlur={e => e.target.style.borderBottom = "none"} />
                 </div>
               </td>
-              {row.v.map((v, m) => (
+              {mCols.map(m => (
                 <td key={m} style={cellS}>
-                  <input value={v} onChange={e => setVal(type, i, m, e.target.value)} style={inputS} placeholder="0" inputMode="numeric" onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }} onBlur={e => { e.target.style.background = "transparent"; }} />
+                  <input value={row.v[m]} onChange={e => setVal(type, i, m, e.target.value)} style={inputS} placeholder="0" inputMode="numeric" onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }} onBlur={e => { e.target.style.background = "transparent"; }} />
                 </td>
               ))}
-              <td style={{ ...cellS, fontWeight: 600, padding: "5px 0" }}>{rt ? fmt(rt) : "—"}</td>
+              {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0" }}>{rt ? fmt(rt) : "—"}</td>}
             </tr>
             {/* Synced project revenue sub-rows under Client Fees — editable */}
             {isClientFees && syncedData.projRows.map((p, pi) => {
@@ -1477,8 +1481,9 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               return (
               <tr key={"proj-rev-" + pi}>
                 <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{p.name}</td>
-                {p.revCols.map((def, m) => {
+                {mCols.map(m => {
                   const raw = getOvRaw("rev", p.name, m);
+                  const def = p.revCols[m];
                   return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
                     <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("rev", p.name, m, e.target.value)}
                       style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
@@ -1487,7 +1492,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                       onBlur={e => { e.target.style.background = "transparent"; }} />
                   </td>;
                 })}
-                <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>
+                {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
               </tr>
               );
             })}
@@ -1495,7 +1500,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
           );
         })}
         {/* Add row */}
-        <tr><td colSpan={14} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
+        <tr><td colSpan={colSpanAll} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
           <button onClick={() => addRow(type)} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#bbb", background: "none", border: "1px dashed #ddd", padding: "4px 10px", cursor: "pointer" }} onMouseEnter={e => { e.target.style.color = "#000"; e.target.style.borderColor = "#999"; }} onMouseLeave={e => { e.target.style.color = "#bbb"; e.target.style.borderColor = "#ddd"; }}>+ Add row</button>
         </td></tr>
       </>
@@ -1527,7 +1532,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               <div style={{ borderTop: "1px solid #ccc", marginBottom: 14 }} />
 
               {/* ── Controls ── */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
                 <span style={ctrlLblS}>Year</span>
                 <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: "#000", padding: "5px 8px" }}>{financeYear}</span>
                 <span style={{ margin: "0 12px", color: "#ddd" }}>|</span>
@@ -1542,38 +1547,64 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                 </div>
               </div>
 
-              {/* ── Summary strip ── */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", border: "1px solid #e0e0e0", marginBottom: 22 }}>
-                {[
-                  { l: "Opening Balance", v: fmt(calcs.ob), cls: calcs.ob < 0 ? "#b0271d" : "#000" },
-                  { l: "Total Sales", v: fmt(calcs.inA), cls: "#1a6e3e" },
-                  { l: "COGS", v: fmt(calcs.cogsA), cls: "#b0271d" },
-                  { l: "Total Outflows", v: fmt(calcs.outA + calcs.capA), cls: "#b0271d" },
-                  { l: "Net Cash Flow", v: fmtSigned(calcs.netA), cls: calcs.netA >= 0 ? "#1a6e3e" : "#b0271d" },
-                  { l: "Year-End Balance", v: fmtSigned(calcs.closeC[11] || 0), cls: (calcs.closeC[11] || 0) >= 0 ? "#1a6e3e" : "#b0271d" },
-                ].map((s, i) => (
-                  <div key={i} style={{ padding: "11px 14px", borderRight: i < 5 ? "1px solid #e0e0e0" : "none" }}>
-                    <div style={{ fontFamily: F, fontSize: 7.5, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginBottom: 4 }}>{s.l}</div>
-                    <div style={{ fontFamily: F, fontSize: 16, fontWeight: 700, color: s.cls }}>{s.v}</div>
-                  </div>
+              {/* ── Month selector pills ── */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap" }}>
+                <button onClick={() => setCfMonth(null)}
+                  style={{ fontFamily: F, fontSize: 10, fontWeight: 600, padding: "5px 12px", borderRadius: 6, border: cfMonth === null ? "1px solid #000" : "1px solid #ccc", background: cfMonth === null ? "#000" : "#fff", color: cfMonth === null ? "#fff" : "#666", cursor: "pointer" }}>All Months</button>
+                {MONTHS.map((m, i) => (
+                  <button key={i} onClick={() => setCfMonth(i)}
+                    style={{ fontFamily: F, fontSize: 10, fontWeight: 600, padding: "5px 10px", borderRadius: 6, border: cfMonth === i ? "1px solid #000" : "1px solid #ccc", background: cfMonth === i ? "#000" : "#fff", color: cfMonth === i ? "#fff" : "#666", cursor: "pointer" }}>{m}</button>
                 ))}
               </div>
 
+              {/* ── Summary strip ── */}
+              {(() => {
+                const isMonth = cfMonth !== null;
+                const m = cfMonth || 0;
+                const sumOb = isMonth ? calcs.obArr[m] : calcs.ob;
+                const sumIn = isMonth ? calcs.inC[m] : calcs.inA;
+                const sumCogs = isMonth ? calcs.cogsC[m] : calcs.cogsA;
+                const sumOut = isMonth ? (calcs.outC[m] + calcs.capC[m]) : (calcs.outA + calcs.capA);
+                const sumNet = isMonth ? calcs.netC[m] : calcs.netA;
+                const sumClose = isMonth ? calcs.closeC[m] : (calcs.closeC[11] || 0);
+                return (
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", border: "1px solid #e0e0e0", marginBottom: 22 }}>
+                  {[
+                    { l: "Opening Balance", v: fmt(sumOb), cls: sumOb < 0 ? "#b0271d" : "#000" },
+                    { l: "Total Sales", v: fmt(sumIn), cls: "#1a6e3e" },
+                    { l: "COGS", v: fmt(sumCogs), cls: "#b0271d" },
+                    { l: "Total Outflows", v: fmt(sumOut), cls: "#b0271d" },
+                    { l: "Net Cash Flow", v: fmtSigned(sumNet), cls: sumNet >= 0 ? "#1a6e3e" : "#b0271d" },
+                    { l: isMonth ? "Closing Balance" : "Year-End Balance", v: fmtSigned(sumClose), cls: sumClose >= 0 ? "#1a6e3e" : "#b0271d" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ padding: "11px 14px", borderRight: i < 5 ? "1px solid #e0e0e0" : "none" }}>
+                      <div style={{ fontFamily: F, fontSize: 7.5, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginBottom: 4 }}>{s.l}</div>
+                      <div style={{ fontFamily: F, fontSize: 16, fontWeight: 700, color: s.cls }}>{s.v}</div>
+                    </div>
+                  ))}
+                </div>
+                );
+              })()}
+
               {/* ── Main table ── */}
               <div style={{ overflowX: "auto", margin: isMobile ? "0 -16px" : 0, padding: isMobile ? "0 16px" : 0 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: cfMonth !== null ? 400 : 1100 }}>
                   <thead>
                     <tr>
-                      <th style={{ ...hdrS, textAlign: "left", width: 210, paddingLeft: 0 }}>Category</th>
-                      {MONTHS.map(m => <th key={m} style={hdrS}>{m}</th>)}
-                      <th style={{ ...hdrS, width: 105 }}>Annual Total</th>
+                      <th style={{ ...hdrS, textAlign: "left", width: cfMonth !== null ? "auto" : 210, paddingLeft: 0 }}>Category</th>
+                      {cfMonth !== null
+                        ? <th style={hdrS}>{MONTHS[cfMonth]}</th>
+                        : MONTHS.map(m => <th key={m} style={hdrS}>{m}</th>)
+                      }
+                      {cfMonth === null && <th style={{ ...hdrS, width: 105 }}>Annual Total</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {/* Opening balance row — editable per month */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 11, fontWeight: 600, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0" }}>Opening Balance</td>
-                      {(data.openingBalances || Array(12).fill("")).map((v, m) => {
+                      {(cfMonth !== null ? [cfMonth] : [0,1,2,3,4,5,6,7,8,9,10,11]).map(m => {
+                        const v = (data.openingBalances || Array(12).fill(""))[m];
                         const manual = String(v || "").trim();
                         const effective = calcs.obArr[m];
                         const isAuto = manual === "" && m > 0;
@@ -1588,13 +1619,13 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                             });
                           }}
                             style={{ fontFamily: F, fontSize: 11, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: isAuto ? "#999" : (effective < 0 ? "#b0271d" : effective > 0 ? "#1a6e3e" : "#999"), fontStyle: isAuto ? "italic" : "normal", padding: "3px 0" }}
-                            placeholder="0" inputMode="numeric"
+                            placeholder={isAuto ? fmt(effective) : "0"} inputMode="numeric"
                             onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
-                            onBlur={e => { e.target.style.background = "transparent"; }} />
+                            onBlur={e => { e.target.style.background = "transparent"; if (manual === "" && m > 0) { /* clear reverts to auto */ } }} />
                         </td>
                         );
                       })}
-                      <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>}
                     </tr>
 
                     {/* Sales (with synced project revenue as sub-rows under Client Fees) */}
@@ -1602,20 +1633,21 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     {/* Subtotal */}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Sales</td>
-                      {calcs.inC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
-                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.inA ? fmt(calcs.inA) : "—"}</td>
+                      {mCols.map(m => <td key={m} style={subS}>{calcs.inC[m] ? fmt(calcs.inC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ ...subS, paddingRight: 0 }}>{calcs.inA ? fmt(calcs.inA) : "—"}</td>}
                     </tr>
 
                     {/* COGS — synced from project costs */}
-                    <tr><td colSpan={14} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>Cost of Goods Sold (COGS)</td></tr>
+                    <tr><td colSpan={colSpanAll} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>Cost of Goods Sold (COGS)</td></tr>
                     {syncedData.projRows.filter(p => p.cost > 0).map((p, pi) => {
                       const rowVals = p.costCols.map((def, m) => getOv("cogs", p.name, m, def));
                       const rowTotal = rowVals.reduce((s, v) => s + v, 0);
                       return (
                       <tr key={"cogs-" + pi}>
                         <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#666", fontStyle: "italic" }}>{p.name}</td>
-                        {p.costCols.map((def, m) => {
+                        {mCols.map(m => {
                           const raw = getOvRaw("cogs", p.name, m);
+                          const def = p.costCols[m];
                           return <td key={m} style={{ ...cellS, fontSize: 10.5, padding: "2px 4px" }}>
                             <input value={raw !== null ? raw : (def || "")} onChange={e => setOv("cogs", p.name, m, e.target.value)}
                               style={{ ...inputS, fontSize: 10.5, color: raw !== null ? "#333" : "#666", fontStyle: raw !== null ? "normal" : "italic" }}
@@ -1624,67 +1656,70 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                               onBlur={e => { e.target.style.background = "transparent"; }} />
                           </td>;
                         })}
-                        <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>
+                        {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#666" }}>{rowTotal ? fmt(rowTotal) : "—"}</td>}
                       </tr>
                       );
                     })}
                     {syncedData.projRows.filter(p => p.cost > 0).length === 0 && (
-                      <tr><td colSpan={14} style={{ ...cellS, textAlign: "center", color: "#bbb", padding: "8px 0" }}>No project costs for {financeYear}</td></tr>
+                      <tr><td colSpan={colSpanAll} style={{ ...cellS, textAlign: "center", color: "#bbb", padding: "8px 0" }}>No project costs for {financeYear}</td></tr>
                     )}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total COGS</td>
-                      {calcs.cogsC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
-                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.cogsA ? fmt(calcs.cogsA) : "—"}</td>
+                      {mCols.map(m => <td key={m} style={subS}>{calcs.cogsC[m] ? fmt(calcs.cogsC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ ...subS, paddingRight: 0 }}>{calcs.cogsA ? fmt(calcs.cogsA) : "—"}</td>}
                     </tr>
 
                     {/* Outflows (with synced P&L overheads as sub-rows) */}
                     {renderSection("outflows", "Operating Outflows")}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total Outflows</td>
-                      {calcs.outC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
-                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.outA ? fmt(calcs.outA) : "—"}</td>
+                      {mCols.map(m => <td key={m} style={subS}>{calcs.outC[m] ? fmt(calcs.outC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ ...subS, paddingRight: 0 }}>{calcs.outA ? fmt(calcs.outA) : "—"}</td>}
                     </tr>
 
                     {/* CapEx */}
                     {renderSection("capex", "Capital Expenditure")}
                     <tr>
                       <td style={{ ...subS, textAlign: "left", paddingLeft: 0 }}>Total CapEx</td>
-                      {calcs.capC.map((v, m) => <td key={m} style={subS}>{v ? fmt(v) : "—"}</td>)}
-                      <td style={{ ...subS, paddingRight: 0 }}>{calcs.capA ? fmt(calcs.capA) : "—"}</td>
+                      {mCols.map(m => <td key={m} style={subS}>{calcs.capC[m] ? fmt(calcs.capC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ ...subS, paddingRight: 0 }}>{calcs.capA ? fmt(calcs.capA) : "—"}</td>}
                     </tr>
 
                     {/* Net cash flow */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
-                      {calcs.netC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{v ? fmtSigned(v) : "—"}</td>)}
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 4px", textAlign: "right", color: calcs.netC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netC[m] ? fmtSigned(calcs.netC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>}
                     </tr>
 
                     {/* Closing balance */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
-                      {calcs.closeC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: v >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(v)}</td>)}
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: calcs.closeC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[m])}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 700, textTransform: "uppercase", background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>}
                     </tr>
 
                     {/* Spacer */}
-                    <tr><td colSpan={14} style={{ padding: 8 }} /></tr>
+                    <tr><td colSpan={colSpanAll} style={{ padding: 8 }} /></tr>
 
                     {/* VAT Inflow — informational, not included in net/closing */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", color: "#1a6e3e" }}>VAT Inflow (on Project Revenue)</td>
-                      {calcs.vatInC.map((v, m) => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 4px", textAlign: "right", color: "#1a6e3e" }}>{v ? fmt(v) : "—"}</td>)}
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", textAlign: "right", color: "#1a6e3e" }}>{calcs.vatInA ? fmt(calcs.vatInA) : "—"}</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 4px", textAlign: "right", color: "#1a6e3e" }}>{calcs.vatInC[m] ? fmt(calcs.vatInC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", textAlign: "right", color: "#1a6e3e" }}>{calcs.vatInA ? fmt(calcs.vatInA) : "—"}</td>}
                     </tr>
                     {/* VAT Outflow — manually entered VAT returns */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", color: "#b06000" }}>VAT Outflow (Returns Paid)</td>
-                      {(data.vatReturns || Array(12).fill("")).map((v, m) => (
+                      {mCols.map(m => {
+                        const v = (data.vatReturns || Array(12).fill(""))[m];
+                        return (
                         <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "2px 4px", textAlign: "right", color: "#b06000" }}>
                           <input value={v} onChange={e => { const val = pv(e.target.value); update(d => { const arr = [...(d.vatReturns || Array(12).fill(""))]; arr[m] = val === 0 ? "" : String(val); return { ...d, vatReturns: arr }; }); }} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: "#b06000", padding: "3px 0" }} placeholder="0" inputMode="numeric" onFocus={e => { e.target.style.background = "#fff3d0"; e.target.style.borderRadius = "2px"; }} onBlur={e => { e.target.style.background = "transparent"; }} />
                         </td>
-                      ))}
-                      <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", textAlign: "right", color: "#b06000" }}>{calcs.vatOutA ? fmt(calcs.vatOutA) : "—"}</td>
+                        );
+                      })}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#fffbf0", borderTop: "1px solid #e8dfc0", borderBottom: "1px solid #e8dfc0", padding: "7px 0", textAlign: "right", color: "#b06000" }}>{calcs.vatOutA ? fmt(calcs.vatOutA) : "—"}</td>}
                     </tr>
                   </tbody>
                 </table>
