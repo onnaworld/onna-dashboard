@@ -1240,17 +1240,21 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     const netC = syncInC.map((v, m) => v - syncOutC[m] - cogsC[m] - capC[m]);
     const netA = inA - outA - cogsA - capA;
 
-    const obArr = (data.openingBalances || Array(12).fill("")).map(v => pv(v));
-    const hasPerMonth = obArr.some(v => v !== 0);
-    if (!hasPerMonth && data.openingBalance) { obArr[0] = pv(data.openingBalance); }
-    const ob = obArr.reduce((s, v) => s + v, 0);
+    const rawOb = (data.openingBalances || Array(12).fill(""));
+    const obArr = []; // effective opening balance per month
     const closeC = [];
-    for (let m = 0; m < 12; m++) { closeC.push(obArr[m] + netC[m]); }
+    for (let m = 0; m < 12; m++) {
+      const manual = String(rawOb[m] || "").trim();
+      const ob = manual !== "" ? pv(manual) : (m > 0 ? closeC[m - 1] : 0);
+      obArr.push(ob);
+      closeC.push(ob + netC[m]);
+    }
+    const ob = obArr.reduce((s, v) => s + v, 0);
 
     const manualInC = inC;
     const manualOutC = outC;
 
-    return { inC: syncInC, outC: syncOutC, cogsC, cogsA, capC, inA, outA, capA, vatInC, vatInA, vatOutC, vatOutA, netC, netA, ob, closeC, rowTotal, manualInC, manualOutC };
+    return { inC: syncInC, outC: syncOutC, cogsC, cogsA, capC, inA, outA, capA, vatInC, vatInA, vatOutC, vatOutA, netC, netA, ob, obArr, closeC, rowTotal, manualInC, manualOutC };
   }, [data, syncedData]);
 
   /* ── Row mutation helpers ── */
@@ -1520,9 +1524,13 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     {/* Opening balance row — editable per month */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 11, fontWeight: 600, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0" }}>Opening Balance</td>
-                      {(data.openingBalances || Array(12).fill("")).map((v, m) => (
+                      {(data.openingBalances || Array(12).fill("")).map((v, m) => {
+                        const manual = String(v || "").trim();
+                        const effective = calcs.obArr[m];
+                        const isAuto = manual === "" && m > 0;
+                        return (
                         <td key={m} style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "2px 4px", textAlign: "right" }}>
-                          <input value={v} onChange={e => {
+                          <input value={manual !== "" ? v : (isAuto && effective ? String(effective) : "")} onChange={e => {
                             const val = e.target.value;
                             update(d => {
                               const arr = [...(d.openingBalances || Array(12).fill(""))];
@@ -1530,12 +1538,13 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                               return { ...d, openingBalances: arr };
                             });
                           }}
-                            style={{ fontFamily: F, fontSize: 11, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: pv(v) < 0 ? "#b0271d" : pv(v) > 0 ? "#1a6e3e" : "#999", padding: "3px 0" }}
+                            style={{ fontFamily: F, fontSize: 11, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: isAuto ? "#999" : (effective < 0 ? "#b0271d" : effective > 0 ? "#1a6e3e" : "#999"), fontStyle: isAuto ? "italic" : "normal", padding: "3px 0" }}
                             placeholder="0" inputMode="numeric"
                             onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
                             onBlur={e => { e.target.style.background = "transparent"; }} />
                         </td>
-                      ))}
+                        );
+                      })}
                       <td style={{ fontFamily: F, fontSize: 11, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8", padding: "6px 0", textAlign: "right", fontWeight: 600, color: calcs.ob < 0 ? "#b0271d" : calcs.ob > 0 ? "#1a6e3e" : "#000" }}>{calcs.ob ? fmt(calcs.ob) : "—"}</td>
                     </tr>
 
