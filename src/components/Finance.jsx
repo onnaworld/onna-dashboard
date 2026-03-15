@@ -665,6 +665,7 @@ export default function Finance({
               <div className="mob-table-wrap" style={{ overflowY: "auto", flex: 1 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
+                    <th style={{ ...thS, width: 28, textAlign: "center" }} title="Include in Cash Flow"><span style={{ fontSize: 8 }}>CF</span></th>
                     <th style={thS}>Category</th>
                     <th style={thS}>Frequency</th>
                     <th style={{ ...thS, textAlign: "right" }}>Monthly</th>
@@ -740,7 +741,10 @@ export default function Finance({
                       );
                       return (
                       <React.Fragment key={i}>
-                      <tr onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "hidden"; }}>
+                      <tr style={o._excludeFromCF ? { opacity: 0.5 } : undefined} onMouseEnter={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "visible"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".oh-del"); if (d) d.style.visibility = "hidden"; const a = e.currentTarget.querySelector(".oh-add-sub"); if (a) a.style.visibility = "hidden"; }}>
+                        <td style={{ ...tdS, textAlign: "center", width: 28, padding: "0 4px" }}>
+                          <span onClick={() => { const n = [...overheads]; n[i] = { ...n[i], _excludeFromCF: !o._excludeFromCF }; setOverheads(n); }} title={o._excludeFromCF ? "Excluded from cash flow — click to include" : "Included in cash flow — click to exclude"} style={{ width: 12, height: 12, borderRadius: "50%", background: o._excludeFromCF ? "#e74c3c" : "#2ecc71", cursor: "pointer", display: "inline-block", border: "1px solid rgba(0,0,0,0.1)", transition: "background 0.15s" }} />
+                        </td>
                         <td style={tdS}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <button className="oh-del" onClick={() => setOverheads(prev => prev.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: 0, visibility: "hidden", lineHeight: 1 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
@@ -791,7 +795,10 @@ export default function Finance({
                       {!collapsed && subs.map((sub, si) => {
                         const sf = sub.frequency || "monthly";
                         return (
-                        <tr key={`${i}-sub-${si}`} onMouseEnter={e => { const d = e.currentTarget.querySelector(".sub-del"); if (d) d.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".sub-del"); if (d) d.style.visibility = "hidden"; }}>
+                        <tr key={`${i}-sub-${si}`} style={sub._excludeFromCF ? { opacity: 0.5 } : undefined} onMouseEnter={e => { const d = e.currentTarget.querySelector(".sub-del"); if (d) d.style.visibility = "visible"; }} onMouseLeave={e => { const d = e.currentTarget.querySelector(".sub-del"); if (d) d.style.visibility = "hidden"; }}>
+                          <td style={{ ...tdS, textAlign: "center", width: 28, padding: "0 4px" }}>
+                            <span onClick={() => { const n = [...overheads]; const s = [...subs]; s[si] = { ...s[si], _excludeFromCF: !sub._excludeFromCF }; n[i] = { ...n[i], subs: s }; setOverheads(n); }} title={sub._excludeFromCF ? "Excluded from cash flow — click to include" : "Included in cash flow — click to exclude"} style={{ width: 10, height: 10, borderRadius: "50%", background: sub._excludeFromCF ? "#e74c3c" : "#2ecc71", cursor: "pointer", display: "inline-block", border: "1px solid rgba(0,0,0,0.1)", transition: "background 0.15s" }} />
+                          </td>
                           <td style={{ ...tdS, paddingLeft: 38 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <button className="sub-del" onClick={() => { const n = [...overheads]; n[i] = { ...n[i], subs: subs.filter((_, idx) => idx !== si) }; setOverheads(n); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 12, padding: 0, visibility: "hidden", lineHeight: 1 }} onMouseEnter={e => e.target.style.color = "#b0271d"} onMouseLeave={e => e.target.style.color = "#ccc"}>×</button>
@@ -812,17 +819,21 @@ export default function Finance({
                       </React.Fragment>
                       );
                     })}
-                    <tr><td colSpan={4} style={{ padding: "8px 14px", borderBottom: "none" }}>
+                    <tr><td colSpan={5} style={{ padding: "8px 14px", borderBottom: "none" }}>
                       <button onClick={() => setOverheads(prev => [...prev, { label: "New Overhead", amount: "", frequency: "monthly", subs: [] }])}
                         style={{ fontSize: 11, color: T.muted, background: "none", border: "1px dashed " + T.border, padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>+ Add row</button>
                     </td></tr>
                     <tr style={{ background: T.bg }}>
-                      <td colSpan={2} style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total Overheads</td>
+                      <td colSpan={3} style={{ ...tdS, fontWeight: 700, borderBottom: "none" }}>Total Overheads</td>
                       <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.ovTotal)}</td>
                       <td style={{ ...tdR, fontWeight: 700, borderBottom: "none", color: "#b0271d" }}>{fmtFull(pnlData.ovTotal * 12)}</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+              <div style={{ padding: "8px 20px 12px", display: "flex", gap: 14, alignItems: "center", fontSize: 10, color: T.muted }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2ecc71", display: "inline-block", border: "1px solid rgba(0,0,0,0.1)" }} /> Included in Cash Flow</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#e74c3c", display: "inline-block", border: "1px solid rgba(0,0,0,0.1)" }} /> Excluded from Cash Flow</span>
               </div>
             </div>
           </div>
@@ -1269,15 +1280,17 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     // Build grouped rows: parent overhead with nested subs
     const ohRows = [];
     (syncedOverheads || []).forEach(o => {
-      const subs = (o.subs || []).map(sub => mapOhToCol(sub)).filter(Boolean);
+      const subs = (o.subs || []).map(sub => { const r = mapOhToCol(sub); if (r) r._excludeFromCF = !!sub._excludeFromCF; return r; }).filter(Boolean);
       const parentRow = mapOhToCol(o);
+      const excl = !!o._excludeFromCF;
       if (subs.length > 0) {
         // Parent as group header, subs underneath
         const groupCols = Array(12).fill(0);
         subs.forEach(s => s.cols.forEach((v, m) => { groupCols[m] += v; }));
         const groupAnnual = groupCols.reduce((a, b) => a + b, 0);
-        ohRows.push({ label: o.label, cols: groupCols, annual: groupAnnual, isParent: true, subs });
+        ohRows.push({ label: o.label, cols: groupCols, annual: groupAnnual, isParent: true, subs, _excludeFromCF: excl });
       } else if (parentRow) {
+        parentRow._excludeFromCF = excl;
         ohRows.push(parentRow);
       }
     });
@@ -1366,11 +1379,13 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       }
     });
 
-    // Apply overrides to synced overheads
+    // Apply overrides to synced overheads (skip excluded)
     const adjOhCols = Array(12).fill(0);
     (syncedData.ohRows || []).forEach(o => {
+      if (o._excludeFromCF) return;
       if (o.isParent && o.subs) {
         o.subs.forEach(sub => {
+          if (sub._excludeFromCF) return;
           for (let m = 0; m < 12; m++) {
             const key = `oh:${sub.label}:${m}`;
             adjOhCols[m] += (key in _ov && _ov[key] !== "") ? pv(_ov[key]) : (sub.cols[m] || 0);
@@ -1413,7 +1428,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       obArr.push(ob);
       closeC.push(ob + netC[m]);
     }
-    const ob = obArr.reduce((s, v) => s + v, 0);
+    const ob = obArr[0] || 0; // "All Months" opening balance = January's OB
 
     const manualInC = inC;
     const manualOutC = outC;
@@ -1460,20 +1475,27 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const handlePrint = () => {
     if (!cfDocRef.current) return;
     const clone = cfDocRef.current.cloneNode(true);
-    // Replace inputs with their displayed values
     clone.querySelectorAll("input, textarea").forEach(el => {
       const span = document.createElement("span");
       span.textContent = el.value || el.placeholder || "";
       span.style.cssText = el.style.cssText;
       el.parentNode.replaceChild(span, el);
     });
-    // Remove delete buttons and add-row buttons
     clone.querySelectorAll(".cf-del, button").forEach(el => el.remove());
     const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:14mm 12mm}body{margin:0;padding:0;-webkit-font-smoothing:antialiased;font-family:${F}}*{box-sizing:border-box}</style></head><body><div style="max-width:1440px;margin:0 auto;padding:40px">${clone.innerHTML}</div></body></html>`;
-    const w = window.open("", "_blank");
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => w.print(), 400);
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    document.body.appendChild(iframe);
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+    setTimeout(() => {
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 400);
   };
 
   /* ── Styles ── */
@@ -1498,25 +1520,41 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       <>
         {/* Banner */}
         <tr><td colSpan={colSpanAll} style={{ fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "6px 0" }}>{sectionLabel}</td></tr>
-        {/* Synced P&L overhead sub-rows (outflows only) — editable */}
+        {/* Synced P&L overhead sub-rows (outflows only) — editable with include/exclude toggle */}
         {isOutflows && syncedData.ohRows.map((o, oi) => {
+          const parentExcluded = !!o._excludeFromCF;
           if (o.isParent && o.subs) {
             const parentVals = Array(12).fill(0);
-            o.subs.forEach(sub => { for (let m = 0; m < 12; m++) parentVals[m] += getOv("oh", sub.label, m, sub.cols[m]); });
+            o.subs.forEach(sub => {
+              if (!sub._excludeFromCF) {
+                for (let m = 0; m < 12; m++) parentVals[m] += getOv("oh", sub.label, m, sub.cols[m]);
+              }
+            });
             const parentTotal = parentVals.reduce((s, v) => s + v, 0);
             return (
             <React.Fragment key={"oh-sync-" + oi}>
-              <tr>
-                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontWeight: 600 }}>{o.label}</td>
+              <tr style={parentExcluded ? { opacity: 0.4 } : undefined}>
+                <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontWeight: 600 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span title={parentExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 8, height: 8, borderRadius: "50%", background: parentExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
+                    <span style={parentExcluded ? { textDecoration: "line-through" } : undefined}>{o.label}</span>
+                  </div>
+                </td>
                 {mCols.map(m => <td key={m} style={{ ...cellS, fontSize: 10.5, color: "#555", fontWeight: 600 }}>{parentVals[m] ? fmt(parentVals[m]) : "—"}</td>)}
                 {cfMonth === null && <td style={{ ...cellS, fontWeight: 600, padding: "5px 0", fontSize: 10.5, color: "#555" }}>{parentTotal ? fmt(parentTotal) : "—"}</td>}
               </tr>
-              {o.subs.map((sub, si) => {
+              {!parentExcluded && o.subs.map((sub, si) => {
+                const subExcluded = !!sub._excludeFromCF;
                 const subVals = sub.cols.map((def, m) => getOv("oh", sub.label, m, def));
                 const subTotal = subVals.reduce((s, v) => s + v, 0);
                 return (
-                <tr key={"oh-sub-" + oi + "-" + si}>
-                  <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 40px", fontSize: 10, color: "#888", fontStyle: "italic" }}>{sub.label}</td>
+                <tr key={"oh-sub-" + oi + "-" + si} style={subExcluded ? { opacity: 0.4 } : undefined}>
+                  <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 40px", fontSize: 10, color: "#888", fontStyle: "italic" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span title={subExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 7, height: 7, borderRadius: "50%", background: subExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
+                      <span style={subExcluded ? { textDecoration: "line-through" } : undefined}>{sub.label}</span>
+                    </div>
+                  </td>
                   {mCols.map(m => {
                     const raw = getOvRaw("oh", sub.label, m);
                     const def = sub.cols[m];
@@ -1538,8 +1576,13 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
           const rowVals = o.cols.map((def, m) => getOv("oh", o.label, m, def));
           const rowTotal = rowVals.reduce((s, v) => s + v, 0);
           return (
-          <tr key={"oh-sync-" + oi}>
-            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontStyle: "italic" }}>{o.label}</td>
+          <tr key={"oh-sync-" + oi} style={parentExcluded ? { opacity: 0.4 } : undefined}>
+            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", fontSize: 10.5, color: "#555", fontStyle: "italic" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span title={parentExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 8, height: 8, borderRadius: "50%", background: parentExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
+                <span style={parentExcluded ? { textDecoration: "line-through" } : undefined}>{o.label}</span>
+              </div>
+            </td>
             {mCols.map(m => {
               const raw = getOvRaw("oh", o.label, m);
               const def = o.cols[m];
@@ -1622,9 +1665,6 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               {/* ── Logo header ── */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 4 }}>
                 <CSLogoSlot label="Production Logo" image={data.prodLogo} onUpload={v => update("prodLogo", v)} onRemove={() => update("prodLogo", null)} />
-                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                  <CSLogoSlot label="Agency Logo" image={data.clientLogo} onUpload={v => update("clientLogo", v)} onRemove={() => update("clientLogo", null)} />
-                </div>
               </div>
               <div style={{ borderTop: "2.5px solid #000", marginBottom: 16 }} />
 
@@ -1847,8 +1887,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
               </div>
 
               {/* ── Footer ── */}
-              <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #e8e8e8", display: "flex", justifyContent: "space-between", fontFamily: F, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: "#bbb" }}>
-                <span>onnaworld — onna.digital</span>
+              <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #e8e8e8", display: "flex", justifyContent: "flex-end", fontFamily: F, fontSize: 8, letterSpacing: "0.1em", textTransform: "uppercase", color: "#bbb" }}>
                 <span>{new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span>
               </div>
             </div>
