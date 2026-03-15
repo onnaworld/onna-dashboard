@@ -1283,7 +1283,9 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     const capA = capC.reduce((a, b) => a + b, 0);
 
     const vr = (data.vatRate || 0) / 100;
-    const vatInC = adjProjRevCols.map(v => v * vr);
+    const vatInAuto = adjProjRevCols.map(v => v * vr);
+    const vatInRaw = data.vatInflows || Array(12).fill("");
+    const vatInC = vatInRaw.map((v, m) => { const s = String(v || "").trim(); return s !== "" ? pv(s) : vatInAuto[m]; });
     const vatInA = vatInC.reduce((a, b) => a + b, 0);
     const vatOutC = (data.vatReturns || Array(12).fill("")).map(v => pv(v));
     const vatOutA = vatOutC.reduce((a, b) => a + b, 0);
@@ -1703,10 +1705,22 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     {/* Spacer */}
                     <tr><td colSpan={colSpanAll} style={{ padding: 8 }} /></tr>
 
-                    {/* VAT Inflow — informational, not included in net/closing */}
+                    {/* VAT Inflow — editable, defaults to revenue × VAT rate */}
                     <tr>
                       <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", color: "#1a6e3e" }}>VAT Inflow (on Project Revenue)</td>
-                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 4px", textAlign: "right", color: "#1a6e3e" }}>{calcs.vatInC[m] ? fmt(calcs.vatInC[m]) : "—"}</td>)}
+                      {mCols.map(m => {
+                        const raw = (data.vatInflows || Array(12).fill(""))[m];
+                        const isAuto = String(raw || "").trim() === "";
+                        return (
+                        <td key={m} style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "2px 4px", textAlign: "right", color: "#1a6e3e" }}>
+                          <input value={isAuto ? "" : raw} onChange={e => { const val = e.target.value; update(d => { const arr = [...(d.vatInflows || Array(12).fill(""))]; arr[m] = val; return { ...d, vatInflows: arr }; }); }}
+                            style={{ fontFamily: F, fontSize: 9, fontWeight: 600, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: isAuto ? "#7dba8e" : "#1a6e3e", fontStyle: isAuto ? "italic" : "normal", padding: "3px 0" }}
+                            placeholder={calcs.vatInC[m] ? String(Math.round(calcs.vatInC[m] * 100) / 100) : "0"} inputMode="numeric"
+                            onFocus={e => { e.target.style.background = "#d0f0dc"; e.target.style.borderRadius = "2px"; }}
+                            onBlur={e => { e.target.style.background = "transparent"; }} />
+                        </td>
+                        );
+                      })}
                       {cfMonth === null && <td style={{ fontFamily: F, fontSize: 9, fontWeight: 600, background: "#f0faf4", borderTop: "1px solid #c0e8d0", borderBottom: "1px solid #c0e8d0", padding: "7px 0", textAlign: "right", color: "#1a6e3e" }}>{calcs.vatInA ? fmt(calcs.vatInA) : "—"}</td>}
                     </tr>
                     {/* VAT Outflow — manually entered VAT returns */}
