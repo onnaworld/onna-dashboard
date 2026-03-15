@@ -1161,6 +1161,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
   const data = vIdx >= 0 ? versions[vIdx] : null;
+  const cfDocRef = React.useRef(null);
   const [cfMonth, setCfMonth] = React.useState(null); // null = all months, 0-11 = specific month
 
   // Auto-create first version if none exist
@@ -1455,90 +1456,20 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     }));
   };
 
-  /* ── Print / PDF ── */
+  /* ── Print / PDF — clones the live DOM so export always matches the app ── */
   const handlePrint = () => {
-    if (!data || !calcs) return;
-    const c = calcs;
-    const sd = syncedData;
-    const ov = data.syncOverrides || {};
-    const _getOv = (prefix, name, m, def) => { const key = `${prefix}:${name}:${m}`; if (key in ov && ov[key] !== "") return pv(ov[key]); return def; };
-    const _fmt = (n) => {
-      const converted = toDisplay(n);
-      const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const prefix = displayCurrency === "AED" ? "AED " : displayCurrency === "GBP" ? "£" : displayCurrency === "USD" ? "$" : "€";
-      return converted < 0 ? "-" + prefix + abs : prefix + abs;
-    };
-    const logoHtml = (src) => src ? `<img src="${src}" style="max-height:30px;max-width:120px;object-fit:contain"/>` : "";
-    const thH = MONTHS.map(m => `<th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 4px;text-align:right;white-space:nowrap">${m}</th>`).join("");
-    const cellTd = (v, extra = "") => `<td style="font-family:${F};font-size:11px;text-align:right;padding:5px 4px;border-bottom:1px solid #f0f0f0;${extra}">${v ? _fmt(v) : "—"}</td>`;
-    const subRow = (label, cols, annual) => `<tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:#f4f4f2;border-top:1.5px solid #bbb;border-bottom:1.5px solid #bbb;padding:7px 0">${label}</td>${cols.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#f4f4f2;border-top:1.5px solid #bbb;border-bottom:1.5px solid #bbb;padding:7px 4px;text-align:right">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:#f4f4f2;border-top:1.5px solid #bbb;border-bottom:1.5px solid #bbb;padding:7px 0;text-align:right">${annual ? _fmt(annual) : "—"}</td></tr>`;
-    const banner = (t) => `<tr><td colspan="14" style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;background:#000;color:#fff;padding:6px 0">${t}</td></tr>`;
-    const labelTd = (l, indent = 0) => `<td style="font-family:${F};font-size:11px;padding:5px 0 5px ${indent}px;border-bottom:1px solid #f0f0f0">${l}</td>`;
-
-    // Build Sales rows: manual inflows + synced project revenue under Client Fees
-    let salesRows = "";
-    (data.inflows || []).forEach(row => {
-      const rt = c.rowTotal(row);
-      salesRows += `<tr>${labelTd(row.label)}${row.v.map(v => cellTd(pv(v))).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${rt ? _fmt(rt) : "—"}</td></tr>`;
-      if (row.label && row.label.toLowerCase().includes("client fees")) {
-        sd.projRows.forEach(p => {
-          const vals = p.revCols.map((def, m) => _getOv("rev", p.name, m, def));
-          const total = vals.reduce((s, v) => s + v, 0);
-          salesRows += `<tr>${labelTd(p.name, 24)}${vals.map(v => cellTd(v)).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${total ? _fmt(total) : "—"}</td></tr>`;
-        });
-      }
+    if (!cfDocRef.current) return;
+    const clone = cfDocRef.current.cloneNode(true);
+    // Replace inputs with their displayed values
+    clone.querySelectorAll("input, textarea").forEach(el => {
+      const span = document.createElement("span");
+      span.textContent = el.value || el.placeholder || "";
+      span.style.cssText = el.style.cssText;
+      el.parentNode.replaceChild(span, el);
     });
-
-    // Build COGS rows from synced project costs
-    let cogsRows = "";
-    sd.projRows.filter(p => p.cost > 0).forEach(p => {
-      const vals = p.costCols.map((def, m) => _getOv("cogs", p.name, m, def));
-      const total = vals.reduce((s, v) => s + v, 0);
-      cogsRows += `<tr>${labelTd(p.name, 24)}${vals.map(v => cellTd(v)).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${total ? _fmt(total) : "—"}</td></tr>`;
-    });
-
-    // Build Outflows rows: synced overheads + manual outflows
-    let outflowRows = "";
-    sd.ohRows.forEach(o => {
-      if (o.isParent && o.subs) {
-        const pVals = Array(12).fill(0);
-        o.subs.forEach(sub => { for (let m = 0; m < 12; m++) pVals[m] += _getOv("oh", sub.label, m, sub.cols[m]); });
-        const pTotal = pVals.reduce((s, v) => s + v, 0);
-        outflowRows += `<tr>${labelTd(o.label, 24)}${pVals.map(v => cellTd(v)).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${pTotal ? _fmt(pTotal) : "—"}</td></tr>`;
-        o.subs.forEach(sub => {
-          const sVals = sub.cols.map((def, m) => _getOv("oh", sub.label, m, def));
-          const sTotal = sVals.reduce((s, v) => s + v, 0);
-          outflowRows += `<tr>${labelTd(sub.label, 40)}${sVals.map(v => cellTd(v)).join("")}<td style="font-family:${F};font-size:11px;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0;color:#888">${sTotal ? _fmt(sTotal) : "—"}</td></tr>`;
-        });
-      } else {
-        const vals = o.cols.map((def, m) => _getOv("oh", o.label, m, def));
-        const total = vals.reduce((s, v) => s + v, 0);
-        outflowRows += `<tr>${labelTd(o.label, 24)}${vals.map(v => cellTd(v)).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${total ? _fmt(total) : "—"}</td></tr>`;
-      }
-    });
-    (data.outflows || []).forEach(row => {
-      const rt = c.rowTotal(row);
-      outflowRows += `<tr>${labelTd(row.label)}${row.v.map(v => cellTd(pv(v))).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${rt ? _fmt(rt) : "—"}</td></tr>`;
-    });
-
-    // CapEx rows
-    let capexRows = "";
-    (data.capex || []).forEach(row => {
-      const rt = c.rowTotal(row);
-      capexRows += `<tr>${labelTd(row.label)}${row.v.map(v => cellTd(pv(v))).join("")}<td style="font-family:${F};font-size:11px;font-weight:600;text-align:right;padding:5px 0;border-bottom:1px solid #f0f0f0">${rt ? _fmt(rt) : "—"}</td></tr>`;
-    });
-
-    const darkRow = (label, cols, annual, bg, borderTop = "") => `<tr><td style="font-family:${F};font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;background:${bg};color:#fff;${borderTop}padding:8px 0">${label}</td>${cols.map(v => `<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:${bg};${borderTop}padding:8px 4px;text-align:right;color:${v >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmt(v)}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:700;text-transform:uppercase;background:${bg};${borderTop}padding:8px 0;text-align:right;color:${annual >= 0 ? "#7dffc4" : "#ffaaaa"}">${_fmt(annual)}</td></tr>`;
-    const vatRow = (label, cols, annual, bg, borderClr, textClr) => `<tr><td style="font-family:${F};font-size:9px;font-weight:600;background:${bg};border-top:1px solid ${borderClr};border-bottom:1px solid ${borderClr};padding:7px 0;color:${textClr}">${label}</td>${cols.map(v => `<td style="font-family:${F};font-size:9px;font-weight:600;background:${bg};border-top:1px solid ${borderClr};border-bottom:1px solid ${borderClr};padding:7px 4px;text-align:right;color:${textClr}">${v ? _fmt(v) : "—"}</td>`).join("")}<td style="font-family:${F};font-size:9px;font-weight:600;background:${bg};border-top:1px solid ${borderClr};border-bottom:1px solid ${borderClr};padding:7px 0;text-align:right;color:${textClr}">${annual ? _fmt(annual) : "—"}</td></tr>`;
-
-    const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:14mm 12mm}body{font-family:${F};color:#000;margin:0;padding:0;-webkit-font-smoothing:antialiased}table{width:100%;border-collapse:collapse}</style></head><body><div style="max-width:1440px;margin:0 auto;padding:40px 40px"><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px">${logoHtml(data.prodLogo)}<div style="display:flex;gap:16px;align-items:center">${logoHtml(data.clientLogo)}</div></div><div style="border-top:2.5px solid #000;margin-bottom:16px"></div><div style="font-family:${F};font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:14px">Cash Flow Tracker</div><div style="border-top:1px solid #ccc;margin-bottom:14px"></div><div style="display:grid;grid-template-columns:repeat(6,1fr);border:1px solid #e0e0e0;margin-bottom:22px">${[
-      { l: "Opening Balance", v: _fmt(c.obArr[0]) },
-      { l: "Total Sales", v: _fmt(c.inA), cls: "color:#1a6e3e" },
-      { l: "COGS", v: _fmt(c.cogsA), cls: "color:#b0271d" },
-      { l: "Total Outflows", v: _fmt(c.outA + c.capA), cls: "color:#b0271d" },
-      { l: "Net Cash Flow", v: _fmt(c.netA), cls: c.netA >= 0 ? "color:#1a6e3e" : "color:#b0271d" },
-      { l: "Year-End Balance", v: _fmt(c.closeC[11] || 0), cls: (c.closeC[11] || 0) >= 0 ? "color:#1a6e3e" : "color:#b0271d" },
-    ].map(s => `<div style="padding:11px 14px;border-right:1px solid #e0e0e0"><div style="font-family:${F};font-size:7.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#999;margin-bottom:4px">${s.l}</div><div style="font-family:${F};font-size:16px;font-weight:700;${s.cls || ""}">${s.v}</div></div>`).join("")}</div><table><thead><tr><th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 0;text-align:left;width:210px">Category</th>${thH}<th style="font-family:${F};font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-bottom:2.5px solid #000;padding:6px 4px;text-align:right;width:105px">Annual Total</th></tr></thead><tbody><tr><td style="font-family:${F};font-size:11px;font-weight:600;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0">Opening Balance</td>${c.obArr.map(v => `<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 4px;text-align:right;font-weight:600">${_fmt(v)}</td>`).join("")}<td style="font-family:${F};font-size:11px;background:#f9f9f7;border-bottom:1px solid #e8e8e8;padding:6px 0;text-align:right;font-weight:600">${_fmt(c.obArr[0])}</td></tr>${banner("Sales")}${salesRows}${subRow("Total Sales", c.inC, c.inA)}${banner("Cost of Goods Sold (COGS)")}${cogsRows}${subRow("Total COGS", c.cogsC, c.cogsA)}${banner("Operating Outflows")}${outflowRows}${subRow("Total Outflows", c.outC, c.outA)}${banner("Capital Expenditure")}${capexRows}${subRow("Total CapEx", c.capC, c.capA)}${vatRow("VAT Inflow (on Project Revenue)", c.vatInC, c.vatInA, "#f0faf4", "#c0e8d0", "#1a6e3e")}${vatRow("VAT Outflow (Returns Paid)", c.vatOutC, c.vatOutA, "#fffbf0", "#e8dfc0", "#b06000")}${darkRow("Net Cash Flow", c.netC, c.netA, "#000")}${darkRow("Closing Balance", c.closeC, c.closeC[11] || 0, "#2a2a2a", "border-top:2px solid #000;")}</tbody></table>${data.notes ? `<div style="margin-top:22px;padding-top:12px;border-top:1px solid #e0e0e0"><div style="font-family:${F};font-size:8.5px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:6px">Notes</div><div style="font-family:${F};font-size:11px;color:#555;white-space:pre-wrap;line-height:1.7">${data.notes}</div></div>` : ""}<div style="margin-top:18px;padding-top:10px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;font-family:${F};font-size:8px;letter-spacing:0.1em;text-transform:uppercase;color:#bbb"><span>onnaworld — onna.digital</span><span>${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}</span></div></div></body></html>`;
+    // Remove delete buttons and add-row buttons
+    clone.querySelectorAll(".cf-del, button").forEach(el => el.remove());
+    const html = `<!DOCTYPE html><html><head><style>@page{size:A4 landscape;margin:14mm 12mm}body{margin:0;padding:0;-webkit-font-smoothing:antialiased;font-family:${F}}*{box-sizing:border-box}</style></head><body><div style="max-width:1440px;margin:0 auto;padding:40px">${clone.innerHTML}</div></body></html>`;
     const w = window.open("", "_blank");
     w.document.write(html);
     w.document.close();
@@ -1687,7 +1618,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       )}
 
           {data && calcs && (
-            <div style={{ background: "#fff", borderRadius: 16, padding: isMobile ? 16 : 32, border: "1px solid #e8e8e8", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+            <div ref={cfDocRef} style={{ background: "#fff", borderRadius: 16, padding: isMobile ? 16 : 32, border: "1px solid #e8e8e8", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               {/* ── Logo header ── */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 4 }}>
                 <CSLogoSlot label="Production Logo" image={data.prodLogo} onUpload={v => update("prodLogo", v)} onRemove={() => update("prodLogo", null)} />
