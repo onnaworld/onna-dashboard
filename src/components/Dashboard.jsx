@@ -167,7 +167,7 @@ export default function Dashboard({
               const byDay={};days.forEach(d=>{byDay[d]=filteredTodos.filter(t=>t.subType===d);});
               const longterm=filteredTodos.filter(t=>t.subType==="longterm");
               const unassigned=filteredTodos.filter(t=>!t.subType||(!days.includes(t.subType)&&t.subType!=="longterm"&&!(t.subType||"").startsWith("list:")));
-              const cycleColor=(t)=>{const ci=TODO_COLORS.findIndex(c=>c.dot===t.color);const next=TODO_COLORS[(ci+1)%TODO_COLORS.length];pushUndo("color");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,color:next.dot==="transparent"?undefined:next.dot}:x));};
+              const cycleColor=(t)=>{const ci=t.color?TODO_COLORS.findIndex(c=>c.dot===t.color):0;const next=TODO_COLORS[((ci<0?0:ci)+1)%TODO_COLORS.length];pushUndo("color");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,color:next.dot==="transparent"?undefined:next.dot}:x));};
               const tc=(t)=>TODO_COLORS.find(c=>c.dot===t.color)||TODO_COLORS[0];
               const reorderDrop=(targetId,targetSubType,e)=>{
                 e.preventDefault();e.stopPropagation();e.currentTarget.style.borderTopColor="transparent";
@@ -188,21 +188,21 @@ export default function Dashboard({
               const renderTask=(t,sectionSubType)=>{
                 const c=tc(t);const hasBg=c.bg!=="transparent";
                 return (
-                <div key={t.id} className="todo-item" draggable style={{display:"flex",alignItems:"flex-start",gap:5,padding:"5px 3px",borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",fontSize:11,background:hasBg?c.bg+"88":"transparent",borderLeft:hasBg?`3px solid ${c.border}`:"3px solid transparent",borderRadius:hasBg?4:0,marginBottom:hasBg?2:0,borderTop:"2px solid transparent",transition:"border-top-color 0.1s"}}
-                  onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";}}
+                <div key={t.id} className="todo-item" draggable="true" onDoubleClick={e=>{e.stopPropagation();pushUndo('edit task');setSelectedTodo(t);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 3px",borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",fontSize:11,background:hasBg?c.bg+"88":"transparent",borderLeft:hasBg?`3px solid ${c.border}`:"3px solid transparent",borderRadius:hasBg?4:0,marginBottom:hasBg?2:0,borderTop:"2px solid transparent",transition:"border-top-color 0.1s"}}
+                  onDragStart={e=>{e.dataTransfer.setData("text/plain",String(t.id));e.dataTransfer.effectAllowed="move";e.dataTransfer.setDragImage(e.currentTarget,0,0);}}
                   onDragOver={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderTopColor=T.accent;}}
                   onDragLeave={e=>{e.currentTarget.style.borderTopColor="transparent";}}
                   onDrop={e=>reorderDrop(t.id,sectionSubType,e)}>
-                  <button onClick={e=>{e.stopPropagation();pushUndo("toggle");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));}} style={{width:14,height:14,borderRadius:3,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
+                  <button draggable="false" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();pushUndo("toggle");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));}} style={{width:14,height:14,borderRadius:3,border:`1.5px solid ${t.done?T.muted:T.border}`,background:t.done?T.accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                     {t.done&&<span style={{color:"#fff",fontSize:8,lineHeight:1,fontWeight:700}}>✓</span>}
                   </button>
                   {editingTodoId===t.id?(
-                    <input autoFocus defaultValue={t.text} onBlur={e=>{const v=e.target.value.trim();if(v&&v!==t.text){pushUndo("edit");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,text:v}:x));}setEditingTodoId(null);}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();if(e.key==="Escape"){setEditingTodoId(null);}}} onClick={e=>e.stopPropagation()} style={{flex:1,minWidth:0,fontSize:11,padding:"1px 3px",border:`1px solid ${T.accent}`,borderRadius:3,background:"#fff",color:T.text,fontFamily:"inherit",outline:"none"}}/>
+                    <input autoFocus draggable="false" defaultValue={t.text} onBlur={e=>{const v=e.target.value.trim();if(v&&v!==t.text){pushUndo("edit");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,text:v}:x));}setEditingTodoId(null);}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();if(e.key==="Escape"){setEditingTodoId(null);}}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} style={{flex:1,minWidth:0,fontSize:11,padding:"1px 3px",border:`1px solid ${T.accent}`,borderRadius:3,background:"#fff",color:T.text,fontFamily:"inherit",outline:"none"}}/>
                   ):(
-                    <span onClick={()=>setEditingTodoId(t.id)} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.text}</span>
+                    <span draggable="false" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingTodoId(t.id);}} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.text}</span>
                   )}
-                  <button title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,flexShrink:0,lineHeight:1,fontSize:12,color:t.color||T.muted,opacity:t.color?1:0.4,transition:"opacity 0.12s"}}>★</button>
-                  <button className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:0,lineHeight:1,flexShrink:0}}>×</button>
+                  <button draggable="false" onMouseDown={e=>e.stopPropagation()} title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",flexShrink:0,lineHeight:1,fontSize:13,color:t.color||T.muted,opacity:t.color?1:0.5,transition:"opacity 0.12s"}}>★</button>
+                  <button draggable="false" onMouseDown={e=>e.stopPropagation()} className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"2px 4px",lineHeight:1,flexShrink:0}}>×</button>
                 </div>);
               };
               const colDrop=(day)=>({
