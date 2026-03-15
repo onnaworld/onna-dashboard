@@ -59,7 +59,7 @@ const fmtK = (n) => {
   if (abs >= 1000) return (n < 0 ? "-" : "") + "AED " + (abs / 1000).toFixed(0) + "k";
   return "AED " + n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
 };
-const fmtFull = (n) => (n < 0 ? "-" : "") + "AED " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtFull = (n) => (n < 0 ? "-" : "") + "د.إ " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
 
 /* ── Card/Table styles ── */
@@ -1249,7 +1249,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     if (!data) return "0.00";
     const converted = toDisplay(n);
     const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const prefix = displayCurrency === "AED" ? "AED " : displayCurrency === "GBP" ? "£" : displayCurrency === "USD" ? "$" : "€";
+    const prefix = displayCurrency === "AED" ? "د.إ " : displayCurrency === "USD" ? "$" : displayCurrency === "GBP" ? "£" : "€";
     return converted < 0 ? "-" + prefix + abs : prefix + abs;
   }, [data, toDisplay, displayCurrency]);
 
@@ -1500,10 +1500,10 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
   /* ── Styles ── */
   const hdrS = { fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", borderBottom: "2.5px solid #000", padding: "6px 4px", textAlign: "right", whiteSpace: "nowrap" };
-  const cellS = { fontFamily: F, fontSize: 11, padding: "2px 4px", textAlign: "right", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" };
-  const inputS = { fontFamily: F, fontSize: 11, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: "#333", padding: "3px 0" };
-  const labelInputS = { fontFamily: F, fontSize: 11, border: "none", background: "transparent", outline: "none", color: "#000", width: 190 };
-  const subS = { fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f4f4f2", borderTop: "1.5px solid #bbb", borderBottom: "1.5px solid #bbb", padding: "7px 4px", textAlign: "right" };
+  const cellS = { fontFamily: F, fontSize: 10, padding: "2px 4px", textAlign: "right", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" };
+  const inputS = { fontFamily: F, fontSize: 10, border: "none", background: "transparent", outline: "none", textAlign: "right", width: "100%", color: "#333", padding: "3px 0" };
+  const labelInputS = { fontFamily: F, fontSize: 10, border: "none", background: "transparent", outline: "none", color: "#000", width: 190 };
+  const subS = { fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#f4f4f2", borderTop: "1.5px solid #bbb", borderBottom: "1.5px solid #bbb", padding: "7px 4px", textAlign: "right" };
   const ctrlLblS = { fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginRight: 2 };
   const ctrlSelS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", background: "#fff", padding: "5px 8px", outline: "none", color: "#000", cursor: "pointer" };
   const ctrlInpS = { fontFamily: F, fontSize: 11, border: "1px solid #ccc", padding: "5px 8px", outline: "none", color: "#000" };
@@ -1683,7 +1683,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     <button key={c} onClick={() => update("currency", c)}
                       style={{ fontFamily: F, fontSize: 11, fontWeight: 600, padding: "5px 12px", border: "none", cursor: "pointer",
                         background: displayCurrency === c ? "#000" : "#fff",
-                        color: displayCurrency === c ? "#fff" : "#666" }}>{c === "AED" ? "AED" : "USD ($)"}</button>
+                        color: displayCurrency === c ? "#fff" : "#666" }}>{c === "AED" ? "د.إ" : "$"}</button>
                   ))}
                 </div>
               </div>
@@ -1828,16 +1828,16 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
 
                     {/* Net cash flow */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
-                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#000", padding: "8px 4px", textAlign: "right", color: calcs.netC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netC[m] ? fmtSigned(calcs.netC[m]) : "—"}</td>)}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>}
+                      <td style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#000", color: "#fff", padding: "8px 0" }}>Net Cash Flow</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 10, fontWeight: 700, background: "#000", padding: "8px 4px", textAlign: "right", color: calcs.netC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netC[m] ? fmtSigned(calcs.netC[m]) : "—"}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 10, fontWeight: 700, background: "#000", padding: "8px 0", textAlign: "right", color: calcs.netA >= 0 ? "#7dffc4" : "#ffaaaa" }}>{calcs.netA ? fmtSigned(calcs.netA) : "—"}</td>}
                     </tr>
 
                     {/* Closing balance */}
                     <tr>
-                      <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
-                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: calcs.closeC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[m])}</td>)}
-                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 11, fontWeight: 700, background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>}
+                      <td style={{ fontFamily: F, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", background: "#2a2a2a", color: "#fff", borderTop: "2px solid #000", padding: "8px 0" }}>Closing Balance</td>
+                      {mCols.map(m => <td key={m} style={{ fontFamily: F, fontSize: 10, fontWeight: 700, background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 4px", textAlign: "right", color: calcs.closeC[m] >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[m])}</td>)}
+                      {cfMonth === null && <td style={{ fontFamily: F, fontSize: 10, fontWeight: 700, background: "#2a2a2a", borderTop: "2px solid #000", padding: "8px 0", textAlign: "right", color: (calcs.closeC[11] || 0) >= 0 ? "#7dffc4" : "#ffaaaa" }}>{fmtSigned(calcs.closeC[11] || 0)}</td>}
                     </tr>
 
                     {/* Spacer */}
