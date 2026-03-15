@@ -59,7 +59,7 @@ const fmtK = (n) => {
   if (abs >= 1000) return (n < 0 ? "-" : "") + "AED " + (abs / 1000).toFixed(0) + "k";
   return "AED " + n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
 };
-const fmtFull = (n) => (n < 0 ? "-" : "") + "د.إ " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtFull = (n) => (n < 0 ? "-" : "") + "AED " + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
 
 /* ── Card/Table styles ── */
@@ -1245,13 +1245,22 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     return n;
   }, [displayCurrency]);
 
+  // With currency prefix — for summary cards only
+  const fmtC = useCallback((n) => {
+    if (!data) return "0.00";
+    const converted = toDisplay(n);
+    const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const prefix = displayCurrency === "AED" ? "AED " : displayCurrency === "USD" ? "USD " : displayCurrency === "GBP" ? "£" : "€";
+    return converted < 0 ? "-" + prefix + abs : prefix + abs;
+  }, [data, toDisplay, displayCurrency]);
+
+  // No prefix — for table values
   const fmt = useCallback((n) => {
     if (!data) return "0.00";
     const converted = toDisplay(n);
     const abs = Math.abs(converted).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const prefix = displayCurrency === "AED" ? "د.إ " : displayCurrency === "USD" ? "$" : displayCurrency === "GBP" ? "£" : "€";
-    return converted < 0 ? "-" + prefix + abs : prefix + abs;
-  }, [data, toDisplay, displayCurrency]);
+    return converted < 0 ? "-" + abs : abs;
+  }, [data, toDisplay]);
 
   const fmtSigned = useCallback((n) => {
     return fmt(n);
@@ -1683,7 +1692,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                     <button key={c} onClick={() => update("currency", c)}
                       style={{ fontFamily: F, fontSize: 11, fontWeight: 600, padding: "5px 12px", border: "none", cursor: "pointer",
                         background: displayCurrency === c ? "#000" : "#fff",
-                        color: displayCurrency === c ? "#fff" : "#666" }}>{c === "AED" ? "د.إ" : "$"}</button>
+                        color: displayCurrency === c ? "#fff" : "#666" }}>{c}</button>
                   ))}
                 </div>
               </div>
@@ -1711,12 +1720,12 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                 return (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", border: "1px solid #e0e0e0", marginBottom: 22 }}>
                   {[
-                    { l: isMonth ? "Opening Balance" : "Current Opening Balance", v: fmt(sumOb), cls: sumOb < 0 ? "#b0271d" : "#000" },
-                    { l: "Total Sales", v: fmt(sumIn), cls: "#1a6e3e" },
-                    { l: "COGS", v: fmt(sumCogs), cls: "#b0271d" },
-                    { l: "Total Outflows", v: fmt(sumOut), cls: "#b0271d" },
-                    { l: "Net Cash Flow", v: fmtSigned(sumNet), cls: sumNet >= 0 ? "#1a6e3e" : "#b0271d" },
-                    { l: isMonth ? "Closing Balance" : "Year-End Balance", v: fmtSigned(sumClose), cls: sumClose >= 0 ? "#1a6e3e" : "#b0271d" },
+                    { l: isMonth ? "Opening Balance" : "Current Opening Balance", v: fmtC(sumOb), cls: sumOb < 0 ? "#b0271d" : "#000" },
+                    { l: "Total Sales", v: fmtC(sumIn), cls: "#1a6e3e" },
+                    { l: "COGS", v: fmtC(sumCogs), cls: "#b0271d" },
+                    { l: "Total Outflows", v: fmtC(sumOut), cls: "#b0271d" },
+                    { l: "Net Cash Flow", v: fmtC(sumNet), cls: sumNet >= 0 ? "#1a6e3e" : "#b0271d" },
+                    { l: isMonth ? "Closing Balance" : "Year-End Balance", v: fmtC(sumClose), cls: sumClose >= 0 ? "#1a6e3e" : "#b0271d" },
                   ].map((s, i) => (
                     <div key={i} style={{ padding: "11px 14px", borderRight: i < 5 ? "1px solid #e0e0e0" : "none" }}>
                       <div style={{ fontFamily: F, fontSize: 7.5, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#999", marginBottom: 4 }}>{s.l}</div>
@@ -1751,7 +1760,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                         const isAuto = manual === "" && m > 0;
                         return (
                         <td key={m} style={{ ...cellS, background: "#f9f9f7", borderBottom: "1px solid #e8e8e8" }}>
-                          <input value={manual !== "" ? v : (isAuto && effective ? String(effective) : "")} onChange={e => {
+                          <input value={manual !== "" ? v : (isAuto ? fmt(effective) : "")} onChange={e => {
                             const val = e.target.value;
                             update(d => {
                               const arr = [...(d.openingBalances || Array(12).fill(""))];
@@ -1760,8 +1769,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
                             });
                           }}
                             style={{ ...inputS, fontWeight: 600, color: isAuto ? "#999" : (effective < 0 ? "#b0271d" : effective > 0 ? "#1a6e3e" : "#999"), fontStyle: isAuto ? "italic" : "normal" }}
-                            placeholder={isAuto ? fmt(effective) : "0"} inputMode="numeric"
-                            onFocus={e => { e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
+                            placeholder={fmt(0)} inputMode="numeric"
+                            onFocus={e => { if (isAuto) { e.target.value = String(effective || ""); } e.target.style.background = "#f0f5ff"; e.target.style.borderRadius = "2px"; }}
                             onBlur={e => { e.target.style.background = "transparent"; }} />
                         </td>
                         );
