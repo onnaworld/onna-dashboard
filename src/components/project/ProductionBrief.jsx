@@ -124,7 +124,7 @@ const EditableLabel = ({ value, onChange, style: s = {}, minWidth = 60, gray }) 
   return (
     <span onDoubleClick={() => setEditing(true)}
       style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000",
-        whiteSpace: "nowrap", minWidth, cursor: "default", ...grayStyle, ...s }}
+        whiteSpace: "nowrap", minWidth, cursor: "default", ...(gray ? { display: "block" } : {}), ...grayStyle, ...s }}
       title="Double-click to edit">{value || "LABEL"}</span>
   );
 };
@@ -639,7 +639,7 @@ export default function ProductionBrief({
               {sf.map(f => (
                 <div key={f.id} className="pb-row" style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray />
+                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray style={{ flex: 1 }} />
                     <DelBtn onClick={() => removeField("scheduleFields", f.id)} />
                     <AddBtn onClick={() => addField("scheduleFields", "textarea")} />
                   </div>
