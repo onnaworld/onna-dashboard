@@ -498,11 +498,11 @@ export default function ProductionBrief({
 
   const trackEditor = (el) => { lastFocusedEditor.current = el; };
 
-  // Render a dynamic field row with editable label, value, ×, +
-  const FieldRow = ({ field, arrKey, isTextarea }) => (
-    <div className="pb-row" style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+  // Render a dynamic field row — inline function (NOT a component) to avoid remount on re-render
+  const renderFieldRow = (field, arrKey) => (
+    <div key={field.id} className="pb-row" style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
       <EditableLabel value={field.label} onChange={v => updateField(arrKey, field.id, "label", v)} minWidth={arrKey === "overviewFields" ? 180 : 140} style={{ flexShrink: 0 }} />
-      {isTextarea || field.type === "textarea" ? (
+      {field.type === "textarea" ? (
         <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} onFocusEditor={trackEditor} />
       ) : (
         <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} onFocusEditor={trackEditor} />
@@ -580,12 +580,12 @@ export default function ProductionBrief({
             <div style={{ display: "flex", gap: 16, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {/* Left column */}
               <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 200 }}>
-                {pf.map(f => <FieldRow key={f.id} field={f} arrKey="projectFields" />)}
+                {pf.map(f => renderFieldRow(f, "projectFields"))}
                 {pf.length === 0 && <AddBtn onClick={() => addField("projectFields")} label="+ ROW" />}
               </div>
               {/* Right column */}
               <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 280, flex: 0 }}>
-                {of_.map(f => <FieldRow key={f.id} field={f} arrKey="overviewFields" />)}
+                {of_.map(f => renderFieldRow(f, "overviewFields"))}
                 {of_.length === 0 && <AddBtn onClick={() => addField("overviewFields")} label="+ ROW" />}
               </div>
             </div>
