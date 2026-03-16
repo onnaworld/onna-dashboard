@@ -1,12 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 
 const CS_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
-const CS_LS = "letter-spacing:1.5px;";
-
-const DEFAULT_SECTIONS = [
-  "PROJECT OVERVIEW","CREATIVE DIRECTION","CREW BREAKDOWN","SCHEDULE",
-  "ACCOMMODATION","LOCAL CREW","TRANSPORT","CATERING","LOCATION","PERMITS REQUIRED"
-];
 
 const makeBrief = (projectId) => ({
   id: Date.now() + Math.random(),
@@ -15,28 +9,95 @@ const makeBrief = (projectId) => ({
   prodLogo: null,
   clientLogo: null,
   project: { name: "", client: "", date: "", producer: "", director: "" },
-  sections: DEFAULT_SECTIONS.map((h,i) => ({ id: Date.now()+i+Math.random(), heading: h, content: "" })),
+  overview: { description: "", objective: "", deliverables: "", budget: "" },
+  creative: { direction: "", references: "", tone: "", keyMessages: "" },
+  schedule: {
+    recceDays: "", recceDates: "",
+    shootDays: "", shootDates: "",
+    travelDays: "", travelDates: "",
+    prePro: "", wrapDate: "",
+  },
+  crew: { director: "", dop: "", producer: "", ac: "", sound: "", gaffer: "", artDept: "", stylist: "", mua: "", other: "" },
+  accommodation: { hotel: "", address: "", checkIn: "", checkOut: "", notes: "" },
+  localCrew: { fixers: "", drivers: "", security: "", extras: "", notes: "" },
+  transport: { vehicles: "", pickupDetails: "", airportTransfers: "", notes: "" },
+  catering: { headcount: "", dietary: "", vendor: "", mealTimes: "", notes: "" },
+  location: { primary: "", address: "", gps: "", contact: "", backup: "", notes: "" },
+  permits: { required: "", authority: "", status: "", deadline: "", notes: "" },
+  extraSections: [],
   createdAt: Date.now(),
   updatedAt: Date.now(),
 });
 
 const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]{display:none!important;}';
 
+// Reusable field components matching RecceField / RecceInp pattern
+const PBInp = ({ value, onChange, placeholder, style: s = {} }) => (
+  <input value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+      background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", ...s }} />
+);
+const PBField = ({ label, value, onChange, placeholder, color = "#999", style: s = {} }) => (
+  <div style={{ flex: 1, minWidth: 140, ...s }}>
+    <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
+    <PBInp value={value} onChange={onChange} placeholder={placeholder} />
+  </div>
+);
+const PBTextarea = ({ label, value, onChange, placeholder, color = "#999", style: s = {} }) => (
+  <div style={{ flex: 1, minWidth: 140, ...s }}>
+    <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
+    <textarea value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
+        padding: "6px 8px", color: "#333", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
+        borderRadius: 2, background: value ? "#fff" : "#FFFDE7" }} />
+  </div>
+);
+const SectionTitle = ({ title }) => (
+  <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{title}</div>
+);
+const Row = ({ children, isMobile }) => (
+  <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>{children}</div>
+);
+
+// Stable contentEditable that only sets innerHTML on mount (avoids cursor reset on re-render)
+const ExtraEditor = ({ id, content, editorRefs, focusedSection, setFocusedSection, updateExtraContent }) => {
+  const ref = useRef(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (ref.current && !mounted.current) {
+      ref.current.innerHTML = content || "";
+      mounted.current = true;
+    }
+  }, []);
+  useEffect(() => { editorRefs.current[id] = ref.current; }, [id, editorRefs]);
+  const focused = focusedSection === id;
+  return (
+    <div ref={ref} contentEditable suppressContentEditableWarning
+      onFocus={() => setFocusedSection(id)} onBlur={() => setFocusedSection(null)}
+      onInput={() => updateExtraContent(id)}
+      onKeyDown={e => { if (e.key === "a" && (e.metaKey || e.ctrlKey)) { /* allow default select-all */ } }}
+      style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, lineHeight: 1.6,
+        border: `1px solid ${focused ? "#000" : "#eee"}`,
+        outline: "none", width: "100%", padding: "6px 8px", color: "#333",
+        minHeight: 40, boxSizing: "border-box", borderRadius: 2,
+        background: (ref.current?.innerHTML) ? "#fff" : "#FFFDE7", transition: "border-color 0.15s" }} />
+  );
+};
+
 export default function ProductionBrief({
   T, isMobile, p,
   productionBriefStore, setProductionBriefStore,
   setCreativeSubSection, pushNav, showAlert, buildPath,
-  CSLogoSlot, BtnExport,
+  CSLogoSlot,
 }) {
   const brief = productionBriefStore[p.id] || null;
   const editorRefs = useRef({});
   const [focusedSection, setFocusedSection] = useState(null);
 
-  // Create default brief on first visit
   useEffect(() => {
     if (!brief) {
       const init = makeBrief(p.id);
-      init.project.name = `${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
+      init.project.name = `${p.client || ""} | ${p.name}`.replace(/^TEMPLATE \| /, "");
       init.project.client = p.client || "";
       setProductionBriefStore(prev => ({ ...prev, [p.id]: init }));
     }
@@ -50,51 +111,30 @@ export default function ProductionBrief({
     });
   }, [p.id, setProductionBriefStore]);
 
+  // Nested field updater: u("schedule","shootDays", val)
+  const u = useCallback((section, key, val) => {
+    update(b => ({ ...b, [section]: { ...(b[section] || {}), [key]: val } }));
+  }, [update]);
+
   const fmt = (cmd, val) => { document.execCommand(cmd, false, val || null); };
 
-  const updateSectionContent = useCallback((sectionId) => {
-    const el = editorRefs.current[sectionId];
+  // Extra freeform sections (for anything beyond the structured ones)
+  const addExtra = useCallback(() => {
+    update(b => ({ ...b, extraSections: [...(b.extraSections || []), { id: Date.now() + Math.random(), heading: "", content: "" }] }));
+  }, [update]);
+  const removeExtra = useCallback((id) => {
+    update(b => ({ ...b, extraSections: (b.extraSections || []).filter(s => s.id !== id) }));
+  }, [update]);
+  const updateExtraHeading = useCallback((id, heading) => {
+    update(b => ({ ...b, extraSections: (b.extraSections || []).map(s => s.id === id ? { ...s, heading } : s) }));
+  }, [update]);
+  const updateExtraContent = useCallback((id) => {
+    const el = editorRefs.current[id];
     if (!el) return;
-    update(b => ({
-      ...b,
-      sections: b.sections.map(s => s.id === sectionId ? { ...s, content: el.innerHTML } : s),
-    }));
+    update(b => ({ ...b, extraSections: (b.extraSections || []).map(s => s.id === id ? { ...s, content: el.innerHTML } : s) }));
   }, [update]);
 
-  const updateSectionHeading = useCallback((sectionId, heading) => {
-    update(b => ({
-      ...b,
-      sections: b.sections.map(s => s.id === sectionId ? { ...s, heading } : s),
-    }));
-  }, [update]);
-
-  const addSection = useCallback(() => {
-    update(b => ({
-      ...b,
-      sections: [...b.sections, { id: Date.now() + Math.random(), heading: "", content: "" }],
-    }));
-  }, [update]);
-
-  const removeSection = useCallback((sectionId) => {
-    update(b => ({
-      ...b,
-      sections: b.sections.filter(s => s.id !== sectionId),
-    }));
-  }, [update]);
-
-  const moveSection = useCallback((sectionId, dir) => {
-    update(b => {
-      const idx = b.sections.findIndex(s => s.id === sectionId);
-      if (idx < 0) return b;
-      const newIdx = idx + dir;
-      if (newIdx < 0 || newIdx >= b.sections.length) return b;
-      const arr = [...b.sections];
-      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
-      return { ...b, sections: arr };
-    });
-  }, [update]);
-
-  // PDF export — clone the print container, replace inputs with spans
+  // PDF export
   const exportPDF = useCallback(() => {
     const el = document.getElementById("onna-prodbr-print");
     if (!el) return;
@@ -117,7 +157,17 @@ export default function ProductionBrief({
 
   if (!brief) return null;
 
-  const projU = (key, val) => update(b => ({ ...b, project: { ...b.project, [key]: val } }));
+  const ov = brief.overview || {};
+  const cr = brief.creative || {};
+  const sc = brief.schedule || {};
+  const cw = brief.crew || {};
+  const ac = brief.accommodation || {};
+  const lc = brief.localCrew || {};
+  const tr = brief.transport || {};
+  const ct = brief.catering || {};
+  const lo = brief.location || {};
+  const pm = brief.permits || {};
+  const extras = brief.extraSections || [];
 
   const TBtnStyle = { height: 22, minWidth: 22, borderRadius: 2, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", display: "flex", alignItems: "center", justifyContent: "center", color: "#666" };
 
@@ -130,7 +180,7 @@ export default function ProductionBrief({
         <button onClick={exportPDF} style={{ padding: "6px 16px", borderRadius: 8, background: "#1d1d1f", color: "#fff", border: "none", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Export PDF</button>
       </div>
 
-      {/* Formatting toolbar — outside the print container */}
+      {/* Formatting toolbar */}
       <div data-hide="1" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 3, background: "#fafafa", flexWrap: "wrap", marginBottom: 0, borderRadius: "8px 8px 0 0", border: "1px solid #eee", borderBottom: "none" }}>
         <button onMouseDown={e => { e.preventDefault(); fmt("bold"); }} style={{ ...TBtnStyle, fontWeight: 700 }}>B</button>
         <button onMouseDown={e => { e.preventDefault(); fmt("italic"); }} style={{ ...TBtnStyle, fontStyle: "italic" }}>I</button>
@@ -169,89 +219,185 @@ export default function ProductionBrief({
         <button onMouseDown={e => { e.preventDefault(); fmt("hiliteColor", "transparent"); }} title="Clear highlight" style={{ ...TBtnStyle, fontSize: 9, color: "#999", minWidth: 14, width: 14, padding: 0 }}>✕</button>
       </div>
 
-      {/* ── Print container (white document) ── */}
+      {/* ── Print container ── */}
       <div id="onna-prodbr-print" style={{ background: "#fff", padding: 0, fontFamily: CS_FONT, borderRadius: 0 }}>
         <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff" }}>
 
           {/* Logo header */}
           <div style={{ padding: "20px 16px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
-                <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>LOCAL PRODUCTION BRIEF</div>
-              </div>
+              <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
               <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: -3 }}>
                 <CSLogoSlot label="Production Logo" image={brief.prodLogo} onUpload={v => update(b => ({ ...b, prodLogo: v }))} onRemove={() => update(b => ({ ...b, prodLogo: null }))} />
                 <CSLogoSlot label="Client Logo" image={brief.clientLogo} onUpload={v => update(b => ({ ...b, clientLogo: v }))} onRemove={() => update(b => ({ ...b, clientLogo: null }))} />
               </div>
             </div>
             <div style={{ borderBottom: "2.5px solid #000", marginBottom: 12 }} />
+            <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LOCAL PRODUCTION BRIEF</div>
           </div>
 
-          {/* Project metadata row */}
+          {/* Project metadata */}
           <div style={{ padding: "0 16px", display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
             {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client"], ["DATE", "date", "Date"], ["PRODUCER", "producer", "Producer"], ["DIRECTOR", "director", "Director"]].map(([lbl, key, ph]) => (
               <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
                 <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
-                <input value={(brief.project || {})[key] || ""} onChange={e => projU(key, e.target.value)} placeholder={ph}
-                  style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px", background: (brief.project || {})[key] ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: 100, borderBottom: "1px solid #eee" }} />
+                <PBInp value={(brief.project || {})[key]} onChange={v => u("project", key, v)} placeholder={ph} style={{ width: 100, borderBottom: "1px solid #eee" }} />
               </div>
             ))}
           </div>
 
-          {/* Document title */}
-          <div style={{ padding: "0 16px", marginBottom: 14 }}>
-            <input
-              value={brief.title}
-              onChange={e => update(b => ({ ...b, title: e.target.value }))}
-              placeholder="Document Title"
-              style={{ fontFamily: CS_FONT, fontSize: 20, fontWeight: 700, border: "none", outline: "none", background: "transparent", width: "100%", boxSizing: "border-box", padding: 0, color: "#000" }}
-            />
-          </div>
-
-          {/* Sections */}
           <div style={{ padding: "0 16px" }}>
-            {brief.sections.map((s, idx) => (
-              <div key={s.id} style={{ marginBottom: 16 }}>
-                {/* Section heading */}
+
+            {/* ── PROJECT OVERVIEW ── */}
+            <SectionTitle title="PROJECT OVERVIEW" />
+            <Row isMobile={isMobile}>
+              <PBTextarea label="DESCRIPTION" value={ov.description} onChange={v => u("overview", "description", v)} placeholder="Brief project description..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="OBJECTIVE" value={ov.objective} onChange={v => u("overview", "objective", v)} placeholder="Campaign objective..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="DELIVERABLES" value={ov.deliverables} onChange={v => u("overview", "deliverables", v)} placeholder="e.g. 1x hero film, 3x social cuts, 20 stills..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="BUDGET" value={ov.budget} onChange={v => u("overview", "budget", v)} placeholder="AED / USD" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+
+            {/* ── CREATIVE DIRECTION ── */}
+            <SectionTitle title="CREATIVE DIRECTION" />
+            <Row isMobile={isMobile}>
+              <PBTextarea label="CREATIVE DIRECTION" value={cr.direction} onChange={v => u("creative", "direction", v)} placeholder="Look, feel, visual language..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="REFERENCES" value={cr.references} onChange={v => u("creative", "references", v)} placeholder="Mood refs, links..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="TONE / MOOD" value={cr.tone} onChange={v => u("creative", "tone", v)} placeholder="e.g. cinematic, warm, aspirational..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="KEY MESSAGES" value={cr.keyMessages} onChange={v => u("creative", "keyMessages", v)} placeholder="Core messages to convey..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── SCHEDULE ── */}
+            <SectionTitle title="SCHEDULE" />
+            <Row isMobile={isMobile}>
+              <PBField label="RECCE DAYS" value={sc.recceDays} onChange={v => u("schedule", "recceDays", v)} placeholder="No. of days" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="RECCE DATES" value={sc.recceDates} onChange={v => u("schedule", "recceDates", v)} placeholder="e.g. 15-16 Mar 2026" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="SHOOT DAYS" value={sc.shootDays} onChange={v => u("schedule", "shootDays", v)} placeholder="No. of days" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="SHOOT DATES" value={sc.shootDates} onChange={v => u("schedule", "shootDates", v)} placeholder="e.g. 20-22 Mar 2026" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="TRAVEL DAYS" value={sc.travelDays} onChange={v => u("schedule", "travelDays", v)} placeholder="No. of days" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="TRAVEL DATES" value={sc.travelDates} onChange={v => u("schedule", "travelDates", v)} placeholder="e.g. 19 & 23 Mar 2026" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="PRE-PRODUCTION" value={sc.prePro} onChange={v => u("schedule", "prePro", v)} placeholder="Dates or duration..." style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="WRAP DATE" value={sc.wrapDate} onChange={v => u("schedule", "wrapDate", v)} placeholder="Date" style={{ flex: 0.6, minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+
+            {/* ── CREW BREAKDOWN ── */}
+            <SectionTitle title="CREW BREAKDOWN" />
+            <Row isMobile={isMobile}>
+              <PBField label="DIRECTOR" value={cw.director} onChange={v => u("crew", "director", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="DOP" value={cw.dop} onChange={v => u("crew", "dop", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="PRODUCER" value={cw.producer} onChange={v => u("crew", "producer", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="AC" value={cw.ac} onChange={v => u("crew", "ac", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="SOUND" value={cw.sound} onChange={v => u("crew", "sound", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="GAFFER" value={cw.gaffer} onChange={v => u("crew", "gaffer", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="ART DEPT" value={cw.artDept} onChange={v => u("crew", "artDept", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="STYLIST" value={cw.stylist} onChange={v => u("crew", "stylist", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="MUA / HAIR" value={cw.mua} onChange={v => u("crew", "mua", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBTextarea label="OTHER CREW" value={cw.other} onChange={v => u("crew", "other", v)} placeholder="Additional crew members, roles..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── ACCOMMODATION ── */}
+            <SectionTitle title="ACCOMMODATION" />
+            <Row isMobile={isMobile}>
+              <PBField label="HOTEL / PROPERTY" value={ac.hotel} onChange={v => u("accommodation", "hotel", v)} placeholder="Name" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="ADDRESS" value={ac.address} onChange={v => u("accommodation", "address", v)} placeholder="Full address" style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="CHECK-IN" value={ac.checkIn} onChange={v => u("accommodation", "checkIn", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="CHECK-OUT" value={ac.checkOut} onChange={v => u("accommodation", "checkOut", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBTextarea label="NOTES" value={ac.notes} onChange={v => u("accommodation", "notes", v)} placeholder="Room requirements, special requests..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── LOCAL CREW ── */}
+            <SectionTitle title="LOCAL CREW" />
+            <Row isMobile={isMobile}>
+              <PBField label="FIXERS" value={lc.fixers} onChange={v => u("localCrew", "fixers", v)} placeholder="Name / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="DRIVERS" value={lc.drivers} onChange={v => u("localCrew", "drivers", v)} placeholder="Name / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="SECURITY" value={lc.security} onChange={v => u("localCrew", "security", v)} placeholder="Name / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="EXTRAS" value={lc.extras} onChange={v => u("localCrew", "extras", v)} placeholder="Count / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBTextarea label="NOTES" value={lc.notes} onChange={v => u("localCrew", "notes", v)} placeholder="Local crew details, contacts..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── TRANSPORT ── */}
+            <SectionTitle title="TRANSPORT" />
+            <Row isMobile={isMobile}>
+              <PBField label="VEHICLES" value={tr.vehicles} onChange={v => u("transport", "vehicles", v)} placeholder="Types, quantities..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="PICKUP DETAILS" value={tr.pickupDetails} onChange={v => u("transport", "pickupDetails", v)} placeholder="Times, locations..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="AIRPORT TRANSFERS" value={tr.airportTransfers} onChange={v => u("transport", "airportTransfers", v)} placeholder="Arrival / departure details..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBTextarea label="NOTES" value={tr.notes} onChange={v => u("transport", "notes", v)} placeholder="Parking, access restrictions, unit base..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── CATERING ── */}
+            <SectionTitle title="CATERING" />
+            <Row isMobile={isMobile}>
+              <PBField label="HEADCOUNT" value={ct.headcount} onChange={v => u("catering", "headcount", v)} placeholder="No. of crew" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="DIETARY REQUIREMENTS" value={ct.dietary} onChange={v => u("catering", "dietary", v)} placeholder="Vegan, halal, allergies..." style={{ flex: 1.5, minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="VENDOR" value={ct.vendor} onChange={v => u("catering", "vendor", v)} placeholder="Catering company" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="MEAL TIMES" value={ct.mealTimes} onChange={v => u("catering", "mealTimes", v)} placeholder="Breakfast, lunch, snacks..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBTextarea label="NOTES" value={ct.notes} onChange={v => u("catering", "notes", v)} placeholder="Special requests, hot/cold, setup..." style={{ flex: 1.5, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── LOCATION ── */}
+            <SectionTitle title="LOCATION" />
+            <Row isMobile={isMobile}>
+              <PBField label="PRIMARY LOCATION" value={lo.primary} onChange={v => u("location", "primary", v)} placeholder="Location name" style={{ flex: 1.5, minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="ADDRESS" value={lo.address} onChange={v => u("location", "address", v)} placeholder="Full address" style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="GPS COORDINATES" value={lo.gps} onChange={v => u("location", "gps", v)} placeholder="25.2048, 55.2708" style={{ flex: 0.8, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="CONTACT ON SITE" value={lo.contact} onChange={v => u("location", "contact", v)} placeholder="Name / phone" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="BACKUP LOCATION" value={lo.backup} onChange={v => u("location", "backup", v)} placeholder="Alternative location..." style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBTextarea label="NOTES" value={lo.notes} onChange={v => u("location", "notes", v)} placeholder="Access, power, parking, restrictions..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── PERMITS REQUIRED ── */}
+            <SectionTitle title="PERMITS REQUIRED" />
+            <Row isMobile={isMobile}>
+              <PBField label="PERMITS REQUIRED" value={pm.required} onChange={v => u("permits", "required", v)} placeholder="DFTC, council, community..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="ISSUING AUTHORITY" value={pm.authority} onChange={v => u("permits", "authority", v)} placeholder="Authority name" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="STATUS" value={pm.status} onChange={v => u("permits", "status", v)} placeholder="Pending / Approved / N/A" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="DEADLINE" value={pm.deadline} onChange={v => u("permits", "deadline", v)} placeholder="Submission deadline" style={{ flex: 0.6, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBTextarea label="NOTES" value={pm.notes} onChange={v => u("permits", "notes", v)} placeholder="Requirements, lead time, contacts..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── EXTRA FREEFORM SECTIONS ── */}
+            {extras.map((s) => (
+              <div key={s.id} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #eee", paddingBottom: 3, marginBottom: 6 }}>
-                  <input
-                    value={s.heading}
-                    onChange={e => updateSectionHeading(s.id, e.target.value)}
-                    placeholder="SECTION TITLE"
-                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }}
-                  />
-                  <div data-hide="1" style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                    <button onClick={() => moveSection(s.id, -1)} disabled={idx === 0} style={{ ...TBtnStyle, opacity: idx === 0 ? 0.3 : 1, fontSize: 9, height: 18, minWidth: 18 }}>↑</button>
-                    <button onClick={() => moveSection(s.id, 1)} disabled={idx === brief.sections.length - 1} style={{ ...TBtnStyle, opacity: idx === brief.sections.length - 1 ? 0.3 : 1, fontSize: 9, height: 18, minWidth: 18 }}>↓</button>
-                    <button onClick={() => { if (confirm(`Delete section "${s.heading || "Untitled"}"?`)) removeSection(s.id); }} style={{ ...TBtnStyle, color: "#c0392b", fontSize: 11, height: 18, minWidth: 18 }}>×</button>
-                  </div>
+                  <input value={s.heading} onChange={e => updateExtraHeading(s.id, e.target.value)} placeholder="SECTION TITLE"
+                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
+                  <button data-hide="1" onClick={() => { if (confirm(`Delete section "${s.heading || "Untitled"}"?`)) removeExtra(s.id); }}
+                    style={{ ...TBtnStyle, color: "#c0392b", fontSize: 11, height: 18, minWidth: 18 }}>×</button>
                 </div>
-                {/* Content editable area */}
-                <div
-                  ref={el => { editorRefs.current[s.id] = el; }}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onFocus={() => setFocusedSection(s.id)}
-                  onBlur={() => setFocusedSection(null)}
-                  onInput={() => updateSectionContent(s.id)}
-                  dangerouslySetInnerHTML={{ __html: s.content }}
-                  style={{
-                    fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, lineHeight: 1.6,
-                    border: `1px solid ${focusedSection === s.id ? "#000" : "#eee"}`,
-                    outline: "none", width: "100%", padding: "6px 8px", color: "#333",
-                    minHeight: 40, boxSizing: "border-box", borderRadius: 2,
-                    background: s.content ? "#fff" : "#FFFDE7",
-                    transition: "border-color 0.15s",
-                  }}
-                />
+                <ExtraEditor id={s.id} content={s.content} editorRefs={editorRefs}
+                  focusedSection={focusedSection} setFocusedSection={setFocusedSection}
+                  updateExtraContent={updateExtraContent} />
               </div>
             ))}
 
-            {/* Add section button */}
+            {/* Add section */}
             <div data-hide="1" style={{ marginBottom: 16 }}>
-              <div onClick={addSection} style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, padding: "5px 12px", cursor: "pointer", borderRadius: 2, border: "1px dashed #ccc", color: "#999", display: "inline-block" }}>+ ADD SECTION</div>
+              <div onClick={addExtra} style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, padding: "5px 12px", cursor: "pointer", borderRadius: 2, border: "1px dashed #ccc", color: "#999", display: "inline-block" }}>+ ADD SECTION</div>
             </div>
+
           </div>
 
           {/* ONNA footer */}
