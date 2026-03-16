@@ -493,10 +493,17 @@ export default function ProductionBrief({
     clone.querySelectorAll("[contenteditable]").forEach(el => {
       el.removeAttribute("contenteditable");
       el.style.border = "none";
+      el.style.borderBottom = "none";
       el.style.background = "none";
       // Hide empty contentEditable areas
       const text = el.textContent || "";
-      if (!text.trim()) el.style.display = "none";
+      if (!text.trim()) {
+        // Hide parent wrapper too if it has a border
+        if (el.parentElement) el.parentElement.style.borderBottom = "none";
+        el.style.display = "none";
+      }
+      // Also strip border from parent wrapper
+      if (el.parentElement) el.parentElement.style.borderBottom = "none";
     });
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
