@@ -8,7 +8,8 @@ const makeBrief = (projectId) => ({
   title: "Local Production Brief",
   prodLogo: null,
   clientLogo: null,
-  sectionTitles: { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE" },
+  sectionTitles: { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE", 6: "ONNA" },
+  onnaContent: "",
   projectFields: [
     { id: Date.now()+0.01, label: "PROJECT NAME", value: "" },
     { id: Date.now()+0.02, label: "CLIENT", value: "" },
@@ -25,8 +26,8 @@ const makeBrief = (projectId) => ({
   ],
   creativeFields: [
     { id: Date.now()+0.15, label: "DESCRIPTION", value: "", type: "textarea" },
-    { id: Date.now()+0.16, label: "REFERENCES", value: "" },
-    { id: Date.now()+0.17, label: "VISUAL NOTES", value: "" },
+    { id: Date.now()+0.16, label: "REFERENCES", value: "", type: "textarea" },
+    { id: Date.now()+0.17, label: "VISUAL NOTES", value: "", type: "textarea" },
   ],
   crew: {
     client: [{ id: Date.now()+0.1, role: "", name: "" }],
@@ -147,7 +148,7 @@ const SectionTitle = ({ title, num, onEdit }) => {
   return (
     <div onDoubleClick={() => onEdit && setEditing(true)} title={onEdit ? "Double-click to edit" : undefined}
       style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000",
-        marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3, cursor: onEdit ? "default" : undefined }}>
+        marginTop: 14, marginBottom: 10, borderBottom: "1px solid #eee", paddingBottom: 4, cursor: onEdit ? "default" : undefined }}>
       {num ? `${num}. ` : ""}{title}
     </div>
   );
@@ -570,29 +571,16 @@ export default function ProductionBrief({
             {/* ── 2. CREATIVE DIRECTION ── */}
             <SectionTitle title={st[2] || "CREATIVE DIRECTION"} num={2} onEdit={v => setSectionTitle(2, v)} />
             {cf.map(f => (
-              <div key={f.id} className="pb-row" style={{ marginBottom: 8 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                  {f.type === "textarea" ? (
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                        <EditableLabel value={f.label} onChange={v => updateField("creativeFields", f.id, "label", v)} />
-                        <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "row"}"?`)) removeField("creativeFields", f.id); }} />
-                        <AddBtn onClick={() => addField("creativeFields")} />
-                      </div>
-                      <PBTextarea value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} />
-                    </div>
-                  ) : (
-                    <>
-                      <EditableLabel value={f.label} onChange={v => updateField("creativeFields", f.id, "label", v)} />
-                      <PBInp value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                      <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "row"}"?`)) removeField("creativeFields", f.id); }} />
-                      <AddBtn onClick={() => addField("creativeFields")} />
-                    </>
-                  )}
+              <div key={f.id} className="pb-row" style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  <EditableLabel value={f.label} onChange={v => updateField("creativeFields", f.id, "label", v)} />
+                  <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "row"}"?`)) removeField("creativeFields", f.id); }} />
+                  <AddBtn onClick={() => addField("creativeFields", "textarea")} />
                 </div>
+                <PBTextarea value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} />
               </div>
             ))}
-            {cf.length === 0 && <AddBtn onClick={() => addField("creativeFields")} label="+ ROW" />}
+            {cf.length === 0 && <AddBtn onClick={() => addField("creativeFields", "textarea")} label="+ ROW" />}
 
             {/* ── 3. CREW ── */}
             <SectionTitle title={st[3] || "CREW"} num={3} onEdit={v => setSectionTitle(3, v)} />
@@ -609,7 +597,7 @@ export default function ProductionBrief({
                     return (
                       <div key={catKey} style={{ marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", ...GRAY_BOX }}>{catLabel}</div>
+                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
                           <AddBtn onClick={() => addCrewMember(catKey)} />
                         </div>
                         {members.map((m) => {
@@ -709,6 +697,10 @@ export default function ProductionBrief({
               </div>
             ))}
             {(brief.quote || []).length === 0 && <AddBtn onClick={addQuoteSection} label="+ SECTION" />}
+
+            {/* ── 6. ONNA ── */}
+            <SectionTitle title={st[6] || "ONNA"} num={6} onEdit={v => setSectionTitle(6, v)} />
+            <PBTextarea value={brief.onnaContent || ""} onChange={v => update(b => ({ ...b, onnaContent: v }))} placeholder="Notes, additional information..." style={{ minWidth: "100%", marginBottom: 12 }} />
 
             {/* ── EXTRA FREEFORM SECTIONS ── */}
             {extras.map((s) => (
