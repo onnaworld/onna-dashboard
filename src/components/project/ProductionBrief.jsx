@@ -38,13 +38,13 @@ const makeBrief = (projectId) => ({
     casting: [{ id: Date.now()+0.7, role: "", name: "" }],
     miscellaneous: [{ id: Date.now()+0.8, role: "", name: "" }],
   },
-  localCrewList: {
-    fixers: [{ id: Date.now()+0.9, role: "", name: "" }],
-    drivers: [{ id: Date.now()+0.11, role: "", name: "" }],
-    security: [{ id: Date.now()+0.12, role: "", name: "" }],
-    extras: [{ id: Date.now()+0.13, role: "", name: "" }],
-    miscellaneous: [{ id: Date.now()+0.14, role: "", name: "" }],
-  },
+  localCrewCategories: [
+    { id: Date.now()+0.9, label: "FIXERS", members: [{ id: Date.now()+0.91, role: "", name: "" }] },
+    { id: Date.now()+0.11, label: "DRIVERS", members: [{ id: Date.now()+0.111, role: "", name: "" }] },
+    { id: Date.now()+0.12, label: "SECURITY", members: [{ id: Date.now()+0.121, role: "", name: "" }] },
+    { id: Date.now()+0.13, label: "EXTRAS", members: [{ id: Date.now()+0.131, role: "", name: "" }] },
+    { id: Date.now()+0.14, label: "MISCELLANEOUS", members: [{ id: Date.now()+0.141, role: "", name: "" }] },
+  ],
   scheduleFields: [
     { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
     { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
@@ -158,10 +158,7 @@ const CREW_CATEGORIES = [
   ["photo", "PHOTO"], ["wardrobe", "WARDROBE"], ["hairMakeup", "HAIR & MAKEUP"],
   ["casting", "CASTING"], ["miscellaneous", "MISCELLANEOUS"],
 ];
-const LOCAL_CREW_CATEGORIES = [
-  ["fixers", "FIXERS"], ["drivers", "DRIVERS"], ["security", "SECURITY"],
-  ["extras", "EXTRAS"], ["miscellaneous", "MISCELLANEOUS"],
-];
+const GRAY_BOX = { background: "#f2f2f2", padding: "3px 8px", borderRadius: 2 };
 
 // × button
 const DelBtn = ({ onClick }) => (
@@ -246,7 +243,32 @@ export default function ProductionBrief({
           { id: Date.now()+0.18, label: "STRUCTURE", value: sc.structure || "", type: "textarea" },
           { id: Date.now()+0.19, label: "KEY MOMENTS", value: sc.keyMoments || "", type: "textarea" },
         ],
+        localCrewCategories: brief.localCrewCategories || (() => {
+          const lcl = brief.localCrewList || {};
+          return [
+            { id: Date.now()+0.9, label: "FIXERS", members: lcl.fixers || [{ id: Date.now()+0.91, role: "", name: "" }] },
+            { id: Date.now()+0.11, label: "DRIVERS", members: lcl.drivers || [{ id: Date.now()+0.111, role: "", name: "" }] },
+            { id: Date.now()+0.12, label: "SECURITY", members: lcl.security || [{ id: Date.now()+0.121, role: "", name: "" }] },
+            { id: Date.now()+0.13, label: "EXTRAS", members: lcl.extras || [{ id: Date.now()+0.131, role: "", name: "" }] },
+            { id: Date.now()+0.14, label: "MISCELLANEOUS", members: lcl.miscellaneous || [{ id: Date.now()+0.141, role: "", name: "" }] },
+          ];
+        })(),
         quote: brief.quote || makeBrief(p.id).quote,
+        updatedAt: Date.now(),
+      };
+      setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
+    } else if (brief && brief.projectFields && !brief.localCrewCategories) {
+      // Migrate localCrewList to localCrewCategories
+      const lcl = brief.localCrewList || {};
+      const migrated = {
+        ...brief,
+        localCrewCategories: [
+          { id: Date.now()+0.9, label: "FIXERS", members: lcl.fixers || [{ id: Date.now()+0.91, role: "", name: "" }] },
+          { id: Date.now()+0.11, label: "DRIVERS", members: lcl.drivers || [{ id: Date.now()+0.111, role: "", name: "" }] },
+          { id: Date.now()+0.12, label: "SECURITY", members: lcl.security || [{ id: Date.now()+0.121, role: "", name: "" }] },
+          { id: Date.now()+0.13, label: "EXTRAS", members: lcl.extras || [{ id: Date.now()+0.131, role: "", name: "" }] },
+          { id: Date.now()+0.14, label: "MISCELLANEOUS", members: lcl.miscellaneous || [{ id: Date.now()+0.141, role: "", name: "" }] },
+        ],
         updatedAt: Date.now(),
       };
       setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
@@ -288,15 +310,24 @@ export default function ProductionBrief({
     update(b => ({ ...b, crew: { ...b.crew, [catKey]: (b.crew[catKey] || []).map(m => m.id === memberId ? { ...m, [field]: val } : m) } }));
   }, [update]);
 
-  // Local crew list helpers
-  const addLocalCrewMember = useCallback((catKey) => {
-    update(b => ({ ...b, localCrewList: { ...(b.localCrewList || {}), [catKey]: [...((b.localCrewList || {})[catKey] || []), { id: Date.now() + Math.random(), role: "", name: "" }] } }));
+  // Local crew dynamic category helpers
+  const addLocalCategory = useCallback(() => {
+    update(b => ({ ...b, localCrewCategories: [...(b.localCrewCategories || []), { id: Date.now() + Math.random(), label: "", members: [{ id: Date.now() + Math.random(), role: "", name: "" }] }] }));
   }, [update]);
-  const removeLocalCrewMember = useCallback((catKey, memberId) => {
-    update(b => ({ ...b, localCrewList: { ...(b.localCrewList || {}), [catKey]: ((b.localCrewList || {})[catKey] || []).filter(m => m.id !== memberId) } }));
+  const removeLocalCategory = useCallback((catId) => {
+    update(b => ({ ...b, localCrewCategories: (b.localCrewCategories || []).filter(c => c.id !== catId) }));
   }, [update]);
-  const updateLocalCrewMember = useCallback((catKey, memberId, field, val) => {
-    update(b => ({ ...b, localCrewList: { ...(b.localCrewList || {}), [catKey]: ((b.localCrewList || {})[catKey] || []).map(m => m.id === memberId ? { ...m, [field]: val } : m) } }));
+  const updateLocalCategoryLabel = useCallback((catId, label) => {
+    update(b => ({ ...b, localCrewCategories: (b.localCrewCategories || []).map(c => c.id === catId ? { ...c, label } : c) }));
+  }, [update]);
+  const addLocalCrewMember = useCallback((catId) => {
+    update(b => ({ ...b, localCrewCategories: (b.localCrewCategories || []).map(c => c.id === catId ? { ...c, members: [...(c.members || []), { id: Date.now() + Math.random(), role: "", name: "" }] } : c) }));
+  }, [update]);
+  const removeLocalCrewMember = useCallback((catId, memberId) => {
+    update(b => ({ ...b, localCrewCategories: (b.localCrewCategories || []).map(c => c.id === catId ? { ...c, members: (c.members || []).filter(m => m.id !== memberId) } : c) }));
+  }, [update]);
+  const updateLocalCrewMember = useCallback((catId, memberId, field, val) => {
+    update(b => ({ ...b, localCrewCategories: (b.localCrewCategories || []).map(c => c.id === catId ? { ...c, members: (c.members || []).map(m => m.id === memberId ? { ...m, [field]: val } : m) } : c) }));
   }, [update]);
 
   // Quote section helpers
@@ -445,7 +476,7 @@ export default function ProductionBrief({
           <div style={{ padding: "20px 16px 0" }}>
             <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
             <div style={{ borderBottom: "2.5px solid #000", marginBottom: 12, marginTop: 4 }} />
-            <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10, textAlign: "center" }}>LOCAL PRODUCTION BRIEF</div>
+            <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10, textAlign: "center" }}>PRODUCTION BRIEF</div>
           </div>
 
           {/* ── 1. PROJECT OVERVIEW ── */}
@@ -503,7 +534,7 @@ export default function ProductionBrief({
             <div style={{ display: "flex", gap: 24, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {/* International Crew */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4, background: "#f2f2f2", padding: "5px 10px", borderRadius: 3 }}>INTERNATIONAL CREW</div>
+                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4, ...GRAY_BOX, padding: "5px 10px" }}>INTERNATIONAL CREW</div>
                 {(() => {
                   let globalIdx = 0;
                   return CREW_CATEGORIES.map(([catKey, catLabel]) => {
@@ -511,7 +542,7 @@ export default function ProductionBrief({
                     return (
                       <div key={catKey} style={{ marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", background: "#f7f7f7", padding: "3px 8px", borderRadius: 2 }}>{catLabel}</div>
+                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", ...GRAY_BOX }}>{catLabel}</div>
                           <AddBtn onClick={() => addCrewMember(catKey)} />
                         </div>
                         {members.map((m) => {
@@ -535,27 +566,30 @@ export default function ProductionBrief({
 
               {/* Local Crew */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4, background: "#f2f2f2", padding: "5px 10px", borderRadius: 3 }}>LOCAL CREW</div>
+                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4, ...GRAY_BOX, padding: "5px 10px" }}>LOCAL CREW</div>
                 {(() => {
                   let localIdx = 0;
-                  return LOCAL_CREW_CATEGORIES.map(([catKey, catLabel]) => {
-                    const members = ((brief.localCrewList || {})[catKey] || []);
+                  const cats = brief.localCrewCategories || [];
+                  return cats.map((cat) => {
+                    const members = cat.members || [];
                     return (
-                      <div key={catKey} style={{ marginBottom: 10 }}>
+                      <div key={cat.id} style={{ marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", background: "#f7f7f7", padding: "3px 8px", borderRadius: 2 }}>{catLabel}</div>
-                          <AddBtn onClick={() => addLocalCrewMember(catKey)} />
+                          <input value={cat.label || ""} onChange={e => updateLocalCategoryLabel(cat.id, e.target.value)} placeholder="CATEGORY"
+                            style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", ...GRAY_BOX, border: "none", outline: "none", textTransform: "uppercase" }} />
+                          <DelBtn onClick={() => { if (confirm(`Delete category "${cat.label || "Untitled"}"?`)) removeLocalCategory(cat.id); }} />
+                          <AddBtn onClick={() => addLocalCrewMember(cat.id)} />
                         </div>
                         {members.map((m) => {
                           localIdx++;
                           return (
                             <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
-                              <input value={m.role || ""} onChange={e => updateLocalCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
+                              <input value={m.role || ""} onChange={e => updateLocalCrewMember(cat.id, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                              <DelBtn onClick={() => removeLocalCrewMember(catKey, m.id)} />
-                              <AddBtn onClick={() => addLocalCrewMember(catKey)} />
+                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(cat.id, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                              <DelBtn onClick={() => removeLocalCrewMember(cat.id, m.id)} />
+                              <AddBtn onClick={() => addLocalCrewMember(cat.id)} />
                             </div>
                           );
                         })}
@@ -563,6 +597,7 @@ export default function ProductionBrief({
                     );
                   });
                 })()}
+                <div data-hide="1" style={{ marginTop: 4 }}><AddBtn onClick={addLocalCategory} label="+ CATEGORY" /></div>
               </div>
             </div>
 
