@@ -488,8 +488,8 @@ export default function ProductionBrief({
         <button onClick={exportPDF} style={{ padding: "6px 16px", borderRadius: 8, background: "#1d1d1f", color: "#fff", border: "none", fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Export PDF</button>
       </div>
 
-      {/* Formatting toolbar */}
-      <div data-hide="1" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 3, background: "#fafafa", flexWrap: "wrap", marginBottom: 0, borderRadius: "8px 8px 0 0", border: "1px solid #eee", borderBottom: "none", position: "sticky", top: 0, zIndex: 10 }}>
+      {/* Formatting toolbar — fixed floating bar */}
+      <div data-hide="1" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 3, background: "rgba(250,250,250,0.97)", flexWrap: "wrap", borderRadius: 8, border: "1px solid #ddd", boxShadow: "0 2px 12px rgba(0,0,0,0.10)", position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", zIndex: 1000, maxWidth: 680 }}>
         <button onMouseDown={e => { e.preventDefault(); fmt("bold"); }} style={{ ...TBtnStyle, fontWeight: 700 }}>B</button>
         <button onMouseDown={e => { e.preventDefault(); fmt("italic"); }} style={{ ...TBtnStyle, fontStyle: "italic" }}>I</button>
         <button onMouseDown={e => { e.preventDefault(); fmt("underline"); }} style={{ ...TBtnStyle, textDecoration: "underline" }}>U</button>
