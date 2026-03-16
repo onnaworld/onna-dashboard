@@ -438,8 +438,8 @@ export default function ProductionBrief({
       </div>
 
       {/* ── Print container ── */}
-      <div id="onna-prodbr-print" style={{ background: "#fff", padding: 0, fontFamily: CS_FONT, borderRadius: 0 }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff" }}>
+      <div id="onna-prodbr-print" style={{ background: "transparent", padding: 0, fontFamily: CS_FONT, borderRadius: 0 }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", border: "1px solid #eee", borderRadius: 4 }}>
 
           {/* Logo header */}
           <div style={{ padding: "20px 16px 0" }}>
