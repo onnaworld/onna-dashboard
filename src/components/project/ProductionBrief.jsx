@@ -472,13 +472,16 @@ export default function ProductionBrief({
     clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
     clone.querySelectorAll("input, textarea").forEach(inp => {
       if (!inp.value || !inp.value.trim()) {
-        // Hide the entire row if the input is empty
-        const row = inp.closest(".pb-row");
-        if (row) row.style.display = "none";
-        else inp.style.display = "none";
+        // Hide just this empty input, not the whole row
+        inp.style.display = "none";
       } else {
         const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s);
       }
+    });
+    // Hide rows where ALL inputs/textareas/contentEditables are empty
+    clone.querySelectorAll(".pb-row").forEach(row => {
+      const hasContent = [...row.querySelectorAll("span, [contenteditable]")].some(el => (el.textContent || "").trim());
+      if (!hasContent) row.style.display = "none";
     });
     clone.querySelectorAll("[contenteditable]").forEach(el => {
       el.removeAttribute("contenteditable");
