@@ -76,7 +76,7 @@ const PBInp = ({ value, onChange, placeholder, style: s = {}, onFocusEditor }) =
   return (
     <div style={{ position: "relative", ...s }}>
       {isEmpty && !ref.current?.innerHTML?.replace(/<br>/g, "").trim() && (
-        <div style={{ position: "absolute", top: 3, left: 6, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
+        <div data-hide="1" style={{ position: "absolute", top: 3, left: 6, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
       )}
       <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput} onFocus={handleFocus}
         style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
@@ -99,7 +99,7 @@ const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocu
     <div style={{ flex: 1, minWidth: 140, position: "relative", ...s }}>
       {label && <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 2 }}>{label}</div>}
       {isEmpty && !ref.current?.innerHTML?.replace(/<ul><li><br><\/li><\/ul>/g, "").trim() && (
-        <div style={{ position: "absolute", top: label ? 18 : 0, left: 28, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
+        <div data-hide="1" style={{ position: "absolute", top: label ? 18 : 0, left: 28, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
       )}
       <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput} onFocus={handleFocus}
         style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
@@ -727,8 +727,8 @@ export default function ProductionBrief({
             {/* ── 5. QUOTE ── */}
             <SectionTitle title={st[5] || "QUOTE"} num={5} onEdit={v => setSectionTitle(5, v)} />
             {(brief.quote || []).map((q, qi) => (
-              <div key={q.id} style={{ marginBottom: 12 }}>
-                <div className="pb-row" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <div key={q.id} style={{ marginBottom: 14 }}>
+                <div className="pb-row" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, flexShrink: 0 }}>{qi + 1}.</span>
                   <input value={q.heading || ""} onChange={e => updateQuoteHeading(q.id, e.target.value)} placeholder="SECTION TITLE"
                     style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", ...GRAY_BOX, textTransform: "uppercase" }} />
@@ -736,13 +736,15 @@ export default function ProductionBrief({
                   <AddBtn onClick={addQuoteSection} />
                 </div>
                 {(q.lines || []).map((line, li) => (
-                  <div key={line.id} className="pb-row" style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center", paddingLeft: 22 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 20, textAlign: "right", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
-                    <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
-                      style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                    <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
-                    <DelBtn onClick={() => removeQuoteLine(q.id, line.id)} />
-                    <AddBtn onClick={() => addQuoteLine(q.id)} />
+                  <div key={line.id} className="pb-row" style={{ marginBottom: 8, paddingLeft: 22 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                      <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
+                      <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
+                        style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
+                      <DelBtn onClick={() => removeQuoteLine(q.id, line.id)} />
+                      <AddBtn onClick={() => addQuoteLine(q.id)} />
+                    </div>
+                    <PBTextarea value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} onFocusEditor={trackEditor} />
                   </div>
                 ))}
                 {(q.lines || []).length === 0 && <div style={{ paddingLeft: 22 }}><AddBtn onClick={() => addQuoteLine(q.id)} label="+ LINE" /></div>}
