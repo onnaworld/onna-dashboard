@@ -9,7 +9,7 @@ const makeBrief = (projectId) => ({
   prodLogo: null,
   clientLogo: null,
   project: { name: "", client: "", date: "", producer: "", director: "" },
-  overview: { description: "", objective: "", deliverables: "", budget: "", crewCount: "" },
+  overview: { description: "", objective: "", deliverables: "", budget: "", crewCount: "", totalCrew: "" },
   creative: { direction: "", references: "", tone: "", keyMessages: "" },
   schedule: {
     recceDays: "", recceDates: "",
@@ -27,12 +27,28 @@ const makeBrief = (projectId) => ({
     casting: [{ id: Date.now()+0.7, role: "", name: "" }],
     miscellaneous: [{ id: Date.now()+0.8, role: "", name: "" }],
   },
+  localCrewList: {
+    fixers: [{ id: Date.now()+0.9, role: "", name: "" }],
+    drivers: [{ id: Date.now()+0.11, role: "", name: "" }],
+    security: [{ id: Date.now()+0.12, role: "", name: "" }],
+    extras: [{ id: Date.now()+0.13, role: "", name: "" }],
+    miscellaneous: [{ id: Date.now()+0.14, role: "", name: "" }],
+  },
   accommodation: { hotel: "", address: "", checkIn: "", checkOut: "", notes: "" },
   localCrew: { fixers: "", drivers: "", security: "", extras: "", notes: "" },
   transport: { vehicles: "", pickupDetails: "", airportTransfers: "", notes: "" },
   catering: { headcount: "", dietary: "", vendor: "", mealTimes: "", notes: "" },
   location: { primary: "", address: "", gps: "", contact: "", backup: "", notes: "" },
   permits: { required: "", authority: "", status: "", deadline: "", notes: "" },
+  quote: [
+    { id: Date.now()+0.21, heading: "CREW", lines: [{ id: Date.now()+0.211, label: "", value: "" }] },
+    { id: Date.now()+0.22, heading: "TRANSPORT", lines: [{ id: Date.now()+0.221, label: "", value: "" }] },
+    { id: Date.now()+0.23, heading: "CATERING", lines: [{ id: Date.now()+0.231, label: "", value: "" }] },
+    { id: Date.now()+0.24, heading: "ACCOMMODATION", lines: [{ id: Date.now()+0.241, label: "", value: "" }] },
+    { id: Date.now()+0.25, heading: "LOCATION", lines: [{ id: Date.now()+0.251, label: "", value: "" }] },
+    { id: Date.now()+0.26, heading: "PERMITS", lines: [{ id: Date.now()+0.261, label: "", value: "" }] },
+    { id: Date.now()+0.27, heading: "MISC", lines: [{ id: Date.now()+0.271, label: "", value: "" }] },
+  ],
   extraSections: [],
   createdAt: Date.now(),
   updatedAt: Date.now(),
@@ -41,11 +57,17 @@ const makeBrief = (projectId) => ({
 const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]{display:none!important;}';
 
 // Reusable field components matching RecceField / RecceInp pattern
-const PBInp = ({ value, onChange, placeholder, style: s = {} }) => (
-  <input value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-    style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
-      background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", color: "#000", ...s }} />
-);
+const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
+  const ref = useRef(null);
+  const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+  useEffect(() => { autoGrow(ref.current); }, [value]);
+  return (
+    <textarea ref={ref} value={value || ""} onChange={e => { onChange(e.target.value); autoGrow(e.target); }} placeholder={placeholder} rows={1}
+      style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+        background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", color: "#000",
+        resize: "none", overflow: "hidden", lineHeight: 1.5, minHeight: 20, ...s }} />
+  );
+};
 const PBField = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => (
   <div style={{ flex: 1, minWidth: 140, ...s }}>
     <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
@@ -71,8 +93,12 @@ const CREW_CATEGORIES = [
   ["photo", "PHOTO"], ["wardrobe", "WARDROBE"], ["hairMakeup", "HAIR & MAKEUP"],
   ["casting", "CASTING"], ["miscellaneous", "MISCELLANEOUS"],
 ];
-const SectionTitle = ({ title }) => (
-  <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{title}</div>
+const LOCAL_CREW_CATEGORIES = [
+  ["fixers", "FIXERS"], ["drivers", "DRIVERS"], ["security", "SECURITY"],
+  ["extras", "EXTRAS"], ["miscellaneous", "MISCELLANEOUS"],
+];
+const SectionTitle = ({ title, num }) => (
+  <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{num ? `${num}. ` : ""}{title}</div>
 );
 const Row = ({ children, isMobile }) => (
   <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>{children}</div>
@@ -146,6 +172,37 @@ export default function ProductionBrief({
     update(b => ({ ...b, crew: { ...b.crew, [catKey]: (b.crew[catKey] || []).map(m => m.id === memberId ? { ...m, [field]: val } : m) } }));
   }, [update]);
 
+  // Local crew list helpers
+  const addLocalCrewMember = useCallback((catKey) => {
+    update(b => ({ ...b, localCrewList: { ...(b.localCrewList || {}), [catKey]: [...((b.localCrewList || {})[catKey] || []), { id: Date.now() + Math.random(), role: "", name: "" }] } }));
+  }, [update]);
+  const removeLocalCrewMember = useCallback((catKey, memberId) => {
+    update(b => ({ ...b, localCrewList: { ...(b.localCrewList || {}), [catKey]: ((b.localCrewList || {})[catKey] || []).filter(m => m.id !== memberId) } }));
+  }, [update]);
+  const updateLocalCrewMember = useCallback((catKey, memberId, field, val) => {
+    update(b => ({ ...b, localCrewList: { ...(b.localCrewList || {}), [catKey]: ((b.localCrewList || {})[catKey] || []).map(m => m.id === memberId ? { ...m, [field]: val } : m) } }));
+  }, [update]);
+
+  // Quote section helpers
+  const addQuoteSection = useCallback(() => {
+    update(b => ({ ...b, quote: [...(b.quote || []), { id: Date.now() + Math.random(), heading: "", lines: [{ id: Date.now() + Math.random(), label: "", value: "" }] }] }));
+  }, [update]);
+  const removeQuoteSection = useCallback((id) => {
+    update(b => ({ ...b, quote: (b.quote || []).filter(q => q.id !== id) }));
+  }, [update]);
+  const updateQuoteHeading = useCallback((id, heading) => {
+    update(b => ({ ...b, quote: (b.quote || []).map(q => q.id === id ? { ...q, heading } : q) }));
+  }, [update]);
+  const addQuoteLine = useCallback((sectionId) => {
+    update(b => ({ ...b, quote: (b.quote || []).map(q => q.id === sectionId ? { ...q, lines: [...(q.lines || []), { id: Date.now() + Math.random(), label: "", value: "" }] } : q) }));
+  }, [update]);
+  const removeQuoteLine = useCallback((sectionId, lineId) => {
+    update(b => ({ ...b, quote: (b.quote || []).map(q => q.id === sectionId ? { ...q, lines: (q.lines || []).filter(l => l.id !== lineId) } : q) }));
+  }, [update]);
+  const updateQuoteLine = useCallback((sectionId, lineId, field, val) => {
+    update(b => ({ ...b, quote: (b.quote || []).map(q => q.id === sectionId ? { ...q, lines: (q.lines || []).map(l => l.id === lineId ? { ...l, [field]: val } : l) } : q) }));
+  }, [update]);
+
   const fmt = (cmd, val) => { document.execCommand(cmd, false, val || null); };
 
   // Extra freeform sections (for anything beyond the structured ones)
@@ -191,12 +248,6 @@ export default function ProductionBrief({
   const cr = brief.creative || {};
   const sc = brief.schedule || {};
   const cw = brief.crew || {};
-  const ac = brief.accommodation || {};
-  const lc = brief.localCrew || {};
-  const tr = brief.transport || {};
-  const ct = brief.catering || {};
-  const lo = brief.location || {};
-  const pm = brief.permits || {};
   const extras = brief.extraSections || [];
 
   const TBtnStyle = { height: 22, minWidth: 22, borderRadius: 2, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", display: "flex", alignItems: "center", justifyContent: "center", color: "#666" };
@@ -260,8 +311,8 @@ export default function ProductionBrief({
             <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LOCAL PRODUCTION BRIEF</div>
           </div>
 
-          {/* ── PROJECT OVERVIEW ── */}
-          <div style={{ padding: "0 16px" }}><SectionTitle title="PROJECT OVERVIEW" /></div>
+          {/* ── 1. PROJECT OVERVIEW ── */}
+          <div style={{ padding: "0 16px" }}><SectionTitle title="PROJECT OVERVIEW" num={1} /></div>
           <div style={{ padding: "0 16px", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 16, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {/* Left column — project metadata */}
@@ -280,34 +331,30 @@ export default function ProductionBrief({
                 ))}
               </div>
               {/* Right column — shoot info */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 220, flex: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 280, flex: 0 }}>
                 {[
-                  ["SHOOT DATES", "schedule", "shootDates", "e.g. 20-22 Mar 2026"],
+                  ["DATES", "schedule", "shootDates", "e.g. 20-22 Mar 2026"],
                   ["NUMBER OF TRAVEL DAYS", "schedule", "travelDays", "e.g. 2"],
                   ["NUMBER OF RECCE DAYS", "schedule", "recceDays", "e.g. 1"],
                   ["NUMBER OF SHOOT DAYS", "schedule", "shootDays", "e.g. 4"],
-                  ["NUMBER OF CREW", "overview", "crewCount", "e.g. 15"],
+                  ["NUMBER OF INTERNATIONAL CREW", "overview", "crewCount", "e.g. 15"],
+                  ["TOTAL CREW", "overview", "totalCrew", "e.g. 25"],
                 ].map(([lbl, sec, key, ph]) => (
                   <div key={lbl} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 130 }}>{lbl}</span>
-                    <PBInp value={(brief[sec] || {})[key]} onChange={v => u(sec, key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: 80 }} />
+                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 160 }}>{lbl}</span>
+                    <PBInp value={(brief[sec] || {})[key]} onChange={v => u(sec, key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: 100 }} />
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Description — full width */}
-          <div style={{ padding: "0 16px", marginBottom: 14 }}>
-            <PBTextarea label="DESCRIPTION" value={ov.description} onChange={v => u("overview", "description", v)} placeholder="Brief project description, scope, objectives..." style={{ minWidth: "100%" }} />
-          </div>
-
           <div style={{ padding: "0 16px" }}>
 
-            {/* ── CREATIVE DIRECTION ── */}
-            <SectionTitle title="CREATIVE DIRECTION" />
+            {/* ── 2. CREATIVE DIRECTION ── */}
+            <SectionTitle title="CREATIVE DIRECTION" num={2} />
             <Row isMobile={isMobile}>
-              <PBTextarea label="CREATIVE DIRECTION" value={cr.direction} onChange={v => u("creative", "direction", v)} placeholder="Look, feel, visual language..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBTextarea label="DESCRIPTION" value={cr.direction} onChange={v => u("creative", "direction", v)} placeholder="Look, feel, visual language, scope, objectives..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
             <Row isMobile={isMobile}>
               <PBField label="REFERENCES" value={cr.references} onChange={v => u("creative", "references", v)} placeholder="Mood refs, links..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
@@ -316,108 +363,105 @@ export default function ProductionBrief({
               <PBField label="TONE / MOOD" value={cr.tone} onChange={v => u("creative", "tone", v)} placeholder="e.g. cinematic, warm, aspirational..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
 
-            {/* ── INTERNATIONAL CREW ── */}
-            <SectionTitle title="INTERNATIONAL CREW" />
-            {CREW_CATEGORIES.map(([catKey, catLabel]) => {
-              const members = (cw[catKey] || []);
-              return (
-                <div key={catKey} style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                    <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
-                    <div data-hide="1" onClick={() => addCrewMember(catKey)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5 }}>+</div>
-                  </div>
-                  {members.map((m) => (
-                    <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
-                      <PBInp value={m.role} onChange={v => updateCrewMember(catKey, m.id, "role", v)} placeholder="Role" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                      <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                      <button data-hide="1" onClick={() => removeCrewMember(catKey, m.id)}
-                        style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+            {/* ── 3. CREW ── */}
+            <SectionTitle title="CREW" num={3} />
 
-            {/* ── SCHEDULE ── */}
-            <SectionTitle title="SCHEDULE" />
+            {/* International Crew sub-section */}
+            <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4 }}>INTERNATIONAL CREW</div>
+            {(() => {
+              let globalIdx = 0;
+              return CREW_CATEGORIES.map(([catKey, catLabel]) => {
+                const members = (cw[catKey] || []);
+                return (
+                  <div key={catKey} style={{ marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                      <div data-hide="1" onClick={() => addCrewMember(catKey)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5 }}>+</div>
+                    </div>
+                    {members.map((m) => {
+                      globalIdx++;
+                      return (
+                        <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{globalIdx}.</span>
+                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 60, flexShrink: 0 }}>
+                            <input value={m.role || ""} onChange={e => updateCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
+                              style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 60, padding: 0, textTransform: "uppercase" }} />
+                          </span>
+                          <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                          <button data-hide="1" onClick={() => removeCrewMember(catKey, m.id)}
+                            style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              });
+            })()}
+
+            {/* Local Crew sub-section */}
+            <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 14, borderTop: "1px solid #eee", paddingTop: 8 }}>LOCAL CREW</div>
+            {(() => {
+              let localIdx = 0;
+              return LOCAL_CREW_CATEGORIES.map(([catKey, catLabel]) => {
+                const members = ((brief.localCrewList || {})[catKey] || []);
+                return (
+                  <div key={catKey} style={{ marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                      <div data-hide="1" onClick={() => addLocalCrewMember(catKey)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5 }}>+</div>
+                    </div>
+                    {members.map((m) => {
+                      localIdx++;
+                      return (
+                        <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
+                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 60, flexShrink: 0 }}>
+                            <input value={m.role || ""} onChange={e => updateLocalCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
+                              style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 60, padding: 0, textTransform: "uppercase" }} />
+                          </span>
+                          <PBInp value={m.name} onChange={v => updateLocalCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                          <button data-hide="1" onClick={() => removeLocalCrewMember(catKey, m.id)}
+                            style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              });
+            })()}
+
+            {/* ── 4. SCHEDULE ── */}
+            <SectionTitle title="SCHEDULE" num={4} />
             <Row isMobile={isMobile}>
               <PBTextarea label="STRUCTURE" value={sc.structure} onChange={v => u("schedule", "structure", v)} placeholder="Arrival day, recce days, shoot days, wrap day, departure..." style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }} />
               <PBTextarea label="KEY MOMENTS" value={sc.keyMoments} onChange={v => u("schedule", "keyMoments", v)} placeholder="Sunrise, golden hour, underwater, evening scenes..." style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
 
-            {/* ── ACCOMMODATION ── */}
-            <SectionTitle title="ACCOMMODATION" />
-            <Row isMobile={isMobile}>
-              <PBField label="HOTEL / PROPERTY" value={ac.hotel} onChange={v => u("accommodation", "hotel", v)} placeholder="Name" style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="ADDRESS" value={ac.address} onChange={v => u("accommodation", "address", v)} placeholder="Full address" style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="CHECK-IN" value={ac.checkIn} onChange={v => u("accommodation", "checkIn", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="CHECK-OUT" value={ac.checkOut} onChange={v => u("accommodation", "checkOut", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBTextarea label="NOTES" value={ac.notes} onChange={v => u("accommodation", "notes", v)} placeholder="Room requirements, special requests..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-
-            {/* ── LOCAL CREW ── */}
-            <SectionTitle title="LOCAL CREW" />
-            <Row isMobile={isMobile}>
-              <PBField label="FIXERS" value={lc.fixers} onChange={v => u("localCrew", "fixers", v)} placeholder="Name / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="DRIVERS" value={lc.drivers} onChange={v => u("localCrew", "drivers", v)} placeholder="Name / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="SECURITY" value={lc.security} onChange={v => u("localCrew", "security", v)} placeholder="Name / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="EXTRAS" value={lc.extras} onChange={v => u("localCrew", "extras", v)} placeholder="Count / agency" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBTextarea label="NOTES" value={lc.notes} onChange={v => u("localCrew", "notes", v)} placeholder="Local crew details, contacts..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-
-            {/* ── TRANSPORT ── */}
-            <SectionTitle title="TRANSPORT" />
-            <Row isMobile={isMobile}>
-              <PBField label="VEHICLES" value={tr.vehicles} onChange={v => u("transport", "vehicles", v)} placeholder="Types, quantities..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="PICKUP DETAILS" value={tr.pickupDetails} onChange={v => u("transport", "pickupDetails", v)} placeholder="Times, locations..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="AIRPORT TRANSFERS" value={tr.airportTransfers} onChange={v => u("transport", "airportTransfers", v)} placeholder="Arrival / departure details..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBTextarea label="NOTES" value={tr.notes} onChange={v => u("transport", "notes", v)} placeholder="Parking, access restrictions, unit base..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-
-            {/* ── CATERING ── */}
-            <SectionTitle title="CATERING" />
-            <Row isMobile={isMobile}>
-              <PBField label="HEADCOUNT" value={ct.headcount} onChange={v => u("catering", "headcount", v)} placeholder="No. of crew" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="DIETARY REQUIREMENTS" value={ct.dietary} onChange={v => u("catering", "dietary", v)} placeholder="Vegan, halal, allergies..." style={{ flex: 1.5, minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="VENDOR" value={ct.vendor} onChange={v => u("catering", "vendor", v)} placeholder="Catering company" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="MEAL TIMES" value={ct.mealTimes} onChange={v => u("catering", "mealTimes", v)} placeholder="Breakfast, lunch, snacks..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBTextarea label="NOTES" value={ct.notes} onChange={v => u("catering", "notes", v)} placeholder="Special requests, hot/cold, setup..." style={{ flex: 1.5, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-
-            {/* ── LOCATION ── */}
-            <SectionTitle title="LOCATION" />
-            <Row isMobile={isMobile}>
-              <PBField label="PRIMARY LOCATION" value={lo.primary} onChange={v => u("location", "primary", v)} placeholder="Location name" style={{ flex: 1.5, minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="ADDRESS" value={lo.address} onChange={v => u("location", "address", v)} placeholder="Full address" style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="GPS COORDINATES" value={lo.gps} onChange={v => u("location", "gps", v)} placeholder="25.2048, 55.2708" style={{ flex: 0.8, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="CONTACT ON SITE" value={lo.contact} onChange={v => u("location", "contact", v)} placeholder="Name / phone" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="BACKUP LOCATION" value={lo.backup} onChange={v => u("location", "backup", v)} placeholder="Alternative location..." style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBTextarea label="NOTES" value={lo.notes} onChange={v => u("location", "notes", v)} placeholder="Access, power, parking, restrictions..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-
-            {/* ── PERMITS REQUIRED ── */}
-            <SectionTitle title="PERMITS REQUIRED" />
-            <Row isMobile={isMobile}>
-              <PBField label="PERMITS REQUIRED" value={pm.required} onChange={v => u("permits", "required", v)} placeholder="DFTC, council, community..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="ISSUING AUTHORITY" value={pm.authority} onChange={v => u("permits", "authority", v)} placeholder="Authority name" style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="STATUS" value={pm.status} onChange={v => u("permits", "status", v)} placeholder="Pending / Approved / N/A" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="DEADLINE" value={pm.deadline} onChange={v => u("permits", "deadline", v)} placeholder="Submission deadline" style={{ flex: 0.6, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBTextarea label="NOTES" value={pm.notes} onChange={v => u("permits", "notes", v)} placeholder="Requirements, lead time, contacts..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
+            {/* ── 5. QUOTE ── */}
+            <SectionTitle title="QUOTE" num={5} />
+            {(brief.quote || []).map((q, qi) => (
+              <div key={q.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, flexShrink: 0 }}>{qi + 1}.</span>
+                  <input value={q.heading || ""} onChange={e => updateQuoteHeading(q.id, e.target.value)} placeholder="SECTION TITLE"
+                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
+                  <button data-hide="1" onClick={() => { if (confirm(`Delete "${q.heading || "Untitled"}"?`)) removeQuoteSection(q.id); }}
+                    style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                </div>
+                {(q.lines || []).map((line, li) => (
+                  <div key={line.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center", paddingLeft: 22 }}>
+                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 20, textAlign: "right", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
+                    <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
+                      style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 80, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
+                    <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                    <button data-hide="1" onClick={() => removeQuoteLine(q.id, line.id)}
+                      style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                  </div>
+                ))}
+                <div data-hide="1" onClick={() => addQuoteLine(q.id)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "2px 8px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block", marginLeft: 22, marginTop: 2 }}>+ LINE</div>
+              </div>
+            ))}
+            <div data-hide="1" onClick={addQuoteSection} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "3px 10px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block", marginTop: 4 }}>+ SECTION</div>
 
             {/* ── EXTRA FREEFORM SECTIONS ── */}
             {extras.map((s) => (

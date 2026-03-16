@@ -268,7 +268,7 @@ export const connectGCal = (showAlert, calMonth, setGcalToken, fetchGCalEventsFn
 // ── Hydrate project ──────────────────────────────────────────────────────────
 
 export const doHydrateProject = (pid, setters) => {
-  const { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting } = setters;
+  const { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting, setProductionBriefStore } = setters;
   return api.get(`/api/project-data/${pid}`).then(d => {
     if (!d) return;
     if (d.callsheets) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
@@ -297,5 +297,6 @@ export const doHydrateProject = (pid, setters) => {
     if (d.creative_links) setProjectCreativeLinks(prev => ({...prev, [pid]: d.creative_links}));
     if (d.project_actuals) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
     if (d.project_casting) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
+    if (d.prod_briefs && setProductionBriefStore) setProductionBriefStore(prev => ({...prev, [pid]: d.prod_briefs}));
   }).catch(() => {});
 };
