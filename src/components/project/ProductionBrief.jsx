@@ -176,12 +176,14 @@ export default function ProductionBrief({
           {/* Logo header */}
           <div style={{ padding: "20px 16px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-              <CSLogoSlot label="Production Logo" image={brief.prodLogo} onUpload={v => update(b => ({ ...b, prodLogo: v }))} onRemove={() => update(b => ({ ...b, prodLogo: null }))} />
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
                 <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
                 <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>LOCAL PRODUCTION BRIEF</div>
               </div>
-              <CSLogoSlot label="Client Logo" image={brief.clientLogo} onUpload={v => update(b => ({ ...b, clientLogo: v }))} onRemove={() => update(b => ({ ...b, clientLogo: null }))} />
+              <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: -3 }}>
+                <CSLogoSlot label="Production Logo" image={brief.prodLogo} onUpload={v => update(b => ({ ...b, prodLogo: v }))} onRemove={() => update(b => ({ ...b, prodLogo: null }))} />
+                <CSLogoSlot label="Client Logo" image={brief.clientLogo} onUpload={v => update(b => ({ ...b, clientLogo: v }))} onRemove={() => update(b => ({ ...b, clientLogo: null }))} />
+              </div>
             </div>
             <div style={{ borderBottom: "2.5px solid #000", marginBottom: 12 }} />
           </div>

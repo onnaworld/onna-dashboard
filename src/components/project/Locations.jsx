@@ -380,9 +380,8 @@ export default function Locations({
           <div style={{maxWidth:900,margin:"0 auto",background:"#fff"}}>
             <div style={{padding:"20px 16px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                <CSLogoSlot label="Production Logo" image={rcData.productionLogo} onUpload={v=>rcU("productionLogo",v)} onRemove={()=>rcU("productionLogo",null)}/>
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><img src="/onna-default-logo.png" alt="ONNA" style={{maxHeight:30,maxWidth:120,objectFit:"contain"}}/><div style={{fontFamily:CS_FONT,fontSize:12,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>RECCE REPORT</div></div>
-                <CSLogoSlot label="Client Logo" image={rcData.clientLogo} onUpload={v=>rcU("clientLogo",v)} onRemove={()=>rcU("clientLogo",null)}/>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4}}><img src="/onna-default-logo.png" alt="ONNA" style={{maxHeight:30,maxWidth:120,objectFit:"contain"}}/><div style={{fontFamily:CS_FONT,fontSize:12,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase"}}>RECCE REPORT</div></div>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3}}><CSLogoSlot label="Production Logo" image={rcData.productionLogo} onUpload={v=>rcU("productionLogo",v)} onRemove={()=>rcU("productionLogo",null)}/><CSLogoSlot label="Client Logo" image={rcData.clientLogo} onUpload={v=>rcU("clientLogo",v)} onRemove={()=>rcU("clientLogo",null)}/></div>
               </div>
               <div style={{borderBottom:"2.5px solid #000",marginBottom:12}}/>
             </div>
