@@ -133,12 +133,12 @@ BRIEF ANALYSIS & DRAFTING:
   6. Summarise what you extracted and any assumptions you made.
 
 RESPONSE STYLE:
-- Use bullet points for lists and summaries
-- Keep responses short and scannable — no walls of text
-- Lead with the action taken or answer, then details
-- Use bold (text) for key names, fields, and labels
+- CRITICAL: Do NOT show your thinking, reasoning, analysis, or extraction process. No "here's what I extracted", no "key extractions", no "assumptions" lists before the JSON. The user sees the estimate update in real time — they don't need a play-by-play.
+- When outputting a JSON patch, write a SHORT 1-2 sentence summary AFTER the JSON block (e.g. "Populated the full Maldives shoot — 4 shoot days, 20 crew, AED 850K total. Review the estimate and let me know if anything needs adjusting.").
+- Do NOT list every line item you changed — the user can see them on the estimate.
+- Keep ALL responses under 3-4 sentences max. Be concise and confident.
 - Tone: warm, confident, professional — never robotic
-- When confirming changes, summarise what was updated in a quick bullet list`;
+- Never use phrases like "Great brief!", "Here's what I've extracted", "Let me analyze", "Key extractions:", "Assumptions:" — just do the work silently and confirm it's done.`;
 }
 
 function applyBilliePatch(patch, projectId, versionIdx, currentVersions, setProjectEstimates) {
@@ -458,11 +458,14 @@ export async function handleBillieIntent({
       }
 
       const lower=input.toLowerCase();
-      // Skip project matching when user has attachments or is referencing briefs/moodboards
+      // Skip project matching when user has attachments, is referencing briefs, or input is clearly an action on the current estimate
       const _hasAttachments = history[history.length-1]?._attachments?.length > 0;
       const _isBriefIntent = /\b(brief|moodboard|mood\s*board|reference\s*board)\b/i.test(input);
+      const _isActionIntent = /\b(update|set|add|remove|change|row|section|header|rate|qty|days|notes|payment|deliverable|photographer|shoot|location|date|populate|draft|build|create|fill|yes|yeah|yep|sure|go\s*ahead|do\s*it|proceed|ok|okay|please|make|put|total|subtotal|calculate|recalculate|adjust|edit|modify|apply|save|export|pdf|print|download|undo|revert)\b/i.test(input);
+      const _isShortReply = input.trim().split(/\s+/).length <= 4 && !/\b(switch|change|different|open|go\s*to)\s+(project|budget)\b/i.test(input);
+      const _skipProjectMatch = _hasAttachments || _isBriefIntent || _isActionIntent || _isShortReply;
       // Check if user is re-selecting the same project (e.g. typing "columbia" when already on columbia)
-      const sameProjectMatch=(!_hasAttachments && !_isBriefIntent) ? fuzzyMatchProject(localProjects,input) : null;
+      const sameProjectMatch=(!_skipProjectMatch) ? fuzzyMatchProject(localProjects,input) : null;
       if(sameProjectMatch && sameProjectMatch.id===projectId && !lower.match(/\b(update|set|add|remove|change|row|section|header|rate|qty|days|notes|payment|deliverable|photographer|shoot|location|date)\b/i)){
         const reVersions=projectEstimates?.[projectId]||[];
         if(reVersions.length<=1){
@@ -476,7 +479,7 @@ export async function handleBillieIntent({
         }
         setLoading(false);setMood("idle");return true;
       }
-      const switchProject=(!_hasAttachments && !_isBriefIntent) ? fuzzyMatchProject(localProjects,input,projectId) : null;
+      const switchProject=(!_skipProjectMatch) ? fuzzyMatchProject(localProjects,input,projectId) : null;
       if(switchProject){
         const swVersions=projectEstimates?.[switchProject.id]||[];
         if(swVersions.length===0){
