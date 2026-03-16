@@ -68,14 +68,22 @@ const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*=
 // Auto-growing contentEditable input — supports formatting toolbar
 const PBInp = ({ value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
   const ref = useRef(null);
-  const mounted = useRef(false);
+  const internalVal = useRef(value || "");
   useEffect(() => {
-    if (ref.current && !mounted.current) {
+    // Sync external value changes (e.g. migration) but not our own edits
+    if (ref.current && value !== internalVal.current) {
       ref.current.innerHTML = value || "";
-      mounted.current = true;
+      internalVal.current = value || "";
     }
-  }, []);
-  const handleInput = () => { if (ref.current) onChange(ref.current.innerHTML); };
+  });
+  // Set initial value on mount
+  useEffect(() => { if (ref.current) ref.current.innerHTML = value || ""; }, []);
+  const handleInput = () => {
+    if (ref.current) {
+      internalVal.current = ref.current.innerHTML;
+      onChange(ref.current.innerHTML);
+    }
+  };
   const handleFocus = () => { if (onFocusEditor) onFocusEditor(ref.current); };
   const isEmpty = !value || value === "<br>";
   return (
@@ -94,16 +102,20 @@ const PBInp = ({ value, onChange, placeholder, style: s = {}, onFocusEditor }) =
 // contentEditable textarea with label — supports formatting toolbar
 const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
   const ref = useRef(null);
-  const mounted = useRef(false);
+  const internalVal = useRef(value || "");
   const DEFAULT_BULLET = "<ul><li><br></li></ul>";
   useEffect(() => {
-    if (ref.current && !mounted.current) {
+    if (ref.current && value !== internalVal.current) {
       ref.current.innerHTML = value || DEFAULT_BULLET;
-      mounted.current = true;
+      internalVal.current = value || "";
     }
-  }, []);
+  });
+  useEffect(() => { if (ref.current) ref.current.innerHTML = value || DEFAULT_BULLET; }, []);
   const handleInput = () => {
-    if (ref.current) onChange(ref.current.innerHTML);
+    if (ref.current) {
+      internalVal.current = ref.current.innerHTML;
+      onChange(ref.current.innerHTML);
+    }
   };
   const handleFocus = () => { if (onFocusEditor) onFocusEditor(ref.current); };
   const isEmpty = !value || value === "<br>" || value === "<div><br></div>" || value === DEFAULT_BULLET || value === "<ul><li><br></li></ul>";
@@ -220,13 +232,17 @@ export default function ProductionBrief({
   const brief = productionBriefStore[p.id] || null;
   const editorRefs = useRef({});
   const [focusedSection, setFocusedSection] = useState(null);
+  const migrationDone = useRef(false);
 
   useEffect(() => {
+    if (migrationDone.current) return;
     if (!brief) {
       const init = makeBrief(p.id);
       init.projectFields[0].value = p.name || "";
       init.projectFields[1].value = p.client || "";
       setProductionBriefStore(prev => ({ ...prev, [p.id]: init }));
+      migrationDone.current = true;
+      return;
     } else if (brief && !brief.projectFields) {
       // Migrate old-format data to new dynamic fields format
       const pr = brief.project || {};
@@ -273,6 +289,7 @@ export default function ProductionBrief({
         updatedAt: Date.now(),
       };
       setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
+      migrationDone.current = true;
     } else if (brief && brief.projectFields && brief._v !== 4) {
       // One-time repair pass (v4) — runs once then sets _v flag
       const patched = { ...brief, _v: 4 };
@@ -331,9 +348,12 @@ export default function ProductionBrief({
 
       patched.updatedAt = Date.now();
       setProductionBriefStore(prev => ({ ...prev, [p.id]: patched }));
+      migrationDone.current = true;
+    } else {
+      // Brief exists, has projectFields, and _v === 4 — no migration needed
+      migrationDone.current = true;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.id]);
+  }, [p.id, brief, setProductionBriefStore]);
 
   const update = useCallback((fn) => {
     setProductionBriefStore(prev => {
