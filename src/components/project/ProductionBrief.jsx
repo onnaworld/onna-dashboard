@@ -160,15 +160,15 @@ const CREW_CATEGORIES = [
 ];
 const GRAY_BOX = { background: "#f2f2f2", padding: "3px 8px", borderRadius: 2 };
 
-// × button
+// × button — hidden until parent .pb-row:hover
 const DelBtn = ({ onClick }) => (
-  <button data-hide="1" onClick={onClick}
-    style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+  <button data-hide="1" onClick={onClick} className="pb-action"
+    style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0, opacity: 0, transition: "opacity 0.15s" }}>×</button>
 );
-// + button
+// + button — hidden until parent .pb-row:hover
 const AddBtn = ({ onClick, label = "+" }) => (
-  <div data-hide="1" onClick={onClick}
-    style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block" }}>{label}</div>
+  <div data-hide="1" onClick={onClick} className="pb-action"
+    style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block", opacity: 0, transition: "opacity 0.15s" }}>{label}</div>
 );
 
 // Stable contentEditable
@@ -295,23 +295,37 @@ export default function ProductionBrief({
         });
       }
 
-      // Ensure creativeFields exist with defaults
-      if (!patched.creativeFields || patched.creativeFields.length === 0) {
+      // Ensure creativeFields have the 3 defaults
+      const cfDefaults = [["DESCRIPTION", "textarea"], ["REFERENCES", ""], ["VISUAL NOTES", ""]];
+      if (!patched.creativeFields || patched.creativeFields.length < 3 ||
+          !patched.creativeFields.some(f => f.label === "DESCRIPTION") ||
+          !patched.creativeFields.some(f => f.label === "REFERENCES") ||
+          !patched.creativeFields.some(f => f.label === "VISUAL NOTES")) {
         needsUpdate = true;
-        patched.creativeFields = [
-          { id: Date.now()+0.15, label: "DESCRIPTION", value: "", type: "textarea" },
-          { id: Date.now()+0.16, label: "REFERENCES", value: "" },
-          { id: Date.now()+0.17, label: "VISUAL NOTES", value: "" },
-        ];
+        const existing = patched.creativeFields || [];
+        patched.creativeFields = cfDefaults.map(([lbl, type], i) => {
+          const found = existing.find(f => f.label === lbl);
+          return found || { id: Date.now() + 0.15 + i * 0.01, label: lbl, value: "", type: type || undefined };
+        });
+        // Append any extra user-added fields
+        existing.forEach(f => {
+          if (!cfDefaults.some(([lbl]) => lbl === f.label)) patched.creativeFields.push(f);
+        });
       }
 
-      // Ensure scheduleFields exist with defaults
-      if (!patched.scheduleFields || patched.scheduleFields.length === 0) {
+      // Ensure scheduleFields have the 2 defaults
+      if (!patched.scheduleFields || patched.scheduleFields.length < 2 ||
+          !patched.scheduleFields.some(f => f.label === "STRUCTURE") ||
+          !patched.scheduleFields.some(f => f.label === "KEY MOMENTS")) {
         needsUpdate = true;
+        const existing = patched.scheduleFields || [];
         patched.scheduleFields = [
-          { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
-          { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
+          existing.find(f => f.label === "STRUCTURE") || { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
+          existing.find(f => f.label === "KEY MOMENTS") || { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
         ];
+        existing.forEach(f => {
+          if (f.label !== "STRUCTURE" && f.label !== "KEY MOMENTS") patched.scheduleFields.push(f);
+        });
       }
 
       // Ensure quote sections exist with defaults
@@ -460,8 +474,8 @@ export default function ProductionBrief({
 
   // Render a dynamic field row with editable label, value, ×, +
   const FieldRow = ({ field, arrKey, isTextarea }) => (
-    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-      <EditableLabel value={field.label} onChange={v => updateField(arrKey, field.id, "label", v)} minWidth={arrKey === "overviewFields" ? 160 : 60} />
+    <div className="pb-row" style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+      <EditableLabel value={field.label} onChange={v => updateField(arrKey, field.id, "label", v)} minWidth={arrKey === "overviewFields" ? 180 : 140} style={{ flexShrink: 0 }} />
       {isTextarea || field.type === "textarea" ? (
         <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} />
       ) : (
@@ -474,6 +488,7 @@ export default function ProductionBrief({
 
   return (
     <div>
+      <style>{`.pb-row:hover .pb-action { opacity: 1 !important; }`}</style>
       {/* Header bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <button onClick={() => { setCreativeSubSection(null); window.history.back(); }} style={{ background: "none", border: "none", color: T.link, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, display: "flex", alignItems: "center", gap: 4 }}>‹ Back to Creative</button>
@@ -555,7 +570,7 @@ export default function ProductionBrief({
             {/* ── 2. CREATIVE DIRECTION ── */}
             <SectionTitle title={st[2] || "CREATIVE DIRECTION"} num={2} onEdit={v => setSectionTitle(2, v)} />
             {cf.map(f => (
-              <div key={f.id} style={{ marginBottom: 8 }}>
+              <div key={f.id} className="pb-row" style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                   {f.type === "textarea" ? (
                     <div style={{ flex: 1 }}>
@@ -600,7 +615,7 @@ export default function ProductionBrief({
                         {members.map((m) => {
                           globalIdx++;
                           return (
-                            <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                            <div key={m.id} className="pb-row" style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{globalIdx}.</span>
                               <input value={m.role || ""} onChange={e => updateCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
@@ -635,7 +650,7 @@ export default function ProductionBrief({
                         {members.map((m) => {
                           localIdx++;
                           return (
-                            <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                            <div key={m.id} className="pb-row" style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
                               <input value={m.role || ""} onChange={e => updateLocalCrewMember(cat.id, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
@@ -657,7 +672,7 @@ export default function ProductionBrief({
             <SectionTitle title={st[4] || "SCHEDULE"} num={4} onEdit={v => setSectionTitle(4, v)} />
             <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {sf.map(f => (
-                <div key={f.id} style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
+                <div key={f.id} className="pb-row" style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                     <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray />
                     <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "box"}"?`)) removeField("scheduleFields", f.id); }} />
@@ -673,7 +688,7 @@ export default function ProductionBrief({
             <SectionTitle title={st[5] || "QUOTE"} num={5} onEdit={v => setSectionTitle(5, v)} />
             {(brief.quote || []).map((q, qi) => (
               <div key={q.id} style={{ marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <div className="pb-row" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                   <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, flexShrink: 0 }}>{qi + 1}.</span>
                   <input value={q.heading || ""} onChange={e => updateQuoteHeading(q.id, e.target.value)} placeholder="SECTION TITLE"
                     style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", ...GRAY_BOX, textTransform: "uppercase" }} />
@@ -681,7 +696,7 @@ export default function ProductionBrief({
                   <AddBtn onClick={addQuoteSection} />
                 </div>
                 {(q.lines || []).map((line, li) => (
-                  <div key={line.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center", paddingLeft: 22 }}>
+                  <div key={line.id} className="pb-row" style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center", paddingLeft: 22 }}>
                     <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 20, textAlign: "right", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
                     <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
                       style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
