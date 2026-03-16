@@ -9,13 +9,13 @@ const makeBrief = (projectId) => ({
   prodLogo: null,
   clientLogo: null,
   project: { name: "", client: "", date: "", producer: "", director: "" },
-  overview: { description: "", objective: "", deliverables: "", budget: "" },
+  overview: { description: "", objective: "", deliverables: "", budget: "", crewCount: "" },
   creative: { direction: "", references: "", tone: "", keyMessages: "" },
   schedule: {
     recceDays: "", recceDates: "",
     shootDays: "", shootDates: "",
     travelDays: "", travelDates: "",
-    prePro: "", wrapDate: "",
+    prePro: "", wrapDate: "", notes: "",
   },
   crew: { director: "", dop: "", producer: "", ac: "", sound: "", gaffer: "", artDept: "", stylist: "", mua: "", other: "" },
   accommodation: { hotel: "", address: "", checkIn: "", checkOut: "", notes: "" },
@@ -236,28 +236,50 @@ export default function ProductionBrief({
             <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LOCAL PRODUCTION BRIEF</div>
           </div>
 
-          {/* Project metadata */}
-          <div style={{ padding: "0 16px", display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-            {[["PROJECT", "name", "Project Name"], ["CLIENT", "client", "Client"], ["DATE", "date", "Date"], ["PRODUCER", "producer", "Producer"], ["DIRECTOR", "director", "Director"]].map(([lbl, key, ph]) => (
-              <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                <span style={{ fontFamily: CS_FONT, fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>{lbl}:</span>
-                <PBInp value={(brief.project || {})[key]} onChange={v => u("project", key, v)} placeholder={ph} style={{ width: 100, borderBottom: "1px solid #eee" }} />
+          {/* Key info block + project metadata */}
+          <div style={{ padding: "0 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+              {/* Left column — stacked key fields */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 220, flex: 0 }}>
+                {[
+                  ["SHOOT DATES", "schedule", "shootDates", "e.g. 20-22 Mar 2026"],
+                  ["NUMBER OF TRAVEL DAYS", "schedule", "travelDays", "e.g. 2"],
+                  ["NUMBER OF RECCE DAYS", "schedule", "recceDays", "e.g. 1"],
+                  ["NUMBER OF SHOOT DAYS", "schedule", "shootDays", "e.g. 4"],
+                  ["NUMBER OF CREW", "overview", "crewCount", "e.g. 15"],
+                ].map(([lbl, sec, key, ph]) => (
+                  <div key={lbl} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999", whiteSpace: "nowrap", minWidth: 130 }}>{lbl}</span>
+                    <PBInp value={(brief[sec] || {})[key]} onChange={v => u(sec, key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: 80 }} />
+                  </div>
+                ))}
               </div>
-            ))}
+              {/* Right column — project metadata */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 200 }}>
+                {[
+                  ["PROJECT", "name", "Project Name"],
+                  ["CLIENT", "client", "Client"],
+                  ["PRODUCER", "producer", "Producer"],
+                  ["DIRECTOR", "director", "Director"],
+                  ["DATE", "date", "Date"],
+                ].map(([lbl, key, ph]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999", whiteSpace: "nowrap", minWidth: 60 }}>{lbl}</span>
+                    <PBInp value={(brief.project || {})[key]} onChange={v => u("project", key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Description — full width */}
+          <div style={{ padding: "0 16px", marginBottom: 14 }}>
+            <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 2 }}>DESCRIPTION</div>
+            <textarea value={ov.description || ""} onChange={e => u("overview", "description", e.target.value)} placeholder="Brief project description, scope, objectives..."
+              style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%", padding: "6px 8px", color: "#333", minHeight: 60, resize: "none", boxSizing: "border-box", lineHeight: 1.5, borderRadius: 2, background: ov.description ? "#fff" : "#FFFDE7" }} />
           </div>
 
           <div style={{ padding: "0 16px" }}>
-
-            {/* ── PROJECT OVERVIEW ── */}
-            <SectionTitle title="PROJECT OVERVIEW" />
-            <Row isMobile={isMobile}>
-              <PBTextarea label="DESCRIPTION" value={ov.description} onChange={v => u("overview", "description", v)} placeholder="Brief project description..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="OBJECTIVE" value={ov.objective} onChange={v => u("overview", "objective", v)} placeholder="Campaign objective..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="DELIVERABLES" value={ov.deliverables} onChange={v => u("overview", "deliverables", v)} placeholder="e.g. 1x hero film, 3x social cuts, 20 stills..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="BUDGET" value={ov.budget} onChange={v => u("overview", "budget", v)} placeholder="AED / USD" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
-            </Row>
 
             {/* ── CREATIVE DIRECTION ── */}
             <SectionTitle title="CREATIVE DIRECTION" />
@@ -273,16 +295,14 @@ export default function ProductionBrief({
             {/* ── SCHEDULE ── */}
             <SectionTitle title="SCHEDULE" />
             <Row isMobile={isMobile}>
-              <PBField label="RECCE DAYS" value={sc.recceDays} onChange={v => u("schedule", "recceDays", v)} placeholder="No. of days" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="RECCE DATES" value={sc.recceDates} onChange={v => u("schedule", "recceDates", v)} placeholder="e.g. 15-16 Mar 2026" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="SHOOT DAYS" value={sc.shootDays} onChange={v => u("schedule", "shootDays", v)} placeholder="No. of days" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="SHOOT DATES" value={sc.shootDates} onChange={v => u("schedule", "shootDates", v)} placeholder="e.g. 20-22 Mar 2026" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="RECCE DATES" value={sc.recceDates} onChange={v => u("schedule", "recceDates", v)} placeholder="e.g. 15-16 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="SHOOT DATES" value={sc.shootDates} onChange={v => u("schedule", "shootDates", v)} placeholder="e.g. 20-22 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="TRAVEL DATES" value={sc.travelDates} onChange={v => u("schedule", "travelDates", v)} placeholder="e.g. 19 & 23 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
             <Row isMobile={isMobile}>
-              <PBField label="TRAVEL DAYS" value={sc.travelDays} onChange={v => u("schedule", "travelDays", v)} placeholder="No. of days" style={{ flex: 0.5, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="TRAVEL DATES" value={sc.travelDates} onChange={v => u("schedule", "travelDates", v)} placeholder="e.g. 19 & 23 Mar 2026" style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="PRE-PRODUCTION" value={sc.prePro} onChange={v => u("schedule", "prePro", v)} placeholder="Dates or duration..." style={{ flex: 1, minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="WRAP DATE" value={sc.wrapDate} onChange={v => u("schedule", "wrapDate", v)} placeholder="Date" style={{ flex: 0.6, minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="PRE-PRODUCTION" value={sc.prePro} onChange={v => u("schedule", "prePro", v)} placeholder="Dates or duration..." style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="WRAP DATE" value={sc.wrapDate} onChange={v => u("schedule", "wrapDate", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBTextarea label="SCHEDULE NOTES" value={sc.notes} onChange={v => u("schedule", "notes", v)} placeholder="Shoot structure, split days, overtime notes..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
 
             {/* ── CREW BREAKDOWN ── */}
