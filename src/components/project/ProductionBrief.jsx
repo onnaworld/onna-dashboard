@@ -425,19 +425,37 @@ export default function ProductionBrief({
   }, []);
 
   const fmt = (cmd, val) => {
-    if (!lastFocusedEditor.current) return;
+    const editor = lastFocusedEditor.current;
+    if (!editor) return;
+    // Ensure editor has focus
+    editor.focus();
     // Restore saved selection range
     if (savedRange.current) {
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(savedRange.current);
+      try {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedRange.current);
+      } catch (e) { /* range may be invalid */ }
     }
-    document.execCommand(cmd, false, val || null);
-    // Save the new range after formatting
+    // For color/highlight, use span wrapping as fallback if execCommand fails
     const sel = window.getSelection();
-    if (sel.rangeCount > 0) savedRange.current = sel.getRangeAt(0).cloneRange();
-    // execCommand doesn't fire input event, so manually trigger it
-    lastFocusedEditor.current.dispatchEvent(new Event("input", { bubbles: true }));
+    if ((cmd === "foreColor" || cmd === "hiliteColor") && sel.rangeCount > 0 && !sel.isCollapsed) {
+      const range = sel.getRangeAt(0);
+      const span = document.createElement("span");
+      if (cmd === "foreColor") span.style.color = val;
+      else if (cmd === "hiliteColor") span.style.backgroundColor = val === "transparent" ? "" : val;
+      try { range.surroundContents(span); } catch (e) {
+        // If surroundContents fails (crosses element boundaries), use execCommand
+        document.execCommand(cmd, false, val || null);
+      }
+    } else {
+      document.execCommand(cmd, false, val || null);
+    }
+    // Save the new range after formatting
+    const sel2 = window.getSelection();
+    if (sel2.rangeCount > 0) savedRange.current = sel2.getRangeAt(0).cloneRange();
+    // Trigger input event to save changes
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
   // Extra freeform sections
