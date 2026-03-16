@@ -126,6 +126,9 @@ export function AgentProvider({ debouncedDocSave, children }) {
   const [cashFlowStore,setCashFlowStore]                 = useState(()=>{try{const s=localStorage.getItem('onna_cashflows');return s?JSON.parse(s):{}}catch{return {}}});
   const [activeCashFlowVersion,setActiveCashFlowVersion] = useState(null);
 
+  // ── Production Briefs ──
+  const [productionBriefStore,setProductionBriefStore]   = useState(()=>{try{const s=localStorage.getItem('onna_prod_briefs');return s?JSON.parse(s):{}}catch{return {}}});
+
   // ── Project Info / Notes ──
   const [projectNotes,setProjectNotes]                   = useState({});
   const [projectInfo,setProjectInfo]                     = useState(()=>{try{const s=localStorage.getItem('onna_project_info');return s?JSON.parse(s):{}}catch{return {}}});
@@ -158,6 +161,7 @@ export function AgentProvider({ debouncedDocSave, children }) {
   useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{} debouncedDocSave('dietaries',dietaryStore);},[dietaryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{} debouncedDocSave('estimates',projectEstimates);},[projectEstimates]);
   useEffect(()=>{try{localStorage.setItem('onna_cashflows',JSON.stringify(cashFlowStore))}catch{} debouncedDocSave('cashflows',cashFlowStore);},[cashFlowStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_prod_briefs',JSON.stringify(productionBriefStore))}catch{} debouncedDocSave('prod_briefs',productionBriefStore);},[productionBriefStore]);
   useEffect(()=>{projectInfoRef.current=projectInfo;try{localStorage.setItem('onna_project_info',JSON.stringify(projectInfo))}catch{} debouncedDocSave('project_info',projectInfo);},[projectInfo]);
 
   const value = {
@@ -217,6 +221,8 @@ export function AgentProvider({ debouncedDocSave, children }) {
     editingEstimate,setEditingEstimate,
     // Cash Flows
     cashFlowStore,setCashFlowStore,activeCashFlowVersion,setActiveCashFlowVersion,
+    // Production Briefs
+    productionBriefStore,setProductionBriefStore,
     // Project Info / Notes
     projectNotes,setProjectNotes,projectInfo,setProjectInfo,projectInfoRef,
     // Actuals tracker

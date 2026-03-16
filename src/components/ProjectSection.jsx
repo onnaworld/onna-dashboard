@@ -63,6 +63,7 @@ export default function ProjectSection({
   shotListStore, setShotListStore,
   storyboardStore, setStoryboardStore,
   postProdStore, setPostProdStore,
+  productionBriefStore, setProductionBriefStore,
   // estimate/budget
   editingEstimate, setEditingEstimate,
   actualsTrackerTab, setActualsTrackerTab, actualsExpandedRef,
@@ -266,6 +267,8 @@ export default function ProjectSection({
       linkUploading={linkUploading} linkUploadProgress={linkUploadProgress} uploadFromLink={uploadFromLink}
       pushNav={pushNav} showAlert={showAlert} buildPath={buildPath}
       UploadZone={UploadZone}
+      productionBriefStore={productionBriefStore} setProductionBriefStore={setProductionBriefStore}
+      CSLogoSlot={CSLogoSlot}
     />;
   }
 

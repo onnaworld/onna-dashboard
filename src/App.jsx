@@ -407,6 +407,7 @@ function OnnaDashboardInner() {
     projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,
     editingEstimate,setEditingEstimate,
     cashFlowStore,setCashFlowStore,activeCashFlowVersion,setActiveCashFlowVersion,
+    productionBriefStore,setProductionBriefStore,
     projectNotes,setProjectNotes,projectInfo,setProjectInfo,projectInfoRef,
     actualsTrackerTab,setActualsTrackerTab,actualsExpandedRef,
     contractType,setContractType,contractFields,setContractFields,
@@ -655,6 +656,12 @@ function OnnaDashboardInner() {
         setCashFlowStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
           Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
+          return changed ? s : prev;
+        });
+        // Production Briefs
+        setProductionBriefStore(prev => {
+          let changed = false; const s = JSON.parse(JSON.stringify(prev));
+          Object.keys(s).forEach(k => { if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) { if (!s[k].prodLogo || force) { s[k].prodLogo = dataUrl; changed = true; } } });
           return changed ? s : prev;
         });
         localStorage.setItem('onna_logo_ver', LOGO_VER);
@@ -1055,6 +1062,7 @@ function OnnaDashboardInner() {
     shotListStore={shotListStore} setShotListStore={setShotListStore}
     storyboardStore={storyboardStore} setStoryboardStore={setStoryboardStore}
     postProdStore={postProdStore} setPostProdStore={setPostProdStore}
+    productionBriefStore={productionBriefStore} setProductionBriefStore={setProductionBriefStore}
     editingEstimate={editingEstimate} setEditingEstimate={setEditingEstimate}
     actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab} actualsExpandedRef={actualsExpandedRef}
     invoiceTab={invoiceTab} setInvoiceTab={setInvoiceTab}
