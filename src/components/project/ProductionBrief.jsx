@@ -214,6 +214,42 @@ export default function ProductionBrief({
       init.projectFields[0].value = `${p.client || ""} | ${p.name}`.replace(/^TEMPLATE \| /, "");
       init.projectFields[1].value = p.client || "";
       setProductionBriefStore(prev => ({ ...prev, [p.id]: init }));
+    } else if (brief && !brief.projectFields) {
+      // Migrate old-format data to new dynamic fields format
+      const pr = brief.project || {};
+      const ov = brief.overview || {};
+      const cr = brief.creative || {};
+      const sc = brief.schedule || {};
+      const migrated = {
+        ...brief,
+        sectionTitles: brief.sectionTitles || { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE" },
+        projectFields: [
+          { id: Date.now()+0.01, label: "PROJECT", value: pr.name || "" },
+          { id: Date.now()+0.02, label: "CLIENT", value: pr.client || "" },
+          { id: Date.now()+0.03, label: "PRODUCTION", value: pr.producer || "" },
+          { id: Date.now()+0.04, label: "PHOTOGRAPHER / DIRECTOR", value: pr.director || "" },
+          { id: Date.now()+0.05, label: "DATE", value: pr.date || "" },
+        ],
+        overviewFields: [
+          { id: Date.now()+0.06, label: "NUMBER OF TRAVEL DAYS", value: sc.travelDays || "" },
+          { id: Date.now()+0.07, label: "NUMBER OF RECCE DAYS", value: sc.recceDays || "" },
+          { id: Date.now()+0.08, label: "NUMBER OF SHOOT DAYS", value: sc.shootDays || "" },
+          { id: Date.now()+0.09, label: "NUMBER OF INTERNATIONAL CREW", value: ov.crewCount || "" },
+          { id: Date.now()+0.10, label: "TOTAL CREW", value: ov.totalCrew || "" },
+        ],
+        creativeFields: [
+          { id: Date.now()+0.15, label: "DESCRIPTION", value: cr.direction || "", type: "textarea" },
+          { id: Date.now()+0.16, label: "REFERENCES", value: cr.references || "" },
+          { id: Date.now()+0.17, label: "TONE / MOOD", value: cr.tone || "" },
+        ],
+        scheduleFields: [
+          { id: Date.now()+0.18, label: "STRUCTURE", value: sc.structure || "", type: "textarea" },
+          { id: Date.now()+0.19, label: "KEY MOMENTS", value: sc.keyMoments || "", type: "textarea" },
+        ],
+        quote: brief.quote || makeBrief(p.id).quote,
+        updatedAt: Date.now(),
+      };
+      setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
     }
   }, [p.id, brief, setProductionBriefStore]);
 
@@ -467,7 +503,7 @@ export default function ProductionBrief({
             <div style={{ display: "flex", gap: 24, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {/* International Crew */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4 }}>INTERNATIONAL CREW</div>
+                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4, background: "#f2f2f2", padding: "5px 10px", borderRadius: 3 }}>INTERNATIONAL CREW</div>
                 {(() => {
                   let globalIdx = 0;
                   return CREW_CATEGORIES.map(([catKey, catLabel]) => {
@@ -475,7 +511,7 @@ export default function ProductionBrief({
                     return (
                       <div key={catKey} style={{ marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", background: "#f7f7f7", padding: "3px 8px", borderRadius: 2 }}>{catLabel}</div>
                           <AddBtn onClick={() => addCrewMember(catKey)} />
                         </div>
                         {members.map((m) => {
@@ -499,7 +535,7 @@ export default function ProductionBrief({
 
               {/* Local Crew */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4 }}>LOCAL CREW</div>
+                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4, background: "#f2f2f2", padding: "5px 10px", borderRadius: 3 }}>LOCAL CREW</div>
                 {(() => {
                   let localIdx = 0;
                   return LOCAL_CREW_CATEGORIES.map(([catKey, catLabel]) => {
@@ -507,7 +543,7 @@ export default function ProductionBrief({
                     return (
                       <div key={catKey} style={{ marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", background: "#f7f7f7", padding: "3px 8px", borderRadius: 2 }}>{catLabel}</div>
                           <AddBtn onClick={() => addLocalCrewMember(catKey)} />
                         </div>
                         {members.map((m) => {
