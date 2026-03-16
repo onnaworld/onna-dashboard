@@ -78,18 +78,30 @@ const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
   );
 };
 
-// Auto-growing textarea with label
+// contentEditable textarea with label — supports formatting toolbar
 const PBTextarea = ({ label, value, onChange, placeholder, style: s = {} }) => {
   const ref = useRef(null);
-  const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
-  useEffect(() => { autoGrow(ref.current); }, [value]);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (ref.current && !mounted.current) {
+      ref.current.innerHTML = value || "";
+      mounted.current = true;
+    }
+  }, []);
+  const handleInput = () => {
+    if (ref.current) onChange(ref.current.innerHTML);
+  };
+  const isEmpty = !value || value === "<br>" || value === "<div><br></div>";
   return (
-    <div style={{ flex: 1, minWidth: 140, ...s }}>
+    <div style={{ flex: 1, minWidth: 140, position: "relative", ...s }}>
       {label && <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 2 }}>{label}</div>}
-      <textarea ref={ref} value={value || ""} onChange={e => { onChange(e.target.value); autoGrow(e.target); }} placeholder={placeholder}
+      {isEmpty && !ref.current?.innerHTML && (
+        <div style={{ position: "absolute", top: label ? 18 : 0, left: 8, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
+      )}
+      <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput}
         style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
-          padding: "6px 8px", color: "#000", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
-          borderRadius: 2, background: value ? "#fff" : "#FFFDE7", overflow: "hidden" }} />
+          padding: "6px 8px", color: "#000", minHeight: 40, boxSizing: "border-box", lineHeight: 1.5,
+          borderRadius: 2, background: isEmpty ? "#FFFDE7" : "#fff" }} />
     </div>
   );
 };
@@ -298,6 +310,11 @@ export default function ProductionBrief({
     clone.querySelectorAll("input, textarea").forEach(inp => {
       if (!inp.value || !inp.value.trim()) inp.style.display = "none";
       else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s); }
+    });
+    clone.querySelectorAll("[contenteditable]").forEach(el => {
+      el.removeAttribute("contenteditable");
+      el.style.border = "none";
+      el.style.background = "none";
     });
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
