@@ -26,7 +26,7 @@ const makeBrief = (projectId) => ({
   creativeFields: [
     { id: Date.now()+0.15, label: "DESCRIPTION", value: "", type: "textarea" },
     { id: Date.now()+0.16, label: "REFERENCES", value: "" },
-    { id: Date.now()+0.17, label: "TONE / MOOD", value: "" },
+    { id: Date.now()+0.17, label: "VISUAL NOTES", value: "" },
   ],
   crew: {
     client: [{ id: Date.now()+0.1, role: "", name: "" }],
@@ -107,9 +107,10 @@ const PBTextarea = ({ label, value, onChange, placeholder, style: s = {} }) => {
 };
 
 // Editable label — shows as text, becomes input on double-click
-const EditableLabel = ({ value, onChange, style: s = {}, minWidth = 60 }) => {
+const EditableLabel = ({ value, onChange, style: s = {}, minWidth = 60, gray }) => {
   const [editing, setEditing] = useState(false);
   const ref = useRef(null);
+  const grayStyle = gray ? GRAY_BOX : {};
   useEffect(() => { if (editing && ref.current) ref.current.focus(); }, [editing]);
   if (editing) {
     return (
@@ -117,13 +118,13 @@ const EditableLabel = ({ value, onChange, style: s = {}, minWidth = 60 }) => {
         onBlur={() => setEditing(false)} onKeyDown={e => { if (e.key === "Enter") setEditing(false); }}
         style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000",
           border: "1px solid #ccc", outline: "none", background: "#FFFDE7", padding: "1px 4px",
-          textTransform: "uppercase", minWidth, ...s }} />
+          textTransform: "uppercase", minWidth, ...grayStyle, ...s }} />
     );
   }
   return (
     <span onDoubleClick={() => setEditing(true)}
       style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000",
-        whiteSpace: "nowrap", minWidth, cursor: "default", ...s }}
+        whiteSpace: "nowrap", minWidth, cursor: "default", ...grayStyle, ...s }}
       title="Double-click to edit">{value || "LABEL"}</span>
   );
 };
@@ -237,7 +238,7 @@ export default function ProductionBrief({
         creativeFields: [
           { id: Date.now()+0.15, label: "DESCRIPTION", value: cr.direction || "", type: "textarea" },
           { id: Date.now()+0.16, label: "REFERENCES", value: cr.references || "" },
-          { id: Date.now()+0.17, label: "TONE / MOOD", value: cr.tone || "" },
+          { id: Date.now()+0.17, label: "VISUAL NOTES", value: cr.tone || "" },
         ],
         scheduleFields: [
           { id: Date.now()+0.18, label: "STRUCTURE", value: sc.structure || "", type: "textarea" },
@@ -257,21 +258,67 @@ export default function ProductionBrief({
         updatedAt: Date.now(),
       };
       setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
-    } else if (brief && brief.projectFields && !brief.localCrewCategories) {
-      // Migrate localCrewList to localCrewCategories
-      const lcl = brief.localCrewList || {};
-      const migrated = {
-        ...brief,
-        localCrewCategories: [
+    } else if (brief && brief.projectFields) {
+      // Ensure all required fields/defaults exist (repair pass)
+      let needsUpdate = false;
+      const patched = { ...brief };
+
+      // Ensure localCrewCategories
+      if (!patched.localCrewCategories) {
+        needsUpdate = true;
+        const lcl = brief.localCrewList || {};
+        patched.localCrewCategories = [
           { id: Date.now()+0.9, label: "FIXERS", members: lcl.fixers || [{ id: Date.now()+0.91, role: "", name: "" }] },
           { id: Date.now()+0.11, label: "DRIVERS", members: lcl.drivers || [{ id: Date.now()+0.111, role: "", name: "" }] },
           { id: Date.now()+0.12, label: "SECURITY", members: lcl.security || [{ id: Date.now()+0.121, role: "", name: "" }] },
           { id: Date.now()+0.13, label: "EXTRAS", members: lcl.extras || [{ id: Date.now()+0.131, role: "", name: "" }] },
           { id: Date.now()+0.14, label: "MISCELLANEOUS", members: lcl.miscellaneous || [{ id: Date.now()+0.141, role: "", name: "" }] },
-        ],
-        updatedAt: Date.now(),
-      };
-      setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
+        ];
+      }
+
+      // Ensure projectFields have correct default labels
+      const pfDefaults = ["PROJECT NAME", "CLIENT", "PRODUCTION", "PHOTOGRAPHER / DIRECTOR", "SHOOT DATES"];
+      if (patched.projectFields.length < 5 || patched.projectFields.some((f, i) => pfDefaults[i] && !f.label)) {
+        needsUpdate = true;
+        patched.projectFields = pfDefaults.map((lbl, i) => {
+          const existing = patched.projectFields[i];
+          return existing ? { ...existing, label: existing.label || lbl } : { id: Date.now() + i * 0.01, label: lbl, value: "" };
+        });
+      }
+
+      // Ensure overviewFields have correct default labels
+      const ofDefaults = ["NUMBER OF TRAVEL DAYS", "NUMBER OF RECCE DAYS", "NUMBER OF SHOOT DAYS", "NUMBER OF INTERNATIONAL CREW", "TOTAL CREW"];
+      if (patched.overviewFields.length < 5 || patched.overviewFields.some((f, i) => ofDefaults[i] && !f.label)) {
+        needsUpdate = true;
+        patched.overviewFields = ofDefaults.map((lbl, i) => {
+          const existing = patched.overviewFields[i];
+          return existing ? { ...existing, label: existing.label || lbl } : { id: Date.now() + 0.06 + i * 0.01, label: lbl, value: "" };
+        });
+      }
+
+      // Ensure creativeFields exist with defaults
+      if (!patched.creativeFields || patched.creativeFields.length === 0) {
+        needsUpdate = true;
+        patched.creativeFields = [
+          { id: Date.now()+0.15, label: "DESCRIPTION", value: "", type: "textarea" },
+          { id: Date.now()+0.16, label: "REFERENCES", value: "" },
+          { id: Date.now()+0.17, label: "VISUAL NOTES", value: "" },
+        ];
+      }
+
+      // Ensure scheduleFields exist with defaults
+      if (!patched.scheduleFields || patched.scheduleFields.length === 0) {
+        needsUpdate = true;
+        patched.scheduleFields = [
+          { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
+          { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
+        ];
+      }
+
+      if (needsUpdate) {
+        patched.updatedAt = Date.now();
+        setProductionBriefStore(prev => ({ ...prev, [p.id]: patched }));
+      }
     }
   }, [p.id, brief, setProductionBriefStore]);
 
@@ -607,7 +654,7 @@ export default function ProductionBrief({
               {sf.map(f => (
                 <div key={f.id} style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} />
+                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray />
                     <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "box"}"?`)) removeField("scheduleFields", f.id); }} />
                     <AddBtn onClick={() => addField("scheduleFields", "textarea")} />
                   </div>
