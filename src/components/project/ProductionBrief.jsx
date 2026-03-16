@@ -103,7 +103,7 @@ const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocu
       )}
       <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput} onFocus={handleFocus}
         style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
-          padding: "6px 8px", color: "#000", minHeight: 40, boxSizing: "border-box", lineHeight: 1.5,
+          padding: "6px 8px", color: "#000", minHeight: 22, boxSizing: "border-box", lineHeight: 1.5,
           borderRadius: 2, background: isEmpty ? "#FFFDE7" : "#fff" }} />
     </div>
   );
@@ -740,7 +740,7 @@ export default function ProductionBrief({
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                       <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
                       <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
-                        style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
+                        style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
                       <DelBtn onClick={() => removeQuoteLine(q.id, line.id)} />
                       <AddBtn onClick={() => addQuoteLine(q.id)} />
                     </div>
