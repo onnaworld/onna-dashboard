@@ -57,6 +57,20 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
     });
   };
 
+  const EST_STATUSES = ["", "Pending", "Confirmed", "Paid"];
+  const EST_ST_BG = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
+  const EST_ST_COLOR = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
+  const EST_ST_DOT = { "": "#ddd", Pending: "#d4a800", Confirmed: "#3399ff", Paid: "#2e7d32" };
+  const cycleRowStatus = (si, ri) => {
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      const row = secs[si].rows[ri];
+      const cur = row.rowStatus || "";
+      row.rowStatus = EST_STATUSES[(EST_STATUSES.indexOf(cur) + 1) % EST_STATUSES.length];
+      return {...d, sections: secs};
+    });
+  };
+
   const { subtotal, feesTotal, grandTotal } = estCalcTotals(sections);
 
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
@@ -203,7 +217,8 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
             <div key={sec.id}>
               <div style={{marginBottom:12}}>
               <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
-                <div style={{width:40,padding:"0 6px",flexShrink:0}}>{sec.num}</div>
+                <div data-noprint style={{width:16,flexShrink:0}}></div>
+                <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
                 <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
                 <div style={{width:120,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
                 <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
@@ -213,10 +228,13 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
                 <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>
                 <div style={{width:24,flexShrink:0}}></div>
               </div>
-              {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);return(
-                <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",...(_rHas?{background:"#E8F5E9"}:{})}}>
+              {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);const _rowBg=_rHas?"#E8F5E9":(EST_ST_BG[row.rowStatus||""]||"transparent");return(
+                <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",background:_rowBg,transition:"background 0.15s"}}>
                   {_rHas&&<div style={{position:"absolute",left:-28,top:4,display:"flex",gap:1,zIndex:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_rm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_rm)} style={_bRevBtn("decline")}>{"✕"}</button></div>}
-                  <div style={{width:40,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
+                  <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span onClick={()=>cycleRowStatus(si,ri)} title={(row.rowStatus||"No status")+" — click to cycle"} style={{cursor:"pointer",fontSize:8,color:EST_ST_DOT[row.rowStatus||""]||"#ddd",userSelect:"none",lineHeight:1}}>●</span>
+                  </div>
+                  <div style={{width:34,flexShrink:0,padding:"4px 2px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                   <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
                   <div style={{width:120,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
                   <div style={{width:50,flexShrink:0}}><EstCell value={row.days} onChange={v=>updateRow(si,ri,"days",v)} align="center" /></div>
