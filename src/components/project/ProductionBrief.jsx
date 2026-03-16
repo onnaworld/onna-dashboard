@@ -421,12 +421,28 @@ export default function ProductionBrief({
   }, [update]);
 
   const lastFocusedEditor = useRef(null);
-  const fmt = (cmd, val) => {
-    // Restore focus to last active editor if selection is lost (e.g. clicked toolbar)
-    if (lastFocusedEditor.current) {
+  const savedRange = useRef(null);
+
+  // Save selection whenever it changes inside a contentEditable
+  useEffect(() => {
+    const saveSelection = () => {
       const sel = window.getSelection();
-      if (!sel.rangeCount || !lastFocusedEditor.current.contains(sel.anchorNode)) {
-        lastFocusedEditor.current.focus();
+      if (sel.rangeCount > 0 && lastFocusedEditor.current && lastFocusedEditor.current.contains(sel.anchorNode)) {
+        savedRange.current = sel.getRangeAt(0).cloneRange();
+      }
+    };
+    document.addEventListener("selectionchange", saveSelection);
+    return () => document.removeEventListener("selectionchange", saveSelection);
+  }, []);
+
+  const fmt = (cmd, val) => {
+    // Restore focus and selection to last active editor
+    if (lastFocusedEditor.current) {
+      lastFocusedEditor.current.focus();
+      if (savedRange.current) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedRange.current);
       }
     }
     document.execCommand(cmd, false, val || null);
