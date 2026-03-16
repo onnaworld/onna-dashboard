@@ -11,8 +11,8 @@ export const useTodo = () => {
 
 export function TodoProvider({ children }) {
   // ── Core todo state ──
-  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];return arr.map(t=>t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"})}catch(e){return []}});
-  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');return s?JSON.parse(s):{};}catch(e){return {}}});
+  const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];const archIds=(()=>{try{return new Set(JSON.parse(localStorage.getItem('onna_archive')||'[]').filter(e=>e.table==='todos').map(e=>e.item?.id).filter(Boolean));}catch{return new Set();}})();return arr.filter(t=>!archIds.has(t.id)).map(t=>t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"})}catch(e){return []}});
+  const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');const raw=s?JSON.parse(s):{};const archIds=(()=>{try{return new Set(JSON.parse(localStorage.getItem('onna_archive')||'[]').filter(e=>e.table==='todos').map(e=>e.item?.id).filter(Boolean));}catch{return new Set();}})();const filtered={};for(const[pid,tasks]of Object.entries(raw)){filtered[pid]=(tasks||[]).filter(t=>!archIds.has(t.id));}return filtered;}catch(e){return {}}});
   const [archivedTodos,setArchivedTodos] = useState([]);
   const [newTodo,setNewTodo] = useState("");
   const [todoFilter,setTodoFilter] = useState("todo-week");
@@ -31,13 +31,22 @@ export function TodoProvider({ children }) {
   // ── Hydration gate (internal) ──
   const hydratedRef = useRef(false);
 
+  // ── Get archived todo IDs to exclude during hydration ──
+  const getArchivedTodoIds = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('onna_archive') || '[]');
+      return new Set(raw.filter(e => e.table === 'todos').map(e => e.item?.id).filter(Boolean));
+    } catch { return new Set(); }
+  };
+
   // ── Hydration functions (called by App.jsx after /api/global-data) ──
   const hydrateTodos = (backendTodos) => {
     setTodos(prev => {
-      const merged = backendTodos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"});
+      const archivedIds = getArchivedTodoIds();
+      const merged = backendTodos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"}).filter(t => !archivedIds.has(t.id));
       if (prev.length) {
         const backendIds = new Set(merged.map(t => t.id));
-        for (const lt of prev) { if (!backendIds.has(lt.id)) merged.push(lt); }
+        for (const lt of prev) { if (!backendIds.has(lt.id) && !archivedIds.has(lt.id)) merged.push(lt); }
       }
       return merged;
     });
@@ -45,12 +54,22 @@ export function TodoProvider({ children }) {
 
   const hydrateProjectTodos = (backendPtodos) => {
     setProjectTodos(prev => {
-      if (!Object.keys(prev).length) return backendPtodos;
-      const merged = {...backendPtodos};
+      const archivedIds = getArchivedTodoIds();
+      if (!Object.keys(prev).length) {
+        const filtered = {};
+        for (const [pid, tasks] of Object.entries(backendPtodos)) {
+          filtered[pid] = (tasks || []).filter(t => !archivedIds.has(t.id));
+        }
+        return filtered;
+      }
+      const merged = {};
+      for (const [pid, tasks] of Object.entries(backendPtodos)) {
+        merged[pid] = (tasks || []).filter(t => !archivedIds.has(t.id));
+      }
       for (const [pid, tasks] of Object.entries(prev)) {
-        if (!merged[pid]) { merged[pid] = tasks; continue; }
+        if (!merged[pid]) { merged[pid] = tasks.filter(t => !archivedIds.has(t.id)); continue; }
         const backendIds = new Set(merged[pid].map(t => t.id));
-        for (const lt of tasks) { if (!backendIds.has(lt.id)) merged[pid].push(lt); }
+        for (const lt of tasks) { if (!backendIds.has(lt.id) && !archivedIds.has(lt.id)) merged[pid].push(lt); }
       }
       return merged;
     });
