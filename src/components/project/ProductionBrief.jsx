@@ -65,13 +65,29 @@ const makeBrief = (projectId) => ({
 
 const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]{display:none!important;}';
 
-// Simple input field — always editable, no contentEditable complexity
-const PBInp = ({ value, onChange, placeholder, style: s = {} }) => (
-  <input value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-    style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
-      background: "transparent", boxSizing: "border-box", width: "100%", color: "#000",
-      lineHeight: 1.5, ...s }} />
-);
+// Strip HTML tags from old contentEditable values
+const stripHtml = (str) => {
+  if (!str || !str.includes("<")) return str || "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = str.replace(/<br\s*\/?>/gi, "\n").replace(/<\/div>/gi, "\n").replace(/<\/p>/gi, "\n");
+  return tmp.textContent.replace(/\n{3,}/g, "\n\n").trim();
+};
+
+// Auto-growing textarea — supports Enter for new lines
+const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
+  const ref = useRef(null);
+  const clean = stripHtml(value);
+  const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+  useEffect(() => { autoGrow(ref.current); }, [clean]);
+  // Auto-clean HTML from old data on first render
+  useEffect(() => { if (value && value !== clean) onChange(clean); }, []);
+  return (
+    <textarea ref={ref} value={clean} onChange={e => { onChange(e.target.value); autoGrow(e.target); }} placeholder={placeholder} rows={1}
+      style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+        background: "transparent", boxSizing: "border-box", width: "100%", color: "#000",
+        resize: "none", overflow: "hidden", lineHeight: 1.5, minHeight: 20, ...s }} />
+  );
+};
 
 // contentEditable textarea with label — supports formatting toolbar
 const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
