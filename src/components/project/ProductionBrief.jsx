@@ -65,39 +65,13 @@ const makeBrief = (projectId) => ({
 
 const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]{display:none!important;}';
 
-// Auto-growing contentEditable input — supports formatting toolbar
-const PBInp = ({ value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
-  const ref = useRef(null);
-  const internalVal = useRef(value || "");
-  useEffect(() => {
-    // Sync external value changes (e.g. migration) but not our own edits
-    if (ref.current && value !== internalVal.current) {
-      ref.current.innerHTML = value || "";
-      internalVal.current = value || "";
-    }
-  });
-  // Set initial value on mount
-  useEffect(() => { if (ref.current) ref.current.innerHTML = value || ""; }, []);
-  const handleInput = () => {
-    if (ref.current) {
-      internalVal.current = ref.current.innerHTML;
-      onChange(ref.current.innerHTML);
-    }
-  };
-  const handleFocus = () => { if (onFocusEditor) onFocusEditor(ref.current); };
-  const isEmpty = !value || value === "<br>";
-  return (
-    <div style={{ position: "relative", ...s }}>
-      {isEmpty && !ref.current?.innerHTML?.replace(/<br>/g, "").trim() && (
-        <div style={{ position: "absolute", top: 3, left: 6, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
-      )}
-      <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput} onFocus={handleFocus}
-        style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
-          background: "transparent", boxSizing: "border-box", width: "100%", color: "#000",
-          lineHeight: 1.5, minHeight: 20 }} />
-    </div>
-  );
-};
+// Simple input field — always editable, no contentEditable complexity
+const PBInp = ({ value, onChange, placeholder, style: s = {} }) => (
+  <input value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+      background: "transparent", boxSizing: "border-box", width: "100%", color: "#000",
+      lineHeight: 1.5, ...s }} />
+);
 
 // contentEditable textarea with label — supports formatting toolbar
 const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
@@ -465,13 +439,22 @@ export default function ProductionBrief({
     const clone = el.cloneNode(true);
     clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
     clone.querySelectorAll("input, textarea").forEach(inp => {
-      if (!inp.value || !inp.value.trim()) inp.style.display = "none";
-      else { const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s); }
+      if (!inp.value || !inp.value.trim()) {
+        // Hide the entire row if the input is empty
+        const row = inp.closest(".pb-row");
+        if (row) row.style.display = "none";
+        else inp.style.display = "none";
+      } else {
+        const s = document.createElement("span"); s.textContent = inp.value; s.style.cssText = inp.style.cssText; s.style.border = "none"; s.style.background = "none"; inp.replaceWith(s);
+      }
     });
     clone.querySelectorAll("[contenteditable]").forEach(el => {
       el.removeAttribute("contenteditable");
       el.style.border = "none";
       el.style.background = "none";
+      // Hide empty contentEditable areas
+      const text = el.textContent || "";
+      if (!text.trim()) el.style.display = "none";
     });
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
@@ -505,7 +488,7 @@ export default function ProductionBrief({
       {field.type === "textarea" ? (
         <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} onFocusEditor={trackEditor} />
       ) : (
-        <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} onFocusEditor={trackEditor} />
+        <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} />
       )}
       <DelBtn onClick={() => removeField(arrKey, field.id)} />
       <AddBtn onClick={() => addField(arrKey, field.type)} />
@@ -632,7 +615,7 @@ export default function ProductionBrief({
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{globalIdx}.</span>
                               <input value={m.role || ""} onChange={e => updateCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                              <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
+                              <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
                               <DelBtn onClick={() => removeCrewMember(catKey, m.id)} />
                               <AddBtn onClick={() => addCrewMember(catKey)} />
                             </div>
@@ -667,7 +650,7 @@ export default function ProductionBrief({
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
                               <input value={m.role || ""} onChange={e => updateLocalCrewMember(cat.id, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(cat.id, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
+                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(cat.id, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
                               <DelBtn onClick={() => removeLocalCrewMember(cat.id, m.id)} />
                               <AddBtn onClick={() => addLocalCrewMember(cat.id)} />
                             </div>
@@ -686,12 +669,14 @@ export default function ProductionBrief({
             <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {sf.map(f => (
                 <div key={f.id} className="pb-row" style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray style={{ flex: 1 }} />
+                  <div style={{ marginBottom: 2 }}>
+                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray style={{ display: "block", width: "100%" }} />
+                  </div>
+                  <PBTextarea value={f.value} onChange={v => updateField("scheduleFields", f.id, "value", v)} placeholder="..." onFocusEditor={trackEditor} />
+                  <div data-hide="1" style={{ display: "flex", gap: 4, marginTop: 2 }}>
                     <DelBtn onClick={() => removeField("scheduleFields", f.id)} />
                     <AddBtn onClick={() => addField("scheduleFields", "textarea")} />
                   </div>
-                  <PBTextarea value={f.value} onChange={v => updateField("scheduleFields", f.id, "value", v)} placeholder="..." onFocusEditor={trackEditor} />
                 </div>
               ))}
               {sf.length === 0 && <AddBtn onClick={() => addField("scheduleFields", "textarea")} label="+ BOX" />}
@@ -713,7 +698,7 @@ export default function ProductionBrief({
                     <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 20, textAlign: "right", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
                     <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
                       style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                    <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
+                    <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} />
                     <DelBtn onClick={() => removeQuoteLine(q.id, line.id)} />
                     <AddBtn onClick={() => addQuoteLine(q.id)} />
                   </div>
