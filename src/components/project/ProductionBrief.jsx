@@ -446,6 +446,10 @@ export default function ProductionBrief({
       }
     }
     document.execCommand(cmd, false, val || null);
+    // execCommand doesn't fire input event, so manually trigger it
+    if (lastFocusedEditor.current) {
+      lastFocusedEditor.current.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   };
 
   // Extra freeform sections
