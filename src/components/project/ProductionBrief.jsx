@@ -8,15 +8,26 @@ const makeBrief = (projectId) => ({
   title: "Local Production Brief",
   prodLogo: null,
   clientLogo: null,
-  project: { name: "", client: "", date: "", producer: "", director: "" },
-  overview: { description: "", objective: "", deliverables: "", budget: "", crewCount: "", totalCrew: "" },
-  creative: { direction: "", references: "", tone: "", keyMessages: "" },
-  schedule: {
-    recceDays: "", recceDates: "",
-    shootDays: "", shootDates: "",
-    travelDays: "", travelDates: "",
-    prePro: "", wrapDate: "", notes: "", structure: "", keyMoments: "",
-  },
+  sectionTitles: { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE" },
+  projectFields: [
+    { id: Date.now()+0.01, label: "PROJECT", value: "" },
+    { id: Date.now()+0.02, label: "CLIENT", value: "" },
+    { id: Date.now()+0.03, label: "PRODUCTION", value: "" },
+    { id: Date.now()+0.04, label: "PHOTOGRAPHER / DIRECTOR", value: "" },
+    { id: Date.now()+0.05, label: "DATE", value: "" },
+  ],
+  overviewFields: [
+    { id: Date.now()+0.06, label: "NUMBER OF TRAVEL DAYS", value: "" },
+    { id: Date.now()+0.07, label: "NUMBER OF RECCE DAYS", value: "" },
+    { id: Date.now()+0.08, label: "NUMBER OF SHOOT DAYS", value: "" },
+    { id: Date.now()+0.09, label: "NUMBER OF INTERNATIONAL CREW", value: "" },
+    { id: Date.now()+0.10, label: "TOTAL CREW", value: "" },
+  ],
+  creativeFields: [
+    { id: Date.now()+0.15, label: "DESCRIPTION", value: "", type: "textarea" },
+    { id: Date.now()+0.16, label: "REFERENCES", value: "" },
+    { id: Date.now()+0.17, label: "TONE / MOOD", value: "" },
+  ],
   crew: {
     client: [{ id: Date.now()+0.1, role: "", name: "" }],
     production: [{ id: Date.now()+0.2, role: "", name: "" }],
@@ -34,12 +45,10 @@ const makeBrief = (projectId) => ({
     extras: [{ id: Date.now()+0.13, role: "", name: "" }],
     miscellaneous: [{ id: Date.now()+0.14, role: "", name: "" }],
   },
-  accommodation: { hotel: "", address: "", checkIn: "", checkOut: "", notes: "" },
-  localCrew: { fixers: "", drivers: "", security: "", extras: "", notes: "" },
-  transport: { vehicles: "", pickupDetails: "", airportTransfers: "", notes: "" },
-  catering: { headcount: "", dietary: "", vendor: "", mealTimes: "", notes: "" },
-  location: { primary: "", address: "", gps: "", contact: "", backup: "", notes: "" },
-  permits: { required: "", authority: "", status: "", deadline: "", notes: "" },
+  scheduleFields: [
+    { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
+    { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
+  ],
   quote: [
     { id: Date.now()+0.21, heading: "CREW", lines: [{ id: Date.now()+0.211, label: "", value: "" }] },
     { id: Date.now()+0.22, heading: "TRANSPORT", lines: [{ id: Date.now()+0.221, label: "", value: "" }] },
@@ -56,7 +65,7 @@ const makeBrief = (projectId) => ({
 
 const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]{display:none!important;}';
 
-// Reusable field components matching RecceField / RecceInp pattern
+// Auto-growing textarea input
 const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
   const ref = useRef(null);
   const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
@@ -68,19 +77,15 @@ const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
         resize: "none", overflow: "hidden", lineHeight: 1.5, minHeight: 20, ...s }} />
   );
 };
-const PBField = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => (
-  <div style={{ flex: 1, minWidth: 140, ...s }}>
-    <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
-    <PBInp value={value} onChange={onChange} placeholder={placeholder} />
-  </div>
-);
-const PBTextarea = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => {
+
+// Auto-growing textarea with label
+const PBTextarea = ({ label, value, onChange, placeholder, style: s = {} }) => {
   const ref = useRef(null);
   const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
   useEffect(() => { autoGrow(ref.current); }, [value]);
   return (
     <div style={{ flex: 1, minWidth: 140, ...s }}>
-      <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
+      {label && <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 2 }}>{label}</div>}
       <textarea ref={ref} value={value || ""} onChange={e => { onChange(e.target.value); autoGrow(e.target); }} placeholder={placeholder}
         style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
           padding: "6px 8px", color: "#000", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
@@ -88,6 +93,54 @@ const PBTextarea = ({ label, value, onChange, placeholder, color = "#000", style
     </div>
   );
 };
+
+// Editable label — shows as text, becomes input on double-click
+const EditableLabel = ({ value, onChange, style: s = {}, minWidth = 60 }) => {
+  const [editing, setEditing] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => { if (editing && ref.current) ref.current.focus(); }, [editing]);
+  if (editing) {
+    return (
+      <input ref={ref} value={value || ""} onChange={e => onChange(e.target.value)}
+        onBlur={() => setEditing(false)} onKeyDown={e => { if (e.key === "Enter") setEditing(false); }}
+        style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000",
+          border: "1px solid #ccc", outline: "none", background: "#FFFDE7", padding: "1px 4px",
+          textTransform: "uppercase", minWidth, ...s }} />
+    );
+  }
+  return (
+    <span onDoubleClick={() => setEditing(true)}
+      style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000",
+        whiteSpace: "nowrap", minWidth, cursor: "default", ...s }}
+      title="Double-click to edit">{value || "LABEL"}</span>
+  );
+};
+
+// Section title — editable on double-click
+const SectionTitle = ({ title, num, onEdit }) => {
+  const [editing, setEditing] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => { if (editing && ref.current) ref.current.focus(); }, [editing]);
+  if (editing && onEdit) {
+    return (
+      <div style={{ marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>
+        <input ref={ref} value={title} onChange={e => onEdit(e.target.value)}
+          onBlur={() => setEditing(false)} onKeyDown={e => { if (e.key === "Enter") setEditing(false); }}
+          style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000",
+            border: "1px solid #ccc", outline: "none", background: "#FFFDE7", padding: "1px 4px",
+            textTransform: "uppercase", width: "80%" }} />
+      </div>
+    );
+  }
+  return (
+    <div onDoubleClick={() => onEdit && setEditing(true)} title={onEdit ? "Double-click to edit" : undefined}
+      style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000",
+        marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3, cursor: onEdit ? "default" : undefined }}>
+      {num ? `${num}. ` : ""}{title}
+    </div>
+  );
+};
+
 const CREW_CATEGORIES = [
   ["client", "CLIENT"], ["production", "PRODUCTION"], ["video", "VIDEO"],
   ["photo", "PHOTO"], ["wardrobe", "WARDROBE"], ["hairMakeup", "HAIR & MAKEUP"],
@@ -97,14 +150,19 @@ const LOCAL_CREW_CATEGORIES = [
   ["fixers", "FIXERS"], ["drivers", "DRIVERS"], ["security", "SECURITY"],
   ["extras", "EXTRAS"], ["miscellaneous", "MISCELLANEOUS"],
 ];
-const SectionTitle = ({ title, num }) => (
-  <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{num ? `${num}. ` : ""}{title}</div>
+
+// × button
+const DelBtn = ({ onClick }) => (
+  <button data-hide="1" onClick={onClick}
+    style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
 );
-const Row = ({ children, isMobile }) => (
-  <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>{children}</div>
+// + button
+const AddBtn = ({ onClick, label = "+" }) => (
+  <div data-hide="1" onClick={onClick}
+    style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block" }}>{label}</div>
 );
 
-// Stable contentEditable that only sets innerHTML on mount (avoids cursor reset on re-render)
+// Stable contentEditable
 const ExtraEditor = ({ id, content, editorRefs, focusedSection, setFocusedSection, updateExtraContent }) => {
   const ref = useRef(null);
   const mounted = useRef(false);
@@ -120,7 +178,6 @@ const ExtraEditor = ({ id, content, editorRefs, focusedSection, setFocusedSectio
     <div ref={ref} contentEditable suppressContentEditableWarning
       onFocus={() => setFocusedSection(id)} onBlur={() => setFocusedSection(null)}
       onInput={() => updateExtraContent(id)}
-      onKeyDown={e => { if (e.key === "a" && (e.metaKey || e.ctrlKey)) { /* allow default select-all */ } }}
       style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, lineHeight: 1.6,
         border: `1px solid ${focused ? "#000" : "#eee"}`,
         outline: "none", width: "100%", padding: "6px 8px", color: "#333",
@@ -142,8 +199,8 @@ export default function ProductionBrief({
   useEffect(() => {
     if (!brief) {
       const init = makeBrief(p.id);
-      init.project.name = `${p.client || ""} | ${p.name}`.replace(/^TEMPLATE \| /, "");
-      init.project.client = p.client || "";
+      init.projectFields[0].value = `${p.client || ""} | ${p.name}`.replace(/^TEMPLATE \| /, "");
+      init.projectFields[1].value = p.client || "";
       setProductionBriefStore(prev => ({ ...prev, [p.id]: init }));
     }
   }, [p.id, brief, setProductionBriefStore]);
@@ -156,9 +213,20 @@ export default function ProductionBrief({
     });
   }, [p.id, setProductionBriefStore]);
 
-  // Nested field updater: u("schedule","shootDays", val)
-  const u = useCallback((section, key, val) => {
-    update(b => ({ ...b, [section]: { ...(b[section] || {}), [key]: val } }));
+  // Section title editor
+  const setSectionTitle = useCallback((num, val) => {
+    update(b => ({ ...b, sectionTitles: { ...(b.sectionTitles || {}), [num]: val } }));
+  }, [update]);
+
+  // Dynamic field helpers for projectFields, overviewFields, creativeFields, scheduleFields
+  const addField = useCallback((arrKey, type) => {
+    update(b => ({ ...b, [arrKey]: [...(b[arrKey] || []), { id: Date.now() + Math.random(), label: "", value: "", type: type || undefined }] }));
+  }, [update]);
+  const removeField = useCallback((arrKey, id) => {
+    update(b => ({ ...b, [arrKey]: (b[arrKey] || []).filter(f => f.id !== id) }));
+  }, [update]);
+  const updateField = useCallback((arrKey, id, key, val) => {
+    update(b => ({ ...b, [arrKey]: (b[arrKey] || []).map(f => f.id === id ? { ...f, [key]: val } : f) }));
   }, [update]);
 
   // Crew member helpers
@@ -205,7 +273,7 @@ export default function ProductionBrief({
 
   const fmt = (cmd, val) => { document.execCommand(cmd, false, val || null); };
 
-  // Extra freeform sections (for anything beyond the structured ones)
+  // Extra freeform sections
   const addExtra = useCallback(() => {
     update(b => ({ ...b, extraSections: [...(b.extraSections || []), { id: Date.now() + Math.random(), heading: "", content: "" }] }));
   }, [update]);
@@ -244,13 +312,29 @@ export default function ProductionBrief({
 
   if (!brief) return null;
 
-  const ov = brief.overview || {};
-  const cr = brief.creative || {};
-  const sc = brief.schedule || {};
+  const st = brief.sectionTitles || {};
+  const pf = brief.projectFields || [];
+  const of_ = brief.overviewFields || [];
+  const cf = brief.creativeFields || [];
+  const sf = brief.scheduleFields || [];
   const cw = brief.crew || {};
   const extras = brief.extraSections || [];
 
   const TBtnStyle = { height: 22, minWidth: 22, borderRadius: 2, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", display: "flex", alignItems: "center", justifyContent: "center", color: "#666" };
+
+  // Render a dynamic field row with editable label, value, ×, +
+  const FieldRow = ({ field, arrKey, isTextarea }) => (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+      <EditableLabel value={field.label} onChange={v => updateField(arrKey, field.id, "label", v)} minWidth={arrKey === "overviewFields" ? 160 : 60} />
+      {isTextarea || field.type === "textarea" ? (
+        <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} />
+      ) : (
+        <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} />
+      )}
+      <DelBtn onClick={() => { if (confirm(`Remove "${field.label || "row"}"?`)) removeField(arrKey, field.id); }} />
+      <AddBtn onClick={() => addField(arrKey, field.type)} />
+    </div>
+  );
 
   return (
     <div>
@@ -308,42 +392,24 @@ export default function ProductionBrief({
           <div style={{ padding: "20px 16px 0" }}>
             <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
             <div style={{ borderBottom: "2.5px solid #000", marginBottom: 12, marginTop: 4 }} />
-            <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LOCAL PRODUCTION BRIEF</div>
+            <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10, textAlign: "center" }}>LOCAL PRODUCTION BRIEF</div>
           </div>
 
           {/* ── 1. PROJECT OVERVIEW ── */}
-          <div style={{ padding: "0 16px" }}><SectionTitle title="PROJECT OVERVIEW" num={1} /></div>
+          <div style={{ padding: "0 16px" }}>
+            <SectionTitle title={st[1] || "PROJECT OVERVIEW"} num={1} onEdit={v => setSectionTitle(1, v)} />
+          </div>
           <div style={{ padding: "0 16px", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 16, flexWrap: isMobile ? "wrap" : "nowrap" }}>
-              {/* Left column — project metadata */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 200 }}>
-                {[
-                  ["PROJECT", "name", "Project Name"],
-                  ["CLIENT", "client", "Client"],
-                  ["PRODUCER", "producer", "Producer"],
-                  ["DIRECTOR", "director", "Director"],
-                  ["DATE", "date", "Date"],
-                ].map(([lbl, key, ph]) => (
-                  <div key={key} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 60 }}>{lbl}</span>
-                    <PBInp value={(brief.project || {})[key]} onChange={v => u("project", key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                  </div>
-                ))}
+              {/* Left column */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 200 }}>
+                {pf.map(f => <FieldRow key={f.id} field={f} arrKey="projectFields" />)}
+                {pf.length === 0 && <AddBtn onClick={() => addField("projectFields")} label="+ ROW" />}
               </div>
-              {/* Right column — shoot info */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 280, flex: 0 }}>
-                {[
-                  ["NUMBER OF TRAVEL DAYS", "schedule", "travelDays", "e.g. 2"],
-                  ["NUMBER OF RECCE DAYS", "schedule", "recceDays", "e.g. 1"],
-                  ["NUMBER OF SHOOT DAYS", "schedule", "shootDays", "e.g. 4"],
-                  ["NUMBER OF INTERNATIONAL CREW", "overview", "crewCount", "e.g. 15"],
-                  ["TOTAL CREW", "overview", "totalCrew", "e.g. 25"],
-                ].map(([lbl, sec, key, ph]) => (
-                  <div key={lbl} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 160 }}>{lbl}</span>
-                    <PBInp value={(brief[sec] || {})[key]} onChange={v => u(sec, key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: 100 }} />
-                  </div>
-                ))}
+              {/* Right column */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 280, flex: 0 }}>
+                {of_.map(f => <FieldRow key={f.id} field={f} arrKey="overviewFields" />)}
+                {of_.length === 0 && <AddBtn onClick={() => addField("overviewFields")} label="+ ROW" />}
               </div>
             </div>
           </div>
@@ -351,116 +417,143 @@ export default function ProductionBrief({
           <div style={{ padding: "0 16px" }}>
 
             {/* ── 2. CREATIVE DIRECTION ── */}
-            <SectionTitle title="CREATIVE DIRECTION" num={2} />
-            <Row isMobile={isMobile}>
-              <PBTextarea label="DESCRIPTION" value={cr.direction} onChange={v => u("creative", "direction", v)} placeholder="Look, feel, visual language, scope, objectives..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="REFERENCES" value={cr.references} onChange={v => u("creative", "references", v)} placeholder="Mood refs, links..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="TONE / MOOD" value={cr.tone} onChange={v => u("creative", "tone", v)} placeholder="e.g. cinematic, warm, aspirational..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
+            <SectionTitle title={st[2] || "CREATIVE DIRECTION"} num={2} onEdit={v => setSectionTitle(2, v)} />
+            {cf.map(f => (
+              <div key={f.id} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                  {f.type === "textarea" ? (
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                        <EditableLabel value={f.label} onChange={v => updateField("creativeFields", f.id, "label", v)} />
+                        <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "row"}"?`)) removeField("creativeFields", f.id); }} />
+                        <AddBtn onClick={() => addField("creativeFields")} />
+                      </div>
+                      <PBTextarea value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} />
+                    </div>
+                  ) : (
+                    <>
+                      <EditableLabel value={f.label} onChange={v => updateField("creativeFields", f.id, "label", v)} />
+                      <PBInp value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                      <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "row"}"?`)) removeField("creativeFields", f.id); }} />
+                      <AddBtn onClick={() => addField("creativeFields")} />
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            {cf.length === 0 && <AddBtn onClick={() => addField("creativeFields")} label="+ ROW" />}
 
             {/* ── 3. CREW ── */}
-            <SectionTitle title="CREW" num={3} />
+            <SectionTitle title={st[3] || "CREW"} num={3} onEdit={v => setSectionTitle(3, v)} />
 
-            {/* International Crew sub-section */}
-            <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4 }}>INTERNATIONAL CREW</div>
-            {(() => {
-              let globalIdx = 0;
-              return CREW_CATEGORIES.map(([catKey, catLabel]) => {
-                const members = (cw[catKey] || []);
-                return (
-                  <div key={catKey} style={{ marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                      <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
-                      <div data-hide="1" onClick={() => addCrewMember(catKey)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5 }}>+</div>
-                    </div>
-                    {members.map((m) => {
-                      globalIdx++;
-                      return (
-                        <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
-                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{globalIdx}.</span>
-                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 60, flexShrink: 0 }}>
-                            <input value={m.role || ""} onChange={e => updateCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
-                              style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 60, padding: 0, textTransform: "uppercase" }} />
-                          </span>
-                          <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                          <button data-hide="1" onClick={() => removeCrewMember(catKey, m.id)}
-                            style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+            {/* International Crew + Local Crew side by side */}
+            <div style={{ display: "flex", gap: 24, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+              {/* International Crew */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4 }}>INTERNATIONAL CREW</div>
+                {(() => {
+                  let globalIdx = 0;
+                  return CREW_CATEGORIES.map(([catKey, catLabel]) => {
+                    const members = (cw[catKey] || []);
+                    return (
+                      <div key={catKey} style={{ marginBottom: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                          <AddBtn onClick={() => addCrewMember(catKey)} />
                         </div>
-                      );
-                    })}
-                  </div>
-                );
-              });
-            })()}
+                        {members.map((m) => {
+                          globalIdx++;
+                          return (
+                            <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                              <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{globalIdx}.</span>
+                              <input value={m.role || ""} onChange={e => updateCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
+                                style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
+                              <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                              <DelBtn onClick={() => removeCrewMember(catKey, m.id)} />
+                              <AddBtn onClick={() => addCrewMember(catKey)} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
 
-            {/* Local Crew sub-section */}
-            <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 14, borderTop: "1px solid #eee", paddingTop: 8 }}>LOCAL CREW</div>
-            {(() => {
-              let localIdx = 0;
-              return LOCAL_CREW_CATEGORIES.map(([catKey, catLabel]) => {
-                const members = ((brief.localCrewList || {})[catKey] || []);
-                return (
-                  <div key={catKey} style={{ marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                      <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
-                      <div data-hide="1" onClick={() => addLocalCrewMember(catKey)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5 }}>+</div>
-                    </div>
-                    {members.map((m) => {
-                      localIdx++;
-                      return (
-                        <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
-                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
-                          <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 60, flexShrink: 0 }}>
-                            <input value={m.role || ""} onChange={e => updateLocalCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
-                              style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 60, padding: 0, textTransform: "uppercase" }} />
-                          </span>
-                          <PBInp value={m.name} onChange={v => updateLocalCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                          <button data-hide="1" onClick={() => removeLocalCrewMember(catKey, m.id)}
-                            style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+              {/* Local Crew */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 8, marginTop: 4 }}>LOCAL CREW</div>
+                {(() => {
+                  let localIdx = 0;
+                  return LOCAL_CREW_CATEGORIES.map(([catKey, catLabel]) => {
+                    const members = ((brief.localCrewList || {})[catKey] || []);
+                    return (
+                      <div key={catKey} style={{ marginBottom: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                          <AddBtn onClick={() => addLocalCrewMember(catKey)} />
                         </div>
-                      );
-                    })}
-                  </div>
-                );
-              });
-            })()}
+                        {members.map((m) => {
+                          localIdx++;
+                          return (
+                            <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                              <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
+                              <input value={m.role || ""} onChange={e => updateLocalCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
+                                style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
+                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                              <DelBtn onClick={() => removeLocalCrewMember(catKey, m.id)} />
+                              <AddBtn onClick={() => addLocalCrewMember(catKey)} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
 
             {/* ── 4. SCHEDULE ── */}
-            <SectionTitle title="SCHEDULE" num={4} />
-            <Row isMobile={isMobile}>
-              <PBTextarea label="STRUCTURE" value={sc.structure} onChange={v => u("schedule", "structure", v)} placeholder="Arrival day, recce days, shoot days, wrap day, departure..." style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }} />
-              <PBTextarea label="KEY MOMENTS" value={sc.keyMoments} onChange={v => u("schedule", "keyMoments", v)} placeholder="Sunrise, golden hour, underwater, evening scenes..." style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
+            <SectionTitle title={st[4] || "SCHEDULE"} num={4} onEdit={v => setSectionTitle(4, v)} />
+            <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+              {sf.map(f => (
+                <div key={f.id} style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} />
+                    <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "box"}"?`)) removeField("scheduleFields", f.id); }} />
+                    <AddBtn onClick={() => addField("scheduleFields", "textarea")} />
+                  </div>
+                  <PBTextarea value={f.value} onChange={v => updateField("scheduleFields", f.id, "value", v)} placeholder="..." />
+                </div>
+              ))}
+              {sf.length === 0 && <AddBtn onClick={() => addField("scheduleFields", "textarea")} label="+ BOX" />}
+            </div>
 
             {/* ── 5. QUOTE ── */}
-            <SectionTitle title="QUOTE" num={5} />
+            <SectionTitle title={st[5] || "QUOTE"} num={5} onEdit={v => setSectionTitle(5, v)} />
             {(brief.quote || []).map((q, qi) => (
               <div key={q.id} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                   <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, flexShrink: 0 }}>{qi + 1}.</span>
                   <input value={q.heading || ""} onChange={e => updateQuoteHeading(q.id, e.target.value)} placeholder="SECTION TITLE"
                     style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
-                  <button data-hide="1" onClick={() => { if (confirm(`Delete "${q.heading || "Untitled"}"?`)) removeQuoteSection(q.id); }}
-                    style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                  <DelBtn onClick={() => { if (confirm(`Delete "${q.heading || "Untitled"}"?`)) removeQuoteSection(q.id); }} />
+                  <AddBtn onClick={addQuoteSection} />
                 </div>
                 {(q.lines || []).map((line, li) => (
                   <div key={line.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center", paddingLeft: 22 }}>
                     <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 20, textAlign: "right", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
                     <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
-                      style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 80, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
+                      style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
                     <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} />
-                    <button data-hide="1" onClick={() => removeQuoteLine(q.id, line.id)}
-                      style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                    <DelBtn onClick={() => removeQuoteLine(q.id, line.id)} />
+                    <AddBtn onClick={() => addQuoteLine(q.id)} />
                   </div>
                 ))}
-                <div data-hide="1" onClick={() => addQuoteLine(q.id)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "2px 8px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block", marginLeft: 22, marginTop: 2 }}>+ LINE</div>
+                {(q.lines || []).length === 0 && <div style={{ paddingLeft: 22 }}><AddBtn onClick={() => addQuoteLine(q.id)} label="+ LINE" /></div>}
               </div>
             ))}
-            <div data-hide="1" onClick={addQuoteSection} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "3px 10px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5, display: "inline-block", marginTop: 4 }}>+ SECTION</div>
+            {(brief.quote || []).length === 0 && <AddBtn onClick={addQuoteSection} label="+ SECTION" />}
 
             {/* ── EXTRA FREEFORM SECTIONS ── */}
             {extras.map((s) => (
@@ -468,8 +561,7 @@ export default function ProductionBrief({
                 <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #eee", paddingBottom: 3, marginBottom: 6 }}>
                   <input value={s.heading} onChange={e => updateExtraHeading(s.id, e.target.value)} placeholder="SECTION TITLE"
                     style={{ flex: 1, fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
-                  <button data-hide="1" onClick={() => { if (confirm(`Delete section "${s.heading || "Untitled"}"?`)) removeExtra(s.id); }}
-                    style={{ ...TBtnStyle, color: "#c0392b", fontSize: 11, height: 18, minWidth: 18 }}>×</button>
+                  <DelBtn onClick={() => { if (confirm(`Delete section "${s.heading || "Untitled"}"?`)) removeExtra(s.id); }} />
                 </div>
                 <ExtraEditor id={s.id} content={s.content} editorRefs={editorRefs}
                   focusedSection={focusedSection} setFocusedSection={setFocusedSection}
