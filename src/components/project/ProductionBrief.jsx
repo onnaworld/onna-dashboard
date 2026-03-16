@@ -285,12 +285,13 @@ export default function ProductionBrief({
             {/* ── CREATIVE DIRECTION ── */}
             <SectionTitle title="CREATIVE DIRECTION" />
             <Row isMobile={isMobile}>
-              <PBTextarea label="CREATIVE DIRECTION" value={cr.direction} onChange={v => u("creative", "direction", v)} placeholder="Look, feel, visual language..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+              <PBTextarea label="CREATIVE DIRECTION" value={cr.direction} onChange={v => u("creative", "direction", v)} placeholder="Look, feel, visual language..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
               <PBField label="REFERENCES" value={cr.references} onChange={v => u("creative", "references", v)} placeholder="Mood refs, links..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
             <Row isMobile={isMobile}>
               <PBField label="TONE / MOOD" value={cr.tone} onChange={v => u("creative", "tone", v)} placeholder="e.g. cinematic, warm, aspirational..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="KEY MESSAGES" value={cr.keyMessages} onChange={v => u("creative", "keyMessages", v)} placeholder="Core messages to convey..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
 
             {/* ── INTERNATIONAL CREW ── */}
