@@ -10,11 +10,11 @@ const makeBrief = (projectId) => ({
   clientLogo: null,
   sectionTitles: { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE" },
   projectFields: [
-    { id: Date.now()+0.01, label: "PROJECT", value: "" },
+    { id: Date.now()+0.01, label: "PROJECT NAME", value: "" },
     { id: Date.now()+0.02, label: "CLIENT", value: "" },
     { id: Date.now()+0.03, label: "PRODUCTION", value: "" },
     { id: Date.now()+0.04, label: "PHOTOGRAPHER / DIRECTOR", value: "" },
-    { id: Date.now()+0.05, label: "DATE", value: "" },
+    { id: Date.now()+0.05, label: "SHOOT DATES", value: "" },
   ],
   overviewFields: [
     { id: Date.now()+0.06, label: "NUMBER OF TRAVEL DAYS", value: "" },
@@ -211,7 +211,7 @@ export default function ProductionBrief({
   useEffect(() => {
     if (!brief) {
       const init = makeBrief(p.id);
-      init.projectFields[0].value = `${p.client || ""} | ${p.name}`.replace(/^TEMPLATE \| /, "");
+      init.projectFields[0].value = p.name || "";
       init.projectFields[1].value = p.client || "";
       setProductionBriefStore(prev => ({ ...prev, [p.id]: init }));
     } else if (brief && !brief.projectFields) {
@@ -224,11 +224,11 @@ export default function ProductionBrief({
         ...brief,
         sectionTitles: brief.sectionTitles || { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE" },
         projectFields: [
-          { id: Date.now()+0.01, label: "PROJECT", value: pr.name || "" },
+          { id: Date.now()+0.01, label: "PROJECT NAME", value: pr.name || "" },
           { id: Date.now()+0.02, label: "CLIENT", value: pr.client || "" },
           { id: Date.now()+0.03, label: "PRODUCTION", value: pr.producer || "" },
           { id: Date.now()+0.04, label: "PHOTOGRAPHER / DIRECTOR", value: pr.director || "" },
-          { id: Date.now()+0.05, label: "DATE", value: pr.date || "" },
+          { id: Date.now()+0.05, label: "SHOOT DATES", value: pr.date || "" },
         ],
         overviewFields: [
           { id: Date.now()+0.06, label: "NUMBER OF TRAVEL DAYS", value: sc.travelDays || "" },
