@@ -35,25 +35,25 @@ const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*=
 const PBInp = ({ value, onChange, placeholder, style: s = {} }) => (
   <input value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
     style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
-      background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", ...s }} />
+      background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", color: "#000", ...s }} />
 );
-const PBField = ({ label, value, onChange, placeholder, color = "#999", style: s = {} }) => (
+const PBField = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => (
   <div style={{ flex: 1, minWidth: 140, ...s }}>
     <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
     <PBInp value={value} onChange={onChange} placeholder={placeholder} />
   </div>
 );
-const PBTextarea = ({ label, value, onChange, placeholder, color = "#999", style: s = {} }) => (
+const PBTextarea = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => (
   <div style={{ flex: 1, minWidth: 140, ...s }}>
     <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
     <textarea value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
-        padding: "6px 8px", color: "#333", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
+        padding: "6px 8px", color: "#000", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
         borderRadius: 2, background: value ? "#fff" : "#FFFDE7" }} />
   </div>
 );
 const SectionTitle = ({ title }) => (
-  <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{title}</div>
+  <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{title}</div>
 );
 const Row = ({ children, isMobile }) => (
   <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>{children}</div>
@@ -236,7 +236,8 @@ export default function ProductionBrief({
             <div style={{ fontFamily: CS_FONT, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>LOCAL PRODUCTION BRIEF</div>
           </div>
 
-          {/* Key info block + project metadata */}
+          {/* ── PROJECT OVERVIEW ── */}
+          <div style={{ padding: "0 16px" }}><SectionTitle title="PROJECT OVERVIEW" /></div>
           <div style={{ padding: "0 16px", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 16, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {/* Left column — stacked key fields */}
@@ -249,7 +250,7 @@ export default function ProductionBrief({
                   ["NUMBER OF CREW", "overview", "crewCount", "e.g. 15"],
                 ].map(([lbl, sec, key, ph]) => (
                   <div key={lbl} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999", whiteSpace: "nowrap", minWidth: 130 }}>{lbl}</span>
+                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 130 }}>{lbl}</span>
                     <PBInp value={(brief[sec] || {})[key]} onChange={v => u(sec, key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: 80 }} />
                   </div>
                 ))}
@@ -264,7 +265,7 @@ export default function ProductionBrief({
                   ["DATE", "date", "Date"],
                 ].map(([lbl, key, ph]) => (
                   <div key={key} style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999", whiteSpace: "nowrap", minWidth: 60 }}>{lbl}</span>
+                    <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", whiteSpace: "nowrap", minWidth: 60 }}>{lbl}</span>
                     <PBInp value={(brief.project || {})[key]} onChange={v => u("project", key, v)} placeholder={ph} style={{ flex: 1, borderBottom: "1px solid #eee" }} />
                   </div>
                 ))}
@@ -274,9 +275,9 @@ export default function ProductionBrief({
 
           {/* Description — full width */}
           <div style={{ padding: "0 16px", marginBottom: 14 }}>
-            <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#999", marginBottom: 2 }}>DESCRIPTION</div>
+            <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 2 }}>DESCRIPTION</div>
             <textarea value={ov.description || ""} onChange={e => u("overview", "description", e.target.value)} placeholder="Brief project description, scope, objectives..."
-              style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%", padding: "6px 8px", color: "#333", minHeight: 60, resize: "none", boxSizing: "border-box", lineHeight: 1.5, borderRadius: 2, background: ov.description ? "#fff" : "#FFFDE7" }} />
+              style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%", padding: "6px 8px", color: "#000", minHeight: 60, resize: "none", boxSizing: "border-box", lineHeight: 1.5, borderRadius: 2, background: ov.description ? "#fff" : "#FFFDE7" }} />
           </div>
 
           <div style={{ padding: "0 16px" }}>
@@ -292,21 +293,8 @@ export default function ProductionBrief({
               <PBField label="KEY MESSAGES" value={cr.keyMessages} onChange={v => u("creative", "keyMessages", v)} placeholder="Core messages to convey..." style={{ minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
 
-            {/* ── SCHEDULE ── */}
-            <SectionTitle title="SCHEDULE" />
-            <Row isMobile={isMobile}>
-              <PBField label="RECCE DATES" value={sc.recceDates} onChange={v => u("schedule", "recceDates", v)} placeholder="e.g. 15-16 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="SHOOT DATES" value={sc.shootDates} onChange={v => u("schedule", "shootDates", v)} placeholder="e.g. 20-22 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
-              <PBField label="TRAVEL DATES" value={sc.travelDates} onChange={v => u("schedule", "travelDates", v)} placeholder="e.g. 19 & 23 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="PRE-PRODUCTION" value={sc.prePro} onChange={v => u("schedule", "prePro", v)} placeholder="Dates or duration..." style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="WRAP DATE" value={sc.wrapDate} onChange={v => u("schedule", "wrapDate", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBTextarea label="SCHEDULE NOTES" value={sc.notes} onChange={v => u("schedule", "notes", v)} placeholder="Shoot structure, split days, overtime notes..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
-
-            {/* ── CREW BREAKDOWN ── */}
-            <SectionTitle title="CREW BREAKDOWN" />
+            {/* ── INTERNATIONAL CREW ── */}
+            <SectionTitle title="INTERNATIONAL CREW" />
             <Row isMobile={isMobile}>
               <PBField label="DIRECTOR" value={cw.director} onChange={v => u("crew", "director", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
               <PBField label="DOP" value={cw.dop} onChange={v => u("crew", "dop", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
@@ -322,6 +310,19 @@ export default function ProductionBrief({
             <Row isMobile={isMobile}>
               <PBField label="MUA / HAIR" value={cw.mua} onChange={v => u("crew", "mua", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
               <PBTextarea label="OTHER CREW" value={cw.other} onChange={v => u("crew", "other", v)} placeholder="Additional crew members, roles..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+
+            {/* ── SCHEDULE ── */}
+            <SectionTitle title="SCHEDULE" />
+            <Row isMobile={isMobile}>
+              <PBField label="RECCE DATES" value={sc.recceDates} onChange={v => u("schedule", "recceDates", v)} placeholder="e.g. 15-16 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="SHOOT DATES" value={sc.shootDates} onChange={v => u("schedule", "shootDates", v)} placeholder="e.g. 20-22 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+              <PBField label="TRAVEL DATES" value={sc.travelDates} onChange={v => u("schedule", "travelDates", v)} placeholder="e.g. 19 & 23 Mar 2026" style={{ minWidth: isMobile ? "100%" : "auto" }} />
+            </Row>
+            <Row isMobile={isMobile}>
+              <PBField label="PRE-PRODUCTION" value={sc.prePro} onChange={v => u("schedule", "prePro", v)} placeholder="Dates or duration..." style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBField label="WRAP DATE" value={sc.wrapDate} onChange={v => u("schedule", "wrapDate", v)} placeholder="Date" style={{ minWidth: isMobile ? "45%" : "auto" }} />
+              <PBTextarea label="SCHEDULE NOTES" value={sc.notes} onChange={v => u("schedule", "notes", v)} placeholder="Shoot structure, split days, overtime notes..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
             </Row>
 
             {/* ── ACCOMMODATION ── */}
@@ -403,7 +404,7 @@ export default function ProductionBrief({
               <div key={s.id} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #eee", paddingBottom: 3, marginBottom: 6 }}>
                   <input value={s.heading} onChange={e => updateExtraHeading(s.id, e.target.value)} placeholder="SECTION TITLE"
-                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#999", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
+                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
                   <button data-hide="1" onClick={() => { if (confirm(`Delete section "${s.heading || "Untitled"}"?`)) removeExtra(s.id); }}
                     style={{ ...TBtnStyle, color: "#c0392b", fontSize: 11, height: 18, minWidth: 18 }}>×</button>
                 </div>
