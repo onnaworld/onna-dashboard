@@ -65,16 +65,29 @@ const makeBrief = (projectId) => ({
 
 const PRINT_CLEANUP_CSS = '[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]{display:none!important;}';
 
-// Auto-growing textarea input
-const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
+// Auto-growing contentEditable input — supports formatting toolbar
+const PBInp = ({ value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
   const ref = useRef(null);
-  const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
-  useEffect(() => { autoGrow(ref.current); }, [value]);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (ref.current && !mounted.current) {
+      ref.current.innerHTML = value || "";
+      mounted.current = true;
+    }
+  }, []);
+  const handleInput = () => { if (ref.current) onChange(ref.current.innerHTML); };
+  const handleFocus = () => { if (onFocusEditor) onFocusEditor(ref.current); };
+  const isEmpty = !value || value === "<br>";
   return (
-    <textarea ref={ref} value={value || ""} onChange={e => { onChange(e.target.value); autoGrow(e.target); }} placeholder={placeholder} rows={1}
-      style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
-        background: value ? "transparent" : "#FFFDE7", boxSizing: "border-box", width: "100%", color: "#000",
-        resize: "none", overflow: "hidden", lineHeight: 1.5, minHeight: 20, ...s }} />
+    <div style={{ position: "relative", ...s }}>
+      {isEmpty && !ref.current?.innerHTML?.replace(/<br>/g, "").trim() && (
+        <div style={{ position: "absolute", top: 3, left: 6, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
+      )}
+      <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput} onFocus={handleFocus}
+        style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "none", outline: "none", padding: "3px 6px",
+          background: "transparent", boxSizing: "border-box", width: "100%", color: "#000",
+          lineHeight: 1.5, minHeight: 20 }} />
+    </div>
   );
 };
 
@@ -319,7 +332,8 @@ export default function ProductionBrief({
       patched.updatedAt = Date.now();
       setProductionBriefStore(prev => ({ ...prev, [p.id]: patched }));
     }
-  }, [p.id, brief, setProductionBriefStore]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.id]);
 
   const update = useCallback((fn) => {
     setProductionBriefStore(prev => {
@@ -471,7 +485,7 @@ export default function ProductionBrief({
       {isTextarea || field.type === "textarea" ? (
         <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} onFocusEditor={trackEditor} />
       ) : (
-        <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} />
+        <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} onFocusEditor={trackEditor} />
       )}
       <DelBtn onClick={() => removeField(arrKey, field.id)} />
       <AddBtn onClick={() => addField(arrKey, field.type)} />
@@ -598,7 +612,7 @@ export default function ProductionBrief({
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{globalIdx}.</span>
                               <input value={m.role || ""} onChange={e => updateCrewMember(catKey, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                              <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                              <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
                               <DelBtn onClick={() => removeCrewMember(catKey, m.id)} />
                               <AddBtn onClick={() => addCrewMember(catKey)} />
                             </div>
@@ -633,7 +647,7 @@ export default function ProductionBrief({
                               <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{localIdx}.</span>
                               <input value={m.role || ""} onChange={e => updateLocalCrewMember(cat.id, m.id, "role", e.target.value)} placeholder="ROLE"
                                 style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(cat.id, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                              <PBInp value={m.name} onChange={v => updateLocalCrewMember(cat.id, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
                               <DelBtn onClick={() => removeLocalCrewMember(cat.id, m.id)} />
                               <AddBtn onClick={() => addLocalCrewMember(cat.id)} />
                             </div>
@@ -679,7 +693,7 @@ export default function ProductionBrief({
                     <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 20, textAlign: "right", flexShrink: 0 }}>{qi + 1}.{li + 1}</span>
                     <input value={line.label || ""} onChange={e => updateQuoteLine(q.id, line.id, "label", e.target.value)} placeholder="LABEL"
                       style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", width: 140, padding: 0, textTransform: "uppercase", flexShrink: 0 }} />
-                    <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                    <PBInp value={line.value} onChange={v => updateQuoteLine(q.id, line.id, "value", v)} placeholder="Details..." style={{ flex: 1, borderBottom: "1px solid #eee" }} onFocusEditor={trackEditor} />
                     <DelBtn onClick={() => removeQuoteLine(q.id, line.id)} />
                     <AddBtn onClick={() => addQuoteLine(q.id)} />
                   </div>
