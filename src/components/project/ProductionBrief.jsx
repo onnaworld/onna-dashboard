@@ -92,21 +92,10 @@ const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
 // contentEditable textarea with label — supports formatting toolbar
 const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
   const ref = useRef(null);
-  const internalVal = useRef(value || "");
   const DEFAULT_BULLET = "<ul><li><br></li></ul>";
-  useEffect(() => {
-    if (ref.current && value !== internalVal.current) {
-      ref.current.innerHTML = value || DEFAULT_BULLET;
-      internalVal.current = value || "";
-    }
-  });
+  // Only set innerHTML on mount — never touch it again to preserve cursor
   useEffect(() => { if (ref.current) ref.current.innerHTML = value || DEFAULT_BULLET; }, []);
-  const handleInput = () => {
-    if (ref.current) {
-      internalVal.current = ref.current.innerHTML;
-      onChange(ref.current.innerHTML);
-    }
-  };
+  const handleInput = () => { if (ref.current) onChange(ref.current.innerHTML); };
   const handleFocus = () => { if (onFocusEditor) onFocusEditor(ref.current); };
   const isEmpty = !value || value === "<br>" || value === "<div><br></div>" || value === DEFAULT_BULLET || value === "<ul><li><br></li></ul>";
   return (
