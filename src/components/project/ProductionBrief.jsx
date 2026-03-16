@@ -79,26 +79,28 @@ const PBInp = ({ value, onChange, placeholder, style: s = {} }) => {
 };
 
 // contentEditable textarea with label — supports formatting toolbar
-const PBTextarea = ({ label, value, onChange, placeholder, style: s = {} }) => {
+const PBTextarea = ({ label, value, onChange, placeholder, style: s = {}, onFocusEditor }) => {
   const ref = useRef(null);
   const mounted = useRef(false);
+  const DEFAULT_BULLET = "<ul><li><br></li></ul>";
   useEffect(() => {
     if (ref.current && !mounted.current) {
-      ref.current.innerHTML = value || "";
+      ref.current.innerHTML = value || DEFAULT_BULLET;
       mounted.current = true;
     }
   }, []);
   const handleInput = () => {
     if (ref.current) onChange(ref.current.innerHTML);
   };
-  const isEmpty = !value || value === "<br>" || value === "<div><br></div>";
+  const handleFocus = () => { if (onFocusEditor) onFocusEditor(ref.current); };
+  const isEmpty = !value || value === "<br>" || value === "<div><br></div>" || value === DEFAULT_BULLET || value === "<ul><li><br></li></ul>";
   return (
     <div style={{ flex: 1, minWidth: 140, position: "relative", ...s }}>
       {label && <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 2 }}>{label}</div>}
-      {isEmpty && !ref.current?.innerHTML && (
-        <div style={{ position: "absolute", top: label ? 18 : 0, left: 8, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
+      {isEmpty && !ref.current?.innerHTML?.replace(/<ul><li><br><\/li><\/ul>/g, "").trim() && (
+        <div style={{ position: "absolute", top: label ? 18 : 0, left: 28, fontFamily: CS_FONT, fontSize: 9, color: "#999", pointerEvents: "none", letterSpacing: 0.5 }}>{placeholder}</div>
       )}
-      <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput}
+      <div ref={ref} contentEditable suppressContentEditableWarning onInput={handleInput} onFocus={handleFocus}
         style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
           padding: "6px 8px", color: "#000", minHeight: 40, boxSizing: "border-box", lineHeight: 1.5,
           borderRadius: 2, background: isEmpty ? "#FFFDE7" : "#fff" }} />
@@ -173,7 +175,7 @@ const AddBtn = ({ onClick, label = "+" }) => (
 );
 
 // Stable contentEditable
-const ExtraEditor = ({ id, content, editorRefs, focusedSection, setFocusedSection, updateExtraContent }) => {
+const ExtraEditor = ({ id, content, editorRefs, focusedSection, setFocusedSection, updateExtraContent, onFocusEditor }) => {
   const ref = useRef(null);
   const mounted = useRef(false);
   useEffect(() => {
@@ -186,7 +188,7 @@ const ExtraEditor = ({ id, content, editorRefs, focusedSection, setFocusedSectio
   const focused = focusedSection === id;
   return (
     <div ref={ref} contentEditable suppressContentEditableWarning
-      onFocus={() => setFocusedSection(id)} onBlur={() => setFocusedSection(null)}
+      onFocus={() => { setFocusedSection(id); if (onFocusEditor) onFocusEditor(ref.current); }} onBlur={() => setFocusedSection(null)}
       onInput={() => updateExtraContent(id)}
       style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, lineHeight: 1.6,
         border: `1px solid ${focused ? "#000" : "#eee"}`,
@@ -394,7 +396,17 @@ export default function ProductionBrief({
     update(b => ({ ...b, quote: (b.quote || []).map(q => q.id === sectionId ? { ...q, lines: (q.lines || []).map(l => l.id === lineId ? { ...l, [field]: val } : l) } : q) }));
   }, [update]);
 
-  const fmt = (cmd, val) => { document.execCommand(cmd, false, val || null); };
+  const lastFocusedEditor = useRef(null);
+  const fmt = (cmd, val) => {
+    // Restore focus to last active editor if selection is lost (e.g. clicked toolbar)
+    if (lastFocusedEditor.current) {
+      const sel = window.getSelection();
+      if (!sel.rangeCount || !lastFocusedEditor.current.contains(sel.anchorNode)) {
+        lastFocusedEditor.current.focus();
+      }
+    }
+    document.execCommand(cmd, false, val || null);
+  };
 
   // Extra freeform sections
   const addExtra = useCallback(() => {
@@ -450,12 +462,14 @@ export default function ProductionBrief({
 
   const TBtnStyle = { height: 22, minWidth: 22, borderRadius: 2, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", display: "flex", alignItems: "center", justifyContent: "center", color: "#666" };
 
+  const trackEditor = (el) => { lastFocusedEditor.current = el; };
+
   // Render a dynamic field row with editable label, value, ×, +
   const FieldRow = ({ field, arrKey, isTextarea }) => (
     <div className="pb-row" style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
       <EditableLabel value={field.label} onChange={v => updateField(arrKey, field.id, "label", v)} minWidth={arrKey === "overviewFields" ? 180 : 140} style={{ flexShrink: 0 }} />
       {isTextarea || field.type === "textarea" ? (
-        <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} />
+        <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} onFocusEditor={trackEditor} />
       ) : (
         <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} />
       )}
@@ -475,7 +489,7 @@ export default function ProductionBrief({
       </div>
 
       {/* Formatting toolbar */}
-      <div data-hide="1" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 3, background: "#fafafa", flexWrap: "wrap", marginBottom: 0, borderRadius: "8px 8px 0 0", border: "1px solid #eee", borderBottom: "none" }}>
+      <div data-hide="1" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 3, background: "#fafafa", flexWrap: "wrap", marginBottom: 0, borderRadius: "8px 8px 0 0", border: "1px solid #eee", borderBottom: "none", position: "sticky", top: 0, zIndex: 10 }}>
         <button onMouseDown={e => { e.preventDefault(); fmt("bold"); }} style={{ ...TBtnStyle, fontWeight: 700 }}>B</button>
         <button onMouseDown={e => { e.preventDefault(); fmt("italic"); }} style={{ ...TBtnStyle, fontStyle: "italic" }}>I</button>
         <button onMouseDown={e => { e.preventDefault(); fmt("underline"); }} style={{ ...TBtnStyle, textDecoration: "underline" }}>U</button>
@@ -554,7 +568,7 @@ export default function ProductionBrief({
                   <DelBtn onClick={() => removeField("creativeFields", f.id)} />
                   <AddBtn onClick={() => addField("creativeFields", "textarea")} />
                 </div>
-                <PBTextarea value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} />
+                <PBTextarea value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} onFocusEditor={trackEditor} />
               </div>
             ))}
             {cf.length === 0 && <AddBtn onClick={() => addField("creativeFields", "textarea")} label="+ ROW" />}
@@ -643,7 +657,7 @@ export default function ProductionBrief({
                     <DelBtn onClick={() => removeField("scheduleFields", f.id)} />
                     <AddBtn onClick={() => addField("scheduleFields", "textarea")} />
                   </div>
-                  <PBTextarea value={f.value} onChange={v => updateField("scheduleFields", f.id, "value", v)} placeholder="..." />
+                  <PBTextarea value={f.value} onChange={v => updateField("scheduleFields", f.id, "value", v)} placeholder="..." onFocusEditor={trackEditor} />
                 </div>
               ))}
               {sf.length === 0 && <AddBtn onClick={() => addField("scheduleFields", "textarea")} label="+ BOX" />}
@@ -677,7 +691,7 @@ export default function ProductionBrief({
 
             {/* ── 6. ONNA ── */}
             <SectionTitle title={st[6] || "ONNA"} num={6} onEdit={v => setSectionTitle(6, v)} />
-            <PBTextarea value={brief.onnaContent || ""} onChange={v => update(b => ({ ...b, onnaContent: v }))} placeholder="Notes, additional information..." style={{ minWidth: "100%", marginBottom: 12 }} />
+            <PBTextarea value={brief.onnaContent || ""} onChange={v => update(b => ({ ...b, onnaContent: v }))} placeholder="Notes, additional information..." style={{ minWidth: "100%", marginBottom: 12 }} onFocusEditor={trackEditor} />
 
             {/* ── EXTRA FREEFORM SECTIONS ── */}
             {extras.map((s) => (
@@ -689,7 +703,7 @@ export default function ProductionBrief({
                 </div>
                 <ExtraEditor id={s.id} content={s.content} editorRefs={editorRefs}
                   focusedSection={focusedSection} setFocusedSection={setFocusedSection}
-                  updateExtraContent={updateExtraContent} />
+                  updateExtraContent={updateExtraContent} onFocusEditor={trackEditor} />
               </div>
             ))}
 
