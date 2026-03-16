@@ -56,7 +56,6 @@ const makeBrief = (projectId) => ({
     { id: Date.now()+0.24, heading: "ACCOMMODATION", lines: [{ id: Date.now()+0.241, label: "", value: "" }] },
     { id: Date.now()+0.25, heading: "LOCATION", lines: [{ id: Date.now()+0.251, label: "", value: "" }] },
     { id: Date.now()+0.26, heading: "PERMITS", lines: [{ id: Date.now()+0.261, label: "", value: "" }] },
-    { id: Date.now()+0.27, heading: "MISC", lines: [{ id: Date.now()+0.271, label: "", value: "" }] },
   ],
   extraSections: [],
   createdAt: Date.now(),
@@ -313,6 +312,12 @@ export default function ProductionBrief({
           { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
           { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
         ];
+      }
+
+      // Ensure quote sections exist with defaults
+      if (!patched.quote || patched.quote.length === 0) {
+        needsUpdate = true;
+        patched.quote = makeBrief(p.id).quote;
       }
 
       if (needsUpdate) {
@@ -671,7 +676,7 @@ export default function ProductionBrief({
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                   <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, flexShrink: 0 }}>{qi + 1}.</span>
                   <input value={q.heading || ""} onChange={e => updateQuoteHeading(q.id, e.target.value)} placeholder="SECTION TITLE"
-                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
+                    style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", ...GRAY_BOX, textTransform: "uppercase" }} />
                   <DelBtn onClick={() => { if (confirm(`Delete "${q.heading || "Untitled"}"?`)) removeQuoteSection(q.id); }} />
                   <AddBtn onClick={addQuoteSection} />
                 </div>
