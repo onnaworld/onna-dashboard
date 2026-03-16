@@ -510,7 +510,7 @@ export default function ProductionBrief({
 
   // Render a dynamic field row — inline function (NOT a component) to avoid remount on re-render
   const renderFieldRow = (field, arrKey) => (
-    <div key={field.id} className="pb-row" style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+    <div key={field.id} className="pb-row" style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 1 }}>
       <EditableLabel value={field.label} onChange={v => updateField(arrKey, field.id, "label", v)} minWidth={arrKey === "overviewFields" ? 180 : 140} style={{ flexShrink: 0 }} />
       {field.type === "textarea" ? (
         <PBTextarea value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, minWidth: 0 }} onFocusEditor={trackEditor} />
