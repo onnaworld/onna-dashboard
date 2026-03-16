@@ -17,7 +17,16 @@ const makeBrief = (projectId) => ({
     travelDays: "", travelDates: "",
     prePro: "", wrapDate: "", notes: "",
   },
-  crew: { director: "", dop: "", producer: "", ac: "", sound: "", gaffer: "", artDept: "", stylist: "", mua: "", other: "" },
+  crew: {
+    client: [{ id: Date.now()+0.1, role: "", name: "" }],
+    production: [{ id: Date.now()+0.2, role: "", name: "" }],
+    video: [{ id: Date.now()+0.3, role: "", name: "" }],
+    photo: [{ id: Date.now()+0.4, role: "", name: "" }],
+    wardrobe: [{ id: Date.now()+0.5, role: "", name: "" }],
+    hairMakeup: [{ id: Date.now()+0.6, role: "", name: "" }],
+    casting: [{ id: Date.now()+0.7, role: "", name: "" }],
+    miscellaneous: [{ id: Date.now()+0.8, role: "", name: "" }],
+  },
   accommodation: { hotel: "", address: "", checkIn: "", checkOut: "", notes: "" },
   localCrew: { fixers: "", drivers: "", security: "", extras: "", notes: "" },
   transport: { vehicles: "", pickupDetails: "", airportTransfers: "", notes: "" },
@@ -43,15 +52,25 @@ const PBField = ({ label, value, onChange, placeholder, color = "#000", style: s
     <PBInp value={value} onChange={onChange} placeholder={placeholder} />
   </div>
 );
-const PBTextarea = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => (
-  <div style={{ flex: 1, minWidth: 140, ...s }}>
-    <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
-    <textarea value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-      style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
-        padding: "6px 8px", color: "#000", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
-        borderRadius: 2, background: value ? "#fff" : "#FFFDE7" }} />
-  </div>
-);
+const PBTextarea = ({ label, value, onChange, placeholder, color = "#000", style: s = {} }) => {
+  const ref = useRef(null);
+  const autoGrow = (el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } };
+  useEffect(() => { autoGrow(ref.current); }, [value]);
+  return (
+    <div style={{ flex: 1, minWidth: 140, ...s }}>
+      <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color, marginBottom: 2 }}>{label}</div>
+      <textarea ref={ref} value={value || ""} onChange={e => { onChange(e.target.value); autoGrow(e.target); }} placeholder={placeholder}
+        style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%",
+          padding: "6px 8px", color: "#000", minHeight: 40, resize: "none", boxSizing: "border-box", lineHeight: 1.5,
+          borderRadius: 2, background: value ? "#fff" : "#FFFDE7", overflow: "hidden" }} />
+    </div>
+  );
+};
+const CREW_CATEGORIES = [
+  ["client", "CLIENT"], ["production", "PRODUCTION"], ["video", "VIDEO"],
+  ["photo", "PHOTO"], ["wardrobe", "WARDROBE"], ["hairMakeup", "HAIR & MAKEUP"],
+  ["casting", "CASTING"], ["miscellaneous", "MISCELLANEOUS"],
+];
 const SectionTitle = ({ title }) => (
   <div style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 3 }}>{title}</div>
 );
@@ -114,6 +133,17 @@ export default function ProductionBrief({
   // Nested field updater: u("schedule","shootDays", val)
   const u = useCallback((section, key, val) => {
     update(b => ({ ...b, [section]: { ...(b[section] || {}), [key]: val } }));
+  }, [update]);
+
+  // Crew member helpers
+  const addCrewMember = useCallback((catKey) => {
+    update(b => ({ ...b, crew: { ...b.crew, [catKey]: [...(b.crew[catKey] || []), { id: Date.now() + Math.random(), role: "", name: "" }] } }));
+  }, [update]);
+  const removeCrewMember = useCallback((catKey, memberId) => {
+    update(b => ({ ...b, crew: { ...b.crew, [catKey]: (b.crew[catKey] || []).filter(m => m.id !== memberId) } }));
+  }, [update]);
+  const updateCrewMember = useCallback((catKey, memberId, field, val) => {
+    update(b => ({ ...b, crew: { ...b.crew, [catKey]: (b.crew[catKey] || []).map(m => m.id === memberId ? { ...m, [field]: val } : m) } }));
   }, [update]);
 
   const fmt = (cmd, val) => { document.execCommand(cmd, false, val || null); };
@@ -275,9 +305,7 @@ export default function ProductionBrief({
 
           {/* Description — full width */}
           <div style={{ padding: "0 16px", marginBottom: 14 }}>
-            <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", marginBottom: 2 }}>DESCRIPTION</div>
-            <textarea value={ov.description || ""} onChange={e => u("overview", "description", e.target.value)} placeholder="Brief project description, scope, objectives..."
-              style={{ fontFamily: CS_FONT, fontSize: 9, letterSpacing: 0.5, border: "1px solid #eee", outline: "none", width: "100%", padding: "6px 8px", color: "#000", minHeight: 60, resize: "none", boxSizing: "border-box", lineHeight: 1.5, borderRadius: 2, background: ov.description ? "#fff" : "#FFFDE7" }} />
+            <PBTextarea label="DESCRIPTION" value={ov.description} onChange={v => u("overview", "description", v)} placeholder="Brief project description, scope, objectives..." style={{ minWidth: "100%" }} />
           </div>
 
           <div style={{ padding: "0 16px" }}>
@@ -296,22 +324,25 @@ export default function ProductionBrief({
 
             {/* ── INTERNATIONAL CREW ── */}
             <SectionTitle title="INTERNATIONAL CREW" />
-            <Row isMobile={isMobile}>
-              <PBField label="DIRECTOR" value={cw.director} onChange={v => u("crew", "director", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="DOP" value={cw.dop} onChange={v => u("crew", "dop", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="PRODUCER" value={cw.producer} onChange={v => u("crew", "producer", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="AC" value={cw.ac} onChange={v => u("crew", "ac", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="SOUND" value={cw.sound} onChange={v => u("crew", "sound", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="GAFFER" value={cw.gaffer} onChange={v => u("crew", "gaffer", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="ART DEPT" value={cw.artDept} onChange={v => u("crew", "artDept", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBField label="STYLIST" value={cw.stylist} onChange={v => u("crew", "stylist", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-            </Row>
-            <Row isMobile={isMobile}>
-              <PBField label="MUA / HAIR" value={cw.mua} onChange={v => u("crew", "mua", v)} placeholder="Name" style={{ minWidth: isMobile ? "45%" : "auto" }} />
-              <PBTextarea label="OTHER CREW" value={cw.other} onChange={v => u("crew", "other", v)} placeholder="Additional crew members, roles..." style={{ flex: 2, minWidth: isMobile ? "100%" : "auto" }} />
-            </Row>
+            {CREW_CATEGORIES.map(([catKey, catLabel]) => {
+              const members = (cw[catKey] || []);
+              return (
+                <div key={catKey} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <div style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000" }}>{catLabel}</div>
+                    <div data-hide="1" onClick={() => addCrewMember(catKey)} style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", cursor: "pointer", padding: "1px 6px", border: "1px dashed #ccc", borderRadius: 2, letterSpacing: 0.5 }}>+</div>
+                  </div>
+                  {members.map((m) => (
+                    <div key={m.id} style={{ display: "flex", gap: 6, marginBottom: 3, alignItems: "center" }}>
+                      <PBInp value={m.role} onChange={v => updateCrewMember(catKey, m.id, "role", v)} placeholder="Role" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                      <PBInp value={m.name} onChange={v => updateCrewMember(catKey, m.id, "name", v)} placeholder="Name" style={{ flex: 1, borderBottom: "1px solid #eee" }} />
+                      <button data-hide="1" onClick={() => removeCrewMember(catKey, m.id)}
+                        style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontFamily: CS_FONT, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
 
             {/* ── SCHEDULE ── */}
             <SectionTitle title="SCHEDULE" />
