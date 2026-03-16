@@ -5,7 +5,7 @@ const CS_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const makeBrief = (projectId) => ({
   id: Date.now() + Math.random(),
   projectId,
-  title: "Local Production Brief",
+  title: "PRODUCTION BRIEF",
   prodLogo: null,
   clientLogo: null,
   sectionTitles: { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE", 6: "ONNA" },
@@ -258,14 +258,11 @@ export default function ProductionBrief({
         updatedAt: Date.now(),
       };
       setProductionBriefStore(prev => ({ ...prev, [p.id]: migrated }));
-    } else if (brief && brief.projectFields) {
-      // Ensure all required fields/defaults exist (repair pass)
-      let needsUpdate = false;
-      const patched = { ...brief };
+    } else if (brief && brief.projectFields && brief._v !== 4) {
+      // One-time repair pass (v4) — runs once then sets _v flag
+      const patched = { ...brief, _v: 4 };
 
-      // Ensure localCrewCategories
       if (!patched.localCrewCategories) {
-        needsUpdate = true;
         const lcl = brief.localCrewList || {};
         patched.localCrewCategories = [
           { id: Date.now()+0.9, label: "FIXERS", members: lcl.fixers || [{ id: Date.now()+0.91, role: "", name: "" }] },
@@ -276,69 +273,49 @@ export default function ProductionBrief({
         ];
       }
 
-      // Ensure projectFields have correct default labels
+      // Fill in missing labels on projectFields
       const pfDefaults = ["PROJECT NAME", "CLIENT", "PRODUCTION", "PHOTOGRAPHER / DIRECTOR", "SHOOT DATES"];
-      if (patched.projectFields.length < 5 || patched.projectFields.some((f, i) => pfDefaults[i] && !f.label)) {
-        needsUpdate = true;
-        patched.projectFields = pfDefaults.map((lbl, i) => {
-          const existing = patched.projectFields[i];
-          return existing ? { ...existing, label: existing.label || lbl } : { id: Date.now() + i * 0.01, label: lbl, value: "" };
-        });
-      }
+      while (patched.projectFields.length < 5) patched.projectFields.push({ id: Date.now() + Math.random(), label: "", value: "" });
+      patched.projectFields.forEach((f, i) => { if (!f.label && pfDefaults[i]) f.label = pfDefaults[i]; });
 
-      // Ensure overviewFields have correct default labels
+      // Fill in missing labels on overviewFields
       const ofDefaults = ["NUMBER OF TRAVEL DAYS", "NUMBER OF RECCE DAYS", "NUMBER OF SHOOT DAYS", "NUMBER OF INTERNATIONAL CREW", "TOTAL CREW"];
-      if (patched.overviewFields.length < 5 || patched.overviewFields.some((f, i) => ofDefaults[i] && !f.label)) {
-        needsUpdate = true;
-        patched.overviewFields = ofDefaults.map((lbl, i) => {
-          const existing = patched.overviewFields[i];
-          return existing ? { ...existing, label: existing.label || lbl } : { id: Date.now() + 0.06 + i * 0.01, label: lbl, value: "" };
-        });
-      }
+      while (patched.overviewFields.length < 5) patched.overviewFields.push({ id: Date.now() + Math.random(), label: "", value: "" });
+      patched.overviewFields.forEach((f, i) => { if (!f.label && ofDefaults[i]) f.label = ofDefaults[i]; });
 
-      // Ensure creativeFields have the 3 defaults
-      const cfDefaults = [["DESCRIPTION", "textarea"], ["REFERENCES", ""], ["VISUAL NOTES", ""]];
-      if (!patched.creativeFields || patched.creativeFields.length < 3 ||
-          !patched.creativeFields.some(f => f.label === "DESCRIPTION") ||
-          !patched.creativeFields.some(f => f.label === "REFERENCES") ||
-          !patched.creativeFields.some(f => f.label === "VISUAL NOTES")) {
-        needsUpdate = true;
-        const existing = patched.creativeFields || [];
-        patched.creativeFields = cfDefaults.map(([lbl, type], i) => {
-          const found = existing.find(f => f.label === lbl);
-          return found || { id: Date.now() + 0.15 + i * 0.01, label: lbl, value: "", type: type || undefined };
-        });
-        // Append any extra user-added fields
-        existing.forEach(f => {
-          if (!cfDefaults.some(([lbl]) => lbl === f.label)) patched.creativeFields.push(f);
-        });
-      }
-
-      // Ensure scheduleFields have the 2 defaults
-      if (!patched.scheduleFields || patched.scheduleFields.length < 2 ||
-          !patched.scheduleFields.some(f => f.label === "STRUCTURE") ||
-          !patched.scheduleFields.some(f => f.label === "KEY MOMENTS")) {
-        needsUpdate = true;
-        const existing = patched.scheduleFields || [];
-        patched.scheduleFields = [
-          existing.find(f => f.label === "STRUCTURE") || { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
-          existing.find(f => f.label === "KEY MOMENTS") || { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
+      // Ensure creativeFields have defaults
+      if (!patched.creativeFields || patched.creativeFields.length === 0) {
+        patched.creativeFields = [
+          { id: Date.now()+0.15, label: "DESCRIPTION", value: "", type: "textarea" },
+          { id: Date.now()+0.16, label: "REFERENCES", value: "", type: "textarea" },
+          { id: Date.now()+0.17, label: "VISUAL NOTES", value: "", type: "textarea" },
         ];
-        existing.forEach(f => {
-          if (f.label !== "STRUCTURE" && f.label !== "KEY MOMENTS") patched.scheduleFields.push(f);
+      } else {
+        // Ensure at least DESCRIPTION/REFERENCES/VISUAL NOTES exist
+        ["DESCRIPTION", "REFERENCES", "VISUAL NOTES"].forEach(lbl => {
+          if (!patched.creativeFields.some(f => f.label === lbl)) {
+            patched.creativeFields.push({ id: Date.now() + Math.random(), label: lbl, value: "", type: "textarea" });
+          }
         });
       }
 
-      // Ensure quote sections exist with defaults
+      // Ensure scheduleFields have defaults
+      if (!patched.scheduleFields || patched.scheduleFields.length === 0) {
+        patched.scheduleFields = [
+          { id: Date.now()+0.18, label: "STRUCTURE", value: "", type: "textarea" },
+          { id: Date.now()+0.19, label: "KEY MOMENTS", value: "", type: "textarea" },
+        ];
+      }
+
+      // Ensure quote sections exist
       if (!patched.quote || patched.quote.length === 0) {
-        needsUpdate = true;
         patched.quote = makeBrief(p.id).quote;
       }
 
-      if (needsUpdate) {
-        patched.updatedAt = Date.now();
-        setProductionBriefStore(prev => ({ ...prev, [p.id]: patched }));
-      }
+      if (!patched.sectionTitles) patched.sectionTitles = { 1: "PROJECT OVERVIEW", 2: "CREATIVE DIRECTION", 3: "CREW", 4: "SCHEDULE", 5: "QUOTE", 6: "ONNA" };
+
+      patched.updatedAt = Date.now();
+      setProductionBriefStore(prev => ({ ...prev, [p.id]: patched }));
     }
   }, [p.id, brief, setProductionBriefStore]);
 
@@ -482,7 +459,7 @@ export default function ProductionBrief({
       ) : (
         <PBInp value={field.value} onChange={v => updateField(arrKey, field.id, "value", v)} placeholder="..." style={{ flex: 1, borderBottom: "1px solid #eee", minWidth: arrKey === "overviewFields" ? 100 : 0 }} />
       )}
-      <DelBtn onClick={() => { if (confirm(`Remove "${field.label || "row"}"?`)) removeField(arrKey, field.id); }} />
+      <DelBtn onClick={() => removeField(arrKey, field.id)} />
       <AddBtn onClick={() => addField(arrKey, field.type)} />
     </div>
   );
@@ -574,7 +551,7 @@ export default function ProductionBrief({
               <div key={f.id} className="pb-row" style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                   <EditableLabel value={f.label} onChange={v => updateField("creativeFields", f.id, "label", v)} />
-                  <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "row"}"?`)) removeField("creativeFields", f.id); }} />
+                  <DelBtn onClick={() => removeField("creativeFields", f.id)} />
                   <AddBtn onClick={() => addField("creativeFields", "textarea")} />
                 </div>
                 <PBTextarea value={f.value} onChange={v => updateField("creativeFields", f.id, "value", v)} placeholder="..." style={{ minWidth: "100%" }} />
@@ -631,8 +608,8 @@ export default function ProductionBrief({
                       <div key={cat.id} style={{ marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                           <input value={cat.label || ""} onChange={e => updateLocalCategoryLabel(cat.id, e.target.value)} placeholder="CATEGORY"
-                            style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", ...GRAY_BOX, border: "none", outline: "none", textTransform: "uppercase" }} />
-                          <DelBtn onClick={() => { if (confirm(`Delete category "${cat.label || "Untitled"}"?`)) removeLocalCategory(cat.id); }} />
+                            style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", textTransform: "uppercase", padding: 0 }} />
+                          <DelBtn onClick={() => removeLocalCategory(cat.id)} />
                           <AddBtn onClick={() => addLocalCrewMember(cat.id)} />
                         </div>
                         {members.map((m) => {
@@ -663,7 +640,7 @@ export default function ProductionBrief({
                 <div key={f.id} className="pb-row" style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                     <EditableLabel value={f.label} onChange={v => updateField("scheduleFields", f.id, "label", v)} gray />
-                    <DelBtn onClick={() => { if (confirm(`Remove "${f.label || "box"}"?`)) removeField("scheduleFields", f.id); }} />
+                    <DelBtn onClick={() => removeField("scheduleFields", f.id)} />
                     <AddBtn onClick={() => addField("scheduleFields", "textarea")} />
                   </div>
                   <PBTextarea value={f.value} onChange={v => updateField("scheduleFields", f.id, "value", v)} placeholder="..." />
@@ -680,7 +657,7 @@ export default function ProductionBrief({
                   <span style={{ fontFamily: CS_FONT, fontSize: 7, fontWeight: 700, color: "#000", minWidth: 16, flexShrink: 0 }}>{qi + 1}.</span>
                   <input value={q.heading || ""} onChange={e => updateQuoteHeading(q.id, e.target.value)} placeholder="SECTION TITLE"
                     style={{ flex: 1, fontFamily: CS_FONT, fontSize: 7.5, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", ...GRAY_BOX, textTransform: "uppercase" }} />
-                  <DelBtn onClick={() => { if (confirm(`Delete "${q.heading || "Untitled"}"?`)) removeQuoteSection(q.id); }} />
+                  <DelBtn onClick={() => removeQuoteSection(q.id)} />
                   <AddBtn onClick={addQuoteSection} />
                 </div>
                 {(q.lines || []).map((line, li) => (
@@ -708,7 +685,7 @@ export default function ProductionBrief({
                 <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #eee", paddingBottom: 3, marginBottom: 6 }}>
                   <input value={s.heading} onChange={e => updateExtraHeading(s.id, e.target.value)} placeholder="SECTION TITLE"
                     style={{ flex: 1, fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000", border: "none", outline: "none", background: "transparent", padding: 0, textTransform: "uppercase" }} />
-                  <DelBtn onClick={() => { if (confirm(`Delete section "${s.heading || "Untitled"}"?`)) removeExtra(s.id); }} />
+                  <DelBtn onClick={() => removeExtra(s.id)} />
                 </div>
                 <ExtraEditor id={s.id} content={s.content} editorRefs={editorRefs}
                   focusedSection={focusedSection} setFocusedSection={setFocusedSection}
