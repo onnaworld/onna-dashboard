@@ -333,7 +333,6 @@ export default function ProductionBrief({
               {/* Right column — shoot info */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 280, flex: 0 }}>
                 {[
-                  ["DATES", "schedule", "shootDates", "e.g. 20-22 Mar 2026"],
                   ["NUMBER OF TRAVEL DAYS", "schedule", "travelDays", "e.g. 2"],
                   ["NUMBER OF RECCE DAYS", "schedule", "recceDays", "e.g. 1"],
                   ["NUMBER OF SHOOT DAYS", "schedule", "shootDays", "e.g. 4"],
