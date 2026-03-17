@@ -1,5 +1,5 @@
 import React from "react";
-import { defaultSections, stripThinking as _stripThinking } from "../../utils/helpers";
+import { defaultSections, isFeeSec, stripThinking as _stripThinking } from "../../utils/helpers";
 
 // Strip JSON code blocks (complete or partial/in-progress) from display during streaming
 function _stripJsonBlocks(text) {
@@ -567,17 +567,26 @@ export async function handleBillieIntent({
         let srcSnap = `Version: ${srcTs.version||"V1"} | Client: ${srcTs.client||""} | Project: ${srcTs.project||""}\n`;
         srcSnap += `Shoot Date: ${srcTs.shootDate||""} | Days: ${srcTs.shootDays||""} | Location: ${srcTs.location||""}\n`;
         srcSnap += "Sections:\n";
+        const { subtotal: srcSub, feesTotal: srcFees, grandTotal: srcGt } = estCalcTotals(srcSections);
         srcSections.forEach(sec => {
-          const secT = estSectionTotal(sec);
-          if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0)) {
+          const isFee = isFeeSec(sec);
+          const secT = isFee
+            ? sec.rows.reduce((sum, row) => { const pm = (row.notes||"").match(/(\d+(?:\.\d+)?)%/); return pm ? sum + srcSub * (parseFloat(pm[1])/100) : sum + estRowTotal(row); }, 0)
+            : estSectionTotal(sec);
+          if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0 || (isFee && (r.notes||"").match(/\d+(?:\.\d+)?%/)))) {
             srcSnap += `  ${sec.num}. ${sec.title} — ${estFmt(secT)}\n`;
             sec.rows.forEach(r => {
-              const rt = estRowTotal(r);
-              if (rt > 0) srcSnap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate}\n`;
+              if (isFee) {
+                const pm = (r.notes||"").match(/(\d+(?:\.\d+)?)%/);
+                const rt = pm ? srcSub * (parseFloat(pm[1])/100) : estRowTotal(r);
+                srcSnap += `    ${r.ref}: ${r.desc} | notes:${r.notes||""} = ${estFmt(rt)}\n`;
+              } else {
+                const rt = estRowTotal(r);
+                if (rt > 0) srcSnap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate}\n`;
+              }
             });
           }
         });
-        const { subtotal: srcSub, feesTotal: srcFees, grandTotal: srcGt } = estCalcTotals(srcSections);
         srcSnap += `Subtotal: ${estFmt(srcSub)} | Fees: ${estFmt(srcFees)} | Grand Total: ${estFmt(srcGt)}\n`;
         // Inject into billie context so it gets added to system prompt
         setBillieCtx(prev=>({...prev,_mirrorSnap:srcSnap,_mirrorProject:sourceProject.name,_mirrorLabel:srcLabel}));
@@ -659,12 +668,21 @@ export async function handleBillieIntent({
       snap += `Payment: ${vTs.payment||"(empty)"}\n`;
       snap += "Sections:\n";
       vSections.forEach(sec => {
-        const secT = estSectionTotal(sec);
-        if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0)) {
-          snap += `  ${sec.num}. ${sec.title} — AED ${estFmt(secT)}\n`;
+        const isFee = isFeeSec(sec);
+        const secT = isFee
+          ? sec.rows.reduce((sum, row) => { const pm = (row.notes||"").match(/(\d+(?:\.\d+)?)%/); return pm ? sum + subtotal * (parseFloat(pm[1])/100) : sum + estRowTotal(row); }, 0)
+          : estSectionTotal(sec);
+        if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0 || (isFee && (r.notes||"").match(/\d+(?:\.\d+)?%/)))) {
+          snap += `  ${sec.num}. ${sec.title} — AED ${estFmt(secT)}${isFee ? " (auto-calc from %)":"" }\n`;
           sec.rows.forEach(r => {
-            const rt = estRowTotal(r);
-            if (rt > 0) snap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate} = AED ${estFmt(rt)}\n`;
+            if (isFee) {
+              const pm = (r.notes||"").match(/(\d+(?:\.\d+)?)%/);
+              const rt = pm ? subtotal * (parseFloat(pm[1])/100) : estRowTotal(r);
+              snap += `    ${r.ref}: ${r.desc} | notes:${r.notes||""} = AED ${estFmt(rt)}\n`;
+            } else {
+              const rt = estRowTotal(r);
+              if (rt > 0) snap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate} = AED ${estFmt(rt)}\n`;
+            }
           });
         }
       });

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, defaultSections, PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, isFeeSec, defaultSections, PRINT_CLEANUP_CSS } from "../../utils/helpers";
 import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { CSLogoSlot } from "../ui/DocHelpers";
 
@@ -183,7 +183,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
               <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {secondCurrency}</div>
             </div>
             {sections.map((sec)=>{
-              const isF = sec.isFees;
+              const isF = isFeeSec(sec);
               const t = isF ? sec.rows.reduce((sum, row) => {
                 const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                 if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
@@ -231,7 +231,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
 
         {(estTab === "estimates" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
           {sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
-            const isFeesSection = sec.isFees;
+            const isFeesSection = isFeeSec(sec);
             const getRowDisplay = (row) => {
               let tot = estRowTotal(row);
               let autoCalc = false;
@@ -252,15 +252,15 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
             <div key={sec.id}>
               <div style={{marginBottom:12}}>
               <div
-                draggable={!sec.isFees}
-                onDragStart={e => { if (sec.isFees) { e.preventDefault(); return; } dragRef.current = { type: "section", si }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `section:${si}`); e.currentTarget.style.opacity = "0.4"; }}
+                draggable={!isFeeSec(sec)}
+                onDragStart={e => { if (isFeeSec(sec)) { e.preventDefault(); return; } dragRef.current = { type: "section", si }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `section:${si}`); e.currentTarget.style.opacity = "0.4"; }}
                 onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
-                onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "section") return; if (src.si !== si && !sec.isFees) setDropIndicator({ type: "section", si }); }}
+                onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "section") return; if (src.si !== si && !isFeeSec(sec)) setDropIndicator({ type: "section", si }); }}
                 onDragLeave={() => { if (dropIndicator?.type === "section" && dropIndicator.si === si) setDropIndicator(null); }}
-                onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "section" || sec.isFees) return; reorderSections(src.si, si); }}
-                style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:sec.isFees?"default":"grab",position:"relative",
+                onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "section" || isFeeSec(sec)) return; reorderSections(src.si, si); }}
+                style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:isFeeSec(sec)?"default":"grab",position:"relative",
                   ...(dropIndicator?.type === "section" && dropIndicator.si === si ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
-                <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:sec.isFees?"default":"grab"}}>{sec.isFees ? "" : "⠿"}</div>
+                <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:isFeeSec(sec)?"default":"grab"}}>{isFeeSec(sec) ? "" : "⠿"}</div>
                 <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
                 <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
                 <div style={{width:120,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>

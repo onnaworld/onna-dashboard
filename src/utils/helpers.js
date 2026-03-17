@@ -217,9 +217,10 @@ export const estFmt = (n) => { const v = parseFloat(n); return isNaN(v) ? "" : (
 export const estNum = (n) => { const v = parseFloat(String(n).replace(/,/g, "")); return isNaN(v) ? 0 : v; };
 export const estRowTotal = (r) => { const d=estNum(r.days)||1; const q=estNum(r.qty)||1; const rt=estNum(r.rate); return d*q*rt; };
 export const estSectionTotal = (s) => s.rows.reduce((sum,r)=>sum+estRowTotal(r),0);
+export const isFeeSec = (s) => !!(s.isFees || /production\s*fees?/i.test(s.title || ''));
 export const estCalcTotals = (sections) => {
-  const subtotal = sections.filter(s=>!s.isFees).reduce((sum,s)=>sum+estSectionTotal(s),0);
-  const feesTotal = sections.filter(s=>s.isFees).reduce((sum,s)=>
+  const subtotal = sections.filter(s=>!isFeeSec(s)).reduce((sum,s)=>sum+estSectionTotal(s),0);
+  const feesTotal = sections.filter(s=>isFeeSec(s)).reduce((sum,s)=>
     s.rows.reduce((rsum, row) => {
       const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
       if (pctMatch) return rsum + subtotal * (parseFloat(pctMatch[1]) / 100);

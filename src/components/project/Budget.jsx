@@ -1,5 +1,5 @@
 import React, { Fragment, useState } from "react";
-import { defaultSections, estCalcTotals, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
+import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
 
 export default function Budget({
@@ -473,7 +473,7 @@ export default function Budget({
               </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
-                const estSecTot = estSec ? (estSec.isFees ? estSec.rows.reduce((sum, row) => {
+                const estSecTot = estSec ? (isFeeSec(estSec) ? estSec.rows.reduce((sum, row) => {
                   const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                   if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                   return sum + estRowTotal(row);
@@ -520,7 +520,7 @@ export default function Budget({
               </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
-                const secEstTotal = estSec ? (estSec.isFees ? estSec.rows.reduce((sum, row) => {
+                const secEstTotal = estSec ? (isFeeSec(estSec) ? estSec.rows.reduce((sum, row) => {
                   const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                   if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                   return sum + estRowTotal(row);
@@ -546,9 +546,9 @@ export default function Budget({
                   {/* Rows — hidden when section is collapsed */}
                   {!collapsedSecs[si] && sec.rows.map((row, ri) => {
                     const estRow = estSec?.rows[ri];
-                    const isFeeSec = estSec?.isFees;
+                    const _isFeeSec = estSec ? isFeeSec(estSec) : false;
                     let estVal = estRow ? estRowTotal(estRow) : 0;
-                    if (isFeeSec && estRow) {
+                    if (_isFeeSec && estRow) {
                       const pctMatch = (estRow.notes || "").match(/(\d+(?:\.\d+)?)%/);
                       if (pctMatch) estVal = estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                     }
