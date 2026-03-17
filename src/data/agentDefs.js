@@ -27,7 +27,7 @@ export const AGENT_DEFS = [
   {id:"billie",name:"Budget Billie",title:"Budgets & Expenses",emoji:"💰",color:_GREEN,border:"#5aaa72",accent:"#1a5a30",bg:"#f3fbf5",textColor:"#0a2e14",tagBg:"#c8efd4",Blob:_Billie,
    system:BILLIE_SYSTEM,
    placeholder:"Budget or expense details...",
-   intro:"Hey! I'm Budget Billie 💰 Here's what I can do:\n\n1️⃣ **Build & Edit Budget** — Create estimates, update rates, adjust markup\n2️⃣ **Log Expenses** — Track actuals, add costs, update Zoho amounts\n3️⃣ **Review & Compare** — Actuals vs estimates, flag overruns, export\n\nFirst, which project should I work on?"},
+   intro:"Hey! I'm Budget Billie 💰 Here's what I can do:\n\n1️⃣ **Build & Edit Budget** — Create estimates, update rates, adjust markup\n2️⃣ **Log Expenses** — Track actuals, add costs, update Zoho amounts\n3️⃣ **Review & Compare** — Actuals vs estimates, flag overruns, export\n\n💡 Say **\"rate card\"** anytime to manage your default rates.\n\nFirst, which project should I work on?"},
   {id:"contracts",name:"Contract Cody",title:"Contract Cody",emoji:"📝",color:_ORANGE,border:"#c48520",accent:"#7a5200",bg:"#fff8f0",textColor:"#3d2200",tagBg:"#fde8c8",Blob:_Cody,
    system:CODY_SYSTEM,
    placeholder:"Add contract details...",

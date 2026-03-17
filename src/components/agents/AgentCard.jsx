@@ -1402,6 +1402,13 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       }
     }
 
+    // ── Global: Rate card command (works from any agent) ──
+    if(/\b(rate\s*card|show\s*rates|manage\s*rates|edit\s*rates|open\s*rates|my\s*rates)\b/i.test(input)&&setShowBillieRates){
+      setShowBillieRates(true);
+      setMsgs([...history,{role:"assistant",content:"Opening your rate card — add or edit your default rates there. Budget Billie will use them when populating estimates."}]);
+      setLoading(false);setMood("idle");return;
+    }
+
     // ── Vinnie intent dispatcher ──
     if(agent.id==="logistical"){
       const _vinnieHandled=await handleVinnieIntent({
