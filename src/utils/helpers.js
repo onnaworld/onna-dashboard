@@ -337,6 +337,7 @@ export const configApi = {
 // ─── Debounced save to Turso (dual-write alongside localStorage) ───────────
 const _saveTimers = {};
 const _pendingFlush = {};
+export const hasPendingSave = (table, pid) => !!(_pendingFlush[`${table}:${pid}`] || _saveTimers[`${table}:${pid}`]);
 const _prevStoreSnaps = {};
 let _pendingSaves = 0;
 let _onSaveStatus = null;
