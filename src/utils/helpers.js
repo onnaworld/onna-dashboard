@@ -308,11 +308,16 @@ export const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 export const getToken = () => localStorage.getItem("onna_token") || "";
 const _h = (extra={}) => ({"Authorization":`Bearer ${getToken()}`,...extra});
 const _guard = r => { if(r.status===401){const t=getToken();if(t){localStorage.removeItem("onna_token");window.location.reload();}return Promise.reject(new Error("Unauthorized"));} return r.json(); };
+import { enqueue as _sqEnqueue } from './syncQueue.js';
+const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).catch(err => {
+  if (isWrite && !navigator.onLine) { _sqEnqueue(url, opts); return { ok: true, queued: true }; }
+  throw err;
+});
 export const api = {
-  get:    (path)       => fetch(_proxy(path),{headers:_h()}).then(_guard),
-  post:   (path, body) => fetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
-  put:    (path, body) => fetch(_proxy(path),{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}).then(_guard),
-  delete: (path)       => fetch(_proxy(path),{method:"DELETE",headers:_h()}).then(_guard),
+  get:    (path)       => _offlineFetch(_proxy(path),{headers:_h()}, false),
+  post:   (path, body) => _offlineFetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}, true),
+  put:    (path, body) => _offlineFetch(_proxy(path),{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}, true),
+  delete: (path)       => _offlineFetch(_proxy(path),{method:"DELETE",headers:_h()}, true),
 };
 
 // ─── Document store API helpers (Turso-backed) ─────────────────────────────

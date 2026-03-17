@@ -32,6 +32,7 @@ import { VendorLeadProvider, useVendorLead } from "./context/VendorLeadContext";
 import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
 import { TodoProvider, useTodo } from "./context/TodoContext";
+import { setSyncStatusCallback, pendingCount as syncPendingCount, flush as flushSyncQueue } from "./utils/syncQueue";
 import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
@@ -224,6 +225,19 @@ function OnnaDashboardInner() {
       else if (status === "saved") { setSaveStatus("saved"); saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 2000); }
     });
     return () => { setSaveStatusCallback(null); };
+  }, []);
+
+  // ── Offline detection ──
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+  const [syncQueueCount, setSyncQueueCount] = useState(0);
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => { setIsOffline(false); flushSyncQueue(); };
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    setSyncStatusCallback((count) => setSyncQueueCount(count));
+    syncPendingCount().then(setSyncQueueCount);
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); setSyncStatusCallback(null); };
   }, []);
 
   const doLogin = () => _doLogin(lgUser, lgPass, setLgLoading, setLgErr);
@@ -1177,6 +1191,13 @@ function OnnaDashboardInner() {
       {/* ── MAIN ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <Topbar T={T} isMobile={isMobile} P={P} currentTab={currentTab} selectedProject={selectedProject} projectSection={projectSection} creativeSubSection={creativeSubSection} budgetSubSection={budgetSubSection} apiLoading={apiLoading} apiError={apiError} changeTab={changeTab} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}/>
+
+        {isOffline && (
+          <div style={{background:"#fff3cd",color:"#856404",padding:"8px 16px",fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid #ffc107"}}>
+            <span style={{fontSize:16}}>&#9679;</span>
+            You're offline — changes are saved locally{syncQueueCount > 0 ? ` (${syncQueueCount} pending sync${syncQueueCount > 1 ? 's' : ''})` : ''} and will sync when you reconnect.
+          </div>
+        )}
 
         {/* Scroll area */}
         <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:`${P}px ${P}px 44px`}}>
