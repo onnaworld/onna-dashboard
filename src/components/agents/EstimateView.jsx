@@ -38,7 +38,16 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
       return [...prev, { key, ref: row.ref, desc: row.desc, amount: tot }];
     });
   };
+  const toggleTallySection = (si, secTotal) => {
+    const key = `sec-${si}`;
+    setTallyItems(prev => {
+      if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
+      const sec = sections[si]; if (!sec) return prev;
+      return [...prev, { key, ref: sec.num, desc: sec.title, amount: secTotal, isSection: true }];
+    });
+  };
   const isTallied = (si, ri) => tallyItems.some(t => t.key === `${si}-${ri}`);
+  const isSectionTallied = (si) => tallyItems.some(t => t.key === `sec-${si}`);
   const tallyTotal = Math.round(tallyItems.reduce((s, t) => s + t.amount, 0) * 100) / 100;
 
   const _bprMarkers = pendingReview ? new Set(pendingReview.markers) : null;
@@ -322,7 +331,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
                 <div onClick={()=>addRow(si)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}}>+ Add Line</div>
                 <div style={{display:"flex",gap:0}}>
                   <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"4px 8px",letterSpacing:EST_LS}}>TOTAL</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal)}</div>
+                  <div onClick={()=>feeSectionTotal>0&&toggleTallySection(si,feeSectionTotal)} style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS,cursor:feeSectionTotal>0?"pointer":"default",background:isSectionTallied(si)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(feeSectionTotal)}</div>
                   <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*xRate)}</div>
                   <div style={{width:24}}></div>
                 </div>
@@ -413,9 +422,9 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
             {tallyItems.map(t => (
               <div key={t.key} style={{display:"flex",alignItems:"center",padding:"4px 14px",gap:8,borderBottom:"1px solid #f5f5f5"}}>
                 <span onClick={()=>setTallyItems(prev=>prev.filter(x=>x.key!==t.key))} style={{cursor:"pointer",fontSize:11,color:"#ccc",flexShrink:0}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
-                <span style={{fontSize:8,color:"#999",fontWeight:700,letterSpacing:EST_LS,flexShrink:0,width:28}}>{t.ref}</span>
-                <span style={{fontSize:9,color:"#333",letterSpacing:EST_LS,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc}</span>
-                <span style={{fontSize:9,fontWeight:600,letterSpacing:EST_LS,color:"#1a1a1a",flexShrink:0,textAlign:"right",minWidth:60}}>{estFmt(t.amount)}</span>
+                <span style={{fontSize:8,color:t.isSection?"#666":"#999",fontWeight:700,letterSpacing:EST_LS,flexShrink:0,width:28}}>{t.ref}</span>
+                <span style={{fontSize:9,color:"#333",letterSpacing:EST_LS,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:t.isSection?700:400,textTransform:t.isSection?"uppercase":"none"}}>{t.desc}</span>
+                <span style={{fontSize:9,fontWeight:t.isSection?700:600,letterSpacing:EST_LS,color:"#1a1a1a",flexShrink:0,textAlign:"right",minWidth:60}}>{estFmt(t.amount)}</span>
               </div>
             ))}
           </div>
