@@ -169,7 +169,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
       </div>
       <div data-noprint style={{ display:"flex", gap:12, alignItems:"center", padding:"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
         <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>CURRENCY</span>
-        <select value={baseCurrency} onChange={e => { const newCur = e.target.value; const oldCurr = EST_CURRENCIES.find(c => c.code === baseCurrency); const convRate = oldCurr?.rates[newCur]; setBaseCurrency(newCur); onSet(d => { const updated = {...d, currency: newCur}; if (convRate && d.sections) { const secs = JSON.parse(JSON.stringify(d.sections)); secs.forEach(sec => sec.rows.forEach(r => { const v = parseFloat(String(r.rate).replace(/,/g,"")); if (!isNaN(v) && v > 0) r.rate = String(Math.round(v * convRate * 100) / 100); })); updated.sections = secs; } return updated; }); }}
+        <select value={baseCurrency} onChange={e => { setBaseCurrency(e.target.value); onSet(d => ({...d, currency: e.target.value})); }}
           style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
           {EST_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
         </select>
