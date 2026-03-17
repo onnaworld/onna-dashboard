@@ -71,6 +71,41 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
     });
   };
 
+  // ── Drag & reorder state ──
+  const dragRef = useRef(null);
+  const [dropIndicator, setDropIndicator] = useState(null); // {type:"row"|"section", si, ri?}
+
+  const reorderRows = (si, fromRi, toRi) => {
+    if (fromRi === toRi) return;
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      const [moved] = secs[si].rows.splice(fromRi, 1);
+      secs[si].rows.splice(toRi > fromRi ? toRi - 1 : toRi, 0, moved);
+      return { ...d, sections: secs };
+    });
+  };
+
+  const moveRowToSection = (fromSi, fromRi, toSi, toRi) => {
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      const [moved] = secs[fromSi].rows.splice(fromRi, 1);
+      secs[toSi].rows.splice(toRi, 0, moved);
+      // re-ref the moved row for new section
+      moved.ref = secs[toSi].num + String.fromCharCode(65 + toRi);
+      return { ...d, sections: secs };
+    });
+  };
+
+  const reorderSections = (fromSi, toSi) => {
+    if (fromSi === toSi) return;
+    onSet(d => {
+      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+      const [moved] = secs.splice(fromSi, 1);
+      secs.splice(toSi > fromSi ? toSi - 1 : toSi, 0, moved);
+      return { ...d, sections: secs };
+    });
+  };
+
   const { subtotal, feesTotal, grandTotal } = estCalcTotals(sections);
 
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
@@ -216,8 +251,16 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
             return(
             <div key={sec.id}>
               <div style={{marginBottom:12}}>
-              <div style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center"}}>
-                <div data-noprint style={{width:16,flexShrink:0}}></div>
+              <div
+                draggable={!sec.isFees}
+                onDragStart={e => { if (sec.isFees) { e.preventDefault(); return; } dragRef.current = { type: "section", si }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `section:${si}`); e.currentTarget.style.opacity = "0.4"; }}
+                onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
+                onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "section") return; if (src.si !== si && !sec.isFees) setDropIndicator({ type: "section", si }); }}
+                onDragLeave={() => { if (dropIndicator?.type === "section" && dropIndicator.si === si) setDropIndicator(null); }}
+                onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "section" || sec.isFees) return; reorderSections(src.si, si); }}
+                style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:sec.isFees?"default":"grab",position:"relative",
+                  ...(dropIndicator?.type === "section" && dropIndicator.si === si ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
+                <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:sec.isFees?"default":"grab"}}>{sec.isFees ? "" : "⠿"}</div>
                 <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
                 <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
                 <div style={{width:120,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
@@ -229,8 +272,19 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
                 <div style={{width:24,flexShrink:0}}></div>
               </div>
               {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);const _rowBg=_rHas?"#E8F5E9":(EST_ST_BG[row.rowStatus||""]||"transparent");return(
-                <div key={ri} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",background:_rowBg,transition:"background 0.15s"}}>
+                <div key={ri}
+                  draggable
+                  onDragStart={e => { dragRef.current = { type: "row", si, ri }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `row:${si}:${ri}`); e.currentTarget.style.opacity = "0.4"; }}
+                  onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
+                  onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "row") return; setDropIndicator({ type: "row", si, ri }); }}
+                  onDragLeave={() => { if (dropIndicator?.type === "row" && dropIndicator.si === si && dropIndicator.ri === ri) setDropIndicator(null); }}
+                  onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "row") return; if (src.si === si) reorderRows(si, src.ri, ri); else moveRowToSection(src.si, src.ri, si, ri); }}
+                  style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",background:_rowBg,transition:"background 0.15s",
+                    ...(dropIndicator?.type === "row" && dropIndicator.si === si && dropIndicator.ri === ri ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
                   {_rHas&&<div style={{position:"absolute",left:-28,top:4,display:"flex",gap:1,zIndex:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_rm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_rm)} style={_bRevBtn("decline")}>{"✕"}</button></div>}
+                  <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",fontSize:10,color:"#ccc"}} onMouseEnter={e=>{e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc"}}>
+                    <span style={{userSelect:"none",lineHeight:1,pointerEvents:"none"}}>⠿</span>
+                  </div>
                   <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <span onClick={()=>cycleRowStatus(si,ri)} title={(row.rowStatus||"No status")+" — click to cycle"} style={{cursor:"pointer",fontSize:8,color:EST_ST_DOT[row.rowStatus||""]||"#ddd",userSelect:"none",lineHeight:1}}>●</span>
                   </div>
