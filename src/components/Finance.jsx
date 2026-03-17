@@ -203,9 +203,10 @@ export default function Finance({
     const all = allProjectsMerged || [];
     const nonTemplate = all.filter(p => p.client !== "TEMPLATE");
     const active = nonTemplate.filter(p => p.status === "Active");
-    const completed = nonTemplate.filter(p => p.status === "Archived");
+    const completed = nonTemplate.filter(p => p.status === "Archived" || p.status === "Completed" || p.status === "Wrapped");
     const isAllTime = financeYear === "all";
-    const thisYear = (isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear)).filter(p => p.status === "Active");
+    const thisYear = isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear);
+    const thisYearActive = thisYear.filter(p => p.status === "Active");
     const lastYear = isAllTime ? [] : nonTemplate.filter(p => Number(p.year) === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
@@ -247,7 +248,7 @@ export default function Finance({
     const overBudget = projBreakdown.filter(p => p.variance !== null && p.variance < 0).sort((a, b) => a.variance - b.variance);
 
     return {
-      nonTemplate, active, completed, thisYear, lastYear,
+      nonTemplate, active, completed, thisYear, thisYearActive, lastYear,
       totalRev, totalCost, totalProfit,
       thisYearRev, thisYearCost, thisYearProfit, lastYearRev,
       avgMargin: margin(totalRev, totalProfit),
@@ -881,7 +882,7 @@ export default function Finance({
           cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore}
           activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion}
           syncedOverheads={overheads} syncedRevenue={projData.thisYearRev} syncedCost={projData.thisYearCost}
-          syncedProjects={projData.thisYear} getProjRevenue={getProjRevenue} getProjCost={getProjCost}
+          syncedProjects={projData.thisYearActive} getProjRevenue={getProjRevenue} getProjCost={getProjCost}
           financeYear={financeYear}
         />
       )}
