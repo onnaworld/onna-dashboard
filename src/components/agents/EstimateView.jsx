@@ -10,7 +10,7 @@ const EST_CURRENCIES = [
   { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 3.9841, USD: 1.0848, GBP: 0.8587, SAR: 4.0682 } },
   { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9794, USD: 0.2667, GBP: 0.2111, EUR: 0.2458 } },
 ];
-function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker }) {
+function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
   const printRef = useRef(null);
@@ -18,6 +18,32 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
   const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
   const xRate = baseCurr.rates[secondCurrency] || exchangeRate;
+
+  // ── Undo stack (⌘Z) ──
+  const undoStack = useRef([]);
+  const estDataRef = useRef(estData);
+  estDataRef.current = estData;
+  const onSet = (updater) => {
+    undoStack.current.push(JSON.parse(JSON.stringify(estDataRef.current)));
+    if (undoStack.current.length > 50) undoStack.current.shift();
+    _rawOnSet(updater);
+  };
+  const undo = () => {
+    const prev = undoStack.current.pop();
+    if (prev) _rawOnSet(() => prev);
+  };
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+        e.preventDefault();
+        undo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const ts = estData.ts || ESTIMATE_INIT.ts;
   const sections = estData.sections || defaultSections();
