@@ -25,6 +25,8 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
   const tcsText = estData.tcsText || DEFAULT_TCS;
   const saSigs = estData.saSigs || {};
   const prodLogo = estData.prodLogo || null;
+  const vatPct = estData.vatPct !== undefined ? estData.vatPct : 5;
+  const vatRate = vatPct / 100;
 
   const _bprMarkers = pendingReview ? new Set(pendingReview.markers) : null;
   const _hasBM = (m) => _bprMarkers && _bprMarkers.has(m);
@@ -119,7 +121,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
     clone.querySelectorAll('button').forEach(n=>n.remove());
     clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:10mm;}@media print{@page{margin:0;size:A4;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
+    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:0;}@media print{@page{margin:0;size:A4;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
     _d.body.appendChild(_d.adoptNode(clone));setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300); };
   const exportPDF = (all = false) => {
     if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
@@ -204,21 +206,21 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
               <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>
             </div>
-            <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>VAT (5%)</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*0.05)}</div>
+            <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);onSet(d=>({...d,vatPct:isNaN(v)?0:v}));}} style={{width:28,fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} /><span data-noprint style={{display:"none"}}></span>%)</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*vatRate)}</div>
               <div style={{width:100}}></div>
             </div>
             <div style={{display:"flex",borderBottom:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*0.05)}</div>
+              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
               <div style={{width:100}}></div>
             </div>
           </div>
           {(() => {
             const pctMatch = (ts.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-            const totalIncVat = grandTotal + grandTotal * 0.05;
+            const totalIncVat = grandTotal + grandTotal * vatRate;
             return (
               <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
@@ -319,9 +321,9 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
                 <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
-                <span>VAT (5%)</span><span>{baseCurrency} {estFmt(grandTotal*0.05)}</span></div>
+                <span>VAT ({vatPct}%)</span><span>{baseCurrency} {estFmt(grandTotal*vatRate)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
-                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*0.05)}</span></div>
+                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span></div>
             </div>
           </div>
         </>}
