@@ -523,7 +523,9 @@ export async function handleBillieIntent({
         setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
       }
 
-      if(/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)){
+      const _hasAttach = history[history.length-1]?._attachments?.length > 0;
+      const _hasPopulateIntent = /\b(based on|from|populate|draft|build|using|attached|brief|mirror)\b/i.test(input);
+      if((/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input))&&!_hasAttach&&!_hasPopulateIntent){
         const _curVersions=projectEstimates?.[projectId]||[];
         const _nextNum=_curVersions.length+1;
         const _autoLabel=`V${_nextNum}`;
