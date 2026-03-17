@@ -28,6 +28,19 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
   const vatPct = estData.vatPct !== undefined ? estData.vatPct : 5;
   const vatRate = vatPct / 100;
 
+  // ── Tally scratchpad ──
+  const [tallyItems, setTallyItems] = useState([]);
+  const toggleTally = (si, ri, tot) => {
+    const key = `${si}-${ri}`;
+    setTallyItems(prev => {
+      if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
+      const sec = sections[si]; const row = sec?.rows[ri]; if (!row) return prev;
+      return [...prev, { key, ref: row.ref, desc: row.desc, amount: tot }];
+    });
+  };
+  const isTallied = (si, ri) => tallyItems.some(t => t.key === `${si}-${ri}`);
+  const tallyTotal = Math.round(tallyItems.reduce((s, t) => s + t.amount, 0) * 100) / 100;
+
   const _bprMarkers = pendingReview ? new Set(pendingReview.markers) : null;
   const _hasBM = (m) => _bprMarkers && _bprMarkers.has(m);
   const _bRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
@@ -147,7 +160,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
       </div>
       <div data-noprint style={{ display:"flex", gap:12, alignItems:"center", padding:"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
         <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>CURRENCY</span>
-        <select value={baseCurrency} onChange={e => { setBaseCurrency(e.target.value); onSet(d => ({...d, currency: e.target.value})); }}
+        <select value={baseCurrency} onChange={e => { const newCur = e.target.value; const oldCurr = EST_CURRENCIES.find(c => c.code === baseCurrency); const convRate = oldCurr?.rates[newCur]; setBaseCurrency(newCur); onSet(d => { const updated = {...d, currency: newCur}; if (convRate && d.sections) { const secs = JSON.parse(JSON.stringify(d.sections)); secs.forEach(sec => sec.rows.forEach(r => { const v = parseFloat(String(r.rate).replace(/,/g,"")); if (!isNaN(v) && v > 0) r.rate = String(Math.round(v * convRate * 100) / 100); })); updated.sections = secs; } return updated; }); }}
           style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
           {EST_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
         </select>
@@ -300,7 +313,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
                   <div style={{width:90,flexShrink:0}}>{autoCalc
                     ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
                     : <EstCell value={row.rate} onChange={v=>updateRow(si,ri,"rate",v)} align="right" />}</div>
-                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot)}</div>
+                  <div onClick={()=>tot>0&&toggleTally(si,ri,tot)} style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS,cursor:tot>0?"pointer":"default",background:isTallied(si,ri)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(tot)}</div>
                   <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>
                   <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <span onClick={()=>removeRow(si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span></div>
@@ -390,6 +403,28 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
           <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
         </div>
       </div>
+      {tallyItems.length > 0 && (
+        <div data-noprint style={{position:"fixed",bottom:24,right:24,width:300,background:"#fff",border:"1px solid #ddd",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",zIndex:9000,fontFamily:EST_F,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f8f8f8",borderBottom:"1px solid #eee"}}>
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#666"}}>TALLY ({tallyItems.length} items)</span>
+            <span onClick={()=>setTallyItems([])} style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer",textTransform:"uppercase"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#999"}}>CLEAR</span>
+          </div>
+          <div style={{maxHeight:200,overflowY:"auto",padding:"6px 0"}}>
+            {tallyItems.map(t => (
+              <div key={t.key} style={{display:"flex",alignItems:"center",padding:"4px 14px",gap:8,borderBottom:"1px solid #f5f5f5"}}>
+                <span onClick={()=>setTallyItems(prev=>prev.filter(x=>x.key!==t.key))} style={{cursor:"pointer",fontSize:11,color:"#ccc",flexShrink:0}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                <span style={{fontSize:8,color:"#999",fontWeight:700,letterSpacing:EST_LS,flexShrink:0,width:28}}>{t.ref}</span>
+                <span style={{fontSize:9,color:"#333",letterSpacing:EST_LS,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc}</span>
+                <span style={{fontSize:9,fontWeight:600,letterSpacing:EST_LS,color:"#1a1a1a",flexShrink:0,textAlign:"right",minWidth:60}}>{estFmt(t.amount)}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{borderTop:"2px solid #000",padding:"8px 14px",display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#666",textTransform:"uppercase"}}>TOTAL</span>
+            <span style={{fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#1a1a1a"}}>{baseCurrency} {estFmt(tallyTotal)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
