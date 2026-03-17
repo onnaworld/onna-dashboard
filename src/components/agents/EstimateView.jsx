@@ -33,6 +33,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
 
   const tsSet = (k, v) => onSet(d => ({...d, ts: {...(d.ts||ESTIMATE_INIT.ts), [k]: v}}));
   const logoSet = (v) => onSet(d => ({...d, prodLogo: v}));
+  const reRefRows = (sec) => { sec.rows.forEach((r, i) => { r.ref = sec.num + String.fromCharCode(65 + i); }); };
   const updateRow = (si,ri,field,val) => {
     onSet(d => {
       const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
@@ -52,7 +53,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
   const removeRow = (si, ri) => {
     onSet(d => {
       const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
-      if (secs[si].rows.length > 1) secs[si].rows.splice(ri, 1);
+      if (secs[si].rows.length > 1) { secs[si].rows.splice(ri, 1); reRefRows(secs[si]); }
       return {...d, sections: secs};
     });
   };
@@ -81,6 +82,7 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
       const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
       const [moved] = secs[si].rows.splice(fromRi, 1);
       secs[si].rows.splice(toRi > fromRi ? toRi - 1 : toRi, 0, moved);
+      reRefRows(secs[si]);
       return { ...d, sections: secs };
     });
   };
@@ -90,8 +92,8 @@ function EstimateView({ estData, onSet, exchangeRate = 0.27, pendingReview, onAc
       const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
       const [moved] = secs[fromSi].rows.splice(fromRi, 1);
       secs[toSi].rows.splice(toRi, 0, moved);
-      // re-ref the moved row for new section
-      moved.ref = secs[toSi].num + String.fromCharCode(65 + toRi);
+      reRefRows(secs[fromSi]);
+      reRefRows(secs[toSi]);
       return { ...d, sections: secs };
     });
   };
