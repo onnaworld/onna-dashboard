@@ -24,7 +24,7 @@ export default function Agents({
   syncProjectInfoToDocs,
   projectFileStore,
   setLocalProjects,
-  billieRateCards, setBillieRateCards, setShowBillieRates,
+  billieRateCards, setBillieRateCards, showBillieRates, setShowBillieRates,
 }) {
   const [agentHoverIdx, setAgentHoverIdx] = useState(null);
   const [agentStart, setAgentStart] = useState(0);
@@ -166,6 +166,7 @@ export default function Agents({
                 projectFileStore={a.id==="billie"?projectFileStore:undefined}
                 billieRateCards={a.id==="billie"?billieRateCards:undefined}
                 setBillieRateCards={a.id==="billie"?setBillieRateCards:undefined}
+                showBillieRates={a.id==="billie"?showBillieRates:undefined}
                 setShowBillieRates={a.id==="billie"?setShowBillieRates:undefined}
                 onCreateProject={setLocalProjects?(saved)=>{setLocalProjects(prev=>[...prev,saved]);try{localStorage.setItem('onna_cache_projects',JSON.stringify([...allProjectsMerged,saved]))}catch{}}:undefined}
               />
