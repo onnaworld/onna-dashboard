@@ -43,11 +43,12 @@ export function TodoProvider({ children }) {
   const hydrateTodos = (backendTodos) => {
     setTodos(prev => {
       const archivedIds = getArchivedTodoIds();
-      const merged = backendTodos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"}).filter(t => !archivedIds.has(t.id));
-      if (prev.length) {
-        const backendIds = new Set(merged.map(t => t.id));
-        for (const lt of prev) { if (!backendIds.has(lt.id) && !archivedIds.has(lt.id)) merged.push(lt); }
-      }
+      const backendFiltered = backendTodos.map(t => t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"}).filter(t => !archivedIds.has(t.id));
+      if (!prev.length) return backendFiltered;
+      // Local wins — preserves live edits (color, drag, etc.)
+      const merged = [...prev];
+      const localIds = new Set(merged.map(t => t.id));
+      for (const bt of backendFiltered) { if (!localIds.has(bt.id)) merged.push(bt); }
       return merged;
     });
   };
@@ -62,14 +63,16 @@ export function TodoProvider({ children }) {
         }
         return filtered;
       }
+      // Local wins — start with prev, append backend-only items
       const merged = {};
-      for (const [pid, tasks] of Object.entries(backendPtodos)) {
+      for (const [pid, tasks] of Object.entries(prev)) {
         merged[pid] = (tasks || []).filter(t => !archivedIds.has(t.id));
       }
-      for (const [pid, tasks] of Object.entries(prev)) {
-        if (!merged[pid]) { merged[pid] = tasks.filter(t => !archivedIds.has(t.id)); continue; }
-        const backendIds = new Set(merged[pid].map(t => t.id));
-        for (const lt of tasks) { if (!backendIds.has(lt.id) && !archivedIds.has(lt.id)) merged[pid].push(lt); }
+      for (const [pid, tasks] of Object.entries(backendPtodos)) {
+        const backendFiltered = (tasks || []).filter(t => !archivedIds.has(t.id));
+        if (!merged[pid]) { merged[pid] = backendFiltered; continue; }
+        const localIds = new Set(merged[pid].map(t => t.id));
+        for (const bt of backendFiltered) { if (!localIds.has(bt.id)) merged[pid].push(bt); }
       }
       return merged;
     });

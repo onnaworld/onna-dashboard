@@ -17,6 +17,8 @@ export default function Dashboard({
   DashNotes
 }) {
   const [editingTodoId, setEditingTodoId] = useState(null);
+  const [mobileDayIdx, setMobileDayIdx] = useState(() => (new Date().getDay() + 6) % 7);
+  const touchStartRef = useRef(null);
   const [customLists, setCustomLists] = useState(()=>{try{const s=localStorage.getItem('onna_todo_lists');return s?JSON.parse(s):[];}catch{return [];}});
   const saveCustomLists=(lists)=>{setCustomLists(lists);try{localStorage.setItem('onna_todo_lists',JSON.stringify(lists));}catch{}};
   const TODO_COLORS = [
@@ -133,7 +135,7 @@ export default function Dashboard({
           ),
           "todos": (
       <div style={{marginBottom:isMobile?12:18}}>
-        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",height:isMobile?"auto":520}}>
+        <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column",minHeight:isMobile?"auto":320}}>
           {/* Title row */}
           <div style={{padding:"13px 16px 0",background:"#fafafa",borderBottom:`1px solid ${T.borderSub}`,flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",marginBottom:10}}>
@@ -199,7 +201,7 @@ export default function Dashboard({
                   {editingTodoId===t.id?(
                     <input autoFocus draggable="false" defaultValue={t.text} onBlur={e=>{const v=e.target.value.trim();if(v&&v!==t.text){pushUndo("edit");setTodos(prev=>prev.map(x=>x.id===t.id?{...x,text:v}:x));}setEditingTodoId(null);}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();if(e.key==="Escape"){setEditingTodoId(null);}}} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} style={{flex:1,minWidth:0,fontSize:11,padding:"1px 3px",border:`1px solid ${T.accent}`,borderRadius:3,background:"#fff",color:T.text,fontFamily:"inherit",outline:"none"}}/>
                   ):(
-                    <span draggable="false" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingTodoId(t.id);}} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.text}</span>
+                    <span draggable="false" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingTodoId(t.id);}} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",wordBreak:"break-word"}}>{t.text}</span>
                   )}
                   <button draggable="false" onMouseDown={e=>e.stopPropagation()} title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",flexShrink:0,lineHeight:1,fontSize:13,color:t.color||T.muted,opacity:t.color?1:0.5,transition:"opacity 0.12s"}}>★</button>
                   <button draggable="false" onMouseDown={e=>e.stopPropagation()} className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"2px 4px",lineHeight:1,flexShrink:0}}>×</button>
@@ -210,17 +212,41 @@ export default function Dashboard({
                 onDragLeave:e=>{e.currentTarget.style.background="transparent";},
                 onDrop:e=>{e.preventDefault();e.currentTarget.style.background="transparent";const dragId=Number(e.dataTransfer.getData("text/plain"));if(!dragId)return;pushUndo("move task");setTodos(prev=>prev.map(t=>t.id===dragId?{...t,tab:"onna",subType:day}:t));}
               });
+              const mobileLabels=["M","T","W","T","F","S","S"];
               return (<div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(7,1fr)",gap:isMobile?0:4}}>
+                {isMobile ? (<>
+                  {/* Day selector row */}
+                  <div style={{display:"flex",gap:4,marginBottom:8,justifyContent:"center"}}>
+                    {days.map((day,i)=>{
+                      const isToday=day===todayDay;
+                      const isActive=i===mobileDayIdx;
+                      return (
+                        <button key={day} onClick={()=>setMobileDayIdx(i)} style={{width:34,height:34,borderRadius:"50%",border:isToday&&!isActive?`2px solid ${T.accent}`:`2px solid transparent`,background:isActive?T.accent:"transparent",color:isActive?"#fff":isToday?T.accent:T.muted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>{mobileLabels[i]}</button>
+                      );
+                    })}
+                  </div>
+                  {/* Single day column with swipe */}
+                  <div
+                    {...colDrop(days[mobileDayIdx])}
+                    onTouchStart={e=>{touchStartRef.current=e.touches[0].clientX;}}
+                    onTouchEnd={e=>{if(touchStartRef.current===null)return;const dx=e.changedTouches[0].clientX-touchStartRef.current;touchStartRef.current=null;if(Math.abs(dx)>50){setMobileDayIdx(prev=>dx<0?(prev+1)%7:(prev+6)%7);}}}
+                    style={{minHeight:80,padding:"4px 4px"}}
+                  >
+                    <div style={{fontSize:10,fontWeight:600,color:days[mobileDayIdx]===todayDay?T.accent:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4,textAlign:"center"}}>{dayLabels[mobileDayIdx]}</div>
+                    {byDay[days[mobileDayIdx]].map(t=>renderTask(t,days[mobileDayIdx]))}
+                    {byDay[days[mobileDayIdx]].length===0&&<div style={{fontSize:11,color:T.muted,padding:"12px 3px",opacity:0.5,textAlign:"center"}}>No tasks for {dayLabels[mobileDayIdx]}</div>}
+                  </div>
+                </>) : (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
                   {days.map((day,i)=>{
                     const isToday=day===todayDay;
                     return (
-                    <div key={day} {...colDrop(day)} style={{minHeight:isMobile?undefined:80,borderRight:!isMobile&&i<6?`1px solid ${T.borderSub}`:"none",padding:"4px 4px",borderBottom:isMobile?`1px solid ${T.borderSub}`:"none"}}>
+                    <div key={day} {...colDrop(day)} style={{minHeight:80,borderRight:i<6?`1px solid ${T.borderSub}`:"none",padding:"4px 4px"}}>
                       <div style={{fontSize:10,fontWeight:600,color:isToday?T.accent:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4,textAlign:"center"}}>{dayLabels[i]}</div>
                       {byDay[day].map(t=>renderTask(t,day))}
                     </div>);
                   })}
-                </div>
+                </div>)}
                 <div style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop("longterm")}>
                   <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Long Term</div>
                   {longterm.map(t=>renderTask(t,"longterm"))}
