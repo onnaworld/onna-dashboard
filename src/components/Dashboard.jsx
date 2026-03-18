@@ -43,17 +43,21 @@ export default function Dashboard({
       {/* Active Projects — slim sidebar (left) */}
       <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",display:"flex",flexDirection:"column"}}>
           <div style={{padding:"10px 14px",borderBottom:`1px solid ${T.borderSub}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fafafa"}}>
-            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Active Projects</span>
+            <span style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Projects</span>
             <span style={{fontSize:11,color:T.muted,fontWeight:500}}>{activeProjects.length}</span>
           </div>
           <div style={{flex:1,overflowY:"auto"}}>
-            {activeProjects.map((p,i)=>(
+            {activeProjects.map((p,i)=>{
+              const sc = { Proposal: "#f57f17", Confirmed: "#1565c0", Active: "#147d50", Archived: T.muted };
+              const sb = { Proposal: "#fff8e1", Confirmed: "#e3f2fd", Active: "#edfaf3", Archived: "#f5f5f7" };
+              return (
               <a key={p.id} href={buildPath("Projects",p.id,null,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setActiveTab("Projects");setSelectedProject(p);setProjectSection("Home");pushNav("Projects",p,"Home",null);}} style={{padding:"9px 14px",borderBottom:i<activeProjects.length-1?`1px solid ${T.borderSub}`:"none",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"background 0.1s",textDecoration:"none",color:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div style={{fontSize:12.5,fontWeight:500,color:T.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
-                <div style={{fontSize:11.5,fontWeight:600,color:T.sub,flexShrink:0,marginLeft:8}}>{(projectTodos[p.id]||[]).length}</div>
+                <span style={{fontSize:9,padding:"2px 7px",borderRadius:999,background:sb[p.status]||"#f5f5f7",color:sc[p.status]||T.muted,fontWeight:600,letterSpacing:"0.03em",whiteSpace:"nowrap",flexShrink:0,marginLeft:8}}>{p.status||"—"}</span>
               </a>
-            ))}
-            {activeProjects.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No active projects.</div>}
+              );
+            })}
+            {activeProjects.length===0&&<div style={{padding:"28px 14px",textAlign:"center",fontSize:12,color:T.muted}}>No projects.</div>}
           </div>
         </div>
       {/* ── Google Calendar Widget (right) ── */}

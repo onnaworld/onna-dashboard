@@ -374,6 +374,7 @@ function OnnaDashboardInner() {
     scheduleSubSection,setScheduleSubSection,travelSubSection,setTravelSubSection,
     permitsSubSection,setPermitsSubSection,stylingSubSection,setStylingSubSection,
     locSubSection,setLocSubSection,castingSubSection,setCastingSubSection,
+    filesSubSection,setFilesSubSection,
     linkUploading,setLinkUploading,linkUploadProgress,setLinkUploadProgress,
     projectEntries,setProjectEntries,aiMsg,setAiMsg,aiLoading,setAiLoading,
     attachedFile,setAttachedFile,projectFiles,setProjectFiles,
@@ -913,7 +914,7 @@ function OnnaDashboardInner() {
           const proj = allProjectsMerged.find(p=>String(p.id)===String(state.projectId));
           setSelectedProject(proj||null);
           setProjectSection(state.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setFilesSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
           if (state.subSection && proj) {
             const sec = state.section;
             if (sec==="Creative") setCreativeSubSection(state.subSection);
@@ -922,11 +923,12 @@ function OnnaDashboardInner() {
             else if (sec==="Schedule") setScheduleSubSection(state.subSection);
             else if (sec==="Travel") setTravelSubSection(state.subSection);
             else if (sec==="Styling") setStylingSubSection(state.subSection);
+            else if (sec==="Files") setFilesSubSection(state.subSection);
           }
         } else {
           setSelectedProject(null);
           setProjectSection("Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setFilesSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
         }
       } else {
         const parsed = parseURL(window.location.pathname, allProjectsMerged);
@@ -934,7 +936,7 @@ function OnnaDashboardInner() {
         if (parsed.project) {
           setSelectedProject(parsed.project);
           setProjectSection(parsed.section||"Home");
-          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
+          setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setFilesSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);
           if (parsed.subSection) {
             const sec = parsed.section;
             if (sec==="Creative") setCreativeSubSection(parsed.subSection);
@@ -943,6 +945,7 @@ function OnnaDashboardInner() {
             else if (sec==="Schedule") setScheduleSubSection(parsed.subSection);
             else if (sec==="Travel") setTravelSubSection(parsed.subSection);
             else if (sec==="Styling") setStylingSubSection(parsed.subSection);
+            else if (sec==="Files") setFilesSubSection(parsed.subSection);
           }
         } else {
           setSelectedProject(null);
@@ -976,6 +979,7 @@ function OnnaDashboardInner() {
   const getProjCost = (p) => { const c = costCache[p.id]; return c !== null && c !== undefined ? c : p.cost; };
   // projects2026, rev2026, profit2026, totalPipeline, newCount moved to Finance component
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
+  const allNonTemplateProjects = allProjectsMerged.filter(p=>p.client!=="TEMPLATE");
   useEffect(()=>{setTodoActiveProjects(activeProjects);},[activeProjects]);
   // projects, projRev, projProfit, projMargin moved to Projects component
 
@@ -1007,7 +1011,7 @@ function OnnaDashboardInner() {
   const generateContract = (p) => _generateContract(p, contractType, contractFields, setContractLoading, setGeneratedContract);
 
 
-  const changeTab = tab => _changeTab(tab, { setActiveTab, setSelectedProject, setProjectSection, setCreativeSubSection, setBudgetSubSection, setDocumentsSubSection, setScheduleSubSection, setTravelSubSection, setPermitsSubSection, setStylingSubSection, setCastingSubSection, setActiveCastingDeckVersion, setActiveCastingTableVersion, setActiveCSVersion, setLocSubSection, setActiveRecceVersion, setVaultLocked, setVaultKey, setVaultPass, setVaultResources, setVaultErr, setVaultPwSearch });
+  const changeTab = tab => _changeTab(tab, { setActiveTab, setSelectedProject, setProjectSection, setCreativeSubSection, setBudgetSubSection, setDocumentsSubSection, setScheduleSubSection, setTravelSubSection, setPermitsSubSection, setStylingSubSection, setCastingSubSection, setFilesSubSection, setActiveCastingDeckVersion, setActiveCastingTableVersion, setActiveCSVersion, setLocSubSection, setActiveRecceVersion, setVaultLocked, setVaultKey, setVaultPass, setVaultResources, setVaultErr, setVaultPwSearch });
 
   const navigateToDoc = (projectObj, section, subSection, opts) => _navigateToDoc(projectObj, section, subSection, opts, { setActiveTab, setSelectedProject, setProjectSection, setDocumentsSubSection, setActiveCSVersion, setActiveDietaryVersion, setActiveRAVersion, setActiveContractVersion, setBudgetSubSection, setAgentActiveIdx });
 
@@ -1077,6 +1081,8 @@ function OnnaDashboardInner() {
     storyboardStore={storyboardStore} setStoryboardStore={setStoryboardStore}
     postProdStore={postProdStore} setPostProdStore={setPostProdStore}
     productionBriefStore={productionBriefStore} setProductionBriefStore={setProductionBriefStore}
+    billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards}
+    filesSubSection={filesSubSection} setFilesSubSection={setFilesSubSection}
     editingEstimate={editingEstimate} setEditingEstimate={setEditingEstimate}
     actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab} actualsExpandedRef={actualsExpandedRef}
     invoiceTab={invoiceTab} setInvoiceTab={setInvoiceTab}
@@ -1203,7 +1209,7 @@ function OnnaDashboardInner() {
         <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:`${P}px ${P}px 44px`}}>
 
           {/* ══ DASHBOARD ══ */}
-          {activeTab==="Dashboard"&&<Dashboard T={T} isMobile={isMobile} gcalToken={gcalToken} gcalEvents={gcalEvents} gcalLoading={gcalLoading} gcalEventColors={gcalEventColors} calMonth={calMonth} setCalMonth={setCalMonth} calDayView={calDayView} setCalDayView={setCalDayView} outlookEvents={outlookEvents} outlookLoading={outlookLoading} outlookError={outlookError} fetchOutlookCal={fetchOutlookCal} connectGCal={connectGCal} GCAL_CLIENT_ID={GCAL_CLIENT_ID} GCAL_COLORS={GCAL_COLORS} setGcalToken={setGcalToken} setGcalEvents={setGcalEvents} todos={todos} setTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} todoFilter={todoFilter} setTodoFilter={setTodoFilter} selectedTodo={selectedTodo} setSelectedTodo={setSelectedTodo} projectTodos={projectTodos} setProjectTodos={setProjectTodos} dashNotesList={dashNotesList} setDashNotesList={setDashNotesList} dashSelectedNoteId={dashSelectedNoteId} setDashSelectedNoteId={setDashSelectedNoteId} activeProjects={activeProjects} allTodos={allTodos} filteredTodos={filteredTodos} todoTopFilter={todoTopFilter} allProjectsMerged={allProjectsMerged} archivedTodos={archivedTodos} setArchivedTodos={setArchivedTodos} pushUndo={pushUndo} addTodoFromInput={addTodoFromInput} archiveItem={archiveItem} setPendingDragToProject={setPendingDragToProject} buildPath={buildPath} pushNav={pushNav} setActiveTab={setActiveTab} setSelectedProject={setSelectedProject} setProjectSection={setProjectSection} DashNotes={DashNotes}/>}
+          {activeTab==="Dashboard"&&<Dashboard T={T} isMobile={isMobile} gcalToken={gcalToken} gcalEvents={gcalEvents} gcalLoading={gcalLoading} gcalEventColors={gcalEventColors} calMonth={calMonth} setCalMonth={setCalMonth} calDayView={calDayView} setCalDayView={setCalDayView} outlookEvents={outlookEvents} outlookLoading={outlookLoading} outlookError={outlookError} fetchOutlookCal={fetchOutlookCal} connectGCal={connectGCal} GCAL_CLIENT_ID={GCAL_CLIENT_ID} GCAL_COLORS={GCAL_COLORS} setGcalToken={setGcalToken} setGcalEvents={setGcalEvents} todos={todos} setTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} todoFilter={todoFilter} setTodoFilter={setTodoFilter} selectedTodo={selectedTodo} setSelectedTodo={setSelectedTodo} projectTodos={projectTodos} setProjectTodos={setProjectTodos} dashNotesList={dashNotesList} setDashNotesList={setDashNotesList} dashSelectedNoteId={dashSelectedNoteId} setDashSelectedNoteId={setDashSelectedNoteId} activeProjects={allNonTemplateProjects} allTodos={allTodos} filteredTodos={filteredTodos} todoTopFilter={todoTopFilter} allProjectsMerged={allProjectsMerged} archivedTodos={archivedTodos} setArchivedTodos={setArchivedTodos} pushUndo={pushUndo} addTodoFromInput={addTodoFromInput} archiveItem={archiveItem} setPendingDragToProject={setPendingDragToProject} buildPath={buildPath} pushNav={pushNav} setActiveTab={setActiveTab} setSelectedProject={setSelectedProject} setProjectSection={setProjectSection} DashNotes={DashNotes}/>}
 
           {/* ══ CAL DAY VIEW MODAL ══ */}
           {calDayView&&(()=>{
