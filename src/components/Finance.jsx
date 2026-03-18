@@ -185,6 +185,49 @@ export default function Finance({
     ]).then(([oh, ar, tx, yrs, po, cf]) => {
       if (cancelled) return;
       if (oh.status === "fulfilled" && oh.value) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
+      else {
+        // Restore P&L overheads from PDF backup if Turso is empty and localStorage has only defaults
+        const localOh = (() => { try { const s = localStorage.getItem("onna_pnl_overheads"); const p = s ? JSON.parse(s) : null; return p && p.some(o => o.amount || (o.subs && o.subs.length > 0 && o.subs.some(s => s.amount))) ? p : null; } catch { return null; } })();
+        if (!localOh) {
+          const restoredOh = [
+            { label: "Salaries", amount: "15000", frequency: "monthly", subs: [] },
+            { label: "Insurance", amount: "", frequency: "monthly", subs: [
+              { label: "Professional Indemnity", amount: "15750", frequency: "custom", months: [10] },
+              { label: "Public Liability", amount: "10000", frequency: "custom", months: [9] },
+            ]},
+            { label: "Software & Subscriptions", amount: "", frequency: "monthly", subs: [
+              { label: "Amazon", amount: "16", frequency: "monthly" },
+              { label: "Wio", amount: "99", frequency: "monthly" },
+              { label: "Dropbox", amount: "750", frequency: "custom", months: [6] },
+              { label: "Vimeo", amount: "550", frequency: "custom", months: [6] },
+            ]},
+            { label: "Legal & Accounting", amount: "", frequency: "monthly", subs: [
+              { label: "US Tax Return 2024 $2,380", amount: "8740.55", frequency: "custom", months: [6] },
+              { label: "US Tax Filing 2025 $3255", amount: "11953.99", frequency: "custom", months: [4] },
+              { label: "US Tax Return TBC", amount: "100000", frequency: "custom", months: [10] },
+            ]},
+            { label: "ONNA PRODUCTION", amount: "", frequency: "monthly", subs: [
+              { label: "DED fees License renewal (approx.)", amount: "14180", frequency: "custom", months: [8] },
+              { label: "EJARI (office Solution) inc. VAT", amount: "7875", frequency: "custom", months: [8] },
+              { label: "Establishment card renewal", amount: "875", frequency: "custom", months: [8] },
+              { label: "MOHRE file renewal", amount: "523", frequency: "custom", months: [8] },
+              { label: "FTA update fees", amount: "500", frequency: "custom", months: [8] },
+              { label: "Virtuzone professional fees", amount: "5250", frequency: "custom", months: [8] },
+              { label: "Accountant", amount: "10000", frequency: "custom", months: [8] },
+            ]},
+            { label: "ONNA DIGITAL / AGENCY", amount: "", frequency: "monthly", subs: [
+              { label: "Formation & License", amount: "12520", frequency: "custom", months: [4] },
+              { label: "Corporate Services Package", amount: "14449", frequency: "custom", months: [4] },
+              { label: "Cyber Liability", amount: "15000", frequency: "custom", months: [4] },
+              { label: "Profesional Indemnity", amount: "15000", frequency: "custom", months: [4] },
+            ]},
+            { label: "Misc Monthlies", amount: "500", frequency: "monthly", subs: [] },
+          ];
+          setOverheads(restoredOh);
+          try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(restoredOh)); } catch {}
+          debouncedGlobalSave("pnl_overheads", restoredOh, 500);
+        }
+      }
       if (ar.status === "fulfilled" && ar.value) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
       if (tx.status === "fulfilled" && tx.value) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
       if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
@@ -196,37 +239,35 @@ export default function Finance({
           try { localStorage.setItem("onna_cashflows", JSON.stringify(next)); } catch {}
           return next;
         });
-      } else {
-        // Check if localStorage already has real data
-        const localCf = (() => { try { const s = localStorage.getItem("onna_cashflows"); const p = s ? JSON.parse(s) : {}; return p._global && p._global.length > 0 && p._global[0].openingBalances?.some(v => String(v||"").trim() !== "") ? p : null; } catch { return null; } })();
-        if (!localCf) {
-          // Restore from PDF backup (exported 15 March 2026)
-          const restored = [{
-            id: 1710500000000, label: "Cash Flow V1", prodLogo: null, clientLogo: null,
-            currency: "AED", year: 2026,
-            availableYears: [2025, 2026],
-            openingBalance: 0,
-            openingBalances: ["", "0", "212825.18", "", "", "", "", "", "", "", "", ""],
-            syncOverrides: {},
-            vatRate: 5,
-            inflows: [
-              { label: "Client Fees / Project Revenue", v: Array(12).fill("") },
-              { label: "PIPELINE PREDICTION", v: Array(12).fill("") },
-            ],
-            outflows: [],
-            capex: [],
-            vatInflows: ["", "5332.19", "", "", "", "", "", "", "", "", "", ""],
-            vatReturns: Array(12).fill(""),
-            notes: "Assumptions, exchange rates, payment terms, or other notes\u2026",
-          }];
-          setCashFlowStore(prev => {
-            const next = { ...prev, _global: restored };
-            try { localStorage.setItem("onna_cashflows", JSON.stringify(next)); } catch {}
-            return next;
-          });
-          // Push restored data to Turso
-          try { docApi.put("cashflows", "_global", restored); } catch {}
-        }
+      }
+      // One-time cash flow data restoration from PDF backup (15 March 2026)
+      // Runs if the March opening balance is not 212825.18 (data was wiped/corrupted)
+      if (!localStorage.getItem("onna_cf_restored_v1")) {
+        const restored = [{
+          id: 1710500000000, label: "Cash Flow V1", prodLogo: null, clientLogo: null,
+          currency: "AED", year: 2026,
+          availableYears: [2025, 2026],
+          openingBalance: 0,
+          openingBalances: ["", "0", "212825.18", "", "", "", "", "", "", "", "", ""],
+          syncOverrides: {},
+          vatRate: 5,
+          inflows: [
+            { label: "Client Fees / Project Revenue", v: Array(12).fill("") },
+            { label: "PIPELINE PREDICTION", v: Array(12).fill("") },
+          ],
+          outflows: [],
+          capex: [],
+          vatInflows: ["", "5332.19", "", "", "", "", "", "", "", "", "", ""],
+          vatReturns: Array(12).fill(""),
+          notes: "Assumptions, exchange rates, payment terms, or other notes\u2026",
+        }];
+        setCashFlowStore(prev => {
+          const next = { ...prev, _global: restored };
+          try { localStorage.setItem("onna_cashflows", JSON.stringify(next)); } catch {}
+          return next;
+        });
+        try { docApi.put("cashflows", "_global", restored); } catch {}
+        localStorage.setItem("onna_cf_restored_v1", "1");
       }
       cfHydratedRef.current = true;
       financeHydratedRef.current = true;
