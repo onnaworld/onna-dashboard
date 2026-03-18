@@ -189,13 +189,44 @@ export default function Finance({
       if (tx.status === "fulfilled" && tx.value) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
       if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
       if (po.status === "fulfilled" && po.value) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
-      // Hydrate global cash flow from Turso
+      // Hydrate global cash flow from Turso (with fallback recovery from PDF backup)
       if (cf.status === "fulfilled" && cf.value) {
         setCashFlowStore(prev => {
           const next = { ...prev, _global: cf.value };
           try { localStorage.setItem("onna_cashflows", JSON.stringify(next)); } catch {}
           return next;
         });
+      } else {
+        // Check if localStorage already has real data
+        const localCf = (() => { try { const s = localStorage.getItem("onna_cashflows"); const p = s ? JSON.parse(s) : {}; return p._global && p._global.length > 0 && p._global[0].openingBalances?.some(v => String(v||"").trim() !== "") ? p : null; } catch { return null; } })();
+        if (!localCf) {
+          // Restore from PDF backup (exported 15 March 2026)
+          const restored = [{
+            id: 1710500000000, label: "Cash Flow V1", prodLogo: null, clientLogo: null,
+            currency: "AED", year: 2026,
+            availableYears: [2025, 2026],
+            openingBalance: 0,
+            openingBalances: ["", "0", "212825.18", "", "", "", "", "", "", "", "", ""],
+            syncOverrides: {},
+            vatRate: 5,
+            inflows: [
+              { label: "Client Fees / Project Revenue", v: Array(12).fill("") },
+              { label: "PIPELINE PREDICTION", v: Array(12).fill("") },
+            ],
+            outflows: [],
+            capex: [],
+            vatInflows: ["", "5332.19", "", "", "", "", "", "", "", "", "", ""],
+            vatReturns: Array(12).fill(""),
+            notes: "Assumptions, exchange rates, payment terms, or other notes\u2026",
+          }];
+          setCashFlowStore(prev => {
+            const next = { ...prev, _global: restored };
+            try { localStorage.setItem("onna_cashflows", JSON.stringify(next)); } catch {}
+            return next;
+          });
+          // Push restored data to Turso
+          try { docApi.put("cashflows", "_global", restored); } catch {}
+        }
       }
       cfHydratedRef.current = true;
       financeHydratedRef.current = true;
