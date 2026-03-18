@@ -104,7 +104,7 @@ export default function Projects({
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 10 }}>Archived Projects</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14 }}>
             {archivedProjects.filter(p => !getSearch("Projects") || `${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p => {
-              const _rev = getProjRevenue(p); const _cost = getProjCost(p); const profit = _rev - _cost; const margin = _rev > 0 ? Math.round((profit / _rev) * 100) : 0;
+              const _rev = getProjRevenue(p); const _rawCost = getProjCost(p); const _cost = (p.status === "Proposal" && _rawCost === 0 && _rev > 0) ? _rev : _rawCost; const profit = _rev - _cost; const margin = _rev > 0 ? Math.round((profit / _rev) * 100) : 0;
               return (
                 <div key={p.id} className="proj-card" style={{ borderRadius: 16, padding: 20, background: T.surface, border: `1px solid ${T.border}`, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
                   <a href={buildPath("Projects", p.id, null, null)} onClick={(e) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); setSelectedProject(p); setProjectSection("Home"); pushNav("Projects", p, "Home", null); }} style={{ display: "flex", flexDirection: "column", gap: 14, cursor: "pointer", textDecoration: "none", color: "inherit" }}>
@@ -142,7 +142,7 @@ export default function Projects({
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14 }}>
         {projects.filter(p => !getSearch("Projects") || `${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p => {
-          const _rev = getProjRevenue(p); const _cost = getProjCost(p); const profit = _rev - _cost; const margin = _rev > 0 ? Math.round((profit / _rev) * 100) : 0;
+          const _rev = getProjRevenue(p); const _rawCost = getProjCost(p); const _cost = (p.status === "Proposal" && _rawCost === 0 && _rev > 0) ? _rev : _rawCost; const profit = _rev - _cost; const margin = _rev > 0 ? Math.round((profit / _rev) * 100) : 0;
           return (
             <div
               key={p.id}

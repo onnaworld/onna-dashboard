@@ -312,7 +312,9 @@ export default function Finance({
     // Per-project breakdown for profitability
     const projBreakdown = nonTemplate.map(p => {
       const rev = getProjRevenue(p);
-      const cost = getProjCost(p);
+      const rawCost = getProjCost(p);
+      // Proposal projects: assume 100% spent (cost = revenue) until real costs are entered
+      const cost = (p.status === "Proposal" && rawCost === 0 && rev > 0) ? rev : rawCost;
       const profit = rev - cost;
       // Get estimate vs actual variance
       const ests = projectEstimates?.[p.id];
@@ -373,15 +375,19 @@ export default function Finance({
     const netMargin = pnlRev > 0 ? (netProfit / pnlRev) * 100 : 0;
 
     // Revenue by project
-    const revByProject = pnlProjects.map(p => ({
-      id: p.id,
-      name: [p.client, p.name || p.title || "Untitled"].filter(Boolean).join(" | "),
-      client: p.client,
-      rev: getPnlRev(p),
-      cost: getPnlCost(p),
-      defaultRev: getProjRevenue(p),
-      defaultCost: getProjCost(p),
-    })).sort((a, b) => b.rev - a.rev);
+    const revByProject = pnlProjects.map(p => {
+      const rev = getPnlRev(p);
+      const rawCost = getPnlCost(p);
+      // Proposal projects: assume 100% spent until real costs are entered
+      const cost = (p.status === "Proposal" && rawCost === 0 && rev > 0) ? rev : rawCost;
+      return {
+        id: p.id, status: p.status,
+        name: [p.client, p.name || p.title || "Untitled"].filter(Boolean).join(" | "),
+        client: p.client, rev, cost,
+        defaultRev: getProjRevenue(p),
+        defaultCost: getProjCost(p),
+      };
+    }).sort((a, b) => b.rev - a.rev);
 
     // Cost breakdown from actuals sections
     const costBreakdown = {};
