@@ -1,22 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { createPortal } from "react-dom";
-
-// Compress image dataUrl to max 1200px longest side, JPEG quality 0.7
-const compressImage = (dataUrl, maxDim = 1200, quality = 0.7) => new Promise((resolve) => {
-  const img = new Image();
-  img.onload = () => {
-    let { width: w, height: h } = img;
-    if (w <= maxDim && h <= maxDim && dataUrl.length < 200_000) { resolve(dataUrl); return; }
-    const scale = Math.min(maxDim / w, maxDim / h, 1);
-    w = Math.round(w * scale); h = Math.round(h * scale);
-    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
-    cv.getContext("2d").drawImage(img, 0, 0, w, h);
-    resolve(cv.toDataURL("image/jpeg", quality));
-  };
-  img.onerror = () => resolve(dataUrl);
-  img.src = dataUrl;
-});
-
 import { api, docApi, buildPath, getXContacts, setXContacts,
   findVendorOrLead, findAllSimilar, parseQuickEntry, detectFieldKey, fuzzyMatchProject,
   printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportCastingPDF,
@@ -46,6 +29,22 @@ import { handleLillieIntent } from "./LocationLillie";
 import { handlePerryIntent } from "./PostProducerPerry";
 import { DocPreviewDraggable } from "../ui/DocPreview";
 import AgentDocPreview from "./AgentDocPreview";
+
+// Compress image dataUrl to max 1200px longest side, JPEG quality 0.7
+const compressImage = (dataUrl, maxDim = 1200, quality = 0.7) => new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => {
+    let { width: w, height: h } = img;
+    if (w <= maxDim && h <= maxDim && dataUrl.length < 200_000) { resolve(dataUrl); return; }
+    const scale = Math.min(maxDim / w, maxDim / h, 1);
+    w = Math.round(w * scale); h = Math.round(h * scale);
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    cv.getContext("2d").drawImage(img, 0, 0, w, h);
+    resolve(cv.toDataURL("image/jpeg", quality));
+  };
+  img.onerror = () => resolve(dataUrl);
+  img.src = dataUrl;
+});
 
 // ─── _AgentDots — loading indicator ────────────────────────────────────────
 function _AgentDots({ color = "#6e6e73" }) {
