@@ -434,6 +434,13 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     const _lastMsg=msgs.length>0?msgs[msgs.length-1]:null;
     const _lastContent=_lastMsg?.content||"";
     const _lastHasProjectList=/\n\d+\.\s+\*\*/.test(_lastContent);
+    // ── Billie rate card shortcut — works from intro OR project list ──
+    if(agent.id==="billie"&&input.trim()==="4"&&_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastContent)){
+      const _rcHistory=[...msgs,{role:"user",content:"4"}];
+      if(setShowBillieRates) setShowBillieRates(true);
+      setMsgs([..._rcHistory,{role:"assistant",content:"Opening your rate card — add or edit your default rates per location. I'll use these whenever I populate estimates."}]);
+      setInput("");setLoading(false);return;
+    }
     const _lastIsIntro=_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastContent)&&!_lastHasProjectList;
     if(_isIntroReply&&_lastIsIntro){
       const n=parseInt(input.trim(),10);
