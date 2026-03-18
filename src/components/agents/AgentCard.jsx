@@ -1775,6 +1775,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
             ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
             conniePendingReview={conniePendingReview} setConniePendingReview={setConniePendingReview}
             billiePendingReview={billiePendingReview} setBilliePendingReview={setBilliePendingReview}
+            billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} showBillieRates={showBillieRates} setShowBillieRates={setShowBillieRates}
             onBillieReviewDone={()=>{setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — estimate changes saved."}]);}}
             onConnieReviewDone={()=>{setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — call sheet changes saved."}]);}}
             onRonnieReviewDone={(meta)=>{
