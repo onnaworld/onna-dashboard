@@ -206,7 +206,7 @@ export default function Finance({
     const completed = nonTemplate.filter(p => p.status === "Archived" || p.status === "Completed" || p.status === "Wrapped");
     const isAllTime = financeYear === "all";
     const thisYear = isAllTime ? nonTemplate : nonTemplate.filter(p => Number(p.year) === financeYear);
-    const thisYearActive = thisYear.filter(p => p.status === "Active");
+    const thisYearActive = thisYear.filter(p => p.status !== "Proposal" && p.status !== "Archived");
     const lastYear = isAllTime ? [] : nonTemplate.filter(p => Number(p.year) === financeYear - 1);
 
     const sumRev = (arr) => arr.reduce((a, b) => a + getProjRevenue(b), 0);
