@@ -132,8 +132,8 @@ const EditableLabel = ({ value, onChange, style: s = {}, minWidth = 60, gray }) 
   );
 };
 
-// Section title — editable on double-click
-const SectionTitle = ({ title, num, onEdit }) => {
+// Section title — editable on double-click, with hide-from-export toggle
+const SectionTitle = ({ title, num, onEdit, hidden, onToggleHidden }) => {
   const [editing, setEditing] = useState(false);
   const ref = useRef(null);
   useEffect(() => { if (editing && ref.current) ref.current.focus(); }, [editing]);
@@ -149,10 +149,20 @@ const SectionTitle = ({ title, num, onEdit }) => {
     );
   }
   return (
-    <div onDoubleClick={() => onEdit && setEditing(true)} title={onEdit ? "Double-click to edit" : undefined}
-      style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: "#000",
-        marginTop: 14, marginBottom: 10, borderBottom: "1px solid #eee", paddingBottom: 4, cursor: onEdit ? "default" : undefined }}>
-      {num ? `${num}. ` : ""}{title}
+    <div style={{ display: "flex", alignItems: "center", marginTop: 14, marginBottom: 10, borderBottom: "1px solid #eee", paddingBottom: 4 }}>
+      <div onDoubleClick={() => onEdit && setEditing(true)} title={onEdit ? "Double-click to edit" : undefined}
+        style={{ fontFamily: CS_FONT, fontSize: 8, fontWeight: 700, letterSpacing: 0.5, color: hidden ? "#bbb" : "#000",
+          cursor: onEdit ? "default" : undefined, flex: 1, textDecoration: hidden ? "line-through" : "none" }}>
+        {num ? `${num}. ` : ""}{title}
+      </div>
+      {onToggleHidden && (
+        <button data-hide="1" onClick={onToggleHidden} title={hidden ? "Show in export" : "Hide from export"}
+          style={{ background: "none", border: "1px solid #ddd", borderRadius: 4, padding: "2px 8px", cursor: "pointer",
+            fontFamily: CS_FONT, fontSize: 7, fontWeight: 600, letterSpacing: 0.3, color: hidden ? "#c0392b" : "#999",
+            flexShrink: 0 }}>
+          {hidden ? "HIDDEN" : "HIDE"}
+        </button>
+      )}
     </div>
   );
 };
@@ -406,6 +416,15 @@ export default function ProductionBrief({
     update(b => ({ ...b, quote: (b.quote || []).map(q => q.id === sectionId ? { ...q, lines: (q.lines || []).map(l => l.id === lineId ? { ...l, [field]: val } : l) } : q) }));
   }, [update]);
 
+  // Section visibility for export
+  const hiddenSections = brief?.hiddenSections || [];
+  const toggleSectionHidden = useCallback((num) => {
+    update(b => {
+      const hs = b.hiddenSections || [];
+      return { ...b, hiddenSections: hs.includes(num) ? hs.filter(n => n !== num) : [...hs, num] };
+    });
+  }, [update]);
+
   const lastFocusedEditor = useRef(null);
   const savedRange = useRef(null);
 
@@ -476,6 +495,11 @@ export default function ProductionBrief({
     const el = document.getElementById("onna-prodbr-print");
     if (!el) return;
     const clone = el.cloneNode(true);
+    // Remove hidden sections
+    const hs = brief?.hiddenSections || [];
+    clone.querySelectorAll("[data-section]").forEach(sec => {
+      if (hs.includes(parseInt(sec.dataset.section))) sec.remove();
+    });
     clone.querySelectorAll("[data-hide]").forEach(n => n.remove());
     clone.querySelectorAll("input, textarea").forEach(inp => {
       if (!inp.value || !inp.value.trim()) {
@@ -514,7 +538,7 @@ export default function ProductionBrief({
     doc.close();
     doc.body.appendChild(doc.adoptNode(clone));
     setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);
-  }, []);
+  }, [brief]);
 
   if (!brief) return null;
 
@@ -605,8 +629,9 @@ export default function ProductionBrief({
           </div>
 
           {/* ── 1. PROJECT OVERVIEW ── */}
+          <div data-section="1">
           <div style={{ padding: "0 16px" }}>
-            <SectionTitle title={st[1] || "PROJECT OVERVIEW"} num={1} onEdit={v => setSectionTitle(1, v)} />
+            <SectionTitle title={st[1] || "PROJECT OVERVIEW"} num={1} onEdit={v => setSectionTitle(1, v)} hidden={hiddenSections.includes(1)} onToggleHidden={() => toggleSectionHidden(1)} />
           </div>
           <div style={{ padding: "0 16px", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 16, flexWrap: isMobile ? "wrap" : "nowrap" }}>
@@ -622,11 +647,13 @@ export default function ProductionBrief({
               </div>
             </div>
           </div>
+          </div>
 
           <div style={{ padding: "0 16px" }}>
 
             {/* ── 2. CREATIVE DIRECTION ── */}
-            <SectionTitle title={st[2] || "CREATIVE DIRECTION"} num={2} onEdit={v => setSectionTitle(2, v)} />
+            <div data-section="2">
+            <SectionTitle title={st[2] || "CREATIVE DIRECTION"} num={2} onEdit={v => setSectionTitle(2, v)} hidden={hiddenSections.includes(2)} onToggleHidden={() => toggleSectionHidden(2)} />
             {cf.map(f => (
               <div key={f.id} className="pb-row" style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
@@ -638,9 +665,11 @@ export default function ProductionBrief({
               </div>
             ))}
             {cf.length === 0 && <AddBtn onClick={() => addField("creativeFields", "textarea")} label="+ ROW" />}
+            </div>
 
             {/* ── 3. CREW ── */}
-            <SectionTitle title={st[3] || "CREW"} num={3} onEdit={v => setSectionTitle(3, v)} />
+            <div data-section="3">
+            <SectionTitle title={st[3] || "CREW"} num={3} onEdit={v => setSectionTitle(3, v)} hidden={hiddenSections.includes(3)} onToggleHidden={() => toggleSectionHidden(3)} />
 
             {/* International Crew + Local Crew side by side */}
             <div style={{ display: "flex", gap: 24, flexWrap: isMobile ? "wrap" : "nowrap" }}>
@@ -712,9 +741,11 @@ export default function ProductionBrief({
                 <div data-hide="1" style={{ marginTop: 4 }}><AddBtn onClick={addLocalCategory} label="+ CATEGORY" /></div>
               </div>
             </div>
+            </div>
 
             {/* ── 4. SCHEDULE ── */}
-            <SectionTitle title={st[4] || "SCHEDULE"} num={4} onEdit={v => setSectionTitle(4, v)} />
+            <div data-section="4">
+            <SectionTitle title={st[4] || "SCHEDULE"} num={4} onEdit={v => setSectionTitle(4, v)} hidden={hiddenSections.includes(4)} onToggleHidden={() => toggleSectionHidden(4)} />
             <div style={{ display: "flex", gap: 10, marginBottom: 8, flexWrap: isMobile ? "wrap" : "nowrap" }}>
               {sf.map(f => (
                 <div key={f.id} className="pb-row" style={{ flex: 1, minWidth: isMobile ? "100%" : "auto" }}>
@@ -730,9 +761,11 @@ export default function ProductionBrief({
               ))}
               {sf.length === 0 && <AddBtn onClick={() => addField("scheduleFields", "textarea")} label="+ BOX" />}
             </div>
+            </div>
 
             {/* ── 5. QUOTE ── */}
-            <SectionTitle title={st[5] || "QUOTE"} num={5} onEdit={v => setSectionTitle(5, v)} />
+            <div data-section="5">
+            <SectionTitle title={st[5] || "QUOTE"} num={5} onEdit={v => setSectionTitle(5, v)} hidden={hiddenSections.includes(5)} onToggleHidden={() => toggleSectionHidden(5)} />
             {(brief.quote || []).map((q, qi) => (
               <div key={q.id} style={{ marginBottom: 14 }}>
                 <div className="pb-row" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -758,10 +791,13 @@ export default function ProductionBrief({
               </div>
             ))}
             {(brief.quote || []).length === 0 && <AddBtn onClick={addQuoteSection} label="+ SECTION" />}
+            </div>
 
             {/* ── 6. ONNA ── */}
-            <SectionTitle title={st[6] || "ONNA"} num={6} onEdit={v => setSectionTitle(6, v)} />
+            <div data-section="6">
+            <SectionTitle title={st[6] || "ONNA"} num={6} onEdit={v => setSectionTitle(6, v)} hidden={hiddenSections.includes(6)} onToggleHidden={() => toggleSectionHidden(6)} />
             <PBTextarea value={brief.onnaContent || ""} onChange={v => update(b => ({ ...b, onnaContent: v }))} placeholder="Notes, additional information..." style={{ minWidth: "100%", marginBottom: 12 }} onFocusEditor={trackEditor} />
+            </div>
 
             {/* ── EXTRA FREEFORM SECTIONS ── */}
             {extras.map((s) => (

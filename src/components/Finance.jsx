@@ -151,28 +151,35 @@ export default function Finance({
   const [overheads, setOverheads] = useState(() => {
     try { const s = localStorage.getItem("onna_pnl_overheads"); return s ? JSON.parse(s) : DEFAULT_OVERHEADS(); } catch { return DEFAULT_OVERHEADS(); }
   });
-  useEffect(() => { try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(overheads)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("pnl_overheads", overheads); }, [overheads]);
+  useEffect(() => { try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(overheads)); } catch {} debouncedGlobalSave("pnl_overheads", overheads); }, [overheads]);
 
   /* ── Persisted AR/AP data (localStorage + Turso) ── */
   const [arapData, setArapData] = useState(() => {
     try { const s = localStorage.getItem("onna_arap_data"); return s ? JSON.parse(s) : DEFAULT_ARAP(); } catch { return DEFAULT_ARAP(); }
   });
-  useEffect(() => { try { localStorage.setItem("onna_arap_data", JSON.stringify(arapData)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("arap_data", arapData); }, [arapData]);
+  useEffect(() => { try { localStorage.setItem("onna_arap_data", JSON.stringify(arapData)); } catch {} debouncedGlobalSave("arap_data", arapData); }, [arapData]);
 
   /* ── Persisted Tax data (localStorage + Turso) ── */
   const [taxData, setTaxData] = useState(() => {
     try { const s = localStorage.getItem("onna_tax_data"); return s ? JSON.parse(s) : { vatRate: 5, filings: [] }; } catch { return { vatRate: 5, filings: [] }; }
   });
-  useEffect(() => { try { localStorage.setItem("onna_tax_data", JSON.stringify(taxData)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("tax_data", taxData); }, [taxData]);
+  useEffect(() => { try { localStorage.setItem("onna_tax_data", JSON.stringify(taxData)); } catch {} debouncedGlobalSave("tax_data", taxData); }, [taxData]);
 
   /* ── Persisted P&L project overrides (localStorage + Turso) ── */
   // Keyed by project id: { [pid]: { revenue: "...", cost: "..." } }
   const [pnlProjectOverrides, setPnlProjectOverrides] = useState(() => {
     try { const s = localStorage.getItem("onna_pnl_proj_overrides"); return s ? JSON.parse(s) : {}; } catch { return {}; }
   });
-  useEffect(() => { try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(pnlProjectOverrides)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("pnl_proj_overrides", pnlProjectOverrides); }, [pnlProjectOverrides]);
+  useEffect(() => { try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(pnlProjectOverrides)); } catch {} debouncedGlobalSave("pnl_proj_overrides", pnlProjectOverrides); }, [pnlProjectOverrides]);
 
   /* ── Hydrate from Turso on mount, push localStorage → Turso if Turso is empty ── */
+  // Snapshot localStorage at mount to detect if user edits during hydration fetch
+  const lsSnapshotRef = useRef({
+    oh: localStorage.getItem("onna_pnl_overheads"),
+    ar: localStorage.getItem("onna_arap_data"),
+    tx: localStorage.getItem("onna_tax_data"),
+    po: localStorage.getItem("onna_pnl_proj_overrides"),
+  });
   useEffect(() => {
     let cancelled = false;
     Promise.allSettled([
@@ -184,8 +191,10 @@ export default function Finance({
       docApi.get("cashflows", "_global"),
     ]).then(([oh, ar, tx, yrs, po, cf]) => {
       if (cancelled) return;
-      if (oh.status === "fulfilled" && oh.value) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
-      else {
+      // Helper: check if localStorage changed since mount (user edited during hydration)
+      const lsDirty = (key, snapKey) => localStorage.getItem(key) !== lsSnapshotRef.current[snapKey];
+      if (oh.status === "fulfilled" && oh.value && !lsDirty("onna_pnl_overheads", "oh")) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
+      else if (!oh.value && !lsDirty("onna_pnl_overheads", "oh")) {
         // Restore P&L overheads from PDF backup if Turso is empty and localStorage has only defaults
         const localOh = (() => { try { const s = localStorage.getItem("onna_pnl_overheads"); const p = s ? JSON.parse(s) : null; return p && p.some(o => o.amount || (o.subs && o.subs.length > 0 && o.subs.some(s => s.amount))) ? p : null; } catch { return null; } })();
         if (!localOh) {
@@ -228,10 +237,10 @@ export default function Finance({
           debouncedGlobalSave("pnl_overheads", restoredOh, 500);
         }
       }
-      if (ar.status === "fulfilled" && ar.value) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
-      if (tx.status === "fulfilled" && tx.value) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
+      if (ar.status === "fulfilled" && ar.value && !lsDirty("onna_arap_data", "ar")) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
+      if (tx.status === "fulfilled" && tx.value && !lsDirty("onna_tax_data", "tx")) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
       if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
-      if (po.status === "fulfilled" && po.value) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
+      if (po.status === "fulfilled" && po.value && !lsDirty("onna_pnl_proj_overrides", "po")) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
       // Hydrate global cash flow from Turso (with fallback recovery from PDF backup)
       if (cf.status === "fulfilled" && cf.value) {
         setCashFlowStore(prev => {

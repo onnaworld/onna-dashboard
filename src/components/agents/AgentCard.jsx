@@ -192,7 +192,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   const undoSetProjectEstimates=useCallback((updater)=>{pushAgentUndo();if(setProjectEstimates)setProjectEstimates(updater);},[pushAgentUndo,setProjectEstimates]);
 
   // ── Split-pane: detect if agent has active project context ──
-  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && !!billieCtx) || (agent.id==="carrie" && !!carrieCtx) || (agent.id==="tina" && !!tinaCtx) || (agent.id==="tabby" && !!tabbyCtx) || (agent.id==="polly" && !!pollyCtx) || (agent.id==="lillie" && !!lillieCtx) || (agent.id==="perry" && !!perryCtx);
+  const hasDocCtx = (agent.id==="compliance" && (!!connieCtx || !!connieDietMode)) || (agent.id==="researcher" && !!ronnieCtx) || (agent.id==="contracts" && !!codyCtx) || (agent.id==="billie" && (!!billieCtx || showBillieRates)) || (agent.id==="carrie" && !!carrieCtx) || (agent.id==="tina" && !!tinaCtx) || (agent.id==="tabby" && !!tabbyCtx) || (agent.id==="polly" && !!pollyCtx) || (agent.id==="lillie" && !!lillieCtx) || (agent.id==="perry" && !!perryCtx);
   const docProjectId = agent.id==="compliance"?(connieDietMode||connieCtx?.projectId) : agent.id==="researcher"?ronnieCtx?.projectId : agent.id==="contracts"?codyCtx?.projectId : agent.id==="billie"?billieCtx?.projectId : agent.id==="carrie"?carrieCtx?.projectId : agent.id==="tina"?tinaCtx?.projectId : agent.id==="tabby"?tabbyCtx?.projectId : agent.id==="polly"?pollyCtx?.projectId : agent.id==="lillie"?lillieCtx?.projectId : agent.id==="perry"?perryCtx?.projectId : null;
   useEffect(()=>{
     if (onFullWidthChange) onFullWidthChange(active && !isMobile);

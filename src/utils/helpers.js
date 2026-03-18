@@ -407,7 +407,7 @@ export const OUTREACH_STATUSES = ["not_contacted","cold","warm","open","client"]
 export const OUTREACH_STATUS_LABELS = {not_contacted:"Not Contacted",cold:"Cold",warm:"Warm",open:"Open",client:"Client"};
 export const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 export const GCAL_COLORS = {"1":"#d50000","2":"#e67c73","3":"#f4511e","4":"#f6bf26","5":"#33b679","6":"#0b8043","7":"#039be5","8":"#3f51b5","9":"#7986cb","10":"#8e24aa","11":"#616161"};
-export const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Travel","Locations","Casting","Styling","Schedule"];
+export const PROJECT_SECTIONS = ["Home","Creative","Budget","Documents","Travel","Locations","Casting","Styling","Schedule","Files"];
 export const CONTRACT_TYPES = ["Commissioning Agreement – Self Employed","Commissioning Agreement – Via PSC","Talent Agreement","Talent Agreement – Via PSC"];
 export const ACTUALS_STATUSES = ["", "Pending", "Confirmed", "Paid"];
 

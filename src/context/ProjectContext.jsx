@@ -28,6 +28,7 @@ export function ProjectProvider({ idbGet, idbSet, debouncedDocSave, children }) 
   const [stylingSubSection,setStylingSubSection]         = useState(null);
   const [locSubSection,setLocSubSection]                 = useState(null);
   const [castingSubSection,setCastingSubSection]         = useState(null);
+  const [filesSubSection,setFilesSubSection]             = useState(null);
 
   // ── Project Files / Links / Uploads ──
   const [linkUploading,setLinkUploading]                 = useState(false);
@@ -72,6 +73,7 @@ export function ProjectProvider({ idbGet, idbSet, debouncedDocSave, children }) 
     stylingSubSection,setStylingSubSection,
     locSubSection,setLocSubSection,
     castingSubSection,setCastingSubSection,
+    filesSubSection,setFilesSubSection,
     linkUploading,setLinkUploading,
     linkUploadProgress,setLinkUploadProgress,
     projectEntries,setProjectEntries,

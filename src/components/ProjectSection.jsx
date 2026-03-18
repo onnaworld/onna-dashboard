@@ -8,6 +8,7 @@ import Casting from "./project/Casting";
 import Styling from "./project/Styling";
 import Travel from "./project/Travel";
 import Schedule from "./project/Schedule";
+import Files from "./project/Files";
 import { uploadFromLink as _uploadFromLink } from "../handlers/documentHandlers";
 
 export default function ProjectSection({
@@ -64,6 +65,9 @@ export default function ProjectSection({
   storyboardStore, setStoryboardStore,
   postProdStore, setPostProdStore,
   productionBriefStore, setProductionBriefStore,
+  // rate card + files
+  billieRateCards, setBillieRateCards,
+  filesSubSection, setFilesSubSection,
   // estimate/budget
   editingEstimate, setEditingEstimate,
   actualsTrackerTab, setActualsTrackerTab, actualsExpandedRef,
@@ -143,6 +147,7 @@ export default function ProjectSection({
     "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
     "Travel":         {emoji:"✈️",count:"Flights, hotels & logistics"},
     "Schedule":       {emoji:"📒",count:"CPS, Shotlist, Storyboard & Post-Production"},
+    "Files":          {emoji:"🗂",count:"All project files & documents"},
   };
 
   const MiniStat = ({label,value}) => (
@@ -240,7 +245,7 @@ export default function ProjectSection({
         {PROJECT_SECTIONS.filter(s=>s!=="Home").map(sec=>{
           const meta=SECTION_META[sec]||{emoji:"📁",count:"Click to open"};
           return (
-            <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:16,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
+            <a key={sec} href={buildPath("Projects",p.id,sec,null)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setProjectSection(sec);setCreativeSubSection(null);setBudgetSubSection(null);setDocumentsSubSection(null);setScheduleSubSection(null);setTravelSubSection(null);setPermitsSubSection(null);setStylingSubSection(null);setCastingSubSection(null);setFilesSubSection(null);setActiveCastingDeckVersion(null);setActiveCastingTableVersion(null);setActiveCSVersion(null);setLocSubSection(null);setActiveRecceVersion(null);pushNav("Projects",p,sec,null);}} className="proj-card" style={{borderRadius:16,padding:"16px 18px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:12,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:20,flexShrink:0}}>{meta.emoji}</span>
               <div style={{minWidth:0}}>
                 <div style={{fontSize:13.5,fontWeight:500,color:T.text,marginBottom:2}}>{sec}</div>
@@ -404,6 +409,26 @@ export default function ProjectSection({
       pushUndo={pushUndo} archiveItem={archiveItem} pushNav={pushNav} showAlert={showAlert}
       CPSPolly={CPSPolly} ShotListPolly={ShotListPolly} StoryboardPolly={StoryboardPolly} PostPolly={PostPolly}
       cpsDefaultPhases={cpsDefaultPhases} mkFrame={mkFrame} ppMkVideo={ppMkVideo} ppMkStill={ppMkStill} ppDefaultSchedule={ppDefaultSchedule}
+    />;
+  }
+
+  // Files section
+  if (projectSection==="Files") {
+    return <Files T={T} isMobile={isMobile} p={p}
+      filesSubSection={filesSubSection} setFilesSubSection={setFilesSubSection}
+      projectFileStore={projectFileStore} setProjectFileStore={setProjectFileStore}
+      projectEstimates={projectEstimates}
+      callSheetStore={callSheetStore} riskAssessmentStore={riskAssessmentStore}
+      contractDocStore={contractDocStore}
+      locDeckStore={locDeckStore} recceReportStore={recceReportStore}
+      travelItineraryStore={travelItineraryStore}
+      cpsStore={cpsStore} shotListStore={shotListStore} storyboardStore={storyboardStore}
+      postProdStore={postProdStore}
+      castingDeckStore={castingDeckStore} castingTableStore={castingTableStore}
+      fittingStore={fittingStore}
+      billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards}
+      pushNav={pushNav} showAlert={showAlert} buildPath={buildPath}
+      UploadZone={UploadZone}
     />;
   }
 
