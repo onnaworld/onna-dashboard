@@ -687,6 +687,9 @@ export async function handleBillieIntent({
       snap += `Photographer: ${vTs.photographer||"(empty)"} | Deliverables: ${vTs.deliverables||"(empty)"}\n`;
       snap += `Shoot Date: ${vTs.shootDate||"(empty)"} | Days: ${vTs.shootDays||"(empty)"} | Hours: ${vTs.shootHours||"(empty)"} | Location: ${vTs.location||"(empty)"}\n`;
       snap += `Payment: ${vTs.payment||"(empty)"}\n`;
+      const { subtotal, feesTotal, grandTotal: gt } = estCalcTotals(vSections);
+      const bCur = ver.currency || "AED";
+      const bCur2 = ver.currency2 || "USD";
       snap += "Sections:\n";
       vSections.forEach(sec => {
         const isFee = isFeeSec(sec);
@@ -694,22 +697,19 @@ export async function handleBillieIntent({
           ? sec.rows.reduce((sum, row) => { const pm = (row.notes||"").match(/(\d+(?:\.\d+)?)%/); return pm ? sum + subtotal * (parseFloat(pm[1])/100) : sum + estRowTotal(row); }, 0)
           : estSectionTotal(sec);
         if (secT > 0 || sec.rows.some(r => estNum(r.rate) > 0 || (isFee && (r.notes||"").match(/\d+(?:\.\d+)?%/)))) {
-          snap += `  ${sec.num}. ${sec.title} — AED ${estFmt(secT)}${isFee ? " (auto-calc from %)":"" }\n`;
+          snap += `  ${sec.num}. ${sec.title} — ${bCur} ${estFmt(secT)}${isFee ? " (auto-calc from %)":"" }\n`;
           sec.rows.forEach(r => {
             if (isFee) {
               const pm = (r.notes||"").match(/(\d+(?:\.\d+)?)%/);
               const rt = pm ? subtotal * (parseFloat(pm[1])/100) : estRowTotal(r);
-              snap += `    ${r.ref}: ${r.desc} | notes:${r.notes||""} = AED ${estFmt(rt)}\n`;
+              snap += `    ${r.ref}: ${r.desc} | notes:${r.notes||""} = ${bCur} ${estFmt(rt)}\n`;
             } else {
               const rt = estRowTotal(r);
-              if (rt > 0) snap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate} = AED ${estFmt(rt)}\n`;
+              if (rt > 0) snap += `    ${r.ref}: ${r.desc} | days:${r.days} qty:${r.qty} rate:${r.rate} = ${bCur} ${estFmt(rt)}\n`;
             }
           });
         }
       });
-      const { subtotal, feesTotal, grandTotal: gt } = estCalcTotals(vSections);
-      const bCur = ver.currency || "AED";
-      const bCur2 = ver.currency2 || "USD";
       snap += `Subtotal: ${bCur} ${estFmt(subtotal)} | Fees: ${bCur} ${estFmt(feesTotal)} | Grand Total: ${bCur} ${estFmt(gt)} | VAT: ${bCur} ${estFmt(gt*0.05)} | Total inc VAT: ${bCur} ${estFmt(gt*1.05)}\n`;
       snap += `Base currency: ${bCur} | Secondary currency: ${bCur2}\n`;
       if(vTs.notes) snap += `Notes: ${vTs.notes}\n`;
