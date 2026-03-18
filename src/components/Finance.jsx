@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
-import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, FINANCE_SLUGS } from "../utils/helpers";
+import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, docApi, FINANCE_SLUGS } from "../utils/helpers";
 
 /* ── Branded constants (matching estimates/callsheets) ── */
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -143,6 +143,7 @@ export default function Finance({
     try { const s = localStorage.getItem("onna_available_years"); return s ? JSON.parse(s) : [2025, 2026]; } catch { return [2025, 2026]; }
   });
   const financeHydratedRef = useRef(false);
+  const cfHydratedRef = useRef(false);
   useEffect(() => { try { localStorage.setItem("onna_available_years", JSON.stringify(availableYears)); } catch {} if (financeHydratedRef.current) debouncedGlobalSave("finance_years", availableYears); }, [availableYears]);
   const [financeYear, setFinanceYear] = useState(new Date().getFullYear());
 
@@ -180,13 +181,23 @@ export default function Finance({
       globalApi.get("tax_data"),
       globalApi.get("finance_years"),
       globalApi.get("pnl_proj_overrides"),
-    ]).then(([oh, ar, tx, yrs, po]) => {
+      docApi.get("cashflows", "_global"),
+    ]).then(([oh, ar, tx, yrs, po, cf]) => {
       if (cancelled) return;
       if (oh.status === "fulfilled" && oh.value) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
       if (ar.status === "fulfilled" && ar.value) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
       if (tx.status === "fulfilled" && tx.value) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
       if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
       if (po.status === "fulfilled" && po.value) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
+      // Hydrate global cash flow from Turso
+      if (cf.status === "fulfilled" && cf.value) {
+        setCashFlowStore(prev => {
+          const next = { ...prev, _global: cf.value };
+          try { localStorage.setItem("onna_cashflows", JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+      cfHydratedRef.current = true;
       financeHydratedRef.current = true;
       // Push localStorage data to Turso if Turso was empty (one-time migration)
       if (!(oh.status === "fulfilled" && oh.value)) { try { const ls = localStorage.getItem("onna_pnl_overheads"); if (ls) debouncedGlobalSave("pnl_overheads", JSON.parse(ls), 500); } catch {} }
@@ -884,6 +895,7 @@ export default function Finance({
           syncedOverheads={overheads} syncedRevenue={projData.thisYearRev} syncedCost={projData.thisYearCost}
           syncedProjects={projData.thisYearActive} getProjRevenue={getProjRevenue} getProjCost={getProjCost}
           financeYear={financeYear}
+          cfHydratedRef={cfHydratedRef}
         />
       )}
 
@@ -1165,7 +1177,7 @@ function TaxVATTab({ T, isMobile, taxData, setTaxData, projData, cardS, kpiLabel
 /* ═══════════════════════════════════════════════════════════════════════════════
    Cash Flow Document Component — Monthly Tracker
    ═══════════════════════════════════════════════════════════════════════════════ */
-function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost, financeYear }) {
+function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashFlowVersion, setActiveCashFlowVersion, syncedOverheads, syncedRevenue, syncedCost, syncedProjects, getProjRevenue, getProjCost, financeYear, cfHydratedRef }) {
   const pid = "_global";
   const versions = cashFlowStore[pid] || [];
   const vIdx = activeCashFlowVersion != null ? Math.min(activeCashFlowVersion, versions.length - 1) : (versions.length > 0 ? 0 : -1);
@@ -1173,8 +1185,9 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
   const cfDocRef = React.useRef(null);
   const [cfMonth, setCfMonth] = React.useState(null); // null = all months, 0-11 = specific month
 
-  // Auto-create first version if none exist
+  // Auto-create first version if none exist (only after hydration to avoid overwriting Turso data)
   React.useEffect(() => {
+    if (!cfHydratedRef?.current) return;
     if (versions.length === 0) {
       const newV = CASHFLOW_INIT();
       const logoImg = new Image(); logoImg.crossOrigin = "anonymous";
@@ -1188,7 +1201,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       });
       setActiveCashFlowVersion(0);
     }
-  }, []); // eslint-disable-line
+  }, [cfHydratedRef?.current]); // eslint-disable-line
 
   const update = useCallback((key, val) => {
     if (vIdx < 0) return;
