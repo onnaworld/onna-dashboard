@@ -430,7 +430,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     const history=[...msgs,userMsg];
 
     // ── Quick-action number replies from intro bubbles ─────────────────────────
-    const _isIntroReply=/^[123]$/.test(input.trim());
+    const _isIntroReply=/^[1234]$/.test(input.trim());
     const _lastMsg=msgs.length>0?msgs[msgs.length-1]:null;
     const _lastContent=_lastMsg?.content||"";
     const _lastHasProjectList=/\n\d+\.\s+\*\*/.test(_lastContent);
@@ -442,7 +442,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         logistical:{1:"Tell me about the vendor — name, category, email and phone number.",2:"Who did you contact? Give me the name and what happened, and I'll log it with today's date.",3:"Who are you looking for? Give me a name, category, or location and I'll search."},
         compliance:{1:"Let's edit a call sheet. Which project should I work on?",2:"I'll review what's missing. Which project should I work on?",3:"Let's manage dietary requirements. Which project should I work on?"},
         researcher:{1:"I'll help add risks. Which project should I work on?",2:"I'll review the assessment. Which project should I work on?",3:"I'll generate a risk report. Which project should I work on?"},
-        billie:{1:"I'll work on the budget. Which project should I work on?",2:"I'll help track expenses. Which project should I work on?",3:"I'll compare actuals vs estimates. Which project should I work on?"},
+        billie:{1:"I'll work on the budget. Which project should I work on?",2:"I'll help track expenses. Which project should I work on?",3:"I'll compare actuals vs estimates. Which project should I work on?",4:"_ratecard_"},
 
         carrie:{1:"I'll add talent. Which project should I work on?",2:"I'll search agencies or generate a brief. Which project should I work on?",3:"I'll review casting and export. Which project should I work on?"},
         contracts:{1:"Let's work on a live contract. Which project should I work on?",2:"Sure! Describe the document you need — for example:\n\n• \"Draft an NDA for a freelance editor\"\n• \"Create a liability waiver for a night shoot in RAK\"\n• \"Write a release form for talent appearing in a commercial\"\n\nWhat would you like me to draft?",3:"Upload a PDF using the 📎 button below, or ask me to generate a document first — then I can add your signature, company stamp, and ONNA letterhead.\n\nTry: \"Create a liability waiver\" → then \"Sign and stamp this\""},
@@ -462,6 +462,12 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
           const entry={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
           const firstQ=startConv(entry,"lead",true,null);
           setMsgs([...history,{role:"assistant",content:`New outreach entry — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
+          setInput("");setLoading(false);return;
+        }
+        // ── Billie: option 4 → open rate card ──
+        if(agent.id==="billie"&&n===4){
+          if(setShowBillieRates) setShowBillieRates(true);
+          setMsgs([...history,{role:"assistant",content:"Opening your rate card — add or edit your default rates per location. I'll use these whenever I populate estimates."}]);
           setInput("");setLoading(false);return;
         }
         let reply=agentResp[n];
@@ -1884,7 +1890,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         logistical:[{label:"➕ Add Vendor",value:"1"},{label:"📞 Log Outreach",value:"2"},{label:"🔍 Search Contacts",value:"3"}],
         compliance:[{label:"✏️ Edit Call Sheet",value:"1"},{label:"✅ Review & Check",value:"2"},{label:"🍽️ Dietary & Catering",value:"3"}],
         researcher:[{label:"⚠️ Add Risks",value:"1"},{label:"✅ Review Assessment",value:"2"},{label:"📄 Generate Report",value:"3"}],
-        billie:[{label:"💰 Build & Edit Budget",value:"1"},{label:"💳 Log Expenses",value:"2"},{label:"📊 Review & Compare",value:"3"}],
+        billie:[{label:"💰 Build & Edit Budget",value:"1"},{label:"💳 Log Expenses",value:"2"},{label:"📊 Review & Compare",value:"3"},{label:"📋 Rate Card",value:"4"}],
         contracts:[{label:"📋 Live Contracts",value:"1"},{label:"✍️ Generate Document",value:"2"},{label:"🖊️ Sign & Stamp",value:"3"}],
 
         carrie:[{label:"🎭 Add Talent",value:"1"},{label:"🔍 Search & Brief",value:"2"},{label:"📄 Review & Export",value:"3"}],

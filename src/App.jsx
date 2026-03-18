@@ -45,7 +45,7 @@ import { FromTemplateModal } from "./components/modals/FromTemplateModal";
 import { AddLeadModal } from "./components/modals/AddLeadModal";
 import { AddVendorModal } from "./components/modals/AddVendorModal";
 import { RateCardModal } from "./components/modals/RateCardModal";
-import { BillieRateCardModal } from "./components/modals/BillieRateCardModal";
+// BillieRateCardModal removed — rate card now inline in AgentDocPreview
 import { EditVendorModal } from "./components/modals/EditVendorModal";
 import { CategoryManagerModal } from "./components/modals/CategoryManagerModal";
 import { DuplicateCallSheetModal } from "./components/modals/DuplicateCallSheetModal";
@@ -1327,8 +1327,6 @@ function OnnaDashboardInner() {
       {showAddVendor&&<AddVendorModal {..._mp}/>}
 
       {showRateModal&&<RateCardModal {..._mp}/>}
-
-      {showBillieRates&&<BillieRateCardModal {..._mp}/>}
 
       {editVendor&&<EditVendorModal {..._mp}/>}
 
