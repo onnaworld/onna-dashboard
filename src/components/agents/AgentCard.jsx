@@ -1491,7 +1491,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         billieRateCards,setBillieRateCards,setShowBillieRates,
       });
       if(_billieHandled)return;
-      }catch(err){setMsgs([...history,{role:"assistant",content:`Oops! ${err.message}`}]);setLoading(false);setMood("idle");return;}
+      }catch(err){const _stack=(err.stack||"").split("\n").slice(0,3).join(" | ");setMsgs([...history,{role:"assistant",content:`Oops! ${err.message} [${_stack}]`}]);setLoading(false);setMood("idle");return;}
     }
 
 
