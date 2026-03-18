@@ -886,7 +886,7 @@ export default function Budget({
           <button onClick={()=>setEditingEstimate(null)} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>‹ Back</button>
           <span style={{fontSize:12,color:T.muted}}>{est.ts?.version||`V${estIdx+1}`}</span>
         </div>
-        <EstimateView estData={est} onSet={estSetFn} />
+        <EstimateView estData={est} onSet={estSetFn} projectName={p.name} />
       </div>
     );
   }

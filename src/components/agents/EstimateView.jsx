@@ -10,7 +10,7 @@ const EST_CURRENCIES = [
   { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 3.9841, USD: 1.0848, GBP: 0.8587, SAR: 4.0682 } },
   { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9794, USD: 0.2667, GBP: 0.2111, EUR: 0.2458 } },
 ];
-function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker }) {
+function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker, projectName }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
   const printRef = useRef(null);
@@ -168,8 +168,10 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     clone.querySelectorAll('textarea').forEach(n=>n.remove());
     clone.querySelectorAll('button').forEach(n=>n.remove());
     clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
+    const vLabel=(ts.version||"V1").replace(/\s*production\s*estimate/i,"").trim();
+    const docTitle=`${vLabel} Production Estimate${projectName?" | "+projectName:""}`;
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:0;}@media print{@page{margin:40px 0;size:A4;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
+    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:0;}@media print{@page{margin:15mm 0;size:A4;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();
     _d.body.appendChild(_d.adoptNode(clone));setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300); };
   const exportPDF = (all = false) => {
     if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
