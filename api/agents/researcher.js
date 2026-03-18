@@ -82,6 +82,8 @@ When real data has been fetched and included in the conversation, present it cle
 
 Format responses with clear headers and practical bullet points. Be concise but thorough.`;
 
+export const config = { api: { bodyParser: { sizeLimit: "10mb" } } };
+
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
 
 export default async function handler(req, res) {

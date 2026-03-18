@@ -70,6 +70,8 @@ You are precise, authoritative, and never casual. Every risk must be mitigated. 
 
 @ONNAPRODUCTION | DUBAI & LONDON`;
 
+export const config = { api: { bodyParser: { sizeLimit: "10mb" } } };
+
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
 
 export default async function handler(req, res) {

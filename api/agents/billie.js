@@ -112,6 +112,8 @@ When the user describes a shoot, generate a complete line-item budget table:
 - Keep chat replies brief unless outputting a full budget
 - You can also answer questions about Dubai production costs, rates, or logistics`;
 
+export const config = { api: { bodyParser: { sizeLimit: "10mb" } } };
+
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://app.onna.digital,https://app.onna.world").split(",");
 
 export default async function handler(req, res) {

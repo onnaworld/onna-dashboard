@@ -413,6 +413,25 @@ export async function handleBillieIntent({
       let project=localProjects?.find(p=>p.id===projectId);
       if(!project){setBillieCtx(null);setMsgs([...history,{role:"assistant",content:"That project no longer exists. Let's start over — which project?"}]);setLoading(false);setMood("idle");return true;}
 
+      // ── Pending version selection ──
+      if(billieCtx.pendingVersion){
+        const estVersions_pv=projectEstimates?.[projectId]||[];
+        const num=parseInt(input.trim(),10);
+        let pickedIdx=-1;
+        if(num>=1&&num<=estVersions_pv.length) pickedIdx=num-1;
+        else if(/\b(new|create|latest)\b/i.test(input)) pickedIdx=estVersions_pv.length-1;
+        else{const match=estVersions_pv.findIndex(v=>(v.ts?.version||"").toLowerCase()===input.trim().toLowerCase());if(match>=0)pickedIdx=match;}
+        if(pickedIdx<0){
+          const list=estVersions_pv.map((v,i)=>`${i+1}. ${v.ts?.version||`V${i+1}`}`).join("\n");
+          setMsgs([...history,{role:"assistant",content:`I didn't catch that. Which version?\n\n${list}\n\nPick a number or name.`}]);
+          setLoading(false);setMood("idle");return true;
+        }
+        setBillieCtx({projectId,vIdx:pickedIdx});if(setActiveEstimateVersion)setActiveEstimateVersion(pickedIdx);
+        addBillieTab(projectId,pickedIdx,`${project.name} · ${estVersions_pv[pickedIdx]?.ts?.version||`V${pickedIdx+1}`}`);
+        setMsgs([...history,{role:"assistant",content:`Working on ${estVersions_pv[pickedIdx]?.ts?.version||`V${pickedIdx+1}`}. What would you like to do?`}]);
+        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+      }
+
       // Close command — close doc panel without clearing chat
       if(/^\s*(close|exit|done|bye|finish)\s*$/i.test(input)){
         setBillieCtx(null);
