@@ -1670,7 +1670,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
           const rowTotal = rowVals.reduce((s, v) => s + v, 0);
           return (
           <tr key={"oh-sync-" + oi} style={parentExcluded ? { opacity: 0.4 } : undefined}>
-            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", color: "#555", fontStyle: "italic" }}>
+            <td style={{ ...cellS, textAlign: "left", padding: "5px 0 5px 24px", color: "#555", fontWeight: 600 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span title={parentExcluded ? "Excluded from cash flow" : "Included in cash flow"} style={{ width: 8, height: 8, borderRadius: "50%", background: parentExcluded ? "#e74c3c" : "#2ecc71", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }} />
                 <span style={parentExcluded ? { textDecoration: "line-through" } : undefined}>{o.label}</span>
