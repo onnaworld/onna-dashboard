@@ -303,8 +303,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   const _persistCustom=(key,val)=>{const list=_readCustom(key);if(!list.includes(val)){list.push(val);try{localStorage.setItem(key,JSON.stringify(list));}catch{}}};
   const _VENDOR_CATS=[..._VENDOR_CATS_BASE,..._readCustom("onna_vendor_cats")];
   const _LEAD_CATS=[..._LEAD_CATS_BASE,..._readCustom("onna_lead_cats")];
-  const _VENDOR_LOCS=[..._LOCS_BASE,..._readCustom("onna_vendor_locs")];
-  const _LEAD_LOCS=[..._LOCS_BASE,..._readCustom("onna_lead_locs")];
+  const _ALL_LOCS=[..._LOCS_BASE,..._readCustom("onna_custom_locations")];
   const showEntry=(entry,type,id=null,asOutreach=false)=>{setPendingType(type);setPendingId(id);setLeadEdit(entry);setPending(entry);setSaveAsOutreach(asOutreach);};
   const buildQuestions=(entry,type)=>{
     const qs=[];
@@ -316,7 +315,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       if(!entry.category||!_VENDOR_CATS.includes(entry.category))qs.push({key:"category",q:"Category?",options:_VENDOR_CATS,addNew:true});
       if(!entry.website)qs.push({key:"website",q:"Website?"});
       if(!entry.rateCard)qs.push({key:"rateCard",q:"Any rate card info?"});
-      qs.push({key:"location",q:"Location?",options:_VENDOR_LOCS,addNew:true});
+      qs.push({key:"location",q:"Location?",options:_ALL_LOCS,addNew:true});
       qs.push({key:"notes",q:"Any notes?"});
     }else{
       if(!entry.contact)qs.push({key:"contact",q:"Contact name?"});
@@ -327,7 +326,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       if(!entry.category||!_LEAD_CATS.includes(entry.category))qs.push({key:"category",q:"Category?",options:_LEAD_CATS,addNew:true});
       if(!entry.value||Number(entry.value)===0)qs.push({key:"value",q:"Estimated deal value? (AED)"});
       if(!entry.status||entry.status==="not_contacted")qs.push({key:"status",q:"Lead status — cold, warm, or open?"});
-      qs.push({key:"location",q:"Location?",options:_LEAD_LOCS,addNew:true});
+      qs.push({key:"location",q:"Location?",options:_ALL_LOCS,addNew:true});
       qs.push({key:"source",q:"How did you find them? Direct · Referral · LinkedIn · Website · Cold Outreach · Event · Other"});
       qs.push({key:"notes",q:"Any notes?"});
     }
@@ -1040,10 +1039,8 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
             e[q.key]=_formatVal(q.key,input.trim());
             // Persist custom location to localStorage for future dropdown use
             if(q.key==="location"&&e[q.key]){
-              const locs=conv.type==="vendor"?_VENDOR_LOCS:_LEAD_LOCS;
-              if(!locs.includes(input.trim())){
-                const locKey=conv.type==="vendor"?"onna_vendor_locs":"onna_lead_locs";
-                _persistCustom(locKey,input.trim());
+              if(!_ALL_LOCS.includes(input.trim())){
+                _persistCustom("onna_custom_locations",input.trim());
               }
             }
           }

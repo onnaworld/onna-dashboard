@@ -1,6 +1,6 @@
 import React from "react";
 
-export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, OutreachBadge, selectedLead, setSelectedLead, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setLocalLeads, setLeadStatusOverrides, archiveItem, pruneCustom, setXContacts, setUndoToastMsg }) {
+export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, OutreachBadge, selectedLead, setSelectedLead, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLocations, setCustomLocations, allLocations, OUTREACH_STATUSES, promoteToClient, setLocalLeads, setLeadStatusOverrides, archiveItem, pruneCustom, setXContacts, setUndoToastMsg }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   return (
     <div className="modal-bg" onClick={()=>setSelectedLead(null)}>
@@ -41,7 +41,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Loc
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-            <LocationPicker value={selectedLead.location||""} onChange={v=>setSelectedLead(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
+            <LocationPicker value={selectedLead.location||""} onChange={v=>setSelectedLead(p=>({...p,location:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
           </div>
         </div>
         {/* Notes */}
@@ -93,7 +93,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Loc
             setTimeout(()=>{
               setLocalLeads(prev=>{
                 pruneCustom(prev,'category',customLeadCats,setCustomLeadCats,'onna_lead_cats');
-                pruneCustom(prev,'location',customLeadLocs,setCustomLeadLocs,'onna_lead_locs');
+                pruneCustom(prev,'location',customLocations,setCustomLocations,'onna_custom_locations');
                 return prev;
               });
             },50);

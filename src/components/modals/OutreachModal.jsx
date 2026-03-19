@@ -1,6 +1,6 @@
 import React from "react";
 
-export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLeadLocs, setCustomLeadLocs, allLeadLocs, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts, setUndoToastMsg }) {
+export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, OutreachBadge, selectedOutreach, setSelectedOutreach, addContactForm, setAddContactForm, addNewOption, customLeadCats, setCustomLeadCats, allLeadCats, customLocations, setCustomLocations, allLocations, OUTREACH_STATUSES, promoteToClient, setOutreach, pushUndo, archiveItem, setXContacts, setUndoToastMsg }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   return (
     <div className="modal-bg" onClick={()=>setSelectedOutreach(null)}>
@@ -41,7 +41,7 @@ export function OutreachModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel,
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.05em",textTransform:"uppercase"}}>Location</div>
-            <LocationPicker value={selectedOutreach.location||""} onChange={v=>setSelectedOutreach(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
+            <LocationPicker value={selectedOutreach.location||""} onChange={v=>setSelectedOutreach(p=>({...p,location:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
           </div>
         </div>
         {/* Notes */}

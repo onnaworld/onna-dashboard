@@ -9,8 +9,8 @@ export default function Clients({
   localProjects,
   leadStatusOverrides,
   customLeadCats, setCustomLeadCats,
-  customLeadLocs, setCustomLeadLocs,
-  allLeadCats, allLeadLocs, addNewOption,
+  customLocations, setCustomLocations,
+  allLeadCats, allLocations, addNewOption,
   // Search helpers
   getSearch, setSearch,
   // Selections / modals
@@ -354,7 +354,7 @@ export default function Clients({
                   </div>
                   <div>
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
-                    <LocationPicker value={selectedClient.country||""} onChange={v=>setSelectedClient(p=>({...p,country:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
+                    <LocationPicker value={selectedClient.country||""} onChange={v=>setSelectedClient(p=>({...p,country:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
                   </div>
                   <div>
                     <div style={{fontSize:10,color:T.muted,marginBottom:5,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Status</div>
@@ -552,7 +552,7 @@ export default function Clients({
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-                <LocationPicker value={newClient.country} onChange={v=>setNewClient(p=>({...p,country:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
+                <LocationPicker value={newClient.country} onChange={v=>setNewClient(p=>({...p,country:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
               </div>
               <div style={{gridColumn:"span 2"}}>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Notes</div>
@@ -588,7 +588,7 @@ export default function Clients({
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>
-                <LocationPicker value={newOutreach.location} onChange={v=>setNewOutreach(p=>({...p,location:v}))} options={allLeadLocs} addNewOption={addNewOption} customLocs={customLeadLocs} setCustomLocs={setCustomLeadLocs} storageKey="onna_lead_locs"/>
+                <LocationPicker value={newOutreach.location} onChange={v=>setNewOutreach(p=>({...p,location:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
               </div>
               <div>
                 <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Status</div>

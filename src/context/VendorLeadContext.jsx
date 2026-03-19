@@ -29,7 +29,8 @@ export function VendorLeadProvider({ initVendors, children }) {
   const [outreachLoading,setOutreachLoading]         = useState(false);
 
   // ── Category / Location customisation ──
-  const [customLeadLocs,setCustomLeadLocs]           = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_locs')||'[]')}catch{return []}});
+  const [customLocations,setCustomLocations]         = useState(()=>{try{const cl=JSON.parse(localStorage.getItem('onna_custom_locations')||'[]');if(cl.length)return cl;const ll=JSON.parse(localStorage.getItem('onna_lead_locs')||'[]');const vl=JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]');const merged=[...new Set([...ll,...vl])];if(merged.length){localStorage.setItem('onna_custom_locations',JSON.stringify(merged));}return merged;}catch{return []}});
+  const [hiddenBuiltinLocs,setHiddenBuiltinLocs]     = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_hidden_builtin_locs')||'[]')}catch{return []}});
   const [customLeadCats,setCustomLeadCats]           = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_lead_cats')||'[]')}catch{return []}});
   const [customVendorCats,setCustomVendorCats]       = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_cats')||'[]')}catch{return []}});
   const [hiddenLeadBuiltins,setHiddenLeadBuiltins]   = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_hidden_lead_cats')||'[]')}catch{return []}});
@@ -38,7 +39,6 @@ export function VendorLeadProvider({ initVendors, children }) {
   const [catEdit,setCatEdit]                         = useState(null);
   const [catEditVal,setCatEditVal]                   = useState("");
   const [catSaving,setCatSaving]                     = useState(false);
-  const [customVendorLocs,setCustomVendorLocs]       = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_vendor_locs')||'[]')}catch{return []}});
 
   // ── Persistence ──
   useEffect(()=>{try{if(vendors.length)localStorage.setItem('onna_cache_vendors',JSON.stringify(vendors));}catch{}},[vendors]);
@@ -52,13 +52,14 @@ export function VendorLeadProvider({ initVendors, children }) {
     leadStatusOverrides,setLeadStatusOverrides,
     outreach,setOutreach,outreachMsg,setOutreachMsg,
     outreachLoading,setOutreachLoading,
-    customLeadLocs,setCustomLeadLocs,customLeadCats,setCustomLeadCats,
+    customLocations,setCustomLocations,
+    hiddenBuiltinLocs,setHiddenBuiltinLocs,
+    customLeadCats,setCustomLeadCats,
     customVendorCats,setCustomVendorCats,
     hiddenLeadBuiltins,setHiddenLeadBuiltins,
     hiddenVendorBuiltins,setHiddenVendorBuiltins,
     showCatManager,setShowCatManager,
     catEdit,setCatEdit,catEditVal,setCatEditVal,catSaving,setCatSaving,
-    customVendorLocs,setCustomVendorLocs,
   };
 
   return <VendorLeadContext.Provider value={value}>{children}</VendorLeadContext.Provider>;

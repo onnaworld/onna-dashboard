@@ -1,4 +1,4 @@
-import { api, LEAD_CATEGORIES, VENDORS_CATEGORIES } from "../utils/helpers";
+import { api, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS } from "../utils/helpers";
 
 // ── Outreach AI processing ───────────────────────────────────────────────────
 
@@ -126,6 +126,69 @@ export const renameCat = async (type, oldCat, newCat, setCatSaving, setCatEdit, 
   } else {
     const u = customVendorCats.map(c=>c===oldCat?newCat.trim():c);
     setCustomVendorCats(u); try{localStorage.setItem('onna_vendor_cats',JSON.stringify(u));}catch{}
+  }
+  setCatEdit(null); setCatSaving(false);
+};
+
+// ── Location manager ────────────────────────────────────────────────────────
+
+const _parseLoc = v => {
+  if(!v||typeof v!=="string") return [];
+  if(v.includes("|")) return v.split("|").map(s=>s.trim()).filter(Boolean);
+  return [v.trim()].filter(Boolean);
+};
+
+export const deleteLoc = async (loc, setCatSaving, setters) => {
+  const { localLeads, vendors, setLocalLeads, setVendors, customLocations, setCustomLocations, setHiddenBuiltinLocs } = setters;
+  setCatSaving(true);
+  const builtin = DEFAULT_LOCATIONS.includes(loc);
+  // Update all vendors/leads that have this location
+  for (const r of vendors.filter(v => _parseLoc(v.location).includes(loc))) {
+    const {id, ...fields} = r;
+    const newLoc = _parseLoc(fields.location).filter(l=>l!==loc).join(" | ");
+    try { await api.put(`/api/vendors/${id}`, {...fields, location:newLoc}); setVendors(prev=>prev.map(x=>x.id===id?{...x,location:newLoc}:x)); } catch {}
+  }
+  for (const r of localLeads.filter(l => _parseLoc(l.location).includes(loc))) {
+    const {id, ...fields} = r;
+    const newLoc = _parseLoc(fields.location).filter(l=>l!==loc).join(" | ");
+    try { await api.put(`/api/leads/${id}`, {...fields, location:newLoc, value:Number(fields.value)||0}); setLocalLeads(prev=>prev.map(x=>x.id===id?{...x,location:newLoc}:x)); } catch {}
+  }
+  if (builtin) {
+    setHiddenBuiltinLocs(prev => { const u=[...prev,loc]; try{localStorage.setItem('onna_hidden_builtin_locs',JSON.stringify(u));}catch{} return u; });
+  } else {
+    const u = customLocations.filter(l=>l!==loc);
+    setCustomLocations(u); try{localStorage.setItem('onna_custom_locations',JSON.stringify(u));}catch{}
+  }
+  setCatSaving(false);
+};
+
+export const renameLoc = async (oldLoc, newLoc, setCatSaving, setCatEdit, setters) => {
+  const { localLeads, vendors, setLocalLeads, setVendors, customLocations, setCustomLocations, setHiddenBuiltinLocs } = setters;
+  if (!newLoc.trim() || newLoc.trim()===oldLoc) { setCatEdit(null); return; }
+  setCatSaving(true);
+  const trimmed = newLoc.trim();
+  const builtin = DEFAULT_LOCATIONS.includes(oldLoc);
+  // Update all vendors/leads that have this location
+  for (const r of vendors.filter(v => _parseLoc(v.location).includes(oldLoc))) {
+    const {id, ...fields} = r;
+    const newLocStr = _parseLoc(fields.location).map(l=>l===oldLoc?trimmed:l).join(" | ");
+    try { await api.put(`/api/vendors/${id}`, {...fields, location:newLocStr}); setVendors(prev=>prev.map(x=>x.id===id?{...x,location:newLocStr}:x)); } catch {}
+  }
+  for (const r of localLeads.filter(l => _parseLoc(l.location).includes(oldLoc))) {
+    const {id, ...fields} = r;
+    const newLocStr = _parseLoc(fields.location).map(l=>l===oldLoc?trimmed:l).join(" | ");
+    try { await api.put(`/api/leads/${id}`, {...fields, location:newLocStr, value:Number(fields.value)||0}); setLocalLeads(prev=>prev.map(x=>x.id===id?{...x,location:newLocStr}:x)); } catch {}
+  }
+  if (builtin) {
+    // Hide built-in, add renamed as custom
+    setHiddenBuiltinLocs(prev => { const u=[...prev,oldLoc]; try{localStorage.setItem('onna_hidden_builtin_locs',JSON.stringify(u));}catch{} return u; });
+    if (!customLocations.includes(trimmed)) {
+      const u = [...customLocations, trimmed];
+      setCustomLocations(u); try{localStorage.setItem('onna_custom_locations',JSON.stringify(u));}catch{}
+    }
+  } else {
+    const u = customLocations.map(l=>l===oldLoc?trimmed:l);
+    setCustomLocations(u); try{localStorage.setItem('onna_custom_locations',JSON.stringify(u));}catch{}
   }
   setCatEdit(null); setCatSaving(false);
 };

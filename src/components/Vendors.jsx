@@ -3,8 +3,8 @@ import React from "react";
 export default function Vendors({
   T, isMobile,
   bbCat, setBbCat, bbLocation, setBbLocation, filteredBB,
-  customVendorCats, setCustomVendorCats, customVendorLocs, setCustomVendorLocs,
-  allVendorCats, allVendorLocs, addNewOption,
+  customVendorCats, setCustomVendorCats, customLocations, setCustomLocations,
+  allVendorCats, allLocations, addNewOption,
   getSearch, setSearch, setShowAddVendor, setEditVendor, getXContacts,
   downloadCSV, exportTablePDF,
   SearchBar, Sel, TH, TD, BtnPrimary,
@@ -14,7 +14,7 @@ export default function Vendors({
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
         <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
         <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n){setBbCat(n);setBbLocation("All");}}else{setBbCat(v);setBbLocation("All");}}} options={allVendorCats} minWidth={170}/>
-        <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customVendorLocs,setCustomVendorLocs,'onna_vendor_locs',"New location name:");if(n){setBbLocation(n);setBbCat("All");}}else{setBbLocation(v);if(v!=="All")setBbCat("All");}}} options={allVendorLocs} minWidth={170}/>
+        <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLocations,setCustomLocations,'onna_custom_locations',"New location name:");if(n){setBbLocation(n);setBbCat("All");}}else{setBbLocation(v);if(v!=="All")setBbCat("All");}}} options={allLocations} minWidth={170}/>
         <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
         <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
         <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>

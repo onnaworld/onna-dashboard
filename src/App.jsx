@@ -33,7 +33,7 @@ import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
 import { TodoProvider, useTodo } from "./context/TodoContext";
 import { setSyncStatusCallback, pendingCount as syncPendingCount, flush as flushSyncQueue } from "./utils/syncQueue";
-import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, BB_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater } from "./utils/helpers";
+import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
 import { OutreachModal } from "./components/modals/OutreachModal";
@@ -73,7 +73,7 @@ import EstimateView from "./components/agents/EstimateView";
 import { Badge, Pill, StatCard, TH, TD, SearchBar, Sel, OutreachBadge, THFilter, SectionBtn, UploadZone, BtnPrimary, BtnSecondary, BtnExport, renderSopMarkdown, AIDocPanel, DashNotes, ProjectTodoList, LocationPicker, CategoryPicker } from "./components/ui/SharedUI";
 // Extracted handler modules
 import { doLogin as _doLogin, doResetRequest as _doResetRequest, doResetConfirm as _doResetConfirm, pushNav, changeTab as _changeTab, navigateToDoc as _navigateToDoc, addTodoFromInput as _addTodoFromInput, archiveItem as _archiveItem, restoreItem as _restoreItem, permanentlyDelete as _permanentlyDelete, processProjectAI as _processProjectAI, fetchGCalEvents as _fetchGCalEvents, fetchOutlookCal as _fetchOutlookCal, connectGCal as _connectGCal, doHydrateProject } from "./handlers/projectHandlers";
-import { processOutreach as _processOutreach, promoteToClient as _promoteToClient, addNewOption as _addNewOption, pruneCustom, deleteCat as _deleteCat, renameCat as _renameCat } from "./handlers/vendorHandlers";
+import { processOutreach as _processOutreach, promoteToClient as _promoteToClient, addNewOption as _addNewOption, pruneCustom, deleteCat as _deleteCat, renameCat as _renameCat, deleteLoc as _deleteLoc, renameLoc as _renameLoc } from "./handlers/vendorHandlers";
 import { syncProjectInfoToDocs as _syncProjectInfoToDocs, generateContract as _generateContract, getProjectCastingTables as _getProjectCastingTablesFn, getProjectCasting as _getProjectCastingFn, addCastingTable as _addCastingTable, addCastingRow as _addCastingRow, updateCastingRow as _updateCastingRow, removeCastingRow as _removeCastingRow, updateCastingTableTitle as _updateCastingTableTitle, removeCastingTable as _removeCastingTable, uploadFromLink as _uploadFromLink } from "./handlers/documentHandlers";
 import { doPushUndo, doPerformUndo, fmtInline, renderAgentMd, sendAgentMessage as _sendAgentMessage } from "./handlers/agentHandlers.jsx";
 // Extracted data & components
@@ -354,13 +354,14 @@ function OnnaDashboardInner() {
     leadStatusOverrides,setLeadStatusOverrides,
     outreach,setOutreach,outreachMsg,setOutreachMsg,
     outreachLoading,setOutreachLoading,
-    customLeadLocs,setCustomLeadLocs,customLeadCats,setCustomLeadCats,
+    customLocations,setCustomLocations,
+    hiddenBuiltinLocs,setHiddenBuiltinLocs,
+    customLeadCats,setCustomLeadCats,
     customVendorCats,setCustomVendorCats,
     hiddenLeadBuiltins,setHiddenLeadBuiltins,
     hiddenVendorBuiltins,setHiddenVendorBuiltins,
     showCatManager,setShowCatManager,
     catEdit,setCatEdit,catEditVal,setCatEditVal,catSaving,setCatSaving,
-    customVendorLocs,setCustomVendorLocs,
   } = useVendorLead();
 
   // ── Project state from ProjectContext ──
@@ -812,7 +813,7 @@ function OnnaDashboardInner() {
           // Global stores
           ['onna_todos','onna_ptodos','onna_notes_list','onna_archive','onna_sops'].forEach(k => { try { const v=localStorage.getItem(k); if(v) payload[k]=JSON.parse(v); } catch{} });
           // Config keys
-          ['onna_lead_cats','onna_lead_locs','onna_vendor_cats','onna_vendor_locs','onna_hidden_lead_cats','onna_hidden_vendor_cats'].forEach(k => { try { const v=localStorage.getItem(k); if(v) payload[k]=JSON.parse(v); } catch{} });
+          ['onna_lead_cats','onna_custom_locations','onna_vendor_cats','onna_hidden_lead_cats','onna_hidden_vendor_cats','onna_hidden_builtin_locs'].forEach(k => { try { const v=localStorage.getItem(k); if(v) payload[k]=JSON.parse(v); } catch{} });
           // IndexedDB stores
           try { const a=await idbGet("projectActuals"); if(a) payload.projectActuals=a; } catch{}
           try { const c=await idbGet("projectCasting"); if(c) payload.projectCasting=c; } catch{}
@@ -834,9 +835,9 @@ function OnnaDashboardInner() {
           if (gd.billie_rates) setBillieRateCards(gd.billie_rates);
           if (gd.user_config) {
             if (gd.user_config.onna_lead_cats) setCustomLeadCats(gd.user_config.onna_lead_cats);
-            if (gd.user_config.onna_lead_locs) setCustomLeadLocs(gd.user_config.onna_lead_locs);
+            if (gd.user_config.onna_custom_locations) setCustomLocations(gd.user_config.onna_custom_locations);
             if (gd.user_config.onna_vendor_cats) setCustomVendorCats(gd.user_config.onna_vendor_cats);
-            if (gd.user_config.onna_vendor_locs) setCustomVendorLocs(gd.user_config.onna_vendor_locs);
+            if (gd.user_config.onna_hidden_builtin_locs) setHiddenBuiltinLocs(gd.user_config.onna_hidden_builtin_locs);
             if (gd.user_config.onna_hidden_lead_cats) setHiddenLeadBuiltins(gd.user_config.onna_hidden_lead_cats);
             if (gd.user_config.onna_hidden_vendor_cats) setHiddenVendorBuiltins(gd.user_config.onna_hidden_vendor_cats);
           }
@@ -1021,16 +1022,20 @@ function OnnaDashboardInner() {
   const deleteCat = (type, cat) => _deleteCat(type, cat, setCatSaving, catSetters);
   const renameCat = (type, oldCat, newCat) => _renameCat(type, oldCat, newCat, setCatSaving, setCatEdit, catSetters);
 
+  const locSetters = { localLeads, vendors, setLocalLeads, setVendors, customLocations, setCustomLocations, setHiddenBuiltinLocs };
+  const deleteLoc = (loc) => _deleteLoc(loc, setCatSaving, locSetters);
+  const renameLoc = (oldLoc, newLoc) => _renameLoc(oldLoc, newLoc, setCatSaving, setCatEdit, locSetters);
 
+  useEffect(()=>{try{localStorage.setItem('onna_custom_locations',JSON.stringify(customLocations));}catch{}if(globalHydratedRef.current)debouncedConfigSave('onna_custom_locations',customLocations);},[customLocations]); // eslint-disable-line
+  useEffect(()=>{try{localStorage.setItem('onna_hidden_builtin_locs',JSON.stringify(hiddenBuiltinLocs));}catch{}if(globalHydratedRef.current)debouncedConfigSave('onna_hidden_builtin_locs',hiddenBuiltinLocs);},[hiddenBuiltinLocs]); // eslint-disable-line
 
   const archiveItem = (table, item) => _archiveItem(table, item, setArchive);
   const restoreItem = (entry) => _restoreItem(entry, { setProjectEstimates, setTodos, setDashNotesList, setNotes, setLocalProjects, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setTravelItineraryStore, setDietaryStore, setLocDeckStore, setLocalClients, setLocalLeads, setVendors, setOutreach, setArchive });
   const permanentlyDelete = (archiveId) => _permanentlyDelete(archiveId, setArchive);
 
-  const allLeadLocs  = ["All","London, UK","Dubai, UAE","New York, USA","Los Angeles, USA",...customLeadLocs,"＋ Add location"];
+  const allLocations = ["All",...DEFAULT_LOCATIONS.filter(l=>!hiddenBuiltinLocs.includes(l)),...customLocations,"＋ Add location"];
   const allLeadCats  = [...LEAD_CATEGORIES.filter(c=>!hiddenLeadBuiltins.includes(c)),...customLeadCats,"＋ Add category"];
   const allVendorCats = ["All",...VENDORS_CATEGORIES.filter(c=>!hiddenVendorBuiltins.includes(c)),...customVendorCats,"＋ Add category"];
-  const allVendorLocs = [...BB_LOCATIONS,...customVendorLocs,"＋ Add location"];
 
   // ─── PROJECT SECTION RENDERER ──────────────────────────────────────────────
   const renderProjectSection = p => <ProjectSection p={p} T={T} isMobile={isMobile} api={api}
@@ -1137,9 +1142,9 @@ function OnnaDashboardInner() {
     activeTab, changeTab, TABS, buildPath, setAuthed,
     selectedLead, setSelectedLead, selectedOutreach, setSelectedOutreach,
     addContactForm, setAddContactForm,
-    addNewOption, customLeadCats, setCustomLeadCats, customLeadLocs, setCustomLeadLocs,
-    allLeadCats, allLeadLocs, allVendorCats, allVendorLocs,
-    customVendorCats, setCustomVendorCats, customVendorLocs, setCustomVendorLocs,
+    addNewOption, customLeadCats, setCustomLeadCats, customLocations, setCustomLocations,
+    allLeadCats, allLocations, allVendorCats,
+    customVendorCats, setCustomVendorCats,
     OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, promoteToClient,
     localLeads, setLocalLeads, setLeadStatusOverrides, setOutreach,
     archiveItem, pruneCustom, setXContacts, pushUndo,
@@ -1268,9 +1273,9 @@ function OnnaDashboardInner() {
             ); })()}
 
           {/* ══ VENDORS ══ */}
-          {activeTab==="Vendors"&&<Vendors T={T} isMobile={isMobile} bbCat={bbCat} setBbCat={setBbCat} bbLocation={bbLocation} setBbLocation={setBbLocation} filteredBB={filteredBB} customVendorCats={customVendorCats} setCustomVendorCats={setCustomVendorCats} customVendorLocs={customVendorLocs} setCustomVendorLocs={setCustomVendorLocs} allVendorCats={allVendorCats} allVendorLocs={allVendorLocs} addNewOption={addNewOption} getSearch={getSearch} setSearch={setSearch} setShowAddVendor={setShowAddVendor} setEditVendor={setEditVendor} getXContacts={getXContacts} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} SearchBar={SearchBar} Sel={Sel} TH={TH} TD={TD} BtnPrimary={BtnPrimary}/>}
+          {activeTab==="Vendors"&&<Vendors T={T} isMobile={isMobile} bbCat={bbCat} setBbCat={setBbCat} bbLocation={bbLocation} setBbLocation={setBbLocation} filteredBB={filteredBB} customVendorCats={customVendorCats} setCustomVendorCats={setCustomVendorCats} customLocations={customLocations} setCustomLocations={setCustomLocations} allVendorCats={allVendorCats} allLocations={allLocations} addNewOption={addNewOption} getSearch={getSearch} setSearch={setSearch} setShowAddVendor={setShowAddVendor} setEditVendor={setEditVendor} getXContacts={getXContacts} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} SearchBar={SearchBar} Sel={Sel} TH={TH} TD={TD} BtnPrimary={BtnPrimary}/>}
 
-          {activeTab==="Clients"&&<Clients T={T} isMobile={isMobile} api={api} localLeads={localLeads} setLocalLeads={setLocalLeads} localClients={localClients} setLocalClients={setLocalClients} outreach={outreach} setOutreach={setOutreach} localProjects={localProjects} leadStatusOverrides={leadStatusOverrides} customLeadCats={customLeadCats} setCustomLeadCats={setCustomLeadCats} customLeadLocs={customLeadLocs} setCustomLeadLocs={setCustomLeadLocs} allLeadCats={allLeadCats} allLeadLocs={allLeadLocs} addNewOption={addNewOption} getSearch={getSearch} setSearch={setSearch} setSelectedLead={setSelectedLead} setSelectedOutreach={setSelectedOutreach} setShowAddLead={setShowAddLead} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} formatDate={formatDate} _parseDate={_parseDate} getMonthLabel={getMonthLabel} archiveItem={archiveItem} promoteToClient={promoteToClient} getXContacts={getXContacts} getProjRevenue={getProjRevenue} OUTREACH_STATUS_LABELS={OUTREACH_STATUS_LABELS} OUTREACH_STATUSES={OUTREACH_STATUSES} LEAD_CATEGORIES={LEAD_CATEGORIES} Pill={Pill} SearchBar={SearchBar} Sel={Sel} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} TH={TH} THFilter={THFilter} TD={TD} OutreachBadge={OutreachBadge} LocationPicker={LocationPicker} CategoryPicker={CategoryPicker} setUndoToastMsg={setUndoToastMsg}/>}
+          {activeTab==="Clients"&&<Clients T={T} isMobile={isMobile} api={api} localLeads={localLeads} setLocalLeads={setLocalLeads} localClients={localClients} setLocalClients={setLocalClients} outreach={outreach} setOutreach={setOutreach} localProjects={localProjects} leadStatusOverrides={leadStatusOverrides} customLeadCats={customLeadCats} setCustomLeadCats={setCustomLeadCats} customLocations={customLocations} setCustomLocations={setCustomLocations} allLeadCats={allLeadCats} allLocations={allLocations} addNewOption={addNewOption} getSearch={getSearch} setSearch={setSearch} setSelectedLead={setSelectedLead} setSelectedOutreach={setSelectedOutreach} setShowAddLead={setShowAddLead} downloadCSV={downloadCSV} exportTablePDF={exportTablePDF} formatDate={formatDate} _parseDate={_parseDate} getMonthLabel={getMonthLabel} archiveItem={archiveItem} promoteToClient={promoteToClient} getXContacts={getXContacts} getProjRevenue={getProjRevenue} OUTREACH_STATUS_LABELS={OUTREACH_STATUS_LABELS} OUTREACH_STATUSES={OUTREACH_STATUSES} LEAD_CATEGORIES={LEAD_CATEGORIES} Pill={Pill} SearchBar={SearchBar} Sel={Sel} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} TH={TH} THFilter={THFilter} TD={TD} OutreachBadge={OutreachBadge} LocationPicker={LocationPicker} CategoryPicker={CategoryPicker} setUndoToastMsg={setUndoToastMsg}/>}
 
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
@@ -1307,7 +1312,7 @@ function OnnaDashboardInner() {
         {/* ── INFORMATION TAB ── */}
         {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} hydrated={globalHydratedRef.current}/>}
 
-        {activeTab==="Settings"&&<Settings T={T} isMobile={isMobile} P={P} setAuthed={setAuthed} settingsSection={settingsSection} setSettingsSection={setSettingsSection} archive={archive} setArchive={setArchive} restoreItem={restoreItem} permanentlyDelete={permanentlyDelete} catEdit={catEdit} setCatEdit={setCatEdit} catEditVal={catEditVal} setCatEditVal={setCatEditVal} catSaving={catSaving} renameCat={renameCat} deleteCat={deleteCat} customLeadCats={customLeadCats} customVendorCats={customVendorCats} hiddenLeadBuiltins={hiddenLeadBuiltins} hiddenVendorBuiltins={hiddenVendorBuiltins} LEAD_CATEGORIES={LEAD_CATEGORIES} VENDORS_CATEGORIES={VENDORS_CATEGORIES} sops={sops} setSops={setSops} sopFilter={sopFilter} setSopFilter={setSopFilter} sopAddOpen={sopAddOpen} setSopAddOpen={setSopAddOpen} sopEditId={sopEditId} setSopEditId={setSopEditId} sopDraft={sopDraft} setSopDraft={setSopDraft} sopPreview={sopPreview} setSopPreview={setSopPreview} AGENT_DEFS={AGENT_DEFS} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} renderSopMarkdown={renderSopMarkdown} localProjects={localProjects} localLeads={localLeads} localClients={localClients} vendors={vendors} outreach={outreach} notes={notes}/>}
+        {activeTab==="Settings"&&<Settings T={T} isMobile={isMobile} P={P} setAuthed={setAuthed} settingsSection={settingsSection} setSettingsSection={setSettingsSection} archive={archive} setArchive={setArchive} restoreItem={restoreItem} permanentlyDelete={permanentlyDelete} catEdit={catEdit} setCatEdit={setCatEdit} catEditVal={catEditVal} setCatEditVal={setCatEditVal} catSaving={catSaving} renameCat={renameCat} deleteCat={deleteCat} renameLoc={renameLoc} deleteLoc={deleteLoc} customLeadCats={customLeadCats} customVendorCats={customVendorCats} customLocations={customLocations} setCustomLocations={setCustomLocations} hiddenBuiltinLocs={hiddenBuiltinLocs} hiddenLeadBuiltins={hiddenLeadBuiltins} hiddenVendorBuiltins={hiddenVendorBuiltins} DEFAULT_LOCATIONS={DEFAULT_LOCATIONS} LEAD_CATEGORIES={LEAD_CATEGORIES} VENDORS_CATEGORIES={VENDORS_CATEGORIES} sops={sops} setSops={setSops} sopFilter={sopFilter} setSopFilter={setSopFilter} sopAddOpen={sopAddOpen} setSopAddOpen={setSopAddOpen} sopEditId={sopEditId} setSopEditId={setSopEditId} sopDraft={sopDraft} setSopDraft={setSopDraft} sopPreview={sopPreview} setSopPreview={setSopPreview} AGENT_DEFS={AGENT_DEFS} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} renderSopMarkdown={renderSopMarkdown} localProjects={localProjects} localLeads={localLeads} localClients={localClients} vendors={vendors} outreach={outreach} notes={notes}/>}
 
         </div>
       </div>

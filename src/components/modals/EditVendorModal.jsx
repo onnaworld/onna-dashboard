@@ -1,6 +1,6 @@
 import React from "react";
 
-export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allVendorLocs, customVendorLocs, setCustomVendorLocs, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads, setUndoToastMsg }) {
+export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allLocations, customLocations, setCustomLocations, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads, setUndoToastMsg }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
   const vendorToLead = async (move) => {
     const company = (editVendor.company||editVendor.name||"").trim();
@@ -31,7 +31,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
       const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
       setVendors(updatedVendors);
       pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
-      pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
+      pruneCustom(updatedVendors,'location',customLocations,setCustomLocations,'onna_custom_locations');
     }
     showToast(move?"Moved to Leads ✓":"Copied to Leads ✓");
     setEditVendor(null);
@@ -62,7 +62,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
-            <LocationPicker value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={allVendorLocs} addNewOption={addNewOption} customLocs={customVendorLocs} setCustomLocs={setCustomVendorLocs} storageKey="onna_vendor_locs"/>
+            <LocationPicker value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
           </div>
         </div>
 
@@ -144,7 +144,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
             const updatedVendors = vendors.filter(v=>v.id!==editVendor.id);
             setVendors(updatedVendors);
             pruneCustom(updatedVendors,'category',customVendorCats,setCustomVendorCats,'onna_vendor_cats');
-            pruneCustom(updatedVendors,'location',customVendorLocs,setCustomVendorLocs,'onna_vendor_locs');
+            pruneCustom(updatedVendors,'location',customLocations,setCustomLocations,'onna_custom_locations');
             setEditVendor(null);
           }} style={{background:"none",border:"none",color:"#c0392b",fontSize:12.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",padding:0}}>Delete vendor</button>
           <div style={{display:"flex",gap:8}}>

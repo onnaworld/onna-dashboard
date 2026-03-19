@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSettingsSection,archive,setArchive,restoreItem,permanentlyDelete,catEdit,setCatEdit,catEditVal,setCatEditVal,catSaving,renameCat,deleteCat,customLeadCats,customVendorCats,hiddenLeadBuiltins,hiddenVendorBuiltins,LEAD_CATEGORIES,VENDORS_CATEGORIES,sops,setSops,sopFilter,setSopFilter,sopAddOpen,setSopAddOpen,sopEditId,setSopEditId,sopDraft,setSopDraft,sopPreview,setSopPreview,AGENT_DEFS,BtnPrimary,BtnSecondary,renderSopMarkdown,localProjects,localLeads,localClients,vendors,outreach,notes}){
+export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSettingsSection,archive,setArchive,restoreItem,permanentlyDelete,catEdit,setCatEdit,catEditVal,setCatEditVal,catSaving,renameCat,deleteCat,renameLoc,deleteLoc,customLeadCats,customVendorCats,customLocations,setCustomLocations,hiddenBuiltinLocs,hiddenLeadBuiltins,hiddenVendorBuiltins,DEFAULT_LOCATIONS,LEAD_CATEGORIES,VENDORS_CATEGORIES,sops,setSops,sopFilter,setSopFilter,sopAddOpen,setSopAddOpen,sopEditId,setSopEditId,sopDraft,setSopDraft,sopPreview,setSopPreview,AGENT_DEFS,BtnPrimary,BtnSecondary,renderSopMarkdown,localProjects,localLeads,localClients,vendors,outreach,notes}){
 
   const _downloadFile=(filename,content,type="application/json")=>{
     const blob=new Blob([content],{type});
@@ -34,6 +34,7 @@ export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSett
         {[
           {id:"deleted",label:"Deleted",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
           {id:"categories",label:"Manage Categories",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
+          {id:"locations",label:"Manage Locations",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.8 1 3 2.8 3 5c0 3 4 7.5 4 7.5s4-4.5 4-7.5c0-2.2-1.8-4-4-4z" stroke="currentColor" strokeWidth="1.2"/><circle cx="7" cy="5" r="1.5" stroke="currentColor" strokeWidth="1.2"/></svg>'},
           {id:"sop",label:"SOPs",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2"/><path d="M5 4h4M5 7h4M5 10h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
           {id:"export",label:"Data Export",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v8M4 7l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 11h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>'},
           {id:"security",label:"Security",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3v4c0 3.3 2.1 5.3 5 6 2.9-.7 5-2.7 5-6V3L7 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M5 7l2 2 3-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>'},
@@ -143,6 +144,58 @@ export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSett
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {settingsSection==="locations"&&(
+          <div>
+            <div style={{marginBottom:22}}>
+              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Manage Locations</div>
+              <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete locations used across the app</div>
+            </div>
+            <div style={{marginBottom:28}}>
+              <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12,paddingBottom:7,borderBottom:`1px solid ${T.border}`}}>Locations</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {DEFAULT_LOCATIONS.filter(l=>!hiddenBuiltinLocs.includes(l)).map(loc=>(
+                  <div key={loc} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
+                    {catEdit&&catEdit.type==="location"&&catEdit.cat===loc?(
+                      <>
+                        <input autoFocus value={catEditVal} onChange={e=>setCatEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")renameLoc(loc,catEditVal);if(e.key==="Escape")setCatEdit(null);}} style={{flex:1,border:`1.5px solid ${T.accent}`,borderRadius:7,padding:"5px 8px",fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}/>
+                        <button disabled={catSaving} onClick={()=>renameLoc(loc,catEditVal)} style={{background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",padding:"4px 10px",borderRadius:6,fontFamily:"inherit",opacity:catSaving?0.5:1}}>Save</button>
+                        <button onClick={()=>setCatEdit(null)} style={{background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",padding:"4px 6px",fontFamily:"inherit"}}>Cancel</button>
+                      </>
+                    ):(
+                      <>
+                        <span style={{flex:1,fontSize:13,color:T.text}}>{loc}</span>
+                        <span style={{fontSize:10,color:T.muted,background:"#f0ede8",borderRadius:999,padding:"2px 8px",fontWeight:500}}>built-in</span>
+                        <button disabled={catSaving} onClick={()=>{setCatEdit({type:"location",cat:loc});setCatEditVal(loc);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Rename</button>
+                        <button disabled={catSaving} onClick={async()=>{if(!window.confirm('Delete "'+loc+'"? It will be removed from all vendors and clients.'))return;await deleteLoc(loc);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {customLocations.map(loc=>(
+                  <div key={loc} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,background:"#fafafa",border:`1px solid ${T.border}`}}>
+                    {catEdit&&catEdit.type==="location"&&catEdit.cat===loc?(
+                      <>
+                        <input autoFocus value={catEditVal} onChange={e=>setCatEditVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")renameLoc(loc,catEditVal);if(e.key==="Escape")setCatEdit(null);}} style={{flex:1,border:`1.5px solid ${T.accent}`,borderRadius:7,padding:"5px 8px",fontSize:13,fontFamily:"inherit",outline:"none",background:"white"}}/>
+                        <button disabled={catSaving} onClick={()=>renameLoc(loc,catEditVal)} style={{background:T.accent,border:"none",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",padding:"4px 10px",borderRadius:6,fontFamily:"inherit",opacity:catSaving?0.5:1}}>Save</button>
+                        <button onClick={()=>setCatEdit(null)} style={{background:"none",border:"none",color:T.muted,fontSize:11,cursor:"pointer",padding:"4px 6px",fontFamily:"inherit"}}>Cancel</button>
+                      </>
+                    ):(
+                      <>
+                        <span style={{flex:1,fontSize:13,color:T.text}}>{loc}</span>
+                        <button disabled={catSaving} onClick={()=>{setCatEdit({type:"location",cat:loc});setCatEditVal(loc);}} style={{background:"none",border:"none",color:T.sub,fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>Rename</button>
+                        <button disabled={catSaving} onClick={async()=>{if(!window.confirm('Delete "'+loc+'"? It will be removed from all vendors and clients.'))return;await deleteLoc(loc);}} style={{background:"none",border:"none",color:"#c0392b",fontSize:11,fontWeight:600,cursor:"pointer",padding:"3px 8px",borderRadius:6,opacity:catSaving?0.4:1,fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#fff0f0"} onMouseOut={e=>e.currentTarget.style.background="none"}>Delete</button>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {DEFAULT_LOCATIONS.filter(l=>!hiddenBuiltinLocs.includes(l)).length===0&&customLocations.length===0&&(
+                  <div style={{fontSize:13,color:T.muted,padding:"12px 0",textAlign:"center"}}>No locations.</div>
+                )}
+              </div>
+              <button onClick={()=>{const val=window.prompt("New location name:");if(!val||!val.trim())return;const trimmed=val.trim();if([...DEFAULT_LOCATIONS,...customLocations].includes(trimmed))return;setCustomLocations(prev=>[...prev,trimmed]);}} style={{marginTop:12,background:"none",border:`1px solid ${T.border}`,borderRadius:8,color:T.sub,fontSize:12,fontWeight:600,cursor:"pointer",padding:"8px 16px",fontFamily:"inherit"}} onMouseOver={e=>e.currentTarget.style.background="#f0f0f5"} onMouseOut={e=>e.currentTarget.style.background="none"}>+ Add location</button>
+            </div>
           </div>
         )}
         {settingsSection==="sop"&&(
