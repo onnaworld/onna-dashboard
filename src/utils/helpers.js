@@ -402,7 +402,7 @@ export const flushAllSaves = () => {
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 export const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
 export const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
-export const BB_LOCATIONS = ["All","Dubai, UAE","London, UK","New York, US","Los Angeles, US"];
+export const DEFAULT_LOCATIONS = ["Dubai, UAE","London, UK","New York, USA","Los Angeles, USA"];
 export const OUTREACH_STATUSES = ["not_contacted","cold","warm","open","client"];
 export const OUTREACH_STATUS_LABELS = {not_contacted:"Not Contacted",cold:"Cold",warm:"Warm",open:"Open",client:"Client"};
 export const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -669,7 +669,7 @@ export const exportToPDF = (content, title) => {
   .sig2{margin-top:22px;border-top:1px solid #bbb;padding-top:5px;font-size:8pt;color:#888;}
   .note{margin-top:14px;padding:10px 13px;background:#f5f5f5;border-left:2px solid #bbb;font-size:9pt;color:#555;white-space:pre-line;}
   .ftr{margin-top:36px;padding-top:10px;border-top:1px solid #e0e0e0;font-size:7.5pt;color:#aaa;display:flex;justify-content:space-between;}
-  @media print{body{padding:15mm 12mm;}@page{margin:0;size:A4;}}
+  @media print{body{padding:10mm 12mm;}@page{margin:0;size:A4;}}
 </style>
 </head><body>
 <div class="hdr">
@@ -682,7 +682,8 @@ ${content}
 
   const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
   const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+  const prevTitle=document.title;document.title=title;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);
+  setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);
 };
 
 // ─── CALL SHEET PDF EXPORT ─────────────────────────────────────────────────
@@ -742,7 +743,8 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
 </div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Call Sheet</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){window.print();};<\/script></body></html>`;
+  const csTitle = `Call Sheet${cs.shootName?" | "+cs.shootName:""}`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:10mm 12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${csTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
   const w=window.open(url,"_blank");
@@ -750,7 +752,8 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   else{
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
     const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-    setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},1000);},300);
+    const prevTitle=document.title;document.title=csTitle;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);
+    setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();},300);
     URL.revokeObjectURL(url);
   }
 };
@@ -787,7 +790,8 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
 <div style="padding:8px 12px">${emergencyHTML}</div>
 <div style="margin-top:60px;display:flex;justify-content:space-between;font-size:9px;${LS}color:#000"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
 </div>`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Risk Assessment</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){window.print();};<\/script></body></html>`;
+  const raTitle = `Risk Assessment${ra.shootName?" | "+ra.shootName:""}`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${raTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:10mm 12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${raTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
   const w=window.open(url,"_blank");
@@ -795,7 +799,8 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
   else{
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
     const doc=iframe.contentDocument;doc.open();doc.write(html);doc.close();
-    setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>{try{document.body.removeChild(iframe);}catch{}},1000);},300);
+    const prevTitle=document.title;document.title=raTitle;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);
+    setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();},300);
     URL.revokeObjectURL(url);
   }
 };
@@ -860,7 +865,8 @@ ${tablesHTML}
 </body></html>`;
       const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
       const _doc=iframe.contentDocument;_doc.open();_doc.write(html);_doc.close();
-      setTimeout(()=>{_doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},300);
+      const prevTitle=document.title;document.title=title;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);
+      setTimeout(()=>{_doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);
     } catch(e) { console.error("Casting PDF export error:", e); }
   };
   logoImg.onerror = () => { console.error("Failed to load logo for casting PDF"); };

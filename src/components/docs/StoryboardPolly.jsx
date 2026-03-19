@@ -90,16 +90,16 @@ const StoryboardPolly = React.forwardRef(function StoryboardPollyInner({ initial
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Storyboard | ${project?.name||""}</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:10mm 12mm;}
 @media print{@page{size:landscape;margin:0}}
 ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
     idoc.close();
     idoc.body.appendChild(idoc.adoptNode(clone));
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 400);
+    setTimeout(() => { const _t=document.title;document.title=`Storyboard | ${project?.name||""}`; iframe.contentWindow.focus(); iframe.contentWindow.print(); window.addEventListener("afterprint",function _r(){document.title=_t;window.removeEventListener("afterprint",_r);},{ once:true }); setTimeout(()=>{document.title=_t;},5000); }, 400);
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;

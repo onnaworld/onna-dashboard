@@ -135,18 +135,18 @@ const LocationsConnie = React.forwardRef(function LocationsConnieInner({ initial
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${window.location.origin}/"><title>Locations | ${project?.name||""}</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 ${fontRules}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:12mm;padding-bottom:18mm}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:10mm 12mm;}
 @media print{@page{size:portrait;margin:0}}
 ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
     idoc.close();
     idoc.body.appendChild(idoc.adoptNode(clone));
     const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
-    Promise.all(_imgReady).then(()=>{setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);});
+    Promise.all(_imgReady).then(()=>{setTimeout(() => { const _t=document.title;document.title=`Locations | ${project?.name||""}`; iframe.contentWindow.focus(); iframe.contentWindow.print(); window.addEventListener("afterprint",function _r(){document.title=_t;window.removeEventListener("afterprint",_r);},{ once:true }); setTimeout(()=>{document.title=_t;},5000); }, 300);});
   };
   const exportPDF = () => {
     const el = printRef.current; if (!el) return;

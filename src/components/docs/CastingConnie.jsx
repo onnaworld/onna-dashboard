@@ -190,10 +190,10 @@ const CastingConnie = React.forwardRef(function CastingConnie({ initialProject, 
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Casting | ${project?.name||""}</title><style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:8mm 10mm;overflow:hidden}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:9px;color:#1a1a1a;padding:10mm 12mm;}
 #cast-wrap{transform-origin:top left}
 @media print{@page{size:landscape;margin:0}}
 ${PRINT_CLEANUP_CSS}
@@ -209,7 +209,7 @@ ${PRINT_CLEANUP_CSS}
       const scaleY = Math.min(1, pageH / contentH);
       const scale = Math.min(scaleX, scaleY);
       if (scale < 1) wrap.style.transform = `scale(${scale})`;
-      iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000);
+      const _t=document.title;document.title=`Casting | ${project?.name||""}`; iframe.contentWindow.focus(); iframe.contentWindow.print(); window.addEventListener("afterprint",function _r(){document.title=_t;window.removeEventListener("afterprint",_r);},{ once:true }); setTimeout(()=>{document.title=_t;},5000);
     }, 400);
   };
   const exportPDF = () => {

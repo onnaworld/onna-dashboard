@@ -534,10 +534,12 @@ export default function ProductionBrief({
     document.body.appendChild(iframe);
     const doc = iframe.contentDocument;
     doc.open();
-    doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>\u200B</title><style>*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{margin:0;padding:0;background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;line-height:1.6}ul,ol{margin:4px 0;padding-left:20px;list-style-position:outside}ul{list-style-type:disc}ol{list-style-type:decimal}li{margin:3px 0;display:list-item}div{display:block}p{margin:2px 0}[contenteditable] div,[contenteditable] p{margin:0;min-height:1.2em}@media print{@page{margin:12mm;size:portrait}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
+    const pbTitle = `Production Brief | ${p?.name||""}`;
+    doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pbTitle}</title><style>*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{margin:0;padding:10mm 12mm;background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;line-height:1.6}ul,ol{margin:4px 0;padding-left:20px;list-style-position:outside}ul{list-style-type:disc}ol{list-style-type:decimal}li{margin:3px 0;display:list-item}div{display:block}p{margin:2px 0}[contenteditable] div,[contenteditable] p{margin:0;min-height:1.2em}@media print{@page{margin:0;size:A4}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
     doc.close();
     doc.body.appendChild(doc.adoptNode(clone));
-    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 300);
+    const prevTitle=document.title;document.title=pbTitle;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 300);
   }, [brief]);
 
   if (!brief) return null;
