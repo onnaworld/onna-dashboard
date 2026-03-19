@@ -173,15 +173,10 @@ export default function Finance({
   useEffect(() => { try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(pnlProjectOverrides)); } catch {} debouncedGlobalSave("pnl_proj_overrides", pnlProjectOverrides); }, [pnlProjectOverrides]);
 
   /* ── Hydrate from Turso on mount, push localStorage → Turso if Turso is empty ── */
-  // Snapshot localStorage at mount to detect if user edits during hydration fetch
-  const lsSnapshotRef = useRef({
-    oh: localStorage.getItem("onna_pnl_overheads"),
-    ar: localStorage.getItem("onna_arap_data"),
-    tx: localStorage.getItem("onna_tax_data"),
-    po: localStorage.getItem("onna_pnl_proj_overrides"),
-  });
   useEffect(() => {
     let cancelled = false;
+    // Helper: only hydrate from Turso if localStorage has no data for this key
+    const lsEmpty = (key) => { try { const s = localStorage.getItem(key); return !s || s === "{}" || s === "[]" || s === "null"; } catch { return true; } };
     Promise.allSettled([
       globalApi.get("pnl_overheads"),
       globalApi.get("arap_data"),
@@ -191,10 +186,8 @@ export default function Finance({
       docApi.get("cashflows", "_global"),
     ]).then(([oh, ar, tx, yrs, po, cf]) => {
       if (cancelled) return;
-      // Helper: check if localStorage changed since mount (user edited during hydration)
-      const lsDirty = (key, snapKey) => localStorage.getItem(key) !== lsSnapshotRef.current[snapKey];
-      if (oh.status === "fulfilled" && oh.value && !lsDirty("onna_pnl_overheads", "oh")) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
-      else if (!oh.value && !lsDirty("onna_pnl_overheads", "oh")) {
+      if (oh.status === "fulfilled" && oh.value && lsEmpty("onna_pnl_overheads")) { setOverheads(oh.value); try { localStorage.setItem("onna_pnl_overheads", JSON.stringify(oh.value)); } catch {} }
+      else if (!oh.value && lsEmpty("onna_pnl_overheads")) {
         // Restore P&L overheads from PDF backup if Turso is empty and localStorage has only defaults
         const localOh = (() => { try { const s = localStorage.getItem("onna_pnl_overheads"); const p = s ? JSON.parse(s) : null; return p && p.some(o => o.amount || (o.subs && o.subs.length > 0 && o.subs.some(s => s.amount))) ? p : null; } catch { return null; } })();
         if (!localOh) {
@@ -237,10 +230,10 @@ export default function Finance({
           debouncedGlobalSave("pnl_overheads", restoredOh, 500);
         }
       }
-      if (ar.status === "fulfilled" && ar.value && !lsDirty("onna_arap_data", "ar")) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
-      if (tx.status === "fulfilled" && tx.value && !lsDirty("onna_tax_data", "tx")) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
+      if (ar.status === "fulfilled" && ar.value && lsEmpty("onna_arap_data")) { setArapData(ar.value); try { localStorage.setItem("onna_arap_data", JSON.stringify(ar.value)); } catch {} }
+      if (tx.status === "fulfilled" && tx.value && lsEmpty("onna_tax_data")) { setTaxData(tx.value); try { localStorage.setItem("onna_tax_data", JSON.stringify(tx.value)); } catch {} }
       if (yrs.status === "fulfilled" && yrs.value && Array.isArray(yrs.value)) { setAvailableYears(yrs.value); try { localStorage.setItem("onna_available_years", JSON.stringify(yrs.value)); } catch {} }
-      if (po.status === "fulfilled" && po.value && !lsDirty("onna_pnl_proj_overrides", "po")) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
+      if (po.status === "fulfilled" && po.value && lsEmpty("onna_pnl_proj_overrides")) { setPnlProjectOverrides(po.value); try { localStorage.setItem("onna_pnl_proj_overrides", JSON.stringify(po.value)); } catch {} }
       // Hydrate global cash flow from Turso (with fallback recovery from PDF backup)
       if (cf.status === "fulfilled" && cf.value) {
         setCashFlowStore(prev => {
@@ -1590,7 +1583,8 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       el.parentNode.replaceChild(span, el);
     });
     clone.querySelectorAll(".cf-del, button").forEach(el => el.remove());
-    const html = `<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{margin:0;padding:10mm 12mm;-webkit-font-smoothing:antialiased;font-family:${F}}@media print{@page{margin:0;size:A4 landscape;}}</style></head><body>${clone.innerHTML}</body></html>`;
+    const docTitle = data?.label || "Cash Flow";
+    const html = `<!DOCTYPE html><html><head><title>${docTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{margin:0;padding:10mm 12mm;-webkit-font-smoothing:antialiased;font-family:${F}}@media print{@page{margin:0;size:A4 landscape;}}</style></head><body>${clone.innerHTML}</body></html>`;
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.left = "-9999px";
@@ -1600,9 +1594,11 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
     document.body.appendChild(iframe);
     iframe.contentDocument.write(html);
     iframe.contentDocument.close();
+    const prevTitle = document.title; document.title = docTitle;
+    const restoreTitle = () => { document.title = prevTitle; document.body.removeChild(iframe); window.removeEventListener("afterprint", restoreTitle); };
+    window.addEventListener("afterprint", restoreTitle);
     setTimeout(() => {
       iframe.contentWindow.print();
-      setTimeout(() => document.body.removeChild(iframe), 1000);
     }, 400);
   };
 
