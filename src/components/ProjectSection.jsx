@@ -211,7 +211,7 @@ export default function ProjectSection({
         })}
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:28}}>
-        {[["Total Revenue",`AED ${totalIn.toLocaleString()}`,"income"],["Total Expenses",`AED ${totalOut.toLocaleString()}`,"outgoings"],["Net Profit",`AED ${profit.toLocaleString()}`,"revenue − expenses"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
+        {[[metricsMode==="finals"?"Invoiced":"Estimate Total",`AED ${totalIn.toLocaleString()}`,metricsMode==="finals"?"from invoices":"from estimate"],[metricsMode==="finals"?"Finals (Zoho)":"Actuals Total",`AED ${totalOut.toLocaleString()}`,metricsMode==="finals"?"reconciled costs":"tracked costs"],["Net Profit",`AED ${profit.toLocaleString()}`,metricsMode==="finals"?"invoiced − finals":"estimate − actuals"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
           <div key={l} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
             <div style={{fontSize:10,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8,fontWeight:500}}>{l}</div>
             <div style={{fontSize:24,fontWeight:700,color:T.text,letterSpacing:"-0.02em",marginBottom:3}}>{v}</div>

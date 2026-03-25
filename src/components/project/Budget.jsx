@@ -402,7 +402,7 @@ export default function Budget({
 
           {/* Summary cards row */}
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
-            <div style={{flex:1,padding:"8px 10px",borderRight:"1px solid #ddd",textAlign:"center"}}>
+            <div style={{flex:1,padding:"8px 10px",borderRight:"1px solid #ddd",textAlign:"center",opacity:metricsMode==="finals"?1:0.4,transition:"opacity .15s"}}>
               <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2,display:"flex",alignItems:"center",justifyContent:"center",gap:2}}>INVOICED {invoicedOverride===null&&<span style={{cursor:"pointer"}} title="Click to change advance %">(<input value={advPctEdit!==null?advPctEdit:advPct} onFocus={e=>{setAdvPctEdit(String(advPct));e.target.select();}} onChange={e=>setAdvPctEdit(e.target.value)} onBlur={()=>{const v=parseInt(advPctEdit);if(!isNaN(v)&&v>0&&v<=100)setAdvancePct(v);else if(advPctEdit==="")setAdvancePct(null);setAdvPctEdit(null);}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",border:"none",outline:"none",background:"transparent",width:20,textAlign:"center",padding:0}}/>%)</span>}</div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:2}}>
                 <input
@@ -426,13 +426,13 @@ export default function Budget({
               </div>
             </div>
             {[
-              ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a", "estimate"],
-              ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a", "actuals"],
-              ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals"],
-              ["VARIANCE", (actVariance>=0?"+":"") + estFmt(actVariance), actVariance>=0?"#147d50":"#c0392b", "variance"],
-            ].filter(([,,,colId]) => !colId || colVisible(colId)).map(([lbl,val,clr],i,arr)=>(
-              <div key={lbl} style={{flex:1,padding:"8px 10px",borderRight:i<arr.length-1?"1px solid #ddd":"none",textAlign:"center"}}>
-                <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>{lbl}</div>
+              ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a", "estimate", metricsMode==="budget"],
+              ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a", "actuals", metricsMode==="budget"],
+              ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals", metricsMode==="finals"],
+              ["VARIANCE", (actVariance>=0?"+":"") + estFmt(actVariance), actVariance>=0?"#147d50":"#c0392b", "variance", true],
+            ].filter(([,,,colId]) => !colId || colVisible(colId)).map(([lbl,val,clr,colId,isActive],i,arr)=>(
+              <div key={lbl} style={{flex:1,padding:"8px 10px",borderRight:i<arr.length-1?"1px solid #ddd":"none",textAlign:"center",opacity:isActive?1:0.4,transition:"opacity .15s"}}>
+                <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>{lbl}{colId==="variance"?` (${metricsMode==="finals"?"INV − FINALS":"EST − ACT"})`:""}</div>
                 <div style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:clr}}>{val}</div>
               </div>
             ))}
