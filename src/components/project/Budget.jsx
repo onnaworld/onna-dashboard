@@ -1,5 +1,5 @@
 import React, { Fragment, useState } from "react";
-import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
+import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsRowFinalsTotal, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
 
 export default function Budget({
@@ -553,6 +553,7 @@ export default function Budget({
                       if (pctMatch) estVal = estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                     }
                     const expTotal = actualsRowExpenseTotal(row);
+                    const finalsExpTotal = actualsRowFinalsTotal(row);
                     const zohoVal = estNum(row.zohoAmount);
                     const actVal = actualsRowEffective(row);
                     const rv = estVal - actVal;
@@ -572,8 +573,8 @@ export default function Budget({
                           <div data-col style={colStyle("qty",{width:35,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"center",letterSpacing:EST_LS,color:estNum(row.qty)>0?"#1a1a1a":"#ccc"})}>{row.qty}</div>
                           <div data-col style={colStyle("rate",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estNum(row.rate)>0?"#1a1a1a":"#ccc"})}>{estFmt(estNum(row.rate))}</div>
                           <div data-col style={colStyle("estimate",{width:80,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,color:estVal>0?"#1a1a1a":"#ccc"})}>{estFmt(estVal)}</div>
-                          <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={expTotal?String(expTotal):(row.actualsAmount||"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
-                          <div data-col style={colStyle("finals",{width:80,flexShrink:0})}><EstCell value={row.zohoAmount} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
+                          <div data-col style={colStyle("actuals",{width:80,flexShrink:0})}><EstCell value={estNum(row.actualsAmount)?row.actualsAmount:(expTotal?String(expTotal):"")} onChange={v2 => updateActRow(si, ri, "actualsAmount", v2)} align="right" /></div>
+                          <div data-col style={colStyle("finals",{width:80,flexShrink:0})}><EstCell value={estNum(row.zohoAmount)?row.zohoAmount:(finalsExpTotal?String(finalsExpTotal):"")} onChange={v2 => updateActRow(si, ri, "zohoAmount", v2)} align="right" /></div>
                           <div data-col style={colStyle("variance",{width:70,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS,fontWeight:600,color:rv>0?"#147d50":rv<0?"#c0392b":"#1a1a1a"})}>{(rv>=0?"+":"") + estFmt(rv)}</div>
                           <div data-col style={colStyle("status",{width:60,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"})}>
                             <span onClick={()=>{const idx=ACTUALS_STATUSES.indexOf(row.status);updateActRow(si,ri,"status",ACTUALS_STATUSES[(idx+1)%ACTUALS_STATUSES.length]);}} style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:0.5,padding:"2px 6px",borderRadius:3,cursor:"pointer",userSelect:"none",background:stBg[row.status]||"transparent",color:stColors[row.status]||"#ccc",textTransform:"uppercase"}}>{row.status||"\u2014"}</span>

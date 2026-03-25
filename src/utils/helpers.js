@@ -294,11 +294,13 @@ export const syncActualsWithEstimate = (existingActuals, estimateSections) => {
 };
 
 const r2 = (n) => Math.round(n * 100) / 100;
-export const actualsRowExpenseTotal = (row) => r2((row.expenses || []).reduce((s, e) => s + (estNum(e.amount) || estNum(e.finalsAmount)), 0));
-export const actualsRowEffective = (row) => { const expT = actualsRowExpenseTotal(row); if (expT) return expT; return estNum(row.actualsAmount) || 0; };
+export const actualsRowExpenseTotal = (row) => r2((row.expenses || []).reduce((s, e) => s + estNum(e.amount), 0));
+export const actualsRowEffective = (row) => { const manual = estNum(row.actualsAmount); if (manual) return manual; return actualsRowExpenseTotal(row); };
 export const actualsSectionExpenseTotal = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowExpenseTotal(r), 0));
 export const actualsSectionEffective = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowEffective(r), 0));
-export const actualsSectionZohoTotal = (sec) => r2(sec.rows.reduce((s, r) => s + estNum(r.zohoAmount), 0));
+export const actualsRowFinalsTotal = (row) => r2((row.expenses || []).reduce((s, e) => s + estNum(e.finalsAmount), 0));
+export const actualsRowFinalsEffective = (row) => { const manual = estNum(row.zohoAmount); if (manual) return manual; return actualsRowFinalsTotal(row); };
+export const actualsSectionZohoTotal = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowFinalsEffective(r), 0));
 export const actualsGrandExpenseTotal = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionExpenseTotal(sec), 0));
 export const actualsGrandEffective = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionEffective(sec), 0));
 export const actualsGrandZohoTotal = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionZohoTotal(sec), 0));
