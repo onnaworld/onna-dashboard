@@ -126,15 +126,25 @@ export default function ProjectSection({
   const entries    = projectEntries[p.id]||[];
   const quotes     = (projectFileStore[p.id]||{}).quotations||[];
   const allEntries = [...entries,...quotes.map((f,i)=>({id:`q_${i}`,supplier:f.name,category:"Quote",subCategory:"",invoiceNumber:"",receiptLink:"",datePaid:"",amount:"",direction:"out",notes:"Uploaded quote"}))];
-  // Revenue = 100% estimate total (full project value)
+  // Revenue & cost calculation — mode-aware (budget vs finals)
   const estVersions = projectEstimates[p.id] || [];
   const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
   const estTotals = latestEst ? estCalcTotals(latestEst.sections || defaultSections()) : { grandTotal: 0 };
-  // Expenses from actuals
   const actData = projectActuals[p.id];
   const actEffective = actData ? actualsGrandEffective(actData) : 0;
-  const totalIn    = estTotals.grandTotal;
-  const totalOut   = actEffective;
+  const actZoho = actData ? actualsGrandZohoTotal(actData) : 0;
+  const _meta = projectActuals[`_meta_${p.id}`] || {};
+  const metricsMode = _meta.metricsMode || (p.status === "Archived" ? "finals" : "budget");
+  // Budget mode: revenue from estimate, cost from actuals
+  // Finals mode: revenue from invoiced amount, cost from finals/zoho
+  const invoicedRev = (() => {
+    if (_meta.invoicedOverride != null) return _meta.invoicedOverride;
+    const pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
+    const pct = _meta.advancePct != null ? _meta.advancePct : (pctMatch ? parseInt(pctMatch[1]) : 100);
+    return estTotals.grandTotal * (pct / 100);
+  })();
+  const totalIn = metricsMode === "finals" ? invoicedRev : estTotals.grandTotal;
+  const totalOut = metricsMode === "finals" ? actZoho : actEffective;
   const profit     = totalIn - totalOut;
   const margin     = totalIn > 0 ? Math.round((profit / totalIn) * 100) : 0;
 

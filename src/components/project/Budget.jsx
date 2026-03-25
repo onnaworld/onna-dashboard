@@ -389,7 +389,16 @@ export default function Budget({
           <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
 
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:4}}>BUDGET TRACKER</div>
-          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
+          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:6}}>{p.client} &#8212; {p.name}</div>
+          {/* Metrics mode toggle */}
+          <div style={{display:"flex",justifyContent:"center",gap:0,marginBottom:16}} data-noprint>
+            {[["budget","Budget"],["finals","Finals"]].map(([mode,label])=>{
+              const metricsMode = _meta.metricsMode || (p.status==="Archived"?"finals":"budget");
+              const active = metricsMode===mode;
+              return <button key={mode} onClick={()=>_setMeta({metricsMode:mode})} style={{fontFamily:EST_F,fontSize:9,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",padding:"5px 16px",border:"1px solid #ccc",background:active?"#1a1a1a":"#fff",color:active?"#fff":"#888",cursor:"pointer",borderRadius:mode==="budget"?"4px 0 0 4px":"0 4px 4px 0",borderRight:mode==="budget"?"none":undefined}}>{label}</button>;
+            })}
+            <div style={{fontSize:9,color:"#aaa",marginLeft:8,alignSelf:"center",fontFamily:EST_F,letterSpacing:"0.04em"}}>{(_meta.metricsMode||(p.status==="Archived"?"finals":"budget"))==="finals"?"Revenue from invoiced, costs from finals":"Revenue from estimate, costs from actuals"}</div>
+          </div>
 
           {/* Summary cards row */}
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>

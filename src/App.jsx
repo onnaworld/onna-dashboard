@@ -975,9 +975,34 @@ function OnnaDashboardInner() {
     });
     return cache;
   },[allProjectsMerged,projectActuals]);
+  // Finals-mode caches: revenue = invoiced amount, cost = finals/zoho total
+  const finalsRevenueCache = useMemo(()=>{
+    const cache={};
+    allProjectsMerged.forEach(p=>{
+      const ests=projectEstimates?.[p.id];
+      const meta=projectActuals[`_meta_${p.id}`]||{};
+      if(ests&&ests.length>0){
+        const latest=ests[ests.length-1];const secs=latest.sections||defaultSections();
+        const gt=estCalcTotals(secs).grandTotal;
+        // Invoiced = override or auto-calc from advance %
+        if(meta.invoicedOverride!=null){cache[p.id]=meta.invoicedOverride;}
+        else{const pctMatch=(latest.ts?.payment||"").match(/(\d+)%/);const pct=meta.advancePct!=null?meta.advancePct:(pctMatch?parseInt(pctMatch[1]):100);cache[p.id]=gt*(pct/100);}
+      } else cache[p.id]=null;
+    });
+    return cache;
+  },[allProjectsMerged,projectEstimates,projectActuals]);
+  const finalsCostCache = useMemo(()=>{
+    const cache={};
+    allProjectsMerged.forEach(p=>{
+      const act=projectActuals[p.id];
+      cache[p.id]=act?actualsGrandZohoTotal(act):null;
+    });
+    return cache;
+  },[allProjectsMerged,projectActuals]);
   const getEstimateRevenue = (pid) => revenueCache[pid]??null;
-  const getProjRevenue = (p) => { const er = revenueCache[p.id]; return er !== null && er !== undefined ? er : p.revenue; };
-  const getProjCost = (p) => { const c = costCache[p.id]; return c !== null && c !== undefined ? c : p.cost; };
+  const getMetricsMode = (p) => { const meta=projectActuals[`_meta_${p.id}`]||{}; if(meta.metricsMode) return meta.metricsMode; return (p.status==="Archived")?"finals":"budget"; };
+  const getProjRevenue = (p) => { const mode=getMetricsMode(p); const cache=mode==="finals"?finalsRevenueCache:revenueCache; const er=cache[p.id]; return er!==null&&er!==undefined?er:p.revenue; };
+  const getProjCost = (p) => { const mode=getMetricsMode(p); const cache=mode==="finals"?finalsCostCache:costCache; const c=cache[p.id]; return c!==null&&c!==undefined?c:p.cost; };
   // projects2026, rev2026, profit2026, totalPipeline, newCount moved to Finance component
   const activeProjects= allProjectsMerged.filter(p=>p.status==="Active"&&p.client!=="TEMPLATE");
   const allNonTemplateProjects = allProjectsMerged.filter(p=>p.client!=="TEMPLATE");
