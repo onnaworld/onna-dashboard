@@ -1,6 +1,6 @@
 import React from "react";
 
-export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, showAddVendor, setShowAddVendor, newVendor, setNewVendor, api, setVendors, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allLocations, customLocations, setCustomLocations, showAlert }) {
+export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, showAddVendor, setShowAddVendor, newVendor, setNewVendor, api, setVendors, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allLocations, customLocations, setCustomLocations, showAlert }) {
   return (
     <div className="modal-bg" onClick={()=>setShowAddVendor(false)}>
       <div style={{borderRadius:isMobile?"20px 20px 0 0":20,padding:isMobile?"24px 20px":28,width:isMobile?"100%":520,maxWidth:isMobile?"100%":"92vw",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.15)",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
@@ -17,7 +17,7 @@ export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Loc
           ))}
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Category</div>
-            <Sel value={newVendor.category} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setNewVendor(p=>({...p,category:n}));}else setNewVendor(p=>({...p,category:v}));}} options={allVendorCats.filter(c=>c!=="All")} minWidth={200}/>
+            <CategoryPicker value={newVendor.category||""} onChange={v=>setNewVendor(p=>({...p,category:v}))} options={allVendorCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customVendorCats} setCustomCats={setCustomVendorCats} storageKey="onna_vendor_cats"/>
           </div>
           <div>
             <div style={{fontSize:10,color:T.muted,marginBottom:5,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500}}>Location</div>

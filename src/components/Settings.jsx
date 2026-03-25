@@ -34,7 +34,6 @@ export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSett
         {[
           {id:"deleted",label:"Deleted",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="3" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M1.5 4v5.5a1 1 0 001 1h7a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
           {id:"categories",label:"Manage Categories",icon:'<svg width="14" height="14" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 6h4M6 4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
-          {id:"locations",label:"Manage Locations",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4.8 1 3 2.8 3 5c0 3 4 7.5 4 7.5s4-4.5 4-7.5c0-2.2-1.8-4-4-4z" stroke="currentColor" strokeWidth="1.2"/><circle cx="7" cy="5" r="1.5" stroke="currentColor" strokeWidth="1.2"/></svg>'},
           {id:"sop",label:"SOPs",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2"/><path d="M5 4h4M5 7h4M5 10h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>'},
           {id:"export",label:"Data Export",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v8M4 7l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 11h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>'},
           {id:"security",label:"Security",icon:'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L2 3v4c0 3.3 2.1 5.3 5 6 2.9-.7 5-2.7 5-6V3L7 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M5 7l2 2 3-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>'},
@@ -94,7 +93,7 @@ export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSett
           <div>
             <div style={{marginBottom:22}}>
               <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Manage Categories</div>
-              <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete client and vendor categories</div>
+              <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete categories and locations</div>
             </div>
             {[
               {label:"Client Categories",type:"lead",builtin:LEAD_CATEGORIES.filter(c=>c!=="All"),custom:customLeadCats,hidden:hiddenLeadBuiltins},
@@ -144,14 +143,6 @@ export default function Settings({T,isMobile,P,setAuthed,settingsSection,setSett
                 </div>
               </div>
             ))}
-          </div>
-        )}
-        {settingsSection==="locations"&&(
-          <div>
-            <div style={{marginBottom:22}}>
-              <div style={{fontSize:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>Manage Locations</div>
-              <div style={{fontSize:12,color:T.muted,marginTop:2}}>Edit or delete locations used across the app</div>
-            </div>
             <div style={{marginBottom:28}}>
               <div style={{fontSize:10,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12,paddingBottom:7,borderBottom:`1px solid ${T.border}`}}>Locations</div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
