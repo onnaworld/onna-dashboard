@@ -294,7 +294,7 @@ export const syncActualsWithEstimate = (existingActuals, estimateSections) => {
 };
 
 const r2 = (n) => Math.round(n * 100) / 100;
-export const actualsRowExpenseTotal = (row) => r2((row.expenses || []).reduce((s, e) => s + estNum(e.amount), 0));
+export const actualsRowExpenseTotal = (row) => r2((row.expenses || []).reduce((s, e) => s + (estNum(e.amount) || estNum(e.finalsAmount)), 0));
 export const actualsRowEffective = (row) => { const expT = actualsRowExpenseTotal(row); if (expT) return expT; return estNum(row.actualsAmount) || 0; };
 export const actualsSectionExpenseTotal = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowExpenseTotal(r), 0));
 export const actualsSectionEffective = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowEffective(r), 0));
