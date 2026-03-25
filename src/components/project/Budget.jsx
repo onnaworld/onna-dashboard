@@ -101,9 +101,14 @@ export default function Budget({
     const actExpenseTotal = actualsGrandExpenseTotal(actSections);
     const actEffectiveTotal = actualsGrandEffective(actSections);
     const actZohoTotal = actualsGrandZohoTotal(actSections);
+    const metricsMode = _meta.metricsMode || (p.status==="Archived"?"finals":"budget");
+    // Invoiced amount (hoisted for variance calc)
+    const _pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
+    const _advPct = advancePct != null ? advancePct : (_pctMatch ? parseInt(_pctMatch[1]) : 75);
+    const _invoicedAmt = invoicedOverride !== null ? invoicedOverride : (estTotals.grandTotal * (_advPct / 100));
     const budgetUsedMode = _meta.budgetUsedMode || "actuals";
     const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actExpenseTotal;
-    const actVariance = estTotals.grandTotal - actEffectiveTotal;
+    const actVariance = metricsMode === "finals" ? (_invoicedAmt - actZohoTotal) : (estTotals.grandTotal - actEffectiveTotal);
     const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((budgetUsedBase / estTotals.grandTotal) * 1000) / 10 : 0;
 
     // Update a row in actuals
@@ -358,7 +363,11 @@ export default function Budget({
         {/* Tab bar */}
         <div style={{ display:"flex",borderBottom:"2px solid #000",position:"relative",zIndex:50 }}>
           {[{id:"summary",label:"SUMMARY"},{id:"detail",label:"ACTUALS TRACKER"}].map(t=><div key={t.id} onClick={()=>setTrackerTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:trackerTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:trackerTab===t.id?"#000":"#f5f5f5",color:trackerTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
-          <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
+          <div style={{ marginLeft:"auto",display:"flex",position:"relative",alignItems:"stretch" }}>
+            {[["budget","Budget"],["finals","Finals"]].map(([mode,label])=>{
+              const active = metricsMode===mode;
+              return <div key={mode} onClick={()=>_setMeta({metricsMode:mode})} style={{ fontFamily:EST_F,fontSize:9,fontWeight:active?700:400,letterSpacing:EST_LS,padding:"10px 14px",cursor:"pointer",whiteSpace:"nowrap",background:active?"#1a1a1a":"#f5f5f5",color:active?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderLeft:"1px solid #ddd",display:"flex",alignItems:"center" }}>{label}</div>;
+            })}
             <div onClick={e=>{e.stopPropagation();setShowColPicker(p=>!p);}} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showColPicker?"#333":"#f5f5f5",color:showColPicker?"#fff":"#666",textTransform:"uppercase",borderLeft:"1px solid #ddd",transition:"all .15s" }}
               onMouseEnter={e=>{if(!showColPicker){e.target.style.background="#e8e8e8";e.target.style.color="#333";}}} onMouseLeave={e=>{if(!showColPicker){e.target.style.background="#f5f5f5";e.target.style.color="#666";}}}>{Object.keys(hiddenCols).length>0?`COLUMNS (${ALL_COLS.length-Object.keys(hiddenCols).length}/${ALL_COLS.length})`:"COLUMNS ▾"}</div>
             <div onClick={doActPrint} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
@@ -389,16 +398,7 @@ export default function Budget({
           <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
 
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:4}}>BUDGET TRACKER</div>
-          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:6}}>{p.client} &#8212; {p.name}</div>
-          {/* Metrics mode toggle */}
-          <div style={{display:"flex",justifyContent:"center",gap:0,marginBottom:16}} data-noprint>
-            {[["budget","Budget"],["finals","Finals"]].map(([mode,label])=>{
-              const metricsMode = _meta.metricsMode || (p.status==="Archived"?"finals":"budget");
-              const active = metricsMode===mode;
-              return <button key={mode} onClick={()=>_setMeta({metricsMode:mode})} style={{fontFamily:EST_F,fontSize:9,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",padding:"5px 16px",border:"1px solid #ccc",background:active?"#1a1a1a":"#fff",color:active?"#fff":"#888",cursor:"pointer",borderRadius:mode==="budget"?"4px 0 0 4px":"0 4px 4px 0",borderRight:mode==="budget"?"none":undefined}}>{label}</button>;
-            })}
-            <div style={{fontSize:9,color:"#aaa",marginLeft:8,alignSelf:"center",fontFamily:EST_F,letterSpacing:"0.04em"}}>{(_meta.metricsMode||(p.status==="Archived"?"finals":"budget"))==="finals"?"Revenue from invoiced, costs from finals":"Revenue from estimate, costs from actuals"}</div>
-          </div>
+          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
 
           {/* Summary cards row */}
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>

@@ -204,6 +204,12 @@ export default function ProjectSection({
           </div>
         ))}
       </div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8,gap:0}}>
+        {[["budget","Budget"],["finals","Finals"]].map(([mode,label])=>{
+          const active = metricsMode===mode;
+          return <button key={mode} onClick={()=>setProjectActuals(prev=>({...prev,[`_meta_${p.id}`]:{...(prev[`_meta_${p.id}`]||{}),metricsMode:mode}}))} style={{fontSize:10,fontWeight:active?600:400,letterSpacing:"0.06em",textTransform:"uppercase",padding:"4px 14px",border:`1px solid ${T.border}`,background:active?T.text:"transparent",color:active?"#fff":T.muted,cursor:"pointer",borderRadius:mode==="budget"?"6px 0 0 6px":"0 6px 6px 0",borderRight:mode==="budget"?"none":undefined,fontFamily:"inherit"}}>{label}</button>;
+        })}
+      </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:28}}>
         {[["Total Revenue",`AED ${totalIn.toLocaleString()}`,"income"],["Total Expenses",`AED ${totalOut.toLocaleString()}`,"outgoings"],["Net Profit",`AED ${profit.toLocaleString()}`,"revenue − expenses"],["Margin",`${margin}%`,"net / revenue"]].map(([l,v,s])=>(
           <div key={l} style={{borderRadius:16,padding:"20px 22px",background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
