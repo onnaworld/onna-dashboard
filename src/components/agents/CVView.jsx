@@ -103,7 +103,7 @@ const InlineEdit = ({ value, onChange, style = {}, multiline }) => {
         fontFamily: F, fontSize: 10, letterSpacing: LS, border: "none", outline: "none",
         background: "transparent", width: "100%", padding: "2px 4px", boxSizing: "border-box",
         resize: multiline ? "vertical" : "none",
-        ...(multiline ? { minHeight: 60, lineHeight: 1.7 } : {}),
+        ...(multiline ? { minHeight: 40, lineHeight: 1.55 } : {}),
         ...style,
       }}
     />
@@ -207,13 +207,18 @@ export default function CVView({ cvData, onSet, projectName }) {
     const clone = el.cloneNode(true);
     clone.querySelectorAll("[data-noprint]").forEach(n => n.remove());
     clone.querySelectorAll("button").forEach(n => n.remove());
-    // Replace inputs/textareas with their text
+    // Hide select dropdowns in print
+    clone.querySelectorAll("select").forEach(n => n.remove());
+    // Replace inputs/textareas with styled spans
     clone.querySelectorAll("input, textarea").forEach(n => {
       const span = document.createElement("span");
       span.textContent = n.value;
-      span.style.cssText = n.style.cssText;
+      const cs = n.style.cssText;
+      span.style.cssText = cs;
       span.style.border = "none";
       span.style.background = "transparent";
+      span.style.display = "inline-block";
+      span.style.whiteSpace = n.tagName === "TEXTAREA" ? "pre-wrap" : "nowrap";
       n.replaceWith(span);
     });
     const docTitle = `CV - ${cv.name || "CV"}${projectName ? " | " + projectName : ""}`;
@@ -222,7 +227,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     document.body.appendChild(iframe);
     const _d = iframe.contentDocument;
     _d.open();
-    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:10mm 12mm;}@media print{@page{margin:0;size:A4;}.page-break{page-break-before:always}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:14mm 16mm;}@media print{@page{margin:14mm 16mm;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
     _d.close();
     clone.style.padding = "0";
     _d.body.appendChild(_d.adoptNode(clone));
@@ -239,19 +244,29 @@ export default function CVView({ cvData, onSet, projectName }) {
   const TABS = [{ id: "cv", label: "CV" }];
 
   const sectionHdr = (label) => (
-    <div style={{ marginTop: 28, marginBottom: 12 }}>
+    <div style={{ marginTop: 24, marginBottom: 10 }}>
       <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", marginBottom: 6 }}>{label}</div>
-      <div style={{ borderBottom: "1px dotted #ccc" }} />
+      <div style={{ borderBottom: "1px solid #ddd" }} />
     </div>
   );
 
   const levelBadge = (level) => {
-    const bg = level === "Expert" ? "#1a1a1a" : level === "Native" ? "#1a1a1a" : "#e8e8e8";
-    const color = level === "Expert" ? "#fff" : level === "Native" ? "#fff" : "#555";
+    const bg = (level === "Expert" || level === "Native") ? "#1a1a1a" : "#e8e8e8";
+    const color = (level === "Expert" || level === "Native") ? "#fff" : "#555";
     return (
-      <span style={{ fontFamily: F, fontSize: 8, fontWeight: 600, letterSpacing: LS, padding: "3px 10px", borderRadius: 3, background: bg, color, textTransform: "uppercase" }}>{level}</span>
+      <span style={{ fontFamily: F, fontSize: 8, fontWeight: 600, letterSpacing: LS, padding: "3px 10px", borderRadius: 3, background: bg, color, textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>{level}</span>
     );
   };
+
+  // Contact detail rows with clean black star markers
+  const contactRows = [
+    { label: "phone" },
+    { label: "email" },
+    { label: "linkedin" },
+    { label: "website" },
+    { label: "location" },
+    { label: "citizenship" },
+  ];
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a", minWidth: 700 }}>
@@ -277,27 +292,18 @@ export default function CVView({ cvData, onSet, projectName }) {
       {/* Content */}
       <div ref={printRef} style={{ padding: "40px 40px" }}>
         {/* Header */}
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
-            <div style={{ flex: "1 1 300px" }}>
-              <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 26, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.2, padding: "0 4px" }} />
-              <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 13, fontWeight: 400, color: "#666", letterSpacing: LS, marginTop: 2, padding: "2px 4px" }} />
-            </div>
-            <div style={{ flex: "0 0 auto", fontSize: 10, fontFamily: F, letterSpacing: LS, color: "#444", lineHeight: 2 }}>
-              {[
-                { icon: "\u260E", key: "phone" },
-                { icon: "\u2709", key: "email" },
-                { icon: "\uD83D\uDD17", key: "linkedin" },
-                { icon: "\u2197", key: "website" },
-                { icon: "\u25C9", key: "location" },
-                { icon: "\u2691", key: "citizenship" },
-              ].map(({ icon, key }) => (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 14, textAlign: "center", fontSize: 10, opacity: 0.5 }}>{icon}</span>
-                  <InlineEdit value={cv.contact?.[key]} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 10, color: "#444" }} />
-                </div>
-              ))}
-            </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 4 }}>
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 26, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.2, padding: "0 4px" }} />
+            <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 13, fontWeight: 400, color: "#666", letterSpacing: LS, marginTop: 2, padding: "2px 4px" }} />
+          </div>
+          <div style={{ flex: "0 0 260px", fontSize: 10, fontFamily: F, letterSpacing: LS, color: "#444" }}>
+            {contactRows.map(({ label }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                <span style={{ width: 10, fontSize: 7, color: "#1a1a1a", flexShrink: 0, textAlign: "center" }}>{"\u2605"}</span>
+                <InlineEdit value={cv.contact?.[label]} onChange={v => set(`contact.${label}`, v)} style={{ fontSize: 10, color: "#444" }} />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -307,33 +313,35 @@ export default function CVView({ cvData, onSet, projectName }) {
         {sectionHdr("SUMMARY")}
         <div style={{ marginBottom: 8 }}>
           {(cv.summary || []).map((para, i) => (
-            <div key={i} style={{ marginBottom: 8 }}>
-              <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 10, lineHeight: 1.75, color: "#333" }} />
+            <div key={i} style={{ marginBottom: 6 }}>
+              <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 10, lineHeight: 1.55, color: "#333" }} />
             </div>
           ))}
         </div>
         {cv.clients && (
           <div style={{ marginBottom: 4 }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#555", lineHeight: 1.7 }} />
+            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#555", lineHeight: 1.6 }} />
           </div>
         )}
 
         {/* Experience */}
         {sectionHdr("EXPERIENCE")}
         {(cv.experience || []).map((exp, ei) => (
-          <div key={ei} style={{ marginBottom: 20, position: "relative" }}>
+          <div key={ei} style={{ marginBottom: 16, position: "relative" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 1 }}>
-              <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
+              <div style={{ display: "flex", alignItems: "baseline", gap: 0, flex: 1, minWidth: 0 }}>
+                <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", width: "auto", flex: "0 1 auto" }} />
+                <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: "#1a1a1a", padding: "0 4px", flexShrink: 0 }}>|</span>
+                <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
+              </div>
               <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 10, color: "#888", textAlign: "right", width: 160, flexShrink: 0 }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, borderBottom: "1px solid #eee", paddingBottom: 4 }}>
-              <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 10, color: "#666" }} />
-            </div>
+            <div style={{ borderBottom: "1px solid #eee", marginBottom: 4, paddingBottom: 1 }} />
             <ul style={{ margin: 0, paddingLeft: 16, listStyle: "disc" }}>
               {(exp.bullets || []).map((b, bi) => (
-                <li key={bi} style={{ fontFamily: F, fontSize: 10, letterSpacing: LS, color: "#333", lineHeight: 1.75, marginBottom: 4, position: "relative" }}>
+                <li key={bi} style={{ fontFamily: F, fontSize: 10, letterSpacing: LS, color: "#333", lineHeight: 1.5, marginBottom: 2, position: "relative" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 10, lineHeight: 1.75, color: "#333", flex: 1 }} />
+                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 10, lineHeight: 1.5, color: "#333", flex: 1, minHeight: 20 }} />
                     <button data-noprint onClick={() => removeBullet(ei, bi)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                   </div>
                 </li>
@@ -350,11 +358,11 @@ export default function CVView({ cvData, onSet, projectName }) {
         {/* Education */}
         {sectionHdr("EDUCATION")}
         {(cv.education || []).map((edu, i) => (
-          <div key={i} style={{ marginBottom: 12, position: "relative" }}>
+          <div key={i} style={{ marginBottom: 10, position: "relative" }}>
             <InlineEdit value={edu.title} onChange={v => set(`education.${i}.title`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 10, color: "#666", flex: 1 }} />
-              <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 10, color: "#888", textAlign: "right", width: 200, flexShrink: 0 }} />
+              <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 10, color: "#888", textAlign: "right", width: 220, flexShrink: 0 }} />
               <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
             </div>
           </div>
@@ -363,38 +371,70 @@ export default function CVView({ cvData, onSet, projectName }) {
 
         {/* Skills */}
         {sectionHdr("SKILLS")}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", marginBottom: 8 }}>
-          {(cv.skills || []).map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: "1px solid #f5f5f5" }}>
-              <InlineEdit value={s.name} onChange={v => set(`skills.${i}.name`, v)} style={{ fontSize: 10, color: "#333", flex: 1 }} />
-              <select value={s.level} onChange={e => set(`skills.${i}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "3px 6px", background: "#fff", cursor: "pointer", outline: "none" }}>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Expert">Expert</option>
-              </select>
-              {levelBadge(s.level)}
-              <button data-noprint onClick={() => removeSkill(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
-            </div>
-          ))}
-        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8, tableLayout: "fixed" }}>
+          <tbody>
+            {Array.from({ length: Math.ceil((cv.skills || []).length / 2) }).map((_, row) => {
+              const left = (cv.skills || [])[row * 2];
+              const right = (cv.skills || [])[row * 2 + 1];
+              return (
+                <tr key={row}>
+                  {[left, right].map((s, col) => {
+                    const idx = row * 2 + col;
+                    if (!s) return <td key={col} style={{ padding: "5px 0" }} />;
+                    return (
+                      <td key={col} style={{ padding: "5px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: col === 0 ? 20 : 0 }}>
+                          <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 10, color: "#333", flex: 1 }} />
+                          <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "3px 6px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Expert">Expert</option>
+                          </select>
+                          {levelBadge(s.level)}
+                          <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>+ ADD SKILL</button>
 
         {/* Languages */}
         {sectionHdr("LANGUAGES")}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", marginBottom: 8 }}>
-          {(cv.languages || []).map((l, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderBottom: "1px solid #f5f5f5" }}>
-              <InlineEdit value={l.name} onChange={v => set(`languages.${i}.name`, v)} style={{ fontSize: 10, color: "#333", flex: 1 }} />
-              <select value={l.level} onChange={e => set(`languages.${i}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "3px 6px", background: "#fff", cursor: "pointer", outline: "none" }}>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Native">Native</option>
-              </select>
-              {levelBadge(l.level)}
-              <button data-noprint onClick={() => removeLanguage(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
-            </div>
-          ))}
-        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8, tableLayout: "fixed" }}>
+          <tbody>
+            {Array.from({ length: Math.ceil((cv.languages || []).length / 2) }).map((_, row) => {
+              const left = (cv.languages || [])[row * 2];
+              const right = (cv.languages || [])[row * 2 + 1];
+              return (
+                <tr key={row}>
+                  {[left, right].map((l, col) => {
+                    const idx = row * 2 + col;
+                    if (!l) return <td key={col} style={{ padding: "5px 0" }} />;
+                    return (
+                      <td key={col} style={{ padding: "5px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: col === 0 ? 20 : 0 }}>
+                          <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 10, color: "#333", flex: 1 }} />
+                          <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "3px 6px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Native">Native</option>
+                          </select>
+                          {levelBadge(l.level)}
+                          <button data-noprint onClick={() => removeLanguage(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         <button data-noprint onClick={addLanguage} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700 }}>+ ADD LANGUAGE</button>
       </div>
     </div>
