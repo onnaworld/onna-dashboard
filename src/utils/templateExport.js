@@ -126,6 +126,40 @@ export function genTravelItinerary(tiData) {
   ], filename: "ONNA Travel Itinerary.xlsx" };
 }
 
+export function genCV(cvData) {
+  const cv = cvData || {};
+  const contact = cv.contact || {};
+  const info = [
+    [cv.name || ""], [cv.title || ""], [],
+    ["Phone", contact.phone || ""], ["Email", contact.email || ""], ["LinkedIn", contact.linkedin || ""],
+    ["Website", contact.website || ""], ["Location", contact.location || ""], ["Citizenship", contact.citizenship || ""],
+    [], ["SUMMARY"],
+  ];
+  (cv.summary || []).forEach(p => info.push([p]));
+  if (cv.clients) { info.push([]); info.push([cv.clients]); }
+  info.push([], ["EXPERIENCE"]);
+  (cv.experience || []).forEach(exp => {
+    info.push([]);
+    info.push([exp.role || "", exp.dates || ""]);
+    info.push([exp.company || ""]);
+    (exp.bullets || []).forEach(b => info.push(["  \u2022 " + b]));
+  });
+  info.push([], ["EDUCATION"]);
+  (cv.education || []).forEach(edu => {
+    info.push([edu.title || ""]);
+    info.push([edu.institution || "", edu.result || ""]);
+  });
+  const skills = [["SKILL", "LEVEL"]];
+  (cv.skills || []).forEach(s => skills.push([s.name || "", s.level || ""]));
+  skills.push([]);
+  skills.push(["LANGUAGES"]);
+  (cv.languages || []).forEach(l => skills.push([l.name || "", l.level || ""]));
+  return { sheets: [
+    { name: "CV", data: info, cols: [{ wch: 60 }, { wch: 30 }] },
+    { name: "Skills & Languages", data: skills, cols: [{ wch: 35 }, { wch: 15 }] },
+  ], filename: "ONNA CV.xlsx" };
+}
+
 // ── Master list ──
 export const TEMPLATE_DOCS = [
   { key: "estimate", label: "Production Estimate", icon: "📋", desc: "Full estimate with all 18 sections", gen: "genEstimate" },
@@ -135,4 +169,5 @@ export const TEMPLATE_DOCS = [
   { key: "casting", label: "Casting Table", icon: "🎭", desc: "Talent roles, agencies & rates", gen: "genCastingTable" },
   { key: "locations", label: "Location Deck", icon: "📍", desc: "Location details & contacts", gen: "genLocationDeck" },
   { key: "travel", label: "Travel Itinerary", icon: "✈️", desc: "Flights, hotels & logistics", gen: "genTravelItinerary" },
+  { key: "cv", label: "CV", icon: "👤", desc: "Professional CV with experience & skills", gen: "genCV" },
 ];

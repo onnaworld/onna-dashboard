@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { defaultSections } from "../utils/helpers";
 import { ESTIMATE_INIT } from "./ui/DocHelpers";
 import EstimateView from "./agents/EstimateView";
-import { TEMPLATE_DOCS, downloadAoaXlsx, genEstimate, genBudgetTracker, genCallSheet, genRiskAssessment, genCastingTable, genLocationDeck, genTravelItinerary } from "../utils/templateExport";
+import CVView, { DEFAULT_CV } from "./agents/CVView";
+import { TEMPLATE_DOCS, downloadAoaXlsx, genEstimate, genBudgetTracker, genCallSheet, genRiskAssessment, genCastingTable, genLocationDeck, genTravelItinerary, genCV } from "../utils/templateExport";
 
 export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, setProjectEstimates, projectActuals, setProjectActuals, callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore, allProjects, showAlert }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
@@ -103,10 +104,13 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
     setTemplateDocData(prev => ({ ...prev, [key]: { data, savedAt: Date.now() } }));
   };
   const downloadDoc = (key) => {
-    // For estimate, generate aoa from current (possibly edited) data
     if (key === "estimate") {
       const data = getDocData(key);
       const gen = genEstimate(data);
+      downloadAoaXlsx(gen.sheets, gen.filename);
+    } else if (key === "cv") {
+      const data = getDocData(key);
+      const gen = genCV(data);
       downloadAoaXlsx(gen.sheets, gen.filename);
     } else {
       const gen = getAoaGen(key);
@@ -251,8 +255,25 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
             );
           })()}
 
+          {/* CV — render using CVView */}
+          {openDoc === "cv" && (() => {
+            const data = getDocData("cv");
+            return (
+              <CVView
+                key={resetKey}
+                cvData={data || DEFAULT_CV}
+                onSet={(updater) => {
+                  const current = getDocData("cv") || DEFAULT_CV;
+                  const next = typeof updater === "function" ? updater(current) : updater;
+                  saveDoc("cv", next);
+                }}
+                projectName="Template"
+              />
+            );
+          })()}
+
           {/* Other doc types — styled table view */}
-          {!["estimate", "budget"].includes(openDoc) && (() => {
+          {!["estimate", "budget", "cv"].includes(openDoc) && (() => {
             const gen = getAoaGen(openDoc);
             if (!gen) return <div style={{ padding: 40, textAlign: "center", color: T.muted }}>No template data available.</div>;
             return gen.sheets.map((sheet, si) => (
