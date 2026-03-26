@@ -1,85 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { defaultSections } from "../utils/helpers";
+import { ESTIMATE_INIT } from "./ui/DocHelpers";
+import EstimateView from "./agents/EstimateView";
 import { TEMPLATE_DOCS, downloadAoaXlsx, genEstimate, genBudgetTracker, genCallSheet, genRiskAssessment, genCastingTable, genLocationDeck, genTravelItinerary } from "../utils/templateExport";
-
-// ── Inline spreadsheet editor ──
-function SheetEditor({ sheets, onChange, T }) {
-  const [activeSheet, setActiveSheet] = useState(0);
-  const sheet = sheets[activeSheet];
-  if (!sheet) return null;
-  const data = sheet.data;
-
-  const updateCell = (ri, ci, val) => {
-    const next = sheets.map((s, si) => {
-      if (si !== activeSheet) return s;
-      const newData = s.data.map((row, r) => r === ri ? row.map((c, col) => col === ci ? val : c) : row);
-      return { ...s, data: newData };
-    });
-    onChange(next);
-  };
-
-  const addRow = () => {
-    const next = sheets.map((s, si) => {
-      if (si !== activeSheet) return s;
-      const cols = Math.max(...s.data.map(r => r.length), 1);
-      return { ...s, data: [...s.data, Array(cols).fill("")] };
-    });
-    onChange(next);
-  };
-
-  const deleteRow = (ri) => {
-    const next = sheets.map((s, si) => {
-      if (si !== activeSheet) return s;
-      return { ...s, data: s.data.filter((_, r) => r !== ri) };
-    });
-    onChange(next);
-  };
-
-  // Detect header rows (first row, or rows where first cell is a section number)
-  const isHeader = (row, ri) => ri === 0 || (row[0] && !String(row[0]).includes("A") && row.slice(2).every(c => !c || c === ""));
-
-  return (
-    <div>
-      {/* Sheet tabs */}
-      {sheets.length > 1 && (
-        <div style={{ display: "flex", gap: 0, marginBottom: 12, borderBottom: `1px solid ${T.border}` }}>
-          {sheets.map((s, i) => (
-            <button key={i} onClick={() => setActiveSheet(i)} style={{ padding: "7px 16px", fontSize: 12, fontWeight: activeSheet === i ? 600 : 400, color: activeSheet === i ? T.text : T.muted, background: "none", border: "none", borderBottom: activeSheet === i ? "2px solid #1d1d1f" : "2px solid transparent", marginBottom: -1, cursor: "pointer", fontFamily: "inherit" }}>{s.name}</button>
-          ))}
-        </div>
-      )}
-
-      {/* Table */}
-      <div style={{ overflowX: "auto", border: `1px solid ${T.border}`, borderRadius: 10, background: "#fff" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "inherit" }}>
-          <tbody>
-            {data.map((row, ri) => {
-              const hdr = isHeader(row, ri);
-              const empty = row.every(c => !c && c !== 0);
-              if (empty) return <tr key={ri}><td colSpan={row.length} style={{ height: 8, background: "#fafafa", borderBottom: `1px solid ${T.border}` }}></td><td style={{ width: 28, background: "#fafafa", borderBottom: `1px solid ${T.border}` }}></td></tr>;
-              return (
-                <tr key={ri} style={{ background: hdr ? "#f5f5f7" : "#fff" }}>
-                  {row.map((cell, ci) => (
-                    <td key={ci} style={{ borderBottom: `1px solid ${T.border}`, borderRight: `1px solid ${T.borderSub || "#f0f0f0"}`, padding: 0, minWidth: sheet.cols?.[ci]?.wch ? sheet.cols[ci].wch * 6 : 60 }}>
-                      <input
-                        value={cell ?? ""}
-                        onChange={e => updateCell(ri, ci, e.target.value)}
-                        style={{ width: "100%", border: "none", outline: "none", padding: "7px 8px", fontSize: 12, fontFamily: "inherit", background: "transparent", fontWeight: hdr ? 700 : 400, color: T.text, boxSizing: "border-box" }}
-                      />
-                    </td>
-                  ))}
-                  <td style={{ width: 28, borderBottom: `1px solid ${T.border}`, textAlign: "center", padding: 0 }}>
-                    {ri > 0 && <button onClick={() => deleteRow(ri)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 13, padding: "4px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = T.muted} title="Delete row">×</button>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <button onClick={addRow} style={{ marginTop: 8, background: "none", border: `1px dashed ${T.border}`, color: T.muted, padding: "6px 14px", borderRadius: 8, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 500 }}>+ Add Row</button>
-    </div>
-  );
-}
 
 export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, projectActuals, callSheetStore, riskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
@@ -89,12 +12,11 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const [notesErr, setNotesErr] = useState("");
   const notesFetchedRef = useRef(false);
   const [infoTab, setInfoTab] = useState("folder");
-  const [openDoc, setOpenDoc] = useState(null); // which template is open for editing
-  const [docSheets, setDocSheets] = useState(null); // current editing data
-  const [savedDocs, setSavedDocs] = useState(() => { try { return JSON.parse(localStorage.getItem("onna_template_docs") || "{}"); } catch { return {}; } });
+  const [openDoc, setOpenDoc] = useState(null);
 
-  // Persist saved docs
-  useEffect(() => { try { localStorage.setItem("onna_template_docs", JSON.stringify(savedDocs)); } catch {} }, [savedDocs]);
+  // Native document data for templates (stored in original format, not aoa)
+  const [templateDocData, setTemplateDocData] = useState(() => { try { return JSON.parse(localStorage.getItem("onna_template_doc_data") || "{}"); } catch { return {}; } });
+  useEffect(() => { try { localStorage.setItem("onna_template_doc_data", JSON.stringify(templateDocData)); } catch {} }, [templateDocData]);
 
   useEffect(() => {
     if (notesFetchedRef.current || notes.length > 0) return;
@@ -103,7 +25,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
     api.get("/api/notes").then(data => { if (Array.isArray(data) && data.length) setNotes(data); setNotesLoading(false); }).catch(() => setNotesLoading(false));
   }, []); // eslint-disable-line
 
-  // File upload helpers
+  // File helpers
   const fileInputRef = useRef(null);
   const handleFileUpload = async (fileList) => {
     const newEntries = [];
@@ -119,78 +41,95 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const getIcon = (type) => type?.includes("pdf") ? "📄" : type?.includes("image") ? "🖼" : type?.includes("word") || type?.includes("doc") ? "📝" : type?.includes("sheet") || type?.includes("excel") || type?.includes("csv") ? "📊" : "📎";
   const fmtSize = (bytes) => bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
 
-  // Generate fresh template data from the TEMPLATE project
+  // Template project ID
   const tplId = tplProject?.id;
-  const genFresh = useCallback((key) => {
+
+  // Get fresh native data from template project
+  const getFreshNative = useCallback((key) => {
+    switch (key) {
+      case "estimate": {
+        const ests = tplId ? projectEstimates?.[tplId] : null;
+        return ests?.length > 0 ? JSON.parse(JSON.stringify(ests[ests.length - 1])) : { ...ESTIMATE_INIT, sections: defaultSections() };
+      }
+      case "budget": {
+        const ests = tplId ? projectEstimates?.[tplId] : null;
+        const acts = tplId ? projectActuals?.[tplId] : null;
+        return { estimate: ests?.length > 0 ? JSON.parse(JSON.stringify(ests[ests.length - 1])) : null, actuals: acts ? JSON.parse(JSON.stringify(acts)) : null };
+      }
+      case "callsheet": {
+        const css = tplId ? callSheetStore?.[tplId] : null;
+        return css?.length > 0 ? JSON.parse(JSON.stringify(css[css.length - 1])) : null;
+      }
+      case "risk": {
+        const ras = tplId ? riskAssessmentStore?.[tplId] : null;
+        return ras?.length > 0 ? JSON.parse(JSON.stringify(ras[ras.length - 1])) : null;
+      }
+      case "casting": return tplId ? JSON.parse(JSON.stringify(castingTableStore?.[tplId] || [])) : [];
+      case "locations": return tplId ? JSON.parse(JSON.stringify(locDeckStore?.[tplId] || [])) : [];
+      case "travel": {
+        const tis = tplId ? travelItineraryStore?.[tplId] : null;
+        return tis?.length > 0 ? JSON.parse(JSON.stringify(tis[tis.length - 1])) : null;
+      }
+      default: return null;
+    }
+  }, [tplId, projectEstimates, projectActuals, callSheetStore, riskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore]);
+
+  // Get aoa generator for xlsx download
+  const getAoaGen = useCallback((key) => {
     switch (key) {
       case "estimate": { const ests = tplId ? projectEstimates?.[tplId] : null; return genEstimate(ests?.length > 0 ? ests[ests.length - 1] : null); }
       case "budget": { const ests = tplId ? projectEstimates?.[tplId] : null; const acts = tplId ? projectActuals?.[tplId] : null; return genBudgetTracker(ests?.length > 0 ? ests[ests.length - 1] : null, acts); }
       case "callsheet": { const css = tplId ? callSheetStore?.[tplId] : null; return genCallSheet(css?.length > 0 ? css[css.length - 1] : null); }
       case "risk": { const ras = tplId ? riskAssessmentStore?.[tplId] : null; return genRiskAssessment(ras?.length > 0 ? ras[ras.length - 1] : null); }
-      case "casting": { return genCastingTable(tplId ? castingTableStore?.[tplId] : null); }
-      case "locations": { return genLocationDeck(tplId ? locDeckStore?.[tplId] : null); }
+      case "casting": return genCastingTable(tplId ? castingTableStore?.[tplId] : null);
+      case "locations": return genLocationDeck(tplId ? locDeckStore?.[tplId] : null);
       case "travel": { const tis = tplId ? travelItineraryStore?.[tplId] : null; return genTravelItinerary(tis?.length > 0 ? tis[tis.length - 1] : null); }
       default: return null;
     }
   }, [tplId, projectEstimates, projectActuals, callSheetStore, riskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore]);
 
-  // Open a doc for viewing/editing
-  const openTemplate = (key) => {
-    if (savedDocs[key]) {
-      setDocSheets(savedDocs[key].sheets);
-    } else {
-      const gen = genFresh(key);
-      if (gen) setDocSheets(gen.sheets);
-    }
-    setOpenDoc(key);
-  };
+  // Get current doc data (saved or fresh)
+  const getDocData = (key) => templateDocData[key]?.data || getFreshNative(key);
 
+  const openTemplate = (key) => setOpenDoc(key);
   const resetToTemplate = (key) => {
     if (!confirm("Reset to original template? Your edits will be lost.")) return;
-    const gen = genFresh(key);
-    if (gen) {
-      setDocSheets(gen.sheets);
-      setSavedDocs(prev => { const n = { ...prev }; delete n[key]; return n; });
-    }
+    setTemplateDocData(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
-
-  const saveDoc = (key) => {
-    setSavedDocs(prev => ({ ...prev, [key]: { sheets: docSheets, savedAt: Date.now() } }));
+  const saveDoc = (key, data) => {
+    setTemplateDocData(prev => ({ ...prev, [key]: { data, savedAt: Date.now() } }));
   };
-
   const downloadDoc = (key) => {
-    const doc = TEMPLATE_DOCS.find(d => d.key === key);
-    const gen = genFresh(key);
-    downloadAoaXlsx(docSheets || gen?.sheets || [], gen?.filename || `ONNA ${doc?.label || "Template"}.xlsx`);
-  };
-
-  const saveToProjectFolder = async (key) => {
-    const { default: XLSX } = await import("xlsx");
-    const doc = TEMPLATE_DOCS.find(d => d.key === key);
-    const gen = genFresh(key);
-    const sheets = docSheets || gen?.sheets || [];
-    const wb = XLSX.utils.book_new();
-    sheets.forEach(({ name, data, cols }) => {
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      if (cols) ws["!cols"] = cols;
-      XLSX.utils.book_append_sheet(wb, ws, name);
-    });
-    const out = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
-    const filename = gen?.filename || `ONNA ${doc?.label || "Template"}.xlsx`;
-    const entry = {
-      id: Date.now() + Math.random(),
-      name: filename,
-      size: Math.round(out.length * 0.75),
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      data: `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${out}`,
-      createdAt: Date.now(),
-    };
-    setTemplateFiles(prev => [...prev, entry]);
-    alert(`Saved "${filename}" to Uploaded Documents.`);
+    // For estimate, generate aoa from current (possibly edited) data
+    if (key === "estimate") {
+      const data = getDocData(key);
+      const gen = genEstimate(data);
+      downloadAoaXlsx(gen.sheets, gen.filename);
+    } else {
+      const gen = getAoaGen(key);
+      if (gen) downloadAoaXlsx(gen.sheets, gen.filename);
+    }
   };
 
   const docMeta = openDoc ? TEMPLATE_DOCS.find(d => d.key === openDoc) : null;
-  const isSaved = openDoc && savedDocs[openDoc];
+  const isSaved = openDoc && templateDocData[openDoc];
+
+  // Toolbar for open doc
+  const DocToolbar = ({ docKey }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 24 }}>{docMeta?.icon}</span>
+        <div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: T.text }}>{docMeta?.label} Template</div>
+          <div style={{ fontSize: 11, color: T.muted }}>{isSaved ? `Saved ${new Date(templateDocData[docKey].savedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Template project"}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={() => resetToTemplate(docKey)} style={{ background: "#fff", border: `1px solid ${T.border}`, color: T.muted, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Reset to Template</button>
+        <button onClick={() => downloadDoc(docKey)} style={{ background: "#1d1d1f", border: "none", color: "#fff", padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Download .xlsx</button>
+      </div>
+    </div>
+  );
 
   return (
     <div>
@@ -205,33 +144,93 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       {!openDoc && (
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: `2px solid ${T.border}` }}>
           {[["folder", "Project Folder"], ["notes", "Notes"]].map(([key, label]) => (
-            <button key={key} onClick={() => setInfoTab(key)} style={{ padding: "10px 20px", fontSize: 13, fontWeight: infoTab === key ? 600 : 400, color: infoTab === key ? T.text : T.muted, background: "none", border: "none", borderBottom: infoTab === key ? "2px solid #1d1d1f" : "2px solid transparent", marginBottom: -2, cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em" }}>{label}</button>
+            <button key={key} onClick={() => setInfoTab(key)} style={{ padding: "10px 20px", fontSize: 13, fontWeight: infoTab === key ? 600 : 400, color: infoTab === key ? T.text : T.muted, background: "none", border: "none", borderBottom: infoTab === key ? "2px solid #1d1d1f" : "2px solid transparent", marginBottom: -2, cursor: "pointer", fontFamily: "inherit" }}>{label}</button>
           ))}
         </div>
       )}
 
-      {/* ── Template Doc Editor ── */}
+      {/* ── Template Doc View ── */}
       {openDoc && docMeta && (
         <div>
-          <button onClick={() => { setOpenDoc(null); setDocSheets(null); }} style={{ background: "none", border: "none", color: T.link || T.accent, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>&#8249; Back to Project Folder</button>
+          <button onClick={() => setOpenDoc(null)} style={{ background: "none", border: "none", color: T.link || T.accent, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>&#8249; Back to Project Folder</button>
+          <DocToolbar docKey={openDoc} />
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 24 }}>{docMeta.icon}</span>
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: T.text }}>{docMeta.label}</div>
-                <div style={{ fontSize: 11, color: T.muted }}>{isSaved ? `Saved ${new Date(savedDocs[openDoc].savedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : "Not saved — editing template"}</div>
+          {/* Estimate — render using actual EstimateView */}
+          {openDoc === "estimate" && (() => {
+            const data = getDocData("estimate");
+            return (
+              <EstimateView
+                estData={data || { ...ESTIMATE_INIT, sections: defaultSections() }}
+                onSet={(updater) => {
+                  const current = getDocData("estimate") || { ...ESTIMATE_INIT, sections: defaultSections() };
+                  const next = typeof updater === "function" ? updater(current) : updater;
+                  saveDoc("estimate", next);
+                }}
+                projectName="Template"
+              />
+            );
+          })()}
+
+          {/* Budget Tracker — render using actual EstimateView in estimates tab mode */}
+          {openDoc === "budget" && (() => {
+            const bd = getDocData("budget");
+            const estData = bd?.estimate || { ...ESTIMATE_INIT, sections: defaultSections() };
+            return (
+              <EstimateView
+                estData={estData}
+                onSet={(updater) => {
+                  const current = getDocData("budget");
+                  const curEst = current?.estimate || { ...ESTIMATE_INIT, sections: defaultSections() };
+                  const next = typeof updater === "function" ? updater(curEst) : updater;
+                  saveDoc("budget", { ...current, estimate: next });
+                }}
+                projectName="Template"
+              />
+            );
+          })()}
+
+          {/* Other doc types — styled table view */}
+          {!["estimate", "budget"].includes(openDoc) && (() => {
+            const gen = getAoaGen(openDoc);
+            if (!gen) return <div style={{ padding: 40, textAlign: "center", color: T.muted }}>No template data available.</div>;
+            return gen.sheets.map((sheet, si) => (
+              <div key={si} style={{ marginBottom: 24 }}>
+                {gen.sheets.length > 1 && <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{sheet.name}</div>}
+                <div style={{ overflowX: "auto", border: `1px solid ${T.border}`, borderRadius: 12, background: "#fff" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Avenir','Nunito Sans',sans-serif", fontSize: 11 }}>
+                    <tbody>
+                      {sheet.data.map((row, ri) => {
+                        const empty = row.every(c => !c && c !== 0);
+                        if (empty) return <tr key={ri}><td colSpan={999} style={{ height: 6, background: "#fafafa", borderBottom: `1px solid #eee` }}></td></tr>;
+                        const isHdr = ri === 0 || (row[0] && !String(row[0]).includes("A") && String(row[0]).length <= 3 && !row[0].toString().includes("."));
+                        const isSubtotal = row.some(c => String(c).includes("SUBTOTAL") || String(c).includes("GRAND TOTAL"));
+                        return (
+                          <tr key={ri} style={{ background: isHdr ? "#1a1a1a" : isSubtotal ? "#f5f5f5" : "#fff" }}>
+                            {row.map((cell, ci) => (
+                              <td key={ci} style={{
+                                padding: "8px 10px",
+                                borderBottom: `1px solid ${isHdr ? "#333" : "#eee"}`,
+                                fontSize: isHdr ? 9 : 11,
+                                fontWeight: isHdr || isSubtotal ? 700 : 400,
+                                color: isHdr ? "#fff" : T.text,
+                                letterSpacing: isHdr ? "0.08em" : "0.02em",
+                                textTransform: isHdr ? "uppercase" : "none",
+                                textAlign: (typeof cell === "number" || (ci >= 3 && !isHdr)) ? "right" : "left",
+                                whiteSpace: "nowrap",
+                                minWidth: sheet.cols?.[ci]?.wch ? sheet.cols[ci].wch * 5 : 40,
+                              }}>
+                                {typeof cell === "number" ? cell.toLocaleString() : cell}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={() => resetToTemplate(openDoc)} style={{ background: "#fff", border: `1px solid ${T.border}`, color: T.muted, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }} onMouseOver={e => { e.currentTarget.style.borderColor = "#c0392b"; e.currentTarget.style.color = "#c0392b"; }} onMouseOut={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.muted; }}>Reset to Template</button>
-              <button onClick={() => saveDoc(openDoc)} style={{ background: "#fff", border: `1px solid ${T.border}`, color: T.text, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
-              <button onClick={() => saveToProjectFolder(openDoc)} style={{ background: "#fff", border: `1px solid ${T.border}`, color: T.text, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Save to Uploads</button>
-              <button onClick={() => downloadDoc(openDoc)} style={{ background: "#1d1d1f", border: "none", color: "#fff", padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Download .xlsx</button>
-            </div>
-          </div>
-
-          {docSheets && <SheetEditor sheets={docSheets} onChange={setDocSheets} T={T} />}
+            ));
+          })()}
         </div>
       )}
 
@@ -240,14 +239,14 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
         <div>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 12 }}>Document Templates</div>
-            <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>Click to view & edit. Download as Excel or save to your uploads.</div>
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>Click to view & edit. Download as Excel or export to PDF.</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(280px,1fr))", gap: 10 }}>
               {TEMPLATE_DOCS.map(doc => (
-                <div key={doc.key} onClick={() => openTemplate(doc.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 14, background: T.surface, border: `1px solid ${savedDocs[doc.key] ? "#1976D2" : T.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", cursor: "pointer", transition: "border-color 0.15s" }} onMouseOver={e => { e.currentTarget.style.borderColor = "#1976D2"; }} onMouseOut={e => { e.currentTarget.style.borderColor = savedDocs[doc.key] ? "#1976D2" : T.border; }}>
+                <div key={doc.key} onClick={() => openTemplate(doc.key)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 14, background: T.surface, border: `1px solid ${templateDocData[doc.key] ? "#1976D2" : T.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", cursor: "pointer", transition: "border-color 0.15s" }} onMouseOver={e => { e.currentTarget.style.borderColor = "#1976D2"; }} onMouseOut={e => { e.currentTarget.style.borderColor = templateDocData[doc.key] ? "#1976D2" : T.border; }}>
                   <span style={{ fontSize: 22, flexShrink: 0 }}>{doc.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, color: T.text, fontWeight: 600 }}>{doc.label}</div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>{savedDocs[doc.key] ? `Edited · ${new Date(savedDocs[doc.key].savedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : doc.desc}</div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>{templateDocData[doc.key] ? `Edited · ${new Date(templateDocData[doc.key].savedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : doc.desc}</div>
                   </div>
                   <span style={{ color: T.muted, fontSize: 16, flexShrink: 0 }}>›</span>
                 </div>
@@ -257,13 +256,12 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
 
           <div>
             <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 12 }}>Uploaded Documents</div>
-            <label onDrop={e => { e.preventDefault(); handleFileUpload(e.dataTransfer.files); }} onDragOver={e => e.preventDefault()} style={{ display: "block", border: `1.5px dashed ${T.border}`, borderRadius: 14, padding: 28, textAlign: "center", cursor: "pointer", background: "#fafafa", transition: "border-color 0.15s", marginBottom: 14 }}>
+            <label onDrop={e => { e.preventDefault(); handleFileUpload(e.dataTransfer.files); }} onDragOver={e => e.preventDefault()} style={{ display: "block", border: `1.5px dashed ${T.border}`, borderRadius: 14, padding: 28, textAlign: "center", cursor: "pointer", background: "#fafafa", marginBottom: 14 }}>
               <div style={{ fontSize: 22, marginBottom: 6, opacity: 0.35 }}>⬆</div>
               <div style={{ fontSize: 12, color: T.sub, fontWeight: 500 }}>Upload additional documents</div>
               <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Drag & drop or click</div>
               <input ref={fileInputRef} type="file" multiple style={{ display: "none" }} onChange={e => { handleFileUpload(e.target.files); e.target.value = ""; }} />
             </label>
-
             {templateFiles.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {templateFiles.sort((a, b) => b.createdAt - a.createdAt).map(f => (
@@ -274,7 +272,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
                       <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{fmtSize(f.size)} · {new Date(f.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</div>
                     </div>
                     <button onClick={() => downloadFile(f)} style={{ background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>Download</button>
-                    <button onClick={() => deleteFile(f.id)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 17, padding: "0 4px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = T.muted} title="Delete">×</button>
+                    <button onClick={() => deleteFile(f.id)} style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 17, padding: "0 4px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = T.muted}>×</button>
                   </div>
                 ))}
               </div>
@@ -311,7 +309,6 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
               </div>
             </div>
           )}
-
           {notesLoading ? (
             <div style={{ textAlign: "center", padding: 60, color: T.muted, fontSize: 13 }}>Loading…</div>
           ) : notes.length === 0 ? (
