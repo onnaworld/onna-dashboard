@@ -153,6 +153,21 @@ export default function CVView({ cvData, onSet, projectName }) {
   const addLanguage = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
   const removeLanguage = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
 
+  // Move experience up/down
+  const moveExperience = (from, to) => {
+    if (to < 0 || to >= (cv.experience || []).length) return;
+    onSet(prev => {
+      const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
+      const [moved] = n.experience.splice(from, 1);
+      n.experience.splice(to, 0, moved);
+      return n;
+    });
+  };
+
+  // Drag state for experience reorder
+  const dragRef = useRef(null);
+  const [dropTarget, setDropTarget] = useState(null);
+
   // Build clean HTML for print
   const doPrint = () => {
     const c = cv;
@@ -377,9 +392,21 @@ export default function CVView({ cvData, onSet, projectName }) {
         {/* Experience */}
         {sectionHdr("EXPERIENCE")}
         {(cv.experience || []).map((exp, ei) => (
-          <div key={ei} style={{ marginBottom: 14 }}>
+          <div
+            key={ei}
+            draggable
+            onDragStart={() => { dragRef.current = ei; }}
+            onDragOver={e => { e.preventDefault(); setDropTarget(ei); }}
+            onDragLeave={() => setDropTarget(null)}
+            onDrop={e => { e.preventDefault(); if (dragRef.current !== null && dragRef.current !== ei) moveExperience(dragRef.current, ei); dragRef.current = null; setDropTarget(null); }}
+            onDragEnd={() => { dragRef.current = null; setDropTarget(null); }}
+            style={{ marginBottom: 14, borderTop: dropTarget === ei ? "2px solid #1976D2" : "2px solid transparent", transition: "border-color 0.1s" }}
+          >
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody><tr>
+                <td data-noprint style={{ padding: 0, width: 24, verticalAlign: "middle", cursor: "grab" }}>
+                  <span style={{ fontSize: 11, color: "#ccc", userSelect: "none" }}>{"\u2630"}</span>
+                </td>
                 <td style={{ padding: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a", lineHeight: LINE_H }}>
                   <span style={{ display: "inline-flex", alignItems: "baseline", gap: 0 }}>
                     <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
@@ -403,7 +430,9 @@ export default function CVView({ cvData, onSet, projectName }) {
                 </li>
               ))}
             </ul>
-            <div data-noprint style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <div data-noprint style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+              <button onClick={() => moveExperience(ei, ei - 1)} disabled={ei === 0} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: ei === 0 ? "default" : "pointer", color: ei === 0 ? "#ddd" : "#888", opacity: ei === 0 ? 0.5 : 1 }}>{"\u2191"} MOVE UP</button>
+              <button onClick={() => moveExperience(ei, ei + 1)} disabled={ei === (cv.experience || []).length - 1} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: ei === (cv.experience || []).length - 1 ? "default" : "pointer", color: ei === (cv.experience || []).length - 1 ? "#ddd" : "#888", opacity: ei === (cv.experience || []).length - 1 ? 0.5 : 1 }}>{"\u2193"} MOVE DOWN</button>
               <button onClick={() => addBullet(ei)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: "pointer", color: "#888" }}>+ BULLET</button>
               <button onClick={() => removeExperience(ei)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#fff5f5", border: "1px solid #fdd", borderRadius: 3, padding: "3px 8px", cursor: "pointer", color: "#c0392b" }}>REMOVE ROLE</button>
             </div>
