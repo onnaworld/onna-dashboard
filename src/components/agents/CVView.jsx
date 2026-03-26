@@ -197,20 +197,21 @@ export default function CVView({ cvData, onSet, projectName }) {
     html += `<div style="font-size:14px;color:#555;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
     html += `</div>`;
 
-    // Contact — horizontal, centred under name, with links
+    // Contact — centred, horizontal with links
+    const dot = ' <span style="color:#ccc;padding:0 6px;">\u2022</span> ';
     const contactParts = [];
     if (ct.phone) contactParts.push(esc(ct.phone));
     if (ct.email) contactParts.push(`<a href="mailto:${esc(ct.email)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.email)}</a>`);
-    if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.linkedin)}</a>`); }
-    if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.website)}</a>`); }
+    if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;font-weight:700;">${esc(ct.linkedin)}</a>`); }
+    if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;font-weight:700;">${esc(ct.website)}</a>`); }
     if (contactParts.length > 0) {
-      html += `<div style="font-size:10.5px;color:#444;line-height:${LINE_H};margin-bottom:3px;">${contactParts.join(' <span style="color:#ccc;padding:0 6px;">\u2022</span> ')}</div>`;
+      html += `<div style="font-size:10.5px;color:#444;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${contactParts.join(dot)}</div>`;
     }
     const locationParts = [];
     if (ct.location) locationParts.push(esc(ct.location));
     if (ct.citizenship) locationParts.push(esc(ct.citizenship));
     if (locationParts.length > 0) {
-      html += `<div style="font-size:10.5px;color:#666;line-height:${LINE_H};margin-bottom:3px;">${locationParts.join(' <span style="color:#ccc;padding:0 6px;">\u2022</span> ')}</div>`;
+      html += `<div style="font-size:10.5px;color:#666;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${locationParts.join(dot)}</div>`;
     }
 
     // Thick rule
@@ -219,7 +220,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     // Summary
     html += secHdr("SUMMARY");
     (c.summary || []).forEach(p => { html += `<div style="${S}margin-bottom:6px;">${esc(p)}</div>`; });
-    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#444;line-height:${LINE_H};margin-top:4px;">${esc(c.clients)}</div>`;
+    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#444;line-height:${LINE_H};margin-top:4px;text-align:center;">${esc(c.clients)}</div>`;
 
     // Experience
     html += secHdr("EXPERIENCE");
@@ -358,32 +359,29 @@ export default function CVView({ cvData, onSet, projectName }) {
           <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
         </div>
 
-        {/* Contact — horizontal with dot separators */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0, marginBottom: 3, lineHeight: LINE_H }}>
+        {/* Contact — centred, horizontal with dot separators */}
+        <div style={{ textAlign: "center", marginBottom: 3, lineHeight: LINE_H }}>
           {["phone", "email", "linkedin", "website"].map((key, i) => {
             const val = cv.contact?.[key];
             if (!val) return null;
             const href = makeHref(key, val);
+            const isBold = key === "linkedin" || key === "website";
             return (
-              <span key={key} style={{ display: "inline-flex", alignItems: "center" }}>
+              <span key={key} style={{ display: "inline", verticalAlign: "baseline" }}>
                 {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
-                {href ? (
-                  <a href={href} target={key === "email" ? undefined : "_blank"} rel="noopener noreferrer" style={{ fontFamily: F, fontSize: 11, color: "#1a1a1a", textDecoration: "none", borderBottom: "1px solid #ddd" }}>{val}</a>
-                ) : (
-                  <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#444", width: "auto" }} />
-                )}
+                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", display: "inline", fontWeight: isBold ? 700 : 400 }} />
               </span>
             );
           })}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0, marginBottom: 3, lineHeight: LINE_H }}>
+        <div style={{ textAlign: "center", marginBottom: 3, lineHeight: LINE_H }}>
           {["location", "citizenship"].map((key, i) => {
             const val = cv.contact?.[key];
             if (!val) return null;
             return (
-              <span key={key} style={{ display: "inline-flex", alignItems: "center" }}>
+              <span key={key} style={{ display: "inline", verticalAlign: "baseline" }}>
                 {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
-                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#666", width: "auto" }} />
+                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#666", width: "auto", display: "inline" }} />
               </span>
             );
           })}
@@ -399,8 +397,8 @@ export default function CVView({ cvData, onSet, projectName }) {
           </div>
         ))}
         {cv.clients && (
-          <div style={{ marginTop: 4 }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: LINE_H }} />
+          <div style={{ marginTop: 4, textAlign: "center" }}>
+            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: LINE_H, textAlign: "center" }} />
           </div>
         )}
 
