@@ -4,6 +4,7 @@ import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.3;
 const LS_HDR = 1.2;
+const LINE_H = 1.55;
 
 const DEFAULT_CV = {
   name: "EMILY LUCAS",
@@ -11,7 +12,7 @@ const DEFAULT_CV = {
   contact: {
     phone: "+44 7766546348",
     email: "emily@onnaproduction.com",
-    linkedin: "LinkedIn",
+    linkedin: "linkedin.com/in/emilylucas",
     website: "onna.world",
     location: "Tokyo, Japan - from March 2026",
     citizenship: "US, UK, Japanese Citizen",
@@ -100,10 +101,11 @@ const InlineEdit = ({ value, onChange, style = {}, multiline }) => {
       value={value || ""}
       onChange={e => onChange(e.target.value)}
       style={{
-        fontFamily: F, fontSize: 12, letterSpacing: LS, border: "none", outline: "none",
+        fontFamily: F, fontSize: 11, letterSpacing: LS, border: "none", outline: "none",
         background: "transparent", width: "100%", padding: "1px 2px", boxSizing: "border-box",
+        lineHeight: LINE_H,
         resize: multiline ? "vertical" : "none",
-        ...(multiline ? { minHeight: 36, lineHeight: 1.5 } : {}),
+        ...(multiline ? { minHeight: 36 } : {}),
         ...style,
       }}
     />
@@ -111,6 +113,15 @@ const InlineEdit = ({ value, onChange, style = {}, multiline }) => {
 };
 
 export { DEFAULT_CV };
+
+// Helpers to make a URL from contact value
+const makeHref = (key, val) => {
+  if (!val) return null;
+  if (key === "email") return `mailto:${val}`;
+  if (key === "website") return val.startsWith("http") ? val : `https://${val}`;
+  if (key === "linkedin") return val.startsWith("http") ? val : `https://${val}`;
+  return null;
+};
 
 export default function CVView({ cvData, onSet, projectName }) {
   const cv = cvData || DEFAULT_CV;
@@ -142,46 +153,56 @@ export default function CVView({ cvData, onSet, projectName }) {
   const addLanguage = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
   const removeLanguage = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
 
-  // Build a clean HTML string for print — no inputs, no flex ambiguity
+  // Build clean HTML for print
   const doPrint = () => {
     const c = cv;
-    const contact = c.contact || {};
-    const contactLines = [contact.phone, contact.email, contact.linkedin, contact.website, contact.location, contact.citizenship].filter(Boolean);
+    const ct = c.contact || {};
+    const S = `font-size:11px;line-height:${LINE_H};color:#333;`;
 
-    let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11.5px;line-height:1.5;">`;
+    let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11px;line-height:${LINE_H};">`;
 
-    // Header — table layout for guaranteed two-column
-    html += `<table style="width:100%;border-collapse:collapse;margin-bottom:6px;"><tr>`;
-    html += `<td style="vertical-align:top;padding:0;">`;
-    html += `<div style="font-size:28px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;line-height:1.15;">${esc(c.name)}</div>`;
-    html += `<div style="font-size:14px;color:#555;letter-spacing:0.3px;margin-top:3px;">${esc(c.title)}</div>`;
-    html += `</td>`;
-    html += `<td style="vertical-align:top;text-align:right;padding:0;white-space:nowrap;">`;
-    contactLines.forEach(line => {
-      html += `<div style="font-size:11px;color:#444;line-height:1.7;">${esc(line)}</div>`;
-    });
-    html += `</td></tr></table>`;
+    // Header — name + title
+    html += `<div style="margin-bottom:10px;">`;
+    html += `<div style="font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;">${esc(c.name)}</div>`;
+    html += `<div style="font-size:14px;color:#555;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
+    html += `</div>`;
+
+    // Contact — horizontal, centred under name, with links
+    const contactParts = [];
+    if (ct.phone) contactParts.push(esc(ct.phone));
+    if (ct.email) contactParts.push(`<a href="mailto:${esc(ct.email)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.email)}</a>`);
+    if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.linkedin)}</a>`); }
+    if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.website)}</a>`); }
+    if (contactParts.length > 0) {
+      html += `<div style="font-size:10.5px;color:#444;line-height:${LINE_H};margin-bottom:3px;">${contactParts.join(' <span style="color:#ccc;padding:0 6px;">\u2022</span> ')}</div>`;
+    }
+    const locationParts = [];
+    if (ct.location) locationParts.push(esc(ct.location));
+    if (ct.citizenship) locationParts.push(esc(ct.citizenship));
+    if (locationParts.length > 0) {
+      html += `<div style="font-size:10.5px;color:#666;line-height:${LINE_H};margin-bottom:3px;">${locationParts.join(' <span style="color:#ccc;padding:0 6px;">\u2022</span> ')}</div>`;
+    }
 
     // Thick rule
-    html += `<div style="border-bottom:2.5px solid #000;margin-bottom:4px;"></div>`;
+    html += `<div style="border-bottom:2.5px solid #000;margin:8px 0 4px 0;"></div>`;
 
     // Summary
     html += secHdr("SUMMARY");
-    (c.summary || []).forEach(p => { html += `<div style="font-size:11px;color:#333;line-height:1.6;margin-bottom:5px;">${esc(p)}</div>`; });
-    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#444;line-height:1.6;margin-top:4px;margin-bottom:2px;">${esc(c.clients)}</div>`;
+    (c.summary || []).forEach(p => { html += `<div style="${S}margin-bottom:6px;">${esc(p)}</div>`; });
+    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#444;line-height:${LINE_H};margin-top:4px;">${esc(c.clients)}</div>`;
 
     // Experience
     html += secHdr("EXPERIENCE");
     (c.experience || []).forEach(exp => {
-      html += `<div style="margin-bottom:12px;">`;
+      html += `<div style="margin-bottom:14px;">`;
       html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-      html += `<td style="padding:0;font-size:12px;font-weight:700;color:#1a1a1a;"><span style="text-transform:uppercase;">${esc(exp.company)}</span> <span style="font-weight:400;color:#999;">|</span> ${esc(exp.role)}</td>`;
-      html += `<td style="padding:0;font-size:11px;color:#888;text-align:right;white-space:nowrap;">${esc(exp.dates)}</td>`;
+      html += `<td style="padding:0;font-size:12px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};">${esc(exp.company)} <span style="font-weight:400;color:#bbb;padding:0 3px;">|</span> ${esc(exp.role)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#888;text-align:right;white-space:nowrap;line-height:${LINE_H};">${esc(exp.dates)}</td>`;
       html += `</tr></table>`;
-      html += `<div style="border-bottom:1px solid #eee;margin-bottom:4px;"></div>`;
+      html += `<div style="border-bottom:1px solid #eee;margin:2px 0 5px 0;"></div>`;
       html += `<ul style="margin:0;padding-left:18px;list-style:disc;">`;
       (exp.bullets || []).forEach(b => {
-        html += `<li style="font-size:11px;color:#333;line-height:1.5;margin-bottom:1px;">${esc(b)}</li>`;
+        html += `<li style="${S}margin-bottom:2px;">${esc(b)}</li>`;
       });
       html += `</ul></div>`;
     });
@@ -190,10 +211,10 @@ export default function CVView({ cvData, onSet, projectName }) {
     html += secHdr("EDUCATION");
     (c.education || []).forEach(edu => {
       html += `<div style="margin-bottom:8px;">`;
-      html += `<div style="font-size:12px;font-weight:700;color:#1a1a1a;">${esc(edu.title)}</div>`;
+      html += `<div style="font-size:12px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};">${esc(edu.title)}</div>`;
       html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-      html += `<td style="padding:0;font-size:11px;color:#555;">${esc(edu.institution)}</td>`;
-      html += `<td style="padding:0;font-size:11px;color:#777;text-align:right;">${esc(edu.result)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#555;line-height:${LINE_H};">${esc(edu.institution)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#777;text-align:right;line-height:${LINE_H};">${esc(edu.result)}</td>`;
       html += `</tr></table></div>`;
     });
 
@@ -205,10 +226,10 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `<tr>`;
       for (let col = 0; col < 2; col++) {
         const s = (c.skills || [])[r * 2 + col];
-        if (!s) { html += `<td style="padding:4px 0;"></td>`; continue; }
-        html += `<td style="padding:4px ${col === 0 ? '12px' : '0'} 4px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
+        if (!s) { html += `<td style="padding:5px 0;"></td>`; continue; }
+        html += `<td style="padding:5px ${col === 0 ? '12px' : '0'} 5px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
         html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-        html += `<td style="padding:0;font-size:11px;color:#333;">${esc(s.name)}</td>`;
+        html += `<td style="padding:0;font-size:11px;color:#333;line-height:${LINE_H};">${esc(s.name)}</td>`;
         html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(s.level)}</td>`;
         html += `</tr></table></td>`;
       }
@@ -224,10 +245,10 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `<tr>`;
       for (let col = 0; col < 2; col++) {
         const l = (c.languages || [])[r * 2 + col];
-        if (!l) { html += `<td style="padding:4px 0;"></td>`; continue; }
-        html += `<td style="padding:4px ${col === 0 ? '12px' : '0'} 4px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
+        if (!l) { html += `<td style="padding:5px 0;"></td>`; continue; }
+        html += `<td style="padding:5px ${col === 0 ? '12px' : '0'} 5px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
         html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-        html += `<td style="padding:0;font-size:11px;color:#333;">${esc(l.name)}</td>`;
+        html += `<td style="padding:0;font-size:11px;color:#333;line-height:${LINE_H};">${esc(l.name)}</td>`;
         html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(l.level)}</td>`;
         html += `</tr></table></td>`;
       }
@@ -243,7 +264,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     document.body.appendChild(iframe);
     const _d = iframe.contentDocument;
     _d.open();
-    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11.5px;color:#1a1a1a;padding:0;}@media print{@page{margin:18mm 20mm;size:A4;}}</style></head><body>${html}</body></html>`);
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11px;color:#1a1a1a;padding:0;}a{color:#1a1a1a;text-decoration:none;}@media print{@page{margin:18mm 20mm;size:A4;}}</style></head><body>${html}</body></html>`);
     _d.close();
     const prevTitle = document.title;
     document.title = docTitle;
@@ -255,8 +276,8 @@ export default function CVView({ cvData, onSet, projectName }) {
   const TABS = [{ id: "cv", label: "CV" }];
 
   const sectionHdr = (label) => (
-    <div style={{ marginTop: 22, marginBottom: 10 }}>
-      <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", marginBottom: 5 }}>{label}</div>
+    <div style={{ marginTop: 20, marginBottom: 8 }}>
+      <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", lineHeight: LINE_H, marginBottom: 5 }}>{label}</div>
       <div style={{ borderBottom: "1px solid #ccc" }} />
     </div>
   );
@@ -298,38 +319,58 @@ export default function CVView({ cvData, onSet, projectName }) {
         </div>
       </div>
 
-      {/* ── Live editor view ── */}
+      {/* ── Live editor ── */}
       <div ref={printRef} style={{ padding: "36px 36px" }}>
 
         {/* Header */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6 }}>
-          <tbody><tr>
-            <td style={{ verticalAlign: "top", padding: 0 }}>
-              <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
-              <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
-            </td>
-            <td style={{ verticalAlign: "top", textAlign: "right", padding: 0, whiteSpace: "nowrap" }}>
-              {contactFields.map(key => (
-                <div key={key} style={{ marginBottom: 1 }}>
-                  <InlineEdit value={cv.contact?.[key]} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#444", textAlign: "right" }} />
-                </div>
-              ))}
-            </td>
-          </tr></tbody>
-        </table>
+        <div style={{ marginBottom: 10 }}>
+          <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
+          <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
+        </div>
 
-        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 2 }} />
+        {/* Contact — horizontal with dot separators */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0, marginBottom: 3, lineHeight: LINE_H }}>
+          {["phone", "email", "linkedin", "website"].map((key, i) => {
+            const val = cv.contact?.[key];
+            if (!val) return null;
+            const href = makeHref(key, val);
+            return (
+              <span key={key} style={{ display: "inline-flex", alignItems: "center" }}>
+                {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
+                {href ? (
+                  <a href={href} target={key === "email" ? undefined : "_blank"} rel="noopener noreferrer" style={{ fontFamily: F, fontSize: 11, color: "#1a1a1a", textDecoration: "none", borderBottom: "1px solid #ddd" }}>{val}</a>
+                ) : (
+                  <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#444", width: "auto" }} />
+                )}
+              </span>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0, marginBottom: 3, lineHeight: LINE_H }}>
+          {["location", "citizenship"].map((key, i) => {
+            const val = cv.contact?.[key];
+            if (!val) return null;
+            return (
+              <span key={key} style={{ display: "inline-flex", alignItems: "center" }}>
+                {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
+                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#666", width: "auto" }} />
+              </span>
+            );
+          })}
+        </div>
+
+        <div style={{ borderBottom: "2.5px solid #000", margin: "8px 0 2px 0" }} />
 
         {/* Summary */}
         {sectionHdr("SUMMARY")}
         {(cv.summary || []).map((para, i) => (
-          <div key={i} style={{ marginBottom: 5 }}>
-            <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: 1.55, color: "#333" }} />
+          <div key={i} style={{ marginBottom: 6 }}>
+            <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#333" }} />
           </div>
         ))}
         {cv.clients && (
-          <div style={{ marginTop: 4, marginBottom: 2 }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: 1.6 }} />
+          <div style={{ marginTop: 4 }}>
+            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: LINE_H }} />
           </div>
         )}
 
@@ -339,24 +380,24 @@ export default function CVView({ cvData, onSet, projectName }) {
           <div key={ei} style={{ marginBottom: 14 }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody><tr>
-                <td style={{ padding: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>
+                <td style={{ padding: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a", lineHeight: LINE_H }}>
                   <span style={{ display: "inline-flex", alignItems: "baseline", gap: 0 }}>
-                    <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", width: "auto" }} />
-                    <span style={{ color: "#999", fontWeight: 400, padding: "0 6px" }}>|</span>
+                    <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
+                    <span style={{ color: "#bbb", fontWeight: 400, padding: "0 5px" }}>|</span>
                     <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
                   </span>
                 </td>
-                <td style={{ padding: 0, fontSize: 11, color: "#888", textAlign: "right", whiteSpace: "nowrap", width: 150 }}>
+                <td style={{ padding: 0, fontSize: 11, color: "#888", textAlign: "right", whiteSpace: "nowrap", width: 140, lineHeight: LINE_H }}>
                   <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 11, color: "#888", textAlign: "right" }} />
                 </td>
               </tr></tbody>
             </table>
-            <div style={{ borderBottom: "1px solid #eee", marginBottom: 4 }} />
+            <div style={{ borderBottom: "1px solid #eee", margin: "2px 0 5px 0" }} />
             <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
               {(exp.bullets || []).map((b, bi) => (
-                <li key={bi} style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#333", lineHeight: 1.5, marginBottom: 1 }}>
+                <li key={bi} style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#333", lineHeight: LINE_H, marginBottom: 2 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 11, lineHeight: 1.5, color: "#333", flex: 1, minHeight: 18 }} />
+                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#333", flex: 1, minHeight: 18 }} />
                     <button data-noprint onClick={() => removeBullet(ei, bi)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                   </div>
                 </li>
@@ -374,14 +415,14 @@ export default function CVView({ cvData, onSet, projectName }) {
         {sectionHdr("EDUCATION")}
         {(cv.education || []).map((edu, i) => (
           <div key={i} style={{ marginBottom: 8 }}>
-            <InlineEdit value={edu.title} onChange={v => set(`education.${i}.title`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }} />
+            <InlineEdit value={edu.title} onChange={v => set(`education.${i}.title`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", lineHeight: LINE_H }} />
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody><tr>
                 <td style={{ padding: 0 }}>
-                  <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#555" }} />
+                  <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#555", lineHeight: LINE_H }} />
                 </td>
                 <td style={{ padding: 0, textAlign: "right" }}>
-                  <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#777", textAlign: "right" }} />
+                  <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#777", textAlign: "right", lineHeight: LINE_H }} />
                 </td>
                 <td style={{ padding: 0, width: 20 }}>
                   <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
@@ -401,11 +442,11 @@ export default function CVView({ cvData, onSet, projectName }) {
                 {[0, 1].map(col => {
                   const idx = row * 2 + col;
                   const s = (cv.skills || [])[idx];
-                  if (!s) return <td key={col} style={{ padding: "4px 0" }} />;
+                  if (!s) return <td key={col} style={{ padding: "5px 0" }} />;
                   return (
-                    <td key={col} style={{ padding: "4px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
+                    <td key={col} style={{ padding: "5px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1 }} />
+                        <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1, lineHeight: LINE_H }} />
                         <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                           <option value="Beginner">Beginner</option>
                           <option value="Intermediate">Intermediate</option>
@@ -432,11 +473,11 @@ export default function CVView({ cvData, onSet, projectName }) {
                 {[0, 1].map(col => {
                   const idx = row * 2 + col;
                   const l = (cv.languages || [])[idx];
-                  if (!l) return <td key={col} style={{ padding: "4px 0" }} />;
+                  if (!l) return <td key={col} style={{ padding: "5px 0" }} />;
                   return (
-                    <td key={col} style={{ padding: "4px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
+                    <td key={col} style={{ padding: "5px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1 }} />
+                        <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1, lineHeight: LINE_H }} />
                         <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                           <option value="Beginner">Beginner</option>
                           <option value="Intermediate">Intermediate</option>
@@ -460,7 +501,7 @@ export default function CVView({ cvData, onSet, projectName }) {
 
 // ── Print helpers ──
 function esc(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-function secHdr(label) { return `<div style="margin-top:20px;margin-bottom:8px;"><div style="font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1a1a1a;margin-bottom:5px;">${label}</div><div style="border-bottom:1px solid #ccc;"></div></div>`; }
+function secHdr(label) { return `<div style="margin-top:20px;margin-bottom:8px;"><div style="font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1a1a1a;line-height:1.55;margin-bottom:5px;">${label}</div><div style="border-bottom:1px solid #ccc;"></div></div>`; }
 function badgeHtml(level) {
   const dark = level === "Expert" || level === "Native";
   return `<span style="font-family:'Avenir','Nunito Sans',sans-serif;font-size:8px;font-weight:700;letter-spacing:0.8px;padding:3px 0;border-radius:3px;text-transform:uppercase;text-align:center;display:inline-block;width:88px;background:${dark ? '#1a1a1a' : '#e8e8e8'};color:${dark ? '#fff' : '#444'};">${level}</span>`;
