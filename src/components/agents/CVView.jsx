@@ -142,42 +142,114 @@ export default function CVView({ cvData, onSet, projectName }) {
   const addLanguage = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
   const removeLanguage = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
 
+  // Build a clean HTML string for print — no inputs, no flex ambiguity
   const doPrint = () => {
-    const el = printRef.current; if (!el) return;
-    const clone = el.cloneNode(true);
-    clone.querySelectorAll("[data-noprint]").forEach(n => n.remove());
-    clone.querySelectorAll("button").forEach(n => n.remove());
-    clone.querySelectorAll("select").forEach(n => n.remove());
-    clone.querySelectorAll("input, textarea").forEach(n => {
-      const span = document.createElement("span");
-      span.textContent = n.value;
-      span.style.cssText = n.style.cssText;
-      span.style.border = "none";
-      span.style.background = "transparent";
-      span.style.display = n.tagName === "TEXTAREA" ? "block" : "inline";
-      span.style.whiteSpace = n.tagName === "TEXTAREA" ? "pre-wrap" : "normal";
-      span.style.wordWrap = "break-word";
-      span.style.overflowWrap = "break-word";
-      n.replaceWith(span);
+    const c = cv;
+    const contact = c.contact || {};
+    const contactLines = [contact.phone, contact.email, contact.linkedin, contact.website, contact.location, contact.citizenship].filter(Boolean);
+
+    let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11.5px;line-height:1.5;">`;
+
+    // Header — table layout for guaranteed two-column
+    html += `<table style="width:100%;border-collapse:collapse;margin-bottom:6px;"><tr>`;
+    html += `<td style="vertical-align:top;padding:0;">`;
+    html += `<div style="font-size:28px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;line-height:1.15;">${esc(c.name)}</div>`;
+    html += `<div style="font-size:14px;color:#555;letter-spacing:0.3px;margin-top:3px;">${esc(c.title)}</div>`;
+    html += `</td>`;
+    html += `<td style="vertical-align:top;text-align:right;padding:0;white-space:nowrap;">`;
+    contactLines.forEach(line => {
+      html += `<div style="font-size:11px;color:#444;line-height:1.7;">${esc(line)}</div>`;
     });
-    const docTitle = `CV - ${cv.name || "CV"}${projectName ? " | " + projectName : ""}`;
+    html += `</td></tr></table>`;
+
+    // Thick rule
+    html += `<div style="border-bottom:2.5px solid #000;margin-bottom:4px;"></div>`;
+
+    // Summary
+    html += secHdr("SUMMARY");
+    (c.summary || []).forEach(p => { html += `<div style="font-size:11px;color:#333;line-height:1.6;margin-bottom:5px;">${esc(p)}</div>`; });
+    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#444;line-height:1.6;margin-top:4px;margin-bottom:2px;">${esc(c.clients)}</div>`;
+
+    // Experience
+    html += secHdr("EXPERIENCE");
+    (c.experience || []).forEach(exp => {
+      html += `<div style="margin-bottom:12px;">`;
+      html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+      html += `<td style="padding:0;font-size:12px;font-weight:700;color:#1a1a1a;"><span style="text-transform:uppercase;">${esc(exp.company)}</span> <span style="font-weight:400;color:#999;">|</span> ${esc(exp.role)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#888;text-align:right;white-space:nowrap;">${esc(exp.dates)}</td>`;
+      html += `</tr></table>`;
+      html += `<div style="border-bottom:1px solid #eee;margin-bottom:4px;"></div>`;
+      html += `<ul style="margin:0;padding-left:18px;list-style:disc;">`;
+      (exp.bullets || []).forEach(b => {
+        html += `<li style="font-size:11px;color:#333;line-height:1.5;margin-bottom:1px;">${esc(b)}</li>`;
+      });
+      html += `</ul></div>`;
+    });
+
+    // Education
+    html += secHdr("EDUCATION");
+    (c.education || []).forEach(edu => {
+      html += `<div style="margin-bottom:8px;">`;
+      html += `<div style="font-size:12px;font-weight:700;color:#1a1a1a;">${esc(edu.title)}</div>`;
+      html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+      html += `<td style="padding:0;font-size:11px;color:#555;">${esc(edu.institution)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#777;text-align:right;">${esc(edu.result)}</td>`;
+      html += `</tr></table></div>`;
+    });
+
+    // Skills
+    html += secHdr("SKILLS");
+    html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;">`;
+    const skillRows = Math.ceil((c.skills || []).length / 2);
+    for (let r = 0; r < skillRows; r++) {
+      html += `<tr>`;
+      for (let col = 0; col < 2; col++) {
+        const s = (c.skills || [])[r * 2 + col];
+        if (!s) { html += `<td style="padding:4px 0;"></td>`; continue; }
+        html += `<td style="padding:4px ${col === 0 ? '12px' : '0'} 4px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
+        html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+        html += `<td style="padding:0;font-size:11px;color:#333;">${esc(s.name)}</td>`;
+        html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(s.level)}</td>`;
+        html += `</tr></table></td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</table>`;
+
+    // Languages
+    html += secHdr("LANGUAGES");
+    html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;">`;
+    const langRows = Math.ceil((c.languages || []).length / 2);
+    for (let r = 0; r < langRows; r++) {
+      html += `<tr>`;
+      for (let col = 0; col < 2; col++) {
+        const l = (c.languages || [])[r * 2 + col];
+        if (!l) { html += `<td style="padding:4px 0;"></td>`; continue; }
+        html += `<td style="padding:4px ${col === 0 ? '12px' : '0'} 4px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
+        html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+        html += `<td style="padding:0;font-size:11px;color:#333;">${esc(l.name)}</td>`;
+        html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(l.level)}</td>`;
+        html += `</tr></table></td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</table>`;
+
+    html += `</div>`;
+
+    const docTitle = `CV - ${c.name || "CV"}${projectName ? " | " + projectName : ""}`;
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
     const _d = iframe.contentDocument;
     _d.open();
-    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:12px;color:#1a1a1a;padding:0;}@media print{@page{margin:18mm 20mm;size:A4;}}span{word-wrap:break-word;overflow-wrap:break-word;}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11.5px;color:#1a1a1a;padding:0;}@media print{@page{margin:18mm 20mm;size:A4;}}</style></head><body>${html}</body></html>`);
     _d.close();
-    clone.style.padding = "0";
-    _d.body.appendChild(_d.adoptNode(clone));
     const prevTitle = document.title;
     document.title = docTitle;
     const restoreTitle = () => { document.title = prevTitle; document.body.removeChild(iframe); window.removeEventListener("afterprint", restoreTitle); };
     window.addEventListener("afterprint", restoreTitle);
-    setTimeout(() => {
-      _d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"]').forEach(el => el.remove());
-      iframe.contentWindow.focus(); iframe.contentWindow.print();
-    }, 300);
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 250);
   };
 
   const TABS = [{ id: "cv", label: "CV" }];
@@ -203,14 +275,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     );
   };
 
-  const contactFields = [
-    { key: "phone" },
-    { key: "email" },
-    { key: "linkedin" },
-    { key: "website" },
-    { key: "location" },
-    { key: "citizenship" },
-  ];
+  const contactFields = ["phone", "email", "linkedin", "website", "location", "citizenship"];
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a", minWidth: 700 }}>
@@ -233,55 +298,59 @@ export default function CVView({ cvData, onSet, projectName }) {
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Live editor view ── */}
       <div ref={printRef} style={{ padding: "36px 36px" }}>
 
-        {/* ── HEADER ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 6 }}>
-          {/* Left: Name + Title */}
-          <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-            <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
-            <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
-          </div>
-          {/* Right: Contact — right-aligned text */}
-          <div style={{ flex: "0 0 auto", textAlign: "right" }}>
-            {contactFields.map(({ key }) => (
-              <div key={key} style={{ marginBottom: 1 }}>
-                <InlineEdit value={cv.contact?.[key]} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#444", textAlign: "right" }} />
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Header */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6 }}>
+          <tbody><tr>
+            <td style={{ verticalAlign: "top", padding: 0 }}>
+              <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
+              <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
+            </td>
+            <td style={{ verticalAlign: "top", textAlign: "right", padding: 0, whiteSpace: "nowrap" }}>
+              {contactFields.map(key => (
+                <div key={key} style={{ marginBottom: 1 }}>
+                  <InlineEdit value={cv.contact?.[key]} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#444", textAlign: "right" }} />
+                </div>
+              ))}
+            </td>
+          </tr></tbody>
+        </table>
 
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 2 }} />
 
-        {/* ── SUMMARY ── */}
+        {/* Summary */}
         {sectionHdr("SUMMARY")}
-        <div style={{ marginBottom: 6 }}>
-          {(cv.summary || []).map((para, i) => (
-            <div key={i} style={{ marginBottom: 5 }}>
-              <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: 1.55, color: "#333" }} />
-            </div>
-          ))}
-        </div>
+        {(cv.summary || []).map((para, i) => (
+          <div key={i} style={{ marginBottom: 5 }}>
+            <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: 1.55, color: "#333" }} />
+          </div>
+        ))}
         {cv.clients && (
-          <div style={{ marginBottom: 2 }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: 1.6 }} />
+          <div style={{ marginTop: 4, marginBottom: 2 }}>
+            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: 1.6 }} />
           </div>
         )}
 
-        {/* ── EXPERIENCE ── */}
+        {/* Experience */}
         {sectionHdr("EXPERIENCE")}
         {(cv.experience || []).map((exp, ei) => (
           <div key={ei} style={{ marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 0 }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 0, flex: 1, minWidth: 0 }}>
-                <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", width: "auto", flex: "0 1 auto" }} />
-                <span style={{ fontFamily: F, fontSize: 12, fontWeight: 400, color: "#999", padding: "0 6px", flexShrink: 0 }}>|</span>
-                <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }} />
-              </div>
-              <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 11, color: "#888", textAlign: "right", width: 150, flexShrink: 0 }} />
-            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody><tr>
+                <td style={{ padding: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>
+                  <span style={{ display: "inline-flex", alignItems: "baseline", gap: 0 }}>
+                    <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", width: "auto" }} />
+                    <span style={{ color: "#999", fontWeight: 400, padding: "0 6px" }}>|</span>
+                    <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
+                  </span>
+                </td>
+                <td style={{ padding: 0, fontSize: 11, color: "#888", textAlign: "right", whiteSpace: "nowrap", width: 150 }}>
+                  <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 11, color: "#888", textAlign: "right" }} />
+                </td>
+              </tr></tbody>
+            </table>
             <div style={{ borderBottom: "1px solid #eee", marginBottom: 4 }} />
             <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
               {(exp.bullets || []).map((b, bi) => (
@@ -301,92 +370,98 @@ export default function CVView({ cvData, onSet, projectName }) {
         ))}
         <button data-noprint onClick={addExperience} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EXPERIENCE</button>
 
-        {/* ── EDUCATION ── */}
+        {/* Education */}
         {sectionHdr("EDUCATION")}
         {(cv.education || []).map((edu, i) => (
           <div key={i} style={{ marginBottom: 8 }}>
             <InlineEdit value={edu.title} onChange={v => set(`education.${i}.title`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#555", flex: 1 }} />
-              <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#777", textAlign: "right", width: 240, flexShrink: 0 }} />
-              <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
-            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody><tr>
+                <td style={{ padding: 0 }}>
+                  <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#555" }} />
+                </td>
+                <td style={{ padding: 0, textAlign: "right" }}>
+                  <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#777", textAlign: "right" }} />
+                </td>
+                <td style={{ padding: 0, width: 20 }}>
+                  <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                </td>
+              </tr></tbody>
+            </table>
           </div>
         ))}
         <button data-noprint onClick={addEducation} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EDUCATION</button>
 
-        {/* ── SKILLS ── */}
+        {/* Skills */}
         {sectionHdr("SKILLS")}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginBottom: 6 }}>
           <tbody>
-            {Array.from({ length: Math.ceil((cv.skills || []).length / 2) }).map((_, row) => {
-              const left = (cv.skills || [])[row * 2];
-              const right = (cv.skills || [])[row * 2 + 1];
-              return (
-                <tr key={row}>
-                  {[left, right].map((s, col) => {
-                    const idx = row * 2 + col;
-                    if (!s) return <td key={col} style={{ padding: "4px 0" }} />;
-                    return (
-                      <td key={col} style={{ padding: "4px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle", paddingRight: col === 0 ? 16 : 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontFamily: F, fontSize: 11, color: "#333", flex: 1, letterSpacing: LS, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#333" }} />
-                          </span>
-                          <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
-                            <option value="Beginner">Beginner</option>
-                            <option value="Intermediate">Intermediate</option>
-                            <option value="Expert">Expert</option>
-                          </select>
-                          {levelBadge(s.level)}
-                          <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
+            {Array.from({ length: Math.ceil((cv.skills || []).length / 2) }).map((_, row) => (
+              <tr key={row}>
+                {[0, 1].map(col => {
+                  const idx = row * 2 + col;
+                  const s = (cv.skills || [])[idx];
+                  if (!s) return <td key={col} style={{ padding: "4px 0" }} />;
+                  return (
+                    <td key={col} style={{ padding: "4px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1 }} />
+                        <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Expert">Expert</option>
+                        </select>
+                        {levelBadge(s.level)}
+                        <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
         <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD SKILL</button>
 
-        {/* ── LANGUAGES ── */}
+        {/* Languages */}
         {sectionHdr("LANGUAGES")}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginBottom: 6 }}>
           <tbody>
-            {Array.from({ length: Math.ceil((cv.languages || []).length / 2) }).map((_, row) => {
-              const left = (cv.languages || [])[row * 2];
-              const right = (cv.languages || [])[row * 2 + 1];
-              return (
-                <tr key={row}>
-                  {[left, right].map((l, col) => {
-                    const idx = row * 2 + col;
-                    if (!l) return <td key={col} style={{ padding: "4px 0" }} />;
-                    return (
-                      <td key={col} style={{ padding: "4px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle", paddingRight: col === 0 ? 16 : 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontFamily: F, fontSize: 11, color: "#333", flex: 1, letterSpacing: LS }}>
-                            <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#333" }} />
-                          </span>
-                          <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
-                            <option value="Beginner">Beginner</option>
-                            <option value="Intermediate">Intermediate</option>
-                            <option value="Native">Native</option>
-                          </select>
-                          {levelBadge(l.level)}
-                          <button data-noprint onClick={() => removeLanguage(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
+            {Array.from({ length: Math.ceil((cv.languages || []).length / 2) }).map((_, row) => (
+              <tr key={row}>
+                {[0, 1].map(col => {
+                  const idx = row * 2 + col;
+                  const l = (cv.languages || [])[idx];
+                  if (!l) return <td key={col} style={{ padding: "4px 0" }} />;
+                  return (
+                    <td key={col} style={{ padding: "4px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1 }} />
+                        <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Native">Native</option>
+                        </select>
+                        {levelBadge(l.level)}
+                        <button data-noprint onClick={() => removeLanguage(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
         <button data-noprint onClick={addLanguage} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700 }}>+ ADD LANGUAGE</button>
       </div>
     </div>
   );
+}
+
+// ── Print helpers ──
+function esc(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function secHdr(label) { return `<div style="margin-top:20px;margin-bottom:8px;"><div style="font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1a1a1a;margin-bottom:5px;">${label}</div><div style="border-bottom:1px solid #ccc;"></div></div>`; }
+function badgeHtml(level) {
+  const dark = level === "Expert" || level === "Native";
+  return `<span style="font-family:'Avenir','Nunito Sans',sans-serif;font-size:8px;font-weight:700;letter-spacing:0.8px;padding:3px 0;border-radius:3px;text-transform:uppercase;text-align:center;display:inline-block;width:88px;background:${dark ? '#1a1a1a' : '#e8e8e8'};color:${dark ? '#fff' : '#444'};">${level}</span>`;
 }
