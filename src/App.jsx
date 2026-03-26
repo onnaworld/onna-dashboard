@@ -53,6 +53,10 @@ import { DuplicateRAModal } from "./components/modals/DuplicateRAModal";
 import { GenericDuplicateModal } from "./components/modals/GenericDuplicateModal";
 import { ArchiveModal } from "./components/modals/ArchiveModal";
 import { TimeoutWarning, GlobalAlertModal, UndoToast } from "./components/modals/MiniModals";
+import { SearchModal } from "./components/modals/SearchModal";
+import { logActivity } from "./utils/activityLog";
+import { checkDueReminders, createNotification, createReminder, sendPushNotification, requestPushPermission } from "./utils/reminders";
+import { NotificationBell } from "./components/ui/NotificationCenter";
 // Doc helper components & constants
 import { MAX_IMG_SIZE, validateImg, CS_FONT, CS_LS, CS_YELLOW, RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CSEditField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn, TIHl, TICell, TITableSection, DIETARY_TAGS, DIETARY_TAG_COLORS, DietaryTagSelect, DIETARY_INIT, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EstHl, EstCell, EstSignaturePad, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT, CALLSHEET_INIT } from "./components/ui/DocHelpers";
 // Doc components
@@ -466,6 +470,56 @@ function OnnaDashboardInner() {
     return () => clearInterval(interval);
   }, [authed, contractDocStore]);
 
+  // ── Activity Log state ───────────────────────────────────────────────────
+  const [activityLog,setActivityLog] = useState(()=>{try{const s=localStorage.getItem('onna_activity_log');return s?JSON.parse(s):[];}catch{return [];}});
+  useEffect(()=>{try{localStorage.setItem('onna_activity_log',JSON.stringify(activityLog));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('activity_log',activityLog);},[activityLog]);
+  const doLogActivity = useCallback((action, entityType, entityId, entityName, details) => {
+    logActivity(action, entityType, entityId, entityName, details, setActivityLog);
+  }, []);
+
+  // ── Reminders & Notifications state ─────────────────────────────────────
+  const [reminders,setReminders] = useState(()=>{try{const s=localStorage.getItem('onna_reminders');return s?JSON.parse(s):[];}catch{return [];}});
+  const [notifications,setNotifications] = useState(()=>{try{const s=localStorage.getItem('onna_notifications');return s?JSON.parse(s):[];}catch{return [];}});
+  useEffect(()=>{try{localStorage.setItem('onna_reminders',JSON.stringify(reminders));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('reminders',reminders);},[reminders]);
+  useEffect(()=>{try{localStorage.setItem('onna_notifications',JSON.stringify(notifications));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notifications',notifications);},[notifications]);
+  // Check due reminders every 5 minutes
+  useEffect(()=>{
+    if(!authed)return;
+    const check=()=>{
+      const due=checkDueReminders(reminders);
+      if(due.length===0)return;
+      due.forEach(r=>{
+        const existing=notifications.find(n=>n.reminderId===r.id);
+        if(!existing){
+          const notif=createNotification(r);
+          setNotifications(prev=>[notif,...prev]);
+          sendPushNotification(notif.title,notif.message);
+        }
+      });
+      setReminders(prev=>prev.map(r=>due.find(d=>d.id===r.id)?{...r,dismissed:true}:r));
+    };
+    check();
+    const interval=setInterval(check,5*60*1000);
+    return()=>clearInterval(interval);
+  },[authed,reminders]); // eslint-disable-line
+
+  // ── CMD+K Search state ──────────────────────────────────────────────────
+  const [showSearch,setShowSearch] = useState(false);
+  useEffect(()=>{
+    const handler=(e)=>{
+      if((e.metaKey||e.ctrlKey)&&e.key==='k'){
+        e.preventDefault();
+        setShowSearch(v=>!v);
+      }
+    };
+    window.addEventListener('keydown',handler);
+    return()=>window.removeEventListener('keydown',handler);
+  },[]);
+
+  // ── Dashboard Widget Layout state ───────────────────────────────────────
+  const [dashboardLayout,setDashboardLayout] = useState(()=>{try{const s=localStorage.getItem('onna_dashboard_layout');return s?JSON.parse(s):null;}catch{return null;}});
+  useEffect(()=>{if(dashboardLayout){try{localStorage.setItem('onna_dashboard_layout',JSON.stringify(dashboardLayout));}catch{} if(globalHydratedRef.current) debouncedConfigSave('onna_dashboard_layout',dashboardLayout);};},[dashboardLayout]);
+
   const [showAddProject,setShowAddProject]   = useState(false);
   const [showFromTemplate,setShowFromTemplate] = useState(false);
   const [templateProject,setTemplateProject]   = useState({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:2026});
@@ -508,8 +562,12 @@ function OnnaDashboardInner() {
   const [sopFilter,setSopFilter] = useState("all");
   useEffect(()=>{try{localStorage.setItem('onna_sops',JSON.stringify(sops));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('sops',sops);},[sops]);
 
+  // ── Template files (project folder) ──
+  const [templateFiles,setTemplateFiles] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_template_files')||'[]');}catch{return [];}});
+  useEffect(()=>{try{localStorage.setItem('onna_template_files',JSON.stringify(templateFiles));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('template_files',templateFiles);},[templateFiles]);
+
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
-  const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:new Date().getFullYear(),month:new Date().getMonth()+1});
+  const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:new Date().getFullYear(),month:new Date().getMonth()+1,startDate:"",endDate:""});
   const localProjectsRef                      = useRef([]);
   const [localProjects,setLocalProjects]     = useState(()=>{try{const c=localStorage.getItem('onna_cache_projects');return c?JSON.parse(c):[];}catch{return []}});
   const [localClients,setLocalClients]       = useState(()=>{try{const c=localStorage.getItem('onna_cache_clients');return c?JSON.parse(c):[]}catch{return []}});
@@ -833,6 +891,10 @@ function OnnaDashboardInner() {
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
           if (gd.billie_rates) setBillieRateCards(gd.billie_rates);
+          if (gd.activity_log) setActivityLog(gd.activity_log);
+          if (gd.template_files && Array.isArray(gd.template_files)) setTemplateFiles(gd.template_files);
+          if (gd.reminders) setReminders(gd.reminders);
+          if (gd.notifications) setNotifications(gd.notifications);
           if (gd.user_config) {
             if (gd.user_config.onna_lead_cats) setCustomLeadCats(gd.user_config.onna_lead_cats);
             if (gd.user_config.onna_custom_locations) setCustomLocations(gd.user_config.onna_custom_locations);
@@ -1054,8 +1116,8 @@ function OnnaDashboardInner() {
   useEffect(()=>{try{localStorage.setItem('onna_custom_locations',JSON.stringify(customLocations));}catch{}if(globalHydratedRef.current)debouncedConfigSave('onna_custom_locations',customLocations);},[customLocations]); // eslint-disable-line
   useEffect(()=>{try{localStorage.setItem('onna_hidden_builtin_locs',JSON.stringify(hiddenBuiltinLocs));}catch{}if(globalHydratedRef.current)debouncedConfigSave('onna_hidden_builtin_locs',hiddenBuiltinLocs);},[hiddenBuiltinLocs]); // eslint-disable-line
 
-  const archiveItem = (table, item) => _archiveItem(table, item, setArchive);
-  const restoreItem = (entry) => _restoreItem(entry, { setProjectEstimates, setTodos, setDashNotesList, setNotes, setLocalProjects, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setTravelItineraryStore, setDietaryStore, setLocDeckStore, setLocalClients, setLocalLeads, setVendors, setOutreach, setArchive });
+  const archiveItem = (table, item) => { _archiveItem(table, item, setArchive); doLogActivity("archived", table === "vendors" ? "vendor" : table === "leads" ? "lead" : table, item.id, item.name || item.company || item.title || "item"); };
+  const restoreItem = (entry) => { _restoreItem(entry, { setProjectEstimates, setTodos, setDashNotesList, setNotes, setLocalProjects, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setTravelItineraryStore, setDietaryStore, setLocDeckStore, setLocalClients, setLocalLeads, setVendors, setOutreach, setArchive }); doLogActivity("restored", entry.table, entry.item?.id, entry.item?.name || entry.item?.company || "item"); };
   const permanentlyDelete = (archiveId) => _permanentlyDelete(archiveId, setArchive);
 
   const allLocations = ["All",...DEFAULT_LOCATIONS.filter(l=>!hiddenBuiltinLocs.includes(l)),...customLocations,"＋ Add location"];
@@ -1162,6 +1224,16 @@ function OnnaDashboardInner() {
     cpsDefaultPhases={cpsDefaultPhases} mkFrame={mkFrame} ppMkVideo={ppMkVideo} ppMkStill={ppMkStill} ppDefaultSchedule={ppDefaultSchedule}
   />;
 
+  // ── Search navigation handler ──
+  const onSearchNavigate = useCallback((type, item) => {
+    if (type === "Project") { setActiveTab("Projects"); setSelectedProject(item); setProjectSection("Home"); pushNav("Projects", item, "Home", null); }
+    else if (type === "Vendor") { setEditVendor({...item, dietaries: typeof item.dietaries === "string" ? (() => { try { return JSON.parse(item.dietaries); } catch { return []; } })() : Array.isArray(item.dietaries) ? item.dietaries : [], _xContacts: getXContacts("vendor", item.id) }); }
+    else if (type === "Lead") { setSelectedLead({...item, _xContacts: getXContacts("lead", item.id)}); }
+    else if (type === "Outreach") { setSelectedOutreach({...item, _xContacts: getXContacts("outreach", item.id)}); }
+    else if (type === "Client") { changeTab("Clients"); }
+    else if (type === "Note") { changeTab("Information"); }
+  }, [setActiveTab, setSelectedProject, setProjectSection, setEditVendor, setSelectedLead, setSelectedOutreach, changeTab, getXContacts]); // eslint-disable-line
+
   // ── Modal props bundle ──
   const _mp = {T, isMobile, api, BtnPrimary, BtnSecondary, Sel, OutreachBadge, StarIcon, LocationPicker, CategoryPicker,
     activeTab, changeTab, TABS, buildPath, setAuthed,
@@ -1211,7 +1283,8 @@ function OnnaDashboardInner() {
     billieRateCards, setBillieRateCards, showBillieRates, setShowBillieRates,
     showTimeoutWarning, setShowTimeoutWarning,
     _modal, _closeModal, _modalInputRef,
-    undoToastMsg, setUndoToastMsg, mobileMenuOpen, setMobileMenuOpen};
+    undoToastMsg, setUndoToastMsg, mobileMenuOpen, setMobileMenuOpen,
+    doLogActivity, reminders, setReminders, notifications, setNotifications};
 
   // ─── RENDER ─────────────────────────────────────────────────────────────────
   const currentTab = TABS.find(t=>t.id===activeTab)||(activeTab==="Settings"?{id:"Settings",label:"Settings"}:TABS[0]);
@@ -1226,7 +1299,7 @@ function OnnaDashboardInner() {
 
       {/* ── MAIN ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <Topbar T={T} isMobile={isMobile} P={P} currentTab={currentTab} selectedProject={selectedProject} projectSection={projectSection} creativeSubSection={creativeSubSection} budgetSubSection={budgetSubSection} apiLoading={apiLoading} apiError={apiError} changeTab={changeTab} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}/>
+        <Topbar T={T} isMobile={isMobile} P={P} currentTab={currentTab} selectedProject={selectedProject} projectSection={projectSection} creativeSubSection={creativeSubSection} budgetSubSection={budgetSubSection} apiLoading={apiLoading} apiError={apiError} changeTab={changeTab} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} notifications={notifications} setNotifications={setNotifications} NotificationBell={NotificationBell}/>
 
         {isOffline && (
           <div style={{background:"#fff3cd",color:"#856404",padding:"8px 16px",fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid #ffc107"}}>
@@ -1239,7 +1312,7 @@ function OnnaDashboardInner() {
         <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:`${P}px ${P}px 44px`}}>
 
           {/* ══ DASHBOARD ══ */}
-          {activeTab==="Dashboard"&&<Dashboard T={T} isMobile={isMobile} gcalToken={gcalToken} gcalEvents={gcalEvents} gcalLoading={gcalLoading} gcalEventColors={gcalEventColors} calMonth={calMonth} setCalMonth={setCalMonth} calDayView={calDayView} setCalDayView={setCalDayView} outlookEvents={outlookEvents} outlookLoading={outlookLoading} outlookError={outlookError} fetchOutlookCal={fetchOutlookCal} connectGCal={connectGCal} GCAL_CLIENT_ID={GCAL_CLIENT_ID} GCAL_COLORS={GCAL_COLORS} setGcalToken={setGcalToken} setGcalEvents={setGcalEvents} todos={todos} setTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} todoFilter={todoFilter} setTodoFilter={setTodoFilter} selectedTodo={selectedTodo} setSelectedTodo={setSelectedTodo} projectTodos={projectTodos} setProjectTodos={setProjectTodos} dashNotesList={dashNotesList} setDashNotesList={setDashNotesList} dashSelectedNoteId={dashSelectedNoteId} setDashSelectedNoteId={setDashSelectedNoteId} activeProjects={allNonTemplateProjects} allTodos={allTodos} filteredTodos={filteredTodos} todoTopFilter={todoTopFilter} allProjectsMerged={allProjectsMerged} archivedTodos={archivedTodos} setArchivedTodos={setArchivedTodos} pushUndo={pushUndo} addTodoFromInput={addTodoFromInput} archiveItem={archiveItem} setPendingDragToProject={setPendingDragToProject} buildPath={buildPath} pushNav={pushNav} setActiveTab={setActiveTab} setSelectedProject={setSelectedProject} setProjectSection={setProjectSection} DashNotes={DashNotes}/>}
+          {activeTab==="Dashboard"&&<Dashboard T={T} isMobile={isMobile} gcalToken={gcalToken} gcalEvents={gcalEvents} gcalLoading={gcalLoading} gcalEventColors={gcalEventColors} calMonth={calMonth} setCalMonth={setCalMonth} calDayView={calDayView} setCalDayView={setCalDayView} outlookEvents={outlookEvents} outlookLoading={outlookLoading} outlookError={outlookError} fetchOutlookCal={fetchOutlookCal} connectGCal={connectGCal} GCAL_CLIENT_ID={GCAL_CLIENT_ID} GCAL_COLORS={GCAL_COLORS} setGcalToken={setGcalToken} setGcalEvents={setGcalEvents} todos={todos} setTodos={setTodos} newTodo={newTodo} setNewTodo={setNewTodo} todoFilter={todoFilter} setTodoFilter={setTodoFilter} selectedTodo={selectedTodo} setSelectedTodo={setSelectedTodo} projectTodos={projectTodos} setProjectTodos={setProjectTodos} dashNotesList={dashNotesList} setDashNotesList={setDashNotesList} dashSelectedNoteId={dashSelectedNoteId} setDashSelectedNoteId={setDashSelectedNoteId} activeProjects={allNonTemplateProjects} allTodos={allTodos} filteredTodos={filteredTodos} todoTopFilter={todoTopFilter} allProjectsMerged={allProjectsMerged} archivedTodos={archivedTodos} setArchivedTodos={setArchivedTodos} pushUndo={pushUndo} addTodoFromInput={addTodoFromInput} archiveItem={archiveItem} setPendingDragToProject={setPendingDragToProject} buildPath={buildPath} pushNav={pushNav} setActiveTab={setActiveTab} setSelectedProject={setSelectedProject} setProjectSection={setProjectSection} DashNotes={DashNotes} activityLog={activityLog} dashboardLayout={dashboardLayout} setDashboardLayout={setDashboardLayout} localLeads={localLeads} getProjRevenue={getProjRevenue}/>}
 
           {/* ══ CAL DAY VIEW MODAL ══ */}
           {calDayView&&(()=>{
@@ -1304,7 +1377,7 @@ function OnnaDashboardInner() {
 
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
-          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg}/>}
+          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} localLeadsForPipeline={localLeads} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg}/>}
 
           {activeTab==="Resources"&&<Resources T={T} isMobile={isMobile} api={api}
             vaultLocked={vaultLocked} setVaultLocked={setVaultLocked}
@@ -1335,7 +1408,7 @@ function OnnaDashboardInner() {
         {activeTab==="Agents"&&<Agents isMobile={isMobile} agentActiveIdx={agentActiveIdx} setAgentActiveIdx={setAgentActiveIdx} AGENT_DEFS={AGENT_DEFS} AgentCard={AgentCard} vendors={vendors} localLeads={localLeads} setVendors={setVendors} setLocalLeads={setLocalLeads} outreach={outreach} setOutreach={setOutreach} callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} selectedProject={selectedProject} allProjectsMerged={allProjectsMerged} activeCSVersion={activeCSVersion} dietaryStore={dietaryStore} setDietaryStore={setDietaryStore} riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion} setActiveRAVersion={setActiveRAVersion} contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion} setActiveContractVersion={setActiveContractVersion} projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion} setActiveEstimateVersion={setActiveEstimateVersion} projectActuals={projectActuals} setProjectActuals={setProjectActuals} projectCasting={projectCasting} setProjectCasting={setProjectCasting} getProjectCastingTables={getProjectCastingTables} navigateToDoc={navigateToDoc} pushUndo={pushUndo} projectInfoRef={projectInfoRef} archiveItem={archiveItem} setCsDuplicateModal={setCsDuplicateModal} setCsDuplicateSearch={setCsDuplicateSearch} setRaDuplicateModal={setRaDuplicateModal} setRaDuplicateSearch={setRaDuplicateSearch} travelItineraryStore={travelItineraryStore} setTravelItineraryStore={setTravelItineraryStore} castingDeckStore={castingDeckStore} setCastingDeckStore={setCastingDeckStore} fittingStore={fittingStore} setFittingStore={setFittingStore} castingTableStore={castingTableStore} setCastingTableStore={setCastingTableStore} cpsStore={cpsStore} setCpsStore={setCpsStore} shotListStore={shotListStore} setShotListStore={setShotListStore} storyboardStore={storyboardStore} setStoryboardStore={setStoryboardStore} locDeckStore={locDeckStore} setLocDeckStore={setLocDeckStore} recceReportStore={recceReportStore} setRecceReportStore={setRecceReportStore} postProdStore={postProdStore} setPostProdStore={setPostProdStore} syncProjectInfoToDocs={syncProjectInfoToDocs} projectFileStore={projectFileStore} setLocalProjects={setLocalProjects} billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} showBillieRates={showBillieRates} setShowBillieRates={setShowBillieRates}/>}
 
         {/* ── INFORMATION TAB ── */}
-        {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} hydrated={globalHydratedRef.current}/>}
+        {activeTab==="Information"&&<Information T={T} api={api} isMobile={isMobile} notes={notes} setNotes={setNotes} notesLoading={notesLoading} setNotesLoading={setNotesLoading} archiveItem={archiveItem} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} hydrated={globalHydratedRef.current} templateFiles={templateFiles} setTemplateFiles={setTemplateFiles}/>}
 
         {activeTab==="Settings"&&<Settings T={T} isMobile={isMobile} P={P} setAuthed={setAuthed} settingsSection={settingsSection} setSettingsSection={setSettingsSection} archive={archive} setArchive={setArchive} restoreItem={restoreItem} permanentlyDelete={permanentlyDelete} catEdit={catEdit} setCatEdit={setCatEdit} catEditVal={catEditVal} setCatEditVal={setCatEditVal} catSaving={catSaving} renameCat={renameCat} deleteCat={deleteCat} renameLoc={renameLoc} deleteLoc={deleteLoc} customLeadCats={customLeadCats} customVendorCats={customVendorCats} customLocations={customLocations} setCustomLocations={setCustomLocations} hiddenBuiltinLocs={hiddenBuiltinLocs} hiddenLeadBuiltins={hiddenLeadBuiltins} hiddenVendorBuiltins={hiddenVendorBuiltins} DEFAULT_LOCATIONS={DEFAULT_LOCATIONS} LEAD_CATEGORIES={LEAD_CATEGORIES} VENDORS_CATEGORIES={VENDORS_CATEGORIES} sops={sops} setSops={setSops} sopFilter={sopFilter} setSopFilter={setSopFilter} sopAddOpen={sopAddOpen} setSopAddOpen={setSopAddOpen} sopEditId={sopEditId} setSopEditId={setSopEditId} sopDraft={sopDraft} setSopDraft={setSopDraft} sopPreview={sopPreview} setSopPreview={setSopPreview} AGENT_DEFS={AGENT_DEFS} BtnPrimary={BtnPrimary} BtnSecondary={BtnSecondary} renderSopMarkdown={renderSopMarkdown} localProjects={localProjects} localLeads={localLeads} localClients={localClients} vendors={vendors} outreach={outreach} notes={notes}/>}
 
@@ -1380,6 +1453,7 @@ function OnnaDashboardInner() {
       {showTimeoutWarning&&<TimeoutWarning showTimeoutWarning={showTimeoutWarning} setShowTimeoutWarning={setShowTimeoutWarning}/>}
       {_modal.show&&<GlobalAlertModal _modal={_modal} _closeModal={_closeModal} _modalInputRef={_modalInputRef}/>}
       {undoToastMsg&&<UndoToast undoToastMsg={undoToastMsg}/>}
+      {showSearch&&<SearchModal T={T} isMobile={isMobile} showSearch={showSearch} setShowSearch={setShowSearch} vendors={vendors} localLeads={localLeads} outreach={outreach} localClients={localClients} allProjectsMerged={allProjectsMerged} notes={notes} onNavigate={onSearchNavigate}/>}
     </div>
   );
 }
