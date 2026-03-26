@@ -164,9 +164,24 @@ export default function CVView({ cvData, onSet, projectName }) {
     });
   };
 
+  // Move bullet up/down
+  const moveBullet = (ei, from, to) => {
+    onSet(prev => {
+      const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
+      const bullets = n.experience[ei].bullets;
+      if (to < 0 || to >= bullets.length) return n;
+      const [moved] = bullets.splice(from, 1);
+      bullets.splice(to, 0, moved);
+      return n;
+    });
+  };
+
   // Drag state for experience reorder
   const dragRef = useRef(null);
   const [dropTarget, setDropTarget] = useState(null);
+  // Drag state for bullet reorder
+  const bulletDragRef = useRef(null);
+  const [bulletDropTarget, setBulletDropTarget] = useState(null);
 
   // Build clean HTML for print
   const doPrint = () => {
@@ -420,10 +435,21 @@ export default function CVView({ cvData, onSet, projectName }) {
               </tr></tbody>
             </table>
             <div style={{ borderBottom: "1px solid #eee", margin: "2px 0 5px 0" }} />
-            <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
+            <ul style={{ margin: 0, paddingLeft: 18, listStyle: "none" }}>
               {(exp.bullets || []).map((b, bi) => (
-                <li key={bi} style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#333", lineHeight: LINE_H, marginBottom: 2 }}>
+                <li
+                  key={bi}
+                  draggable
+                  onDragStart={e => { e.stopPropagation(); bulletDragRef.current = { ei, bi }; }}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setBulletDropTarget({ ei, bi }); }}
+                  onDragLeave={() => setBulletDropTarget(null)}
+                  onDrop={e => { e.preventDefault(); e.stopPropagation(); if (bulletDragRef.current && bulletDragRef.current.ei === ei && bulletDragRef.current.bi !== bi) moveBullet(ei, bulletDragRef.current.bi, bi); bulletDragRef.current = null; setBulletDropTarget(null); }}
+                  onDragEnd={() => { bulletDragRef.current = null; setBulletDropTarget(null); }}
+                  style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#333", lineHeight: LINE_H, marginBottom: 2, borderTop: bulletDropTarget?.ei === ei && bulletDropTarget?.bi === bi ? "2px solid #1976D2" : "2px solid transparent", transition: "border-color 0.1s" }}
+                >
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
+                    <span data-noprint style={{ cursor: "grab", color: "#ccc", fontSize: 9, userSelect: "none", flexShrink: 0, marginTop: 3 }}>{"\u2630"}</span>
+                    <span style={{ color: "#333", flexShrink: 0, marginRight: 2 }}>{"\u2022"}</span>
                     <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#333", flex: 1, minHeight: 18 }} />
                     <button data-noprint onClick={() => removeBullet(ei, bi)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                   </div>
