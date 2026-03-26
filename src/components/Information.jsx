@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
+import { TEMPLATE_DOCS, exportEstimateXlsx, exportBudgetTrackerXlsx, exportCallSheetXlsx, exportRiskAssessmentXlsx, exportCastingTableXlsx, exportLocationDeckXlsx, exportTravelItineraryXlsx } from "../utils/templateExport";
 
-export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles }) {
+export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, projectActuals, callSheetStore, riskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
   const [noteEditId, setNoteEditId]   = useState(null);
   const [noteDraft, setNoteDraft]     = useState({title:"",content:""});
@@ -36,6 +37,54 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const getIcon = (type) => type?.includes("pdf") ? "📄" : type?.includes("image") ? "🖼" : type?.includes("word") || type?.includes("doc") ? "📝" : type?.includes("sheet") || type?.includes("excel") || type?.includes("csv") ? "📊" : type?.includes("presentation") || type?.includes("powerpoint") ? "📊" : "📎";
   const fmtSize = (bytes) => bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
 
+  // Template doc export handler
+  const tplId = tplProject?.id;
+  const handleTemplateDownload = (key) => {
+    switch (key) {
+      case "estimate": {
+        const ests = tplId ? projectEstimates?.[tplId] : null;
+        const latest = ests?.length > 0 ? ests[ests.length - 1] : null;
+        exportEstimateXlsx(latest);
+        break;
+      }
+      case "budget": {
+        const ests = tplId ? projectEstimates?.[tplId] : null;
+        const latest = ests?.length > 0 ? ests[ests.length - 1] : null;
+        const acts = tplId ? projectActuals?.[tplId] : null;
+        exportBudgetTrackerXlsx(latest, acts);
+        break;
+      }
+      case "callsheet": {
+        const css = tplId ? callSheetStore?.[tplId] : null;
+        const latest = css?.length > 0 ? css[css.length - 1] : null;
+        exportCallSheetXlsx(latest);
+        break;
+      }
+      case "risk": {
+        const ras = tplId ? riskAssessmentStore?.[tplId] : null;
+        const latest = ras?.length > 0 ? ras[ras.length - 1] : null;
+        exportRiskAssessmentXlsx(latest);
+        break;
+      }
+      case "casting": {
+        const tables = tplId ? castingTableStore?.[tplId] : null;
+        exportCastingTableXlsx(tables);
+        break;
+      }
+      case "locations": {
+        const locs = tplId ? locDeckStore?.[tplId] : null;
+        exportLocationDeckXlsx(locs);
+        break;
+      }
+      case "travel": {
+        const tis = tplId ? travelItineraryStore?.[tplId] : null;
+        const latest = tis?.length > 0 ? tis[tis.length - 1] : null;
+        exportTravelItineraryXlsx(latest);
+        break;
+      }
+    }
+  };
+
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
@@ -55,44 +104,60 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       {/* ── Project Folder ── */}
       {infoTab === "folder" && (
         <div>
-          {/* Upload area */}
-          <label
-            onDrop={e=>{e.preventDefault();handleFileUpload(e.dataTransfer.files);}}
-            onDragOver={e=>e.preventDefault()}
-            style={{display:"block",border:`1.5px dashed ${T.border}`,borderRadius:14,padding:36,textAlign:"center",cursor:"pointer",background:"#fafafa",transition:"border-color 0.15s",marginBottom:20}}
-          >
-            <div style={{fontSize:26,marginBottom:8,opacity:0.35}}>⬆</div>
-            <div style={{fontSize:13,color:T.sub,marginBottom:4,fontWeight:500}}>Upload branded templates & documents</div>
-            <div style={{fontSize:12,color:T.muted}}>Drag & drop or click to upload (PDF, DOCX, XLSX, images, etc.)</div>
-            <input ref={fileInputRef} type="file" multiple style={{display:"none"}} onChange={e=>{handleFileUpload(e.target.files);e.target.value="";}}/>
-          </label>
-
-          {/* File list */}
-          {templateFiles.length === 0 ? (
-            <div style={{textAlign:"center",padding:50,color:T.muted,fontSize:13}}>No templates yet. Upload branded documents to get started.</div>
-          ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:4}}>{templateFiles.length} template{templateFiles.length !== 1 ? "s" : ""}</div>
-              {templateFiles.sort((a,b) => b.createdAt - a.createdAt).map(f => (
-                <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
-                  <span style={{fontSize:22,flexShrink:0}}>{getIcon(f.type)}</span>
+          {/* Branded document templates */}
+          <div style={{marginBottom:28}}>
+            <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:12}}>Document Templates</div>
+            <div style={{fontSize:12,color:T.muted,marginBottom:14}}>Download branded ONNA templates as Excel files{tplId ? " (from Template project)" : ""}. Compatible with Numbers, Excel & Google Sheets.</div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+              {TEMPLATE_DOCS.map(doc => (
+                <div key={doc.key} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                  <span style={{fontSize:22,flexShrink:0}}>{doc.icon}</span>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13.5,color:T.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
-                    <div style={{fontSize:11,color:T.muted,marginTop:2}}>{fmtSize(f.size)} · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                    <div style={{fontSize:13.5,color:T.text,fontWeight:600}}>{doc.label}</div>
+                    <div style={{fontSize:11,color:T.muted,marginTop:1}}>{doc.desc}</div>
                   </div>
-                  <button onClick={()=>downloadFile(f)} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"7px 14px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} onMouseOver={e=>{e.currentTarget.style.background="#eee"}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7"}}>Download</button>
-                  <button onClick={()=>deleteFile(f.id)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:17,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
+                  <button onClick={()=>handleTemplateDownload(doc.key)} style={{background:"#1d1d1f",border:"none",color:"#fff",padding:"7px 14px",borderRadius:8,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",flexShrink:0,whiteSpace:"nowrap"}} onMouseOver={e=>{e.currentTarget.style.background="#333"}} onMouseOut={e=>{e.currentTarget.style.background="#1d1d1f"}}>.xlsx</button>
                 </div>
               ))}
             </div>
-          )}
+          </div>
+
+          {/* Custom uploaded files */}
+          <div>
+            <div style={{fontSize:11,color:T.muted,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600,marginBottom:12}}>Uploaded Documents</div>
+            <label
+              onDrop={e=>{e.preventDefault();handleFileUpload(e.dataTransfer.files);}}
+              onDragOver={e=>e.preventDefault()}
+              style={{display:"block",border:`1.5px dashed ${T.border}`,borderRadius:14,padding:28,textAlign:"center",cursor:"pointer",background:"#fafafa",transition:"border-color 0.15s",marginBottom:14}}
+            >
+              <div style={{fontSize:22,marginBottom:6,opacity:0.35}}>⬆</div>
+              <div style={{fontSize:12,color:T.sub,fontWeight:500}}>Upload additional documents</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:2}}>Drag & drop or click (PDF, DOCX, XLSX, images, etc.)</div>
+              <input ref={fileInputRef} type="file" multiple style={{display:"none"}} onChange={e=>{handleFileUpload(e.target.files);e.target.value="";}}/>
+            </label>
+
+            {templateFiles.length > 0 && (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {templateFiles.sort((a,b) => b.createdAt - a.createdAt).map(f => (
+                  <div key={f.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                    <span style={{fontSize:22,flexShrink:0}}>{getIcon(f.type)}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13.5,color:T.text,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                      <div style={{fontSize:11,color:T.muted,marginTop:2}}>{fmtSize(f.size)} · {new Date(f.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                    </div>
+                    <button onClick={()=>downloadFile(f)} style={{background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,padding:"7px 14px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",flexShrink:0}} onMouseOver={e=>{e.currentTarget.style.background="#eee"}} onMouseOut={e=>{e.currentTarget.style.background="#f5f5f7"}}>Download</button>
+                    <button onClick={()=>deleteFile(f.id)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:17,padding:"0 4px",lineHeight:1,flexShrink:0}} onMouseOver={e=>e.currentTarget.style.color="#c0392b"} onMouseOut={e=>e.currentTarget.style.color=T.muted} title="Delete">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* ── Notes ── */}
       {infoTab === "notes" && (
         <div>
-          {/* Add / Edit form */}
           {noteAddOpen&&(
             <div style={{borderRadius:16,background:T.surface,border:`1px solid ${T.border}`,padding:"22px 24px",marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
               <input value={noteDraft.title} onChange={e=>setNoteDraft(p=>({...p,title:e.target.value}))} placeholder="Title" autoFocus style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:15,fontWeight:600,fontFamily:"inherit",color:T.text,background:"#fafafa",boxSizing:"border-box",marginBottom:10}}/>
