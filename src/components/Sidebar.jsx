@@ -31,7 +31,7 @@ export function AppSidebar({T,isMobile,activeTab,TABS,changeTab,buildPath,setAct
   );
 }
 
-export function Topbar({T,isMobile,P,currentTab,selectedProject,projectSection,creativeSubSection,budgetSubSection,apiLoading,apiError,changeTab,mobileMenuOpen,setMobileMenuOpen}){
+export function Topbar({T,isMobile,P,currentTab,selectedProject,projectSection,creativeSubSection,budgetSubSection,apiLoading,apiError,changeTab,mobileMenuOpen,setMobileMenuOpen,notifications,setNotifications,NotificationBell:NotifBellComp}){
   return (
     <div style={{padding:`0 ${P}px`,height:isMobile?50:58,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.border}`,flexShrink:0,background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
@@ -43,6 +43,7 @@ export function Topbar({T,isMobile,P,currentTab,selectedProject,projectSection,c
         {!isMobile&&apiLoading&&<span style={{fontSize:11,color:T.muted,display:"flex",alignItems:"center",gap:5}}><span style={{width:6,height:6,borderRadius:"50%",background:"#92680a",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}/>Syncing…</span>}
         {!isMobile&&apiError&&!apiLoading&&<span title={`API: ${apiError}`} style={{fontSize:11,color:"#c0392b",cursor:"default"}}>● Offline</span>}
         {!isMobile&&!apiLoading&&!apiError&&<span style={{fontSize:11,color:"#147d50",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"#147d50",display:"inline-block"}}/>Live</span>}
+        {NotifBellComp&&notifications&&<NotifBellComp T={T} notifications={notifications} setNotifications={setNotifications}/>}
         {isMobile&&<button onClick={()=>setMobileMenuOpen(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:6,fontSize:18,lineHeight:1,color:T.text,fontFamily:"inherit"}}>{mobileMenuOpen?"✕":"☰"}</button>}
       </div>
     </div>

@@ -1,4 +1,5 @@
-import React, { Fragment, useState, useRef } from "react";
+import React, { Fragment, useState, useRef, useCallback } from "react";
+import WidgetGrid from "./widgets/WidgetGrid";
 
 export default function Dashboard({
   T, isMobile, gcalToken, gcalEvents, gcalLoading, gcalEventColors,
@@ -14,7 +15,9 @@ export default function Dashboard({
   pushUndo, addTodoFromInput, archiveItem,
   setPendingDragToProject,
   buildPath, pushNav, setActiveTab, setSelectedProject, setProjectSection,
-  DashNotes
+  DashNotes,
+  activityLog, dashboardLayout, setDashboardLayout,
+  localLeads, getProjRevenue,
 }) {
   const [editingTodoId, setEditingTodoId] = useState(null);
   const [mobileDayIdx, setMobileDayIdx] = useState(() => (new Date().getDay() + 6) % 7);
@@ -117,10 +120,12 @@ export default function Dashboard({
                   const isToday=key===today.toISOString().slice(0,10);
                   const isWeekend=date.getDay()===0||date.getDay()===6;
                   const dayEvs=eventsByDay0[key]||[];
+                  const projBars=(allProjectsMerged||[]).filter(p=>p.startDate&&p.endDate&&p.client!=="TEMPLATE"&&key>=p.startDate&&key<=p.endDate);
                   return (
                     <div key={key} onClick={()=>setCalDayView(date)} style={{minHeight:isMobile?44:66,borderRadius:7,background:isToday?T.accent+"15":"transparent",border:isToday?`1.5px solid ${T.accent}44`:`1px solid ${T.borderSub}`,padding:isMobile?"3px":"4px 5px",display:"flex",flexDirection:"column",gap:2,overflow:"hidden",minWidth:0,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=isToday?T.accent+"25":"#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=isToday?T.accent+"15":"transparent"}>
                       <span style={{fontSize:isMobile?10:11,fontWeight:isToday?700:400,color:isToday?T.accent:isWeekend?T.muted:T.text,lineHeight:1,alignSelf:"flex-start",flexShrink:0}}>{date.getDate()}</span>
-                      {isMobile?(dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}</div>):(
+                      {!isMobile&&projBars.slice(0,2).map(p=>{const sc={Proposal:"#f57f17",Confirmed:"#1565c0",Active:"#147d50",Archived:"#86868b"};const c=sc[p.status]||"#86868b";return <div key={p.id} title={p.name} style={{fontSize:9,background:c+"22",color:c,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:600,lineHeight:1.5,minWidth:0,width:"100%",boxSizing:"border-box"}}>{p.name}</div>;})}
+                      {isMobile?(dayEvs.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap",marginTop:1}}>{dayEvs.slice(0,4).map((ev,ei)=>{const c=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);return <span key={ei} style={{width:5,height:5,borderRadius:"50%",background:c,display:"inline-block"}}/>;})}{projBars.slice(0,2).map(p=>{const sc={Proposal:"#f57f17",Confirmed:"#1565c0",Active:"#147d50",Archived:"#86868b"};return <span key={`p${p.id}`} style={{width:5,height:5,borderRadius:"50%",background:sc[p.status]||"#86868b",display:"inline-block"}}/>;})}</div>):(
                         <div style={{display:"flex",flexDirection:"column",gap:2,flex:1,overflow:"hidden",minWidth:0}}>
                           {dayEvs.slice(0,3).map((ev,ei)=>{const col=ev.colorId?(gcalEventColors[ev.colorId]?.background||GCAL_COLORS[ev.colorId]||T.accent):(ev.calendarColor||T.accent);const title=ev.summary||"(no title)";const time=ev.start?.dateTime?new Date(ev.start.dateTime).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}):null;return(<div key={ei} title={`${time?time+" ":""}${title}`} style={{fontSize:9.5,background:col+"22",color:col,borderRadius:3,padding:"1px 4px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500,lineHeight:1.5,minWidth:0,width:"100%",boxSizing:"border-box"}}>{time?`${time} `:""}{title}</div>);})}
                           {dayEvs.length>3&&<div style={{fontSize:9,color:T.muted,lineHeight:1.4}}>+{dayEvs.length-3} more</div>}
@@ -308,7 +313,22 @@ export default function Dashboard({
       </div>
           ),
         };
-        return ["calendar-projects","todos","notes"].map(k=>(<Fragment key={k}>{sectionMap[k]}</Fragment>));
+        const renderCalendarProjects = () => sectionMap["calendar-projects"];
+        const renderTodos = () => sectionMap["todos"];
+        const renderNotes = () => sectionMap["notes"];
+
+        return <WidgetGrid
+          T={T} isMobile={isMobile}
+          layout={dashboardLayout} setLayout={setDashboardLayout}
+          renderCalendarProjects={renderCalendarProjects}
+          renderTodos={renderTodos}
+          renderNotes={renderNotes}
+          activityLog={activityLog}
+          activeProjects={activeProjects}
+          allProjectsMerged={allProjectsMerged}
+          localLeads={localLeads}
+          getProjRevenue={getProjRevenue}
+        />;
       })()}
 
     </div>

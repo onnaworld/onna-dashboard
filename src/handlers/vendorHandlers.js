@@ -4,7 +4,7 @@ import { api, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS } from "../
 
 const _aiSystem = `Extract contact info and return ONLY a raw JSON array with no markdown. Each item: {"company":"","clientName":"","role":"","email":"","phone":"","date":"YYYY-MM-DD","category":"","location":"","source":"Cold Outreach","notes":""}. Use location format like "Dubai, UAE" or "London, UK". If no date, use today's date.`;
 
-export const processOutreach = async (outreachMsg, setOutreachLoading, setOutreach, setOutreachMsg) => {
+export const processOutreach = async (outreachMsg, setOutreachLoading, setOutreach, setOutreachMsg, onLogActivity) => {
   if (!outreachMsg.trim()) return;
   setOutreachLoading(true);
   try {
@@ -14,6 +14,7 @@ export const processOutreach = async (outreachMsg, setOutreachLoading, setOutrea
     const saved = await Promise.all(entries.map(e=>api.post("/api/outreach",e)));
     const newOutreach = saved.filter(e=>e.id);
     setOutreach(prev=>[...prev,...newOutreach]);
+    if(onLogActivity)newOutreach.forEach(o=>onLogActivity("created","outreach",o.id,o.company));
     setOutreachMsg("");
   } catch {}
   setOutreachLoading(false);
@@ -21,7 +22,7 @@ export const processOutreach = async (outreachMsg, setOutreachLoading, setOutrea
 
 // ── Promote lead to client ───────────────────────────────────────────────────
 
-export const promoteToClient = async (entity, localClients, setLocalClients) => {
+export const promoteToClient = async (entity, localClients, setLocalClients, onLogActivity) => {
   const company = (entity.company||"").trim();
   if (!company) return;
   if (localClients.some(c=>(c.company||"").toLowerCase()===company.toLowerCase())) return;
@@ -39,7 +40,7 @@ export const promoteToClient = async (entity, localClients, setLocalClients) => 
     notes: entity.notes||"",
   };
   const saved = await api.post("/api/clients", newClient);
-  if (saved.id) setLocalClients(prev=>[...prev,saved]);
+  if (saved.id) { setLocalClients(prev=>[...prev,saved]); if(onLogActivity)onLogActivity("created","client",saved.id,company); }
 };
 
 // ── Dynamic dropdown helpers ─────────────────────────────────────────────────

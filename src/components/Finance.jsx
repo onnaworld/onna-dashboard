@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useCallback, useEffect } from "react"
 import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
 import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, docApi, FINANCE_SLUGS } from "../utils/helpers";
+import PipelineChart from "./finance/PipelineChart";
 
 /* ── Branded constants (matching estimates/callsheets) ── */
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -103,6 +104,7 @@ export default function Finance({
   allProjects,
   projectEstimates, projectActuals,
   SearchBar, Pill, setUndoToastMsg,
+  localLeadsForPipeline,
 }) {
   const [financeTab, _setFinanceTab] = useState(() => {
     const parts = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -423,6 +425,7 @@ export default function Finance({
     { key: "arap", label: "AR / AP", emoji: "\ud83d\udce5", sub: "Receivables & payables" },
     { key: "tax", label: "Tax & VAT", emoji: "\ud83c\udfe6", sub: "Tax filings & VAT" },
     { key: "expenses", label: "Expenses", emoji: "\ud83d\udcb3", sub: "Expense tracking" },
+    { key: "pipeline", label: "Pipeline", emoji: "\ud83d\udcc8", sub: "Revenue forecasting" },
   ];
 
   /* ── Shared table styles ── */
@@ -1015,6 +1018,9 @@ export default function Finance({
 
       {financeTab === "expenses" && (
         <Expenses T={T} isMobile={isMobile} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg} />
+      )}
+      {financeTab === "pipeline" && (
+        <PipelineChart T={T} isMobile={isMobile} localLeads={localLeadsForPipeline || localLeads} allProjectsMerged={allProjectsMerged} getProjRevenue={getProjRevenue} />
       )}
     </div>
   );

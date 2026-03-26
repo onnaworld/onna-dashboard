@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import BulkActionBar from "./ui/BulkActionBar";
 
 export default function Clients({
   T, isMobile, api,
@@ -44,6 +45,25 @@ export default function Clients({
 
   // Not Contacted section toggle
   const [showNotContacted, setShowNotContacted] = useState(false);
+
+  // Bulk select for leads
+  const [selectedLeadIds, setSelectedLeadIds] = useState(new Set());
+  const toggleLeadId = id => setSelectedLeadIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const bulkDeleteLeads = async () => {
+    if (!window.confirm(`Delete ${selectedLeadIds.size} leads?`)) return;
+    const ids = [...selectedLeadIds];
+    for (const id of ids) {
+      const l = localLeads.find(x => x.id === id);
+      if (l) { archiveItem('leads', l); try { await api.delete(`/api/leads/${id}`); } catch {} }
+      else {
+        const o = outreach.find(x => x.id === id);
+        if (o) { archiveItem('outreach', o); try { await api.delete(`/api/outreach/${id}`); } catch {} }
+      }
+    }
+    setLocalLeads(prev => prev.filter(l => !selectedLeadIds.has(l.id)));
+    setOutreach(prev => prev.filter(o => !selectedLeadIds.has(o.id)));
+    setSelectedLeadIds(new Set());
+  };
 
   // Selected client (edit modal)
   const [selectedClient, setSelectedClient] = useState(null);
@@ -280,6 +300,7 @@ export default function Clients({
           <div className="mob-table-wrap" style={{ borderRadius: 16, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 620 : "auto" }}>
               <thead><tr>
+                <th style={{padding:"11px 8px",borderBottom:`1px solid ${T.border}`,width:32}}><input type="checkbox" checked={selectedLeadIds.size===filteredLeads.length&&filteredLeads.length>0} onChange={()=>{if(selectedLeadIds.size===filteredLeads.length)setSelectedLeadIds(new Set());else setSelectedLeadIds(new Set(filteredLeads.map(l=>l.id)));}}/></th>
                 <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
                 <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES, ...customLeadCats]} />
                 <THFilter label="Location" value={leadLoc} onChange={setLeadLoc} options={leadLocations} />
@@ -288,7 +309,8 @@ export default function Clients({
               </tr></thead>
               <tbody>
                 {filteredLeads.map(l => (
-                  <tr key={`${l._fromOutreach ? "o" : "l"}_${l.id}`} className="row" {...dragRowProps(l)} onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }} style={{ cursor: "grab" }}>
+                  <tr key={`${l._fromOutreach ? "o" : "l"}_${l.id}`} className="row" {...dragRowProps(l)} onClick={() => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } }} style={{ cursor: "grab", background: selectedLeadIds.has(l.id) ? "#fffbe6" : undefined }}>
+                    <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>{e.stopPropagation();toggleLeadId(l.id);}}><input type="checkbox" checked={selectedLeadIds.has(l.id)} readOnly/></td>
                     <TD bold>{l.company}</TD><TD>{l.contact}</TD><TD muted>{l.role || ""}</TD>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.borderSub}` }}><a href={`mailto:${l.email}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12.5, color: T.link, textDecoration: "none" }}>{l.email}</a></td>
                     <TD muted>{l.category}</TD>
@@ -297,10 +319,11 @@ export default function Clients({
                     <TD muted>{formatDate(l.date)}</TD>
                   </tr>
                 ))}
-                {filteredLeads.length === 0 && <tr><td colSpan={8} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No leads found.</td></tr>}
+                {filteredLeads.length === 0 && <tr><td colSpan={9} style={{ padding: 44, textAlign: "center", color: T.muted, fontSize: 13 }}>No leads found.</td></tr>}
               </tbody>
             </table>
           </div>
+          {selectedLeadIds.size>0&&<BulkActionBar selectedIds={selectedLeadIds} onDelete={bulkDeleteLeads} onClear={()=>setSelectedLeadIds(new Set())}/>}
         </div>
       )}
 

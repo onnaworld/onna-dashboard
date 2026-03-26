@@ -419,7 +419,7 @@ export const SLUG_TO_TAB = Object.fromEntries(Object.entries(TAB_SLUGS).map(([k,
 export const SECTION_SLUGS = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s,s.toLowerCase()]));
 export const SLUG_TO_SECTION = Object.fromEntries(PROJECT_SECTIONS.map(s=>[s.toLowerCase(),s]));
 
-export const FINANCE_SLUGS = ["stats","pnl","cashflow","arap","tax","expenses"];
+export const FINANCE_SLUGS = ["stats","pnl","cashflow","arap","tax","expenses","pipeline"];
 
 export const buildPath = (tab, projectId, section, subSection) => {
   if (tab==="Projects" && projectId) {

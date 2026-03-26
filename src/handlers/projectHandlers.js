@@ -81,16 +81,17 @@ export const addTodoFromInput = (text, todoTopFilter, todoFilter, pushUndo, setP
 
 // ── Archive helpers ──────────────────────────────────────────────────────────
 
-export const archiveItem = (table, item, setArchive) => {
+export const archiveItem = (table, item, setArchive, onLogActivity) => {
   const entry = {id:Date.now(), table, item, deletedAt:new Date().toISOString()};
   setArchive(prev=>{
     const updated=[entry,...prev];
     try{localStorage.setItem('onna_archive',JSON.stringify(updated));}catch{}
     return updated;
   });
+  if(onLogActivity)onLogActivity("archived",table,item.id,item.name||item.company||item.text||"");
 };
 
-export const restoreItem = async (entry, setters) => {
+export const restoreItem = async (entry, setters, onLogActivity) => {
   const { setProjectEstimates, setTodos, setDashNotesList, setNotes, setLocalProjects, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setTravelItineraryStore, setDietaryStore, setLocDeckStore, setLocalClients, setLocalLeads, setVendors, setOutreach, setArchive } = setters;
   const {id:archiveId, table, item} = entry;
   const removeFromArchive = () => {
