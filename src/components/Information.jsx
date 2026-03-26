@@ -4,7 +4,7 @@ import { ESTIMATE_INIT } from "./ui/DocHelpers";
 import EstimateView from "./agents/EstimateView";
 import { TEMPLATE_DOCS, downloadAoaXlsx, genEstimate, genBudgetTracker, genCallSheet, genRiskAssessment, genCastingTable, genLocationDeck, genTravelItinerary } from "../utils/templateExport";
 
-export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, projectActuals, callSheetStore, riskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore }) {
+export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, setProjectEstimates, projectActuals, setProjectActuals, callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore, allProjects, showAlert }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
   const [noteEditId, setNoteEditId] = useState(null);
   const [noteDraft, setNoteDraft] = useState({ title: "", content: "" });
@@ -13,6 +13,8 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const notesFetchedRef = useRef(false);
   const [infoTab, setInfoTab] = useState("folder");
   const [openDoc, setOpenDoc] = useState(null);
+  const [resetKey, setResetKey] = useState(0); // force remount on reset
+  const [showSaveTo, setShowSaveTo] = useState(false); // project picker
 
   // Native document data for templates (stored in original format, not aoa)
   const [templateDocData, setTemplateDocData] = useState(() => { try { return JSON.parse(localStorage.getItem("onna_template_doc_data") || "{}"); } catch { return {}; } });
@@ -95,6 +97,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const resetToTemplate = (key) => {
     if (!confirm("Reset to original template? Your edits will be lost.")) return;
     setTemplateDocData(prev => { const n = { ...prev }; delete n[key]; return n; });
+    setResetKey(k => k + 1);
   };
   const saveDoc = (key, data) => {
     setTemplateDocData(prev => ({ ...prev, [key]: { data, savedAt: Date.now() } }));
@@ -109,6 +112,39 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       const gen = getAoaGen(key);
       if (gen) downloadAoaXlsx(gen.sheets, gen.filename);
     }
+  };
+
+  // Save current template into a specific project's store
+  const saveToProject = (projectId, projectName) => {
+    const key = openDoc;
+    if (!key) return;
+    const data = getDocData(key);
+    switch (key) {
+      case "estimate": {
+        const est = data || { ...ESTIMATE_INIT, sections: defaultSections() };
+        setProjectEstimates(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), JSON.parse(JSON.stringify(est))] }));
+        break;
+      }
+      case "budget": {
+        const bd = data || {};
+        if (bd.estimate) setProjectEstimates(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), JSON.parse(JSON.stringify(bd.estimate))] }));
+        if (bd.actuals) setProjectActuals(prev => ({ ...prev, [projectId]: JSON.parse(JSON.stringify(bd.actuals)) }));
+        break;
+      }
+      case "callsheet": {
+        const cs = data || {};
+        setCallSheetStore(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), JSON.parse(JSON.stringify(cs))] }));
+        break;
+      }
+      case "risk": {
+        const ra = data || {};
+        setRiskAssessmentStore(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), JSON.parse(JSON.stringify(ra))] }));
+        break;
+      }
+      default: break;
+    }
+    setShowSaveTo(null);
+    if (showAlert) showAlert(`Saved to ${projectName}`);
   };
 
   const docMeta = openDoc ? TEMPLATE_DOCS.find(d => d.key === openDoc) : null;
@@ -126,6 +162,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button onClick={() => resetToTemplate(docKey)} style={{ background: "#fff", border: `1px solid ${T.border}`, color: T.muted, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Reset to Template</button>
+        <button onClick={() => setShowSaveTo(docKey)} style={{ background: "#fff", border: `1px solid ${T.border}`, color: T.text, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save to Project</button>
         <button onClick={() => downloadDoc(docKey)} style={{ background: "#1d1d1f", border: "none", color: "#fff", padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Download .xlsx</button>
       </div>
     </div>
@@ -155,11 +192,35 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
           <button onClick={() => setOpenDoc(null)} style={{ background: "none", border: "none", color: T.link || T.accent, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>&#8249; Back to Project Folder</button>
           <DocToolbar docKey={openDoc} />
 
+          {/* Save to Project picker */}
+          {showSaveTo && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowSaveTo(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: "24px 28px", width: 380, maxHeight: "70vh", display: "flex", flexDirection: "column", boxShadow: "0 12px 40px rgba(0,0,0,0.18)" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 4 }}>Save to Project</div>
+                <div style={{ fontSize: 12, color: T.muted, marginBottom: 16 }}>Select a project to save this {docMeta?.label || "template"} into.</div>
+                <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                  {(allProjects || []).length === 0 && <div style={{ padding: 20, textAlign: "center", color: T.muted, fontSize: 13 }}>No projects found.</div>}
+                  {(allProjects || []).sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(p => (
+                    <button key={p.id} onClick={() => saveToProject(p.id, p.name)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 10, border: `1px solid ${T.border}`, background: "#fafafa", cursor: "pointer", fontFamily: "inherit", textAlign: "left", width: "100%" }} onMouseOver={e => { e.currentTarget.style.background = "#f0f0f5"; e.currentTarget.style.borderColor = "#1976D2"; }} onMouseOut={e => { e.currentTarget.style.background = "#fafafa"; e.currentTarget.style.borderColor = T.border; }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: T.muted }}>{p.client || ""}{p.status === "archived" ? " · Archived" : ""}</div>
+                      </div>
+                      <span style={{ color: T.muted, fontSize: 14, flexShrink: 0 }}>›</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setShowSaveTo(null)} style={{ marginTop: 14, padding: "9px 18px", borderRadius: 10, background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
           {/* Estimate — render using actual EstimateView */}
           {openDoc === "estimate" && (() => {
             const data = getDocData("estimate");
             return (
               <EstimateView
+                key={resetKey}
                 estData={data || { ...ESTIMATE_INIT, sections: defaultSections() }}
                 onSet={(updater) => {
                   const current = getDocData("estimate") || { ...ESTIMATE_INIT, sections: defaultSections() };
@@ -177,6 +238,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
             const estData = bd?.estimate || { ...ESTIMATE_INIT, sections: defaultSections() };
             return (
               <EstimateView
+                key={resetKey}
                 estData={estData}
                 onSet={(updater) => {
                   const current = getDocData("budget");
