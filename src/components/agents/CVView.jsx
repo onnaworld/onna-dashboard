@@ -187,31 +187,31 @@ export default function CVView({ cvData, onSet, projectName }) {
   const doPrint = () => {
     const c = cv;
     const ct = c.contact || {};
-    const S = `font-size:11px;line-height:${LINE_H};color:#333;`;
+    const S = `font-size:11px;line-height:${LINE_H};color:#1a1a1a;`;
 
     let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11px;line-height:${LINE_H};">`;
 
     // Header — name + title
     html += `<div style="margin-bottom:10px;">`;
     html += `<div style="font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;">${esc(c.name)}</div>`;
-    html += `<div style="font-size:14px;color:#555;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
+    html += `<div style="font-size:14px;color:#1a1a1a;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
     html += `</div>`;
 
     // Contact — centred, horizontal with links
     const dot = ' <span style="color:#ccc;padding:0 6px;">\u2022</span> ';
     const contactParts = [];
-    if (ct.phone) contactParts.push(esc(ct.phone));
+    if (ct.phone) contactParts.push(`<a href="tel:${esc(ct.phone.replace(/\s/g,''))}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.phone)}</a>`);
     if (ct.email) contactParts.push(`<a href="mailto:${esc(ct.email)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.email)}</a>`);
-    if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;font-weight:700;">${esc(ct.linkedin)}</a>`); }
-    if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;font-weight:700;">${esc(ct.website)}</a>`); }
+    if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.linkedin)}</a>`); }
+    if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.website)}</a>`); }
     if (contactParts.length > 0) {
-      html += `<div style="font-size:10.5px;color:#444;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${contactParts.join(dot)}</div>`;
+      html += `<div style="font-size:10.5px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${contactParts.join(dot)}</div>`;
     }
     const locationParts = [];
     if (ct.location) locationParts.push(esc(ct.location));
     if (ct.citizenship) locationParts.push(esc(ct.citizenship));
     if (locationParts.length > 0) {
-      html += `<div style="font-size:10.5px;color:#666;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${locationParts.join(dot)}</div>`;
+      html += `<div style="font-size:10.5px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${locationParts.join(dot)}</div>`;
     }
 
     // Thick rule
@@ -220,7 +220,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     // Summary
     html += secHdr("SUMMARY");
     (c.summary || []).forEach(p => { html += `<div style="${S}margin-bottom:6px;">${esc(p)}</div>`; });
-    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#444;line-height:${LINE_H};margin-top:4px;text-align:center;">${esc(c.clients)}</div>`;
+    if (c.clients) html += `<div style="font-size:9.5px;font-weight:700;letter-spacing:0.4px;color:#1a1a1a;line-height:${LINE_H};margin-top:4px;text-align:center;">${esc(c.clients)}</div>`;
 
     // Experience
     html += secHdr("EXPERIENCE");
@@ -228,7 +228,7 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `<div style="margin-bottom:14px;">`;
       html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
       html += `<td style="padding:0;font-size:12px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};">${esc(exp.company)} <span style="font-weight:400;color:#bbb;padding:0 3px;">|</span> ${esc(exp.role)}</td>`;
-      html += `<td style="padding:0;font-size:11px;color:#888;text-align:right;white-space:nowrap;line-height:${LINE_H};">${esc(exp.dates)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#1a1a1a;text-align:right;white-space:nowrap;line-height:${LINE_H};">${esc(exp.dates)}</td>`;
       html += `</tr></table>`;
       html += `<div style="border-bottom:1px solid #eee;margin:2px 0 5px 0;"></div>`;
       html += `<ul style="margin:0;padding-left:18px;list-style:disc;">`;
@@ -244,8 +244,8 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `<div style="margin-bottom:8px;">`;
       html += `<div style="font-size:12px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};">${esc(edu.title)}</div>`;
       html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-      html += `<td style="padding:0;font-size:11px;color:#555;line-height:${LINE_H};">${esc(edu.institution)}</td>`;
-      html += `<td style="padding:0;font-size:11px;color:#777;text-align:right;line-height:${LINE_H};">${esc(edu.result)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#1a1a1a;line-height:${LINE_H};">${esc(edu.institution)}</td>`;
+      html += `<td style="padding:0;font-size:11px;color:#1a1a1a;text-align:right;line-height:${LINE_H};">${esc(edu.result)}</td>`;
       html += `</tr></table></div>`;
     });
 
@@ -260,7 +260,7 @@ export default function CVView({ cvData, onSet, projectName }) {
         if (!s) { html += `<td style="padding:5px 0;"></td>`; continue; }
         html += `<td style="padding:5px ${col === 0 ? '12px' : '0'} 5px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
         html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-        html += `<td style="padding:0;font-size:11px;color:#333;line-height:${LINE_H};">${esc(s.name)}</td>`;
+        html += `<td style="padding:0;font-size:11px;color:#1a1a1a;line-height:${LINE_H};">${esc(s.name)}</td>`;
         html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(s.level)}</td>`;
         html += `</tr></table></td>`;
       }
@@ -279,7 +279,7 @@ export default function CVView({ cvData, onSet, projectName }) {
         if (!l) { html += `<td style="padding:5px 0;"></td>`; continue; }
         html += `<td style="padding:5px ${col === 0 ? '12px' : '0'} 5px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
         html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-        html += `<td style="padding:0;font-size:11px;color:#333;line-height:${LINE_H};">${esc(l.name)}</td>`;
+        html += `<td style="padding:0;font-size:11px;color:#1a1a1a;line-height:${LINE_H};">${esc(l.name)}</td>`;
         html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(l.level)}</td>`;
         html += `</tr></table></td>`;
       }
@@ -356,20 +356,25 @@ export default function CVView({ cvData, onSet, projectName }) {
         {/* Header */}
         <div style={{ marginBottom: 10 }}>
           <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
-          <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
+          <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#1a1a1a", letterSpacing: LS, marginTop: 2 }} />
         </div>
 
-        {/* Contact — centred, horizontal with dot separators */}
+        {/* Contact — centred, bold, horizontal with dot separators */}
         <div style={{ textAlign: "center", marginBottom: 3, lineHeight: LINE_H }}>
           {["phone", "email", "linkedin", "website"].map((key, i) => {
             const val = cv.contact?.[key];
             if (!val) return null;
             const href = makeHref(key, val);
-            const isBold = key === "linkedin" || key === "website";
             return (
               <span key={key} style={{ display: "inline", verticalAlign: "baseline" }}>
                 {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
-                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", display: "inline", fontWeight: isBold ? 700 : 400 }} />
+                {href ? (
+                  <a href={href} target={key === "email" ? undefined : "_blank"} rel="noopener noreferrer" style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: "#1a1a1a", textDecoration: "none", borderBottom: "1px solid #ddd" }}>
+                    <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", display: "inline", fontWeight: 700 }} />
+                  </a>
+                ) : (
+                  <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", display: "inline", fontWeight: 700 }} />
+                )}
               </span>
             );
           })}
@@ -381,7 +386,7 @@ export default function CVView({ cvData, onSet, projectName }) {
             return (
               <span key={key} style={{ display: "inline", verticalAlign: "baseline" }}>
                 {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
-                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#666", width: "auto", display: "inline" }} />
+                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", display: "inline", fontWeight: 700 }} />
               </span>
             );
           })}
@@ -393,12 +398,12 @@ export default function CVView({ cvData, onSet, projectName }) {
         {sectionHdr("SUMMARY")}
         {(cv.summary || []).map((para, i) => (
           <div key={i} style={{ marginBottom: 6 }}>
-            <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#333" }} />
+            <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a" }} />
           </div>
         ))}
         {cv.clients && (
           <div style={{ marginTop: 4, textAlign: "center" }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: LINE_H, textAlign: "center" }} />
+            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#1a1a1a", lineHeight: LINE_H, textAlign: "center" }} />
           </div>
         )}
 
@@ -427,8 +432,8 @@ export default function CVView({ cvData, onSet, projectName }) {
                     <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
                   </span>
                 </td>
-                <td style={{ padding: 0, fontSize: 11, color: "#888", textAlign: "right", whiteSpace: "nowrap", width: 140, lineHeight: LINE_H }}>
-                  <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 11, color: "#888", textAlign: "right" }} />
+                <td style={{ padding: 0, fontSize: 11, color: "#1a1a1a", textAlign: "right", whiteSpace: "nowrap", width: 140, lineHeight: LINE_H }}>
+                  <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 11, color: "#1a1a1a", textAlign: "right" }} />
                 </td>
               </tr></tbody>
             </table>
@@ -443,12 +448,12 @@ export default function CVView({ cvData, onSet, projectName }) {
                   onDragLeave={() => setBulletDropTarget(null)}
                   onDrop={e => { e.preventDefault(); e.stopPropagation(); if (bulletDragRef.current && bulletDragRef.current.ei === ei && bulletDragRef.current.bi !== bi) moveBullet(ei, bulletDragRef.current.bi, bi); bulletDragRef.current = null; setBulletDropTarget(null); }}
                   onDragEnd={() => { bulletDragRef.current = null; setBulletDropTarget(null); }}
-                  style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#333", lineHeight: LINE_H, marginBottom: 2, borderTop: bulletDropTarget?.ei === ei && bulletDropTarget?.bi === bi ? "2px solid #1976D2" : "2px solid transparent", transition: "border-color 0.1s" }}
+                  style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#1a1a1a", lineHeight: LINE_H, marginBottom: 2, borderTop: bulletDropTarget?.ei === ei && bulletDropTarget?.bi === bi ? "2px solid #1976D2" : "2px solid transparent", transition: "border-color 0.1s" }}
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
                     <span data-noprint style={{ cursor: "grab", color: "#ccc", fontSize: 9, userSelect: "none", flexShrink: 0, marginTop: 3 }}>{"\u2630"}</span>
-                    <span style={{ color: "#333", flexShrink: 0, marginRight: 2 }}>{"\u2022"}</span>
-                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#333", flex: 1, minHeight: 18 }} />
+                    <span style={{ color: "#1a1a1a", flexShrink: 0, marginRight: 2 }}>{"\u2022"}</span>
+                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a", flex: 1, minHeight: 18 }} />
                     <button data-noprint onClick={() => removeBullet(ei, bi)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                   </div>
                 </li>
@@ -457,12 +462,12 @@ export default function CVView({ cvData, onSet, projectName }) {
             <div data-noprint style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
               <button onClick={() => moveExperience(ei, ei - 1)} disabled={ei === 0} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: ei === 0 ? "default" : "pointer", color: ei === 0 ? "#ddd" : "#888", opacity: ei === 0 ? 0.5 : 1 }}>{"\u2191"} MOVE UP</button>
               <button onClick={() => moveExperience(ei, ei + 1)} disabled={ei === (cv.experience || []).length - 1} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: ei === (cv.experience || []).length - 1 ? "default" : "pointer", color: ei === (cv.experience || []).length - 1 ? "#ddd" : "#888", opacity: ei === (cv.experience || []).length - 1 ? 0.5 : 1 }}>{"\u2193"} MOVE DOWN</button>
-              <button onClick={() => addBullet(ei)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: "pointer", color: "#888" }}>+ BULLET</button>
+              <button onClick={() => addBullet(ei)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "3px 8px", cursor: "pointer", color: "#1a1a1a" }}>+ BULLET</button>
               <button onClick={() => removeExperience(ei)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#fff5f5", border: "1px solid #fdd", borderRadius: 3, padding: "3px 8px", cursor: "pointer", color: "#c0392b" }}>REMOVE ROLE</button>
             </div>
           </div>
         ))}
-        <button data-noprint onClick={addExperience} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EXPERIENCE</button>
+        <button data-noprint onClick={addExperience} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EXPERIENCE</button>
 
         {/* Education */}
         {sectionHdr("EDUCATION")}
@@ -472,10 +477,10 @@ export default function CVView({ cvData, onSet, projectName }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody><tr>
                 <td style={{ padding: 0 }}>
-                  <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#555", lineHeight: LINE_H }} />
+                  <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#1a1a1a", lineHeight: LINE_H }} />
                 </td>
                 <td style={{ padding: 0, textAlign: "right" }}>
-                  <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#777", textAlign: "right", lineHeight: LINE_H }} />
+                  <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#1a1a1a", textAlign: "right", lineHeight: LINE_H }} />
                 </td>
                 <td style={{ padding: 0, width: 20 }}>
                   <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
@@ -484,7 +489,7 @@ export default function CVView({ cvData, onSet, projectName }) {
             </table>
           </div>
         ))}
-        <button data-noprint onClick={addEducation} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EDUCATION</button>
+        <button data-noprint onClick={addEducation} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EDUCATION</button>
 
         {/* Skills */}
         {sectionHdr("SKILLS")}
@@ -499,7 +504,7 @@ export default function CVView({ cvData, onSet, projectName }) {
                   return (
                     <td key={col} style={{ padding: "5px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1, lineHeight: LINE_H }} />
+                        <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#1a1a1a", flex: 1, lineHeight: LINE_H }} />
                         <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                           <option value="Beginner">Beginner</option>
                           <option value="Intermediate">Intermediate</option>
@@ -515,7 +520,7 @@ export default function CVView({ cvData, onSet, projectName }) {
             ))}
           </tbody>
         </table>
-        <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD SKILL</button>
+        <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD SKILL</button>
 
         {/* Languages */}
         {sectionHdr("LANGUAGES")}
@@ -530,7 +535,7 @@ export default function CVView({ cvData, onSet, projectName }) {
                   return (
                     <td key={col} style={{ padding: "5px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#333", flex: 1, lineHeight: LINE_H }} />
+                        <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#1a1a1a", flex: 1, lineHeight: LINE_H }} />
                         <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                           <option value="Beginner">Beginner</option>
                           <option value="Intermediate">Intermediate</option>
@@ -546,7 +551,7 @@ export default function CVView({ cvData, onSet, projectName }) {
             ))}
           </tbody>
         </table>
-        <button data-noprint onClick={addLanguage} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700 }}>+ ADD LANGUAGE</button>
+        <button data-noprint onClick={addLanguage} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700 }}>+ ADD LANGUAGE</button>
       </div>
     </div>
   );
