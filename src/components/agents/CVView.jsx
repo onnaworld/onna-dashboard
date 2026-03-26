@@ -2,8 +2,8 @@ import React, { useState, useRef } from "react";
 import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
 
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
-const LS = 0.5;
-const LS_HDR = 1.5;
+const LS = 0.3;
+const LS_HDR = 1.2;
 
 const DEFAULT_CV = {
   name: "EMILY LUCAS",
@@ -100,10 +100,10 @@ const InlineEdit = ({ value, onChange, style = {}, multiline }) => {
       value={value || ""}
       onChange={e => onChange(e.target.value)}
       style={{
-        fontFamily: F, fontSize: 10, letterSpacing: LS, border: "none", outline: "none",
-        background: "transparent", width: "100%", padding: "2px 4px", boxSizing: "border-box",
+        fontFamily: F, fontSize: 12, letterSpacing: LS, border: "none", outline: "none",
+        background: "transparent", width: "100%", padding: "1px 2px", boxSizing: "border-box",
         resize: multiline ? "vertical" : "none",
-        ...(multiline ? { minHeight: 40, lineHeight: 1.55 } : {}),
+        ...(multiline ? { minHeight: 36, lineHeight: 1.5 } : {}),
         ...style,
       }}
     />
@@ -131,94 +131,33 @@ export default function CVView({ cvData, onSet, projectName }) {
     });
   };
 
-  const addExperience = () => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.experience = [...(next.experience || []), { role: "", company: "", dates: "", bullets: [""] }];
-      return next;
-    });
-  };
-  const removeExperience = (i) => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.experience.splice(i, 1);
-      return next;
-    });
-  };
-  const addBullet = (ei) => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.experience[ei].bullets.push("");
-      return next;
-    });
-  };
-  const removeBullet = (ei, bi) => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      if (next.experience[ei].bullets.length > 1) next.experience[ei].bullets.splice(bi, 1);
-      return next;
-    });
-  };
-  const addEducation = () => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.education = [...(next.education || []), { title: "", institution: "", result: "" }];
-      return next;
-    });
-  };
-  const removeEducation = (i) => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.education.splice(i, 1);
-      return next;
-    });
-  };
-  const addSkill = () => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.skills = [...(next.skills || []), { name: "", level: "Intermediate" }];
-      return next;
-    });
-  };
-  const removeSkill = (i) => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.skills.splice(i, 1);
-      return next;
-    });
-  };
-  const addLanguage = () => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.languages = [...(next.languages || []), { name: "", level: "" }];
-      return next;
-    });
-  };
-  const removeLanguage = (i) => {
-    onSet(prev => {
-      const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
-      next.languages.splice(i, 1);
-      return next;
-    });
-  };
+  const addExperience = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience = [...(n.experience || []), { role: "", company: "", dates: "", bullets: [""] }]; return n; }); };
+  const removeExperience = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience.splice(i, 1); return n; }); };
+  const addBullet = (ei) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience[ei].bullets.push(""); return n; }); };
+  const removeBullet = (ei, bi) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); if (n.experience[ei].bullets.length > 1) n.experience[ei].bullets.splice(bi, 1); return n; }); };
+  const addEducation = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education = [...(n.education || []), { title: "", institution: "", result: "" }]; return n; }); };
+  const removeEducation = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education.splice(i, 1); return n; }); };
+  const addSkill = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills = [...(n.skills || []), { name: "", level: "Intermediate" }]; return n; }); };
+  const removeSkill = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills.splice(i, 1); return n; }); };
+  const addLanguage = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
+  const removeLanguage = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
 
   const doPrint = () => {
     const el = printRef.current; if (!el) return;
     const clone = el.cloneNode(true);
     clone.querySelectorAll("[data-noprint]").forEach(n => n.remove());
     clone.querySelectorAll("button").forEach(n => n.remove());
-    // Hide select dropdowns in print
     clone.querySelectorAll("select").forEach(n => n.remove());
-    // Replace inputs/textareas with styled spans
     clone.querySelectorAll("input, textarea").forEach(n => {
       const span = document.createElement("span");
       span.textContent = n.value;
-      const cs = n.style.cssText;
-      span.style.cssText = cs;
+      span.style.cssText = n.style.cssText;
       span.style.border = "none";
       span.style.background = "transparent";
-      span.style.display = "inline-block";
-      span.style.whiteSpace = n.tagName === "TEXTAREA" ? "pre-wrap" : "nowrap";
+      span.style.display = n.tagName === "TEXTAREA" ? "block" : "inline";
+      span.style.whiteSpace = n.tagName === "TEXTAREA" ? "pre-wrap" : "normal";
+      span.style.wordWrap = "break-word";
+      span.style.overflowWrap = "break-word";
       n.replaceWith(span);
     });
     const docTitle = `CV - ${cv.name || "CV"}${projectName ? " | " + projectName : ""}`;
@@ -227,7 +166,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     document.body.appendChild(iframe);
     const _d = iframe.contentDocument;
     _d.open();
-    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:14mm 16mm;}@media print{@page{margin:14mm 16mm;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:12px;color:#1a1a1a;padding:0;}@media print{@page{margin:18mm 20mm;size:A4;}}span{word-wrap:break-word;overflow-wrap:break-word;}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
     _d.close();
     clone.style.padding = "0";
     _d.body.appendChild(_d.adoptNode(clone));
@@ -244,28 +183,33 @@ export default function CVView({ cvData, onSet, projectName }) {
   const TABS = [{ id: "cv", label: "CV" }];
 
   const sectionHdr = (label) => (
-    <div style={{ marginTop: 24, marginBottom: 10 }}>
-      <div style={{ fontFamily: F, fontSize: 11, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", marginBottom: 6 }}>{label}</div>
-      <div style={{ borderBottom: "1px solid #ddd" }} />
+    <div style={{ marginTop: 22, marginBottom: 10 }}>
+      <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", marginBottom: 5 }}>{label}</div>
+      <div style={{ borderBottom: "1px solid #ccc" }} />
     </div>
   );
 
+  const BADGE_W = 88;
   const levelBadge = (level) => {
-    const bg = (level === "Expert" || level === "Native") ? "#1a1a1a" : "#e8e8e8";
-    const color = (level === "Expert" || level === "Native") ? "#fff" : "#555";
+    const dark = level === "Expert" || level === "Native";
     return (
-      <span style={{ fontFamily: F, fontSize: 8, fontWeight: 600, letterSpacing: LS, padding: "3px 10px", borderRadius: 3, background: bg, color, textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>{level}</span>
+      <span style={{
+        fontFamily: F, fontSize: 8, fontWeight: 700, letterSpacing: 0.8,
+        padding: "3px 0", borderRadius: 3, textTransform: "uppercase",
+        textAlign: "center", display: "inline-block", width: BADGE_W, flexShrink: 0,
+        background: dark ? "#1a1a1a" : "#e8e8e8",
+        color: dark ? "#fff" : "#444",
+      }}>{level}</span>
     );
   };
 
-  // Contact detail rows with clean black star markers
-  const contactRows = [
-    { label: "phone" },
-    { label: "email" },
-    { label: "linkedin" },
-    { label: "website" },
-    { label: "location" },
-    { label: "citizenship" },
+  const contactFields = [
+    { key: "phone" },
+    { key: "email" },
+    { key: "linkedin" },
+    { key: "website" },
+    { key: "location" },
+    { key: "citizenship" },
   ];
 
   return (
@@ -290,59 +234,61 @@ export default function CVView({ cvData, onSet, projectName }) {
       </div>
 
       {/* Content */}
-      <div ref={printRef} style={{ padding: "40px 40px" }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 4 }}>
-          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-            <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 26, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.2, padding: "0 4px" }} />
-            <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 13, fontWeight: 400, color: "#666", letterSpacing: LS, marginTop: 2, padding: "2px 4px" }} />
+      <div ref={printRef} style={{ padding: "36px 36px" }}>
+
+        {/* ── HEADER ── */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 6 }}>
+          {/* Left: Name + Title */}
+          <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+            <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
+            <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#555", letterSpacing: LS, marginTop: 2 }} />
           </div>
-          <div style={{ flex: "0 0 260px", fontSize: 10, fontFamily: F, letterSpacing: LS, color: "#444" }}>
-            {contactRows.map(({ label }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                <span style={{ width: 10, fontSize: 7, color: "#1a1a1a", flexShrink: 0, textAlign: "center" }}>{"\u2605"}</span>
-                <InlineEdit value={cv.contact?.[label]} onChange={v => set(`contact.${label}`, v)} style={{ fontSize: 10, color: "#444" }} />
+          {/* Right: Contact — right-aligned text */}
+          <div style={{ flex: "0 0 auto", textAlign: "right" }}>
+            {contactFields.map(({ key }) => (
+              <div key={key} style={{ marginBottom: 1 }}>
+                <InlineEdit value={cv.contact?.[key]} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#444", textAlign: "right" }} />
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 4 }} />
+        <div style={{ borderBottom: "2.5px solid #000", marginBottom: 2 }} />
 
-        {/* Summary */}
+        {/* ── SUMMARY ── */}
         {sectionHdr("SUMMARY")}
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ marginBottom: 6 }}>
           {(cv.summary || []).map((para, i) => (
-            <div key={i} style={{ marginBottom: 6 }}>
-              <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 10, lineHeight: 1.55, color: "#333" }} />
+            <div key={i} style={{ marginBottom: 5 }}>
+              <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: 1.55, color: "#333" }} />
             </div>
           ))}
         </div>
         {cv.clients && (
-          <div style={{ marginBottom: 4 }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#555", lineHeight: 1.6 }} />
+          <div style={{ marginBottom: 2 }}>
+            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: "#444", lineHeight: 1.6 }} />
           </div>
         )}
 
-        {/* Experience */}
+        {/* ── EXPERIENCE ── */}
         {sectionHdr("EXPERIENCE")}
         {(cv.experience || []).map((exp, ei) => (
-          <div key={ei} style={{ marginBottom: 16, position: "relative" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 1 }}>
+          <div key={ei} style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 0 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 0, flex: 1, minWidth: 0 }}>
-                <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", width: "auto", flex: "0 1 auto" }} />
-                <span style={{ fontFamily: F, fontSize: 11, fontWeight: 700, color: "#1a1a1a", padding: "0 4px", flexShrink: 0 }}>|</span>
-                <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
+                <InlineEdit value={exp.company} onChange={v => set(`experience.${ei}.company`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", width: "auto", flex: "0 1 auto" }} />
+                <span style={{ fontFamily: F, fontSize: 12, fontWeight: 400, color: "#999", padding: "0 6px", flexShrink: 0 }}>|</span>
+                <InlineEdit value={exp.role} onChange={v => set(`experience.${ei}.role`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }} />
               </div>
-              <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 10, color: "#888", textAlign: "right", width: 160, flexShrink: 0 }} />
+              <InlineEdit value={exp.dates} onChange={v => set(`experience.${ei}.dates`, v)} style={{ fontSize: 11, color: "#888", textAlign: "right", width: 150, flexShrink: 0 }} />
             </div>
-            <div style={{ borderBottom: "1px solid #eee", marginBottom: 4, paddingBottom: 1 }} />
-            <ul style={{ margin: 0, paddingLeft: 16, listStyle: "disc" }}>
+            <div style={{ borderBottom: "1px solid #eee", marginBottom: 4 }} />
+            <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
               {(exp.bullets || []).map((b, bi) => (
-                <li key={bi} style={{ fontFamily: F, fontSize: 10, letterSpacing: LS, color: "#333", lineHeight: 1.5, marginBottom: 2, position: "relative" }}>
+                <li key={bi} style={{ fontFamily: F, fontSize: 11, letterSpacing: LS, color: "#333", lineHeight: 1.5, marginBottom: 1 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 10, lineHeight: 1.5, color: "#333", flex: 1, minHeight: 20 }} />
-                    <button data-noprint onClick={() => removeBullet(ei, bi)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                    <InlineEdit multiline value={b} onChange={v => set(`experience.${ei}.bullets.${bi}`, v)} style={{ fontSize: 11, lineHeight: 1.5, color: "#333", flex: 1, minHeight: 18 }} />
+                    <button data-noprint onClick={() => removeBullet(ei, bi)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                   </div>
                 </li>
               ))}
@@ -353,25 +299,25 @@ export default function CVView({ cvData, onSet, projectName }) {
             </div>
           </div>
         ))}
-        <button data-noprint onClick={addExperience} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>+ ADD EXPERIENCE</button>
+        <button data-noprint onClick={addExperience} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EXPERIENCE</button>
 
-        {/* Education */}
+        {/* ── EDUCATION ── */}
         {sectionHdr("EDUCATION")}
         {(cv.education || []).map((edu, i) => (
-          <div key={i} style={{ marginBottom: 10, position: "relative" }}>
-            <InlineEdit value={edu.title} onChange={v => set(`education.${i}.title`, v)} style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
+          <div key={i} style={{ marginBottom: 8 }}>
+            <InlineEdit value={edu.title} onChange={v => set(`education.${i}.title`, v)} style={{ fontSize: 12, fontWeight: 700, color: "#1a1a1a" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 10, color: "#666", flex: 1 }} />
-              <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 10, color: "#888", textAlign: "right", width: 220, flexShrink: 0 }} />
-              <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+              <InlineEdit value={edu.institution} onChange={v => set(`education.${i}.institution`, v)} style={{ fontSize: 11, color: "#555", flex: 1 }} />
+              <InlineEdit value={edu.result} onChange={v => set(`education.${i}.result`, v)} style={{ fontSize: 11, color: "#777", textAlign: "right", width: 240, flexShrink: 0 }} />
+              <button data-noprint onClick={() => removeEducation(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
             </div>
           </div>
         ))}
-        <button data-noprint onClick={addEducation} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>+ ADD EDUCATION</button>
+        <button data-noprint onClick={addEducation} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD EDUCATION</button>
 
-        {/* Skills */}
+        {/* ── SKILLS ── */}
         {sectionHdr("SKILLS")}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, tableLayout: "fixed" }}>
           <tbody>
             {Array.from({ length: Math.ceil((cv.skills || []).length / 2) }).map((_, row) => {
               const left = (cv.skills || [])[row * 2];
@@ -380,18 +326,20 @@ export default function CVView({ cvData, onSet, projectName }) {
                 <tr key={row}>
                   {[left, right].map((s, col) => {
                     const idx = row * 2 + col;
-                    if (!s) return <td key={col} style={{ padding: "5px 0" }} />;
+                    if (!s) return <td key={col} style={{ padding: "4px 0" }} />;
                     return (
-                      <td key={col} style={{ padding: "5px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: col === 0 ? 20 : 0 }}>
-                          <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 10, color: "#333", flex: 1 }} />
-                          <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "3px 6px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                      <td key={col} style={{ padding: "4px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle", paddingRight: col === 0 ? 16 : 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontFamily: F, fontSize: 11, color: "#333", flex: 1, letterSpacing: LS, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#333" }} />
+                          </span>
+                          <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                             <option value="Beginner">Beginner</option>
                             <option value="Intermediate">Intermediate</option>
                             <option value="Expert">Expert</option>
                           </select>
                           {levelBadge(s.level)}
-                          <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                          <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                         </div>
                       </td>
                     );
@@ -401,11 +349,11 @@ export default function CVView({ cvData, onSet, projectName }) {
             })}
           </tbody>
         </table>
-        <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>+ ADD SKILL</button>
+        <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD SKILL</button>
 
-        {/* Languages */}
+        {/* ── LANGUAGES ── */}
         {sectionHdr("LANGUAGES")}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6, tableLayout: "fixed" }}>
           <tbody>
             {Array.from({ length: Math.ceil((cv.languages || []).length / 2) }).map((_, row) => {
               const left = (cv.languages || [])[row * 2];
@@ -414,18 +362,20 @@ export default function CVView({ cvData, onSet, projectName }) {
                 <tr key={row}>
                   {[left, right].map((l, col) => {
                     const idx = row * 2 + col;
-                    if (!l) return <td key={col} style={{ padding: "5px 0" }} />;
+                    if (!l) return <td key={col} style={{ padding: "4px 0" }} />;
                     return (
-                      <td key={col} style={{ padding: "5px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: col === 0 ? 20 : 0 }}>
-                          <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 10, color: "#333", flex: 1 }} />
-                          <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "3px 6px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
+                      <td key={col} style={{ padding: "4px 0", borderBottom: "1px solid #f0f0f0", verticalAlign: "middle", paddingRight: col === 0 ? 16 : 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontFamily: F, fontSize: 11, color: "#333", flex: 1, letterSpacing: LS }}>
+                            <InlineEdit value={l.name} onChange={v => set(`languages.${idx}.name`, v)} style={{ fontSize: 11, color: "#333" }} />
+                          </span>
+                          <select data-noprint value={l.level} onChange={e => set(`languages.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, letterSpacing: LS, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
                             <option value="Beginner">Beginner</option>
                             <option value="Intermediate">Intermediate</option>
                             <option value="Native">Native</option>
                           </select>
                           {levelBadge(l.level)}
-                          <button data-noprint onClick={() => removeLanguage(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                          <button data-noprint onClick={() => removeLanguage(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                         </div>
                       </td>
                     );
