@@ -1589,7 +1589,7 @@ function CashFlowDoc({ T, isMobile, cashFlowStore, setCashFlowStore, activeCashF
       el.parentNode.replaceChild(span, el);
     });
     clone.querySelectorAll(".cf-del, button").forEach(el => el.remove());
-    const docTitle = data?.label || "Cash Flow";
+    const docTitle = (data?.label || "Cash Flow V1") + " | Cash Flow";
     const html = `<!DOCTYPE html><html><head><title>${docTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{margin:0;padding:10mm 12mm;-webkit-font-smoothing:antialiased;font-family:${F}}@media print{@page{margin:0;size:A4 landscape;}}</style></head><body>${clone.innerHTML}</body></html>`;
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";

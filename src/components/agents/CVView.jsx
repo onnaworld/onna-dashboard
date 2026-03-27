@@ -295,7 +295,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     document.body.appendChild(iframe);
     const _d = iframe.contentDocument;
     _d.open();
-    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11px;color:#1a1a1a;padding:10mm 12mm;}a{color:#1a1a1a;text-decoration:none;}@media print{@page{margin:0;size:A4;}}</style></head><body>${html}</body></html>`);
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11px;color:#1a1a1a;padding:0 12mm;}a{color:#1a1a1a;text-decoration:none;}@media print{@page{margin:10mm 0;size:A4;}}</style></head><body>${html}</body></html>`);
     _d.close();
     const prevTitle = document.title;
     document.title = docTitle;

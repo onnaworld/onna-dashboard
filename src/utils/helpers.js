@@ -745,7 +745,7 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
 </div>`;
-  const csTitle = `Call Sheet${cs.shootName?" | "+cs.shootName:""}`;
+  const csTitle = `${cs.label||"Day 1"} Call Sheet${cs.shootName?" | "+cs.shootName:""}`;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:10mm 12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${csTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
@@ -792,7 +792,7 @@ ${sectionHdr("EMERGENCY RESPONSE PLAN")}
 <div style="padding:8px 12px">${emergencyHTML}</div>
 <div style="margin-top:60px;display:flex;justify-content:space-between;font-size:9px;${LS}color:#000"><div><div style="font-weight:700">@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div><div style="text-align:right"><div style="font-weight:700">WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div></div>
 </div>`;
-  const raTitle = `Risk Assessment${ra.shootName?" | "+ra.shootName:""}`;
+  const raTitle = `${ra.label||"V1"} Risk Assessment${ra.shootName?" | "+ra.shootName:""}`;
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${raTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:10mm 12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${raTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);

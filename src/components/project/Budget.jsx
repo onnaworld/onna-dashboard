@@ -439,7 +439,7 @@ export default function Budget({
       `;
       document.body.appendChild(wrapper);
       const origTitle = document.title;
-      document.title = `Actuals Tracker | ${p.name}`;
+      document.title = `Actuals Tracker | ${p.name||""}`;
       const cleanup = () => { wrapper.remove(); document.title = origTitle; window.removeEventListener("afterprint", cleanup); };
       window.addEventListener("afterprint", cleanup);
       setTimeout(() => window.print(), 100);
