@@ -96,7 +96,6 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
 
   const openTemplate = (key) => setOpenDoc(key);
   const resetToTemplate = (key) => {
-    if (!confirm("Reset to original template? Your edits will be lost.")) return;
     setTemplateDocData(prev => { const n = { ...prev }; delete n[key]; return n; });
     setResetKey(k => k + 1);
   };
