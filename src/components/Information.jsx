@@ -18,7 +18,14 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const [showSaveTo, setShowSaveTo] = useState(false); // project picker
 
   // Native document data for templates (stored in original format, not aoa)
-  const [templateDocData, setTemplateDocData] = useState(() => { try { const d = JSON.parse(localStorage.getItem("onna_template_doc_data") || "{}"); delete d.cv; return d; } catch { return {}; } });
+  const [templateDocData, setTemplateDocData] = useState(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem("onna_template_doc_data") || "{}");
+      // One-time CV template refresh (v2)
+      if (!localStorage.getItem("onna_cv_v2")) { delete d.cv; localStorage.setItem("onna_cv_v2", "1"); localStorage.setItem("onna_template_doc_data", JSON.stringify(d)); }
+      return d;
+    } catch { return {}; }
+  });
   useEffect(() => { try { localStorage.setItem("onna_template_doc_data", JSON.stringify(templateDocData)); } catch {} }, [templateDocData]);
 
   useEffect(() => {
