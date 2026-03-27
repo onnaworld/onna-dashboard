@@ -24,6 +24,8 @@ export default function Dashboard({
   const touchStartRef = useRef(null);
   const [customLists, setCustomLists] = useState(()=>{try{const s=localStorage.getItem('onna_todo_lists');return s?JSON.parse(s):[];}catch{return [];}});
   const saveCustomLists=(lists)=>{setCustomLists(lists);try{localStorage.setItem('onna_todo_lists',JSON.stringify(lists));}catch{}};
+  const [editingListName, setEditingListName] = useState(null);
+  const [dragListIdx, setDragListIdx] = useState(null);
   const TODO_COLORS = [
     {label:"None",border:"transparent",bg:"transparent",dot:"transparent"},
     {label:"Red",border:"#c46050",bg:"#fdd8d0",dot:"#c46050"},
@@ -212,6 +214,7 @@ export default function Dashboard({
                   ):(
                     <span draggable="false" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingTodoId(t.id);}} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",wordBreak:"break-word"}}>{t.text}</span>
                   )}
+                  {t.details&&<span draggable="false" onMouseDown={e=>e.stopPropagation()} title={t.details} style={{fontSize:10,color:T.muted,opacity:0.6,flexShrink:0,cursor:"default"}}>📝</span>}
                   <button draggable="false" onMouseDown={e=>e.stopPropagation()} title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",flexShrink:0,lineHeight:1,fontSize:13,color:t.color||T.muted,opacity:t.color?1:0.5,transition:"opacity 0.12s"}}>★</button>
                   <button draggable="false" onMouseDown={e=>e.stopPropagation()} className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"2px 4px",lineHeight:1,flexShrink:0}}>×</button>
                 </div>);
@@ -261,12 +264,22 @@ export default function Dashboard({
                   {longterm.map(t=>renderTask(t,"longterm"))}
                   {longterm.length===0&&<div style={{fontSize:11,color:T.muted,padding:"4px 3px",opacity:0.5}}>Drag tasks here or add below</div>}
                 </div>
-                {customLists.map(cl=>{
+                {customLists.map((cl,li)=>{
                   const listTasks=filteredTodos.filter(t=>t.subType===`list:${cl}`);
                   return (
-                  <div key={cl} style={{marginTop:8,padding:"4px 0",borderTop:`1px solid ${T.borderSub}`}} {...colDrop(`list:${cl}`)}>
+                  <div key={cl} style={{marginTop:8,padding:"4px 0",borderTop:dragListIdx!==null&&dragListIdx!==li?`2px solid ${T.accent}`:`1px solid ${T.borderSub}`,transition:"border-color 0.1s"}} {...colDrop(`list:${cl}`)}
+                    onDragOver={e=>{if(e.dataTransfer.types.includes("text/list-drag")){e.preventDefault();e.currentTarget.style.borderTopColor=T.accent;}}}
+                    onDragLeave={e=>{e.currentTarget.style.borderTopColor=T.borderSub;}}
+                    onDrop={e=>{if(e.dataTransfer.types.includes("text/list-drag")){e.preventDefault();e.currentTarget.style.borderTopColor=T.borderSub;const fromIdx=Number(e.dataTransfer.getData("text/list-drag"));if(fromIdx===li||isNaN(fromIdx))return;const arr=[...customLists];const [item]=arr.splice(fromIdx,1);arr.splice(li,0,item);saveCustomLists(arr);setDragListIdx(null);}}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                      <div style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em"}}>{cl}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flex:1,minWidth:0}}>
+                        <span draggable="true" onDragStart={e=>{e.dataTransfer.setData("text/list-drag",String(li));e.dataTransfer.effectAllowed="move";setDragListIdx(li);}} onDragEnd={()=>setDragListIdx(null)} style={{cursor:"grab",fontSize:11,color:T.muted,opacity:0.4,flexShrink:0,userSelect:"none"}}>⠿</span>
+                        {editingListName===cl?(
+                          <input autoFocus defaultValue={cl} onBlur={e=>{const v=e.target.value.trim();setEditingListName(null);if(!v||v===cl)return;if(customLists.includes(v))return;saveCustomLists(customLists.map(x=>x===cl?v:x));setTodos(prev=>prev.map(t=>t.subType===`list:${cl}`?{...t,subType:`list:${v}`}:t));}} onKeyDown={e=>{if(e.key==="Enter")e.target.blur();if(e.key==="Escape")setEditingListName(null);}} style={{fontSize:10,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:"0.05em",border:`1px solid ${T.accent}`,borderRadius:3,padding:"1px 4px",background:"#fff",fontFamily:"inherit",outline:"none",minWidth:0,flex:1}}/>
+                        ):(
+                          <div onClick={()=>setEditingListName(cl)} style={{fontSize:10,fontWeight:600,color:T.muted,textTransform:"uppercase",letterSpacing:"0.05em",cursor:"text",flex:1,minWidth:0}}>{cl}</div>
+                        )}
+                      </div>
                       <button onClick={()=>{if(listTasks.length>0){if(!window.confirm(`Delete "${cl}" list? Tasks will move to Unassigned.`))return;setTodos(prev=>prev.map(t=>t.subType===`list:${cl}`?{...t,subType:undefined}:t));}saveCustomLists(customLists.filter(x=>x!==cl));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:0,lineHeight:1,opacity:0.5}}>×</button>
                     </div>
                     {listTasks.map(t=>renderTask(t,`list:${cl}`))}

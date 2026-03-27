@@ -102,10 +102,15 @@ export function TodoProvider({ children }) {
     setDashNotesList(prev => [...prev]);
   };
 
-  // ── Persistence effects ──
-  useEffect(()=>{if(!hydratedRef.current&&todos.length===0)return;try{localStorage.setItem('onna_todos',JSON.stringify(todos))}catch(e){} if(hydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
-  useEffect(()=>{if(!hydratedRef.current&&!Object.keys(projectTodos).length)return;try{localStorage.setItem('onna_ptodos',JSON.stringify(projectTodos))}catch(e){} if(hydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
-  useEffect(()=>{if(!hydratedRef.current&&dashNotesList.length===0)return;try{localStorage.setItem('onna_notes_list',JSON.stringify(dashNotesList))}catch{} if(hydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
+  // ── Persistence effects (debounced localStorage writes to avoid UI blocking) ──
+  const lsTimers = useRef({});
+  const debouncedLS = (key, data) => {
+    clearTimeout(lsTimers.current[key]);
+    lsTimers.current[key] = setTimeout(() => { try { localStorage.setItem(key, JSON.stringify(data)); } catch {} }, 150);
+  };
+  useEffect(()=>{if(!hydratedRef.current&&todos.length===0)return;debouncedLS('onna_todos',todos); if(hydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
+  useEffect(()=>{if(!hydratedRef.current&&!Object.keys(projectTodos).length)return;debouncedLS('onna_ptodos',projectTodos); if(hydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);
+  useEffect(()=>{if(!hydratedRef.current&&dashNotesList.length===0)return;debouncedLS('onna_notes_list',dashNotesList); if(hydratedRef.current) debouncedGlobalSave('notes_list',dashNotesList);},[dashNotesList]);
 
   // ── Computed values ──
   const activeProjectIds = useMemo(()=>new Set(activeProjects.map(p=>p.id)),[activeProjects]);
