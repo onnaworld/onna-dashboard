@@ -8,7 +8,7 @@ import Casting from "./project/Casting";
 import Styling from "./project/Styling";
 import Travel from "./project/Travel";
 import Schedule from "./project/Schedule";
-import Files from "./project/Files";
+import ProductionBrief from "./project/ProductionBrief";
 import { uploadFromLink as _uploadFromLink } from "../handlers/documentHandlers";
 
 export default function ProjectSection({
@@ -157,7 +157,6 @@ export default function ProjectSection({
     "Styling":        {emoji:"👗",count:`${getProjectFiles(p.id,"styling").length} files`},
     "Travel":         {emoji:"✈️",count:"Flights, hotels & logistics"},
     "Schedule":       {emoji:"📒",count:"CPS, Shotlist, Storyboard & Post-Production"},
-    "Files":          {emoji:"🗂",count:"All project files & documents"},
   };
 
   const MiniStat = ({label,value}) => (
@@ -288,8 +287,6 @@ export default function ProjectSection({
       linkUploading={linkUploading} linkUploadProgress={linkUploadProgress} uploadFromLink={uploadFromLink}
       pushNav={pushNav} showAlert={showAlert} buildPath={buildPath}
       UploadZone={UploadZone}
-      productionBriefStore={productionBriefStore} setProductionBriefStore={setProductionBriefStore}
-      CSLogoSlot={CSLogoSlot}
     />;
   }
 
@@ -299,6 +296,7 @@ export default function ProjectSection({
       budgetSubSection={budgetSubSection} setBudgetSubSection={setBudgetSubSection}
       projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} editingEstimate={editingEstimate} setEditingEstimate={setEditingEstimate}
       projectActuals={projectActuals} setProjectActuals={setProjectActuals} actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab}
+      productionBriefStore={productionBriefStore} setProductionBriefStore={setProductionBriefStore}
 
       quotes={quotes} invoiceTab={invoiceTab} setInvoiceTab={setInvoiceTab}
       invoiceSearchTerm={invoiceSearchTerm} setInvoiceSearchTerm={setInvoiceSearchTerm} quoteSearchTerm={quoteSearchTerm} setQuoteSearchTerm={setQuoteSearchTerm}
@@ -308,7 +306,8 @@ export default function ProjectSection({
       createMenuOpen={createMenuOpen} setCreateMenuOpen={setCreateMenuOpen} setDuplicateModal={setDuplicateModal} setDuplicateSearch={setDuplicateSearch}
       pushUndo={pushUndo} archiveItem={archiveItem} pushNav={pushNav} showAlert={showAlert} showPrompt={showPrompt} buildPath={buildPath}
       projectInfoRef={projectInfoRef} actualsExpandedRef={actualsExpandedRef}
-      EstCell={EstCell} EstimateView={EstimateView} BtnPrimary={BtnPrimary} PRINT_CLEANUP_CSS={PRINT_CLEANUP_CSS}
+      CSLogoSlot={CSLogoSlot}
+      EstCell={EstCell} EstimateView={EstimateView} ProductionBrief={ProductionBrief} BtnPrimary={BtnPrimary} PRINT_CLEANUP_CSS={PRINT_CLEANUP_CSS}
     />;
   }
 
@@ -425,26 +424,6 @@ export default function ProjectSection({
       pushUndo={pushUndo} archiveItem={archiveItem} pushNav={pushNav} showAlert={showAlert}
       CPSPolly={CPSPolly} ShotListPolly={ShotListPolly} StoryboardPolly={StoryboardPolly} PostPolly={PostPolly}
       cpsDefaultPhases={cpsDefaultPhases} mkFrame={mkFrame} ppMkVideo={ppMkVideo} ppMkStill={ppMkStill} ppDefaultSchedule={ppDefaultSchedule}
-    />;
-  }
-
-  // Files section
-  if (projectSection==="Files") {
-    return <Files T={T} isMobile={isMobile} p={p}
-      filesSubSection={filesSubSection} setFilesSubSection={setFilesSubSection}
-      projectFileStore={projectFileStore} setProjectFileStore={setProjectFileStore}
-      projectEstimates={projectEstimates}
-      callSheetStore={callSheetStore} riskAssessmentStore={riskAssessmentStore}
-      contractDocStore={contractDocStore}
-      locDeckStore={locDeckStore} recceReportStore={recceReportStore}
-      travelItineraryStore={travelItineraryStore}
-      cpsStore={cpsStore} shotListStore={shotListStore} storyboardStore={storyboardStore}
-      postProdStore={postProdStore}
-      castingDeckStore={castingDeckStore} castingTableStore={castingTableStore}
-      fittingStore={fittingStore}
-      billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards}
-      pushNav={pushNav} showAlert={showAlert} buildPath={buildPath}
-      UploadZone={UploadZone}
     />;
   }
 

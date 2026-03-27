@@ -7,6 +7,7 @@ export default function Budget({
   budgetSubSection, setBudgetSubSection,
   projectEstimates, setProjectEstimates, editingEstimate, setEditingEstimate,
   projectActuals, setProjectActuals, actualsTrackerTab, setActualsTrackerTab,
+  productionBriefStore, setProductionBriefStore,
 
   quotes, invoiceTab, setInvoiceTab,
   invoiceSearchTerm, setInvoiceSearchTerm, quoteSearchTerm, setQuoteSearchTerm,
@@ -16,7 +17,8 @@ export default function Budget({
   createMenuOpen, setCreateMenuOpen, setDuplicateModal, setDuplicateSearch,
   pushUndo, archiveItem, pushNav, showAlert, showPrompt, buildPath,
   projectInfoRef, actualsExpandedRef,
-  EstCell, EstimateView, BtnPrimary, PRINT_CLEANUP_CSS,
+  CSLogoSlot,
+  EstCell, EstimateView, ProductionBrief, BtnPrimary, PRINT_CLEANUP_CSS,
 }) {
   const estimates    = projectEstimates[p.id]||[];
   const versionLabels= ["V1","V2","V3","V4","V5"];
@@ -54,12 +56,15 @@ export default function Budget({
   const [receiptLoading, setReceiptLoading] = React.useState(null);
   const [receiptOcrResult, setReceiptOcrResult] = React.useState(null);
 
+  const pbVersions = Array.isArray(productionBriefStore[p.id]) ? productionBriefStore[p.id] : (productionBriefStore[p.id] ? [productionBriefStore[p.id]] : []);
+  const [activePBVersion, setActivePBVersion] = React.useState(null);
+
   // Budget sub-navigation
   if (!budgetSubSection) return (
     <div>
       <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Budget management for this project.</p>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
-        {[["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`],["invoices","Invoices & Receipts","🧾","Upload invoices & receipts"]].map(([key,label,emoji,desc])=>(
+        {[["production-brief","Production Brief","📄",`${pbVersions.length} version(s)`],["tracker","Budget Tracker","💰","Track income & expenses"],["estimates","Estimates","📋",`${estimates.length} version(s)`],["quotations","Quotations","💬",`${quotes.length} quote(s)`],["invoices","Invoices & Receipts","🧾","Upload invoices & receipts"]].map(([key,label,emoji,desc])=>(
           <a key={key} href={buildPath("Projects",p.id,"Budget",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setBudgetSubSection(key);pushNav("Projects",p,"Budget",key);}} className="proj-card" style={{borderRadius:16,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
             <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
             <div style={{minWidth:0,flex:1}}>
@@ -72,6 +77,93 @@ export default function Budget({
       </div>
     </div>
   );
+
+  // Production Brief sub-section (versioned like estimates)
+  if (budgetSubSection==="production-brief") {
+    // Migrate: if store has a single object (not array), wrap it
+    if (productionBriefStore[p.id] && !Array.isArray(productionBriefStore[p.id])) {
+      setProductionBriefStore(prev => ({ ...prev, [p.id]: [prev[p.id]] }));
+    }
+    const pbArr = Array.isArray(productionBriefStore[p.id]) ? productionBriefStore[p.id] : [];
+    const pbIdx = activePBVersion != null ? activePBVersion : (pbArr.length > 0 ? pbArr.length - 1 : null);
+    const currentPB = pbIdx != null ? pbArr[pbIdx] : null;
+
+    if (currentPB) {
+      // Wrap store so ProductionBrief sees a single brief at p.id, then writes back to the array
+      const wrappedStore = { [p.id]: currentPB };
+      const wrappedSet = (fn) => {
+        if (typeof fn === "function") {
+          setProductionBriefStore(prev => {
+            const arr = Array.isArray(prev[p.id]) ? [...prev[p.id]] : [];
+            const fakeStore = { [p.id]: arr[pbIdx] };
+            const result = fn(fakeStore);
+            arr[pbIdx] = result[p.id];
+            return { ...prev, [p.id]: arr };
+          });
+        } else {
+          setProductionBriefStore(prev => {
+            const arr = Array.isArray(prev[p.id]) ? [...prev[p.id]] : [];
+            arr[pbIdx] = fn[p.id];
+            return { ...prev, [p.id]: arr };
+          });
+        }
+      };
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <button onClick={()=>{setActivePBVersion(null);setBudgetSubSection(null);}} style={{background:"none",border:"none",color:T.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4,fontWeight:500}}>{"‹"} Back</button>
+            <div style={{display:"flex",gap:4}}>
+              {pbArr.map((_,i)=>(
+                <button key={i} onClick={()=>setActivePBVersion(i)} style={{padding:"3px 10px",borderRadius:6,fontSize:11,fontWeight:i===pbIdx?700:500,background:i===pbIdx?"#F5D13A":"#f5f5f7",color:i===pbIdx?"#3d2800":T.muted,border:"none",cursor:"pointer",fontFamily:"inherit"}}>V{i+1}</button>
+              ))}
+            </div>
+          </div>
+          <ProductionBrief T={T} isMobile={isMobile} p={p}
+            productionBriefStore={wrappedStore} setProductionBriefStore={wrappedSet}
+            setCreativeSubSection={()=>{}} pushNav={pushNav} showAlert={showAlert} buildPath={buildPath}
+            CSLogoSlot={CSLogoSlot}
+          />
+        </div>
+      );
+    }
+
+    // No versions — show empty state with create button
+    return (
+      <div>
+        <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>{"‹"} Back to Budget</button>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+          <div style={{fontSize:18,fontWeight:700,color:T.text}}>Production Briefs</div>
+          <div style={{display:"flex",gap:8}}>
+            {pbArr.length>0&&<button onClick={()=>{const prev2=pbArr[pbArr.length-1];const dup={...JSON.parse(JSON.stringify(prev2)),id:Date.now(),createdAt:Date.now(),updatedAt:Date.now()};setProductionBriefStore(prev=>({...prev,[p.id]:[...(Array.isArray(prev[p.id])?prev[p.id]:[]),...[dup]]}));}} style={{padding:"7px 16px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.sub,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Duplicate Previous</button>}
+            <BtnPrimary onClick={()=>{
+              const init = {id:Date.now(),projectId:p.id,title:"PRODUCTION BRIEF",prodLogo:null,clientLogo:null,sectionTitles:{1:"PROJECT OVERVIEW",2:"CREATIVE DIRECTION",3:"CREW",4:"SCHEDULE",5:"QUOTE"},onnaContent:"",projectFields:[{id:Date.now()+0.01,label:"PROJECT NAME",value:p.name||""},{id:Date.now()+0.02,label:"CLIENT",value:p.client||""},{id:Date.now()+0.03,label:"PRODUCTION",value:""},{id:Date.now()+0.04,label:"PHOTOGRAPHER / DIRECTOR",value:""},{id:Date.now()+0.05,label:"SHOOT DATES",value:""}],overviewFields:[{id:Date.now()+0.06,label:"NUMBER OF TRAVEL DAYS",value:""},{id:Date.now()+0.07,label:"NUMBER OF RECCE DAYS",value:""},{id:Date.now()+0.08,label:"NUMBER OF SHOOT DAYS",value:""},{id:Date.now()+0.09,label:"NUMBER OF INTERNATIONAL CREW",value:""},{id:Date.now()+0.10,label:"TOTAL CREW",value:""}],creativeFields:[{id:Date.now()+0.15,label:"DESCRIPTION",value:"",type:"textarea"},{id:Date.now()+0.16,label:"REFERENCES",value:""},{id:Date.now()+0.17,label:"VISUAL NOTES",value:""}],crew:{client:[],production:[],video:[],photo:[],wardrobe:[],hairMakeup:[],casting:[],miscellaneous:[]},localCrewCategories:[],scheduleFields:[{id:Date.now()+0.18,label:"SCHEDULE NOTES",value:"",type:"textarea"}],quote:[{id:Date.now()+0.19,heading:"PRODUCTION COSTS",lines:[{id:Date.now()+0.2,label:"",value:""}]}],extraSections:[],hiddenSections:[],createdAt:Date.now(),updatedAt:Date.now(),_v:4};
+              setProductionBriefStore(prev=>({...prev,[p.id]:[...(Array.isArray(prev[p.id])?prev[p.id]:[]),...[init]]}));
+            }}>+ New Brief</BtnPrimary>
+          </div>
+        </div>
+        {pbArr.length===0?(
+          <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No production briefs yet. Click "+ New Brief" to create your first version.</div></div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {pbArr.map((pb,i)=>(
+              <div key={pb.id||i} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActivePBVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>V{i+1}</span>
+                  </div>
+                  <div style={{fontSize:13,fontWeight:600,color:T.text}}>{pb.projectFields?.[0]?.value||pb.title||"Production Brief"}</div>
+                  <div style={{fontSize:11,color:T.muted,marginTop:2}}>{pb.updatedAt?new Date(pb.updatedAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—"}</div>
+                </div>
+                <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={()=>{if(!window.confirm(`Delete V${i+1} production brief?`))return;setProductionBriefStore(prev=>{const arr=(Array.isArray(prev[p.id])?prev[p.id]:[]).filter((_,j)=>j!==i);return{...prev,[p.id]:arr};});}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Budget Tracker sub-section
   if (budgetSubSection==="tracker") {

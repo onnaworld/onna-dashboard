@@ -223,10 +223,7 @@ export default function ProductionBrief({
   useEffect(() => {
     if (migrationDone.current) return;
     if (!brief) {
-      const init = makeBrief(p.id);
-      init.projectFields[0].value = p.name || "";
-      init.projectFields[1].value = p.client || "";
-      setProductionBriefStore(prev => ({ ...prev, [p.id]: init }));
+      // Don't auto-create — user creates briefs from Budget section
       migrationDone.current = true;
       return;
     } else if (brief && !brief.projectFields) {

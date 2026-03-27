@@ -1,5 +1,4 @@
 import React from "react";
-import ProductionBrief from "./ProductionBrief";
 
 export default function Creative({
   T, isMobile, p,
@@ -10,8 +9,6 @@ export default function Creative({
   linkUploading, linkUploadProgress, uploadFromLink,
   pushNav, showAlert, buildPath,
   UploadZone,
-  productionBriefStore, setProductionBriefStore,
-  CSLogoSlot,
 }) {
   const storeFiles = (projectFileStore[p.id]||{});
   const moodFiles = storeFiles.moodboards||[];
@@ -81,12 +78,11 @@ export default function Creative({
 
   // Sub-navigation: show cards if no sub-section selected
   if (!creativeSubSection) {
-    const pbCount = productionBriefStore[p.id]?.sections?.length || 0;
     return (
       <div>
         <p style={{fontSize:13,color:T.sub,marginBottom:18}}>Creative assets for this project.</p>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
-          {[["moodboard","Moodboard","🎨",moodFiles.length+" file"+(moodFiles.length!==1?"s":"")],["brief","Brief","📋",briefFiles.length+" file"+(briefFiles.length!==1?"s":"")],["production-brief","Production Brief","📄",pbCount+" section"+(pbCount!==1?"s":"")]].map(([key,label,emoji,desc])=>(
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:12}}>
+          {[["moodboard","Moodboard","🎨",moodFiles.length+" file"+(moodFiles.length!==1?"s":"")],["brief","Brief","📋",briefFiles.length+" file"+(briefFiles.length!==1?"s":"")]].map(([key,label,emoji,desc])=>(
             <a key={key} href={buildPath("Projects",p.id,"Creative",key)} onClick={(e)=>{if(e.metaKey||e.ctrlKey)return;e.preventDefault();setCreativeSubSection(key);pushNav("Projects",p,"Creative",key);}} className="proj-card" style={{borderRadius:16,padding:"22px 22px",background:T.surface,border:`1px solid ${T.border}`,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",textDecoration:"none",color:"inherit"}}>
               <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
               <div style={{minWidth:0,flex:1}}>
@@ -103,9 +99,4 @@ export default function Creative({
 
   if (creativeSubSection==="moodboard") return renderFileManager("moodboards","Moodboard","moodboard");
   if (creativeSubSection==="brief") return renderFileManager("briefs","Brief","brief");
-  if (creativeSubSection==="production-brief") return <ProductionBrief T={T} isMobile={isMobile} p={p}
-    productionBriefStore={productionBriefStore} setProductionBriefStore={setProductionBriefStore}
-    setCreativeSubSection={setCreativeSubSection} pushNav={pushNav} showAlert={showAlert} buildPath={buildPath}
-    CSLogoSlot={CSLogoSlot}
-  />;
 }
