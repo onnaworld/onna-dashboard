@@ -26,7 +26,7 @@ export function AddVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Loc
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
           <BtnSecondary onClick={()=>setShowAddVendor(false)}>Cancel</BtnSecondary>
-          <BtnPrimary onClick={async()=>{if(!newVendor.name)return;try{const saved=await api.post("/api/vendors",newVendor);if(saved&&saved.id){setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}else{showAlert("Failed to save vendor: "+(saved?.error||"Unknown error"));}}catch(e){showAlert("Failed to save vendor: "+(e.message||"Network error"));};}}>Save Vendor</BtnPrimary>
+          <BtnPrimary onClick={async()=>{if(!newVendor.name&&!newVendor.company){showAlert("Please enter a name or company.");return;}const payload={};Object.keys(newVendor).forEach(k=>{payload[k]=newVendor[k]||"";});if(!payload.name)payload.name=payload.company;try{const saved=await api.post("/api/vendors",payload);if(saved&&saved.id){setVendors(prev=>[...prev,saved]);setNewVendor({name:"",company:"",category:"Locations",email:"",phone:"",website:"",location:"Dubai, UAE",notes:"",rateCard:""});setShowAddVendor(false);}else{showAlert("Failed to save vendor: "+(saved?.error||"Unknown error"));}}catch(e){showAlert("Failed to save vendor: "+(e.message||"Network error"));};}}>Save Vendor</BtnPrimary>
         </div>
       </div>
     </div>

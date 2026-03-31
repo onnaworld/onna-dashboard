@@ -150,11 +150,15 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
           <BtnPrimary onClick={async()=>{
             const {id,_xContacts,...fields}=editVendor;
             if(Array.isArray(fields.dietaries))fields.dietaries=JSON.stringify(fields.dietaries);
+            // Ensure no undefined/null values — backend may reject them
+            Object.keys(fields).forEach(k=>{if(fields[k]==null)fields[k]="";});
             setXContacts('vendor', id, _xContacts||[]);
-            await api.put(`/api/vendors/${id}`,fields);
-            setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
-            showToast("Saved ✓");
-            setEditVendor(null);
+            try{
+              await api.put(`/api/vendors/${id}`,fields);
+              setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
+              showToast("Saved ✓");
+              setEditVendor(null);
+            }catch(e){showToast("Save failed — please try again");}
           }}>Save Changes</BtnPrimary>
         </div>
       </div>
