@@ -303,19 +303,44 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   const [dropZone,setDropZone] = useState(null); // "onto" or "above"
   const dragRef = useRef(null);
   const dropZoneRef = useRef(null);
+  const contentTimer = useRef(null);
+  const titleTimer = useRef(null);
+  const [localTitle, setLocalTitle] = useState("");
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
 
+  // Flush pending debounced saves when switching notes
+  const flushPending = useCallback(()=>{
+    if (contentTimer.current && editorRef.current) {
+      clearTimeout(contentTimer.current); contentTimer.current = null;
+      const html = editorRef.current.innerHTML;
+      const sid = selectedId;
+      setNotes(prev=>prev.map(n=>n.id===sid?{...n,content:html,updatedAt:Date.now()}:n));
+    }
+    if (titleTimer.current) {
+      clearTimeout(titleTimer.current); titleTimer.current = null;
+    }
+  },[selectedId,setNotes]);
+  useEffect(()=>()=>flushPending(),[flushPending]);
   useEffect(()=>{
+    flushPending();
     if (editorRef.current) editorRef.current.innerHTML = selectedNote?.content||"";
+    setLocalTitle(selectedNote?.title||"");
   },[selectedId]); // eslint-disable-line
 
   const updateContent = () => {
     if (!selectedNote||!editorRef.current) return;
     const html=editorRef.current.innerHTML;
-    setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:html,updatedAt:Date.now()}:n));
+    clearTimeout(contentTimer.current);
+    contentTimer.current = setTimeout(()=>{
+      setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:html,updatedAt:Date.now()}:n));
+    }, 400);
   };
   const updateTitle = (val) => {
-    setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,title:val,updatedAt:Date.now()}:n));
+    setLocalTitle(val);
+    clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(()=>{
+      setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,title:val,updatedAt:Date.now()}:n));
+    }, 400);
   };
   const createNote = () => {
     const minOrder = Math.min(0,...notes.filter(n=>!n.parentId).map(n=>n.sortOrder??0));
@@ -490,7 +515,7 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
                 </div>
               </div>
               {/* Title input */}
-              <input value={selectedNote.title||""} onChange={e=>updateTitle(e.target.value)} placeholder="Title" style={{border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"14px 20px 10px",fontSize:20,fontWeight:700,color:T.text,outline:"none",background:"transparent",fontFamily:"inherit",width:"100%",boxSizing:"border-box",flexShrink:0}}/>
+              <input value={localTitle} onChange={e=>updateTitle(e.target.value)} placeholder="Title" style={{border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"14px 20px 10px",fontSize:20,fontWeight:700,color:T.text,outline:"none",background:"transparent",fontFamily:"inherit",width:"100%",boxSizing:"border-box",flexShrink:0}}/>
               {/* Editable content */}
               <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={updateContent} style={{flex:1,padding:"12px 20px 16px",outline:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.75,overflowY:"auto",boxSizing:"border-box"}}/>
             </>
