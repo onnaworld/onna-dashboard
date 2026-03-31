@@ -215,7 +215,7 @@ export default function Dashboard({
                     <span draggable="false" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingTodoId(t.id);}} style={{flex:1,minWidth:0,cursor:"text",color:t.done?T.muted:T.text,textDecoration:t.done?"line-through":"none",wordBreak:"break-word"}}>{t.text}</span>
                   )}
                   {t.details&&<span draggable="false" onMouseDown={e=>e.stopPropagation()} title={t.details} style={{fontSize:10,color:T.muted,opacity:0.6,flexShrink:0,cursor:"default"}}>📝</span>}
-                  <button draggable="false" onMouseDown={e=>e.stopPropagation()} title="Cycle colour" onClick={e=>{e.stopPropagation();cycleColor(t);}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",flexShrink:0,lineHeight:1,fontSize:13,color:t.color||T.muted,opacity:t.color?1:0.5,transition:"opacity 0.12s"}}>★</button>
+                  <span draggable="false" role="button" title="Cycle colour" onPointerDown={e=>{e.stopPropagation();e.preventDefault();cycleColor(t);}} style={{cursor:"pointer",padding:"2px 4px",flexShrink:0,lineHeight:1,fontSize:13,color:t.color||T.muted,opacity:t.color?1:0.5,transition:"opacity 0.12s",userSelect:"none",WebkitUserSelect:"none"}}>★</span>
                   <button draggable="false" onMouseDown={e=>e.stopPropagation()} className="todo-del" onClick={e=>{e.stopPropagation();pushUndo("toggle");archiveItem('todos',t);setTodos(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"2px 4px",lineHeight:1,flexShrink:0}}>×</button>
                 </div>);
               };
