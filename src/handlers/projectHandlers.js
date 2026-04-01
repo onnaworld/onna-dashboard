@@ -68,7 +68,9 @@ export const addTodoFromInput = (text, todoTopFilter, todoFilter, pushUndo, setP
   pushUndo("add task");
   const tab = "onna";
   const dayMap = {"todo-mon":"monday","todo-tue":"tuesday","todo-wed":"wednesday","todo-thu":"thursday","todo-fri":"friday","todo-sat":"saturday","todo-sun":"sunday","todo-longterm":"longterm"};
-  const subType = dayMap[todoFilter] || undefined;
+  // In week view, assign to today's day so the new task appears immediately
+  const todayDayName = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"][new Date().getDay()];
+  const subType = dayMap[todoFilter] || (todoFilter === "todo-week" ? todayDayName : undefined);
   if (todoFilter.startsWith("project-")) {
     const pid = Number(todoFilter.replace("project-",""));
     setProjectTodos(prev=>({...prev,[pid]:[...(prev[pid]||[]),{id:Date.now(),text,done:false,details:""}]}));
