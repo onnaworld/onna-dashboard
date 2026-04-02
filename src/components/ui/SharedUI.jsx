@@ -294,9 +294,8 @@ export const AIDocPanel = ({project, docType, systemPrompt, savedDocs}) => {
 };
 
 // ─── DASH NOTES COMPONENT ────────────────────────────────────────────────────
-export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onArchive}) => {
+export const DashNotes = React.memo(({notes,setNotes,selectedId,setSelectedId,isMobile,onArchive}) => {
   const editorRef = useRef(null);
-  const [hoveredNoteId,setHoveredNoteId] = useState(null);
   const [expandedNotes,setExpandedNotes] = useState(()=>new Set());
   const [dragId,setDragId] = useState(null);
   const [dropTargetId,setDropTargetId] = useState(null);
@@ -421,9 +420,6 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   };
   const handleDragEnd = () => { setDragId(null);dragRef.current=null;setDropTargetId(null);setDropZone(null);dropZoneRef.current=null; };
   const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
-  const getPlain = useCallback((html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">"),[]);
-  const getTitle = useCallback((n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note",[getPlain]);
-  const getPreview = useCallback((n) => { const p=getPlain(n.content).replace(/\n+/g," ").trim(); return p.slice(0,60); },[getPlain]);
   const fmtDate = (ts) => { if(!ts)return""; const d=new Date(ts),now=new Date(); if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString([],{month:"short",day:"numeric"}); };
   const sortNotes = (arr) => arr.sort((a,b)=>{const sa=a.sortOrder??Infinity,sb=b.sortOrder??Infinity; if(sa!==Infinity||sb!==Infinity) return sa-sb; return b.updatedAt-a.updatedAt;});
   const {topLevel,childMap,childSet} = useMemo(()=>{
@@ -438,25 +434,38 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   const showList = !isMobile||!selectedNote;
   const showEditor = !isMobile||!!selectedNote;
   const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
+  // Cache getPlain results to avoid re-running regex on every render
+  const plainCache = useRef(new Map());
+  const getCachedPlain = useCallback((html)=>{
+    if(!html)return"";
+    let cached=plainCache.current.get(html);
+    if(cached!==undefined)return cached;
+    cached=(html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
+    if(plainCache.current.size>200)plainCache.current.clear();
+    plainCache.current.set(html,cached);
+    return cached;
+  },[]);
+  const getCachedTitle = useCallback((n)=>n.title?.trim()||getCachedPlain(n.content).split("\n")[0].trim().slice(0,50)||"New Note",[getCachedPlain]);
+  const getCachedPreview = useCallback((n)=>{const p=getCachedPlain(n.content).replace(/\n+/g," ").trim();return p.slice(0,60);},[getCachedPlain]);
   const renderNoteItem = (n,isChild) => {
     const isDragOver = dropTargetId===n.id && dragId!==n.id;
     const dropStyle = isDragOver ? (dropZone==="onto" ? {background:"#e0e7ff",borderLeft:`3px solid ${T.accent}`} : {borderTop:`2px solid ${T.accent}`}) : {};
     return (
-    <div key={n.id} draggable onDragStart={e=>handleDragStart(n.id,e)} onDragOver={e=>handleDragOver(n.id,isChild,e)} onDragLeave={handleDragLeave} onDrop={e=>handleDrop(n.id,e)} onDragEnd={handleDragEnd} onClick={()=>setSelectedId(n.id)} onMouseEnter={()=>setHoveredNoteId(n.id)} onMouseLeave={()=>setHoveredNoteId(null)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",background:selectedId===n.id?"#e8e8ed":isChild?"#f5f5f7":"transparent",borderLeft:!isChild&&hasChildren(n.id)?`3px solid ${T.accent}`:"3px solid transparent",opacity:dragId===n.id?0.4:1,transition:"background 0.1s",display:"flex",alignItems:"flex-start",gap:6,...dropStyle}}>
+    <div key={n.id} className="dash-note-item" draggable onDragStart={e=>handleDragStart(n.id,e)} onDragOver={e=>handleDragOver(n.id,isChild,e)} onDragLeave={handleDragLeave} onDrop={e=>handleDrop(n.id,e)} onDragEnd={handleDragEnd} onClick={()=>setSelectedId(n.id)} style={{padding:"11px 14px",paddingLeft:isChild?28:14,borderBottom:`1px solid ${T.borderSub}`,cursor:"grab",background:selectedId===n.id?"#e8e8ed":isChild?"#f5f5f7":"transparent",borderLeft:!isChild&&hasChildren(n.id)?`3px solid ${T.accent}`:"3px solid transparent",opacity:dragId===n.id?0.4:1,display:"flex",alignItems:"flex-start",gap:6,position:"relative",...dropStyle}}>
       {!isChild && hasChildren(n.id) ? (
         <button onClick={e=>toggleExpand(n.id,e)} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,padding:"2px 0",lineHeight:1,flexShrink:0,marginTop:2,color:T.muted,width:14,textAlign:"center"}}>{expandedNotes.has(n.id)?"▼":"▶"}</button>
       ) : !isChild ? <span style={{width:14,flexShrink:0}}/> : null}
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:isChild?12:13,fontWeight:isChild?600:700,color:isChild?T.muted:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getTitle(n)}</div>
+        <div style={{fontSize:isChild?12:13,fontWeight:isChild?600:700,color:isChild?T.muted:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getCachedTitle(n)}</div>
         <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center"}}>
           <span style={{fontSize:10.5,color:T.muted,flexShrink:0}}>{fmtDate(n.updatedAt)}</span>
-          <span style={{fontSize:isChild?10:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getPreview(n)}</span>
+          <span style={{fontSize:isChild?10:10.5,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{getCachedPreview(n)}</span>
         </div>
       </div>
-      {hoveredNoteId===n.id&&<>
-        <button onClick={e=>createSubNote(n.parentId||n.id,e)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Add sub-note">+</button>
-        <button onClick={e=>deleteNote(n.id,e)} style={{background:"none",border:"none",color:"#c0392b",cursor:"pointer",fontSize:15,padding:"0 2px",lineHeight:1,flexShrink:0,marginTop:1}} title="Delete note">×</button>
-      </>}
+      <div className="dash-note-actions" style={{display:"none",position:"absolute",right:8,top:8,gap:2}}>
+        <button onClick={e=>createSubNote(n.parentId||n.id,e)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:13,padding:"0 2px",lineHeight:1}} title="Add sub-note">+</button>
+        <button onClick={e=>deleteNote(n.id,e)} style={{background:"none",border:"none",color:"#c0392b",cursor:"pointer",fontSize:15,padding:"0 2px",lineHeight:1}} title="Delete note">×</button>
+      </div>
     </div>
   );};
   return (
@@ -538,7 +547,7 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
       )}
     </div>
   );
-};
+});
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 // ─── PROJECT TODO LIST COMPONENT ────────────────────────────────────────────
