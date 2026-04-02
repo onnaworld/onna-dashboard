@@ -37,7 +37,7 @@ export default function Clients({
   const [clientCountry, setClientCountry] = useState("All");
   const [clientCat, setClientCat] = useState("All");
 
-  const [outreachSort, setOutreachSort] = useState("date");
+  const [outreachSort, setOutreachSort] = useState("az");
   const [outreachCatFilter, setOutreachCatFilter] = useState("All");
   const [outreachStatusFilter, setOutreachStatusFilter] = useState("All");
   const [outreachLocFilter, setOutreachLocFilter] = useState("All");
@@ -155,9 +155,11 @@ export default function Clients({
     const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
     const _hc2 = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
     return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || _hc2(o.category, outreachCatFilter)) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter));
-  }).sort((a, b) => outreachSort === "az"
-    ? (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase())
-    : (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0)));
+  }).sort((a, b) => outreachSort === "date"
+    ? (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0))
+    : outreachSort === "location"
+    ? (a.location || "").toLowerCase().localeCompare((b.location || "").toLowerCase())
+    : (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
 
   // Client categories and countries for filters
   const clientCountries = ["All", ...Array.from(new Set(localClients.map(c => c.country).filter(Boolean))).sort()];
@@ -493,9 +495,11 @@ export default function Clients({
         const _hc2 = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
         const visibleRows = allOutreachRows.filter(o => {
           return (!q || [o.company,o.clientName,o.contact,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || _hc2(o.category, outreachCatFilter)) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter)) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter);
-        }).sort((a, b) => outreachSort === "az"
-          ? (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase())
-          : (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0)));
+        }).sort((a, b) => outreachSort === "date"
+          ? (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0))
+          : outreachSort === "location"
+          ? (a.location || "").toLowerCase().localeCompare((b.location || "").toLowerCase())
+          : (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
         return (
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
@@ -507,8 +511,9 @@ export default function Clients({
             <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} minWidth={170} />
             <Sel value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} minWidth={170} />
             <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, flexShrink: 0 }}>
-              <button onClick={() => setOutreachSort("date")} style={{ padding: "5px 11px", background: outreachSort === "date" ? T.accent : "#f5f5f7", border: "none", color: outreachSort === "date" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Recent first</button>
-              <button onClick={() => setOutreachSort("az")} style={{ padding: "5px 11px", background: outreachSort === "az" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "az" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>A{"\u2013"}Z</button>
+              <button onClick={() => setOutreachSort("az")} style={{ padding: "5px 11px", background: outreachSort === "az" ? T.accent : "#f5f5f7", border: "none", color: outreachSort === "az" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Name</button>
+              <button onClick={() => setOutreachSort("date")} style={{ padding: "5px 11px", background: outreachSort === "date" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "date" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Date</button>
+              <button onClick={() => setOutreachSort("location")} style={{ padding: "5px 11px", background: outreachSort === "location" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "location" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Location</button>
             </div>
             <span style={{ fontSize: 12, color: T.muted }}>{visibleRows.length} contacts</span>
             <button onClick={() => downloadCSV(visibleRows, [{ key: "company", label: "Company" }, { key: "clientName", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "outreach.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>

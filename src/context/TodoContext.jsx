@@ -106,7 +106,7 @@ export function TodoProvider({ children }) {
   const lsTimers = useRef({});
   const debouncedLS = (key, data) => {
     clearTimeout(lsTimers.current[key]);
-    lsTimers.current[key] = setTimeout(() => { try { localStorage.setItem(key, JSON.stringify(data)); } catch {} }, 150);
+    lsTimers.current[key] = setTimeout(() => { try { localStorage.setItem(key, JSON.stringify(data)); } catch {} }, 800);
   };
   useEffect(()=>{if(!hydratedRef.current&&todos.length===0)return;debouncedLS('onna_todos',todos); if(hydratedRef.current) debouncedGlobalSave('todos',todos);},[todos]);
   useEffect(()=>{if(!hydratedRef.current&&!Object.keys(projectTodos).length)return;debouncedLS('onna_ptodos',projectTodos); if(hydratedRef.current) debouncedGlobalSave('ptodos',projectTodos);},[projectTodos]);

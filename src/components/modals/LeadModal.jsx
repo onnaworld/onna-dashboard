@@ -82,7 +82,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Loc
               <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"\u2014"}</div></div>
               <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"\u2014"}</div></div>
               <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"\u2014"}</div></div>
-              <button onClick={()=>setSelectedLead(p=>({...p,_xContacts:(p._xContacts||[]).filter((_,j)=>j!==i)}))} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>x</button>
+              <button onClick={()=>setSelectedLead(p=>{const updated=(p._xContacts||[]).filter((_,j)=>j!==i);setXContacts('lead',p.id,updated);return{...p,_xContacts:updated};})} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>x</button>
             </div>
           ))}
           {addContactForm?.type==="lead"&&(
@@ -95,7 +95,7 @@ export function LeadModal({ T, isMobile, api, BtnPrimary, BtnSecondary, Sel, Loc
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                 <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-                <button onClick={()=>{setSelectedLead(p=>({...p,_xContacts:[...(p._xContacts||[]),{name:addContactForm.name,email:addContactForm.email,phone:addContactForm.phone,role:addContactForm.role}]}));setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
+                <button onClick={()=>{const nc={name:addContactForm.name||"",email:addContactForm.email||"",phone:addContactForm.phone||"",role:addContactForm.role||""};setSelectedLead(p=>{const updated=[...(p._xContacts||[]),nc];setXContacts('lead',p.id,updated);return{...p,_xContacts:updated};});setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
               </div>
             </div>
           )}

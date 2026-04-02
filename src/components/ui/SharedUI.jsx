@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { T, api, debouncedGlobalSave } from "../../utils/helpers";
 
 export const Badge = ({status}) => {
@@ -303,45 +303,48 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   const [dropZone,setDropZone] = useState(null); // "onto" or "above"
   const dragRef = useRef(null);
   const dropZoneRef = useRef(null);
-  const contentTimer = useRef(null);
-  const titleTimer = useRef(null);
+  const idleTimer = useRef(null);
+  const dirtyRef = useRef(false);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const [localTitle, setLocalTitle] = useState("");
   const selectedNote = notes.find(n=>n.id===selectedId)||null;
 
-  // Flush pending debounced saves when switching notes
+  // Flush pending edits to parent state (only called on note switch, blur, idle, unmount)
   const flushPending = useCallback(()=>{
-    if (contentTimer.current && editorRef.current) {
-      clearTimeout(contentTimer.current); contentTimer.current = null;
-      const html = editorRef.current.innerHTML;
-      const sid = selectedId;
-      setNotes(prev=>prev.map(n=>n.id===sid?{...n,content:html,updatedAt:Date.now()}:n));
-    }
-    if (titleTimer.current) {
-      clearTimeout(titleTimer.current); titleTimer.current = null;
-    }
-  },[selectedId,setNotes]);
+    clearTimeout(idleTimer.current); idleTimer.current = null;
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    const sid = selectedIdRef.current;
+    const html = editorRef.current ? editorRef.current.innerHTML : null;
+    setNotes(prev=>prev.map(n=>n.id===sid?{...n,content:html!=null?html:n.content,updatedAt:Date.now()}:n));
+  },[setNotes]);
+  // Also flush title
+  const flushTitle = useCallback((sid,val)=>{
+    setNotes(prev=>prev.map(n=>n.id===sid?{...n,title:val,updatedAt:Date.now()}:n));
+  },[setNotes]);
   useEffect(()=>()=>flushPending(),[flushPending]);
   useEffect(()=>{
     flushPending();
     if (editorRef.current) editorRef.current.innerHTML = selectedNote?.content||"";
     setLocalTitle(selectedNote?.title||"");
+    dirtyRef.current = false;
   },[selectedId]); // eslint-disable-line
 
   const updateContent = () => {
     if (!selectedNote||!editorRef.current) return;
-    const html=editorRef.current.innerHTML;
-    clearTimeout(contentTimer.current);
-    contentTimer.current = setTimeout(()=>{
-      setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,content:html,updatedAt:Date.now()}:n));
-    }, 400);
+    dirtyRef.current = true;
+    clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(flushPending, 3000);
   };
+  const handleEditorBlur = () => { if(dirtyRef.current) flushPending(); };
   const updateTitle = (val) => {
     setLocalTitle(val);
-    clearTimeout(titleTimer.current);
-    titleTimer.current = setTimeout(()=>{
-      setNotes(prev=>prev.map(n=>n.id===selectedId?{...n,title:val,updatedAt:Date.now()}:n));
-    }, 400);
+    const sid = selectedId;
+    clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(()=>flushTitle(sid,val), 3000);
   };
+  const handleTitleBlur = () => { const sid=selectedId; flushTitle(sid,localTitle); };
   const createNote = () => {
     const minOrder = Math.min(0,...notes.filter(n=>!n.parentId).map(n=>n.sortOrder??0));
     const n={id:Date.now(),title:"",content:"",updatedAt:Date.now(),sortOrder:minOrder-1};
@@ -418,14 +421,20 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
   };
   const handleDragEnd = () => { setDragId(null);dragRef.current=null;setDropTargetId(null);setDropZone(null);dropZoneRef.current=null; };
   const fmt = (cmd,val) => { document.execCommand(cmd,false,val||null); editorRef.current?.focus(); };
-  const getPlain = (html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">");
-  const getTitle = (n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note";
-  const getPreview = (n) => { const p=getPlain(n.content).replace(/\n+/g," ").trim(); return p.slice(0,60); };
+  const getPlain = useCallback((html) => (html||"").replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">"),[]);
+  const getTitle = useCallback((n) => n.title?.trim() || getPlain(n.content).split("\n")[0].trim().slice(0,50) || "New Note",[getPlain]);
+  const getPreview = useCallback((n) => { const p=getPlain(n.content).replace(/\n+/g," ").trim(); return p.slice(0,60); },[getPlain]);
   const fmtDate = (ts) => { if(!ts)return""; const d=new Date(ts),now=new Date(); if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString([],{month:"short",day:"numeric"}); };
   const sortNotes = (arr) => arr.sort((a,b)=>{const sa=a.sortOrder??Infinity,sb=b.sortOrder??Infinity; if(sa!==Infinity||sb!==Infinity) return sa-sb; return b.updatedAt-a.updatedAt;});
-  const topLevel = sortNotes([...notes].filter(n=>!n.parentId));
-  const childrenOf = (pid) => sortNotes(notes.filter(n=>n.parentId===pid));
-  const hasChildren = (id) => notes.some(n=>n.parentId===id);
+  const {topLevel,childMap,childSet} = useMemo(()=>{
+    const tl = sortNotes([...notes].filter(n=>!n.parentId));
+    const cm = {}; const cs = new Set();
+    notes.forEach(n=>{if(n.parentId){cs.add(n.parentId);if(!cm[n.parentId])cm[n.parentId]=[];cm[n.parentId].push(n);}});
+    Object.values(cm).forEach(arr=>sortNotes(arr));
+    return {topLevel:tl,childMap:cm,childSet:cs};
+  },[notes]);
+  const childrenOf = (pid) => childMap[pid]||[];
+  const hasChildren = (id) => childSet.has(id);
   const showList = !isMobile||!selectedNote;
   const showEditor = !isMobile||!!selectedNote;
   const TBtnStyle = {height:26,minWidth:26,borderRadius:5,border:`1px solid ${T.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:"0 5px",display:"flex",alignItems:"center",justifyContent:"center"};
@@ -515,9 +524,9 @@ export const DashNotes = ({notes,setNotes,selectedId,setSelectedId,isMobile,onAr
                 </div>
               </div>
               {/* Title input */}
-              <input value={localTitle} onChange={e=>updateTitle(e.target.value)} placeholder="Title" style={{border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"14px 20px 10px",fontSize:20,fontWeight:700,color:T.text,outline:"none",background:"transparent",fontFamily:"inherit",width:"100%",boxSizing:"border-box",flexShrink:0}}/>
+              <input value={localTitle} onChange={e=>updateTitle(e.target.value)} onBlur={handleTitleBlur} placeholder="Title" style={{border:"none",borderBottom:`1px solid ${T.borderSub}`,padding:"14px 20px 10px",fontSize:20,fontWeight:700,color:T.text,outline:"none",background:"transparent",fontFamily:"inherit",width:"100%",boxSizing:"border-box",flexShrink:0}}/>
               {/* Editable content */}
-              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={updateContent} style={{flex:1,padding:"12px 20px 16px",outline:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.75,overflowY:"auto",boxSizing:"border-box"}}/>
+              <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={updateContent} onBlur={handleEditorBlur} style={{flex:1,padding:"12px 20px 16px",outline:"none",fontSize:13.5,fontFamily:"inherit",color:T.text,lineHeight:1.75,overflowY:"auto",boxSizing:"border-box"}}/>
             </>
           ) : (
             <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:T.muted}}>
