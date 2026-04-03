@@ -20,7 +20,7 @@ export default function Clients({
   downloadCSV, exportTablePDF, formatDate, _parseDate, getMonthLabel,
   archiveItem, promoteToClient, getXContacts, getProjRevenue,
   // Constants
-  OUTREACH_STATUS_LABELS, OUTREACH_STATUSES, LEAD_CATEGORIES,
+  OUTREACH_STATUS_LABELS, OUTREACH_STATUSES,
   // UI components
   Pill, SearchBar, Sel, BtnPrimary, BtnSecondary, TH, THFilter, TD, OutreachBadge, LocationPicker, CategoryPicker,
   setUndoToastMsg,
@@ -132,7 +132,20 @@ export default function Clients({
   const allLeadsCombined = [..._pureLeads, ..._outreachAsLeads].filter(l => !_isCompetitor(l));
   const competitorLeads = [..._pureLeads, ..._outreachAsLeads].filter(l => _isCompetitor(l));
   const leadMonths = ["All", ...Array.from(new Set(allLeadsCombined.map(l => getMonthLabel(l.date)).filter(Boolean)))];
-  const leadLocations = ["All", ...Array.from(new Set(allLeadsCombined.flatMap(l => (l.location||"").includes("|")?(l.location||"").split("|").map(s=>s.trim()).filter(Boolean):[l.location].filter(Boolean)))).sort()];
+  // Auto-sync unknown locations from data into customLocations
+  const dataLocations = useMemo(()=>Array.from(new Set([...allLeadsCombined,...outreach].flatMap(l=>(l.location||"").includes("|")?(l.location||"").split("|").map(s=>s.trim()).filter(Boolean):[l.location].filter(Boolean)))),[allLeadsCombined,outreach]);
+  React.useEffect(()=>{
+    const known = new Set(allLocations);
+    const missing = dataLocations.filter(l=>l&&!known.has(l));
+    if(missing.length>0) setCustomLocations(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+  },[dataLocations]); // eslint-disable-line
+  // Auto-sync unknown categories from data into customLeadCats
+  const dataCategories = useMemo(()=>Array.from(new Set([...allLeadsCombined,...outreach].flatMap(l=>(l.category||"").includes("|")?(l.category||"").split("|").map(s=>s.trim()).filter(Boolean):[l.category].filter(Boolean)))),[allLeadsCombined,outreach]);
+  React.useEffect(()=>{
+    const known = new Set(allLeadCats);
+    const missing = dataCategories.filter(c=>c&&!known.has(c));
+    if(missing.length>0) setCustomLeadCats(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+  },[dataCategories]); // eslint-disable-line
 
   const filteredLeads = useMemo(() => {
     const q = getSearch("Leads").toLowerCase();
@@ -146,9 +159,7 @@ export default function Clients({
       .sort((a, b) => (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
   }, [getSearch("Leads"), leadCat, leadStatus, leadMonth, leadLoc, localLeads, outreach, leadStatusOverrides]);
 
-  const outreachCategories = ["All", ...Array.from(new Set(outreach.flatMap(o => (o.category||"").includes("|")?(o.category||"").split("|").map(s=>s.trim()).filter(Boolean):[o.category].filter(Boolean))))];
   const outreachMonths = ["All", ...Array.from(new Set(outreach.map(o => getMonthLabel(o.date)).filter(Boolean)))];
-  const outreachLocations = ["All", ...Array.from(new Set(outreach.flatMap(o => (o.location||"").includes("|")?(o.location||"").split("|").map(s=>s.trim()).filter(Boolean):[o.location].filter(Boolean)))).sort()];
   const filteredOutreach = outreach.filter(o => {
     if (o.status === "not_contacted" || o.status === "client") return false;
     const q = getSearch("Outreach").toLowerCase();
@@ -286,8 +297,8 @@ export default function Clients({
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
             <SearchBar value={getSearch("Leads")} onChange={v => setSearch("Leads", v)} placeholder="Search leads..." />
             <Sel value={leadStatus} onChange={setLeadStatus} options={["All", ...OUTREACH_STATUSES.map(s => ({value:s,label:OUTREACH_STATUS_LABELS[s]}))]} minWidth={140} />
-            <Sel value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES, ...customLeadCats]} minWidth={170} />
-            <Sel value={leadLoc} onChange={setLeadLoc} options={leadLocations} minWidth={170} />
+            <Sel value={leadCat} onChange={setLeadCat} options={allLeadCats.filter(c=>c!=="＋ Add category")} minWidth={170} />
+            <Sel value={leadLoc} onChange={setLeadLoc} options={allLocations.filter(l=>l!=="＋ Add location")} minWidth={170} />
             <span style={{ fontSize: 12, color: T.muted }}>{filteredLeads.length} leads</span>
             <button onClick={() => downloadCSV(filteredLeads, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }, { key: "value", label: "Value (AED)" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "leads.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
             <button onClick={() => exportTablePDF(filteredLeads, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "status", label: "Status" }, { key: "date", label: "Date Contacted" }], "Leads Pipeline")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
@@ -304,8 +315,8 @@ export default function Clients({
               <thead><tr>
                 <th style={{padding:"11px 8px",borderBottom:`1px solid ${T.border}`,width:32}}><input type="checkbox" checked={selectedLeadIds.size===filteredLeads.length&&filteredLeads.length>0} onChange={()=>{if(selectedLeadIds.size===filteredLeads.length)setSelectedLeadIds(new Set());else setSelectedLeadIds(new Set(filteredLeads.map(l=>l.id)));}}/></th>
                 <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
-                <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={[...LEAD_CATEGORIES, ...customLeadCats]} />
-                <THFilter label="Location" value={leadLoc} onChange={setLeadLoc} options={leadLocations} />
+                <THFilter label="Category" value={leadCat} onChange={setLeadCat} options={allLeadCats.filter(c=>c!=="＋ Add category")} />
+                <THFilter label="Location" value={leadLoc} onChange={setLeadLoc} options={allLocations.filter(l=>l!=="＋ Add location")} />
                 <THFilter label="Status" value={leadStatus} onChange={setLeadStatus} options={[{ value: "All", label: "All" }, ...OUTREACH_STATUSES.map(s => ({ value: s, label: OUTREACH_STATUS_LABELS[s] }))]} />
                 <THFilter label="Date Contacted" value={leadMonth} onChange={setLeadMonth} options={leadMonths} />
               </tr></thead>
@@ -508,8 +519,8 @@ export default function Clients({
               <button onClick={() => setShowNotContacted(true)} style={{ padding: "5px 14px", background: showNotContacted ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: showNotContacted ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Not Contacted ({notContactedCount})</button>
             </div>
             <SearchBar value={getSearch("Outreach")} onChange={v => setSearch("Outreach", v)} placeholder="Search outreach..." />
-            <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} minWidth={170} />
-            <Sel value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} minWidth={170} />
+            <Sel value={outreachCatFilter} onChange={setOutreachCatFilter} options={allLeadCats.filter(c=>c!=="＋ Add category")} minWidth={170} />
+            <Sel value={outreachLocFilter} onChange={setOutreachLocFilter} options={allLocations.filter(l=>l!=="＋ Add location")} minWidth={170} />
             <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`, flexShrink: 0 }}>
               <button onClick={() => setOutreachSort("az")} style={{ padding: "5px 11px", background: outreachSort === "az" ? T.accent : "#f5f5f7", border: "none", color: outreachSort === "az" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Name</button>
               <button onClick={() => setOutreachSort("date")} style={{ padding: "5px 11px", background: outreachSort === "date" ? T.accent : "#f5f5f7", border: "none", borderLeft: `1px solid ${T.border}`, color: outreachSort === "date" ? "#fff" : T.sub, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Date</button>
@@ -530,8 +541,8 @@ export default function Clients({
             <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 660 : "auto" }}>
               <thead><tr>
                 <TH>Company</TH><TH>Contact</TH><TH>Role</TH><TH>Email</TH>
-                <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={outreachCategories} />
-                <THFilter label="Location" value={outreachLocFilter} onChange={setOutreachLocFilter} options={outreachLocations} />
+                <THFilter label="Category" value={outreachCatFilter} onChange={setOutreachCatFilter} options={allLeadCats.filter(c=>c!=="＋ Add category")} />
+                <THFilter label="Location" value={outreachLocFilter} onChange={setOutreachLocFilter} options={allLocations.filter(l=>l!=="＋ Add location")} />
                 <THFilter label="Status" value={outreachStatusFilter} onChange={setOutreachStatusFilter} options={showNotContacted ? [{value:"All",label:"All"},{value:"not_contacted",label:"Not Contacted"}] : [{ value: "All", label: "All" }, ...OUTREACH_STATUSES.filter(s => s !== "not_contacted").map(s => ({ value: s, label: OUTREACH_STATUS_LABELS[s] }))]} />
                 <THFilter label="Date Contacted" value={outreachMonthFilter} onChange={setOutreachMonthFilter} options={outreachMonths} />
                 <TH />

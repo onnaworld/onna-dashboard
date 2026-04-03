@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
 
 export default function Vendors({
@@ -11,6 +11,20 @@ export default function Vendors({
   downloadCSV, exportTablePDF,
   SearchBar, Sel, TH, TD, BtnPrimary,
 }) {
+  // Auto-sync unknown locations from vendor data into customLocations
+  const vendorLocs = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.location||"").includes("|")?(v.location||"").split("|").map(s=>s.trim()).filter(Boolean):[v.location].filter(Boolean)))),[vendors]);
+  useEffect(()=>{
+    const known = new Set(allLocations);
+    const missing = vendorLocs.filter(l=>l&&!known.has(l));
+    if(missing.length>0) setCustomLocations(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+  },[vendorLocs]); // eslint-disable-line
+  // Auto-sync unknown categories from vendor data into customVendorCats
+  const vendorCats = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.category||"").includes("|")?(v.category||"").split("|").map(s=>s.trim()).filter(Boolean):[v.category].filter(Boolean)))),[vendors]);
+  useEffect(()=>{
+    const known = new Set(allVendorCats);
+    const missing = vendorCats.filter(c=>c&&!known.has(c));
+    if(missing.length>0) setCustomVendorCats(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+  },[vendorCats]); // eslint-disable-line
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleId = id => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleAll = () => { if (selectedIds.size === filteredBB.length) setSelectedIds(new Set()); else setSelectedIds(new Set(filteredBB.map(b => b.id))); };
