@@ -405,6 +405,15 @@ export const flushAllSaves = () => {
 export const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
 export const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
 export const DEFAULT_LOCATIONS = ["Dubai, UAE","London, UK","New York, USA","Los Angeles, USA"];
+// Normalize common location variants to canonical names
+export const LOCATION_ALIASES = {
+  "Dubai, United Arab Emirates":"Dubai, UAE","Dubai United Arab Emirates":"Dubai, UAE","Dubai UAE":"Dubai, UAE",
+  "London UK":"London, UK","London, United Kingdom":"London, UK",
+  "New York, US":"New York, USA","New York US":"New York, USA","New York, United States":"New York, USA",
+  "Los Angeles, US":"Los Angeles, USA","Los Angeles US":"Los Angeles, USA","Los Angeles, United States":"Los Angeles, USA",
+  "Leeds UK":"Leeds, UK",
+};
+export const normalizeLocation = loc => LOCATION_ALIASES[loc] || loc;
 export const OUTREACH_STATUSES = ["not_contacted","cold","warm","open","client"];
 export const OUTREACH_STATUS_LABELS = {not_contacted:"Not Contacted",cold:"Cold",warm:"Warm",open:"Open",client:"Client"};
 export const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];

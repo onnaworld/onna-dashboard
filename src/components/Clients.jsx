@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
+import { normalizeLocation, LOCATION_ALIASES } from "../utils/helpers";
 
 export default function Clients({
   T, isMobile, api,
@@ -132,11 +133,11 @@ export default function Clients({
   const allLeadsCombined = [..._pureLeads, ..._outreachAsLeads].filter(l => !_isCompetitor(l));
   const competitorLeads = [..._pureLeads, ..._outreachAsLeads].filter(l => _isCompetitor(l));
   const leadMonths = ["All", ...Array.from(new Set(allLeadsCombined.map(l => getMonthLabel(l.date)).filter(Boolean)))];
-  // Auto-sync unknown locations from data into customLocations
-  const dataLocations = useMemo(()=>Array.from(new Set([...allLeadsCombined,...outreach].flatMap(l=>(l.location||"").includes("|")?(l.location||"").split("|").map(s=>s.trim()).filter(Boolean):[l.location].filter(Boolean)))),[allLeadsCombined,outreach]);
+  // Auto-sync unknown locations from data into customLocations (normalize aliases first)
+  const dataLocations = useMemo(()=>Array.from(new Set([...allLeadsCombined,...outreach].flatMap(l=>(l.location||"").includes("|")?(l.location||"").split("|").map(s=>normalizeLocation(s.trim())).filter(Boolean):[l.location].filter(Boolean).map(normalizeLocation)))),[allLeadsCombined,outreach]);
   React.useEffect(()=>{
     const known = new Set(allLocations);
-    const missing = dataLocations.filter(l=>l&&!known.has(l));
+    const missing = dataLocations.filter(l=>l&&!known.has(l)&&!LOCATION_ALIASES[l]);
     if(missing.length>0) setCustomLocations(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
   },[dataLocations]); // eslint-disable-line
   // Auto-sync unknown categories from data into customLeadCats
@@ -152,7 +153,7 @@ export default function Clients({
     return allLeadsCombined
       .filter(l => {
         const s = q;
-        const _hl = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
+        const _hl = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>normalizeLocation(x.trim())===f);return normalizeLocation(loc.trim())===f;};
         const _hc = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
         return (!s || [l.company,l.contact,l.role,l.email,l.phone,l.category,l.location,l.notes].some(v=>v&&v.toLowerCase().includes(s))) && (leadCat === "All" || _hc(l.category, leadCat)) && (leadStatus === "All" || l.status === leadStatus) && (leadMonth === "All" || getMonthLabel(l.date) === leadMonth) && (leadLoc === "All" || _hl(l.location, leadLoc));
       })
@@ -163,7 +164,7 @@ export default function Clients({
   const filteredOutreach = outreach.filter(o => {
     if (o.status === "not_contacted" || o.status === "client") return false;
     const q = getSearch("Outreach").toLowerCase();
-    const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
+    const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>normalizeLocation(x.trim())===f);return normalizeLocation(loc.trim())===f;};
     const _hc2 = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
     return (!q || [o.company,o.clientName,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || _hc2(o.category, outreachCatFilter)) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter));
   }).sort((a, b) => outreachSort === "date"
@@ -502,7 +503,7 @@ export default function Clients({
           : outreach.filter(o => o.status !== "not_contacted" && o.status !== "client")
               .map(o => ({ ...o, _fromOutreach: true, contact: o.clientName }));
         const q = getSearch("Outreach").toLowerCase();
-        const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>x.trim()===f);return loc.trim()===f;};
+        const _hl2 = (loc,f) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(x=>normalizeLocation(x.trim())===f);return normalizeLocation(loc.trim())===f;};
         const _hc2 = (cat,f) => {if(!cat)return false;if(cat.includes("|"))return cat.split("|").some(x=>x.trim()===f);return cat.trim()===f;};
         const visibleRows = allOutreachRows.filter(o => {
           return (!q || [o.company,o.clientName,o.contact,o.role,o.email,o.phone,o.category,o.location,o.notes].some(v=>v&&v.toLowerCase().includes(q))) && (outreachCatFilter === "All" || _hc2(o.category, outreachCatFilter)) && (outreachLocFilter === "All" || _hl2(o.location, outreachLocFilter)) && (outreachStatusFilter === "All" || o.status === outreachStatusFilter) && (outreachMonthFilter === "All" || getMonthLabel(o.date) === outreachMonthFilter);

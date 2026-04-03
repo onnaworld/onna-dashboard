@@ -2,62 +2,51 @@ import React from "react";
 
 // ── Undo stack helpers ───────────────────────────────────────────────────────
 
+// Map labels to which stores they actually affect — only clone what's needed
+const UNDO_SCOPE = {
+  toggle: ["todos"], color: ["todos"], "move task": ["todos"], reorder: ["todos"],
+  edit: ["todos"], "edit task": ["todos"], "move to project": ["todos", "projectTodos"],
+  archive: ["todos", "archivedTodos", "archive"], "toggle project": ["projectTodos"],
+};
+
 export const doPushUndo = (label, undoStack, state) => {
   const clone = (v) => JSON.parse(JSON.stringify(v));
-  undoStack.current.push({
-    label,
-    todos: clone(state.todos),
-    projectTodos: clone(state.projectTodos),
-    outreach: clone(state.outreach),
-    vendors: clone(state.vendors),
-    localProjects: clone(state.localProjects),
-    archivedTodos: clone(state.archivedTodos),
-    riskAssessmentStore: clone(state.riskAssessmentStore),
-    cpsStore: clone(state.cpsStore),
-    shotListStore: clone(state.shotListStore),
-    storyboardStore: clone(state.storyboardStore),
-    callSheetStore: clone(state.callSheetStore),
-    contractDocStore: clone(state.contractDocStore),
-    postProdStore: clone(state.postProdStore),
-    fittingStore: clone(state.fittingStore),
-    locDeckStore: clone(state.locDeckStore),
-    recceReportStore: clone(state.recceReportStore),
-    castingDeckStore: clone(state.castingDeckStore),
-    castingTableStore: clone(state.castingTableStore),
-    travelItineraryStore: clone(state.travelItineraryStore),
-    dietaryStore: clone(state.dietaryStore),
-    projectEstimates: clone(state.projectEstimates),
-    archive: clone(state.archive),
-  });
+  const keys = UNDO_SCOPE[label];
+  if (keys) {
+    // Fast path: only snapshot affected stores
+    const snap = { label, _keys: keys };
+    for (const k of keys) snap[k] = clone(state[k]);
+    undoStack.current.push(snap);
+  } else {
+    // Full snapshot for unknown labels
+    const snap = { label };
+    for (const k of Object.keys(state)) snap[k] = clone(state[k]);
+    undoStack.current.push(snap);
+  }
   if (undoStack.current.length > 50) undoStack.current.shift();
 };
 
+const SETTER_MAP = {
+  todos: "setTodos", projectTodos: "setProjectTodos", outreach: "setOutreach",
+  vendors: "setVendors", localProjects: "setLocalProjects", archivedTodos: "setArchivedTodos",
+  riskAssessmentStore: "setRiskAssessmentStore", cpsStore: "setCpsStore",
+  shotListStore: "setShotListStore", storyboardStore: "setStoryboardStore",
+  callSheetStore: "setCallSheetStore", contractDocStore: "setContractDocStore",
+  postProdStore: "setPostProdStore", fittingStore: "setFittingStore",
+  locDeckStore: "setLocDeckStore", recceReportStore: "setRecceReportStore",
+  castingDeckStore: "setCastingDeckStore", castingTableStore: "setCastingTableStore",
+  travelItineraryStore: "setTravelItineraryStore", dietaryStore: "setDietaryStore",
+  projectEstimates: "setProjectEstimates", archive: "setArchive",
+};
+
 export const doPerformUndo = (undoStack, undoToastRef, setters) => {
-  const { setTodos, setProjectTodos, setOutreach, setVendors, setLocalProjects, setArchivedTodos, setRiskAssessmentStore, setCpsStore, setShotListStore, setStoryboardStore, setCallSheetStore, setContractDocStore, setPostProdStore, setFittingStore, setLocDeckStore, setRecceReportStore, setCastingDeckStore, setCastingTableStore, setTravelItineraryStore, setDietaryStore, setProjectEstimates, setArchive, setUndoToastMsg } = setters;
+  const { setUndoToastMsg } = setters;
   if (undoStack.current.length === 0) return;
   const snap = undoStack.current.pop();
-  setTodos(snap.todos);
-  setProjectTodos(snap.projectTodos);
-  setOutreach(snap.outreach);
-  setVendors(snap.vendors);
-  setLocalProjects(snap.localProjects);
-  setArchivedTodos(snap.archivedTodos);
-  if (snap.riskAssessmentStore) setRiskAssessmentStore(snap.riskAssessmentStore);
-  if (snap.cpsStore) setCpsStore(snap.cpsStore);
-  if (snap.shotListStore) setShotListStore(snap.shotListStore);
-  if (snap.storyboardStore) setStoryboardStore(snap.storyboardStore);
-  if (snap.callSheetStore) setCallSheetStore(snap.callSheetStore);
-  if (snap.contractDocStore) setContractDocStore(snap.contractDocStore);
-  if (snap.postProdStore) setPostProdStore(snap.postProdStore);
-  if (snap.fittingStore) setFittingStore(snap.fittingStore);
-  if (snap.locDeckStore) setLocDeckStore(snap.locDeckStore);
-  if (snap.recceReportStore) setRecceReportStore(snap.recceReportStore);
-  if (snap.castingDeckStore) setCastingDeckStore(snap.castingDeckStore);
-  if (snap.castingTableStore) setCastingTableStore(snap.castingTableStore);
-  if (snap.travelItineraryStore) setTravelItineraryStore(snap.travelItineraryStore);
-  if (snap.dietaryStore) setDietaryStore(snap.dietaryStore);
-  if (snap.projectEstimates) setProjectEstimates(snap.projectEstimates);
-  if (snap.archive) setArchive(snap.archive);
+  // Restore only the keys that were snapshotted
+  for (const [key, setterName] of Object.entries(SETTER_MAP)) {
+    if (snap[key] !== undefined && setters[setterName]) setters[setterName](snap[key]);
+  }
   setUndoToastMsg("Undo: " + (snap.label || "action"));
   clearTimeout(undoToastRef.current);
   undoToastRef.current = setTimeout(() => setUndoToastMsg(""), 1800);

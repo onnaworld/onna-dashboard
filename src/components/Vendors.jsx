@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
+import { normalizeLocation, LOCATION_ALIASES } from "../utils/helpers";
 
 export default function Vendors({
   T, isMobile, api,
@@ -11,11 +12,11 @@ export default function Vendors({
   downloadCSV, exportTablePDF,
   SearchBar, Sel, TH, TD, BtnPrimary,
 }) {
-  // Auto-sync unknown locations from vendor data into customLocations
-  const vendorLocs = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.location||"").includes("|")?(v.location||"").split("|").map(s=>s.trim()).filter(Boolean):[v.location].filter(Boolean)))),[vendors]);
+  // Auto-sync unknown locations from vendor data into customLocations (normalize aliases)
+  const vendorLocs = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.location||"").includes("|")?(v.location||"").split("|").map(s=>normalizeLocation(s.trim())).filter(Boolean):[v.location].filter(Boolean).map(normalizeLocation)))),[vendors]);
   useEffect(()=>{
     const known = new Set(allLocations);
-    const missing = vendorLocs.filter(l=>l&&!known.has(l));
+    const missing = vendorLocs.filter(l=>l&&!known.has(l)&&!LOCATION_ALIASES[l]);
     if(missing.length>0) setCustomLocations(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
   },[vendorLocs]); // eslint-disable-line
   // Auto-sync unknown categories from vendor data into customVendorCats
