@@ -222,6 +222,8 @@ export default function Clients({
       })
       .sort((a, b) => outreachSort === "date"
         ? (_parseDate(b.date) || new Date(0)) - (_parseDate(a.date) || new Date(0))
+        : outreachSort === "za"
+        ? (b.company || "").toLowerCase().localeCompare((a.company || "").toLowerCase())
         : outreachSort === "location"
         ? (a.location || "").toLowerCase().localeCompare((b.location || "").toLowerCase())
         : (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
@@ -511,37 +513,27 @@ export default function Clients({
       {leadsView === "contacts" && !selectedClient && (
         <div>
           {/* Filter bar */}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {/* Type filter dropdown with drag-drop wrapper */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}
-              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-              onDrop={e => { e.preventDefault(); const val = typeFilter !== "all" ? typeFilter : null; if (val) handlePillDrop(val); }}>
-              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Type</span>
-              <Sel value={typeFilter} onChange={setTypeFilter} options={[
-                { value: "all", label: "All Types" },
-                { value: "lead", label: "Lead" },
-                { value: "client", label: "Client" },
-                { value: "outreach", label: "Outreach" },
-                { value: "competitor", label: "Competitor" },
-              ]} minWidth={140} />
-            </div>
-            <div style={{ width: 1, height: 24, background: T.border, margin: "0 4px" }} />
-            <SearchBar value={getSearch("Contacts")} onChange={v => setSearch("Contacts", v)} placeholder="Search contacts..." />
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Category</span>
-              <Sel value={filterCat} onChange={setFilterCat} options={allLeadCats.filter(c=>c!=="＋ Add category")} minWidth={170} searchable/>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Location</span>
-              <Sel value={filterLoc} onChange={setFilterLoc} options={allLocations.filter(l=>l!=="＋ Add location")} minWidth={170} searchable/>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Status</span>
-              <Sel value={filterStatus} onChange={setFilterStatus} options={["All", ...OUTREACH_STATUSES.map(s => ({value:s,label:OUTREACH_STATUS_LABELS[s]}))]} minWidth={140} />
-            </div>
-            <span style={{ fontSize: 12, color: T.muted }}>{filteredContacts.length} contacts</span>
-            <button onClick={() => downloadCSV(filteredContacts, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "_type", label: "Type" }, { key: "status", label: "Status" }, { key: "date", label: "Date" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "contacts.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
-            <button onClick={() => exportTablePDF(filteredContacts, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "_type", label: "Type" }, { key: "status", label: "Status" }, { key: "date", label: "Date" }], "All Contacts")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+            <SearchBar value={getSearch("Contacts")} onChange={v => setSearch("Contacts", v)} placeholder="Search contacts…"/>
+            <Sel value={typeFilter} onChange={setTypeFilter} options={[
+              { value: "all", label: "All Types" },
+              { value: "lead", label: "Lead" },
+              { value: "client", label: "Client" },
+              { value: "outreach", label: "Outreach" },
+              { value: "competitor", label: "Competitor" },
+            ]} minWidth={130}/>
+            <Sel value={filterCat} onChange={setFilterCat} options={allLeadCats.filter(c=>c!=="＋ Add category")} minWidth={170} searchable/>
+            <Sel value={filterLoc} onChange={setFilterLoc} options={allLocations.filter(l=>l!=="＋ Add location")} minWidth={170} searchable/>
+            <Sel value={filterStatus} onChange={setFilterStatus} options={["All", ...OUTREACH_STATUSES.map(s => ({value:s,label:OUTREACH_STATUS_LABELS[s]}))]} minWidth={130}/>
+            <Sel value={outreachSort} onChange={setOutreachSort} options={[
+              { value: "date", label: "Most Recent" },
+              { value: "az", label: "A → Z" },
+              { value: "za", label: "Z → A" },
+              { value: "location", label: "Location" },
+            ]} minWidth={130}/>
+            <span style={{fontSize:12,color:T.muted}}>{filteredContacts.length} contacts</span>
+            <button onClick={() => downloadCSV(filteredContacts, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "_type", label: "Type" }, { key: "status", label: "Status" }, { key: "date", label: "Date" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "contacts.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
+            <button onClick={() => exportTablePDF(filteredContacts, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "_type", label: "Type" }, { key: "status", label: "Status" }, { key: "date", label: "Date" }], "All Contacts")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
             <BtnPrimary onClick={() => setShowAddContact(true)}>+ New</BtnPrimary>
           </div>
 
