@@ -545,14 +545,6 @@ export default function Clients({
             <BtnPrimary onClick={() => setShowAddContact(true)}>+ New</BtnPrimary>
           </div>
 
-          {/* Status legend */}
-          <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
-            {[["not_contacted", "Not yet reached out", "#c0392b", "#fff3e0"], ["cold", "No response", T.sub, "#f5f5f7"], ["warm", "Responded", "#1a56db", "#eef4ff"], ["open", "Meeting arranged", "#147d50", "#edfaf3"], ["client", "Converted to client", "#7c3aed", "#f3e8ff"]].map(([s, l, c, bg]) => (
-              <div key={s} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5 }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: bg, border: `1.5px solid ${c}` }} /><span style={{ color: c, fontWeight: 600 }}>{OUTREACH_STATUS_LABELS[s]}</span><span style={{ color: T.muted }}>{"\u2014"} {l}</span></div>
-            ))}
-            <span style={{ fontSize: 11.5, color: T.muted, marginLeft: "auto" }}>Click badge to cycle · Drag rows to type pills</span>
-          </div>
-
           {/* Unified table */}
           <div className="mob-table-wrap" style={{ borderRadius: 16, border: `1px solid ${T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", background: T.surface, minWidth: isMobile ? 780 : "auto" }}>
