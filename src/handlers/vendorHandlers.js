@@ -45,11 +45,14 @@ export const promoteToClient = async (entity, localClients, setLocalClients, onL
 
 // ── Dynamic dropdown helpers ─────────────────────────────────────────────────
 
-export const addNewOption = async (currentList, setter, storageKey, prompt_label, showPrompt) => {
+export const addNewOption = async (currentList, setter, storageKey, prompt_label, showPrompt, builtinList) => {
   const val = await showPrompt(prompt_label);
   if (!val || !val.trim()) return null;
   const trimmed = val.trim();
-  if (currentList.includes(trimmed)) return trimmed;
+  // Case-insensitive duplicate check against both custom and built-in lists
+  const lower = trimmed.toLowerCase();
+  if (currentList.some(c => c.toLowerCase() === lower)) return currentList.find(c => c.toLowerCase() === lower);
+  if (builtinList && builtinList.some(c => c.toLowerCase() === lower)) return builtinList.find(c => c.toLowerCase() === lower);
   const updated = [...currentList, trimmed];
   setter(updated);
   try { localStorage.setItem(storageKey, JSON.stringify(updated)); } catch {}

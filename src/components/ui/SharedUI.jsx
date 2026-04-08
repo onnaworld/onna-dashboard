@@ -30,11 +30,46 @@ export const SearchBar = ({value,onChange,placeholder}) => (
   </div>
 );
 
-export const Sel = ({value,onChange,options,minWidth}) => (
-  <select value={value} onChange={e=>onChange(e.target.value)} style={{padding:"8px 30px 8px 12px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",minWidth:minWidth||140,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
-    {options.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
-  </select>
-);
+export const Sel = ({value,onChange,options,minWidth,searchable}) => {
+  const [open,setOpen] = useState(false);
+  const [search,setSearch] = useState("");
+  const ref = useRef(null);
+  const searchRef = useRef(null);
+  // For small lists or non-searchable, use native select
+  if (!searchable && options.length <= 12) {
+    return (
+      <select value={value} onChange={e=>onChange(e.target.value)} style={{padding:"8px 30px 8px 12px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",minWidth:minWidth||140,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
+        {options.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
+      </select>
+    );
+  }
+  // Searchable dropdown for long lists
+  useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setSearch("");}};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
+  useEffect(()=>{if(open&&searchRef.current)searchRef.current.focus();},[open]);
+  const allOpts = options.map(o=>({value:o.value!==undefined?o.value:o,label:o.label||o}));
+  const filtered = search ? allOpts.filter(o=>o.label.toLowerCase().includes(search.toLowerCase())) : allOpts;
+  const selectedLabel = allOpts.find(o=>o.value===value)?.label || value || "Select…";
+  return (
+    <div ref={ref} style={{position:"relative",display:"inline-block",minWidth:minWidth||140}}>
+      <div onClick={()=>{setOpen(!open);if(open)setSearch("");}} style={{padding:"8px 30px 8px 12px",borderRadius:10,background:T.surface,border:`1px solid ${open?T.accent:T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:minWidth||140}}>
+        {selectedLabel}
+      </div>
+      {open&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,marginTop:4,background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,0.12)",maxHeight:260,overflowY:"auto",padding:"4px 0",minWidth:minWidth||140}}>
+          <div style={{padding:"4px 8px",position:"sticky",top:0,background:T.surface,zIndex:1}}>
+            <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…" onClick={e=>e.stopPropagation()} style={{width:"100%",padding:"6px 10px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+          </div>
+          {filtered.map(o=>(
+            <div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);setSearch("");}} style={{padding:"7px 12px",cursor:"pointer",fontSize:12,color:o.value===value?T.accent:T.text,fontWeight:o.value===value?600:400,fontFamily:"inherit",background:o.value===value?"#f5f5f7":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=o.value===value?"#f5f5f7":"transparent"}>
+              {o.label}
+            </div>
+          ))}
+          {filtered.length===0&&<div style={{padding:"12px",fontSize:12,color:T.muted,textAlign:"center"}}>No matches</div>}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const OutreachBadge = ({status,onClick}) => {
   const s = {not_contacted:{bg:"#fff3e0",c:"#c0392b",label:"Not Contacted"},cold:{bg:"#f5f5f7",c:T.sub,label:"Cold"},warm:{bg:"#eef4ff",c:"#1a56db",label:"Warm"},open:{bg:"#edfaf3",c:"#147d50",label:"Open"},client:{bg:"#f3e8ff",c:"#7c3aed",label:"Client"}}[status]||{bg:"#fff3e0",c:"#c0392b",label:"Not Contacted"};
@@ -66,7 +101,7 @@ export const LocationPicker = ({value,onChange,options,addNewOption,customLocs,s
   const ref = useRef(null);
   const searchRef = useRef(null);
   const locs = parseLocs(value);
-  const available = options.filter(o=>o!=="All"&&o!=="＋ Add location");
+  const available = options.filter(o=>o!=="All"&&o!=="＋ Add location").sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"}));
   const filtered = search ? available.filter(loc=>loc.toLowerCase().includes(search.toLowerCase())) : available;
   useEffect(()=>{
     const h=e=>{if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setSearch("");}};
@@ -121,7 +156,7 @@ export const CategoryPicker = ({value,onChange,options,addNewOption,customCats,s
   const ref = useRef(null);
   const searchRef = useRef(null);
   const cats = parseLocs(value);
-  const available = options.filter(o=>o!=="All"&&o!=="＋ Add category");
+  const available = options.filter(o=>o!=="All"&&o!=="＋ Add category").sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"}));
   const filtered = search ? available.filter(c=>c.toLowerCase().includes(search.toLowerCase())) : available;
   useEffect(()=>{
     const h=e=>{if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setSearch("");}};

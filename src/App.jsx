@@ -1103,7 +1103,7 @@ function OnnaDashboardInner() {
 
   const navigateToDoc = (projectObj, section, subSection, opts) => _navigateToDoc(projectObj, section, subSection, opts, { setActiveTab, setSelectedProject, setProjectSection, setDocumentsSubSection, setActiveCSVersion, setActiveDietaryVersion, setActiveRAVersion, setActiveContractVersion, setBudgetSubSection, setAgentActiveIdx });
 
-  const addNewOption = (currentList, setter, storageKey, prompt_label) => _addNewOption(currentList, setter, storageKey, prompt_label, showPrompt);
+  const addNewOption = (currentList, setter, storageKey, prompt_label, builtinList) => _addNewOption(currentList, setter, storageKey, prompt_label, showPrompt, builtinList);
 
   const catSetters = { localLeads, vendors, setLocalLeads, setVendors, customLeadCats, customVendorCats, setCustomLeadCats, setCustomVendorCats, setHiddenLeadBuiltins, setHiddenVendorBuiltins };
   const deleteCat = (type, cat) => _deleteCat(type, cat, setCatSaving, catSetters);
@@ -1125,9 +1125,11 @@ function OnnaDashboardInner() {
   const restoreItem = (entry) => { _restoreItem(entry, { setProjectEstimates, setTodos, setDashNotesList, setNotes, setLocalProjects, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setTravelItineraryStore, setDietaryStore, setLocDeckStore, setLocalClients, setLocalLeads, setVendors, setOutreach, setArchive }); doLogActivity("restored", entry.table, entry.item?.id, entry.item?.name || entry.item?.company || "item"); };
   const permanentlyDelete = (archiveId) => _permanentlyDelete(archiveId, setArchive);
 
-  const allLocations = ["All",...DEFAULT_LOCATIONS.filter(l=>!hiddenBuiltinLocs.includes(l)),...customLocations,"＋ Add location"];
-  const allLeadCats  = [...LEAD_CATEGORIES.filter(c=>!hiddenLeadBuiltins.includes(c)),...customLeadCats,"＋ Add category"];
-  const allVendorCats = ["All",...VENDORS_CATEGORIES.filter(c=>!hiddenVendorBuiltins.includes(c)),...customVendorCats,"＋ Add category"];
+  // Merge, deduplicate (case-insensitive), and sort alphabetically
+  const dedupeSort = (arr) => { const seen = new Set(); return arr.filter(s => { const k = s.toLowerCase().trim(); if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })); };
+  const allLocations = ["All", ...dedupeSort([...DEFAULT_LOCATIONS.filter(l=>!hiddenBuiltinLocs.includes(l)), ...customLocations]), "＋ Add location"];
+  const allLeadCats  = [...dedupeSort([...LEAD_CATEGORIES.filter(c=>c!=="All"&&!hiddenLeadBuiltins.includes(c)), ...customLeadCats]), "＋ Add category"];
+  const allVendorCats = ["All", ...dedupeSort([...VENDORS_CATEGORIES.filter(c=>!hiddenVendorBuiltins.includes(c)), ...customVendorCats]), "＋ Add category"];
 
   // ─── PROJECT SECTION RENDERER ──────────────────────────────────────────────
   const renderProjectSection = p => <ProjectSection p={p} T={T} isMobile={isMobile} api={api}

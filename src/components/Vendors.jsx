@@ -12,19 +12,19 @@ export default function Vendors({
   downloadCSV, exportTablePDF,
   SearchBar, Sel, TH, TD, BtnPrimary,
 }) {
-  // Auto-sync unknown locations from vendor data into customLocations (normalize aliases)
+  // Auto-sync unknown locations from vendor data into customLocations (normalize aliases, case-insensitive dedup)
   const vendorLocs = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.location||"").includes("|")?(v.location||"").split("|").map(s=>normalizeLocation(s.trim())).filter(Boolean):[v.location].filter(Boolean).map(normalizeLocation)))),[vendors]);
   useEffect(()=>{
-    const known = new Set(allLocations);
-    const missing = vendorLocs.filter(l=>l&&!known.has(l)&&!LOCATION_ALIASES[l]);
-    if(missing.length>0) setCustomLocations(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+    const knownLower = new Set(allLocations.map(l=>l.toLowerCase()));
+    const missing = vendorLocs.filter(l=>l&&!knownLower.has(l.toLowerCase())&&!LOCATION_ALIASES[l]);
+    if(missing.length>0) setCustomLocations(prev=>{const sLower=new Set(prev.map(p=>p.toLowerCase()));const added=missing.filter(m=>!sLower.has(m.toLowerCase()));if(!added.length)return prev;return[...prev,...added];});
   },[vendorLocs]); // eslint-disable-line
-  // Auto-sync unknown categories from vendor data into customVendorCats
+  // Auto-sync unknown categories from vendor data into customVendorCats (case-insensitive dedup)
   const vendorCats = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.category||"").includes("|")?(v.category||"").split("|").map(s=>s.trim()).filter(Boolean):[v.category].filter(Boolean)))),[vendors]);
   useEffect(()=>{
-    const known = new Set(allVendorCats);
-    const missing = vendorCats.filter(c=>c&&!known.has(c));
-    if(missing.length>0) setCustomVendorCats(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+    const knownLower = new Set(allVendorCats.map(c=>c.toLowerCase()));
+    const missing = vendorCats.filter(c=>c&&!knownLower.has(c.toLowerCase()));
+    if(missing.length>0) setCustomVendorCats(prev=>{const sLower=new Set(prev.map(p=>p.toLowerCase()));const added=missing.filter(m=>!sLower.has(m.toLowerCase()));if(!added.length)return prev;return[...prev,...added];});
   },[vendorCats]); // eslint-disable-line
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleId = id => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -56,8 +56,8 @@ export default function Vendors({
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
         <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
-        <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setBbCat(n);}else{setBbCat(v);}}} options={allVendorCats} minWidth={170}/>
-        <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLocations,setCustomLocations,'onna_custom_locations',"New location name:");if(n)setBbLocation(n);}else{setBbLocation(v);}}} options={allLocations} minWidth={170}/>
+        <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setBbCat(n);}else{setBbCat(v);}}} options={allVendorCats} minWidth={170} searchable/>
+        <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLocations,setCustomLocations,'onna_custom_locations',"New location name:");if(n)setBbLocation(n);}else{setBbLocation(v);}}} options={allLocations} minWidth={170} searchable/>
         <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
         <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
         <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>

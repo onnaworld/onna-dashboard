@@ -45,6 +45,25 @@ export default function Clients({
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterLoc, setFilterLoc] = useState("All");
 
+  // Pagination state
+  const [contactPage, setContactPage] = useState(1);
+  const [followUpPage, setFollowUpPage] = useState(1);
+  const [contactsPage, setContactsPage] = useState(1);
+
+  // Reusable Pager component
+  const Pager = ({ page, total, perPage, onChange }) => {
+    const pages = Math.ceil(total / perPage);
+    if (pages <= 1) return null;
+    const btnStyle = { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", fontSize: 13, color: T.sub, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 };
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12 }}>
+        <button disabled={page <= 1} onClick={() => onChange(page - 1)} style={{ ...btnStyle, opacity: page <= 1 ? 0.4 : 1, cursor: page <= 1 ? "default" : "pointer" }}>{"\u2039"}</button>
+        <span style={{ fontSize: 12, color: T.muted }}>Page {page} of {pages}</span>
+        <button disabled={page >= pages} onClick={() => onChange(page + 1)} style={{ ...btnStyle, opacity: page >= pages ? 0.4 : 1, cursor: page >= pages ? "default" : "pointer" }}>{"\u203A"}</button>
+      </div>
+    );
+  };
+
   const [outreachSort, setOutreachSort] = useState("az");
 
   // Bulk select
@@ -167,19 +186,19 @@ export default function Clients({
     return tagged;
   }, [localLeads, outreach, localClients, leadStatusOverrides]);
 
-  // Auto-sync unknown locations from data into customLocations
+  // Auto-sync unknown locations from data into customLocations (case-insensitive dedup)
   const dataLocations = useMemo(()=>Array.from(new Set([...allLeadsCombined,...outreach].flatMap(l=>(l.location||"").includes("|")?(l.location||"").split("|").map(s=>normalizeLocation(s.trim())).filter(Boolean):[l.location].filter(Boolean).map(normalizeLocation)))),[allLeadsCombined,outreach]);
   React.useEffect(()=>{
-    const known = new Set(allLocations);
-    const missing = dataLocations.filter(l=>l&&!known.has(l)&&!LOCATION_ALIASES[l]);
-    if(missing.length>0) setCustomLocations(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+    const knownLower = new Set(allLocations.map(l=>l.toLowerCase()));
+    const missing = dataLocations.filter(l=>l&&!knownLower.has(l.toLowerCase())&&!LOCATION_ALIASES[l]);
+    if(missing.length>0) setCustomLocations(prev=>{const sLower=new Set(prev.map(p=>p.toLowerCase()));const added=missing.filter(m=>!sLower.has(m.toLowerCase()));if(!added.length)return prev;return[...prev,...added];});
   },[dataLocations]); // eslint-disable-line
-  // Auto-sync unknown categories from data into customLeadCats
+  // Auto-sync unknown categories from data into customLeadCats (case-insensitive dedup)
   const dataCategories = useMemo(()=>Array.from(new Set([...allLeadsCombined,...outreach].flatMap(l=>(l.category||"").includes("|")?(l.category||"").split("|").map(s=>s.trim()).filter(Boolean):[l.category].filter(Boolean)))),[allLeadsCombined,outreach]);
   React.useEffect(()=>{
-    const known = new Set(allLeadCats);
-    const missing = dataCategories.filter(c=>c&&!known.has(c));
-    if(missing.length>0) setCustomLeadCats(prev=>{const s=new Set(prev);const added=missing.filter(m=>!s.has(m));if(!added.length)return prev;return[...prev,...added];});
+    const knownLower = new Set(allLeadCats.map(c=>c.toLowerCase()));
+    const missing = dataCategories.filter(c=>c&&!knownLower.has(c.toLowerCase()));
+    if(missing.length>0) setCustomLeadCats(prev=>{const sLower=new Set(prev.map(p=>p.toLowerCase()));const added=missing.filter(m=>!sLower.has(m.toLowerCase()));if(!added.length)return prev;return[...prev,...added];});
   },[dataCategories]); // eslint-disable-line
 
   // ── Filtered unified contacts ──
@@ -207,6 +226,9 @@ export default function Clients({
         ? (a.location || "").toLowerCase().localeCompare((b.location || "").toLowerCase())
         : (a.company || "").toLowerCase().localeCompare((b.company || "").toLowerCase()));
   }, [getSearch("Contacts"), typeFilter, filterCat, filterStatus, filterLoc, outreachSort, unifiedContacts]);
+
+  // Reset table page when filters change
+  React.useEffect(() => { setContactsPage(1); }, [typeFilter, filterCat, filterStatus, filterLoc, getSearch("Contacts")]);
 
   const leadMonths = ["All", ...Array.from(new Set(allLeadsCombined.map(l => getMonthLabel(l.date)).filter(Boolean)))];
 
@@ -334,11 +356,13 @@ export default function Clients({
         const today = new Date();
         const oneMonthAgo = new Date(today); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
         const openLead = l => { if (l._fromOutreach) { const o = outreach.find(o => o.id === l.id) || { ...l, clientName: l.contact }; setSelectedOutreach({ ...o, _xContacts: getXContacts('outreach', o.id) }); } else { setSelectedLead({ ...l, _xContacts: getXContacts('lead', l.id) }); } };
-        const toContact = allLeadsCombined.filter(l => l.status === "not_contacted").slice(0, 5);
+        const toContact = allLeadsCombined.filter(l => l.status === "not_contacted");
         const toFollowUp = allLeadsCombined.filter(l => {
           if (l.status === "not_contacted" || l.status === "client") return false;
           const d = _parseDate(l.date); return d && d < oneMonthAgo;
-        }).slice(0, 5);
+        });
+        const pagedContact = toContact.slice((contactPage - 1) * 5, contactPage * 5);
+        const pagedFollowUp = toFollowUp.slice((followUpPage - 1) * 5, followUpPage * 5);
 
         const ReminderCard = ({ lead, showDate }) => (
           <div onClick={() => openLead(lead)} className="row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 12, border: `1px solid ${T.border}`, background: T.surface, cursor: "pointer", marginBottom: 8 }}>
@@ -367,14 +391,16 @@ export default function Clients({
                   <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>Contact Today</div>
                   <span style={{ fontSize: 11, color: "#c0392b", background: "#fff3e0", padding: "2px 8px", borderRadius: 999, fontWeight: 500 }}>Not yet reached out</span>
                 </div>
-                {toContact.length === 0 ? <div style={{ fontSize: 13, color: T.muted, textAlign: "center", padding: "24px 0" }}>All leads contacted!</div> : toContact.map(l => <ReminderCard key={l.id} lead={l} showDate={false} />)}
+                {toContact.length === 0 ? <div style={{ fontSize: 13, color: T.muted, textAlign: "center", padding: "24px 0" }}>All leads contacted!</div> : pagedContact.map(l => <ReminderCard key={l.id} lead={l} showDate={false} />)}
+                <Pager page={contactPage} total={toContact.length} perPage={5} onChange={setContactPage} />
               </div>
               <div style={{ borderRadius: 16, background: T.surface, border: "1px solid " + T.border, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", padding: "22px 24px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                   <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>Follow Up</div>
                   <span style={{ fontSize: 11, color: "#92680a", background: "#fff8e8", padding: "2px 8px", borderRadius: 999, fontWeight: 500 }}>1+ month since contact</span>
                 </div>
-                {toFollowUp.length === 0 ? <div style={{ fontSize: 13, color: T.muted, textAlign: "center", padding: "24px 0" }}>No follow-ups due yet.</div> : toFollowUp.map(l => <ReminderCard key={l.id} lead={l} showDate={true} />)}
+                {toFollowUp.length === 0 ? <div style={{ fontSize: 13, color: T.muted, textAlign: "center", padding: "24px 0" }}>No follow-ups due yet.</div> : pagedFollowUp.map(l => <ReminderCard key={l.id} lead={l} showDate={true} />)}
+                <Pager page={followUpPage} total={toFollowUp.length} perPage={5} onChange={setFollowUpPage} />
               </div>
             </div>
           </div>
@@ -485,36 +511,34 @@ export default function Clients({
       {leadsView === "contacts" && !selectedClient && (
         <div>
           {/* Filter bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {/* Type filter pills */}
-            {["all", "lead", "client", "outreach", "competitor"].map(t => {
-              const isOver = dropTarget === t && dragItem;
-              const isDroppable = t !== "all";
-              const label = t === "all" ? "All" : TYPE_LABELS[t];
-              const count = typeCounts[t];
-              const active = typeFilter === t;
-              return (
-                <div key={t} {...(isDroppable ? dropPillProps(t) : {})}
-                  style={{ borderRadius: 999, border: isOver ? "2px dashed #F5D13A" : "2px solid transparent", transition: "border-color 0.15s" }}>
-                  <button onClick={() => setTypeFilter(t)}
-                    style={{
-                      padding: "5px 14px", borderRadius: 999, border: `1px solid ${active ? T.accent : T.border}`,
-                      background: active ? T.accent : T.surface, color: active ? "#fff" : T.sub,
-                      fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}>
-                    {t !== "all" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: TYPE_COLORS[t].color }} />}
-                    {label}
-                    <span style={{ fontSize: 10.5, opacity: 0.7 }}>({count})</span>
-                  </button>
-                </div>
-              );
-            })}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            {/* Type filter dropdown with drag-drop wrapper */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+              onDrop={e => { e.preventDefault(); const val = typeFilter !== "all" ? typeFilter : null; if (val) handlePillDrop(val); }}>
+              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Type</span>
+              <Sel value={typeFilter} onChange={setTypeFilter} options={[
+                { value: "all", label: "All Types" },
+                { value: "lead", label: "Lead" },
+                { value: "client", label: "Client" },
+                { value: "outreach", label: "Outreach" },
+                { value: "competitor", label: "Competitor" },
+              ]} minWidth={140} />
+            </div>
             <div style={{ width: 1, height: 24, background: T.border, margin: "0 4px" }} />
             <SearchBar value={getSearch("Contacts")} onChange={v => setSearch("Contacts", v)} placeholder="Search contacts..." />
-            <Sel value={filterCat} onChange={setFilterCat} options={allLeadCats.filter(c=>c!=="＋ Add category")} minWidth={170} />
-            <Sel value={filterLoc} onChange={setFilterLoc} options={allLocations.filter(l=>l!=="＋ Add location")} minWidth={170} />
-            <Sel value={filterStatus} onChange={setFilterStatus} options={["All", ...OUTREACH_STATUSES.map(s => ({value:s,label:OUTREACH_STATUS_LABELS[s]}))]} minWidth={140} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Category</span>
+              <Sel value={filterCat} onChange={setFilterCat} options={allLeadCats.filter(c=>c!=="＋ Add category")} minWidth={170} searchable/>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Location</span>
+              <Sel value={filterLoc} onChange={setFilterLoc} options={allLocations.filter(l=>l!=="＋ Add location")} minWidth={170} searchable/>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Status</span>
+              <Sel value={filterStatus} onChange={setFilterStatus} options={["All", ...OUTREACH_STATUSES.map(s => ({value:s,label:OUTREACH_STATUS_LABELS[s]}))]} minWidth={140} />
+            </div>
             <span style={{ fontSize: 12, color: T.muted }}>{filteredContacts.length} contacts</span>
             <button onClick={() => downloadCSV(filteredContacts, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "_type", label: "Type" }, { key: "status", label: "Status" }, { key: "date", label: "Date" }, { key: "location", label: "Location" }, { key: "notes", label: "Notes" }], "contacts.csv")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>CSV</button>
             <button onClick={() => exportTablePDF(filteredContacts, [{ key: "company", label: "Company" }, { key: "contact", label: "Contact" }, { key: "role", label: "Role" }, { key: "email", label: "Email" }, { key: "category", label: "Category" }, { key: "_type", label: "Type" }, { key: "status", label: "Status" }, { key: "date", label: "Date" }], "All Contacts")} style={{ background: "#f5f5f7", border: "none", color: T.sub, padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>PDF</button>
@@ -542,7 +566,7 @@ export default function Clients({
                 <TH>Date</TH>
               </tr></thead>
               <tbody>
-                {filteredContacts.map(l => {
+                {filteredContacts.slice((contactsPage - 1) * 50, contactsPage * 50).map(l => {
                   const tc = TYPE_COLORS[l._type] || TYPE_COLORS.lead;
                   return (
                     <tr key={`${l._fromOutreach ? "o" : l._fromClient ? "c" : "l"}_${l.id}`} className="row" {...dragRowProps(l)} onClick={() => openRow(l)} style={{ cursor: "grab", background: selectedLeadIds.has(l.id) ? "#fffbe6" : undefined }}>
@@ -565,6 +589,7 @@ export default function Clients({
               </tbody>
             </table>
           </div>
+          <Pager page={contactsPage} total={filteredContacts.length} perPage={50} onChange={setContactsPage} />
           {selectedLeadIds.size>0&&<BulkActionBar selectedIds={selectedLeadIds} onDelete={bulkDeleteLeads} onClear={()=>setSelectedLeadIds(new Set())}/>}
         </div>
       )}
