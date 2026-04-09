@@ -104,8 +104,8 @@ function migrateRateCards(data) {
   return {};
 }
 
-// ── Inline rate card for doc preview panel (estimate-style) ──
-export function BillieRateCardInline({ billieRateCards, setBillieRateCards }) {
+// ── Inline rate card (used in Information section & Files panel) ──
+export function BillieRateCardInline({ billieRateCards, setBillieRateCards, compact }) {
   const cards = migrateRateCards(billieRateCards);
   const allLocs = [...new Set([...Object.keys(cards), ...DEFAULT_LOCATIONS])];
   const [activeLoc, setActiveLoc] = useState(allLocs[0] || "Dubai");
@@ -130,44 +130,43 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards }) {
 
   const F = "system-ui,-apple-system,sans-serif";
   const LS = "0.5px";
-  const hdr = { fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, textTransform: "uppercase", padding: "4px 6px", background: "#f5f5f7", color: "#555", borderBottom: "1px solid #e0e0e0" };
-  const cell = { fontFamily: F, fontSize: 11, padding: "5px 6px", borderBottom: "1px solid #f0f0f2", verticalAlign: "middle" };
-  const inp = { border: "none", background: "transparent", fontFamily: F, fontSize: 11, color: "#1d1d1f", outline: "none", width: "100%", padding: "2px 0" };
+  // Compact = old narrow panel sizing; default = full-width Information section
+  const sz = compact ? { hdrFs: 9, cellFs: 11, cellPad: "5px 6px", tabPad: "4px 12px", tabFs: 10, pad: "16px 20px", btnPad: "5px 14px", btnFs: 10, inpFs: 11, selFs: 10 }
+                     : { hdrFs: 10, cellFs: 13, cellPad: "8px 10px", tabPad: "7px 16px", tabFs: 12, pad: "22px 26px", btnPad: "8px 18px", btnFs: 12, inpFs: 13, selFs: 12 };
+  const hdr = { fontFamily: F, fontSize: sz.hdrFs, fontWeight: 700, letterSpacing: LS, textTransform: "uppercase", padding: sz.cellPad, background: "#f5f5f7", color: "#555", borderBottom: "1px solid #e0e0e0" };
+  const cell = { fontFamily: F, fontSize: sz.cellFs, padding: sz.cellPad, borderBottom: "1px solid #f0f0f2", verticalAlign: "middle" };
+  const inp = { border: "none", background: "transparent", fontFamily: F, fontSize: sz.inpFs, color: "#1d1d1f", outline: "none", width: "100%", padding: "2px 0" };
 
   return (
-    <div style={{ padding: "16px 20px", fontFamily: F }}>
-      <div style={{ textAlign: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#1d1d1f", marginBottom: 4 }}>Rate Card</div>
-        <div style={{ fontSize: 10, color: "#888" }}>Default rates per location — Billie uses these when populating estimates</div>
-      </div>
-
+    <div style={{ padding: sz.pad, fontFamily: F }}>
       {/* Location tabs */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: compact ? 4 : 6, flexWrap: "wrap", marginBottom: compact ? 12 : 16, alignItems: "center" }}>
         {allLocs.map(loc => (
-          <button key={loc} onClick={() => setActiveLoc(loc)} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer", border: activeLoc === loc ? "1px solid #1d1d1f" : "1px solid #e0e0e0", background: activeLoc === loc ? "#1d1d1f" : "#fff", color: activeLoc === loc ? "#fff" : "#555", transition: "all 0.15s", display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F, letterSpacing: LS, textTransform: "uppercase" }}>
+          <button key={loc} onClick={() => setActiveLoc(loc)} style={{ padding: sz.tabPad, borderRadius: compact ? 6 : 8, fontSize: sz.tabFs, fontWeight: 600, cursor: "pointer", border: activeLoc === loc ? "1px solid #1d1d1f" : "1px solid #e0e0e0", background: activeLoc === loc ? "#1d1d1f" : "#fff", color: activeLoc === loc ? "#fff" : "#555", transition: "all 0.15s", display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F, letterSpacing: LS, textTransform: "uppercase" }}>
             {loc}
-            {!DEFAULT_LOCATIONS.includes(loc) && <span onClick={e => { e.stopPropagation(); deleteLocation(loc); }} style={{ fontSize: 10, opacity: 0.5, cursor: "pointer" }}>×</span>}
+            {!DEFAULT_LOCATIONS.includes(loc) && <span onClick={e => { e.stopPropagation(); deleteLocation(loc); }} style={{ fontSize: sz.tabFs, opacity: 0.5, cursor: "pointer" }}>×</span>}
           </button>
         ))}
         {addingLoc ? (
           <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-            <input autoFocus value={newLocName} onChange={e => setNewLocName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addLocation(); if (e.key === "Escape") { setAddingLoc(false); setNewLocName(""); } }} placeholder="Name" style={{ ...inp, border: "1px solid #e0e0e0", borderRadius: 5, padding: "3px 6px", width: 90, fontSize: 10 }} />
-            <button onClick={addLocation} style={{ background: "#1d1d1f", color: "#fff", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Add</button>
+            <input autoFocus value={newLocName} onChange={e => setNewLocName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addLocation(); if (e.key === "Escape") { setAddingLoc(false); setNewLocName(""); } }} placeholder="Name" style={{ ...inp, border: "1px solid #e0e0e0", borderRadius: compact ? 5 : 8, padding: "4px 8px", width: compact ? 90 : 120, fontSize: sz.tabFs }} />
+            <button onClick={addLocation} style={{ background: "#1d1d1f", color: "#fff", border: "none", borderRadius: compact ? 5 : 8, padding: compact ? "3px 8px" : "6px 12px", fontSize: sz.btnFs, fontWeight: 600, cursor: "pointer" }}>Add</button>
           </span>
         ) : (
-          <button onClick={() => setAddingLoc(true)} style={{ padding: "4px 10px", borderRadius: 6, border: "1.5px dashed #ccc", fontSize: 10, color: "#999", cursor: "pointer", background: "transparent", fontFamily: F }}>+ Location</button>
+          <button onClick={() => setAddingLoc(true)} style={{ padding: sz.tabPad, borderRadius: compact ? 6 : 8, border: "1.5px dashed #ccc", fontSize: sz.tabFs, color: "#999", cursor: "pointer", background: "transparent", fontFamily: F }}>+ Location</button>
         )}
       </div>
 
       {/* Rate table */}
       {activeRates.length === 0 && PRESET_RATES[activeLoc] ? (
-        <div style={{ padding: "30px 0", textAlign: "center" }}>
-          <div style={{ color: "#999", fontSize: 11, marginBottom: 10 }}>No rates for {activeLoc} yet.</div>
-          <button onClick={() => loadPreset(activeLoc)} style={{ background: "#1d1d1f", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Load {activeLoc} Preset Rates</button>
+        <div style={{ padding: compact ? "30px 0" : "40px 0", textAlign: "center" }}>
+          <div style={{ color: "#999", fontSize: sz.cellFs, marginBottom: compact ? 10 : 14 }}>No rates for {activeLoc} yet.</div>
+          <button onClick={() => loadPreset(activeLoc)} style={{ background: "#1d1d1f", color: "#fff", border: "none", borderRadius: compact ? 8 : 10, padding: compact ? "8px 18px" : "10px 22px", fontSize: sz.btnFs, fontWeight: 600, cursor: "pointer", fontFamily: F }}>Load {activeLoc} Preset Rates</button>
         </div>
       ) : activeRates.length === 0 ? (
-        <div style={{ padding: "30px 0", textAlign: "center", color: "#999", fontSize: 11 }}>No rates yet. Add your first rate below.</div>
+        <div style={{ padding: compact ? "30px 0" : "40px 0", textAlign: "center", color: "#999", fontSize: sz.cellFs }}>No rates yet. Add your first rate below.</div>
       ) : (
+        <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -176,7 +175,7 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards }) {
               <td style={{ ...hdr, width: "12%" }}>Currency</td>
               <td style={{ ...hdr, width: "10%" }}>Per</td>
               <td style={hdr}>Notes</td>
-              <td style={{ ...hdr, width: 24 }}></td>
+              <td style={{ ...hdr, width: 28 }}></td>
             </tr>
           </thead>
           <tbody>
@@ -185,28 +184,29 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards }) {
                 <td style={cell}><input style={{ ...inp, fontWeight: 500 }} value={row.role} onChange={e => update(row.id, "role", e.target.value)} placeholder="e.g. Photographer" /></td>
                 <td style={{ ...cell, textAlign: "right" }}><input style={{ ...inp, textAlign: "right" }} value={row.rate} onChange={e => update(row.id, "rate", e.target.value)} placeholder="0" /></td>
                 <td style={cell}>
-                  <select style={{ ...inp, cursor: "pointer", fontSize: 10 }} value={row.currency} onChange={e => update(row.id, "currency", e.target.value)}>
+                  <select style={{ ...inp, cursor: "pointer", fontSize: sz.selFs }} value={row.currency} onChange={e => update(row.id, "currency", e.target.value)}>
                     {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </td>
                 <td style={cell}>
-                  <select style={{ ...inp, cursor: "pointer", fontSize: 10 }} value={row.per} onChange={e => update(row.id, "per", e.target.value)}>
+                  <select style={{ ...inp, cursor: "pointer", fontSize: sz.selFs }} value={row.per} onChange={e => update(row.id, "per", e.target.value)}>
                     {PER_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </td>
                 <td style={cell}><input style={inp} value={row.notes} onChange={e => update(row.id, "notes", e.target.value)} placeholder="—" /></td>
                 <td style={{ ...cell, textAlign: "center" }}>
-                  <button onClick={() => remove(row.id)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }} onMouseEnter={e => e.currentTarget.style.color = "#ff3b30"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</button>
+                  <button onClick={() => remove(row.id)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: compact ? 13 : 15, padding: 0, lineHeight: 1 }} onMouseEnter={e => e.currentTarget.style.color = "#ff3b30"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, marginTop: 12, alignItems: "center" }}>
-        <button onClick={addRow} style={{ background: "transparent", border: "1.5px dashed #ccc", borderRadius: 6, padding: "5px 14px", fontSize: 10, fontWeight: 600, color: "#888", cursor: "pointer", fontFamily: F, letterSpacing: LS }}>+ Add Rate</button>
-        {activeRates.length > 0 && PRESET_RATES[activeLoc] && <button onClick={() => { if (confirm(`Reset ${activeLoc} rates to defaults?`)) loadPreset(activeLoc); }} style={{ background: "transparent", border: "1px solid #e0e0e0", borderRadius: 6, padding: "5px 14px", fontSize: 10, fontWeight: 600, color: "#888", cursor: "pointer", fontFamily: F }}>Reset to Preset</button>}
+      <div style={{ display: "flex", gap: 6, marginTop: compact ? 12 : 16, alignItems: "center" }}>
+        <button onClick={addRow} style={{ background: "transparent", border: "1.5px dashed #ccc", borderRadius: compact ? 6 : 8, padding: sz.btnPad, fontSize: sz.btnFs, fontWeight: 600, color: "#888", cursor: "pointer", fontFamily: F, letterSpacing: LS }}>+ Add Rate</button>
+        {activeRates.length > 0 && PRESET_RATES[activeLoc] && <button onClick={() => { if (confirm(`Reset ${activeLoc} rates to defaults?`)) loadPreset(activeLoc); }} style={{ background: "transparent", border: "1px solid #e0e0e0", borderRadius: compact ? 6 : 8, padding: sz.btnPad, fontSize: sz.btnFs, fontWeight: 600, color: "#888", cursor: "pointer", fontFamily: F }}>Reset to Preset</button>}
       </div>
     </div>
   );

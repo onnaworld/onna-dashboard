@@ -172,7 +172,7 @@ export default function Files({
         <p style={{ fontSize: 12.5, color: T.muted, marginBottom: 18 }}>
           {activeChild.type === "rateCard" ? "Your default rate card — shared across all projects." : activeChild.type === "versionStore" ? "Read-only version list. Edit from the main section." : "Upload and manage files."}
         </p>
-        {activeChild.type === "rateCard" && <BillieRateCardInline billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} />}
+        {activeChild.type === "rateCard" && <BillieRateCardInline billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} compact />}
         {activeChild.type === "fileStore" && <FileList category={activeChild.key} />}
         {activeChild.type === "versionStore" && <VersionList storeName={activeChild.store} />}
       </div>

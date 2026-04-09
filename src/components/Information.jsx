@@ -14,6 +14,9 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   const [notesErr, setNotesErr] = useState("");
   const notesFetchedRef = useRef(false);
   const [infoTab, setInfoTab] = useState("folder");
+  // Rate card draft: edits are buffered until user clicks Save
+  const [rateDraft, setRateDraft] = useState(null); // null = not editing
+  const rateDirty = rateDraft !== null && JSON.stringify(rateDraft) !== JSON.stringify(billieRateCards);
   const [openDoc, setOpenDoc] = useState(null);
   const [resetKey, setResetKey] = useState(0); // force remount on reset
   const [showSaveTo, setShowSaveTo] = useState(false); // project picker
@@ -185,7 +188,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       {!openDoc && (
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: `2px solid ${T.border}` }}>
           {[["folder", "Project Folder"], ["notes", "Notes"], ["rates", "Rate Card"]].map(([key, label]) => (
-            <button key={key} onClick={() => setInfoTab(key)} style={{ padding: "10px 20px", fontSize: 13, fontWeight: infoTab === key ? 600 : 400, color: infoTab === key ? T.text : T.muted, background: "none", border: "none", borderBottom: infoTab === key ? "2px solid #1d1d1f" : "2px solid transparent", marginBottom: -2, cursor: "pointer", fontFamily: "inherit" }}>{label}</button>
+            <button key={key} onClick={() => { if (infoTab === "rates" && key !== "rates") setRateDraft(null); setInfoTab(key); }} style={{ padding: "10px 20px", fontSize: 13, fontWeight: infoTab === key ? 600 : 400, color: infoTab === key ? T.text : T.muted, background: "none", border: "none", borderBottom: infoTab === key ? "2px solid #1d1d1f" : "2px solid transparent", marginBottom: -2, cursor: "pointer", fontFamily: "inherit" }}>{label}</button>
           ))}
         </div>
       )}
@@ -417,9 +420,30 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       )}
 
       {/* ── Rate Card ── */}
-      {!openDoc && infoTab === "rates" && (
-        <BillieRateCardInline billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} />
-      )}
+      {!openDoc && infoTab === "rates" && (() => {
+        // Initialize draft on first render of this tab
+        const draft = rateDraft ?? billieRateCards;
+        const startEditing = () => { if (rateDraft === null) setRateDraft(JSON.parse(JSON.stringify(billieRateCards))); };
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Default Rates</div>
+                <div style={{ fontSize: 12, color: T.muted }}>Set your default day rates per location. Budget Billie uses these when populating estimates.</div>
+              </div>
+              {rateDirty && (
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button onClick={() => setRateDraft(null)} style={{ padding: "8px 16px", borderRadius: 10, background: "#f5f5f7", border: `1px solid ${T.border}`, color: T.sub, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Discard</button>
+                  <button onClick={() => { setBillieRateCards(rateDraft); setRateDraft(null); if (showAlert) showAlert("Rate card saved"); }} style={{ padding: "8px 16px", borderRadius: 10, background: "#1d1d1f", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save Changes</button>
+                </div>
+              )}
+            </div>
+            <div style={{ borderRadius: 16, background: T.surface, border: `1px solid ${rateDirty ? "#1976D2" : T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflow: "hidden", transition: "border-color 0.2s" }} onClick={startEditing}>
+              <BillieRateCardInline billieRateCards={draft} setBillieRateCards={setRateDraft} />
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
