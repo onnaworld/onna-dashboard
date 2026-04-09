@@ -166,13 +166,12 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards, comp
       ) : activeRates.length === 0 ? (
         <div style={{ padding: compact ? "30px 0" : "40px 0", textAlign: "center", color: "#999", fontSize: sz.cellFs }}>No rates yet. Add your first rate below.</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
           <colgroup>
-            <col style={{ width: compact ? "35%" : "28%" }} />
-            <col style={{ width: compact ? "15%" : "14%" }} />
-            <col style={{ width: compact ? "12%" : "12%" }} />
-            <col style={{ width: compact ? "10%" : "10%" }} />
+            <col style={{ width: "30%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "9%" }} />
             <col />
             <col style={{ width: 28 }} />
           </colgroup>
@@ -180,7 +179,7 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards, comp
             <tr>
               <td style={hdr}>Role / Item</td>
               <td style={{ ...hdr, textAlign: "right" }}>Rate</td>
-              <td style={hdr}>Currency</td>
+              <td style={hdr}>Cur.</td>
               <td style={hdr}>Per</td>
               <td style={hdr}>Notes</td>
               <td style={hdr}></td>
@@ -209,7 +208,6 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards, comp
             ))}
           </tbody>
         </table>
-        </div>
       )}
 
       <div style={{ display: "flex", gap: 6, marginTop: compact ? 12 : 16, alignItems: "center" }}>

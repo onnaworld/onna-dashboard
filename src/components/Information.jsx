@@ -175,8 +175,10 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
     </div>
   );
 
+  // When on rates tab, lock to viewport height so the table scrolls internally
+  const isRates = !openDoc && infoTab === "rates";
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 200px)" }}>
+    <div style={{ display: "flex", flexDirection: "column", ...(isRates ? { height: "calc(100vh - 200px)", overflow: "hidden" } : {}) }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: T.text }}>Information</div>
         {infoTab === "notes" && !openDoc && (
@@ -424,7 +426,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
         const draft = rateDraft ?? billieRateCards;
         const startEditing = () => { if (rateDraft === null) setRateDraft(JSON.parse(JSON.stringify(billieRateCards))); };
         return (
-          <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Default Rates</div>
@@ -437,7 +439,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
                 </div>
               )}
             </div>
-            <div style={{ flex: 1, borderRadius: 16, background: T.surface, border: `1px solid ${rateDirty ? "#1976D2" : T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflow: "auto", transition: "border-color 0.2s", minHeight: 0 }} onClick={startEditing}>
+            <div style={{ flex: 1, borderRadius: 16, background: T.surface, border: `1px solid ${rateDirty ? "#1976D2" : T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflowY: "auto", overflowX: "hidden", transition: "border-color 0.2s", minHeight: 0 }} onClick={startEditing}>
               <BillieRateCardInline billieRateCards={draft} setBillieRateCards={setRateDraft} />
             </div>
           </div>
