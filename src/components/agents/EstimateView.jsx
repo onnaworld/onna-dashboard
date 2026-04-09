@@ -29,30 +29,53 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
   const xRate = baseCurr.rates[secondCurrency] || exchangeRate;
 
-  // ── Undo stack (⌘Z) ──
+  // ── Undo / Redo stack (⌘Z / ⌘⇧Z) ──
   const undoStack = useRef([]);
+  const redoStack = useRef([]);
   const estDataRef = useRef(estData);
   estDataRef.current = estData;
   const onSet = (updater) => {
     undoStack.current.push(JSON.parse(JSON.stringify(estDataRef.current)));
     if (undoStack.current.length > 50) undoStack.current.shift();
+    redoStack.current = []; // new change clears redo
     _rawOnSet(updater);
   };
   const undo = () => {
+    if (undoStack.current.length === 0) return false;
+    redoStack.current.push(JSON.parse(JSON.stringify(estDataRef.current)));
     const prev = undoStack.current.pop();
-    if (prev) _rawOnSet(() => prev);
+    _rawOnSet(() => prev);
+    return true;
+  };
+  const redo = () => {
+    if (redoStack.current.length === 0) return false;
+    undoStack.current.push(JSON.parse(JSON.stringify(estDataRef.current)));
+    const next = redoStack.current.pop();
+    _rawOnSet(() => next);
+    return true;
   };
   useEffect(() => {
     const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        const tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
-        e.preventDefault();
-        undo();
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'z') return;
+      if (e.shiftKey) {
+        // ⌘⇧Z = Redo
+        if (redoStack.current.length > 0) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          redo();
+        }
+      } else {
+        // ⌘Z = Undo — handle here to prevent coarse agent undo
+        if (undoStack.current.length > 0) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          undo();
+        }
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    // Capture phase + stopImmediatePropagation so this fires before AgentCard's handler
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, []);
 
   const ts = estData.ts || ESTIMATE_INIT.ts;
