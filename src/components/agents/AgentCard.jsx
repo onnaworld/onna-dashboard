@@ -213,7 +213,8 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
   useEffect(()=>{if(agent.id==="compliance"){try{if(connieCtx)localStorage.setItem('onna_connie_ctx',JSON.stringify(connieCtx));else localStorage.removeItem('onna_connie_ctx');}catch{}}},[connieCtx,agent.id]);
   useEffect(()=>{if(agent.id==="researcher"){try{if(ronnieCtx)localStorage.setItem('onna_ronnie_ctx',JSON.stringify(ronnieCtx));else localStorage.removeItem('onna_ronnie_ctx');}catch{}}},[ronnieCtx,agent.id]);
   // Cmd+Z undo for all doc agents (contracts, compliance, researcher, billie) — works even from textarea
-  useEffect(()=>{if(!active)return;const docAgents=["contracts","compliance","researcher","billie"];if(!docAgents.includes(agent.id))return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){if(agentUndoStack.current.length===0)return;e.preventDefault();e.stopPropagation();popAgentUndo();}};window.addEventListener("keydown",handler,true);return()=>window.removeEventListener("keydown",handler,true);},[agent.id,active,popAgentUndo]);
+  // Cmd+Z undo for doc agents — billie excluded (EstimateView handles its own granular undo/redo)
+  useEffect(()=>{if(!active)return;const docAgents=["contracts","compliance","researcher"];if(!docAgents.includes(agent.id))return;const handler=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="z"&&!e.shiftKey){if(agentUndoStack.current.length===0)return;e.preventDefault();e.stopPropagation();popAgentUndo();}};window.addEventListener("keydown",handler,true);return()=>window.removeEventListener("keydown",handler,true);},[agent.id,active,popAgentUndo]);
   useEffect(()=>{if(agent.id==="contracts"){try{if(codyCtx)localStorage.setItem('onna_cody_ctx',JSON.stringify(codyCtx));else localStorage.removeItem('onna_cody_ctx');}catch{}}},[codyCtx,agent.id]);
   useEffect(()=>{if(agent.id==="billie"){try{if(billieCtx)localStorage.setItem('onna_billie_ctx',JSON.stringify(billieCtx));else localStorage.removeItem('onna_billie_ctx');}catch{}}},[billieCtx,agent.id]);
   
@@ -1760,7 +1761,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
             callSheetStore={callSheetStore} setCallSheetStore={agent.id==="compliance"?undoSetCallSheetStore:setCallSheetStore} activeCSVersion={agent.id==="compliance"&&connieCtx&&connieCtx.vIdx!=null?connieCtx.vIdx:activeCSVersion}
             riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={agent.id==="researcher"?undoSetRiskAssessmentStore:setRiskAssessmentStore} activeRAVersion={agent.id==="researcher"&&ronnieCtx&&ronnieCtx.vIdx!=null?ronnieCtx.vIdx:activeRAVersion}
             contractDocStore={contractDocStore} setContractDocStore={agent.id==="contracts"?codySetContractDocStore:setContractDocStore} activeContractVersion={activeContractVersion}
-            projectEstimates={projectEstimates} setProjectEstimates={agent.id==="billie"?undoSetProjectEstimates:setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
+            projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} activeEstimateVersion={activeEstimateVersion}
             pushUndo={pushUndo}
             ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
             conniePendingReview={conniePendingReview} setConniePendingReview={setConniePendingReview}
