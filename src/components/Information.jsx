@@ -176,7 +176,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
   );
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 200px)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: T.text }}>Information</div>
         {infoTab === "notes" && !openDoc && (
@@ -421,12 +421,11 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
 
       {/* ── Rate Card ── */}
       {!openDoc && infoTab === "rates" && (() => {
-        // Initialize draft on first render of this tab
         const draft = rateDraft ?? billieRateCards;
         const startEditing = () => { if (rateDraft === null) setRateDraft(JSON.parse(JSON.stringify(billieRateCards))); };
         return (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Default Rates</div>
                 <div style={{ fontSize: 12, color: T.muted }}>Set your default day rates per location. Budget Billie uses these when populating estimates.</div>
@@ -438,7 +437,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
                 </div>
               )}
             </div>
-            <div style={{ borderRadius: 16, background: T.surface, border: `1px solid ${rateDirty ? "#1976D2" : T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflow: "hidden", transition: "border-color 0.2s" }} onClick={startEditing}>
+            <div style={{ flex: 1, borderRadius: 16, background: T.surface, border: `1px solid ${rateDirty ? "#1976D2" : T.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflow: "auto", transition: "border-color 0.2s", minHeight: 0 }} onClick={startEditing}>
               <BillieRateCardInline billieRateCards={draft} setBillieRateCards={setRateDraft} />
             </div>
           </div>

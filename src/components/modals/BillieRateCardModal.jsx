@@ -135,7 +135,7 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards, comp
                      : { hdrFs: 10, cellFs: 13, cellPad: "8px 10px", tabPad: "7px 16px", tabFs: 12, pad: "22px 26px", btnPad: "8px 18px", btnFs: 12, inpFs: 13, selFs: 12 };
   const hdr = { fontFamily: F, fontSize: sz.hdrFs, fontWeight: 700, letterSpacing: LS, textTransform: "uppercase", padding: sz.cellPad, background: "#f5f5f7", color: "#555", borderBottom: "1px solid #e0e0e0" };
   const cell = { fontFamily: F, fontSize: sz.cellFs, padding: sz.cellPad, borderBottom: "1px solid #f0f0f2", verticalAlign: "middle" };
-  const inp = { border: "none", background: "transparent", fontFamily: F, fontSize: sz.inpFs, color: "#1d1d1f", outline: "none", width: "100%", padding: "2px 0" };
+  const inp = { border: "none", background: "transparent", fontFamily: F, fontSize: sz.inpFs, color: "#1d1d1f", outline: "none", width: "100%", padding: "2px 0", boxSizing: "border-box", minWidth: 0 };
 
   return (
     <div style={{ padding: sz.pad, fontFamily: F }}>
@@ -167,15 +167,23 @@ export function BillieRateCardInline({ billieRateCards, setBillieRateCards, comp
         <div style={{ padding: compact ? "30px 0" : "40px 0", textAlign: "center", color: "#999", fontSize: sz.cellFs }}>No rates yet. Add your first rate below.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: compact ? "35%" : "28%" }} />
+            <col style={{ width: compact ? "15%" : "14%" }} />
+            <col style={{ width: compact ? "12%" : "12%" }} />
+            <col style={{ width: compact ? "10%" : "10%" }} />
+            <col />
+            <col style={{ width: 28 }} />
+          </colgroup>
           <thead>
             <tr>
-              <td style={{ ...hdr, width: "35%" }}>Role / Item</td>
-              <td style={{ ...hdr, width: "15%", textAlign: "right" }}>Rate</td>
-              <td style={{ ...hdr, width: "12%" }}>Currency</td>
-              <td style={{ ...hdr, width: "10%" }}>Per</td>
+              <td style={hdr}>Role / Item</td>
+              <td style={{ ...hdr, textAlign: "right" }}>Rate</td>
+              <td style={hdr}>Currency</td>
+              <td style={hdr}>Per</td>
               <td style={hdr}>Notes</td>
-              <td style={{ ...hdr, width: 28 }}></td>
+              <td style={hdr}></td>
             </tr>
           </thead>
           <tbody>
