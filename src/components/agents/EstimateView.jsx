@@ -188,7 +188,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   });
 
   return (
-    <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a",minWidth:700 }}>
+    <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
       <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
         <div style={{ marginLeft:"auto",display:"flex" }}>
