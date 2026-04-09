@@ -448,7 +448,11 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
     }
 
     const estVersions = projectEstimates[projectId] || [];
-    if (!estVersions.length) return null;
+    if (!estVersions.length) return (
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",color:"#999",fontSize:13,fontFamily:"inherit",padding:24,textAlign:"center"}}>
+        No estimate yet — pick a project or type <b>new</b> in the chat to create one.
+      </div>
+    );
     const estIdx = Math.min(activeEstimateVersion||0, estVersions.length - 1);
     const estData = estVersions[estIdx] || estVersions[0];
     const {set:estSet} = makeDocUpdater(projectId, estIdx, setProjectEstimates, JSON.parse(JSON.stringify(ESTIMATE_INIT)), "V1");
