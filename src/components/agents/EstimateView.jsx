@@ -13,6 +13,16 @@ const EST_CURRENCIES = [
 function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker, projectName }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
+  // Responsive: measure container width
+  const _containerRef = useRef(null);
+  const [_cw, _setCw] = useState(900);
+  useEffect(() => {
+    const el = _containerRef.current; if (!el) return;
+    const ro = new ResizeObserver(entries => { for (const e of entries) _setCw(e.contentRect.width); });
+    ro.observe(el); _setCw(el.offsetWidth);
+    return () => ro.disconnect();
+  }, []);
+  const _narrow = _cw < 600;
   const printRef = useRef(null);
   const [baseCurrency, setBaseCurrency] = useState(() => (estData.currency || "AED"));
   const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
@@ -188,17 +198,17 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   });
 
   return (
-    <div style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
-      <div style={{ display:"flex",borderBottom:"2px solid #000",overflowX:"auto" }}>
-        {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{t.label}</div>)}
+    <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
+      <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
+        {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
         <div style={{ marginLeft:"auto",display:"flex" }}>
-          <div onClick={()=>exportPDF(false)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:"#000",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
-            onMouseEnter={e=>{e.target.style.background="#000";e.target.style.color="#fff"}} onMouseLeave={e=>{e.target.style.background="#fff";e.target.style.color="#000"}}>EXPORT PAGE</div>
-          <div onClick={()=>exportPDF(true)} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
-            onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>EXPORT ALL</div>
+          <div onClick={()=>exportPDF(false)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:"#000",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+            onMouseEnter={e=>{e.target.style.background="#000";e.target.style.color="#fff"}} onMouseLeave={e=>{e.target.style.background="#fff";e.target.style.color="#000"}}>{_narrow?"EXPORT":"EXPORT PAGE"}</div>
+          <div onClick={()=>exportPDF(true)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+            onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>{_narrow?"ALL":"EXPORT ALL"}</div>
         </div>
       </div>
-      <div data-noprint style={{ display:"flex", gap:12, alignItems:"center", padding:"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
+      <div data-noprint style={{ display:"flex", gap:_narrow?6:12, alignItems:"center", padding:_narrow?"6px 10px":"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
         <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>CURRENCY</span>
         <select value={baseCurrency} onChange={e => { setBaseCurrency(e.target.value); onSet(d => ({...d, currency: e.target.value})); }}
           style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
@@ -212,7 +222,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         <span style={{ fontFamily:EST_F, fontSize:8, color:"#999", letterSpacing:EST_LS }}>1 {baseCurrency} = {xRate.toFixed(4)} {secondCurrency}</span>
       </div>
 
-      <div ref={printRef} id="onna-est-print" style={{ padding:"40px 40px" }}>
+      <div ref={printRef} id="onna-est-print" style={{ padding:_narrow?"20px 16px":"40px 40px" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
           <CSLogoSlot label="Production Logo" image={prodLogo} onUpload={logoSet} onRemove={()=>logoSet(null)} />
         </div>
@@ -228,7 +238,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               return(
               <div key={key} style={{display:"flex",gap:4,marginBottom:0,minHeight:20,alignItems:"baseline",position:"relative",...(_tsHas?{background:"#E8F5E9"}:{})}}>
                 {_tsHas&&<span style={{position:"absolute",left:-28,top:2,display:"flex",gap:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_tsm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_tsm)} style={_bRevBtn("decline")}>{"✕"}</button></span>}
-                <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,minWidth:190,flexShrink:0}}>{lbl}</span>
+                <span style={{fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,minWidth:_narrow?120:190,flexShrink:0}}>{lbl}</span>
                 <EstCell value={val} onChange={v=>tsSet(key,v)} style={{letterSpacing:EST_LS}} />
               </div>);
             })}
@@ -236,8 +246,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div style={{borderTop:"2px solid #000",marginTop:8}}>
             <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
               <div style={{flex:1,...hdr}}>CATEGORY</div>
-              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {baseCurrency}</div>
-              <div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {secondCurrency}</div>
+              <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>TOTAL {baseCurrency}</div>
+              {!_narrow&&<div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {secondCurrency}</div>}
             </div>
             {sections.map((sec)=>{
               const isF = isFeeSec(sec);
@@ -248,26 +258,26 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               }, 0) : estSectionTotal(sec);
               return(
               <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
-                <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
-                <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS}}>{sec.title}</div>
-                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
-                <div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>
+                <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
+                <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,letterSpacing:EST_LS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sec.title}</div>
+                <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
+                {!_narrow&&<div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>}
               </div>);
             })}
             <div style={{display:"flex",borderTop:"2px solid #000"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
+              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
+              {!_narrow&&<div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>}
             </div>
             <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);onSet(d=>({...d,vatPct:isNaN(v)?0:v}));}} style={{width:28,fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} /><span data-noprint style={{display:"none"}}></span>%)</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*vatRate)}</div>
-              <div style={{width:100}}></div>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);onSet(d=>({...d,vatPct:isNaN(v)?0:v}));}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} /><span data-noprint style={{display:"none"}}></span>%)</div>
+              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*vatRate)}</div>
+              {!_narrow&&<div style={{width:100}}></div>}
             </div>
             <div style={{display:"flex",borderBottom:"2px solid #000"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
-              <div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
-              <div style={{width:100}}></div>
+              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
+              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
+              {!_narrow&&<div style={{width:100}}></div>}
             </div>
           </div>
           {(() => {
