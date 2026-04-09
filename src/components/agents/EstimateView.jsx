@@ -246,8 +246,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div style={{borderTop:"2px solid #000",marginTop:8}}>
             <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
               <div style={{flex:1,...hdr}}>CATEGORY</div>
-              <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>TOTAL {baseCurrency}</div>
-              {!_narrow&&<div style={{width:100,...hdr,textAlign:"right"}}>TOTAL {secondCurrency}</div>}
+              <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{baseCurrency}</div>
+              <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>
             </div>
             {sections.map((sec)=>{
               const isF = isFeeSec(sec);
@@ -261,23 +261,23 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
                 <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,letterSpacing:EST_LS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sec.title}</div>
                 <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
-                {!_narrow&&<div style={{width:100,padding:"3px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>}
+                <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>
               </div>);
             })}
             <div style={{display:"flex",borderTop:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
-              {!_narrow&&<div style={{width:100,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>}
+              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>
             </div>
             <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);onSet(d=>({...d,vatPct:isNaN(v)?0:v}));}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} /><span data-noprint style={{display:"none"}}></span>%)</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*vatRate)}</div>
-              {!_narrow&&<div style={{width:100}}></div>}
+              <div style={{width:_narrow?70:100}}></div>
             </div>
             <div style={{display:"flex",borderBottom:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
-              {!_narrow&&<div style={{width:100}}></div>}
+              <div style={{width:_narrow?70:100}}></div>
             </div>
           </div>
           {(() => {
