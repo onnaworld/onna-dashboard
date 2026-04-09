@@ -385,7 +385,10 @@ export async function handleBillieIntent({
         else project=fuzzyMatchProject(localProjects,input);
         if(!project){
           const list=localProjects.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-          setMsgs([...history,{role:"assistant",content:`Which project's estimate should I work on?\n\n${list}\n\nPick a number or name.`}]);
+          const isNew = /^\s*new\s*$/i.test(input);
+          setMsgs([...history,{role:"assistant",content:isNew
+            ? `Which project should I create a new budget for?\n\n${list}\n\nPick a number or name.`
+            : `Which project's estimate should I work on?\n\n${list}\n\nPick a number or name.`}]);
           setLoading(false);setMood("idle");return true;
         }
         const estVersions = projectEstimates?.[project.id] || [];
@@ -544,7 +547,7 @@ export async function handleBillieIntent({
 
       const _hasAttach = history[history.length-1]?._attachments?.length > 0;
       const _hasPopulateIntent = /\b(based on|from|populate|draft|build|using|attached|brief|mirror)\b/i.test(input);
-      if((/\b(new|create)\s+(estimate|version)\b/i.test(input)||/\bcreate\s+new\b/i.test(input))&&!_hasAttach&&!_hasPopulateIntent){
+      if((/\b(new|create)\s+(estimate|version|budget)\b/i.test(input)||/\bcreate\s+new\b/i.test(input)||/^\s*new\s*$/i.test(input))&&!_hasAttach&&!_hasPopulateIntent){
         const _curVersions=projectEstimates?.[projectId]||[];
         const _nextNum=_curVersions.length+1;
         const _autoLabel=`V${_nextNum}`;
