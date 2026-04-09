@@ -3,9 +3,10 @@ import { defaultSections } from "../utils/helpers";
 import { ESTIMATE_INIT } from "./ui/DocHelpers";
 import EstimateView from "./agents/EstimateView";
 import CVView, { DEFAULT_CV } from "./agents/CVView";
+import { BillieRateCardInline } from "./modals/BillieRateCardModal";
 import { TEMPLATE_DOCS, downloadAoaXlsx, genEstimate, genBudgetTracker, genCallSheet, genRiskAssessment, genCastingTable, genLocationDeck, genTravelItinerary, genCV } from "../utils/templateExport";
 
-export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, setProjectEstimates, projectActuals, setProjectActuals, callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore, allProjects, showAlert }) {
+export default function Information({ T, api, isMobile, notes, setNotes, notesLoading, setNotesLoading, archiveItem, BtnPrimary, BtnSecondary, hydrated, templateFiles, setTemplateFiles, tplProject, projectEstimates, setProjectEstimates, projectActuals, setProjectActuals, callSheetStore, setCallSheetStore, riskAssessmentStore, setRiskAssessmentStore, castingTableStore, locDeckStore, travelItineraryStore, allProjects, showAlert, billieRateCards, setBillieRateCards }) {
   const [noteAddOpen, setNoteAddOpen] = useState(false);
   const [noteEditId, setNoteEditId] = useState(null);
   const [noteDraft, setNoteDraft] = useState({ title: "", content: "" });
@@ -183,7 +184,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
       {/* Tab bar */}
       {!openDoc && (
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: `2px solid ${T.border}` }}>
-          {[["folder", "Project Folder"], ["notes", "Notes"]].map(([key, label]) => (
+          {[["folder", "Project Folder"], ["notes", "Notes"], ["rates", "Rate Card"]].map(([key, label]) => (
             <button key={key} onClick={() => setInfoTab(key)} style={{ padding: "10px 20px", fontSize: 13, fontWeight: infoTab === key ? 600 : 400, color: infoTab === key ? T.text : T.muted, background: "none", border: "none", borderBottom: infoTab === key ? "2px solid #1d1d1f" : "2px solid transparent", marginBottom: -2, cursor: "pointer", fontFamily: "inherit" }}>{label}</button>
           ))}
         </div>
@@ -413,6 +414,11 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Rate Card ── */}
+      {!openDoc && infoTab === "rates" && (
+        <BillieRateCardInline billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} />
       )}
     </div>
   );

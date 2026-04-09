@@ -86,7 +86,7 @@ if (typeof window !== "undefined") {
   window.postMessage({ type: "LOGAN_REQUEST_ID" }, window.location.origin);
 }
 
-export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore,onCreateProject,billieRateCards,setBillieRateCards,showBillieRates,setShowBillieRates}){
+export default function AgentCard({agent,active,onSelect,onClose,allVendors,allLeads,onUpdateVendor,onUpdateLead,onNewLead,onNewOutreach,gcalToken,gcalEvents,callSheetStore,setCallSheetStore,selectedProject,localProjects,vendors:vendorsProp,activeCSVersion,dietaryStore,setDietaryStore,riskAssessmentStore,setRiskAssessmentStore,activeRAVersion,setActiveRAVersion,contractDocStore,setContractDocStore,activeContractVersion,setActiveContractVersion,projectEstimates,setProjectEstimates,activeEstimateVersion,setActiveEstimateVersion,projectActuals,setProjectActuals,projectCasting,setProjectCasting,getProjectCastingTables,onNavigateToDoc,onFullWidthChange,isMobile,pushUndo,projectInfoRef,onOpenDuplicateCS,onOpenDuplicateRA,onArchiveCallSheet,travelItineraryStore,setTravelItineraryStore,castingDeckStore,setCastingDeckStore,fittingStore,setFittingStore,castingTableStore,setCastingTableStore,cpsStore,setCpsStore,shotListStore,setShotListStore,storyboardStore,setStoryboardStore,locDeckStore,setLocDeckStore,recceReportStore,setRecceReportStore,postProdStore,setPostProdStore,syncProjectInfoToDocs,projectFileStore,onCreateProject,billieRateCards,setBillieRateCards}){
   const {Blob,name,title,emoji,system,placeholder,intro}=agent;
   const _needsProj={compliance:true,researcher:true,billie:true,carrie:true,finn:true,tina:true,tabby:true,polly:true,lillie:true,perry:true};
   const _buildIntro=()=>{
@@ -433,13 +433,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
     const _lastMsg=msgs.length>0?msgs[msgs.length-1]:null;
     const _lastContent=_lastMsg?.content||"";
     const _lastHasProjectList=/\n\d+\.\s+\*\*/.test(_lastContent);
-    // ── Billie rate card shortcut — works from intro OR project list ──
-    if(agent.id==="billie"&&input.trim()==="4"&&_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastContent)){
-      const _rcHistory=[...msgs,{role:"user",content:"4"}];
-      if(setShowBillieRates) setShowBillieRates(true);
-      setMsgs([..._rcHistory,{role:"assistant",content:"Opening your rate card — add or edit your default rates per location. I'll use these whenever I populate estimates."}]);
-      setInput("");setLoading(false);return;
-    }
     const _lastIsIntro=_lastMsg&&_lastMsg.role==="assistant"&&/Here's what I can do|What do you need\?/i.test(_lastContent)&&!_lastHasProjectList;
     if(_isIntroReply&&_lastIsIntro){
       const n=parseInt(input.trim(),10);
@@ -448,7 +441,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         logistical:{1:"Tell me about the vendor — name, category, email and phone number.",2:"Who did you contact? Give me the name and what happened, and I'll log it with today's date.",3:"Who are you looking for? Give me a name, category, or location and I'll search."},
         compliance:{1:"Let's edit a call sheet. Which project should I work on?",2:"I'll review what's missing. Which project should I work on?",3:"Let's manage dietary requirements. Which project should I work on?"},
         researcher:{1:"I'll help add risks. Which project should I work on?",2:"I'll review the assessment. Which project should I work on?",3:"I'll generate a risk report. Which project should I work on?"},
-        billie:{1:"I'll work on the budget. Which project should I work on?",2:"I'll help track expenses. Which project should I work on?",3:"I'll compare actuals vs estimates. Which project should I work on?",4:"_ratecard_"},
+        billie:{1:"I'll work on the budget. Which project should I work on?",2:"I'll help track expenses. Which project should I work on?",3:"I'll compare actuals vs estimates. Which project should I work on?"},
 
         carrie:{1:"I'll add talent. Which project should I work on?",2:"I'll search agencies or generate a brief. Which project should I work on?",3:"I'll review casting and export. Which project should I work on?"},
         contracts:{1:"Let's work on a live contract. Which project should I work on?",2:"Sure! Describe the document you need — for example:\n\n• \"Draft an NDA for a freelance editor\"\n• \"Create a liability waiver for a night shoot in RAK\"\n• \"Write a release form for talent appearing in a commercial\"\n\nWhat would you like me to draft?",3:"Upload a PDF using the 📎 button below, or ask me to generate a document first — then I can add your signature, company stamp, and ONNA letterhead.\n\nTry: \"Create a liability waiver\" → then \"Sign and stamp this\""},
@@ -468,12 +461,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
           const entry={_type:"lead",contact:"",company:"",email:"",phone:"",role:"",value:"",category:"",location:"Dubai, UAE",date:today,source:"Direct",notes:"",status:"not_contacted"};
           const firstQ=startConv(entry,"lead",true,null);
           setMsgs([...history,{role:"assistant",content:`New outreach entry — let's fill in the details. ('x' to skip)\n\n${firstQ}`}]);
-          setInput("");setLoading(false);return;
-        }
-        // ── Billie: option 4 → open rate card ──
-        if(agent.id==="billie"&&n===4){
-          if(setShowBillieRates) setShowBillieRates(true);
-          setMsgs([...history,{role:"assistant",content:"Opening your rate card — add or edit your default rates per location. I'll use these whenever I populate estimates."}]);
           setInput("");setLoading(false);return;
         }
         let reply=agentResp[n];
@@ -1428,13 +1415,6 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
       }
     }
 
-    // ── Global: Rate card command (works from any agent) ──
-    if(/\b(rate\s*card|show\s*rates|manage\s*rates|edit\s*rates|open\s*rates|my\s*rates)\b/i.test(input)&&setShowBillieRates){
-      setShowBillieRates(true);
-      setMsgs([...history,{role:"assistant",content:"Opening your rate card — add or edit your default rates there. Budget Billie will use them when populating estimates."}]);
-      setLoading(false);setMood("idle");return;
-    }
-
     // ── Vinnie intent dispatcher ──
     if(agent.id==="logistical"){
       const _vinnieHandled=await handleVinnieIntent({
@@ -1498,7 +1478,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
         buildBillieSystem,applyBilliePatch,buildBilliePatchMarkers,
         billiePendingReview,setBilliePendingReview,
         buildFinnSystem,applyFinnPatch,
-        billieRateCards,setBillieRateCards,setShowBillieRates,
+        billieRateCards,
       });
       if(_billieHandled)return;
       }catch(err){const _stack=(err.stack||"").split("\n").slice(0,3).join(" | ");setMsgs([...history,{role:"assistant",content:`Oops! ${err.message} [${_stack}]`}]);setLoading(false);setMood("idle");return;}
@@ -1785,7 +1765,7 @@ export default function AgentCard({agent,active,onSelect,onClose,allVendors,allL
             ronniePendingReview={ronniePendingReview} setRonniePendingReview={setRonniePendingReview}
             conniePendingReview={conniePendingReview} setConniePendingReview={setConniePendingReview}
             billiePendingReview={billiePendingReview} setBilliePendingReview={setBilliePendingReview}
-            billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} showBillieRates={showBillieRates} setShowBillieRates={setShowBillieRates}
+            billieRateCards={billieRateCards}
             onBillieReviewDone={()=>{setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — estimate changes saved."}]);}}
             onConnieReviewDone={()=>{setMsgs(prev=>[...prev,{role:"assistant",content:"✓ Review complete — call sheet changes saved."}]);}}
             onRonnieReviewDone={(meta)=>{

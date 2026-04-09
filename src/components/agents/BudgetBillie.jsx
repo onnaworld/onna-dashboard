@@ -48,7 +48,7 @@ ${(() => {
     rates.forEach(r => { if (r.role && r.rate) block += "- " + r.role + ": " + (r.currency || "AED") + " " + r.rate + "/" + (r.per || "day") + (r.notes ? " (" + r.notes + ")" : "") + "\n"; });
   });
   block += "\nWhen populating estimates, match line items to these rates first. Only fall back to market rates for items not in the rate card.\n";
-  block += 'The user can say "rate card" or "show rates" to open the rate card manager.\n';
+  block += "The user manages rate cards in the Information section.\n";
   return block;
 })()}
 INSTRUCTIONS:
@@ -365,7 +365,7 @@ export async function handleBillieIntent({
   buildBillieSystem, applyBilliePatch, buildBilliePatchMarkers,
   billiePendingReview, setBilliePendingReview,
   buildFinnSystem, applyFinnPatch,
-  billieRateCards, setBillieRateCards, setShowBillieRates,
+  billieRateCards,
 }) {
   if (agent.id !== "billie") return false;
   if (!projectEstimates || !setProjectEstimates) return false;
@@ -447,38 +447,6 @@ export async function handleBillieIntent({
         else{setMsgs([...history,{role:"assistant",content:"Nothing to undo — the undo history is empty."}]);}
         setLoading(false);setMood("idle");return true;
       }
-
-      // Rate card command
-      if(/\b(rate\s*card|show\s*rates|manage\s*rates|edit\s*rates|open\s*rates|my\s*rates)\b/i.test(input)){
-        if(setShowBillieRates) setShowBillieRates(true);
-        setMsgs([...history,{role:"assistant",content:"Opening your rate card — add or edit your default rates there. I'll use them whenever I populate estimates."}]);
-        setLoading(false);setMood("idle");return true;
-      }
-
-      // Inline rate rule: "rule = child models rate 2500" / "set X rate to Y" / "X rate is Y" / "X = Y aed"
-      {const _ruleMatch = input.match(/(?:rule\s*=\s*(.+?)\s+rate\s+(\d[\d,]*)|set\s+(.+?)\s+rate\s+(?:to\s+)?(\d[\d,]*)|(.+?)\s+rate\s+is\s+(\d[\d,]*)|(.+?)\s*=\s*(\d[\d,]*)\s*(aed|usd|gbp|eur|sar))/i);
-      if(_ruleMatch && setBillieRateCards){
-        const role = (_ruleMatch[1]||_ruleMatch[3]||_ruleMatch[5]||_ruleMatch[7]||"").trim();
-        const rate = (_ruleMatch[2]||_ruleMatch[4]||_ruleMatch[6]||_ruleMatch[8]||"").replace(/,/g,"");
-        const currency = (_ruleMatch[9]||"AED").toUpperCase();
-        if(role && rate){
-          const formatted = role.split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
-          const loc = currency === "GBP" ? "London" : currency === "USD" ? "US" : "Dubai";
-          setBillieRateCards(prev => {
-            const cards = Array.isArray(prev) ? { Dubai: prev } : (prev || {});
-            const locRates = cards[loc] || [];
-            const existing = locRates.findIndex(r => r.role.toLowerCase() === formatted.toLowerCase());
-            if (existing >= 0) {
-              const updated = [...locRates];
-              updated[existing] = { ...updated[existing], rate, currency };
-              return { ...cards, [loc]: updated };
-            }
-            return { ...cards, [loc]: [...locRates, { id: Date.now(), role: formatted, rate, currency, per: "day", notes: "" }] };
-          });
-          setMsgs([...history,{role:"assistant",content:`Saved **${formatted}** at ${currency} ${Number(rate).toLocaleString()}/day to your ${loc} rate card.`}]);
-          setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
-        }
-      }}
 
       // Rename via chat
       {const _rm=input.match(/\b(?:rename|call it|name it|title it)\s+(?:to\s+)?["']?(.+?)["']?\s*$/i);

@@ -11,9 +11,7 @@ import { revertConnieMarker, revertConnieMarkers } from "./CallSheetConnie";
 import { revertMarker } from "./RiskAssessmentRonnie";
 import { revertBillieMarker, revertBillieMarkers } from "./BudgetBillie";
 import EstimateView from "./EstimateView";
-import { BillieRateCardInline } from "../modals/BillieRateCardModal";
-
-export default function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, billiePendingReview, setBilliePendingReview, onBillieReviewDone, billieRateCards, setBillieRateCards, showBillieRates, setShowBillieRates, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
+export default function AgentDocPreview({agentId, projectId, callSheetStore, setCallSheetStore, activeCSVersion, riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, contractDocStore, setContractDocStore, activeContractVersion, projectEstimates, setProjectEstimates, activeEstimateVersion, pushUndo, ronniePendingReview, setRonniePendingReview, onRonnieReviewDone, conniePendingReview, setConniePendingReview, onConnieReviewDone, billiePendingReview, setBilliePendingReview, onBillieReviewDone, billieRateCards, connieMode, dietaryStore, setDietaryStore, onDietarySelect, projectInfoRef:_piRef}) {
   if (!projectId) return null;
 
   // ── CONNIE: Dietary list view ──
@@ -432,21 +430,8 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
     );
   }
 
-  // ── BILLIE (Estimate or Rate Card) ──
+  // ── BILLIE (Estimate) ──
   if (agentId === "billie" && projectEstimates && setProjectEstimates) {
-    // ── Rate Card inline view ──
-    if (showBillieRates && billieRateCards !== undefined && setBillieRateCards) {
-      return (
-        <div style={{overflowY:"auto",overflowX:"auto",padding:0,background:"#fff",height:"100%"}}>
-          <div style={{padding:"8px 12px 4px",fontSize:10,fontWeight:600,color:"#888",letterSpacing:1,textTransform:"uppercase",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <span>Rate Card</span>
-            <button onClick={()=>setShowBillieRates(false)} style={{fontSize:9,fontWeight:600,color:"#555",background:"#f0f0f0",border:"none",borderRadius:6,padding:"2px 10px",cursor:"pointer",fontFamily:"inherit"}}>← Back to Estimate</button>
-          </div>
-          <BillieRateCardInline billieRateCards={billieRateCards} setBillieRateCards={setBillieRateCards} />
-        </div>
-      );
-    }
-
     const estVersions = projectEstimates[projectId] || [];
     if (!estVersions.length) return (
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",color:"#999",fontSize:13,fontFamily:"inherit",padding:24,textAlign:"center"}}>
