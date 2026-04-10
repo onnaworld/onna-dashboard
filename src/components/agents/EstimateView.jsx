@@ -4,11 +4,11 @@ import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW,
 import { CSLogoSlot } from "../ui/DocHelpers";
 
 const EST_CURRENCIES = [
-  { code: "AED", label: "AED — UAE Dirham", symbol: "AED", rates: { USD: 0.2723, GBP: 0.2155, EUR: 0.2510, SAR: 1.0210 } },
-  { code: "USD", label: "USD — US Dollar", symbol: "USD", rates: { AED: 3.6725, GBP: 0.7916, EUR: 0.9218, SAR: 3.7500 } },
-  { code: "GBP", label: "GBP — British Pound", symbol: "GBP", rates: { AED: 4.6391, USD: 1.2632, EUR: 1.1645, SAR: 4.7370 } },
-  { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 3.9841, USD: 1.0848, GBP: 0.8587, SAR: 4.0682 } },
-  { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9794, USD: 0.2667, GBP: 0.2111, EUR: 0.2458 } },
+  { code: "AED", label: "AED — UAE Dirham", symbol: "AED", rates: { USD: 0.2722, GBP: 0.2043, EUR: 0.2300, SAR: 1.0206 } },
+  { code: "USD", label: "USD — US Dollar", symbol: "USD", rates: { AED: 3.6725, GBP: 0.7505, EUR: 0.8452, SAR: 3.7500 } },
+  { code: "GBP", label: "GBP — British Pound", symbol: "GBP", rates: { AED: 4.8940, USD: 1.3325, EUR: 1.1262, SAR: 4.9975 } },
+  { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 4.3478, USD: 1.1832, GBP: 0.8879, SAR: 4.4398 } },
+  { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9798, USD: 0.2667, GBP: 0.2001, EUR: 0.2252 } },
 ];
 function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker, projectName }) {
   const [estTab, setEstTab] = useState("topsheet");
@@ -27,7 +27,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const [baseCurrency, setBaseCurrency] = useState(() => (estData.currency || "AED"));
   const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
-  const xRate = baseCurr.rates[secondCurrency] || exchangeRate;
+  const customRateKey = `${baseCurrency}_${secondCurrency}`;
+  const xRate = (estData.customRates && estData.customRates[customRateKey] != null) ? estData.customRates[customRateKey] : (baseCurr.rates[secondCurrency] || exchangeRate);
+  const [rateInput, setRateInput] = useState(xRate.toFixed(4));
+  const [rateEditing, setRateEditing] = useState(false);
+  useEffect(() => { if (!rateEditing) setRateInput(xRate.toFixed(4)); }, [xRate, rateEditing]);
 
   // ── Undo / Redo stack (⌘Z / ⌘⇧Z) ──
   const undoStack = useRef([]);
@@ -234,7 +238,23 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
           {EST_CURRENCIES.filter(c => c.code !== baseCurrency).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
         </select>
-        <span style={{ fontFamily:EST_F, fontSize:8, color:"#999", letterSpacing:EST_LS }}>1 {baseCurrency} = {xRate.toFixed(4)} {secondCurrency}</span>
+        <span style={{ fontFamily:EST_F, fontSize:8, color:"#999", letterSpacing:EST_LS }}>1 {baseCurrency} =</span>
+        <input
+          type="text"
+          value={rateEditing ? rateInput : xRate.toFixed(4)}
+          onFocus={() => { setRateEditing(true); setRateInput(xRate.toFixed(4)); }}
+          onChange={e => setRateInput(e.target.value)}
+          onBlur={() => {
+            setRateEditing(false);
+            const v = parseFloat(rateInput);
+            if (!isNaN(v) && v > 0) {
+              onSet(d => ({ ...d, customRates: { ...(d.customRates || {}), [customRateKey]: v } }));
+            }
+          }}
+          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+          style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, width:52, border:"1px solid #ddd", borderRadius:2, padding:"2px 4px", background:"#fff", textAlign:"center", outline:"none", color:"#333" }}
+        />
+        <span style={{ fontFamily:EST_F, fontSize:8, color:"#999", letterSpacing:EST_LS }}>{secondCurrency}</span>
       </div>
 
       <div ref={printRef} id="onna-est-print" style={{ padding:_narrow?"20px 16px":"40px 40px" }}>
