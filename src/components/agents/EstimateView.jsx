@@ -293,6 +293,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>
             <EstCell value={ts.version} onChange={v=>tsSet("version",v)} style={{fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center"}} />
           </div>
+          <div style={{textAlign:"right",fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#999",marginBottom:8}}>1 {baseCurrency} = {xRate.toFixed(4)} {secondCurrency}</div>
           <div style={{marginBottom:10}}>
             {[["DATE:",ts.date,"date"],["CLIENT:",ts.client,"client"],["ATTENTION:",ts.attention,"attention"],["PROJECT:",ts.project,"project"],["PHOTOGRAPHER / DIRECTOR:",ts.photographer,"photographer"],["DELIVERABLES:",ts.deliverables,"deliverables"],["DEADLINES:",ts.deadlines,"deadlines"],["USAGE TERMS:",ts.usage,"usage"],["SHOOT DATE:",ts.shootDate,"shootDate"],["NUMBER OF SHOOT DAYS:",ts.shootDays,"shootDays"],["SHOOT HOURS:",ts.shootHours,"shootHours"],["SHOOT LOCATION:",ts.location,"location"],["PAYMENT TERMS:",ts.payment,"payment"]].map(([lbl,val,key])=>{
               const _tsm = "est:ts:"+key; const _tsHas = _hasBM(_tsm);
@@ -338,7 +339,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div style={{display:"flex",borderBottom:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
-              <div style={{width:_narrow?70:100}}></div>
+              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt((grandTotal + grandTotal*vatRate)*xRate)}</div>
             </div>
           </div>
           {(() => {
@@ -441,13 +442,13 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               </div>
             </div>);})}
           <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
-            <div style={{width:300}}>
+            <div style={{width:420}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
-                <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span></div>
+                <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span><span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*xRate)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
-                <span>VAT ({vatPct}%)</span><span>{baseCurrency} {estFmt(grandTotal*vatRate)}</span></div>
+                <span>VAT ({vatPct}%)</span><span>{baseCurrency} {estFmt(grandTotal*vatRate)}</span><span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*vatRate*xRate)}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
-                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span></div>
+                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span><span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt((grandTotal + grandTotal*vatRate)*xRate)}</span></div>
             </div>
           </div>
         </div>}
