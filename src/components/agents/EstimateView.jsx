@@ -192,26 +192,36 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
-  const doPrint = () => { const el=printRef.current; if(!el)return; const clone=el.cloneNode(true);
-    clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());
-    clone.querySelectorAll('textarea').forEach(n=>n.remove());
-    clone.querySelectorAll('button').forEach(n=>n.remove());
-    clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
-    // Replace inputs/selects with plain text for clean print
-    clone.querySelectorAll('input').forEach(inp=>{const sp=document.createElement('span');sp.textContent=inp.value||"";sp.style.cssText=inp.style.cssText;sp.style.border="none";sp.style.outline="none";sp.style.background="transparent";inp.parentNode.replaceChild(sp,inp);});
-    clone.querySelectorAll('select').forEach(sel=>{const sp=document.createElement('span');sp.textContent=sel.options[sel.selectedIndex]?.text||sel.value||"";sp.style.cssText=sel.style.cssText;sel.parentNode.replaceChild(sp,sel);});
-    const vLabel=(ts.version||"V1").replace(/\s*production\s*estimate/i,"").trim();
-    const docTitle=`${vLabel} Production Estimate${projectName?" | "+projectName:""}`;
-    clone.style.padding="0";clone.style.maxWidth="none";clone.style.width="100%";clone.style.minWidth="0";
-    const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
-    const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:10mm 12mm;}@media print{@page{margin:10mm 12mm;size:A4;}.page-break{page-break-before:always;break-before:page;display:block;}body{padding:0!important;}*{overflow:visible!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();_d.body.appendChild(_d.adoptNode(clone));const prevTitle=document.title;document.title=docTitle;const restoreTitle=()=>{document.title=prevTitle;document.body.removeChild(iframe);window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300); };
-  const exportPDF = (all = false) => {
-    if (all) { setShowAll(true); setTimeout(() => { doPrint(); setShowAll(false); }, 100); }
-    else doPrint();
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const doPrint = (pages) => {
+    // pages = array of page ids to include, e.g. ["topsheet","estimates","services","tcs"]
+    setShowAll(true);
+    setTimeout(() => {
+      const el=printRef.current; if(!el){setShowAll(false);return;}
+      const clone=el.cloneNode(true);
+      clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());
+      clone.querySelectorAll('textarea').forEach(n=>n.remove());
+      clone.querySelectorAll('button').forEach(n=>n.remove());
+      clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
+      clone.querySelectorAll('input').forEach(inp=>{const sp=document.createElement('span');sp.textContent=inp.value||"";sp.style.cssText=inp.style.cssText;sp.style.border="none";sp.style.outline="none";sp.style.background="transparent";inp.parentNode.replaceChild(sp,inp);});
+      clone.querySelectorAll('select').forEach(sel=>{const sp=document.createElement('span');sp.textContent=sel.options[sel.selectedIndex]?.text||sel.value||"";sp.style.cssText=sel.style.cssText;sel.parentNode.replaceChild(sp,sel);});
+      // Remove pages not selected
+      if (pages) {
+        clone.querySelectorAll('[data-page]').forEach(pg => {
+          if (!pages.includes(pg.getAttribute('data-page'))) pg.remove();
+        });
+      }
+      const vLabel=(ts.version||"V1").replace(/\s*production\s*estimate/i,"").trim();
+      const docTitle=`${vLabel} Production Estimate${projectName?" | "+projectName:""}`;
+      clone.style.padding="0";clone.style.maxWidth="none";clone.style.width="100%";clone.style.minWidth="0";
+      const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
+      const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;padding:10mm 12mm;}[data-page]+[data-page]{break-before:page;}@media print{@page{margin:10mm 12mm;size:A4;}[data-page]+[data-page]{break-before:page;}body{padding:0!important;}*{overflow:visible!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();_d.body.appendChild(_d.adoptNode(clone));const prevTitle=document.title;document.title=docTitle;const restoreTitle=()=>{document.title=prevTitle;document.body.removeChild(iframe);window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);
+      setShowAll(false);
+    }, 150);
   };
 
   useEffect(() => {
-    const handler = () => exportPDF(true);
+    const handler = () => doPrint(null);
     window.addEventListener('onna-export-estimate', handler);
     return () => window.removeEventListener('onna-export-estimate', handler);
   });
@@ -220,11 +230,19 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
       <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
-        <div style={{ marginLeft:"auto",display:"flex" }}>
-          <div onClick={()=>exportPDF(false)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:"#000",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
-            onMouseEnter={e=>{e.target.style.background="#000";e.target.style.color="#fff"}} onMouseLeave={e=>{e.target.style.background="#fff";e.target.style.color="#000"}}>{_narrow?"EXPORT":"EXPORT PAGE"}</div>
-          <div onClick={()=>exportPDF(true)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
-            onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>{_narrow?"ALL":"EXPORT ALL"}</div>
+        <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
+          <div onClick={()=>setShowExportMenu(v=>!v)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showExportMenu?"#333":"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd",userSelect:"none" }}
+            onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{if(!showExportMenu)e.target.style.background="#000"}}>EXPORT ▾</div>
+          {showExportMenu && <>
+            <div onClick={()=>setShowExportMenu(false)} style={{position:"fixed",inset:0,zIndex:999}} />
+            <div style={{position:"absolute",top:"100%",right:0,background:"#fff",border:"1px solid #ddd",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:1000,minWidth:180,borderRadius:4,overflow:"hidden",marginTop:2}}>
+              {[{id:"all",label:"Export All Pages"},{id:"topsheet",label:"Top Sheet"},{id:"estimates",label:"Estimates"},{id:"services",label:"Services Agreement"},{id:"tcs",label:"T&Cs"}].map(opt=>(
+                <div key={opt.id} onClick={()=>{setShowExportMenu(false);if(opt.id==="all")doPrint(null);else doPrint([opt.id]);}}
+                  style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,padding:"8px 14px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#333"}}
+                  onMouseEnter={e=>{e.target.style.background="#f5f5f5"}} onMouseLeave={e=>{e.target.style.background="#fff"}}>{opt.label}</div>
+              ))}
+            </div>
+          </>}
         </div>
       </div>
       <div data-noprint style={{ display:"flex", gap:_narrow?6:12, alignItems:"center", padding:_narrow?"6px 10px":"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
@@ -263,7 +281,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         </div>
         <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
 
-        {(estTab === "topsheet" || showAll) && <>
+        {(estTab === "topsheet" || showAll) && <div data-page="topsheet">
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>
             <EstCell value={ts.version} onChange={v=>tsSet("version",v)} style={{fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center"}} />
           </div>
@@ -329,9 +347,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,marginBottom:4}}>NOTES:</div>
             <EstCell value={ts.notes || ""} onChange={v=>tsSet("notes",v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
           </div>
-        </>}
+        </div>}
 
-        {(estTab === "estimates" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
+        {(estTab === "estimates" || showAll) && <div data-page="estimates">
           {sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
             const isFeesSection = isFeeSec(sec);
             const getRowDisplay = (row) => {
@@ -424,9 +442,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span></div>
             </div>
           </div>
-        </>}
+        </div>}
 
-        {(estTab === "services" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
+        {(estTab === "services" || showAll) && <div data-page="services">
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:20}}>PRODUCTION SERVICES AGREEMENT</div>
           {EST_SA_FIELDS.map((f,i)=>(
             <div key={i} style={{display:"flex",borderBottom:"1px solid #eee",minHeight:32}}>
@@ -457,9 +475,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   </div>))}
               </div>))}
           </div>
-        </>}
+        </div>}
 
-        {(estTab === "tcs" || showAll) && <>{showAll && <div className="page-break" style={{borderTop:"3px solid #000",marginTop:32,paddingTop:16}} />}
+        {(estTab === "tcs" || showAll) && <div data-page="tcs">
           <div style={{marginTop:8}}>
             {(() => {
               const headings = ["GENERAL TERMS & CONDITIONS","PAYMENTS & INVOICES","PRODUCTION COSTS & OVERAGES","INDEMNITY","TALENT","LICENSE","CANCELLATION & POSTPONMENT","MISCELLANEOUS","INSURANCE","CREDIT","GOVERNING LAW"];
@@ -481,7 +499,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7"}}
               onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff"}} />
           </div>
-        </>}
+        </div>}
 
         <div style={{marginTop:40,display:"flex",justifyContent:"space-between",fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
           <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
