@@ -193,6 +193,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportPages, setExportPages] = useState(["topsheet","estimates","services","tcs"]);
+  const toggleExportPage = (id) => setExportPages(prev => prev.includes(id) ? prev.filter(p=>p!==id) : [...prev,id]);
   const doPrint = (pages) => {
     // pages = array of page ids to include, e.g. ["topsheet","estimates","services","tcs"]
     setShowAll(true);
@@ -235,12 +237,18 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{if(!showExportMenu)e.target.style.background="#000"}}>EXPORT ▾</div>
           {showExportMenu && <>
             <div onClick={()=>setShowExportMenu(false)} style={{position:"fixed",inset:0,zIndex:999}} />
-            <div style={{position:"absolute",top:"100%",right:0,background:"#fff",border:"1px solid #ddd",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:1000,minWidth:180,borderRadius:4,overflow:"hidden",marginTop:2}}>
-              {[{id:"all",label:"Export All Pages"},{id:"topsheet",label:"Top Sheet"},{id:"estimates",label:"Estimates"},{id:"services",label:"Services Agreement"},{id:"tcs",label:"T&Cs"}].map(opt=>(
-                <div key={opt.id} onClick={()=>{setShowExportMenu(false);if(opt.id==="all")doPrint(null);else doPrint([opt.id]);}}
-                  style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,padding:"8px 14px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#333"}}
-                  onMouseEnter={e=>{e.target.style.background="#f5f5f5"}} onMouseLeave={e=>{e.target.style.background="#fff"}}>{opt.label}</div>
+            <div style={{position:"absolute",top:"100%",right:0,background:"#fff",border:"1px solid #ddd",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:1000,minWidth:190,borderRadius:4,overflow:"hidden",marginTop:2}}>
+              {[{id:"topsheet",label:"Top Sheet"},{id:"estimates",label:"Estimates"},{id:"services",label:"Services Agreement"},{id:"tcs",label:"T&Cs"}].map(opt=>(
+                <div key={opt.id} onClick={()=>toggleExportPage(opt.id)}
+                  style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,padding:"7px 12px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#333",display:"flex",alignItems:"center",gap:8}}
+                  onMouseEnter={e=>{e.currentTarget.style.background="#f5f5f5"}} onMouseLeave={e=>{e.currentTarget.style.background="#fff"}}>
+                  <span style={{width:14,height:14,border:"1.5px solid #999",borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:exportPages.includes(opt.id)?"#000":"#fff",color:"#fff",fontSize:10,lineHeight:1}}>{exportPages.includes(opt.id)?"✓":""}</span>
+                  {opt.label}
+                </div>
               ))}
+              <div onClick={()=>{if(exportPages.length>0){setShowExportMenu(false);doPrint(exportPages);}}}
+                style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"8px 12px",cursor:exportPages.length>0?"pointer":"default",textTransform:"uppercase",color:"#fff",background:exportPages.length>0?"#000":"#ccc",textAlign:"center"}}
+                onMouseEnter={e=>{if(exportPages.length>0)e.target.style.background="#333"}} onMouseLeave={e=>{if(exportPages.length>0)e.target.style.background="#000"}}>EXPORT {exportPages.length === 4 ? "ALL" : `(${exportPages.length})`}</div>
             </div>
           </>}
         </div>
