@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
 
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -123,13 +123,72 @@ const makeHref = (key, val) => {
   return null;
 };
 
+// ── Multi-CV data helpers ──
+function migrateToMulti(cvData) {
+  if (cvData && cvData._multi) return cvData;
+  const singleCv = cvData || DEFAULT_CV;
+  const id = "cv_" + Date.now();
+  return {
+    _multi: true,
+    cvList: [{ id, label: singleCv.title || "Executive Producer", data: singleCv }],
+    activeCvId: id,
+  };
+}
+
+function getActiveCv(store) {
+  const item = store.cvList.find(c => c.id === store.activeCvId);
+  return item ? item.data : (store.cvList[0]?.data || DEFAULT_CV);
+}
+
+function getActiveItem(store) {
+  return store.cvList.find(c => c.id === store.activeCvId) || store.cvList[0];
+}
+
 export default function CVView({ cvData, onSet, projectName }) {
-  const cv = cvData || DEFAULT_CV;
+  // Migrate old single-CV format on first render
+  const store = migrateToMulti(cvData);
+  const migratedRef = useRef(false);
+  useEffect(() => {
+    if (!cvData || !cvData._multi) {
+      if (!migratedRef.current) {
+        migratedRef.current = true;
+        onSet(() => migrateToMulti(cvData));
+      }
+    }
+  }, []); // eslint-disable-line
+
+  const cv = getActiveCv(store);
+  const activeItem = getActiveItem(store);
   const printRef = useRef(null);
-  const [cvTab, setCvTab] = useState("cv");
+
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameVal, setRenameVal] = useState("");
+  const renameRef = useRef(null);
+
+  // Update the active CV's data within the multi-CV store
+  const setCvData = (updater) => {
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      const next = { ...s, cvList: s.cvList.map(c => {
+        if (c.id !== s.activeCvId) return c;
+        const oldData = c.data || DEFAULT_CV;
+        const newData = typeof updater === "function" ? updater(oldData) : updater;
+        return { ...c, data: newData };
+      })};
+      return next;
+    });
+  };
+
+  // Update store-level props (activeCvId, cvList)
+  const setStore = (updater) => {
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return typeof updater === "function" ? updater(s) : updater;
+    });
+  };
 
   const set = (path, val) => {
-    onSet(prev => {
+    setCvData(prev => {
       const next = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
       const keys = path.split(".");
       let obj = next;
@@ -142,21 +201,21 @@ export default function CVView({ cvData, onSet, projectName }) {
     });
   };
 
-  const addExperience = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience = [...(n.experience || []), { role: "", company: "", dates: "", bullets: [""] }]; return n; }); };
-  const removeExperience = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience.splice(i, 1); return n; }); };
-  const addBullet = (ei) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience[ei].bullets.push(""); return n; }); };
-  const removeBullet = (ei, bi) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); if (n.experience[ei].bullets.length > 1) n.experience[ei].bullets.splice(bi, 1); return n; }); };
-  const addEducation = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education = [...(n.education || []), { title: "", institution: "", result: "" }]; return n; }); };
-  const removeEducation = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education.splice(i, 1); return n; }); };
-  const addSkill = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills = [...(n.skills || []), { name: "", level: "Intermediate" }]; return n; }); };
-  const removeSkill = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills.splice(i, 1); return n; }); };
-  const addLanguage = () => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
-  const removeLanguage = (i) => { onSet(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
+  const addExperience = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience = [...(n.experience || []), { role: "", company: "", dates: "", bullets: [""] }]; return n; }); };
+  const removeExperience = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience.splice(i, 1); return n; }); };
+  const addBullet = (ei) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.experience[ei].bullets.push(""); return n; }); };
+  const removeBullet = (ei, bi) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); if (n.experience[ei].bullets.length > 1) n.experience[ei].bullets.splice(bi, 1); return n; }); };
+  const addEducation = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education = [...(n.education || []), { title: "", institution: "", result: "" }]; return n; }); };
+  const removeEducation = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education.splice(i, 1); return n; }); };
+  const addSkill = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills = [...(n.skills || []), { name: "", level: "Intermediate" }]; return n; }); };
+  const removeSkill = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills.splice(i, 1); return n; }); };
+  const addLanguage = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
+  const removeLanguage = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
 
   // Move experience up/down
   const moveExperience = (from, to) => {
     if (to < 0 || to >= (cv.experience || []).length) return;
-    onSet(prev => {
+    setCvData(prev => {
       const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
       const [moved] = n.experience.splice(from, 1);
       n.experience.splice(to, 0, moved);
@@ -166,7 +225,7 @@ export default function CVView({ cvData, onSet, projectName }) {
 
   // Move bullet up/down
   const moveBullet = (ei, from, to) => {
-    onSet(prev => {
+    setCvData(prev => {
       const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV));
       const bullets = n.experience[ei].bullets;
       if (to < 0 || to >= bullets.length) return n;
@@ -174,6 +233,68 @@ export default function CVView({ cvData, onSet, projectName }) {
       bullets.splice(to, 0, moved);
       return n;
     });
+  };
+
+  // ── Multi-CV actions ──
+  const addNewCv = () => {
+    const label = prompt("CV name (e.g. Production Director, EP):");
+    if (!label) return;
+    const id = "cv_" + Date.now();
+    const newCvData = JSON.parse(JSON.stringify(DEFAULT_CV));
+    newCvData.title = label;
+    setStore(s => ({
+      ...s,
+      cvList: [...s.cvList, { id, label, data: newCvData }],
+      activeCvId: id,
+    }));
+  };
+
+  const duplicateCv = () => {
+    const label = prompt("Name for the duplicate:", (activeItem?.label || "CV") + " (Copy)");
+    if (!label) return;
+    const id = "cv_" + Date.now();
+    const dupeData = JSON.parse(JSON.stringify(cv));
+    dupeData.title = label;
+    setStore(s => ({
+      ...s,
+      cvList: [...s.cvList, { id, label, data: dupeData }],
+      activeCvId: id,
+    }));
+  };
+
+  const deleteCv = (cvId) => {
+    const item = store.cvList.find(c => c.id === cvId);
+    if (store.cvList.length <= 1) { alert("You must have at least one CV."); return; }
+    if (!window.confirm(`Delete "${item?.label || "CV"}"?`)) return;
+    setStore(s => {
+      const newList = s.cvList.filter(c => c.id !== cvId);
+      return {
+        ...s,
+        cvList: newList,
+        activeCvId: s.activeCvId === cvId ? newList[0].id : s.activeCvId,
+      };
+    });
+  };
+
+  const startRename = (cvId) => {
+    const item = store.cvList.find(c => c.id === cvId);
+    setRenamingId(cvId);
+    setRenameVal(item?.label || "");
+    setTimeout(() => renameRef.current?.focus(), 50);
+  };
+
+  const commitRename = () => {
+    if (!renamingId || !renameVal.trim()) { setRenamingId(null); return; }
+    setStore(s => ({
+      ...s,
+      cvList: s.cvList.map(c => c.id === renamingId ? { ...c, label: renameVal.trim() } : c),
+    }));
+    setRenamingId(null);
+  };
+
+  const switchCv = (cvId) => {
+    if (renamingId) return;
+    setStore(s => ({ ...s, activeCvId: cvId }));
   };
 
   // Drag state for experience reorder
@@ -289,7 +410,7 @@ export default function CVView({ cvData, onSet, projectName }) {
 
     html += `</div>`;
 
-    const docTitle = `CV - ${c.name || "CV"}${projectName ? " | " + projectName : ""}`;
+    const docTitle = `CV - ${c.name || "CV"}${activeItem ? " - " + activeItem.label : ""}${projectName ? " | " + projectName : ""}`;
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
@@ -303,8 +424,6 @@ export default function CVView({ cvData, onSet, projectName }) {
     window.addEventListener("afterprint", restoreTitle);
     setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 250);
   };
-
-  const TABS = [{ id: "cv", label: "CV" }];
 
   const sectionHdr = (label) => (
     <div style={{ marginTop: 20, marginBottom: 8 }}>
@@ -327,21 +446,84 @@ export default function CVView({ cvData, onSet, projectName }) {
     );
   };
 
-  const contactFields = ["phone", "email", "linkedin", "website", "location", "citizenship"];
-
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a", minWidth: 700 }}>
-      {/* Tab bar */}
-      <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
-        {TABS.map(t => (
-          <div key={t.id} onClick={() => setCvTab(t.id)} style={{
-            fontFamily: F, fontSize: 9, fontWeight: cvTab === t.id ? 700 : 400, letterSpacing: LS,
-            padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap",
-            background: cvTab === t.id ? "#000" : "#f5f5f5", color: cvTab === t.id ? "#fff" : "#666",
-            transition: "all .15s", textTransform: "uppercase", borderRight: "1px solid #ddd",
-          }}>{t.label}</div>
+      {/* ── CV Selector Bar ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, borderBottom: "2px solid #000", overflowX: "auto" }}>
+        {store.cvList.map(item => (
+          <div key={item.id} style={{ display: "flex", alignItems: "center", position: "relative" }}>
+            {renamingId === item.id ? (
+              <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "0 4px" }}>
+                <input
+                  ref={renameRef}
+                  value={renameVal}
+                  onChange={e => setRenameVal(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                  style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 8px", background: "transparent", border: "none", outline: "none", color: "#fff", textTransform: "uppercase", width: Math.max(80, renameVal.length * 7) }}
+                />
+              </div>
+            ) : (
+              <div
+                onClick={() => switchCv(item.id)}
+                onDoubleClick={() => startRename(item.id)}
+                style={{
+                  fontFamily: F, fontSize: 9, fontWeight: store.activeCvId === item.id ? 700 : 400, letterSpacing: LS,
+                  padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap",
+                  background: store.activeCvId === item.id ? "#000" : "#f5f5f5",
+                  color: store.activeCvId === item.id ? "#fff" : "#666",
+                  transition: "all .15s", textTransform: "uppercase", borderRight: "1px solid #ddd",
+                  display: "flex", alignItems: "center", gap: 8,
+                }}
+              >
+                {item.label || "Untitled CV"}
+                {store.activeCvId === item.id && store.cvList.length > 1 && (
+                  <span
+                    onClick={e => { e.stopPropagation(); deleteCv(item.id); }}
+                    style={{ fontSize: 12, opacity: 0.5, cursor: "pointer", lineHeight: 1 }}
+                    onMouseOver={e => e.currentTarget.style.opacity = 1}
+                    onMouseOut={e => e.currentTarget.style.opacity = 0.5}
+                  >&times;</span>
+                )}
+              </div>
+            )}
+          </div>
         ))}
+        {/* Add / Duplicate buttons */}
+        <div
+          onClick={addNewCv}
+          style={{
+            fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
+            cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
+            textTransform: "uppercase", borderRight: "1px solid #ddd",
+          }}
+          onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
+          onMouseLeave={e => { e.target.style.color = "#888"; }}
+        >+ NEW</div>
+        <div
+          onClick={duplicateCv}
+          style={{
+            fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
+            cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
+            textTransform: "uppercase", borderRight: "1px solid #ddd",
+          }}
+          onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
+          onMouseLeave={e => { e.target.style.color = "#888"; }}
+        >DUPLICATE</div>
+        {/* Right-side actions */}
         <div style={{ marginLeft: "auto", display: "flex" }}>
+          {store.activeCvId && (
+            <div
+              onClick={() => startRename(store.activeCvId)}
+              style={{
+                fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
+                cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
+                textTransform: "uppercase", borderLeft: "1px solid #ddd",
+              }}
+              onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
+              onMouseLeave={e => { e.target.style.color = "#888"; }}
+            >RENAME</div>
+          )}
           <div onClick={doPrint} style={{
             fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px",
             cursor: "pointer", whiteSpace: "nowrap", background: "#000", color: "#fff",

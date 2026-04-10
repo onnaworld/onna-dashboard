@@ -127,7 +127,12 @@ export function genTravelItinerary(tiData) {
 }
 
 export function genCV(cvData) {
-  const cv = cvData || {};
+  // Support multi-CV format: extract active CV data
+  let cv = cvData || {};
+  if (cv._multi) {
+    const active = cv.cvList?.find(c => c.id === cv.activeCvId) || cv.cvList?.[0];
+    cv = active?.data || {};
+  }
   const contact = cv.contact || {};
   const info = [
     [cv.name || ""], [cv.title || ""], [],
