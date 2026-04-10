@@ -57,23 +57,15 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   useEffect(() => {
     const handler = (e) => {
       if (!(e.metaKey || e.ctrlKey) || e.key !== 'z') return;
+      // Always consume ⌘Z/⌘⇧Z when an estimate is open — prevents global/agent undo from wiping the whole estimate
+      e.preventDefault();
+      e.stopImmediatePropagation();
       if (e.shiftKey) {
-        // ⌘⇧Z = Redo
-        if (redoStack.current.length > 0) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          redo();
-        }
+        redo();
       } else {
-        // ⌘Z = Undo — handle here to prevent coarse agent undo
-        if (undoStack.current.length > 0) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          undo();
-        }
+        undo();
       }
     };
-    // Capture phase + stopImmediatePropagation so this fires before AgentCard's handler
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
   }, []);
