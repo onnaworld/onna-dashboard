@@ -73,19 +73,19 @@ const DEFAULT_CV = {
     { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours - Bachelor Degree" },
   ],
   skills: [
-    { name: "P&L and Financial Reporting", level: "Expert" },
-    { name: "Global Vendor Negotiation", level: "Expert" },
-    { name: "Risk Mitigation & Contingency Planning", level: "Expert" },
-    { name: "Revenue Growth Strategy", level: "Expert" },
-    { name: "AI Workflow Integration", level: "Expert" },
-    { name: "Cross-Functional Stakeholder Management", level: "Expert" },
-    { name: "Monday", level: "Expert" },
-    { name: "Asana", level: "Expert" },
-    { name: "Adobe Creative Suite", level: "Intermediate" },
-    { name: "Midjourney", level: "Intermediate" },
-    { name: "Microsoft 365", level: "Expert" },
-    { name: "Zoho Books", level: "Expert" },
-    { name: "AI Agentic Orchestration", level: "Expert" },
+    "P&L and Financial Reporting",
+    "Global Vendor Negotiation",
+    "Risk Mitigation & Contingency Planning",
+    "Revenue Growth Strategy",
+    "AI Workflow Integration",
+    "Cross-Functional Stakeholder Management",
+    "Monday",
+    "Asana",
+    "Adobe Creative Suite",
+    "Midjourney",
+    "Microsoft 365",
+    "Zoho Books",
+    "AI Agentic Orchestration",
   ],
   languages: [
     { name: "English", level: "Native" },
@@ -207,7 +207,7 @@ export default function CVView({ cvData, onSet, projectName }) {
   const removeBullet = (ei, bi) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); if (n.experience[ei].bullets.length > 1) n.experience[ei].bullets.splice(bi, 1); return n; }); };
   const addEducation = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education = [...(n.education || []), { title: "", institution: "", result: "" }]; return n; }); };
   const removeEducation = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.education.splice(i, 1); return n; }); };
-  const addSkill = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills = [...(n.skills || []), { name: "", level: "Intermediate" }]; return n; }); };
+  const addSkill = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills = [...(n.skills || []).map(s => typeof s === "string" ? s : s.name || ""), ""]; return n; }); };
   const removeSkill = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills.splice(i, 1); return n; }); };
   const addLanguage = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
   const removeLanguage = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
@@ -372,18 +372,17 @@ export default function CVView({ cvData, onSet, projectName }) {
 
     // Skills
     html += secHdr("SKILLS");
+    const skillNames = (c.skills || []).map(s => typeof s === "string" ? s : s.name || "").filter(Boolean);
     html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;">`;
-    const skillRows = Math.ceil((c.skills || []).length / 2);
+    const skillRows = Math.ceil(skillNames.length / 2);
     for (let r = 0; r < skillRows; r++) {
       html += `<tr>`;
       for (let col = 0; col < 2; col++) {
-        const s = (c.skills || [])[r * 2 + col];
-        if (!s) { html += `<td style="padding:5px 0;"></td>`; continue; }
+        const name = skillNames[r * 2 + col];
+        if (!name) { html += `<td style="padding:5px 0;"></td>`; continue; }
         html += `<td style="padding:5px ${col === 0 ? '12px' : '0'} 5px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
-        html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
-        html += `<td style="padding:0;font-size:11px;color:#1a1a1a;line-height:${LINE_H};">${esc(s.name)}</td>`;
-        html += `<td style="padding:0;text-align:right;width:88px;">${badgeHtml(s.level)}</td>`;
-        html += `</tr></table></td>`;
+        html += `<span style="font-size:11px;color:#1a1a1a;line-height:${LINE_H};">${esc(name)}</span>`;
+        html += `</td>`;
       }
       html += `</tr>`;
     }
@@ -677,29 +676,23 @@ export default function CVView({ cvData, onSet, projectName }) {
         {sectionHdr("SKILLS")}
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginBottom: 6 }}>
           <tbody>
-            {Array.from({ length: Math.ceil((cv.skills || []).length / 2) }).map((_, row) => (
+            {(() => { const skills = (cv.skills || []).map(s => typeof s === "string" ? s : s.name || ""); return Array.from({ length: Math.ceil(skills.length / 2) }).map((_, row) => (
               <tr key={row}>
                 {[0, 1].map(col => {
                   const idx = row * 2 + col;
-                  const s = (cv.skills || [])[idx];
-                  if (!s) return <td key={col} style={{ padding: "5px 0" }} />;
+                  const name = skills[idx];
+                  if (name === undefined) return <td key={col} style={{ padding: "5px 0" }} />;
                   return (
                     <td key={col} style={{ padding: "5px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <InlineEdit value={s.name} onChange={v => set(`skills.${idx}.name`, v)} style={{ fontSize: 11, color: "#1a1a1a", flex: 1, lineHeight: LINE_H }} />
-                        <select data-noprint value={s.level} onChange={e => set(`skills.${idx}.level`, e.target.value)} style={{ fontFamily: F, fontSize: 9, border: "1px solid #eee", borderRadius: 3, padding: "2px 4px", background: "#fff", cursor: "pointer", outline: "none", flexShrink: 0 }}>
-                          <option value="Beginner">Beginner</option>
-                          <option value="Intermediate">Intermediate</option>
-                          <option value="Expert">Expert</option>
-                        </select>
-                        {levelBadge(s.level)}
+                        <InlineEdit value={name} onChange={v => set(`skills.${idx}`, v)} style={{ fontSize: 11, color: "#1a1a1a", flex: 1, lineHeight: LINE_H }} />
                         <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
                       </div>
                     </td>
                   );
                 })}
               </tr>
-            ))}
+            )); })()}
           </tbody>
         </table>
         <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD SKILL</button>
