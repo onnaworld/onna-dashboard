@@ -1,6 +1,18 @@
 import React, { Fragment, useState, useRef, useCallback, useMemo, memo } from "react";
 import WidgetGrid from "./widgets/WidgetGrid";
 
+// Local input state — keeps keystrokes out of TodoContext so the rest of the app doesn't re-render on every char.
+const AddTaskInput = memo(function AddTaskInput({ T, placeholder, onAdd }) {
+  const [val, setVal] = useState("");
+  const submit = () => { const v = val.trim(); if (!v) return; onAdd(v); setVal(""); };
+  return (
+    <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa",flexShrink:0}}>
+      <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")submit();}} placeholder={placeholder} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
+      <button onClick={submit} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
+    </div>
+  );
+});
+
 /* ── Memoised calendar widget ─────────────────────────────────────────────── */
 const CalendarWidget = memo(function CalendarWidget({
   T, isMobile, gcalToken, gcalEvents, gcalLoading, gcalEventColors,
@@ -113,7 +125,7 @@ export default function Dashboard({
   outlookEvents, outlookLoading, outlookError, fetchOutlookCal,
   connectGCal, GCAL_CLIENT_ID, GCAL_COLORS,
   setGcalToken, setGcalEvents,
-  todos, setTodos, newTodo, setNewTodo, todoFilter, setTodoFilter,
+  todos, setTodos, todoFilter, setTodoFilter,
   selectedTodo, setSelectedTodo, projectTodos, setProjectTodos,
   dashNotesList, setDashNotesList, dashSelectedNoteId, setDashSelectedNoteId,
   activeProjects, allTodos, filteredTodos, todoTopFilter,
@@ -345,14 +357,11 @@ export default function Dashboard({
           {(()=>{const emptyCount=Math.max(0,5-filteredTodos.length);return emptyCount>0?Array.from({length:emptyCount}).map((_,i)=>(<div key={`empty-${i}`} style={{padding:"4px 6px",borderBottom:`1px solid ${T.borderSub}`}}><input placeholder="New task…" onKeyDown={e=>{if(e.key==="Enter"&&e.target.value.trim()){addTodoFromInput(e.target.value.trim());e.target.value="";}}} onBlur={e=>{if(e.target.value.trim()){addTodoFromInput(e.target.value.trim());e.target.value="";}}} style={{width:"100%",padding:"7px 11px",borderRadius:9,background:"transparent",border:"none",color:T.text,fontSize:13,fontFamily:"inherit",outline:"none"}} /></div>)):null;})()}
           </>}
         </div>
-        <div style={{padding:"10px 12px",borderTop:`1px solid ${T.borderSub}`,display:"flex",gap:7,background:"#fafafa",flexShrink:0}}>
-          <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} placeholder={todoTopFilter==="project"?"Add project task…":"Add task…"} style={{flex:1,padding:"7px 11px",borderRadius:9,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-          <button onClick={()=>{if(newTodo.trim()){addTodoFromInput(newTodo.trim());setNewTodo("");}}} style={{padding:"7px 14px",borderRadius:9,background:T.accent,border:"none",color:"#fff",fontSize:16,cursor:"pointer",lineHeight:1,flexShrink:0}}>+</button>
-        </div>
+        <AddTaskInput T={T} placeholder={todoTopFilter==="project"?"Add project task…":"Add task…"} onAdd={addTodoFromInput} />
       </div>
     </div>
     );
-  }, [T,isMobile,todos,filteredTodos,allTodos,todoFilter,todoTopFilter,newTodo,editingTodoId,mobileDayIdx,customLists,editingListName,dragListIdx,allProjectsMerged]);
+  }, [T,isMobile,todos,filteredTodos,allTodos,todoFilter,todoTopFilter,editingTodoId,mobileDayIdx,customLists,editingListName,dragListIdx,allProjectsMerged]);
 
   const renderNotes = useCallback(() => (
     <div style={{marginBottom:isMobile?12:18}}>

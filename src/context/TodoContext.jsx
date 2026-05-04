@@ -14,7 +14,6 @@ export function TodoProvider({ children }) {
   const [todos,setTodos] = useState(()=>{try{const s=localStorage.getItem('onna_todos');const arr=s?JSON.parse(s):[];const archIds=(()=>{try{return new Set(JSON.parse(localStorage.getItem('onna_archive')||'[]').filter(e=>e.table==='todos').map(e=>e.item?.id).filter(Boolean));}catch{return new Set();}})();return arr.filter(t=>!archIds.has(t.id)).map(t=>t.tab==="personal"?{...t,tab:"onna"}:t.tab?t:{...t,tab:"onna"})}catch(e){return []}});
   const [projectTodos,setProjectTodos] = useState(()=>{try{const s=localStorage.getItem('onna_ptodos');const raw=s?JSON.parse(s):{};const archIds=(()=>{try{return new Set(JSON.parse(localStorage.getItem('onna_archive')||'[]').filter(e=>e.table==='todos').map(e=>e.item?.id).filter(Boolean));}catch{return new Set();}})();const filtered={};for(const[pid,tasks]of Object.entries(raw)){filtered[pid]=(tasks||[]).filter(t=>!archIds.has(t.id));}return filtered;}catch(e){return {}}});
   const [archivedTodos,setArchivedTodos] = useState([]);
-  const [newTodo,setNewTodo] = useState("");
   const [todoFilter,setTodoFilter] = useState("todo-week");
   const [selectedTodo,setSelectedTodo] = useState(null);
   const [todoDragId,setTodoDragId] = useState(null);
@@ -144,7 +143,7 @@ export function TodoProvider({ children }) {
 
   const value = {
     todos, setTodos, projectTodos, setProjectTodos, archivedTodos, setArchivedTodos,
-    newTodo, setNewTodo, todoFilter, setTodoFilter, selectedTodo, setSelectedTodo,
+    todoFilter, setTodoFilter, selectedTodo, setSelectedTodo,
     todoDragId, setTodoDragId, pendingProjectTask, setPendingProjectTask,
     pendingDragToProject, setPendingDragToProject,
     dashNotesList, setDashNotesList, dashSelectedNoteId, setDashSelectedNoteId,
