@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import { PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { PRINT_CLEANUP_CSS, flushAllSaves } from "../../utils/helpers";
+
+const FOUNDER_SKILLS_V1 = [
+  "AI Integration & Agentic Orchestration: Built proprietary 11-agent production platform; LLM workflow design, AI-driven SOPs, multi-agent systems",
+  "Operations Architecture: SaaS stack consolidation, ways-of-working design, vendor licensing & negotiation, ops governance across multi-market entities",
+  "Commercial & Finance: Full P&L ownership, multi-market financial reporting (cash flow, balance sheet), budget forecasting, contingency planning",
+  "Cross-Functional Leadership: Multi-market stakeholder management, agency partnership models, talent contracting, SOW & usage rights negotiation",
+  "Tools: Productive.io, Asana, Monday, Airtable, Claude Code, Midjourney, Elevenlabs",
+];
 
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.3;
@@ -156,6 +164,32 @@ export default function CVView({ cvData, onSet, projectName }) {
       }
     }
   }, []); // eslint-disable-line
+
+  // One-time migration: replace Founder CV's skills array with the categorised list.
+  // Backs the entire CV item up to localStorage first so it can be restored manually if needed.
+  const founderMigratedRef = useRef(false);
+  useEffect(() => {
+    if (founderMigratedRef.current) return;
+    if (localStorage.getItem("onna_founder_skills_migrated_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    const founder = cvData.cvList.find(c => (c.label || "").toLowerCase().includes("founder"));
+    if (!founder) return;
+    founderMigratedRef.current = true;
+    try {
+      localStorage.setItem("onna_founder_cv_backup_v1", JSON.stringify({ ts: Date.now(), cvItem: founder }));
+    } catch (e) { console.warn("Founder CV backup failed, aborting migration:", e); return; }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c =>
+          c.id === founder.id ? { ...c, data: { ...(c.data || {}), skills: FOUNDER_SKILLS_V1 } } : c
+        ),
+      };
+    });
+    localStorage.setItem("onna_founder_skills_migrated_v1", String(Date.now()));
+  }, [cvData]);
 
   const cv = getActiveCv(store);
   const activeItem = getActiveItem(store);
