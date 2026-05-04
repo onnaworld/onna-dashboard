@@ -122,6 +122,37 @@ const InlineEdit = ({ value, onChange, style = {}, multiline }) => {
 
 export { DEFAULT_CV };
 
+// Single-line skill row. Shows "Header: description" with the header bold in display mode,
+// switches to a full-width textarea on click for editing.
+const SkillRow = ({ value, onChange, onRemove }) => {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef(null);
+  useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.setSelectionRange(value.length, value.length); } }, [editing]); // eslint-disable-line
+  const ci = (value || "").indexOf(":");
+  const head = ci >= 0 ? value.slice(0, ci) : "";
+  const tail = ci >= 0 ? value.slice(ci + 1).replace(/^\s+/, "") : (value || "");
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "5px 0", borderBottom: "1px solid #f0f0f0" }}>
+      {editing ? (
+        <textarea
+          ref={inputRef}
+          value={value || ""}
+          onChange={e => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={e => { if (e.key === "Escape") { setEditing(false); } }}
+          rows={Math.max(1, Math.ceil((value || "").length / 90))}
+          style={{ flex: 1, fontFamily: F, fontSize: 11, letterSpacing: LS, lineHeight: LINE_H, color: "#1a1a1a", border: "none", outline: "none", background: "transparent", padding: "1px 2px", resize: "none", boxSizing: "border-box" }}
+        />
+      ) : (
+        <div onClick={() => setEditing(true)} style={{ flex: 1, minWidth: 0, fontFamily: F, fontSize: 11, letterSpacing: LS, lineHeight: LINE_H, color: "#1a1a1a", cursor: "text", padding: "1px 2px" }}>
+          {head ? (<><strong>{head}:</strong>{tail ? " " + tail : ""}</>) : (value ? value : <span style={{ color: "#bbb" }}>Empty skill — click to edit</span>)}
+        </div>
+      )}
+      <button data-noprint onClick={onRemove} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>×</button>
+    </div>
+  );
+};
+
 // Helpers to make a URL from contact value
 const makeHref = (key, val) => {
   if (!val) return null;
@@ -404,23 +435,16 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `</tr></table></div>`;
     });
 
-    // Skills
+    // Skills — single-column rows, bold the header before the first colon
     html += secHdr("SKILLS");
     const skillNames = (c.skills || []).map(s => typeof s === "string" ? s : s.name || "").filter(Boolean);
-    html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;">`;
-    const skillRows = Math.ceil(skillNames.length / 2);
-    for (let r = 0; r < skillRows; r++) {
-      html += `<tr>`;
-      for (let col = 0; col < 2; col++) {
-        const name = skillNames[r * 2 + col];
-        if (!name) { html += `<td style="padding:5px 0;"></td>`; continue; }
-        html += `<td style="padding:5px ${col === 0 ? '12px' : '0'} 5px 0;border-bottom:1px solid #f0f0f0;vertical-align:middle;">`;
-        html += `<span style="font-size:11px;color:#1a1a1a;line-height:${LINE_H};">${esc(name)}</span>`;
-        html += `</td>`;
-      }
-      html += `</tr>`;
-    }
-    html += `</table>`;
+    skillNames.forEach(name => {
+      const ci = name.indexOf(":");
+      const inner = ci >= 0
+        ? `<strong>${esc(name.slice(0, ci))}:</strong>${esc(name.slice(ci + 1))}`
+        : esc(name);
+      html += `<div style="${S}padding:5px 0;border-bottom:1px solid #f0f0f0;">${inner}</div>`;
+    });
 
     // Languages
     html += secHdr("LANGUAGES");
@@ -708,27 +732,16 @@ export default function CVView({ cvData, onSet, projectName }) {
 
         {/* Skills */}
         {sectionHdr("SKILLS")}
-        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginBottom: 6 }}>
-          <tbody>
-            {(() => { const skills = (cv.skills || []).map(s => typeof s === "string" ? s : s.name || ""); return Array.from({ length: Math.ceil(skills.length / 2) }).map((_, row) => (
-              <tr key={row}>
-                {[0, 1].map(col => {
-                  const idx = row * 2 + col;
-                  const name = skills[idx];
-                  if (name === undefined) return <td key={col} style={{ padding: "5px 0" }} />;
-                  return (
-                    <td key={col} style={{ padding: "5px 0", paddingRight: col === 0 ? 16 : 0, borderBottom: "1px solid #f0f0f0", verticalAlign: "middle" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <InlineEdit value={name} onChange={v => set(`skills.${idx}`, v)} style={{ fontSize: 11, color: "#1a1a1a", flex: 1, lineHeight: LINE_H }} />
-                        <button data-noprint onClick={() => removeSkill(idx)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1, flexShrink: 0 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            )); })()}
-          </tbody>
-        </table>
+        <div style={{ marginBottom: 6 }}>
+          {(cv.skills || []).map((s, idx) => (
+            <SkillRow
+              key={idx}
+              value={typeof s === "string" ? s : (s?.name || "")}
+              onChange={v => set(`skills.${idx}`, v)}
+              onRemove={() => removeSkill(idx)}
+            />
+          ))}
+        </div>
         <button data-noprint onClick={addSkill} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginBottom: 4 }}>+ ADD SKILL</button>
 
         {/* Languages */}
