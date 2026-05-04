@@ -102,12 +102,13 @@ const DEFAULT_CV = {
   ],
 };
 
-const InlineEdit = ({ value, onChange, style = {}, multiline }) => {
+const InlineEdit = ({ value, onChange, style = {}, multiline, placeholder }) => {
   const Tag = multiline ? "textarea" : "input";
   return (
     <Tag
       value={value || ""}
       onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
       style={{
         fontFamily: F, fontSize: 11, letterSpacing: LS, border: "none", outline: "none",
         background: "transparent", width: "100%", padding: "1px 2px", boxSizing: "border-box",
@@ -396,6 +397,7 @@ export default function CVView({ cvData, onSet, projectName }) {
     const locationParts = [];
     if (ct.location) locationParts.push(esc(ct.location));
     if (ct.citizenship) locationParts.push(esc(ct.citizenship));
+    if (ct.markets) locationParts.push(esc(ct.markets));
     if (locationParts.length > 0) {
       html += `<div style="font-size:10.5px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${locationParts.join(dot)}</div>`;
     }
@@ -619,13 +621,15 @@ export default function CVView({ cvData, onSet, projectName }) {
           })}
         </div>
         <div style={{ textAlign: "center", marginBottom: 3, lineHeight: LINE_H }}>
-          {["location", "citizenship"].map((key, i) => {
+          {["location", "citizenship", "markets"].map((key, i) => {
             const val = cv.contact?.[key];
-            if (!val) return null;
+            // markets renders even when empty so it's always click-to-edit
+            if (!val && key !== "markets") return null;
+            const placeholder = key === "markets" ? "Markets" : "";
             return (
               <span key={key} style={{ display: "inline", verticalAlign: "baseline" }}>
                 {i > 0 && <span style={{ color: "#ccc", padding: "0 8px", fontSize: 8 }}>{"\u2022"}</span>}
-                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", display: "inline", fontWeight: 700 }} />
+                <InlineEdit value={val} onChange={v => set(`contact.${key}`, v)} placeholder={placeholder} style={{ fontSize: 11, color: "#1a1a1a", width: "auto", minWidth: key === "markets" && !val ? 80 : undefined, display: "inline", fontWeight: 700 }} />
               </span>
             );
           })}
