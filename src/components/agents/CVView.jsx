@@ -9,6 +9,8 @@ const FOUNDER_SKILLS_V1 = [
   "Tools: Productive.io, Asana, Monday, Airtable, Claude Code, Midjourney, Elevenlabs",
 ];
 
+const FOUNDER_CLIENTS_V1 = "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | CIPRIANI | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | COLUMBIA";
+
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.3;
 const LS_HDR = 1.2;
@@ -221,6 +223,31 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_founder_skills_migrated_v1", String(Date.now()));
+  }, [cvData]);
+
+  // One-time migration: set Founder CV's clients string. Backs up the prior value first.
+  const founderClientsMigratedRef = useRef(false);
+  useEffect(() => {
+    if (founderClientsMigratedRef.current) return;
+    if (localStorage.getItem("onna_founder_clients_migrated_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    const founder = cvData.cvList.find(c => (c.label || "").toLowerCase().includes("founder"));
+    if (!founder) return;
+    founderClientsMigratedRef.current = true;
+    try {
+      localStorage.setItem("onna_founder_clients_backup_v1", JSON.stringify({ ts: Date.now(), clients: founder.data?.clients ?? null }));
+    } catch (e) { console.warn("Founder clients backup failed, aborting migration:", e); return; }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c =>
+          c.id === founder.id ? { ...c, data: { ...(c.data || {}), clients: FOUNDER_CLIENTS_V1 } } : c
+        ),
+      };
+    });
+    localStorage.setItem("onna_founder_clients_migrated_v1", String(Date.now()));
   }, [cvData]);
 
   const cv = getActiveCv(store);
@@ -644,11 +671,9 @@ export default function CVView({ cvData, onSet, projectName }) {
             <InlineEdit multiline value={para} onChange={v => set(`summary.${i}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a" }} />
           </div>
         ))}
-        {cv.clients && (
-          <div style={{ marginTop: 4, textAlign: "center" }}>
-            <InlineEdit value={cv.clients} onChange={v => set("clients", v)} style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#1a1a1a", lineHeight: LINE_H, textAlign: "center" }} />
-          </div>
-        )}
+        <div style={{ marginTop: 4, textAlign: "center" }}>
+          <InlineEdit value={cv.clients} onChange={v => set("clients", v)} placeholder="Client list (separated by | )" style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, color: "#1a1a1a", lineHeight: LINE_H, textAlign: "center" }} />
+        </div>
 
         {/* Experience */}
         {sectionHdr("EXPERIENCE")}
