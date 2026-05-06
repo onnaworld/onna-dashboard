@@ -11,6 +11,98 @@ const FOUNDER_SKILLS_V1 = [
 
 const FOUNDER_CLIENTS_V1 = "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | CIPRIANI | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | COLUMBIA";
 
+const CREATIVE_STRATEGY_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Creative Strategist",
+  contact: {
+    phone: "+44 7766546348",
+    email: "emily@onnaproduction.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onna.world",
+    location: "New York — June 2026",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Creative strategist and founder building brand narratives and integrated campaigns for global luxury houses across fashion, beauty, hospitality, and editorial. Born in Tokyo, with Japanese-US-UK heritage; fluent across the US, UK, GCC, and Japanese markets. Relocating to New York in June 2026.",
+    "After a career-defining tenure at Net-a-Porter Group leading creative for tier-1 brand partnerships, founded ONNA — a creative consultancy and production house bridging global luxury brands with the cultural specificity of regional markets. Select clients include Aman, Nike, Vogue Arabia (Condé Nast), Tiffany & Co., Bvlgari, Loro Piana, and Charlotte Tilbury. Deep agency partnership experience across IMA, IPG, Noe&Associates, and Free Practice.",
+  ],
+  clients: "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY",
+  experience: [
+    {
+      role: "Founder & Creative Strategist",
+      company: "ONNA",
+      dates: "11/2024 - Present",
+      bullets: [
+        "Brand Narrative Architecture: Led creative strategy for Aman's Saudi Arabia flagship pre-launch — translating an abstract, atmosphere-driven brief into a localized visual language built around bespoke regional poetry. Output drove residential sales and seeded an ongoing four-project Aman relationship.",
+        "Global-to-Local Translation: Strategic lead on Nike Vomero 18 Middle East launch, bridging Nike Global brand DNA with on-the-ground execution at Burj Khalifa and Kite Beach. Result exceeded brief and triggered an additional buyout.",
+        "New Business & Pitch Leadership: Architected the client acquisition strategy that scaled average monthly revenue 108% in year one at a 25% gross margin, via a lean agency-partnership-led model.",
+        "Cultural Positioning as Service: Built ONNA's positioning explicitly around the gap between global luxury and the GCC/Asia markets — sold into Aman, Nike, Vogue, Mastercard, and Columbia.",
+        "Integrated Campaign Leadership: Led ATL and BTL seasonal campaigns including OOH, digital storytelling, and multi-brand initiatives for Vogue Arabia x New Balance, Bvlgari, and Tiffany & Co.",
+        "AI-Integrated Creative Ops: Pioneered LLM and agentic workflows into creative SOPs, freeing strategic capacity from administrative overhead.",
+      ],
+    },
+    {
+      role: "Visuals Editor (Relaunch)",
+      company: "Vogue Arabia (Condé Nast)",
+      dates: "12/2024 - 03/2025",
+      bullets: [
+        "Editorial Repositioning: Joined the British Vogue team to relaunch Vogue Arabia under a new global framework, navigating the title's return to Condé Nast internal management.",
+        "Visual Authority: Curated and commissioned content for the first three relaunch issues, working with photographers Luc Braquet and Txema Yeste to re-establish the title within the global Vogue ecosystem.",
+        "Long-Term Commercial Outcome: Relationship extended into ongoing production partnership on Vogue Arabia's premium advertiser briefs with Bvlgari, Tiffany & Co., and New Balance.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Harvey Nichols (Al Tayer Insignia)",
+      dates: "06/2024 - 11/2024",
+      bullets: [
+        "Stakeholder Alignment: Led a complex stakeholder matrix across Procurement, Marketing, and Creative to align annual content strategy with commercial KPIs.",
+        "Vendor Partnership Architecture: Designed a Retainer Partnership Model that cut variable costs 20% while maintaining luxury brand standards.",
+        "Multi-Channel Campaign Leadership: Directed the annual content budget across 360° advertising, marketing activations, and digital campaigns.",
+      ],
+    },
+    {
+      role: "Senior Producer (Freelance)",
+      company: "Independent",
+      dates: "06/2020 - 11/2024",
+      bullets: [
+        "Global Activation at Scale: Supported the $1m+ Charlotte Tilbury x Disney 100 collaboration, working alongside Sofia Tilbury's pro artist team and stylist Nathan Klein across Tier-1 global content creators (Monet McMichael, Victor Kunda, Danielle Marcan).",
+        "Talent-Led Campaigns: Led the GUESS Global Ramadan campaign in Abu Dhabi with A-list models.",
+        "Additional clients: Siro Hotels, Maison Kitsune, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "MR PORTER (Net-a-Porter Group)",
+      dates: "06/2019 - 05/2024",
+      bullets: [
+        "Career Trajectory: Promoted three levels from Picture Assistant to Lead Producer in four years, consistently exceeding KPIs.",
+        "Flagship Campaign Strategy: Led 'MR PORTER In America' — a 360-degree, multi-brand activation generating 2.65M views and a 75% engagement uplift.",
+        "Brand Partnership Framework: Built a white-label partnership model generating $500k+ in incremental annual revenue across Loro Piana, Stone Island, and Brunello Cucinelli.",
+        "Editorial Authorship: Wrote visual research and journalism for MR PORTER editorial — A History of Tattooing in Japan, Through the Lens (ethical photography), and the Stylish Gent's Guide to menswear trends.",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Creative Strategy & Brand Narrative: Translating brand DNA into regional positioning; cultural storytelling; messaging frameworks; integrated campaign concepting",
+    "Pitch Leadership & New Business: Client acquisition strategy, agency partnership models, scoping and SOWs across IMA, IPG, Noe&Associates, Free Practice",
+    "Global Client Management: Multi-market stakeholder alignment; senior client partnerships across luxury fashion, beauty, hospitality, and editorial",
+    "Editorial & Visual Authority: Art direction, commissioning, Condé Nast editorial workflow, visual journalism",
+    "Commercial & P&L: Multi-market financial reporting, budget architecture, margin and contingency modelling",
+    "AI-Integrated Creative Ops: LLM and agentic workflow design across creative SOPs",
+    "Tools: Productive.io, Asana, Monday, Airtable, Adobe Creative Suite, Midjourney, Elevenlabs",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+};
+
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.3;
 const LS_HDR = 1.2;
@@ -223,6 +315,32 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_founder_skills_migrated_v1", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Creative Strategy" CV variant tailored for
+  // creative-strategy / PR-comms agency roles (e.g. Karla Otto). Skips if a CV
+  // with that label already exists, so deleting the tab won't re-add it.
+  const creativeStrategyAddedRef = useRef(false);
+  useEffect(() => {
+    if (creativeStrategyAddedRef.current) return;
+    if (localStorage.getItem("onna_creative_strategy_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    creativeStrategyAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase().includes("creative strategy"));
+    if (exists) {
+      localStorage.setItem("onna_creative_strategy_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now();
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Creative Strategy", data: JSON.parse(JSON.stringify(CREATIVE_STRATEGY_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_creative_strategy_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
   // One-time migration: set Founder CV's clients string. Backs up the prior value first.
