@@ -11,6 +11,97 @@ const FOUNDER_SKILLS_V1 = [
 
 const FOUNDER_CLIENTS_V1 = "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | CIPRIANI | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | COLUMBIA";
 
+const CONTENT_PRODUCER_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Executive Producer",
+  contact: {
+    phone: "+44 7766546348",
+    email: "emily@onnaproduction.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onna.world",
+    location: "New York — July 2026",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Executive Producer with 8+ years leading end-to-end content production for global luxury houses across photography, film, and integrated campaigns. Tokyo-born with Japanese-US-UK heritage; relocating to New York in July 2026.",
+    "Career grounded in-house at Net-a-Porter Group (MR PORTER), Harvey Nichols (Al Tayer Insignia), and Vogue Arabia (Condé Nast), leading production for tier-1 brand and editorial campaigns. In 2024, founded ONNA — a creative consultancy and production house for global luxury institutions including Aman, Nike, Vogue Arabia, Tiffany & Co., Bvlgari, Loro Piana, and Charlotte Tilbury. Pioneered the integration of AI agents and LLM workflows into production SOPs.",
+  ],
+  clients: "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | HARVEY NICHOLS",
+  experience: [
+    {
+      role: "Founder and Executive Producer",
+      company: "ONNA Production Ltd.",
+      dates: "November 2024 - Present",
+      bullets: [
+        "End-to-End Content Production: Lead photography, film, and integrated campaign production for global luxury institutions (Aman, Nike, Vogue Arabia, Tiffany & Co., Bvlgari) — pre-production, casting, locations, scheduling, on-set execution, post-production (editing, retouching, sound), rights clearance, and final delivery.",
+        "Aman Portfolio (4 delivered projects + 2 active proposals): Trusted long-term partner across the Aman and Janu portfolio. Lead multi-stakeholder decisions across Aman's VP of Brand, external creative partners, and developers; collaborated with photographers including Christopher Anderson and Mark Mahaney. Guide projects from initiation through delivery with regional cultural nuance; developed global production budgets for proposed expansions into New York and the Maldives.",
+        "JA Resort — $500K Global Campaign (UAE & Maldives): Led a two-week, multi-location global campaign across the UAE and Maldives. Managed complex casting that combined international models with street-cast multigenerational families.",
+        "Budget Ownership & Operational Rigor: Full P&L across all client engagements with a standardized 10% contingency model; maintain a 25% gross margin via a lean, partnership-led operating model. Negotiate SOWs, talent contracts, vendor agreements, and usage rights in close coordination with Finance and Legal counterparts.",
+        "AI-Integrated Production: Pioneered LLM and agentic workflows in production SOPs; built a proprietary 11-agent production management platform automating client onboarding, accounting, and coordination — freeing creative and strategic capacity.",
+        "Global Vendor & Crew Network: Built and manage freelance crew and retainer-based vendor relationships across the UK, GCC, Japan, and US, negotiated to luxury brand standards. Led ATL and BTL seasonal campaigns including OOH and digital storytelling for Vogue Arabia x New Balance, Bvlgari, and Tiffany & Co.",
+      ],
+    },
+    {
+      role: "Production Partner and Visuals Editor",
+      company: "Condé Nast Inc. (Vogue Arabia)",
+      dates: "December 2024 - Present",
+      bullets: [
+        "Trusted Long-Term Partner: Joined the British Vogue team as Visuals Editor during Vogue Arabia's return to Condé Nast internal management; the engagement evolved into an ongoing production partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
+        "Talent and Cover Production: Operational expertise in tier-1 talent adjacent to CHANEL's world, including covers with Imaan Hammam, shoots with Halima Aden in New York, and Balquees in Dubai. Skills: talent casting, agent negotiation, on-set direction.",
+        "Editorial Production at Global Standard: Art-directed and commissioned visual content with photographers Luc Braquet and Txema Yeste; navigated editorial budgets, global Condé Nast approval processes, and extreme timelines. Skills: art direction, commissioning, editorial workflow, multi-stakeholder approval management.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "In-House Content Lead: Owned end-to-end visual production for Harvey Nichols, managing a high-volume seasonal asset engine across photography, film, and digital.",
+        "Vendor Architecture: Designed a Retainer Partnership Model that cut variable costs 20% while maintaining luxury brand standards.",
+        "Cross-Functional Alignment: Led a complex stakeholder matrix across Procurement, Marketing, and Creative to align annual content budget allocation across 360° advertising, marketing activations, and digital campaigns.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Freelance / Self-Employed",
+      dates: "June 2020 - November 2024",
+      bullets: [
+        "Charlotte Tilbury x Disney 100: Supported the $1m+ global activation, including on-set logistics, vendor management, Tier-1 content creator coordination (Monet McMichael, Victor Kunda, Danielle Marcan), and alignment with the Charlotte Tilbury pro artist team and stylist Nathan Klein. Skills: on-set production, vendor management, talent coordination.",
+        "GUESS Global Ramadan Campaign: Led end-to-end production in Abu Dhabi with A-list models, navigating regional sensitivities and global brand standards. Skills: cross-cultural production, model casting, brand compliance.",
+        "Additional clients: Siro Hotels, Maison Kitsune, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. (MR PORTER)",
+      dates: "June 2019 - May 2024",
+      bullets: [
+        "Career Trajectory: Promoted twice in five years to Lead Producer, consistently exceeding KPIs within a complex stakeholder matrix under the Richemont Group.",
+        "US Production Lead: Led several A-list talent shoots across LA, New York, and Miami, including 'MR PORTER In America' — a 360-degree, multi-brand campaign generating 2.65M views and a 75% engagement uplift.",
+        "Brand Partnership Framework: Built a white-label production framework generating $500k+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island, and Hennessy.",
+        "Talent-Led Production: Executive produced premium content featuring A-list talent (Finneas, Stefon Diggs) and US brands including Greg Lauren, Polite Worldwide, and Elder Statesman.",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Content Production Leadership: End-to-end production across photography, film, and integrated content; pre-production, casting, locations, scheduling, on-set execution, post-production (editing, retouching, sound), rights clearance, and final delivery",
+    "Production Operations & Governance: Budget ownership, contract management, PO and invoicing oversight, cost tracking, vendor negotiation across multi-market projects in coordination with Finance and Legal",
+    "AI & Innovation in Production: Built proprietary 11-agent production management platform; LLM workflow design, AI-driven SOPs, familiarity with emerging tools across generative content and digital-twin workflows",
+    "Cross-Functional & Global Collaboration: Multi-market stakeholder alignment; matrixed organizational navigation across luxury fashion, beauty, hospitality, and editorial",
+    "External Partner Management: Global crew and vendor networks across UK, GCC, Japan, and US; talent contracting; usage rights and licensing",
+    "Tools: Productive.io, Asana, Monday, Airtable, Smartsheet, Adobe Creative Suite, Midjourney, Elevenlabs",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+};
+
 const CREATIVE_STRATEGY_CV_V1 = {
   name: "EMILY LUCAS",
   title: "Creative Strategist",
@@ -315,6 +406,60 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_founder_skills_migrated_v1", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Content Producer" CV variant tailored for
+  // in-house content production roles (e.g. Chanel Group Director, Content
+  // Producer). Skips if a CV with that label already exists.
+  const contentProducerAddedRef = useRef(false);
+  useEffect(() => {
+    if (contentProducerAddedRef.current) return;
+    if (localStorage.getItem("onna_content_producer_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    contentProducerAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase().includes("content producer"));
+    if (exists) {
+      localStorage.setItem("onna_content_producer_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now();
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Content Producer", data: JSON.parse(JSON.stringify(CONTENT_PRODUCER_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_content_producer_cv_added_v1", String(Date.now()));
+  }, [cvData]);
+
+  // One-time refresh of the "Content Producer" CV to v2 — adds JA Resort case
+  // study, Aman portfolio detail (VP Brand, Christopher Anderson, Mark Mahaney),
+  // Vogue Arabia talent (Imaan Hammam, Halima Aden, Balquees), corrected MR
+  // PORTER promotions count and US cities. Backs up prior data before overwrite.
+  const contentProducerV2Ref = useRef(false);
+  useEffect(() => {
+    if (contentProducerV2Ref.current) return;
+    if (localStorage.getItem("onna_content_producer_cv_v2_migrated")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    const target = cvData.cvList.find(c => (c.label || "").toLowerCase().includes("content producer"));
+    if (!target) return;
+    contentProducerV2Ref.current = true;
+    try {
+      localStorage.setItem("onna_content_producer_cv_v1_backup", JSON.stringify({ ts: Date.now(), cvItem: target }));
+    } catch (e) { console.warn("Content Producer v1 backup failed, aborting v2 migration:", e); return; }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c =>
+          c.id === target.id ? { ...c, data: JSON.parse(JSON.stringify(CONTENT_PRODUCER_CV_V1)) } : c
+        ),
+      };
+    });
+    localStorage.setItem("onna_content_producer_cv_v2_migrated", String(Date.now()));
   }, [cvData]);
 
   // One-time addition: seed a "Creative Strategy" CV variant tailored for
@@ -629,6 +774,95 @@ export default function CVView({ cvData, onSet, projectName }) {
     setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 250);
   };
 
+  // Build ATS-friendly Word doc: plain structure, no tables for layout,
+  // standard section headers, skills threaded into bullets. Saved as .doc
+  // (HTML-with-application/msword MIME) which Word opens cleanly and ATS
+  // parsers process more reliably than PDF.
+  const doExportWord = () => {
+    const c = cv;
+    const ct = c.contact || {};
+    const P = `font-family:Calibri, Arial, sans-serif; font-size:11pt; color:#000; margin:0 0 6pt 0;`;
+    let html = `<div style="font-family:Calibri, Arial, sans-serif; font-size:11pt; color:#000;">`;
+
+    // Contact block first (per ATS guidance)
+    html += `<p style="${P} font-size:18pt; font-weight:bold; margin-bottom:2pt;">${esc(c.name || "")}</p>`;
+    html += `<p style="${P} font-size:12pt; margin-bottom:6pt;">${esc(c.title || "")}</p>`;
+    const contactLines = [];
+    if (ct.phone) contactLines.push(esc(ct.phone));
+    if (ct.email) contactLines.push(esc(ct.email));
+    if (ct.linkedin) contactLines.push(esc(ct.linkedin));
+    if (ct.website) contactLines.push(esc(ct.website));
+    if (contactLines.length) html += `<p style="${P}">${contactLines.join(" | ")}</p>`;
+    const locLines = [];
+    if (ct.location) locLines.push(esc(ct.location));
+    if (ct.citizenship) locLines.push(esc(ct.citizenship));
+    if (ct.markets) locLines.push(esc(ct.markets));
+    if (locLines.length) html += `<p style="${P}">${locLines.join(" | ")}</p>`;
+
+    const hdr = (label) => `<h2 style="font-family:Calibri, Arial, sans-serif; font-size:13pt; font-weight:bold; color:#000; margin:14pt 0 6pt 0; text-transform:uppercase;">${label}</h2>`;
+
+    // Summary
+    html += hdr("Summary");
+    (c.summary || []).forEach(p => { html += `<p style="${P}">${esc(p)}</p>`; });
+    if (c.clients) html += `<p style="${P} font-weight:bold;">Select Clients: ${esc(c.clients)}</p>`;
+
+    // Experience — plain headings, no table layout
+    html += hdr("Experience");
+    (c.experience || []).forEach(exp => {
+      html += `<p style="${P} font-weight:bold; margin-top:8pt; margin-bottom:0;">${esc(exp.role || "")} — ${esc(exp.company || "")}</p>`;
+      html += `<p style="${P} font-style:italic; margin-bottom:4pt;">${esc(exp.dates || "")}</p>`;
+      html += `<ul style="margin:0 0 6pt 0; padding-left:24pt;">`;
+      (exp.bullets || []).forEach(b => {
+        html += `<li style="${P} margin-bottom:3pt;">${esc(b)}</li>`;
+      });
+      html += `</ul>`;
+    });
+
+    // Education
+    html += hdr("Education");
+    (c.education || []).forEach(edu => {
+      html += `<p style="${P} font-weight:bold; margin-bottom:0;">${esc(edu.title || "")}</p>`;
+      const ei = [];
+      if (edu.institution) ei.push(esc(edu.institution));
+      if (edu.result) ei.push(esc(edu.result));
+      if (ei.length) html += `<p style="${P}">${ei.join(" — ")}</p>`;
+    });
+
+    // Skills
+    html += hdr("Skills");
+    html += `<ul style="margin:0; padding-left:24pt;">`;
+    (c.skills || []).map(s => typeof s === "string" ? s : s.name || "").filter(Boolean).forEach(name => {
+      const ci = name.indexOf(":");
+      const inner = ci >= 0
+        ? `<strong>${esc(name.slice(0, ci))}:</strong>${esc(name.slice(ci + 1))}`
+        : esc(name);
+      html += `<li style="${P} margin-bottom:3pt;">${inner}</li>`;
+    });
+    html += `</ul>`;
+
+    // Languages
+    html += hdr("Languages");
+    html += `<ul style="margin:0; padding-left:24pt;">`;
+    (c.languages || []).forEach(l => {
+      html += `<li style="${P} margin-bottom:3pt;">${esc(l.name || "")} — ${esc(l.level || "")}</li>`;
+    });
+    html += `</ul>`;
+
+    html += `</div>`;
+
+    const docTitle = `CV - ${c.name || "CV"}${activeItem ? " - " + activeItem.label : ""}`;
+    const wordHtml = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><title>${esc(docTitle)}</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>body{font-family:Calibri, Arial, sans-serif; font-size:11pt; color:#000;}</style></head><body>${html}</body></html>`;
+    const blob = new Blob(["﻿", wordHtml], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${docTitle.replace(/[\\/:*?"<>|]/g, "-")}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const sectionHdr = (label) => (
     <div style={{ marginTop: 20, marginBottom: 8 }}>
       <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", lineHeight: LINE_H, marginBottom: 5 }}>{label}</div>
@@ -728,6 +962,11 @@ export default function CVView({ cvData, onSet, projectName }) {
               onMouseLeave={e => { e.target.style.color = "#888"; }}
             >RENAME</div>
           )}
+          <div onClick={doExportWord} style={{
+            fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px",
+            cursor: "pointer", whiteSpace: "nowrap", background: "#1a4d2e", color: "#fff",
+            textTransform: "uppercase", borderLeft: "1px solid #ddd",
+          }} onMouseEnter={e => { e.target.style.background = "#2a6b40"; }} onMouseLeave={e => { e.target.style.background = "#1a4d2e"; }}>EXPORT WORD</div>
           <div onClick={doPrint} style={{
             fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px",
             cursor: "pointer", whiteSpace: "nowrap", background: "#000", color: "#fff",
