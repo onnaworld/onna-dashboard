@@ -100,6 +100,14 @@ const CONTENT_PRODUCER_CV_V1 = {
     { name: "Spanish", level: "Intermediate" },
     { name: "Japanese", level: "Intermediate" },
   ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on career planning, CV development, and interview preparation.",
+    },
+  ],
 };
 
 const CREATIVE_STRATEGY_CV_V1 = {
@@ -462,6 +470,37 @@ export default function CVView({ cvData, onSet, projectName }) {
     localStorage.setItem("onna_content_producer_cv_v2_migrated", String(Date.now()));
   }, [cvData]);
 
+  // v3: add volunteer entry (Graduate Fashion Foundation mentorship) to the
+  // Content Producer CV. Only fills if no volunteer data already present, so
+  // user edits in the volunteer section are preserved.
+  const contentProducerV3Ref = useRef(false);
+  useEffect(() => {
+    if (contentProducerV3Ref.current) return;
+    if (localStorage.getItem("onna_content_producer_cv_v3_migrated")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    const target = cvData.cvList.find(c => (c.label || "").toLowerCase().includes("content producer"));
+    if (!target) return;
+    contentProducerV3Ref.current = true;
+    const existingVol = (target.data && Array.isArray(target.data.volunteer)) ? target.data.volunteer : null;
+    if (existingVol && existingVol.length > 0) {
+      localStorage.setItem("onna_content_producer_cv_v3_migrated", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c =>
+          c.id === target.id
+            ? { ...c, data: { ...(c.data || {}), volunteer: JSON.parse(JSON.stringify(CONTENT_PRODUCER_CV_V1.volunteer)) } }
+            : c
+        ),
+      };
+    });
+    localStorage.setItem("onna_content_producer_cv_v3_migrated", String(Date.now()));
+  }, [cvData]);
+
   // One-time addition: seed a "Creative Strategy" CV variant tailored for
   // creative-strategy / PR-comms agency roles (e.g. Karla Otto). Skips if a CV
   // with that label already exists, so deleting the tab won't re-add it.
@@ -567,6 +606,8 @@ export default function CVView({ cvData, onSet, projectName }) {
   const removeSkill = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.skills.splice(i, 1); return n; }); };
   const addLanguage = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages = [...(n.languages || []), { name: "", level: "" }]; return n; }); };
   const removeLanguage = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.languages.splice(i, 1); return n; }); };
+  const addVolunteer = () => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.volunteer = [...(n.volunteer || []), { role: "", organization: "", dates: "", description: "" }]; return n; }); };
+  const removeVolunteer = (i) => { setCvData(prev => { const n = JSON.parse(JSON.stringify(prev || DEFAULT_CV)); n.volunteer.splice(i, 1); return n; }); };
 
   // Move experience up/down
   const moveExperience = (from, to) => {
@@ -757,6 +798,21 @@ export default function CVView({ cvData, onSet, projectName }) {
     }
     html += `</table>`;
 
+    // Volunteer & Industry Engagement
+    if ((c.volunteer || []).length > 0) {
+      html += secHdr("VOLUNTEER &amp; INDUSTRY ENGAGEMENT");
+      (c.volunteer || []).forEach(vol => {
+        html += `<div style="margin-bottom:8px;">`;
+        html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+        html += `<td style="padding:0;font-size:12px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};">${esc(vol.role)} <span style="font-weight:400;color:#bbb;padding:0 3px;">|</span> ${esc(vol.organization)}</td>`;
+        html += `<td style="padding:0;font-size:11px;color:#1a1a1a;text-align:right;white-space:nowrap;line-height:${LINE_H};">${esc(vol.dates)}</td>`;
+        html += `</tr></table>`;
+        html += `<div style="border-bottom:1px solid #eee;margin:2px 0 5px 0;"></div>`;
+        if (vol.description) html += `<div style="${S}padding-left:18px;">${esc(vol.description)}</div>`;
+        html += `</div>`;
+      });
+    }
+
     html += `</div>`;
 
     const docTitle = `CV - ${c.name || "CV"}${activeItem ? " - " + activeItem.label : ""}${projectName ? " | " + projectName : ""}`;
@@ -847,6 +903,17 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `<li style="${P} margin-bottom:3pt;">${esc(l.name || "")} — ${esc(l.level || "")}</li>`;
     });
     html += `</ul>`;
+
+    // Volunteer & Industry Engagement
+    if ((c.volunteer || []).length > 0) {
+      html += hdr("Volunteer &amp; Industry Engagement");
+      (c.volunteer || []).forEach(vol => {
+        const head = [esc(vol.role || ""), esc(vol.organization || "")].filter(Boolean).join(" — ");
+        html += `<p style="${P} font-weight:bold; margin-top:8pt; margin-bottom:0;">${head}</p>`;
+        if (vol.dates) html += `<p style="${P} font-style:italic; margin-bottom:4pt;">${esc(vol.dates)}</p>`;
+        if (vol.description) html += `<p style="${P}">${esc(vol.description)}</p>`;
+      });
+    }
 
     html += `</div>`;
 
@@ -1160,6 +1227,33 @@ export default function CVView({ cvData, onSet, projectName }) {
           </tbody>
         </table>
         <button data-noprint onClick={addLanguage} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700 }}>+ ADD LANGUAGE</button>
+
+        {/* Volunteer & Industry Engagement */}
+        {sectionHdr("VOLUNTEER & INDUSTRY ENGAGEMENT")}
+        {(cv.volunteer || []).map((vol, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody><tr>
+                <td style={{ padding: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a", lineHeight: LINE_H }}>
+                  <span style={{ display: "inline-flex", alignItems: "baseline", gap: 0 }}>
+                    <InlineEdit value={vol.role} onChange={v => set(`volunteer.${i}.role`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
+                    <span style={{ color: "#bbb", fontWeight: 400, padding: "0 5px" }}>|</span>
+                    <InlineEdit value={vol.organization} onChange={v => set(`volunteer.${i}.organization`, v)} style={{ fontSize: 12, fontWeight: 700, width: "auto" }} />
+                  </span>
+                </td>
+                <td style={{ padding: 0, fontSize: 11, color: "#1a1a1a", textAlign: "right", whiteSpace: "nowrap", width: 140, lineHeight: LINE_H }}>
+                  <InlineEdit value={vol.dates} onChange={v => set(`volunteer.${i}.dates`, v)} style={{ fontSize: 11, color: "#1a1a1a", textAlign: "right" }} />
+                </td>
+                <td data-noprint style={{ padding: 0, width: 20 }}>
+                  <button onClick={() => removeVolunteer(i)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"}>&times;</button>
+                </td>
+              </tr></tbody>
+            </table>
+            <div style={{ borderBottom: "1px solid #eee", margin: "2px 0 5px 0" }} />
+            <InlineEdit multiline value={vol.description} onChange={v => set(`volunteer.${i}.description`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a", paddingLeft: 18 }} />
+          </div>
+        ))}
+        <button data-noprint onClick={addVolunteer} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginTop: 4 }}>+ ADD VOLUNTEER</button>
       </div>
     </div>
   );
