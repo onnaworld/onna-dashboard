@@ -470,6 +470,51 @@ export default function CVView({ cvData, onSet, projectName }) {
     localStorage.setItem("onna_content_producer_cv_v2_migrated", String(Date.now()));
   }, [cvData]);
 
+  // One-time: clear bullets from junior-progression role entries
+  // (Picture Assistant, Social Media Production Coordinator) across all CVs.
+  // Backs up prior experience arrays before clearing.
+  const clearJuniorBulletsRef = useRef(false);
+  useEffect(() => {
+    if (clearJuniorBulletsRef.current) return;
+    if (localStorage.getItem("onna_clear_junior_bullets_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    clearJuniorBulletsRef.current = true;
+    const matches = (role) => {
+      const r = (role || "").toLowerCase();
+      return r.includes("picture assistant") || r.includes("social media production coordinator");
+    };
+    const anyToClear = cvData.cvList.some(c =>
+      Array.isArray(c.data?.experience) && c.data.experience.some(e => matches(e.role) && (e.bullets || []).length > 0)
+    );
+    if (!anyToClear) {
+      localStorage.setItem("onna_clear_junior_bullets_v1", String(Date.now()));
+      return;
+    }
+    try {
+      localStorage.setItem("onna_clear_junior_bullets_v1_backup", JSON.stringify({
+        ts: Date.now(),
+        cvList: cvData.cvList.map(c => ({ id: c.id, label: c.label, experience: c.data?.experience })),
+      }));
+    } catch (e) { console.warn("Junior bullets backup failed, aborting migration:", e); return; }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c => ({
+          ...c,
+          data: {
+            ...(c.data || {}),
+            experience: (c.data?.experience || []).map(e =>
+              matches(e.role) ? { ...e, bullets: [] } : e
+            ),
+          },
+        })),
+      };
+    });
+    localStorage.setItem("onna_clear_junior_bullets_v1", String(Date.now()));
+  }, [cvData]);
+
   // v3: add volunteer entry (Graduate Fashion Foundation mentorship) to the
   // Content Producer CV. Only fills if no volunteer data already present, so
   // user edits in the volunteer section are preserved.
