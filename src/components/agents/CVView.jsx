@@ -123,7 +123,7 @@ const STRATEGY_OPS_CV_V1 = {
   },
   summary: [
     "Senior production and operations leader with 8 years inside the luxury fashion industry. Founder and operator of ONNA Production Ltd., where I sit at the strategic decision-making layer — designing creative workflows, owning the P&L, and orchestrating cross-functional delivery for Aman, Nike, Vogue Arabia (Condé Nast), Tiffany & Co., Bvlgari, and Loro Piana.",
-    "Career grounded in-house at Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), and Vogue Arabia (Condé Nast), navigating complex matrixed organizations and senior stakeholder environments at VP of Brand, Global Creative Director, and Global Visuals Director level. Pioneered AI-integrated workflow systems that compress production cycles and eliminate bottlenecks across creative operations. Tokyo-born with Japanese-US-UK heritage; relocating to New York in July 2026.",
+    "Career grounded in-house at Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), and Vogue Arabia (Condé Nast), navigating complex matrixed organizations and senior stakeholder environments at VP of Brand, Editor-in-Chief, Global Creative Director, and Global Visuals Director level. Pioneered AI-integrated workflow systems that compress production cycles and eliminate bottlenecks across creative operations. Tokyo-born with Japanese-US-UK heritage; relocating to New York in July 2026.",
   ],
   clients: "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | HARVEY NICHOLS",
   experience: [
@@ -146,7 +146,7 @@ const STRATEGY_OPS_CV_V1 = {
       dates: "December 2024 - Present",
       bullets: [
         "Trusted Long-Term Partner: Joined the British Vogue team during Vogue Arabia's return to Condé Nast internal management; engagement evolved into an ongoing partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
-        "Senior Stakeholder Navigation: Worked directly with the Global Creative Director, Global Visuals Director, and British Vogue team; navigated Condé Nast's global approval structure and editorial governance with senior editorial stakeholders.",
+        "Senior Stakeholder Navigation: Worked directly with the Editor-in-Chief, Global Creative Director, Global Visuals Director, and British Vogue team; navigated Condé Nast's global approval structure and editorial governance with senior editorial stakeholders.",
         "Tier-1 Talent and Cover Production: Operational expertise with luxury-fashion talent — covers with Imaan Hammam, shoots with Halima Aden in New York, and Balquees in Dubai. Art-directed and commissioned with photographers Luc Braquet and Txema Yeste.",
       ],
     },
@@ -176,7 +176,7 @@ const STRATEGY_OPS_CV_V1 = {
       dates: "June 2019 - May 2024",
       bullets: [
         "Richemont Group Stakeholder Environment: Five years inside a Richemont Group portfolio company, navigating a complex luxury-holding-company stakeholder matrix. Promoted twice in five years to Lead Producer, consistently exceeding KPIs.",
-        "Line Management: Directly managed and developed a Production Assistant, owning her work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.",
+        "Line Management: Day-to-day management and development of a contracted Production Assistant — owned work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.",
         "US Production Lead: Led A-list talent shoots across LA, New York, and Miami, including 'MR PORTER In America' — a 360-degree, multi-brand campaign generating 2.65M views and a 75% engagement uplift.",
         "Brand Partnership Framework: Built a white-label production framework generating $500K+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island, and Hennessy.",
       ],
@@ -187,7 +187,7 @@ const STRATEGY_OPS_CV_V1 = {
     { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
   ],
   skills: [
-    "Strategic Operations & C-Suite Proximity: Cross-functional workflow design; senior stakeholder navigation at VP, Creative Director, and Global Visuals Director level; high-EQ operating at strategic decision-making layer",
+    "Strategic Operations & C-Suite Proximity: Cross-functional workflow design; senior stakeholder navigation at VP, Editor-in-Chief, Creative Director, and Global Visuals Director level; high-EQ operating at strategic decision-making layer",
     "Project & Program Management: End-to-end creative delivery across multi-market, multi-stakeholder initiatives; matrixed organizational navigation; complex initiative orchestration from concept to completion",
     "Creative Budget Ownership: P&L management; $50K-$500K project budgets; multi-market financial reporting; contract negotiation; vendor and licensing management",
     "AI & Workflow Innovation: LLM workflow design; proprietary AI-integrated production management platform; SOP automation eliminating production bottlenecks",
@@ -691,6 +691,80 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_content_producer_cv_v3_migrated", String(Date.now()));
+  }, [cvData]);
+
+  // v2 refresh: re-apply the latest Strategy & Ops constant to the existing
+  // Strategy & Ops CV — adds Editor-in-Chief into stakeholder lists, updates
+  // line management bullet wording to mention contract / day-to-day. Backs up
+  // prior data before overwrite.
+  const strategyOpsV2Ref = useRef(false);
+  useEffect(() => {
+    if (strategyOpsV2Ref.current) return;
+    if (localStorage.getItem("onna_strategy_ops_cv_v2_migrated")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    const target = cvData.cvList.find(c => (c.label || "").toLowerCase().includes("strategy & ops"));
+    if (!target) return;
+    strategyOpsV2Ref.current = true;
+    try {
+      localStorage.setItem("onna_strategy_ops_cv_v1_backup", JSON.stringify({ ts: Date.now(), cvItem: target }));
+    } catch (e) { console.warn("Strategy & Ops v1 backup failed, aborting v2 migration:", e); return; }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c =>
+          c.id === target.id ? { ...c, data: JSON.parse(JSON.stringify(STRATEGY_OPS_CV_V1)) } : c
+        ),
+      };
+    });
+    localStorage.setItem("onna_strategy_ops_cv_v2_migrated", String(Date.now()));
+  }, [cvData]);
+
+  // One-time: refresh the line management bullet wording across every CV's
+  // MR PORTER / Net-a-Porter entry to credit "contracted Production Assistant"
+  // and "day-to-day management". Replaces any bullet whose text begins with
+  // "Line Management:".
+  const lineMgmtV2Ref = useRef(false);
+  useEffect(() => {
+    if (lineMgmtV2Ref.current) return;
+    if (localStorage.getItem("onna_mrporter_line_mgmt_v2")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    lineMgmtV2Ref.current = true;
+    const NEW_BULLET = "Line Management: Day-to-day management and development of a contracted Production Assistant — owned work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.";
+    const matchesCompany = (co) => {
+      const c = (co || "").toLowerCase();
+      return c.includes("mr porter") || c.includes("net-a-porter");
+    };
+    const isLineMgmtBullet = (b) => /^\s*line\s*management\s*:/i.test(b || "");
+    const anyToUpdate = cvData.cvList.some(c =>
+      Array.isArray(c.data?.experience) && c.data.experience.some(e =>
+        matchesCompany(e.company) && (e.bullets || []).some(b => isLineMgmtBullet(b) && b !== NEW_BULLET)
+      )
+    );
+    if (!anyToUpdate) {
+      localStorage.setItem("onna_mrporter_line_mgmt_v2", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c => ({
+          ...c,
+          data: {
+            ...(c.data || {}),
+            experience: (c.data?.experience || []).map(e => {
+              if (!matchesCompany(e.company)) return e;
+              const bullets = (e.bullets || []).map(b => isLineMgmtBullet(b) ? NEW_BULLET : b);
+              return { ...e, bullets };
+            }),
+          },
+        })),
+      };
+    });
+    localStorage.setItem("onna_mrporter_line_mgmt_v2", String(Date.now()));
   }, [cvData]);
 
   // One-time addition: seed a "Strategy & Ops" CV variant tailored for
