@@ -110,6 +110,106 @@ const CONTENT_PRODUCER_CV_V1 = {
   ],
 };
 
+const VISUALS_EDITOR_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Visuals Editor & Producer",
+  contact: {
+    phone: "+44 7766546348",
+    email: "emily@onnaproduction.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onna.world",
+    location: "New York — July 2026",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Visuals Editor and Producer with 7+ years across luxury fashion and editorial publishing, including direct experience as Visuals Editor for the relaunch of Vogue Arabia under Condé Nast — commissioning photography, art-directing visual artists, and curating editorial content across digital and print platforms.",
+    "Career grounded inside Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), and Condé Nast — fluent in fast-paced editorial workflow, global approval structures, and tier-1 talent shoots. Founded ONNA Production Ltd. in 2024 and continue to commission and produce for luxury editorial and brand campaigns including Aman, Tiffany & Co., Bvlgari, and ongoing Vogue Arabia advertorials. Tokyo-born with Japanese-US-UK heritage; relocating to New York in July 2026.",
+  ],
+  clients: "VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | HARVEY NICHOLS | AMAN | TIFFANY & CO | BVLGARI | LORO PIANA | CHARLOTTE TILBURY | NIKE | NEW BALANCE | HENNESSY | LOUIS VUITTON | JCREW",
+  experience: [
+    {
+      role: "Founder and Producer",
+      company: "ONNA Production Ltd.",
+      dates: "November 2024 - Present",
+      bullets: [
+        "Editorial Commissioning and Art Direction: Commission, art-direct, and produce editorial visual content for global luxury clients including Aman, Nike, Vogue Arabia (Condé Nast), Tiffany & Co., Bvlgari, and Loro Piana. Ongoing collaborations with photographers Christopher Anderson and Mark Mahaney (Aman), Luc Braquet and Txema Yeste (Vogue Arabia).",
+        "Vogue Arabia Advertorial Partner: Long-term production partner for Vogue Arabia's premium advertiser briefs with Bvlgari, Tiffany & Co., and New Balance — commissioning visuals, managing photographers, and delivering to Condé Nast standards under extreme timelines.",
+        "Visual Identity Storytelling: Translate abstract creative briefs into culturally-grounded visual concepts. Aman's Saudi Arabia flagship pre-launch was anchored by bespoke regional poetry; JA Resort UAE/Maldives campaign combined international models with street-cast multigenerational families.",
+        "Digital-First Output: Multi-format delivery across editorial digital, social, print, and OOH for global and regional platforms.",
+      ],
+    },
+    {
+      role: "Visuals Editor and Production Partner",
+      company: "Condé Nast Inc. (Vogue Arabia)",
+      dates: "December 2024 - Present",
+      bullets: [
+        "Visuals Editor for Vogue Arabia Relaunch: Joined the British Vogue team during Vogue Arabia's return to Condé Nast internal management. Curated and commissioned editorial visual content for the first three relaunch issues under a new global framework, working directly with the Editor-in-Chief, Global Creative Director, and Global Visuals Director.",
+        "Art Direction and Commissioning: Commissioned and art-directed photographers (Luc Braquet, Txema Yeste), illustrators, and videographers across editorial campaigns. Covers with Imaan Hammam; shoots with Halima Aden in New York and Balquees in Dubai.",
+        "Editorial Workflow at Global Standard: Navigated Condé Nast's global approval structure, photo research, and image licensing processes; managed extreme timelines and tight editorial budgets while elevating visual output.",
+        "Trusted Long-Term Partner: Engagement evolved into ongoing production partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "Visual Production at Volume: Owned end-to-end visual production for Harvey Nichols across photography, film, and digital — high-volume seasonal asset engine across all platforms.",
+        "Cross-Channel Editorial Direction: Directed annual content distribution across 360° advertising, marketing activations, and multi-channel digital, e-commerce, and in-store platforms.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Freelance / Self-Employed",
+      dates: "June 2020 - November 2024",
+      bullets: [
+        "Charlotte Tilbury x Disney 100: Supported the $1M+ global activation with Tier-1 content creators (Monet McMichael, Victor Kunda, Danielle Marcan) and the Charlotte Tilbury pro artist team.",
+        "Additional clients: Siro Hotels, Maison Kitsune, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. (MR PORTER)",
+      dates: "June 2019 - May 2024",
+      bullets: [
+        "Career Trajectory: Promoted twice in five years to Lead Producer within a Richemont Group portfolio company, consistently exceeding KPIs.",
+        "Editorial Authorship: Wrote and produced visual journalism for MR PORTER editorial — 'A History of Tattooing in Japan', 'Through the Lens: 6 Photographers on What Ethical Photography Means to Them', and 'The Stylish Gent's Guide to 2022's Freshest Menswear Trends'.",
+        "Photo Research, Licensing, and Commissioning: Owned photo research, image licensing, and editorial commissioning across MR PORTER's digital editorial output.",
+        "Line Management: Day-to-day management and development of a contracted Production Assistant — owned work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.",
+        "Tier-1 Talent Shoots: Executive produced premium content featuring A-list talent including Finneas and Stefon Diggs across LA, New York, and Miami.",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Editorial Visuals & Art Direction: Commissioning, art-direction, editorial concept development; working with photographers, illustrators, and videographers across fashion and portrait photography",
+    "Photo Research & Image Licensing: Editorial photo research, stock agency and image library knowledge, usage rights and licensing negotiation across editorial and advertorial work",
+    "Digital-First Editorial Workflow: Visual content for digital platforms — social, web, newsletters; multi-format delivery across digital, print, and social",
+    "Condé Nast Workflow: Direct experience navigating Condé Nast's global editorial approval structure, editorial budgets, and fast-cycle timelines",
+    "Adobe Creative Suite: Photoshop, Lightroom, InDesign for editorial visuals workflow",
+    "Tier-1 Talent Production: Cover shoots and editorial features with talent including Imaan Hammam, Halima Aden, Balquees, Finneas, and Stefon Diggs",
+    "Photographer Network: Ongoing collaborations with Christopher Anderson, Mark Mahaney, Luc Braquet, Txema Yeste, plus an extensive freelance network across UK, GCC, Japan, and US",
+    "Fast-Paced Editorial Production: Navigating extreme timelines, breaking visual content windows, and senior editorial stakeholder approval cycles",
+    "Industry Depth: 7 years across Condé Nast, Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), Aman, Tiffany & Co., Bvlgari",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on career planning, CV development, and interview preparation.",
+    },
+  ],
+};
+
 const HEAD_OF_PRODUCTION_CV_V1 = {
   name: "EMILY LUCAS",
   title: "Executive Producer & Head of Production",
@@ -869,6 +969,32 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_mrporter_line_mgmt_v2", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Visuals Editor" CV variant tailored for
+  // editorial Visuals Editor roles, especially at Condé Nast titles
+  // (e.g. Vanity Fair freelance Visuals Editor).
+  const visualsEditorAddedRef = useRef(false);
+  useEffect(() => {
+    if (visualsEditorAddedRef.current) return;
+    if (localStorage.getItem("onna_visuals_editor_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    visualsEditorAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase().includes("visuals editor"));
+    if (exists) {
+      localStorage.setItem("onna_visuals_editor_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now();
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Visuals Editor", data: JSON.parse(JSON.stringify(VISUALS_EDITOR_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_visuals_editor_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
   // One-time addition: seed a "Head of Production" CV variant tailored for
