@@ -110,6 +110,110 @@ const CONTENT_PRODUCER_CV_V1 = {
   ],
 };
 
+const HEAD_OF_PRODUCTION_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Executive Producer & Head of Production",
+  contact: {
+    phone: "+44 7766546348",
+    email: "emily@onnaproduction.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onna.world",
+    location: "New York — July 2026",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Senior production leader with 7+ years across luxury retail, fashion, and editorial — owning end-to-end production, post-production, vendor architecture, and budget across multi-format outputs (campaigns, editorial shoots, digital, e-commerce, in-store, and OOH).",
+    "In-house production experience inside Net-a-Porter Group (Richemont) and Harvey Nichols (Al Tayer Insignia), where I owned high-volume seasonal asset engines spanning photography, film, digital, and e-commerce. Founded ONNA Production Ltd. in 2024, building a proprietary AI-integrated production platform that automates client onboarding, workflow coordination, and SOP enforcement — directly relevant to AI-assisted production workflows. Tokyo-born with Japanese-US-UK heritage; relocating to New York in July 2026.",
+  ],
+  clients: "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | HARVEY NICHOLS | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY",
+  experience: [
+    {
+      role: "Founder and Executive Producer",
+      company: "ONNA Production Ltd.",
+      dates: "November 2024 - Present",
+      bullets: [
+        "End-to-End Production Leadership: Own the full production function for a portfolio of luxury clients including Aman, Nike, Vogue Arabia (Condé Nast), Tiffany & Co., Bvlgari, and Loro Piana — pre-production through post-production sign-off across photography, film, and integrated campaigns.",
+        "Post-Production Oversight: Direct retouching, colour grading, editing, sound, and rights clearance across all client deliverables. Manage finishing partners and asset delivery to multi-format specs across print, digital, social, e-commerce, and OOH.",
+        "AI-Integrated Production Infrastructure: Built a proprietary 11-agent production management platform that automates client onboarding, project coordination, accounting, and SOP enforcement — directly relevant to AI-assisted production workflows. Pioneered LLM and agentic workflows across creative SOPs.",
+        "Operations & Process Design: Architected production SOPs, workflow templates, and a standardized 10% contingency model now used across all client engagements; lean partnership-based operating model delivers 25% gross margin.",
+        "Consolidated Budget Ownership: Manage production budgets from $50K editorial commissions to $500K global campaigns (JA Resort — UAE and Maldives). Track spend against forecast across multi-market projects.",
+        "Vendor Management: Built and lead a global roster of preferred photographers, retouchers, finishing partners, and production vendors across the UK, GCC, Japan, and US, with retainer-based agreements and negotiated rate cards.",
+        "Network Leadership: Recruit, brief, and develop a global network of freelance crew and creative partners; manage performance, deliverables, and career development across engagements.",
+      ],
+    },
+    {
+      role: "Production Partner and Visuals Editor",
+      company: "Condé Nast Inc. (Vogue Arabia)",
+      dates: "December 2024 - Present",
+      bullets: [
+        "Trusted Long-Term Partner: Joined the British Vogue team during Vogue Arabia's return to Condé Nast internal management; engagement evolved into an ongoing production partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
+        "Editorial Production at Global Standard: Art-directed and commissioned visual content with photographers Luc Braquet and Txema Yeste; oversaw retouching and finishing to global Condé Nast standards; navigated Condé Nast's global approval structure with the Editor-in-Chief, Global Creative Director, and Global Visuals Director.",
+        "Tier-1 Talent and Cover Production: Covers with Imaan Hammam; shoots with Halima Aden in New York and Balquees in Dubai.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "In-House Department Store Production: Owned end-to-end visual production for Harvey Nichols, managing a high-volume seasonal asset engine across photography, film, digital, e-commerce, and in-store activations — directly analogous to multi-banner department store production.",
+        "Workflow & Vendor Architecture: Designed a Retainer Partnership Model that cut variable costs 20% — a workflow change that became the team's default operating model and stabilized vendor performance against agreed standards.",
+        "Multi-Channel Budget Distribution: Directed the annual content budget across 360° advertising, marketing activations, and multi-channel digital campaigns to optimize ROI across all output formats.",
+        "Cross-Functional Matrix: Led a complex stakeholder matrix across Procurement, Marketing, and Creative to align content strategy with commercial KPIs.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Freelance / Self-Employed",
+      dates: "June 2020 - November 2024",
+      bullets: [
+        "Charlotte Tilbury x Disney 100: Supported the $1M+ global activation across on-set logistics, vendor management, Tier-1 content creator coordination, and alignment with the Charlotte Tilbury pro artist team.",
+        "GUESS Global Ramadan Campaign: Led end-to-end production in Abu Dhabi with A-list models, navigating regional sensitivities and global brand standards.",
+        "Additional clients: Siro Hotels, Maison Kitsune, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. (MR PORTER)",
+      dates: "June 2019 - May 2024",
+      bullets: [
+        "Richemont Group Luxury Retail Environment: Five years inside a Richemont Group portfolio company. Promoted twice in five years to Lead Producer, consistently exceeding KPIs.",
+        "Line Management: Day-to-day management and development of a contracted Production Assistant — owned work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.",
+        "US Production Lead: Led A-list talent shoots across LA, New York, and Miami, including 'MR PORTER In America' — a 360-degree, multi-brand campaign generating 2.65M views and a 75% engagement uplift.",
+        "Brand Partnership Framework: Built a white-label production framework generating $500K+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island, and Hennessy. Owned post-production handoff and multi-format delivery (digital, e-commerce, social, print).",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Production Leadership: End-to-end production across photography, film, and integrated content; pre-production, casting, locations, scheduling, on-set execution; senior production voice in creative reviews and cross-functional planning",
+    "Post-Production: Retouching workflows, colour grading and management, editing, sound, asset delivery and versioning, DAM systems exposure, multi-format output across print, digital, social, e-commerce, and in-store",
+    "Operations & Process Design: Production SOPs, workflow templates, master production calendar, project management tooling, KPI reporting on capacity and operational performance",
+    "Budget Ownership: Consolidated multi-market production budgets; $50K-$500K project budgets; spend tracking against forecast; multi-banner budget oversight",
+    "Vendor Management: Preferred-vendor roster construction, contract negotiation, rate card development, performance reviews, contingency planning",
+    "Team & People: Line management (contracted Production Assistant at MR PORTER); freelance network leadership; mentor relationships (Graduate Fashion Foundation)",
+    "AI & Workflow Innovation: Proprietary 11-agent AI production management platform; LLM workflow design; AI-driven SOPs; familiarity with AI-assisted retouching and emerging virtual production tools",
+    "Luxury Retail Depth: 7 years across Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), Condé Nast, Aman, Tiffany & Co., Bvlgari, Loro Piana",
+    "Tools: Productive.io, Asana, Monday, Airtable, Smartsheet, Adobe Creative Suite, Midjourney, Elevenlabs, custom AI agents",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on career planning, CV development, and interview preparation.",
+    },
+  ],
+};
+
 const STRATEGY_OPS_CV_V1 = {
   name: "EMILY LUCAS",
   title: "Executive Producer & Creative Operations Lead",
@@ -765,6 +869,32 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_mrporter_line_mgmt_v2", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Head of Production" CV variant tailored for
+  // AVP / Head of Production-level in-house roles in luxury retail
+  // (e.g. Saks Global AVP Creative Production).
+  const headOfProductionAddedRef = useRef(false);
+  useEffect(() => {
+    if (headOfProductionAddedRef.current) return;
+    if (localStorage.getItem("onna_head_of_production_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    headOfProductionAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase().includes("head of production"));
+    if (exists) {
+      localStorage.setItem("onna_head_of_production_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now();
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Head of Production", data: JSON.parse(JSON.stringify(HEAD_OF_PRODUCTION_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_head_of_production_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
   // One-time addition: seed a "Strategy & Ops" CV variant tailored for
