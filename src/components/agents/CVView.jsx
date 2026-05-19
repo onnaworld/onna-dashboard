@@ -971,6 +971,33 @@ export default function CVView({ cvData, onSet, projectName }) {
     localStorage.setItem("onna_mrporter_line_mgmt_v2", String(Date.now()));
   }, [cvData]);
 
+  // Retry: the v1 add lost a race with concurrent migrations because the
+  // parent onSet used a stale closure. With the parent now using a composable
+  // functional setter, retry the Visuals Editor add once under a new flag.
+  const visualsEditorRetryRef = useRef(false);
+  useEffect(() => {
+    if (visualsEditorRetryRef.current) return;
+    if (localStorage.getItem("onna_visuals_editor_cv_added_v2")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    visualsEditorRetryRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase() === "visuals editor");
+    if (exists) {
+      localStorage.setItem("onna_visuals_editor_cv_added_v2", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now() + "_ve";
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      if (s.cvList.some(c => (c.label || "").toLowerCase() === "visuals editor")) return s;
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Visuals Editor", data: JSON.parse(JSON.stringify(VISUALS_EDITOR_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_visuals_editor_cv_added_v2", String(Date.now()));
+  }, [cvData]);
+
   // One-time addition: seed a "Visuals Editor" CV variant tailored for
   // editorial Visuals Editor roles, especially at Condé Nast titles
   // (e.g. Vanity Fair freelance Visuals Editor).

@@ -268,9 +268,11 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
                 key={resetKey}
                 cvData={data || DEFAULT_CV}
                 onSet={(updater) => {
-                  const current = getDocData("cv") || DEFAULT_CV;
-                  const next = typeof updater === "function" ? updater(current) : updater;
-                  saveDoc("cv", next);
+                  setTemplateDocData(prev => {
+                    const currentCv = prev?.cv?.data ?? (getFreshNative("cv") || DEFAULT_CV);
+                    const nextCv = typeof updater === "function" ? updater(currentCv) : updater;
+                    return { ...prev, cv: { data: nextCv, savedAt: Date.now() } };
+                  });
                 }}
                 projectName="Template"
               />
