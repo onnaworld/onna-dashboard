@@ -110,6 +110,106 @@ const CONTENT_PRODUCER_CV_V1 = {
   ],
 };
 
+const STRATEGY_OPS_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Executive Producer & Creative Operations Lead",
+  contact: {
+    phone: "+44 7766546348",
+    email: "emily@onnaproduction.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onna.world",
+    location: "New York — July 2026",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Senior production and operations leader with 8 years inside the luxury fashion industry. Founder and operator of ONNA Production Ltd., where I sit at the strategic decision-making layer — designing creative workflows, owning the P&L, and orchestrating cross-functional delivery for Aman, Nike, Vogue Arabia (Condé Nast), Tiffany & Co., Bvlgari, and Loro Piana.",
+    "Career grounded in-house at Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), and Vogue Arabia (Condé Nast), navigating complex matrixed organizations and senior stakeholder environments at VP of Brand, Global Creative Director, and Global Visuals Director level. Pioneered AI-integrated workflow systems that compress production cycles and eliminate bottlenecks across creative operations. Tokyo-born with Japanese-US-UK heritage; relocating to New York in July 2026.",
+  ],
+  clients: "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | LOUIS VUITTON | JCREW | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | HARVEY NICHOLS",
+  experience: [
+    {
+      role: "Founder and Executive Producer",
+      company: "ONNA Production Ltd.",
+      dates: "November 2024 - Present",
+      bullets: [
+        "Strategic Leadership: Operate at the strategic decision-making layer adjacent to client CBOs, VPs of Brand, and Creative Directors. Own end-to-end strategy, operations, P&L, and creative delivery for a portfolio of global luxury institutions including Aman, Nike, Vogue Arabia, Tiffany & Co., and Bvlgari.",
+        "Workflow Optimization & Bottleneck Elimination: Pioneered LLM and agentic workflows across creative SOPs; built a proprietary 11-agent production management platform automating client onboarding, accounting, and project coordination — compressing production cycles and clearing the path for high-impact creative work.",
+        "Aman Strategic Partnership (4 delivered + 2 active proposals): Trusted long-term partner across the Aman and Janu portfolio. Lead multi-stakeholder decisions across Aman's VP of Brand, external creative partners, and developers; collaborated with photographers including Christopher Anderson and Mark Mahaney; developed global production budgets for proposed expansions into New York and the Maldives.",
+        "Cross-Functional Orchestration: Coordinate across client Brand, Marketing, Creative, Procurement, and Legal functions, plus external creative partners, agencies, and freelance networks. Translate ambiguous creative briefs into clear, actionable delivery plans across multi-market timelines.",
+        "Creative Budget Ownership: Manage creative budgets from $50K editorial commissions to $500K global campaigns (JA Resort — UAE and Maldives). Standardized 10% contingency model; 25% gross margin via lean partnership-based operating model.",
+        "Network Leadership: Built and lead a global network of freelance creative talent, photographers, vendors, and agency partners across the UK, GCC, Japan, and US, with retainer-based vendor relationships negotiated to luxury brand standards.",
+      ],
+    },
+    {
+      role: "Production Partner and Visuals Editor",
+      company: "Condé Nast Inc. (Vogue Arabia)",
+      dates: "December 2024 - Present",
+      bullets: [
+        "Trusted Long-Term Partner: Joined the British Vogue team during Vogue Arabia's return to Condé Nast internal management; engagement evolved into an ongoing partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
+        "Senior Stakeholder Navigation: Worked directly with the Global Creative Director, Global Visuals Director, and British Vogue team; navigated Condé Nast's global approval structure and editorial governance with senior editorial stakeholders.",
+        "Tier-1 Talent and Cover Production: Operational expertise with luxury-fashion talent — covers with Imaan Hammam, shoots with Halima Aden in New York, and Balquees in Dubai. Art-directed and commissioned with photographers Luc Braquet and Txema Yeste.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "In-House Operations Lead: Owned end-to-end visual production for Harvey Nichols across photography, film, and digital, managing a high-volume seasonal asset engine.",
+        "Workflow Architecture: Designed a Retainer Partnership Model that cut variable costs 20% — a workflow change that became the team's default operating model and elevated consistency of vendor performance.",
+        "Cross-Functional Matrix Leadership: Led a complex stakeholder matrix across Procurement, Marketing, and Creative to align annual content strategy with commercial KPIs — directly analogous to the cross-functional alignment this role requires.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Freelance / Self-Employed",
+      dates: "June 2020 - November 2024",
+      bullets: [
+        "Charlotte Tilbury x Disney 100: Supported the $1M+ global activation across on-set logistics, vendor management, Tier-1 content creator coordination, and alignment with the Charlotte Tilbury pro artist team.",
+        "GUESS Global Ramadan Campaign: Led end-to-end production in Abu Dhabi with A-list models, navigating regional sensitivities and global brand standards.",
+        "Additional clients: Siro Hotels, Maison Kitsune, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. (MR PORTER)",
+      dates: "June 2019 - May 2024",
+      bullets: [
+        "Richemont Group Stakeholder Environment: Five years inside a Richemont Group portfolio company, navigating a complex luxury-holding-company stakeholder matrix. Promoted twice in five years to Lead Producer, consistently exceeding KPIs.",
+        "Line Management: Directly managed and developed a Production Assistant, owning her work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.",
+        "US Production Lead: Led A-list talent shoots across LA, New York, and Miami, including 'MR PORTER In America' — a 360-degree, multi-brand campaign generating 2.65M views and a 75% engagement uplift.",
+        "Brand Partnership Framework: Built a white-label production framework generating $500K+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island, and Hennessy.",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Strategic Operations & C-Suite Proximity: Cross-functional workflow design; senior stakeholder navigation at VP, Creative Director, and Global Visuals Director level; high-EQ operating at strategic decision-making layer",
+    "Project & Program Management: End-to-end creative delivery across multi-market, multi-stakeholder initiatives; matrixed organizational navigation; complex initiative orchestration from concept to completion",
+    "Creative Budget Ownership: P&L management; $50K-$500K project budgets; multi-market financial reporting; contract negotiation; vendor and licensing management",
+    "AI & Workflow Innovation: LLM workflow design; proprietary AI-integrated production management platform; SOP automation eliminating production bottlenecks",
+    "Luxury Industry Depth: 8 years across Net-a-Porter Group (Richemont), Condé Nast, Harvey Nichols (Al Tayer Insignia), Aman, Tiffany & Co., Bvlgari, Loro Piana",
+    "Team & Network Leadership: Building and leading external creative networks across UK, GCC, Japan, and US; freelance crew management; mentor relationships with junior talent",
+    "Tools: Productive.io, Asana, Monday, Airtable, Smartsheet, Adobe Creative Suite, Midjourney, Elevenlabs, custom AI agents",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on career planning, CV development, and interview preparation.",
+    },
+  ],
+};
+
 const CREATIVE_STRATEGY_CV_V1 = {
   name: "EMILY LUCAS",
   title: "Creative Strategist",
@@ -470,6 +570,53 @@ export default function CVView({ cvData, onSet, projectName }) {
     localStorage.setItem("onna_content_producer_cv_v2_migrated", String(Date.now()));
   }, [cvData]);
 
+  // One-time: add line-management bullet to every CV's MR PORTER / Net-a-Porter
+  // experience entry. Skips entries that already mention line management.
+  const addMrPorterLineMgmtRef = useRef(false);
+  useEffect(() => {
+    if (addMrPorterLineMgmtRef.current) return;
+    if (localStorage.getItem("onna_mrporter_line_mgmt_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    addMrPorterLineMgmtRef.current = true;
+    const LINE_MGMT_BULLET = "Line Management: Directly managed and developed a Production Assistant, owning her work allocation, performance feedback, and career growth across the team's high-volume shoot calendar.";
+    const matchesCompany = (co) => {
+      const c = (co || "").toLowerCase();
+      return c.includes("mr porter") || c.includes("net-a-porter");
+    };
+    const hasLineMgmt = (bullets) => (bullets || []).some(b => /line\s*manag/i.test(b || ""));
+    const anyToUpdate = cvData.cvList.some(c =>
+      Array.isArray(c.data?.experience) && c.data.experience.some(e => matchesCompany(e.company) && !hasLineMgmt(e.bullets))
+    );
+    if (!anyToUpdate) {
+      localStorage.setItem("onna_mrporter_line_mgmt_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: s.cvList.map(c => ({
+          ...c,
+          data: {
+            ...(c.data || {}),
+            experience: (c.data?.experience || []).map(e => {
+              if (!matchesCompany(e.company)) return e;
+              if (hasLineMgmt(e.bullets)) return e;
+              // Insert line management bullet after the first bullet (career trajectory),
+              // before the substantive campaign bullets.
+              const bullets = Array.isArray(e.bullets) ? [...e.bullets] : [];
+              const insertAt = bullets.length > 0 ? 1 : 0;
+              bullets.splice(insertAt, 0, LINE_MGMT_BULLET);
+              return { ...e, bullets };
+            }),
+          },
+        })),
+      };
+    });
+    localStorage.setItem("onna_mrporter_line_mgmt_v1", String(Date.now()));
+  }, [cvData]);
+
   // One-time: clear bullets from junior-progression role entries
   // (Picture Assistant, Social Media Production Coordinator) across all CVs.
   // Backs up prior experience arrays before clearing.
@@ -544,6 +691,32 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_content_producer_cv_v3_migrated", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Strategy & Ops" CV variant tailored for
+  // in-house strategic operations / chief-of-staff-to-CBO roles
+  // (e.g. The RealReal Senior Director, Creative Strategy).
+  const strategyOpsAddedRef = useRef(false);
+  useEffect(() => {
+    if (strategyOpsAddedRef.current) return;
+    if (localStorage.getItem("onna_strategy_ops_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    strategyOpsAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase().includes("strategy & ops"));
+    if (exists) {
+      localStorage.setItem("onna_strategy_ops_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now();
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Strategy & Ops", data: JSON.parse(JSON.stringify(STRATEGY_OPS_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_strategy_ops_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
   // One-time addition: seed a "Creative Strategy" CV variant tailored for
