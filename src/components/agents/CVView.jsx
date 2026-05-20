@@ -110,6 +110,108 @@ const CONTENT_PRODUCER_CV_V1 = {
   ],
 };
 
+const CREATIVE_PRODUCER_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Creative Producer",
+  contact: {
+    phone: "+1 (917) 735-8545",
+    email: "emilyelucas@gmail.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onnaproduction.com",
+    location: "Brooklyn, New York",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Creative Producer with 7+ years across branding, editorial, and consumer campaigns — connective tissue between clients, creative teams, and external production partners. Founded ONNA in 2024, a creative production studio running scopes, budgets, and global freelancer networks across photography, film, packaging, and digital deliverables for brands including Aman, Nike, Mastercard, Columbia, Vogue Arabia, Bvlgari, and Tiffany & Co.",
+    "Career grounded inside Net-a-Porter Group (Richemont), Harvey Nichols (Al Tayer Insignia), and Condé Nast managing creative workflows, scopes, and vendor networks at both agency and in-house scale. Comfortable client-facing; fluent translating between strategy, creative, and execution. Brooklyn-based.",
+  ],
+  clients: "AMAN | NIKE | VOGUE ARABIA (CONDÉ NAST) | MASTERCARD | COLUMBIA | MR PORTER | NET-A-PORTER | CHARLOTTE TILBURY | TIFFANY & CO | BVLGARI | LORO PIANA | JCREW | HENNESSY | NEW BALANCE | GUESS | ONE&ONLY | HARVEY NICHOLS",
+  experience: [
+    {
+      role: "Founder and Creative Producer",
+      company: "ONNA Production LLC.",
+      dates: "November 2024 - Present",
+      bullets: [
+        "Connective Tissue Across Client, Creative, and External Teams: Independently manage day-to-day workflow across branding, campaign, packaging, and digital projects for Aman, Nike, Vogue Arabia (Condé Nast), Tiffany & Co., and Bvlgari. Translate between client strategy, in-house creative direction, and freelance production partners.",
+        "Scope, Contracts, and Budget Management: Author SOWs, negotiate contracts, manage usage rights, and track project budgets from $50K to $500K against scope and deliverables in close coordination with Finance and Legal counterparts.",
+        "External Partner Network: Built and manage a global freelance network of photographers, videographers, retouchers, stylists, and production specialists across the UK, GCC, Japan, and US. Set clear expectations, manage performance, and resolve issues proactively.",
+        "JA Resort — $500K Global Campaign (UAE & Maldives): Led a two-week, multi-location global campaign across UAE and Maldives. Managed complex casting that combined international models with street-cast multigenerational families.",
+        "Operational Best Practices: Designed internal workflow tooling for project tracking, vendor coordination, and SOP enforcement — directly contributing to studio-wide operational improvement.",
+        "Client-Facing Logistics & Timelines: Primary point of contact for small-to-medium project deliveries; anticipate needs, flag risks, and problem-solve in real time across multi-stakeholder environments.",
+      ],
+    },
+    {
+      role: "Visuals Editor (Freelance)",
+      company: "Condé Nast Middle East LLC (Vogue Arabia)",
+      dates: "December 2024 - March 2025",
+      bullets: [
+        "Client-facing partner during Vogue Arabia's return to Condé Nast internal management; translated between global Condé Nast creative direction, regional editorial team, and external photographers and visual artists.",
+        "Art-directed and commissioned visual content with photographers Luc Braquet and Txema Yeste; managed editorial budgets, approval processes, and extreme timelines.",
+        "Engagement evolved into ongoing production partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "In-house producer managing creative workflow across photography, film, digital, and in-store campaigns — high-volume seasonal asset engine.",
+        "Vendor Architecture: Designed a Retainer Partnership Model that cut variable costs 20% and became the team's default operating model.",
+        "Cross-Functional Alignment: Led complex stakeholder matrix across Procurement, Marketing, and Creative to align annual content budget allocation across 360° advertising, marketing activations, and digital campaigns.",
+      ],
+    },
+    {
+      role: "Senior Producer (Freelance)",
+      company: "Freelance / Self-Employed",
+      dates: "June 2020 - November 2024",
+      bullets: [
+        "Charlotte Tilbury x Disney 100: Supported the $1M+ global activation, including on-set logistics, vendor management, Tier-1 content creator coordination (Monet McMichael, Victor Kunda, Danielle Marcan), and alignment with the Charlotte Tilbury pro artist team and stylist Nathan Klein.",
+        "GUESS Global Ramadan Campaign: Led end-to-end production in Abu Dhabi with A-list models, navigating regional sensitivities and global brand standards.",
+        "Editorial & Visual Research, Trippin: Wrote and image-researched feature pieces for Trippin examining ethical photography practice, Graciela Iturbide's portraiture, and the cultural history of tattooing in Japan.",
+        "Additional clients: Siro Hotels, Maison Kitsune, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. (MR PORTER)",
+      dates: "July 2019 - May 2024",
+      bullets: [
+        "Career Trajectory: Advanced three levels in five years from Picture Assistant to Lead Producer, consistently exceeding KPIs within a complex stakeholder matrix under the Richemont Group.",
+        "Line Management: Day-to-day management and development of a contracted Production Assistant — owned work allocation, performance feedback, and career growth.",
+        "US Production Lead: Led A-list talent shoots across LA, New York, and Miami including 'MR PORTER In America' (2.65M views, 75% engagement uplift).",
+        "Brand Partnership Framework: Built a white-label production framework generating $500K+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island, and Hennessy.",
+        "Editorial Writing & Picture Research: Wrote and image-researched original editorial features (including 'New York Through the Decades'), commissioning original photography and licensing archive imagery from photographers such as Bruce Davidson and Vivian Maier across MR PORTER's print and digital properties.",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Project Management Tools: Asana, Monday, Trello, Airtable (fluent across all)",
+    "Creative Production: Branding, campaign, packaging, and digital project management across cross-functional creative teams",
+    "External Partner Networks: Global freelance network across photographers, videographers, retouchers, stylists, designers, and production specialists — UK, GCC, Japan, US",
+    "Scopes, Contracts & Budgets: SOW authorship, contract negotiation, usage rights management, budget and hours tracking against scope",
+    "Client Management: Primary client point of contact for small-to-medium projects; translating between strategy, creative, and execution",
+    "Operational Best Practices: Workflow systems, SOP design, vendor partnership models, cross-functional process improvement",
+    "Cross-Functional Collaboration: Operations, design, motion, copy, and creative teams across in-house and agency environments",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on career planning, CV development, and interview preparation.",
+    },
+  ],
+};
+
 const VISUALS_EDITOR_CV_V1 = {
   name: "EMILY LUCAS",
   title: "Visuals Editor & Producer",
@@ -996,6 +1098,32 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_visuals_editor_cv_added_v2", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Creative Producer" CV variant tailored for
+  // brand/creative agency Producer roles (e.g. Day Job Creative Producer).
+  const creativeProducerAddedRef = useRef(false);
+  useEffect(() => {
+    if (creativeProducerAddedRef.current) return;
+    if (localStorage.getItem("onna_creative_producer_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    creativeProducerAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase() === "creative producer");
+    if (exists) {
+      localStorage.setItem("onna_creative_producer_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now() + "_cp";
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      if (s.cvList.some(c => (c.label || "").toLowerCase() === "creative producer")) return s;
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Creative Producer", data: JSON.parse(JSON.stringify(CREATIVE_PRODUCER_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_creative_producer_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
   // One-time addition: seed a "Visuals Editor" CV variant tailored for
