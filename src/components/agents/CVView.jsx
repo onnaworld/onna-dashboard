@@ -732,6 +732,43 @@ const InlineEdit = ({ value, onChange, style = {}, multiline, placeholder }) => 
 
 export { DEFAULT_CV };
 
+// ── Cover Letter default ──
+// Items in cvList that hold a cover letter rather than a CV are flagged via
+// `data._docType === "coverletter"`. The renderer/print/export branches on
+// that flag and lays out the document accordingly.
+const DEFAULT_COVER_LETTER = {
+  _docType: "coverletter",
+  name: "EMILY LUCAS",
+  title: "Senior Producer",
+  contact: {
+    phone: "+1 (917) 735-8545",
+    email: "emilyelucas@gmail.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onnaproduction.com",
+    location: "Brooklyn, NY (from July 2026)",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  date: "May 22, 2026",
+  recipient: {
+    name: "Hiring Team",
+    company: "Company Name",
+    line1: "",
+    line2: "",
+  },
+  salutation: "Dear Hiring Team,",
+  body: [
+    "I'm writing to apply for the [Role] at [Company]. [One-line hook tying your experience to their brief].",
+    "Most recently, I've been founder of ONNA Production — a studio I launched in 2024 to serve global brands operating across multiple markets. Within the first year, I've delivered campaigns for Nike, Aman, Mastercard, Columbia, and Vogue Arabia (Condé Nast).",
+    "Prior to ONNA, I scaled three levels in five years at MR PORTER (Net-a-Porter Group, Richemont) from Picture Assistant to Producer, with US production leadership on flagship campaigns. I led freelance production on the $1M+ Charlotte Tilbury x Disney 100 global activation, and have produced for Louis Vuitton, J.Crew, Maison Kitsuné, and Harvey Nichols.",
+    "What I bring specifically: deep operational rigor (full P&L, SOWs, talent contracts, vendor agreements, usage rights), an established global vendor network across the UK, GCC, Japan, and US, and production fluency across both brand-side and agency-side environments.",
+    "I'd welcome the chance to discuss how my experience can contribute to [Company]'s team.",
+  ],
+  signoff: "Best,",
+  signature: "Emily Lucas",
+};
+
+export { DEFAULT_COVER_LETTER };
+
 // Single-line skill row. Shows "Header: description" with the header bold in display mode,
 // switches to a full-width textarea on click for editing.
 const SkillRow = ({ value, onChange, onRemove }) => {
@@ -1372,6 +1409,48 @@ export default function CVView({ cvData, onSet, projectName }) {
     }));
   };
 
+  // ── Cover Letter actions ──
+  const addNewCoverLetter = () => {
+    const label = prompt("Cover letter name (e.g. Lululemon, VF, Unsplash):");
+    if (!label) return;
+    const id = "cv_" + Date.now();
+    const newData = JSON.parse(JSON.stringify(DEFAULT_COVER_LETTER));
+    setStore(s => ({
+      ...s,
+      cvList: [...s.cvList, { id, label: `Cover · ${label}`, data: newData }],
+      activeCvId: id,
+    }));
+  };
+
+  const addBodyParagraph = () => {
+    setCvData(prev => {
+      const n = JSON.parse(JSON.stringify(prev || DEFAULT_COVER_LETTER));
+      n.body = [...(n.body || []), ""];
+      return n;
+    });
+  };
+
+  const removeBodyParagraph = (i) => {
+    setCvData(prev => {
+      const n = JSON.parse(JSON.stringify(prev || DEFAULT_COVER_LETTER));
+      if ((n.body || []).length > 1) n.body.splice(i, 1);
+      return n;
+    });
+  };
+
+  const moveBodyParagraph = (from, to) => {
+    if (to < 0 || to >= (cv.body || []).length) return;
+    setCvData(prev => {
+      const n = JSON.parse(JSON.stringify(prev || DEFAULT_COVER_LETTER));
+      const [moved] = n.body.splice(from, 1);
+      n.body.splice(to, 0, moved);
+      return n;
+    });
+  };
+
+  // True when the active tab holds a cover letter, not a CV.
+  const isCoverLetter = cv?._docType === "coverletter";
+
   const deleteCv = (cvId) => {
     const item = store.cvList.find(c => c.id === cvId);
     if (store.cvList.length <= 1) { alert("You must have at least one CV."); return; }
@@ -1643,6 +1722,137 @@ export default function CVView({ cvData, onSet, projectName }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  // Print a cover letter to PDF. Same iframe + window.print approach as doPrint,
+  // but renders letter layout (date, recipient, salutation, body, sign-off)
+  // instead of CV sections. Shares the header + contact bar markup so the
+  // visual identity matches CV exports.
+  const doPrintCoverLetter = () => {
+    const c = cv;
+    const ct = c.contact || {};
+    const r = c.recipient || {};
+    const S = `font-size:11px;line-height:${LINE_H};color:#1a1a1a;`;
+
+    let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11px;line-height:${LINE_H};">`;
+
+    // Header — name + title
+    html += `<div style="margin-bottom:10px;">`;
+    html += `<div style="font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;">${esc(c.name)}</div>`;
+    html += `<div style="font-size:14px;color:#1a1a1a;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
+    html += `</div>`;
+
+    // Contact bar
+    const dot = ' <span style="color:#ccc;padding:0 6px;">•</span> ';
+    const contactParts = [];
+    if (ct.phone) contactParts.push(`<a href="tel:${esc(ct.phone.replace(/\s/g,''))}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.phone)}</a>`);
+    if (ct.email) contactParts.push(`<a href="mailto:${esc(ct.email)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.email)}</a>`);
+    if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.linkedin)}</a>`); }
+    if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; contactParts.push(`<a href="${esc(url)}" style="color:#1a1a1a;text-decoration:none;">${esc(ct.website)}</a>`); }
+    if (contactParts.length > 0) {
+      html += `<div style="font-size:10.5px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${contactParts.join(dot)}</div>`;
+    }
+    const locationParts = [];
+    if (ct.location) locationParts.push(esc(ct.location));
+    if (ct.citizenship) locationParts.push(esc(ct.citizenship));
+    if (locationParts.length > 0) {
+      html += `<div style="font-size:10.5px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};margin-bottom:3px;text-align:center;">${locationParts.join(dot)}</div>`;
+    }
+
+    // Thick rule
+    html += `<div style="border-bottom:2.5px solid #000;margin:8px 0 20px 0;"></div>`;
+
+    // Date — right-aligned
+    if (c.date) html += `<div style="${S}text-align:right;margin-bottom:18px;">${esc(c.date)}</div>`;
+
+    // Recipient block
+    const recipLines = [];
+    if (r.name) recipLines.push(esc(r.name));
+    if (r.company) recipLines.push(esc(r.company));
+    if (r.line1) recipLines.push(esc(r.line1));
+    if (r.line2) recipLines.push(esc(r.line2));
+    if (recipLines.length > 0) {
+      html += `<div style="${S}margin-bottom:18px;">${recipLines.map((l, i) => `<div style="${i === 0 ? 'font-weight:700;' : ''}">${l}</div>`).join("")}</div>`;
+    }
+
+    // Salutation
+    if (c.salutation) html += `<div style="${S}margin-bottom:14px;">${esc(c.salutation)}</div>`;
+
+    // Body paragraphs
+    (c.body || []).forEach(para => {
+      if (para && para.trim()) html += `<div style="${S}margin-bottom:12px;">${esc(para)}</div>`;
+    });
+
+    // Sign-off + signature
+    if (c.signoff) html += `<div style="${S}margin-top:18px;">${esc(c.signoff)}</div>`;
+    if (c.signature) html += `<div style="${S}margin-top:2px;font-weight:700;">${esc(c.signature)}</div>`;
+
+    html += `</div>`;
+
+    const docTitle = `Cover Letter - ${c.name || "Cover Letter"}${activeItem ? " - " + activeItem.label : ""}${projectName ? " | " + projectName : ""}`;
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    document.body.appendChild(iframe);
+    const _d = iframe.contentDocument;
+    _d.open();
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11px;color:#1a1a1a;padding:0 12mm;}a{color:#1a1a1a;text-decoration:none;}@media print{@page{margin:10mm 0;size:A4;}}</style></head><body>${html}</body></html>`);
+    _d.close();
+    const prevTitle = document.title;
+    document.title = docTitle;
+    const restoreTitle = () => { document.title = prevTitle; document.body.removeChild(iframe); window.removeEventListener("afterprint", restoreTitle); };
+    window.addEventListener("afterprint", restoreTitle);
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 250);
+  };
+
+  // ATS-friendly Word export for cover letters. Plain paragraphs, no fancy layout.
+  const doExportWordCoverLetter = () => {
+    const c = cv;
+    const ct = c.contact || {};
+    const r = c.recipient || {};
+    const P = `font-family:Calibri, Arial, sans-serif; font-size:11pt; color:#000; margin:0 0 6pt 0;`;
+    let html = `<div style="font-family:Calibri, Arial, sans-serif; font-size:11pt; color:#000;">`;
+
+    // Header
+    html += `<p style="${P} font-size:18pt; font-weight:bold; margin-bottom:2pt;">${esc(c.name || "")}</p>`;
+    html += `<p style="${P} font-size:12pt; margin-bottom:6pt;">${esc(c.title || "")}</p>`;
+    const contactLines = [];
+    if (ct.phone) contactLines.push(esc(ct.phone));
+    if (ct.email) contactLines.push(esc(ct.email));
+    if (ct.linkedin) contactLines.push(esc(ct.linkedin));
+    if (ct.website) contactLines.push(esc(ct.website));
+    if (contactLines.length) html += `<p style="${P}">${contactLines.join(" | ")}</p>`;
+    const locLines = [];
+    if (ct.location) locLines.push(esc(ct.location));
+    if (ct.citizenship) locLines.push(esc(ct.citizenship));
+    if (locLines.length) html += `<p style="${P} margin-bottom:14pt;">${locLines.join(" | ")}</p>`;
+
+    if (c.date) html += `<p style="${P} margin-bottom:14pt;">${esc(c.date)}</p>`;
+    if (r.name) html += `<p style="${P} font-weight:bold; margin-bottom:0;">${esc(r.name)}</p>`;
+    if (r.company) html += `<p style="${P} margin-bottom:0;">${esc(r.company)}</p>`;
+    if (r.line1) html += `<p style="${P} margin-bottom:0;">${esc(r.line1)}</p>`;
+    if (r.line2) html += `<p style="${P} margin-bottom:14pt;">${esc(r.line2)}</p>`;
+    else if (r.name || r.company) html += `<p style="${P} margin-bottom:14pt;"></p>`;
+
+    if (c.salutation) html += `<p style="${P} margin-bottom:12pt;">${esc(c.salutation)}</p>`;
+    (c.body || []).forEach(para => {
+      if (para && para.trim()) html += `<p style="${P} margin-bottom:12pt;">${esc(para)}</p>`;
+    });
+    if (c.signoff) html += `<p style="${P} margin-top:14pt; margin-bottom:0;">${esc(c.signoff)}</p>`;
+    if (c.signature) html += `<p style="${P} font-weight:bold;">${esc(c.signature)}</p>`;
+
+    html += `</div>`;
+
+    const docTitle = `Cover Letter - ${c.name || "Cover Letter"}${activeItem ? " - " + activeItem.label : ""}`;
+    const wordHtml = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><title>${esc(docTitle)}</title><style>body{font-family:Calibri, Arial, sans-serif; font-size:11pt; color:#000;}</style></head><body>${html}</body></html>`;
+    const blob = new Blob(["﻿", wordHtml], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${docTitle.replace(/[\\/:*?"<>|]/g, "-")}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const sectionHdr = (label) => (
     <div style={{ marginTop: 20, marginBottom: 8 }}>
       <div style={{ fontFamily: F, fontSize: 13, fontWeight: 700, letterSpacing: LS_HDR, textTransform: "uppercase", color: "#1a1a1a", lineHeight: LINE_H, marginBottom: 5 }}>{label}</div>
@@ -1717,7 +1927,17 @@ export default function CVView({ cvData, onSet, projectName }) {
           }}
           onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
           onMouseLeave={e => { e.target.style.color = "#888"; }}
-        >+ NEW</div>
+        >+ NEW CV</div>
+        <div
+          onClick={addNewCoverLetter}
+          style={{
+            fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
+            cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
+            textTransform: "uppercase", borderRight: "1px solid #ddd",
+          }}
+          onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
+          onMouseLeave={e => { e.target.style.color = "#888"; }}
+        >+ COVER LETTER</div>
         <div
           onClick={duplicateCv}
           style={{
@@ -1742,12 +1962,12 @@ export default function CVView({ cvData, onSet, projectName }) {
               onMouseLeave={e => { e.target.style.color = "#888"; }}
             >RENAME</div>
           )}
-          <div onClick={doExportWord} style={{
+          <div onClick={isCoverLetter ? doExportWordCoverLetter : doExportWord} style={{
             fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px",
             cursor: "pointer", whiteSpace: "nowrap", background: "#1a4d2e", color: "#fff",
             textTransform: "uppercase", borderLeft: "1px solid #ddd",
           }} onMouseEnter={e => { e.target.style.background = "#2a6b40"; }} onMouseLeave={e => { e.target.style.background = "#1a4d2e"; }}>EXPORT WORD</div>
-          <div onClick={doPrint} style={{
+          <div onClick={isCoverLetter ? doPrintCoverLetter : doPrint} style={{
             fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px",
             cursor: "pointer", whiteSpace: "nowrap", background: "#000", color: "#fff",
             textTransform: "uppercase", borderLeft: "1px solid #ddd",
@@ -1800,6 +2020,55 @@ export default function CVView({ cvData, onSet, projectName }) {
         </div>
 
         <div style={{ borderBottom: "2.5px solid #000", margin: "8px 0 2px 0" }} />
+
+        {/* ── Cover Letter body (only when active tab is a cover letter) ── */}
+        {isCoverLetter && (
+          <div style={{ marginTop: 18 }}>
+            {/* Date — right-aligned */}
+            <div style={{ textAlign: "right", marginBottom: 18 }}>
+              <InlineEdit value={cv.date} onChange={v => set("date", v)} placeholder="May 22, 2026" style={{ fontSize: 11, color: "#1a1a1a", textAlign: "right" }} />
+            </div>
+
+            {/* Recipient block */}
+            <div style={{ marginBottom: 18, lineHeight: LINE_H }}>
+              <InlineEdit value={cv.recipient?.name} onChange={v => set("recipient.name", v)} placeholder="Hiring Team" style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
+              <InlineEdit value={cv.recipient?.company} onChange={v => set("recipient.company", v)} placeholder="Company" style={{ fontSize: 11, color: "#1a1a1a" }} />
+              <InlineEdit value={cv.recipient?.line1} onChange={v => set("recipient.line1", v)} placeholder="Address line 1 (optional)" style={{ fontSize: 11, color: "#1a1a1a" }} />
+              <InlineEdit value={cv.recipient?.line2} onChange={v => set("recipient.line2", v)} placeholder="Address line 2 (optional)" style={{ fontSize: 11, color: "#1a1a1a" }} />
+            </div>
+
+            {/* Salutation */}
+            <div style={{ marginBottom: 14 }}>
+              <InlineEdit value={cv.salutation} onChange={v => set("salutation", v)} placeholder="Dear Hiring Team," style={{ fontSize: 11, color: "#1a1a1a" }} />
+            </div>
+
+            {/* Body paragraphs */}
+            {(cv.body || []).map((para, i) => (
+              <div key={i} style={{ marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 4 }}>
+                <span data-noprint style={{ cursor: "grab", color: "#ccc", fontSize: 11, userSelect: "none", flexShrink: 0, marginTop: 4 }}>{"☰"}</span>
+                <div style={{ flex: 1 }}>
+                  <InlineEdit multiline value={para} onChange={v => set(`body.${i}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a" }} />
+                </div>
+                <div data-noprint style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <button onClick={() => moveBodyParagraph(i, i - 1)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 10, padding: 0, lineHeight: 1 }} title="Move up">▲</button>
+                  <button onClick={() => moveBodyParagraph(i, i + 1)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 10, padding: 0, lineHeight: 1 }} title="Move down">▼</button>
+                </div>
+                <button data-noprint onClick={() => removeBodyParagraph(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: "0 4px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"} title="Remove">×</button>
+              </div>
+            ))}
+            <button data-noprint onClick={addBodyParagraph} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginTop: 4, marginBottom: 14 }}>+ ADD PARAGRAPH</button>
+
+            {/* Sign-off + signature */}
+            <div style={{ marginTop: 18 }}>
+              <InlineEdit value={cv.signoff} onChange={v => set("signoff", v)} placeholder="Best," style={{ fontSize: 11, color: "#1a1a1a" }} />
+            </div>
+            <div style={{ marginTop: 2 }}>
+              <InlineEdit value={cv.signature} onChange={v => set("signature", v)} placeholder="Your Name" style={{ fontSize: 11, fontWeight: 700, color: "#1a1a1a" }} />
+            </div>
+          </div>
+        )}
+
+        {!isCoverLetter && (<>
 
         {/* Summary */}
         {sectionHdr("SUMMARY")}
@@ -1967,6 +2236,8 @@ export default function CVView({ cvData, onSet, projectName }) {
           </div>
         ))}
         <button data-noprint onClick={addVolunteer} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginTop: 4 }}>+ ADD VOLUNTEER</button>
+
+        </>)}
       </div>
     </div>
   );
