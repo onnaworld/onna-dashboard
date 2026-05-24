@@ -608,6 +608,110 @@ const CREATIVE_STRATEGY_CV_V1 = {
   ],
 };
 
+// CV variant tailored for Matador Network — leads with editorial + travel/hospitality
+// (Aman portfolio, hospitality client roster) and surfaces Trippin cultural-travel
+// journalism as a centerpiece credential.
+const MATADOR_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Senior Producer",
+  contact: {
+    phone: "+1 (917) 735-8545",
+    email: "emilyelucas@gmail.com",
+    linkedin: "linkedin.com/in/emilylucas",
+    website: "onnaproduction.com",
+    location: "Brooklyn, NY (from July 2026)",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Senior Producer with 7+ years across editorial publishing and luxury production, specializing in travel and hospitality. Long-term production partner to Aman across four projects, including a flagship pre-completion campaign for an upcoming hotel and residence in Saudi Arabia. Hospitality client roster includes Aman, Janu, Siro Hotels, One&Only, Jumeirah, Cipriani, and Emirates.",
+    "Editorial work spans cultural-travel journalism for Trippin (ethical photography practice, Mexican identity through Graciela Iturbide's portraiture, the cultural history of tattooing in Japan) and visual research for MR PORTER's The Journal and The Post, licensing archival imagery from Bruce Davidson, Vivian Maier, and Saul Leiter. Founded ONNA Production in 2024 — a luxury production studio operating across the UK, GCC, Japan, and US.",
+  ],
+  clients: "AMAN | JANU | SIRO HOTELS | ONE&ONLY | JUMEIRAH | CIPRIANI | EMIRATES | VOGUE ARABIA (CONDÉ NAST) | MR PORTER | NET-A-PORTER | TRIPPIN | NIKE | TIFFANY & CO | BVLGARI | LORO PIANA",
+  experience: [
+    {
+      role: "Founder & Producer",
+      company: "ONNA Production LLC.",
+      dates: "November 2024 - Present",
+      bullets: [
+        "Travel & Hospitality Production: Long-term production partner to Aman across the Aman and Janu portfolio (4 projects). Produced a flagship campaign for an upcoming Aman hotel and residence in Saudi Arabia prior to physical completion — translating an abstract, atmosphere-driven creative brief into culturally-grounded visual assets anchored by a bespoke regional sound recording with a local poet.",
+        "Hospitality Client Roster: Aman, Janu, Siro Hotels, One&Only, Jumeirah, Cipriani, Emirates — production across photography, film, and integrated campaigns.",
+        "Multi-Stakeholder Alignment: Led complex stakeholder matrices across Aman's VP of Brand and Marketing, external creative agencies, and residential developers; developed global production budgets for proposed Aman expansions into New York and the Maldives.",
+        "Editorial & Brand Production: Commissioning photographers, art-directing shoots, and managing end-to-end delivery for Vogue Arabia (Condé Nast), Nike, Mastercard, and Columbia across photography and film.",
+        "Full P&L and budget management across all client engagements; negotiated SOWs, talent contracts, vendor agreements, and usage rights across multiple jurisdictions.",
+        "Active vendor and freelancer network across the UK, GCC, Japan, and US, negotiated to luxury brand standards.",
+      ],
+    },
+    {
+      role: "Visuals Editor (Freelance)",
+      company: "Condé Nast Middle East LLC (Vogue Arabia)",
+      dates: "December 2024 - March 2025",
+      bullets: [
+        "Worked with the British Vogue team as Visuals Editor during Vogue Arabia's return to Condé Nast internal management; engagement evolved into an ongoing production partnership delivering advertorial collaborations with Bvlgari, Tiffany & Co., and New Balance.",
+        "Produced tier-1 talent shoots including covers with Imaan Hammam & Achraf Hakimi in Paris, Halima Aden in New York, and Balqees Fathi in Dubai.",
+        "Art-directed and commissioned visual content, including photographers Luc Braquet and Txema Yeste; navigated editorial budgets, global Condé Nast approval processes, and extreme timelines.",
+        "Visual research across digital content (web, social, newsletters) and print, using photo licensing platforms including Trunk Archive, Shutterstock, Getty, and Condé Nast's internal DAM.",
+      ],
+    },
+    {
+      role: "Senior Editorial Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "Owned end-to-end visual production for Harvey Nichols, managing a high-volume seasonal asset engine across photography, film, and digital.",
+        "Designed a Retainer Partnership Model that cut variable costs 20% while maintaining luxury brand standards.",
+        "Led complex stakeholder matrix across Procurement, Marketing, and Creative to align annual content budget allocation across 360° advertising, marketing activations, and digital campaigns.",
+      ],
+    },
+    {
+      role: "Senior Producer & Researcher",
+      company: "Freelance / Self-Employed",
+      dates: "June 2020 - November 2024",
+      bullets: [
+        "Editorial & Visual Research, Trippin: Wrote and image-researched feature pieces for Trippin, including 'A History of Tattooing in Japan', 'Through the Lens: 6 Photographers on What Ethical Photography Means to Them', and a feature on Graciela Iturbide's portraiture and the complex history of Mexican identity told through her work — cultural-travel journalism through the lens of photography, ethics, and place.",
+        "Charlotte Tilbury x Disney 100: Supported the $1M+ global activation, including on-set logistics, vendor management, Tier-1 content creator coordination (Monet McMichael, Victor Kunda, Danielle Marcan), and alignment with the Charlotte Tilbury pro artist team and stylist Nathan Klein.",
+        "GUESS Global Ramadan Campaign: Led end-to-end production in Abu Dhabi with A-list models, navigating regional sensitivities and global brand standards.",
+        "Additional clients: Siro Hotels, Maison Kitsuné, Emirates, The Fold.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. (MR PORTER)",
+      dates: "July 2019 - May 2024",
+      bullets: [
+        "Editorial Writing & Picture Research: Wrote, concepted, and image-researched original editorial features (including 'New York Through the Decades'), commissioning original photography and licensing archive imagery from photographers such as Bruce Davidson, Vivian Maier, and Saul Leiter across MR PORTER's digital (The Journal) and print (The Post, the MR PORTER book) properties.",
+        "Career Trajectory: Advanced three levels in five years from Picture Assistant to Producer, consistently exceeding KPIs within a complex stakeholder matrix under the Richemont Group.",
+        "US Production Lead: Led several A-list talent shoots across LA, New York, and Miami, including 'MR PORTER In America' — a 360° multi-brand campaign generating 2.65M views and 75% engagement uplift.",
+      ],
+    },
+  ],
+  education: [
+    { title: "Spanish Exchange Program", institution: "Universidad Del Salvador, Buenos Aires", result: "1st Class - 90%" },
+    { title: "Spanish & Business Management BA (Hons)", institution: "The University of Manchester", result: "1st Class Honours" },
+  ],
+  skills: [
+    "Editorial Writing & Cultural Journalism: Long-form features on travel, photography ethics, and cultural identity (Trippin, MR PORTER's The Journal)",
+    "Travel & Hospitality Production: End-to-end production for Aman, Janu, Siro Hotels, One&Only, Jumeirah, Cipriani, Emirates",
+    "Photo Research & Image Licensing: Trunk Archive, Shutterstock, Getty, Magnum, archival research; commissioned and licensed work from Bruce Davidson, Vivian Maier, Saul Leiter, Luc Braquet, Txema Yeste",
+    "Project Management: Asana, Monday, Trello, Airtable (fluent across all)",
+    "Adobe Creative Suite",
+    "Global Cultural Fluency: Production across UK, GCC, Japan, US — multi-jurisdiction vendor management and cross-cultural navigation",
+    "Languages: English (native), Spanish (intermediate), Japanese (intermediate)",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Spanish", level: "Intermediate" },
+    { name: "Japanese", level: "Intermediate" },
+  ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on career planning, CV development, and interview preparation.",
+    },
+  ],
+};
+
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.3;
 const LS_HDR = 1.2;
@@ -1269,6 +1373,33 @@ export default function CVView({ cvData, onSet, projectName }) {
       };
     });
     localStorage.setItem("onna_creative_strategy_cv_added_v1", String(Date.now()));
+  }, [cvData]);
+
+  // One-time addition: seed a "Matador" CV variant tailored for Matador
+  // Network and similar cultural-travel publishers. Leads with travel/
+  // hospitality production and Trippin cultural-travel journalism.
+  // Skips if a CV with that label already exists.
+  const matadorAddedRef = useRef(false);
+  useEffect(() => {
+    if (matadorAddedRef.current) return;
+    if (localStorage.getItem("onna_matador_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    matadorAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase().includes("matador"));
+    if (exists) {
+      localStorage.setItem("onna_matador_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now();
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Matador", data: JSON.parse(JSON.stringify(MATADOR_CV_V1)) }],
+      };
+    });
+    localStorage.setItem("onna_matador_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
   // One-time migration: set Founder CV's clients string. Backs up the prior value first.
