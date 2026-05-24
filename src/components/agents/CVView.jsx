@@ -756,13 +756,7 @@ const DEFAULT_COVER_LETTER = {
     line2: "",
   },
   salutation: "Dear Hiring Team,",
-  body: [
-    "I'm writing to apply for the [Role] at [Company]. [One-line hook tying your experience to their brief].",
-    "Most recently, I've been founder of ONNA Production — a studio I launched in 2024 to serve global brands operating across multiple markets. Within the first year, I've delivered campaigns for Nike, Aman, Mastercard, Columbia, and Vogue Arabia (Condé Nast).",
-    "Prior to ONNA, I scaled three levels in five years at MR PORTER (Net-a-Porter Group, Richemont) from Picture Assistant to Producer, with US production leadership on flagship campaigns. I led freelance production on the $1M+ Charlotte Tilbury x Disney 100 global activation, and have produced for Louis Vuitton, J.Crew, Maison Kitsuné, and Harvey Nichols.",
-    "What I bring specifically: deep operational rigor (full P&L, SOWs, talent contracts, vendor agreements, usage rights), an established global vendor network across the UK, GCC, Japan, and US, and production fluency across both brand-side and agency-side environments.",
-    "I'd welcome the chance to discuss how my experience can contribute to [Company]'s team.",
-  ],
+  body: "I'm writing to apply for the [Role] at [Company]. [One-line hook tying your experience to their brief].\n\nMost recently, I've been founder of ONNA Production — a studio I launched in 2024 to serve global brands operating across multiple markets. Within the first year, I've delivered campaigns for Nike, Aman, Mastercard, Columbia, and Vogue Arabia (Condé Nast).\n\nPrior to ONNA, I scaled three levels in five years at MR PORTER (Net-a-Porter Group, Richemont) from Picture Assistant to Producer, with US production leadership on flagship campaigns. I led freelance production on the $1M+ Charlotte Tilbury x Disney 100 global activation, and have produced for Louis Vuitton, J.Crew, Maison Kitsuné, and Harvey Nichols.\n\nWhat I bring specifically: deep operational rigor (full P&L, SOWs, talent contracts, vendor agreements, usage rights), an established global vendor network across the UK, GCC, Japan, and US, and production fluency across both brand-side and agency-side environments.\n\nI'd welcome the chance to discuss how my experience can contribute to [Company]'s team.",
   signoff: "Best,",
   signature: "Emily Lucas",
 };
@@ -1776,9 +1770,11 @@ export default function CVView({ cvData, onSet, projectName }) {
     // Salutation
     if (c.salutation) html += `<div style="${S}margin-bottom:14px;">${esc(c.salutation)}</div>`;
 
-    // Body paragraphs
-    (c.body || []).forEach(para => {
-      if (para && para.trim()) html += `<div style="${S}margin-bottom:12px;">${esc(para)}</div>`;
+    // Body — single block, split on blank lines for paragraph breaks
+    const bodyText = typeof c.body === "string" ? c.body : (c.body || []).join("\n\n");
+    bodyText.split(/\n\s*\n/).forEach(para => {
+      const trimmed = para.trim();
+      if (trimmed) html += `<div style="${S}margin-bottom:12px;white-space:pre-line;">${esc(trimmed)}</div>`;
     });
 
     // Sign-off + signature
@@ -1832,8 +1828,10 @@ export default function CVView({ cvData, onSet, projectName }) {
     else if (r.name || r.company) html += `<p style="${P} margin-bottom:14pt;"></p>`;
 
     if (c.salutation) html += `<p style="${P} margin-bottom:12pt;">${esc(c.salutation)}</p>`;
-    (c.body || []).forEach(para => {
-      if (para && para.trim()) html += `<p style="${P} margin-bottom:12pt;">${esc(para)}</p>`;
+    const bodyTextW = typeof c.body === "string" ? c.body : (c.body || []).join("\n\n");
+    bodyTextW.split(/\n\s*\n/).forEach(para => {
+      const trimmed = para.trim();
+      if (trimmed) html += `<p style="${P} margin-bottom:12pt;">${esc(trimmed)}</p>`;
     });
     if (c.signoff) html += `<p style="${P} margin-top:14pt; margin-bottom:0;">${esc(c.signoff)}</p>`;
     if (c.signature) html += `<p style="${P} font-weight:bold;">${esc(c.signature)}</p>`;
@@ -2042,21 +2040,16 @@ export default function CVView({ cvData, onSet, projectName }) {
               <InlineEdit value={cv.salutation} onChange={v => set("salutation", v)} placeholder="Dear Hiring Team," style={{ fontSize: 11, color: "#1a1a1a" }} />
             </div>
 
-            {/* Body paragraphs */}
-            {(cv.body || []).map((para, i) => (
-              <div key={i} style={{ marginBottom: 12, display: "flex", alignItems: "flex-start", gap: 4 }}>
-                <span data-noprint style={{ cursor: "grab", color: "#ccc", fontSize: 11, userSelect: "none", flexShrink: 0, marginTop: 4 }}>{"☰"}</span>
-                <div style={{ flex: 1 }}>
-                  <InlineEdit multiline value={para} onChange={v => set(`body.${i}`, v)} style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a" }} />
-                </div>
-                <div data-noprint style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <button onClick={() => moveBodyParagraph(i, i - 1)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 10, padding: 0, lineHeight: 1 }} title="Move up">▲</button>
-                  <button onClick={() => moveBodyParagraph(i, i + 1)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 10, padding: 0, lineHeight: 1 }} title="Move down">▼</button>
-                </div>
-                <button data-noprint onClick={() => removeBodyParagraph(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", fontSize: 14, padding: "0 4px", lineHeight: 1 }} onMouseOver={e => e.currentTarget.style.color = "#c0392b"} onMouseOut={e => e.currentTarget.style.color = "#ccc"} title="Remove">×</button>
-              </div>
-            ))}
-            <button data-noprint onClick={addBodyParagraph} style={{ fontFamily: F, fontSize: 8, letterSpacing: LS, background: "#f5f5f5", border: "1px solid #eee", borderRadius: 3, padding: "5px 12px", cursor: "pointer", color: "#1a1a1a", textTransform: "uppercase", fontWeight: 700, marginTop: 4, marginBottom: 14 }}>+ ADD PARAGRAPH</button>
+            {/* Body — single editable block (paragraph breaks via blank lines) */}
+            <div style={{ marginBottom: 18 }}>
+              <InlineEdit
+                multiline
+                value={typeof cv.body === "string" ? cv.body : (cv.body || []).join("\n\n")}
+                onChange={v => set("body", v)}
+                placeholder="Write the body of your cover letter. Use blank lines for paragraph breaks."
+                style={{ fontSize: 11, lineHeight: LINE_H, color: "#1a1a1a", minHeight: 280, whiteSpace: "pre-wrap" }}
+              />
+            </div>
 
             {/* Sign-off + signature */}
             <div style={{ marginTop: 18 }}>
