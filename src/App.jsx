@@ -705,37 +705,37 @@ function OnnaDashboardInner() {
         // Call sheets
         setCallSheetStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo || force) { doc.productionLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (doc.productionLogo !== null && (!doc.productionLogo || force)) { doc.productionLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
         // Risk assessments
         setRiskAssessmentStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.productionLogo || force) { doc.productionLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (doc.productionLogo !== null && (!doc.productionLogo || force)) { doc.productionLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
         // Contracts
         setContractDocStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (doc.prodLogo !== null && (!doc.prodLogo || force)) { doc.prodLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
         // Estimates
         setProjectEstimates(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (doc.prodLogo !== null && (!doc.prodLogo || force)) { doc.prodLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
         // Cash Flows
         setCashFlowStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (!doc.prodLogo || force) { doc.prodLogo = dataUrl; changed = true; } }); });
+          Object.keys(s).forEach(k => { if (Array.isArray(s[k])) s[k].forEach(doc => { if (doc.prodLogo !== null && (!doc.prodLogo || force)) { doc.prodLogo = dataUrl; changed = true; } }); });
           return changed ? s : prev;
         });
         // Production Briefs
         setProductionBriefStore(prev => {
           let changed = false; const s = JSON.parse(JSON.stringify(prev));
-          Object.keys(s).forEach(k => { if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) { if (!s[k].prodLogo || force) { s[k].prodLogo = dataUrl; changed = true; } } });
+          Object.keys(s).forEach(k => { if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) { if (s[k].prodLogo !== null && (!s[k].prodLogo || force)) { s[k].prodLogo = dataUrl; changed = true; } } });
           return changed ? s : prev;
         });
         localStorage.setItem('onna_logo_ver', LOGO_VER);
