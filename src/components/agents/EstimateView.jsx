@@ -190,6 +190,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
 
   const { subtotal, feesTotal, grandTotal } = estCalcTotals(sections);
 
+  const notesW = showCurrency2 ? 120 : 210;
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
@@ -400,7 +401,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:isFeeSec(sec)?"default":"grab"}}>{isFeeSec(sec) ? "" : "⠿"}</div>
                 <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
                 <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
-                <div style={{width:120,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
+                <div style={{width:notesW,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
                 <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
                 <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
                 <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
@@ -427,7 +428,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   </div>
                   <div style={{width:34,flexShrink:0,padding:"4px 2px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                   <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
-                  <div style={{width:120,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
+                  <div style={{width:notesW,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
                   <div style={{width:50,flexShrink:0}}><EstCell value={row.days} onChange={v=>updateRow(si,ri,"days",v)} align="center" /></div>
                   <div style={{width:40,flexShrink:0}}><EstCell value={row.qty} onChange={v=>updateRow(si,ri,"qty",v)} align="center" /></div>
                   <div style={{width:90,flexShrink:0}}>{autoCalc
