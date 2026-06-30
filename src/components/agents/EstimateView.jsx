@@ -26,6 +26,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const printRef = useRef(null);
   const [baseCurrency, setBaseCurrency] = useState(() => (estData.currency || "AED"));
   const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
+  const [showCurrency2, setShowCurrency2] = useState(() => estData.showCurrency2 !== false);
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
   const customRateKey = `${baseCurrency}_${secondCurrency}`;
   const xRate = (estData.customRates && estData.customRates[customRateKey] != null) ? estData.customRates[customRateKey] : (baseCurr.rates[secondCurrency] || exchangeRate);
@@ -281,6 +282,13 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, width:52, border:"1px solid #ddd", borderRadius:2, padding:"2px 4px", background:"#fff", textAlign:"center", outline:"none", color:"#333" }}
         />
         <span style={{ fontFamily:EST_F, fontSize:8, color:"#999", letterSpacing:EST_LS }}>{secondCurrency}</span>
+        <div style={{ marginLeft:12, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
+          <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>2ND COL</span>
+          <div onClick={() => { const next = !showCurrency2; setShowCurrency2(next); onSet(d => ({...d, showCurrency2: next})); }}
+            style={{ width:28, height:16, borderRadius:8, background:showCurrency2?"#1a1a1a":"#ddd", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+            <div style={{ position:"absolute", top:2, left:showCurrency2?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
+          </div>
+        </div>
       </div>
 
       <div ref={printRef} id="onna-est-print" style={{ padding:_narrow?"20px 16px":"40px 40px" }}>
@@ -309,7 +317,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
               <div style={{flex:1,...hdr}}>CATEGORY</div>
               <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{baseCurrency}</div>
-              <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>
+              {showCurrency2 && <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>}
             </div>
             {sections.map((sec)=>{
               const isF = isFeeSec(sec);
@@ -323,23 +331,23 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
                 <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,letterSpacing:EST_LS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sec.title}</div>
                 <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
-                <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>
+                {showCurrency2 && <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>}
               </div>);
             })}
             <div style={{display:"flex",borderTop:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
-              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>
+              {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>}
             </div>
             <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);onSet(d=>({...d,vatPct:isNaN(v)?0:v}));}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} /><span data-noprint style={{display:"none"}}></span>%)</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*vatRate)}</div>
-              <div style={{width:_narrow?70:100}}></div>
+              {showCurrency2 && <div style={{width:_narrow?70:100}}></div>}
             </div>
             <div style={{display:"flex",borderBottom:"2px solid #000"}}>
               <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
               <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
-              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt((grandTotal + grandTotal*vatRate)*xRate)}</div>
+              {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt((grandTotal + grandTotal*vatRate)*xRate)}</div>}
             </div>
           </div>
           {(() => {
@@ -397,7 +405,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
                 <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
                 <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {baseCurrency}</div>
-                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>
+                {showCurrency2 && <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>}
                 <div style={{width:24,flexShrink:0}}></div>
               </div>
               {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);const _rowBg=_rHas?"#E8F5E9":(EST_ST_BG[row.rowStatus||""]||"transparent");return(
@@ -426,7 +434,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                     ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
                     : <EstCell value={row.rate} onChange={v=>updateRow(si,ri,"rate",v)} align="right" />}</div>
                   <div onClick={()=>tot>0&&toggleTally(si,ri,tot)} style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS,cursor:tot>0?"pointer":"default",background:isTallied(si,ri)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(tot)}</div>
-                  <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>
+                  {showCurrency2 && <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>}
                   <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <span onClick={()=>removeRow(si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span></div>
                 </div>);})}
@@ -435,7 +443,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <div style={{display:"flex",gap:0}}>
                   <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"4px 8px",letterSpacing:EST_LS}}>TOTAL</div>
                   <div onClick={()=>feeSectionTotal>0&&toggleTallySection(si,feeSectionTotal)} style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS,cursor:feeSectionTotal>0?"pointer":"default",background:isSectionTallied(si)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(feeSectionTotal)}</div>
-                  <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*xRate)}</div>
+                  {showCurrency2 && <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*xRate)}</div>}
                   <div style={{width:24}}></div>
                 </div>
               </div>
@@ -444,11 +452,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
             <div style={{width:420}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
-                <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span><span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*xRate)}</span></div>
+                <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*xRate)}</span>}</div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
-                <span>VAT ({vatPct}%)</span><span>{baseCurrency} {estFmt(grandTotal*vatRate)}</span><span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*vatRate*xRate)}</span></div>
+                <span>VAT ({vatPct}%)</span><span>{baseCurrency} {estFmt(grandTotal*vatRate)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*vatRate*xRate)}</span>}</div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
-                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span><span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt((grandTotal + grandTotal*vatRate)*xRate)}</span></div>
+                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt((grandTotal + grandTotal*vatRate)*xRate)}</span>}</div>
             </div>
           </div>
         </div>}
