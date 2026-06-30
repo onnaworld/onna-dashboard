@@ -195,6 +195,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [footerHovered, setFooterHovered] = useState(false);
   const [exportPages, setExportPages] = useState(["topsheet","estimates","services","tcs"]);
   const toggleExportPage = (id) => setExportPages(prev => prev.includes(id) ? prev.filter(p=>p!==id) : [...prev,id]);
   const doPrint = (pages) => {
@@ -519,10 +520,45 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           </div>
         </div>}
 
-        <div style={{marginTop:40,display:"flex",justifyContent:"space-between",fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
-          <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
-          <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
-        </div>
+        {(() => {
+          const fd = estData.footer || {};
+          const footerShow = fd.show !== false;
+          const fl1 = fd.leftLine1  !== undefined ? fd.leftLine1  : "@ONNAPRODUCTION";
+          const fl2 = fd.leftLine2  !== undefined ? fd.leftLine2  : "DUBAI | LONDON";
+          const fr1 = fd.rightLine1 !== undefined ? fd.rightLine1 : "WWW.ONNA.WORLD";
+          const fr2 = fd.rightLine2 !== undefined ? fd.rightLine2 : "HELLO@ONNAPRODUCTION.COM";
+          const setFd = (patch) => onSet(d => ({ ...d, footer: { ...(d.footer || {}), ...patch } }));
+          if (!footerShow) return (
+            <div data-noprint style={{marginTop:40,borderTop:"2px solid #000",paddingTop:12}}>
+              <div onClick={() => setFd({ show: true })}
+                style={{border:"1.5px dashed #ddd",borderRadius:4,padding:"6px 12px",display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:EST_LS,fontFamily:EST_F}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#aaa";}}>
+                + Add Footer
+              </div>
+            </div>
+          );
+          return (
+            <div style={{marginTop:40,position:"relative"}} onMouseEnter={()=>setFooterHovered(true)} onMouseLeave={()=>setFooterHovered(false)}>
+              <div style={{display:"flex",justifyContent:"space-between",fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+                <div>
+                  <div style={{fontWeight:700}}><EstCell value={fl1} onChange={v=>setFd({leftLine1:v})} style={{fontWeight:700}} /></div>
+                  <div><EstCell value={fl2} onChange={v=>setFd({leftLine2:v})} /></div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontWeight:700}}><EstCell value={fr1} onChange={v=>setFd({rightLine1:v})} style={{fontWeight:700,textAlign:"right"}} /></div>
+                  <div><EstCell value={fr2} onChange={v=>setFd({rightLine2:v})} style={{textAlign:"right"}} /></div>
+                </div>
+              </div>
+              {footerHovered && <button data-noprint onClick={()=>setFd({show:false})}
+                style={{position:"absolute",top:16,left:"50%",transform:"translateX(-50%)",background:"#eee",border:"none",borderRadius:10,padding:"2px 10px",fontSize:9,fontWeight:700,letterSpacing:EST_LS,cursor:"pointer",color:"#666",fontFamily:EST_F,whiteSpace:"nowrap"}}
+                onMouseEnter={e=>{e.currentTarget.style.background="#f44";e.currentTarget.style.color="#fff";}}
+                onMouseLeave={e=>{e.currentTarget.style.background="#eee";e.currentTarget.style.color="#666";}}>
+                REMOVE FOOTER
+              </button>}
+            </div>
+          );
+        })()}
       </div>
       {tallyItems.length > 0 && (
         <div data-noprint style={{position:"fixed",bottom:24,right:24,width:300,background:"#fff",border:"1px solid #ddd",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",zIndex:9000,fontFamily:EST_F,overflow:"hidden"}}>
