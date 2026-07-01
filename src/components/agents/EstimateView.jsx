@@ -27,6 +27,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const [baseCurrency, setBaseCurrency] = useState(() => (estData.currency || "AED"));
   const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
   const [showCurrency2, setShowCurrency2] = useState(() => estData.showCurrency2 !== false);
+  const [showRateLine, setShowRateLine] = useState(() => estData.showRateLine !== false);
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
   const customRateKey = `${baseCurrency}_${secondCurrency}`;
   const xRate = (estData.customRates && estData.customRates[customRateKey] != null) ? estData.customRates[customRateKey] : (baseCurr.rates[secondCurrency] || exchangeRate);
@@ -205,6 +206,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       const el=printRef.current; if(!el){setShowAll(false);return;}
       const clone=el.cloneNode(true);
       clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());
+      clone.querySelectorAll('[data-cs-placeholder]').forEach(n=>n.remove());
       clone.querySelectorAll('textarea').forEach(n=>n.remove());
       clone.querySelectorAll('button').forEach(n=>n.remove());
       clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
@@ -291,6 +293,13 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div style={{ position:"absolute", top:2, left:showCurrency2?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
           </div>
         </div>
+        <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
+          <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>RATE LINE</span>
+          <div onClick={() => { const next = !showRateLine; setShowRateLine(next); onSet(d => ({...d, showRateLine: next})); }}
+            style={{ width:28, height:16, borderRadius:8, background:showRateLine?"#1a1a1a":"#ddd", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+            <div style={{ position:"absolute", top:2, left:showRateLine?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
+          </div>
+        </div>
       </div>
 
       <div ref={printRef} id="onna-est-print" style={{ padding:_narrow?"20px 16px":"40px 40px" }}>
@@ -303,7 +312,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>
             <EstCell value={ts.version} onChange={v=>tsSet("version",v)} style={{fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center"}} />
           </div>
-          <div style={{textAlign:"right",fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#999",marginBottom:8}}>1 {baseCurrency} = {xRate.toFixed(4)} {secondCurrency}</div>
+          {showRateLine && <div style={{textAlign:"right",fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#999",marginBottom:8}}>1 {baseCurrency} = {xRate.toFixed(4)} {secondCurrency}</div>}
           <div style={{marginBottom:10}}>
             {[["DATE:",ts.date,"date"],["CLIENT:",ts.client,"client"],["ATTENTION:",ts.attention,"attention"],["PROJECT:",ts.project,"project"],["PHOTOGRAPHER / DIRECTOR:",ts.photographer,"photographer"],["DELIVERABLES:",ts.deliverables,"deliverables"],["DEADLINES:",ts.deadlines,"deadlines"],["USAGE TERMS:",ts.usage,"usage"],["SHOOT DATE:",ts.shootDate,"shootDate"],["NUMBER OF SHOOT DAYS:",ts.shootDays,"shootDays"],["SHOOT HOURS:",ts.shootHours,"shootHours"],["SHOOT LOCATION:",ts.location,"location"],["PAYMENT TERMS:",ts.payment,"payment"]].map(([lbl,val,key])=>{
               const _tsm = "est:ts:"+key; const _tsHas = _hasBM(_tsm);
