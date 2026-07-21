@@ -347,6 +347,7 @@ let _onSaveStatus = null;
 export const setSaveStatusCallback = (cb) => { _onSaveStatus = cb; };
 const _notifySaving = () => { _pendingSaves++; if (_onSaveStatus) _onSaveStatus("saving"); };
 const _notifySaved = () => { _pendingSaves = Math.max(0, _pendingSaves - 1); if (_pendingSaves === 0 && _onSaveStatus) _onSaveStatus("saved"); };
+const _notifySaveError = (err) => { _pendingSaves = Math.max(0, _pendingSaves - 1); console.error("ONNA save failed:", err); if (_onSaveStatus) _onSaveStatus("error"); };
 export const debouncedDocSave = (table, storeObj, delay = 2000) => {
   if (!getToken()) return;
   const prev = _prevStoreSnaps[table] || {};
@@ -361,10 +362,10 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
     const key = `${table}:${pid}`;
     clearTimeout(_saveTimers[key]);
     _notifySaving();
-    _pendingFlush[key] = () => { docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaved); };
+    _pendingFlush[key] = () => { docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaveError); };
     _saveTimers[key] = setTimeout(() => {
       delete _pendingFlush[key];
-      docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaved);
+      docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaveError);
     }, delay);
   });
 };
@@ -372,10 +373,10 @@ export const debouncedGlobalSave = (table, data, delay = 2000) => {
   if (!getToken()) return;
   clearTimeout(_saveTimers[table]);
   _notifySaving();
-  _pendingFlush[table] = () => { globalApi.put(table, data).then(_notifySaved).catch(_notifySaved); };
+  _pendingFlush[table] = () => { globalApi.put(table, data).then(_notifySaved).catch(_notifySaveError); };
   _saveTimers[table] = setTimeout(() => {
     delete _pendingFlush[table];
-    globalApi.put(table, data).then(_notifySaved).catch(_notifySaved);
+    globalApi.put(table, data).then(_notifySaved).catch(_notifySaveError);
   }, delay);
 };
 export const debouncedConfigSave = (key, data, delay = 2000) => {
@@ -383,10 +384,10 @@ export const debouncedConfigSave = (key, data, delay = 2000) => {
   const fk = `cfg:${key}`;
   clearTimeout(_saveTimers[fk]);
   _notifySaving();
-  _pendingFlush[fk] = () => { configApi.put(key, data).then(_notifySaved).catch(_notifySaved); };
+  _pendingFlush[fk] = () => { configApi.put(key, data).then(_notifySaved).catch(_notifySaveError); };
   _saveTimers[fk] = setTimeout(() => {
     delete _pendingFlush[fk];
-    configApi.put(key, data).then(_notifySaved).catch(_notifySaved);
+    configApi.put(key, data).then(_notifySaved).catch(_notifySaveError);
   }, delay);
 };
 export const flushAllSaves = () => {

@@ -43,7 +43,7 @@ export default function Projects({
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
         <button onClick={() => window.history.back()} style={{ background: "none", border: "none", color: T.sub, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, display: "flex", alignItems: "center", gap: 4, fontWeight: 500 }}>{"\u2039"} Projects</button>
         {projectSection !== "Home" && <><span style={{ color: T.muted }}>{"\u203a"}</span><button onClick={() => window.history.back()} style={{ background: "none", border: "none", color: T.sub, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>{selectedProject.name}</button></>}
-        {saveStatus && <span style={{ marginLeft: "auto", fontSize: 11, color: saveStatus === "saving" ? T.muted : "#34c759", fontWeight: 500, opacity: 0.85, transition: "opacity 0.3s", display: "flex", alignItems: "center", gap: 4 }}>{saveStatus === "saving" ? "Saving\u2026" : "Saved \u2713"}</span>}
+        {saveStatus && <span style={{ marginLeft: "auto", fontSize: 11, color: saveStatus === "saving" ? T.muted : saveStatus === "error" ? "#d32f2f" : "#34c759", fontWeight: 500, opacity: 0.85, transition: "opacity 0.3s", display: "flex", alignItems: "center", gap: 4 }}>{saveStatus === "saving" ? "Saving\u2026" : saveStatus === "error" ? "Save failed \u2014 check connection" : "Saved \u2713"}</span>}
       </div>
       {projectSection !== "Home" && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22 }}>

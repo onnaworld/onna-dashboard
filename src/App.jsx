@@ -220,13 +220,14 @@ function OnnaDashboardInner() {
   useEffect(() => { if (_modal.show && _modal.type === "prompt" && _modalInputRef.current) { _modalInputRef.current.focus(); _modalInputRef.current.select(); } }, [_modal.show, _modal.type]);
 
   const [authed,setAuthed]         = useState(()=>!!localStorage.getItem("onna_token") && !_urlReset);
-  const [saveStatus,setSaveStatus] = useState(null); // null | "saving" | "saved"
+  const [saveStatus,setSaveStatus] = useState(null); // null | "saving" | "saved" | "error"
   const saveStatusTimer = useRef(null);
   useEffect(() => {
     setSaveStatusCallback((status) => {
       clearTimeout(saveStatusTimer.current);
       if (status === "saving") { setSaveStatus("saving"); }
       else if (status === "saved") { setSaveStatus("saved"); saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 2000); }
+      else if (status === "error") { setSaveStatus("error"); }
     });
     return () => { setSaveStatusCallback(null); };
   }, []);
