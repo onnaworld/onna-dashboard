@@ -16,6 +16,20 @@ const RA_LS = 0.5; const RA_LS_HDR = 1.5; const RA_GREY = "#F4F4F4";
 const CT_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const CT_LS = 0.5; const CT_LS_HDR = 1.5;
 
+const CS_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const renderCSLinks = (text) => {
+  if (!text) return text;
+  const parts = []; let lastIndex = 0; let m; let key = 0;
+  CS_LINK_RE.lastIndex = 0;
+  while ((m = CS_LINK_RE.exec(text))) {
+    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
+    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{m[1]}</a>);
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length ? parts : text;
+};
+
 const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = false, isPlaceholder = false, alwaysYellow = false, autoFit = false }) => {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
@@ -23,6 +37,22 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
   const commit = () => { setEditing(false); onChange(temp); };
   const showYellow = alwaysYellow || (isPlaceholder && !value);
   const autoSize = useCallback((el) => { if (el) { el.style.height = "0"; el.style.height = Math.max(el.scrollHeight, 18) + "px"; } }, []);
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      const selected = temp.slice(start, end) || "link";
+      const url = window.prompt("Link URL:", "https://");
+      if (url) {
+        const newVal = temp.slice(0, start) + `[${selected}](${url})` + temp.slice(end);
+        setTemp(newVal);
+        requestAnimationFrame(() => { ta.focus(); autoSize(ta); });
+      }
+      return;
+    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); }
+  };
   useEffect(() => {
     if (!autoFit || editing) return;
     const el = spanRef.current; const parent = el && el.parentElement;
@@ -32,8 +62,8 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
     let fs = baseFontSize;
     while (el.scrollWidth > parent.clientWidth && fs > 6) { fs -= 0.5; el.style.fontSize = fs + "px"; }
   }, [value, autoFit, editing, style.fontSize]);
-  if (editing) return <textarea ref={el=>{if(el){requestAnimationFrame(()=>autoSize(el));}}} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();}}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"100%",minWidth:style.minWidth||60,maxWidth:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"inline-block",verticalAlign:"middle"}} placeholder={placeholder}/>;
-  return <span ref={spanRef} onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:autoFit?"nowrap":"pre-wrap",wordBreak:autoFit?"normal":"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+  if (editing) return <textarea ref={el=>{if(el){requestAnimationFrame(()=>autoSize(el));}}} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={handleKeyDown} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"100%",minWidth:style.minWidth||60,maxWidth:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"inline-block",verticalAlign:"middle"}} placeholder={placeholder}/>;
+  return <span ref={spanRef} onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:autoFit?"nowrap":"pre-wrap",wordBreak:autoFit?"normal":"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value?renderCSLinks(value):<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
 };
 
 const SignaturePad = ({ value, onChange, height = 60 }) => {
@@ -273,6 +303,7 @@ const CALLSHEET_INIT = {
   productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,mapLink:"",extraMapImages:[],weatherImage:null,weatherSummary:"",weatherHighC:"",weatherHighF:"",weatherLowC:"",weatherLowF:"",weatherRealFeelHighC:"",weatherRealFeelHighF:"",weatherRealFeelLowC:"",weatherRealFeelLowF:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",weatherHourly:[],
   venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""},{label:"ADDRESS",value:""},{label:"NOTES",value:""}],
   schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],
+  extraSchedules:[],
   departments:[
     {name:"CLIENT",crew:[{role:"MARKETING MANAGER",name:"",mobile:"",email:"",callTime:""}]},
     {name:"BRAND",crew:[{role:"BRAND DIRECTOR",name:"",mobile:"",email:"",callTime:""},{role:"MARKETING DIRECTOR",name:"",mobile:"",email:"",callTime:""},{role:"MARKETING EXECUTIVE",name:"",mobile:"",email:"",callTime:""},{role:"SNR. PRODUCER",name:"",mobile:"",email:"",callTime:""}]},
@@ -299,7 +330,7 @@ export const CS_HL_COLORS = ["", "pending", "confirmed", "paid"];
 export const CS_HL_BG = { "": "transparent", pending: "#fff8e8", confirmed: "#e8f4fd", paid: "#edfaf3" };
 export const CS_HL_DOT = { "": "#ddd", pending: "#d4a800", confirmed: "#3399ff", paid: "#2e7d32" };
 export const cycleHighlight = (cur) => CS_HL_COLORS[(CS_HL_COLORS.indexOf(cur || "") + 1) % CS_HL_COLORS.length];
-export const CSHighlightDot = ({ value, onClick, size = 8 }) => <span onClick={onClick} title="Click to highlight" style={{ display:"inline-block", width:size, height:size, borderRadius:"50%", background:CS_HL_DOT[value||""], cursor:"pointer", flexShrink:0 }}/>;
+export const CSHighlightDot = ({ value, onClick, size = 8 }) => <span data-noprint="1" onClick={onClick} title="Click to highlight" style={{ display:"inline-block", width:size, height:size, borderRadius:"50%", background:CS_HL_DOT[value||""], cursor:"pointer", flexShrink:0 }}/>;
 
 // ─── CPS (Creative Production Schedule) ──────────────────────────────────────────
 

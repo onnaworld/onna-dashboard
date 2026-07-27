@@ -137,6 +137,10 @@ export default function Documents({
     };
     const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
     const rmScheduleRow = i => csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)}));
+    const addSchedule = () => csSet(d => ({...d, extraSchedules:[...(d.extraSchedules||[]),{title:"ADDITIONAL SCHEDULE",rows:[{time:"",activity:"",notes:""}]}]}));
+    const rmSchedule = si => csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)}));
+    const addExtraScheduleRow = si => csSet(d => {d.extraSchedules[si].rows.push({time:"",activity:"",notes:""}); return d;});
+    const rmExtraScheduleRow = (si,i) => csSet(d => {d.extraSchedules[si].rows.splice(i,1); return d;});
     const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
     const rmVenueRow = i => csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)}));
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
@@ -159,7 +163,7 @@ export default function Documents({
             <button onClick={()=>setActiveCSVersion(null)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.sub}}>‹ Back to Call Sheets</button>
             <div style={{fontSize:11,color:T.muted}}>Label: <input value={csData.label||""} onChange={e=>csU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder="Call Sheet"/></div>
           </div>
-          <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csData.label||"Day 1"} Call Sheet | ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:12mm;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=`${csData.label||"Day 1"} Call Sheet | ${p.name}`;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);}}>Export PDF</BtnExport>
+          <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());clone.querySelectorAll("[data-noprint]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csData.label||"Day 1"} Call Sheet | ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:12mm;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=`${csData.label||"Day 1"} Call Sheet | ${p.name}`;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);}}>Export PDF</BtnExport>
         </div>
         <div id="onna-cs-print" style={{background:"#fff",padding:"0",fontFamily:CS_FONT,borderRadius:0}}>
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
@@ -206,14 +210,14 @@ export default function Documents({
             <div style={{padding:"14px 32px 8px"}}>
               <div style={csSecTitle}>SHOOT</div>
               {csData.venueRows.map((row,i) => (
-                <div key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8,background:CS_HL_BG[row.hl||""],borderRadius:3,padding:"2px 4px",cursor:"grab"}}>
-                  <span style={{color:"#ccc",fontSize:10,padding:"2px 0",userSelect:"none"}}>☰</span>
+                <div key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8,background:CS_HL_BG[row.hl||""],borderRadius:3,padding:"2px 4px",cursor:"grab",breakInside:"avoid"}}>
+                  <span data-noprint="1" style={{color:"#ccc",fontSize:10,padding:"2px 0",userSelect:"none"}}>☰</span>
                   <CSHighlightDot value={row.hl} onClick={()=>csU(`venueRows.${i}.hl`,cycleHighlight(row.hl))}/>
                   <div style={{minWidth:95}}>
                     <CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold autoFit style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/>
                   </div>
-                  <div style={{flex:1,fontSize:11}}>
-                    <CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11}} placeholder="Enter details..."/>
+                  <div style={{flex:1,minWidth:0,fontSize:11,overflowWrap:"anywhere"}}>
+                    <CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11,overflowWrap:"anywhere"}} placeholder="Enter details..."/>
                   </div>
                   <CSXbtn onClick={()=>rmVenueRow(i)}/>
                 </div>
@@ -226,7 +230,7 @@ export default function Documents({
               <div style={csSecTitle}>SCHEDULE</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr style={{background:csDeptBg}}>
-                  <td style={{width:16,background:csDeptBg}}></td>
+                  <td data-noprint="1" style={{width:16,background:csDeptBg}}></td>
                   <td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td>
                   <td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td>
                   <td style={{...csTh,background:csDeptBg}}>NOTES</td>
@@ -234,8 +238,8 @@ export default function Documents({
                 </tr></thead>
                 <tbody>
                   {csData.schedule.map((row,i) => (
-                    <tr key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:CS_HL_BG[row.hl||""]||"#fff",cursor:"grab"}}>
-                      <td style={{padding:"4px 2px",color:"#ccc",fontSize:10}}><span style={{userSelect:"none"}}>☰</span></td>
+                    <tr key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:CS_HL_BG[row.hl||""]||"#fff",cursor:"grab",breakInside:"avoid"}}>
+                      <td data-noprint="1" style={{padding:"4px 2px",color:"#ccc",fontSize:10}}><span style={{userSelect:"none"}}>☰</span></td>
                       <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}>
                         <CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder autoFit placeholder="00:00" style={{fontSize:11,fontWeight:600}}/>
                       </td>
@@ -253,12 +257,51 @@ export default function Documents({
               <CSAddBtn onClick={addScheduleRow} label="Add Row"/>
             </div>
 
+            {(csData.extraSchedules||[]).map((sched,si) => (
+              <div key={si} style={{padding:"10px 32px"}}>
+                <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <CSEditField value={sched.title} onChange={v=>csU(`extraSchedules.${si}.title`,v)} bold style={{fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase"}}/>
+                  <button data-noprint="1" onClick={()=>rmSchedule(si)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>Remove ×</button>
+                </div>
+                <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+                  <thead><tr style={{background:csDeptBg}}>
+                    <td data-noprint="1" style={{width:16,background:csDeptBg}}></td>
+                    <td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td>
+                    <td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td>
+                    <td style={{...csTh,background:csDeptBg}}>NOTES</td>
+                    <td style={{width:24,background:csDeptBg}}></td>
+                  </tr></thead>
+                  <tbody>
+                    {sched.rows.map((row,i) => (
+                      <tr key={i} style={{borderBottom:"1px solid #f0f0f0",background:CS_HL_BG[row.hl||""]||"#fff",breakInside:"avoid"}}>
+                        <td data-noprint="1" style={{padding:"4px 2px",color:"#ccc",fontSize:10}}><span style={{userSelect:"none"}}>☰</span></td>
+                        <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}>
+                          <CSEditField value={row.time} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.time`,v)} isPlaceholder autoFit placeholder="00:00" style={{fontSize:11,fontWeight:600}}/>
+                        </td>
+                        <td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}>
+                          <CSEditField value={row.activity} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.activity`,v)} isPlaceholder autoFit placeholder="Activity" style={{fontSize:11,fontWeight:600}}/>
+                        </td>
+                        <td style={{padding:"4px 4px",fontSize:11}}>
+                          <CSEditField value={row.notes} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/>
+                        </td>
+                        <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:4}}><CSHighlightDot value={row.hl} onClick={()=>csU(`extraSchedules.${si}.rows.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmExtraScheduleRow(si,i)}/></div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <CSAddBtn onClick={()=>addExtraScheduleRow(si)} label="Add Row"/>
+              </div>
+            ))}
+            <div style={{padding:"0 32px 10px"}}>
+              <CSAddBtn onClick={addSchedule} label="+ Add Schedule"/>
+            </div>
+
             {/* CONTACTS */}
             <div style={{padding:"10px 32px"}}>
               <div style={csSecTitle}>CONTACTS</div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr>
-                  <td style={{width:16}}></td>
+                  <td data-noprint="1" style={{width:16}}></td>
                   <td style={{...csTh,width:"17%"}}>ROLE</td>
                   <td style={{...csTh,width:"15%"}}>NAME</td>
                   <td style={{...csTh,width:"16%"}}>MOBILE</td>
@@ -270,10 +313,10 @@ export default function Documents({
                   {csData.departments.map((dept,di) => { const deptOpen = !dept.discrete || !dept.collapsed; return (
                     <Fragment key={di}>
                       <tr draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","dept:"+di);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("dept:")){const from=+d.split(":")[1];if(from!==di)csSet(dd=>{const a=[...dd.departments];const[m]=a.splice(from,1);a.splice(di,0,m);return{...dd,departments:a};});}}}><td colSpan={7} style={{padding:0}}>
-                        <div style={{background:dept.discrete?"#f2f2f2":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"grab"}}>
+                        <div style={{background:dept.discrete?"#f2f2f2":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"grab",breakInside:"avoid"}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{color:dept.discrete?"#aaa":"#666",fontSize:10,userSelect:"none"}}>☰</span>
-                            {dept.discrete&&<span style={{fontSize:9,color:"#999",display:"inline-block",cursor:"pointer",transform:deptOpen?"rotate(0deg)":"rotate(-90deg)",transition:"transform 0.15s"}} onClick={()=>csU(`departments.${di}.collapsed`,!dept.collapsed)}>▾</span>}
+                            <span data-noprint="1" style={{color:dept.discrete?"#aaa":"#666",fontSize:10,userSelect:"none"}}>☰</span>
+                            {dept.discrete&&<span data-noprint="1" style={{fontSize:9,color:"#999",display:"inline-block",cursor:"pointer",transform:deptOpen?"rotate(0deg)":"rotate(-90deg)",transition:"transform 0.15s"}} onClick={()=>csU(`departments.${di}.collapsed`,!dept.collapsed)}>▾</span>}
                             <CSHighlightDot value={dept.hl} onClick={(e)=>{e.stopPropagation();csU(`departments.${di}.hl`,cycleHighlight(dept.hl));}}/>
                             <CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:dept.discrete?"#888":"#fff",fontStyle:dept.discrete?"italic":"normal"}}/>
                           </div>
@@ -281,8 +324,8 @@ export default function Documents({
                         </div>
                       </td></tr>
                       {deptOpen && dept.crew.map((cr,ci) => (
-                        <tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab"}}>
-                          <td style={{padding:"3px 2px",color:"#ddd",fontSize:10}}>☰</td>
+                        <tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab",breakInside:"avoid"}}>
+                          <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}>☰</td>
                           <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666"}}>
                             <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} autoFit style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Role"/>
                           </td>
@@ -364,7 +407,14 @@ export default function Documents({
                 <div>PLEASE SEND INVOICES TO: <CSEditField value={csData.invoicing.email} onChange={v=>csU("invoicing.email",v)} style={{fontSize:11,color:"#1565C0"}}/></div>
                 <div style={{fontWeight:700,marginTop:6}}>BILLING ADDRESS:</div>
                 <CSEditTextarea value={csData.invoicing.address} onChange={v=>csU("invoicing.address",v)} style={{fontSize:11,lineHeight:1.6}}/>
-                <div style={{marginTop:4}}><strong>TRN:</strong> <CSEditField value={csData.invoicing.trn} onChange={v=>csU("invoicing.trn",v)} style={{fontSize:11}}/></div>
+                {csData.invoicing.showTrn !== false ? (
+                  <div style={{marginTop:4,display:"flex",alignItems:"center",gap:6}}>
+                    <strong>TRN:</strong> <CSEditField value={csData.invoicing.trn} onChange={v=>csU("invoicing.trn",v)} style={{fontSize:11}}/>
+                    <button data-noprint="1" onClick={()=>csU("invoicing.showTrn",false)} style={{background:"none",border:"1px solid #eee",borderRadius:4,fontSize:8,color:"#bbb",cursor:"pointer",padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.color="#d32f2f";e.currentTarget.style.borderColor="#f5c6cb";}} onMouseLeave={e=>{e.currentTarget.style.color="#bbb";e.currentTarget.style.borderColor="#eee";}}>Remove</button>
+                  </div>
+                ) : (
+                  <button data-noprint="1" onClick={()=>csU("invoicing.showTrn",true)} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,fontSize:9,color:"#999",cursor:"pointer",padding:"3px 10px",marginTop:4,fontFamily:"inherit"}}>+ Add TRN</button>
+                )}
               </div>
             </div>
 
@@ -380,8 +430,8 @@ export default function Documents({
               <div style={{marginBottom:8}}>
                 <div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></div>
                 {csData.emergencyNumbers.map((en,i) => (
-                  <div key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","emg:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("emg:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.emergencyNumbers];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,emergencyNumbers:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,background:CS_HL_BG[en.hl||""],borderRadius:3,padding:"1px 3px",cursor:"grab"}}>
-                    <span style={{color:"#ccc",fontSize:9,userSelect:"none"}}>☰</span>
+                  <div key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","emg:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("emg:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.emergencyNumbers];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,emergencyNumbers:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,background:CS_HL_BG[en.hl||""],borderRadius:3,padding:"1px 3px",cursor:"grab",breakInside:"avoid"}}>
+                    <span data-noprint="1" style={{color:"#ccc",fontSize:9,userSelect:"none"}}>☰</span>
                     <CSHighlightDot value={en.hl} onClick={()=>csU(`emergencyNumbers.${i}.hl`,cycleHighlight(en.hl))} size={6}/>
                     <span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}>
                       <CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/>
