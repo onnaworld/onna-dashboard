@@ -299,7 +299,7 @@ const ESTIMATE_INIT = {
 };
 
 const CALLSHEET_INIT = {
-  shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"ALL CREW MUST BRING VALID PASSPORT/ID TO SET",
+  shootName:"",date:"",dayLabel:"SHOOT DAY",dayNumber:"",productionContacts:"",productionContactsExtra:[],passportNote:"ALL CREW MUST BRING VALID PASSPORT/ID TO SET",
   productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,mapLink:"",extraMapImages:[],weatherImage:null,weatherSummary:"",weatherHighC:"",weatherHighF:"",weatherLowC:"",weatherLowF:"",weatherRealFeelHighC:"",weatherRealFeelHighF:"",weatherRealFeelLowC:"",weatherRealFeelLowF:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",weatherHourly:[],
   venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""},{label:"ADDRESS",value:""},{label:"NOTES",value:""}],
   schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],

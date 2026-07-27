@@ -89,7 +89,8 @@ export default function Documents({
               const deptCount=(cs.departments||[]).length;
               const crewCount=(cs.departments||[]).reduce((sum,d)=>(d.crew||[]).length+sum,0);
               return(
-                <div key={cs.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveCSVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                <div key={cs.id} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","cs:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("cs:")){const from=+d.split(":")[1];if(from!==i){pushUndo("reorder call sheets");setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const[m]=arr.splice(from,1);arr.splice(i,0,m);store[p.id]=arr;return store;});}}}} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveCSVersion(i)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                  <span style={{color:T.muted,fontSize:14,cursor:"grab",userSelect:"none"}} onClick={e=>e.stopPropagation()}>☰</span>
                   <div style={{flex:1}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                       <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>CS</span>
@@ -192,7 +193,7 @@ export default function Documents({
                 <CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/>
               </div>
               <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>
-                SHOOT DAY <CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder autoFit style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/>
+                <CSEditField value={csData.dayLabel!==undefined?csData.dayLabel:"SHOOT DAY"} onChange={v=>csU("dayLabel",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="SHOOT DAY"/> <CSEditField value={csData.dayNumber} onChange={v=>csU("dayNumber",v)} bold isPlaceholder autoFit style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="#"/>
               </div>
             </div>
 
@@ -202,8 +203,15 @@ export default function Documents({
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
 
             <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11}}>
-              <span style={csLbl}>Production On Set: </span>
-              <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/>
+              <div><span style={csLbl}>Production On Set: </span>
+              <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
+              {(csData.productionContactsExtra||[]).map((line,i) => (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                  <CSEditField value={line} onChange={v=>csU(`productionContactsExtra.${i}`,v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
+                  <CSXbtn onClick={()=>csSet(d=>({...d,productionContactsExtra:d.productionContactsExtra.filter((_,j)=>j!==i)}))}/>
+                </div>
+              ))}
+              <button data-noprint="1" onClick={()=>csSet(d=>({...d,productionContactsExtra:[...(d.productionContactsExtra||[]),""]}))} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
             </div>
 
             {/* SHOOT */}

@@ -733,7 +733,7 @@ ${logos}
 <div style="padding:8px 32px 10px;display:flex;justify-content:space-between;align-items:baseline;position:relative">
   <div style="font-size:11px;font-weight:800;${LS}">${e(cs.shootName)}</div>
   <div style="font-size:11px;font-weight:800;${LS}position:absolute;left:50%;transform:translateX(-50%)">${e(cs.date)}</div>
-  <div style="font-size:11px;font-weight:800;${LS}white-space:nowrap">SHOOT DAY ${e(cs.dayNumber||"#")}</div>
+  <div style="font-size:11px;font-weight:800;${LS}white-space:nowrap">${e((cs.dayLabel!==undefined?cs.dayLabel:"SHOOT DAY")||"SHOOT DAY")} ${e(cs.dayNumber||"#")}</div>
 </div>
 ${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C62828;font-size:8px;font-weight:700;${LS}">${e(cs.passportNote)}</div>`:""}
 <div style="height:1px;background:#eee;margin:0 32px"></div>
