@@ -16,14 +16,24 @@ const RA_LS = 0.5; const RA_LS_HDR = 1.5; const RA_GREY = "#F4F4F4";
 const CT_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const CT_LS = 0.5; const CT_LS_HDR = 1.5;
 
-const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = false, isPlaceholder = false, alwaysYellow = false }) => {
+const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = false, isPlaceholder = false, alwaysYellow = false, autoFit = false }) => {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
+  const spanRef = useRef(null);
   const commit = () => { setEditing(false); onChange(temp); };
   const showYellow = alwaysYellow || (isPlaceholder && !value);
   const autoSize = useCallback((el) => { if (el) { el.style.height = "0"; el.style.height = Math.max(el.scrollHeight, 18) + "px"; } }, []);
+  useEffect(() => {
+    if (!autoFit || editing) return;
+    const el = spanRef.current; const parent = el && el.parentElement;
+    if (!el || !parent) return;
+    const baseFontSize = parseFloat(style.fontSize) || 11;
+    el.style.fontSize = baseFontSize + "px";
+    let fs = baseFontSize;
+    while (el.scrollWidth > parent.clientWidth && fs > 6) { fs -= 0.5; el.style.fontSize = fs + "px"; }
+  }, [value, autoFit, editing, style.fontSize]);
   if (editing) return <textarea ref={el=>{if(el){requestAnimationFrame(()=>autoSize(el));}}} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();}}} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"100%",minWidth:style.minWidth||60,maxWidth:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"inline-block",verticalAlign:"middle"}} placeholder={placeholder}/>;
-  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"pre-wrap",wordBreak:"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+  return <span ref={spanRef} onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:autoFit?"nowrap":"pre-wrap",wordBreak:autoFit?"normal":"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
 };
 
 const SignaturePad = ({ value, onChange, height = 60 }) => {
@@ -261,7 +271,7 @@ const ESTIMATE_INIT = {
 const CALLSHEET_INIT = {
   shootName:"",date:"",dayNumber:"",productionContacts:"",passportNote:"ALL CREW MUST BRING VALID PASSPORT/ID TO SET",
   productionLogo:null,agencyLogo:null,clientLogo:null,mapImage:null,mapLink:"",extraMapImages:[],weatherImage:null,weatherSummary:"",weatherHighC:"",weatherHighF:"",weatherLowC:"",weatherLowF:"",weatherRealFeelHighC:"",weatherRealFeelHighF:"",weatherRealFeelLowC:"",weatherRealFeelLowF:"",weatherSunrise:"",weatherSunset:"",weatherBlueHour:"",weatherHourly:[],
-  venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""},{label:"NOTES",value:""}],
+  venueRows:[{label:"BASE CAMP",value:""},{label:"LOCATIONS",value:""},{label:"PARKING",value:""},{label:"ACCESS",value:""},{label:"ADDRESS",value:""},{label:"NOTES",value:""}],
   schedule:[{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""},{time:"",activity:"",notes:""}],
   departments:[
     {name:"CLIENT",crew:[{role:"MARKETING MANAGER",name:"",mobile:"",email:"",callTime:""}]},
@@ -270,6 +280,7 @@ const CALLSHEET_INIT = {
     {name:"MOTION",crew:[{role:"DIRECTOR OF PHOTOGRAPHY",name:"",mobile:"",email:"",callTime:""},{role:"1ST ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"2ND ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"KEY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"BEST BOY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"GAFFER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK/DRIVER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"VTO",name:"",mobile:"",email:"",callTime:""},{role:"DIT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PHOTOGRAPHY",crew:[{role:"PHOTOGRAPHER",name:"",mobile:"",email:"",callTime:""},{role:"LIGHTING ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"DIGI TECH",name:"",mobile:"",email:"",callTime:""}]},
     {name:"STYLING",crew:[{role:"STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"STYLIST ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"AGENT / PRODUCER",discrete:true,collapsed:true,crew:[{role:"AGENT",name:"",mobile:"",email:"",callTime:""},{role:"PRODUCER",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PROPS",crew:[{role:"PROP STYLIST",name:"",mobile:"",email:"",callTime:""}]},
     {name:"BEAUTY TEAM",crew:[{role:"HAIR STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"HAIR ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ARTIST",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"MODEL",crew:[{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"WAITER",name:"",mobile:"",email:"",callTime:""}]},
@@ -280,7 +291,15 @@ const CALLSHEET_INIT = {
   emergency:{hospital:"American Hospital Nad Al Sheba Clinic, Avenue Mall - Nad Al Sheba - Nadd Al Shiba Second - Dubai, +971 800 24392",police:"Nad Al Sheba Police Administration Office, Road - Nad Al Sheba - Nad Al Sheba 1 - Dubai, +971 4 336 3535"},
   invoicing:{terms:"NET 30 days",email:"accounts@onnaproduction.com",address:"ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC.\nOFFICE NO. F1-022,\nPROPERTY INVESTMENT OFFICE 4-F1\nDUBAI, UNITED ARAB EMIRATES",trn:"105161036600003"},
   protocol:"WE KINDLY ASK ALL CAST AND CREW TO BE SENSITIVE TO THE BRANDS, LOGOS, PEOPLE AND PRODUCTS BEING CAPTURED ON THIS SHOOT AND REMIND YOU THAT IN WORKING ON THIS PRODUCTION YOU AGREE TO TREAT ALL CLIENT INFORMATION, PHOTOGRAPHY AND FILMING AS CONFIDENTIAL. YOU AGREE NOT TO COMMUNICATE ANY COMMENTS OR IMAGERY OF THE SHOOT AT ANY TIME BY ANY MEANS, INCLUDING VIA SOCIAL MEDIA WITHOUT EXPRESS PERMISSION FROM PRODUCTION.",
+  footer:{show:true},
 };
+
+// ─── Shared highlight-color cycle (same palette as Estimate/Budget) ───────
+export const CS_HL_COLORS = ["", "pending", "confirmed", "paid"];
+export const CS_HL_BG = { "": "transparent", pending: "#fff8e8", confirmed: "#e8f4fd", paid: "#edfaf3" };
+export const CS_HL_DOT = { "": "#ddd", pending: "#d4a800", confirmed: "#3399ff", paid: "#2e7d32" };
+export const cycleHighlight = (cur) => CS_HL_COLORS[(CS_HL_COLORS.indexOf(cur || "") + 1) % CS_HL_COLORS.length];
+export const CSHighlightDot = ({ value, onClick, size = 8 }) => <span onClick={onClick} title="Click to highlight" style={{ display:"inline-block", width:size, height:size, borderRadius:"50%", background:CS_HL_DOT[value||""], cursor:"pointer", flexShrink:0 }}/>;
 
 // ─── CPS (Creative Production Schedule) ──────────────────────────────────────────
 

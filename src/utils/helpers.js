@@ -710,8 +710,10 @@ export const printCallSheetPDF = (cs) => {
   const thStyle = `padding:5px 4px;font-size:9px;font-weight:800;${LS}color:#555;text-transform:uppercase;white-space:nowrap;`;
   const schedHTML = (cs.schedule||[]).map(r=>`<tr style="border-bottom:1px solid #f0f0f0;background:#fff"><td style="padding:4px 4px 4px 0;font-size:11px;font-weight:600">${e(r.time)}</td><td style="padding:4px;font-size:11px;font-weight:600">${e(r.activity)}</td><td style="padding:4px;font-size:11px">${e(r.notes)}</td></tr>`).join("");
   const deptHTML = (cs.departments||[]).map(dept => {
-    const crewRows = (dept.crew||[]).map(c=>`<tr style="background:#fff;border-bottom:1px solid #f5f5f5"><td style="padding:3px 4px;font-size:9px;color:#666">${e(c.role)}</td><td style="padding:3px 4px;font-size:10px;font-weight:600">${e(c.name)}</td><td style="padding:3px 4px;font-size:10px">${e(c.mobile)}</td><td style="padding:3px 4px;font-size:10px;color:#1565C0">${e(c.email)}</td><td style="padding:3px 8px 3px 4px;font-size:10px;font-weight:600;text-align:right">${e(c.callTime)}</td></tr>`).join("");
-    return `<tr><td colspan="5" style="padding:0"><div style="background:#1a1a1a;padding:3px 8px;font-size:9px;font-weight:800;${LS}color:#fff">${e(dept.name)}</div></td></tr>${crewRows}`;
+    const discrete = !!dept.discrete;
+    const fs = discrete ? "font-style:italic;" : "";
+    const crewRows = (discrete && dept.collapsed) ? "" : (dept.crew||[]).map(c=>`<tr style="background:#fff;border-bottom:1px solid #f5f5f5"><td style="padding:3px 4px;font-size:9px;color:${discrete?"#999":"#666"};${fs}">${e(c.role)}</td><td style="padding:3px 4px;font-size:10px;font-weight:${discrete?400:600};${fs}">${e(c.name)}</td><td style="padding:3px 4px;font-size:10px;${fs}">${e(c.mobile)}</td><td style="padding:3px 4px;font-size:10px;color:${discrete?"#777":"#1565C0"};${fs}">${e(c.email)}</td><td style="padding:3px 8px 3px 4px;font-size:10px;font-weight:600;text-align:right;${fs}">${e(c.callTime)}</td></tr>`).join("");
+    return `<tr><td colspan="5" style="padding:0"><div style="background:${discrete?"#f2f2f2":"#1a1a1a"};padding:3px 8px;font-size:9px;font-weight:800;${LS}color:${discrete?"#888":"#fff"};${fs}">${e(dept.name)}</div></td></tr>${crewRows}`;
   }).join("");
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
   const mapLink = cs.mapLink ? `<div style="padding:0 32px 4px;font-size:10px"><span style="font-size:14px">🔗</span> <a href="${cs.mapLink}" style="color:#1565C0;text-decoration:none">${e(cs.mapLink)}</a></div>` : "";
@@ -727,7 +729,7 @@ export const printCallSheetPDF = (cs) => {
   const weatherImg = "";
   const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
 ${logos}
-<div style="text-align:center;padding:20px 32px 4px"><div style="font-size:12px;font-weight:800;${LS}color:#000">CALL SHEET</div></div>
+<div style="text-align:center;padding:20px 32px 4px"><div style="font-size:11px;font-weight:800;${LS}color:#000">CALL SHEET</div></div>
 <div style="padding:8px 32px 10px;display:flex;justify-content:space-between;align-items:baseline;position:relative">
   <div style="font-size:11px;font-weight:800;${LS}">${e(cs.shootName)}</div>
   <div style="font-size:11px;font-weight:800;${LS}position:absolute;left:50%;transform:translateX(-50%)">${e(cs.date)}</div>
@@ -754,9 +756,13 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;margin-bottom:4px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST HOSPITAL: </strong>${e(cs.emergency?.hospital)}</div>
   <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
+${cs.footer?.show !== false ? `<div style="border-top:2px solid #000;margin:16px 32px 0;padding:14px 0 20px;display:flex;justify-content:space-between;align-items:center">
+  <div><div style="font-size:10px;font-weight:700;${LS}color:#000">@ONNAPRODUCTION</div><div style="font-size:9px;color:#888;${LS}">DUBAI | LONDON</div></div>
+  <div style="text-align:right"><div style="font-size:10px;font-weight:600;color:#000;${LS}">WWW.ONNA.WORLD</div><div style="font-size:9px;color:#888;${LS}">HELLO@ONNAPRODUCTION.COM</div></div>
+</div>` : ""}
 </div>`;
   const csTitle = `${cs.label||"Day 1"} Call Sheet${cs.shootName?" | "+cs.shootName:""}`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:10mm 12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${csTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${csTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
   const w=window.open(url,"_blank");
