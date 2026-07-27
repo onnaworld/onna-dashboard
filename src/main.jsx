@@ -1,6 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { registerSW } from 'virtual:pwa-register'
+
+registerSW({
+  immediate: true,
+  onNeedRefresh() { window.location.reload(); },
+})
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
