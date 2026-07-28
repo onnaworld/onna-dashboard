@@ -445,8 +445,11 @@ export default function Documents({
             </div>
 
             {/* WEATHER */}
-            <div style={{padding:"10px 32px 14px"}}>
-              <div style={csSecTitle}>WEATHER</div>
+            <div style={{padding:"10px 32px 14px",background:CS_HL_BG[csData.weatherHl||""],borderRadius:3}}>
+              <div style={{...csSecTitle,display:"flex",alignItems:"center",gap:6}}>
+                <CSHighlightDot value={csData.weatherHl} onClick={()=>csU("weatherHl",cycleHighlight(csData.weatherHl))}/>
+                <span>WEATHER</span>
+              </div>
               <div style={{marginBottom:6,fontSize:9,fontFamily:CS_FONT,fontStyle:"italic",letterSpacing:CS_LS}}><CSEditField value={csData.weatherSummary||""} onChange={v=>csU("weatherSummary",v)} isPlaceholder style={{fontSize:9,fontStyle:"italic",letterSpacing:CS_LS}} placeholder="e.g. Sunny, Clear Skies"/></div>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>HIGH: </span><CSEditField value={csData.weatherHighC||""} onChange={v=>csU("weatherHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherHighF||""} onChange={v=>csU("weatherHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
