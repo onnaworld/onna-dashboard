@@ -6,6 +6,14 @@ import { flushAllSaves, waitForPendingSaves } from './utils/helpers'
 
 registerSW({
   immediate: true,
+  onRegisteredSW(swUrl, registration) {
+    // Workbox only checks for a new deploy on page load by default, so a
+    // tab left open for a long session (exactly the case that kept biting
+    // us) would never notice new deploys until manually reloaded. Poll
+    // explicitly so onNeedRefresh actually fires while the tab is open.
+    if (!registration) return;
+    setInterval(() => { registration.update(); }, 60 * 1000);
+  },
   onNeedRefresh() {
     // A new deploy is available. Reloading immediately would abort any
     // debounced save still in flight and lose unsaved edits, so we wait
