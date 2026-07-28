@@ -365,6 +365,7 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
     _pendingFlush[key] = () => { docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaveError); };
     _saveTimers[key] = setTimeout(() => {
       delete _pendingFlush[key];
+      delete _saveTimers[key];
       docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaveError);
     }, delay);
   });
@@ -376,6 +377,7 @@ export const debouncedGlobalSave = (table, data, delay = 2000) => {
   _pendingFlush[table] = () => { globalApi.put(table, data).then(_notifySaved).catch(_notifySaveError); };
   _saveTimers[table] = setTimeout(() => {
     delete _pendingFlush[table];
+    delete _saveTimers[table];
     globalApi.put(table, data).then(_notifySaved).catch(_notifySaveError);
   }, delay);
 };
@@ -387,6 +389,7 @@ export const debouncedConfigSave = (key, data, delay = 2000) => {
   _pendingFlush[fk] = () => { configApi.put(key, data).then(_notifySaved).catch(_notifySaveError); };
   _saveTimers[fk] = setTimeout(() => {
     delete _pendingFlush[fk];
+    delete _saveTimers[fk];
     configApi.put(key, data).then(_notifySaved).catch(_notifySaveError);
   }, delay);
 };
@@ -401,6 +404,14 @@ export const flushAllSaves = () => {
     delete _pendingFlush[k];
   });
 };
+export const waitForPendingSaves = (timeoutMs = 8000) => new Promise(resolve => {
+  const start = Date.now();
+  const check = () => {
+    if (_pendingSaves <= 0 || Date.now() - start > timeoutMs) { resolve(); return; }
+    setTimeout(check, 150);
+  };
+  check();
+});
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 export const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];

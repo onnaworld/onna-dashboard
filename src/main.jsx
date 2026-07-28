@@ -2,10 +2,26 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { registerSW } from 'virtual:pwa-register'
+import { flushAllSaves, waitForPendingSaves } from './utils/helpers'
 
 registerSW({
   immediate: true,
-  onNeedRefresh() { window.location.reload(); },
+  onNeedRefresh() {
+    // A new deploy is available. Reloading immediately would abort any
+    // debounced save still in flight and lose unsaved edits, so we wait
+    // until the user isn't actively typing and any pending save has
+    // actually reached the server before reloading.
+    const isEditing = () => {
+      const el = document.activeElement;
+      return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
+    };
+    const tryReload = () => {
+      if (isEditing()) { setTimeout(tryReload, 1500); return; }
+      flushAllSaves();
+      waitForPendingSaves(8000).then(() => window.location.reload());
+    };
+    tryReload();
+  },
 })
 
 class ErrorBoundary extends React.Component {
