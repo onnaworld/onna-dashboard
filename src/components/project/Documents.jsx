@@ -1,5 +1,5 @@
 import React, { Fragment } from "react";
-import { getToken } from "../../utils/helpers";
+import { getToken, downloadCSV } from "../../utils/helpers";
 import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CS_HL_BG, cycleHighlight, CSHighlightDot } from "../ui/DocHelpers";
 import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_DOC_TYPES, CONTRACT_TYPE_LABELS, GENERAL_TERMS_DOC } from "../agents/ContractCody";
@@ -147,9 +147,22 @@ export default function Documents({
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
     const rmCrew = (di,ci) => csSet(d => {d.departments[di].crew.splice(ci,1); return d;});
     const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
-    const hasAgentProducerDept = csData.departments.some(d=>d.discrete);
-    const addAgentProducerDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"AGENT / PRODUCER",discrete:true,collapsed:false,crew:[{role:"AGENT",name:"",mobile:"",email:"",callTime:""},{role:"PRODUCER",name:"",mobile:"",email:"",callTime:""}]}]}));
     const rmDept = i => csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)}));
+    const addAgentLine = (di,ci) => csSet(d => {d.departments[di].crew[ci].agent={role:"AGENT",name:"",mobile:"",email:"",callTime:""}; return d;});
+    const rmAgentLine = (di,ci) => csSet(d => {delete d.departments[di].crew[ci].agent; return d;});
+    const exportContactsExcel = () => {
+      const rows = [];
+      csData.departments.forEach(dept => {
+        (dept.crew||[]).forEach(cr => {
+          rows.push({department:dept.name,role:cr.role,name:cr.name,mobile:cr.mobile,email:cr.email,callTime:cr.callTime});
+          if (cr.agent) rows.push({department:dept.name,role:cr.agent.role,name:cr.agent.name,mobile:cr.agent.mobile,email:cr.agent.email,callTime:cr.agent.callTime});
+        });
+      });
+      downloadCSV(rows, [
+        {key:"department",label:"Department"},{key:"role",label:"Role"},{key:"name",label:"Name"},
+        {key:"mobile",label:"Mobile"},{key:"email",label:"Email"},{key:"callTime",label:"Call Time"},
+      ], `${csData.label||"Call Sheet"} Contacts.csv`);
+    };
     const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
     const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
 
@@ -166,7 +179,7 @@ export default function Documents({
             <button onClick={()=>setActiveCSVersion(null)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.sub}}>‹ Back to Call Sheets</button>
             <div style={{fontSize:11,color:T.muted}}>Label: <input value={csData.label||""} onChange={e=>csU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder="Call Sheet"/></div>
           </div>
-          <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());clone.querySelectorAll("[data-noprint]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csData.label||"Day 1"} Call Sheet | ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:12mm;}@media print{@page{margin:0;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=`${csData.label||"Day 1"} Call Sheet | ${p.name}`;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);}}>Export PDF</BtnExport>
+          <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());clone.querySelectorAll("[data-noprint]").forEach(b=>b.remove());const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csData.label||"Day 1"} Call Sheet | ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:12mm;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=`${csData.label||"Day 1"} Call Sheet | ${p.name}`;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);}}>Export PDF</BtnExport>
         </div>
         <div id="onna-cs-print" style={{background:"#fff",padding:"0",fontFamily:CS_FONT,borderRadius:0}}>
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
@@ -183,15 +196,15 @@ export default function Documents({
               <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
             </div>
 
-            <div style={{textAlign:"center",padding:"20px 32px 4px"}}>
-              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,color:"#000",display:"flex",justifyContent:"space-between",alignItems:"center"}}>CALL SHEET</div>
-            </div>
-
-            <div style={{padding:"8px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-              <div style={{fontWeight:800,letterSpacing:CS_LS}}>
+            <div style={{padding:"20px 32px 4px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>CALL SHEET</div>
+              <div style={{fontWeight:800,letterSpacing:CS_LS,textAlign:"right"}}>
                 <CSEditField value={csData.shootName} onChange={v=>csU("shootName",v)} bold isPlaceholder style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS}} placeholder="SHOOT NAME"/>
               </div>
-              <div style={{fontWeight:800,letterSpacing:CS_LS,textAlign:"center"}}>
+            </div>
+
+            <div style={{padding:"4px 32px 10px",display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+              <div style={{fontWeight:800,letterSpacing:CS_LS}}>
                 <CSEditField value={csData.date} onChange={v=>csU("date",v)} isPlaceholder style={{fontSize:11,color:"#000",fontWeight:800,letterSpacing:CS_LS}} placeholder="DAY & DATE"/>
               </div>
               <div style={{fontSize:11,fontWeight:800,letterSpacing:CS_LS,whiteSpace:"nowrap"}}>
@@ -309,7 +322,10 @@ export default function Documents({
 
             {/* CONTACTS */}
             <div style={{padding:"10px 32px"}}>
-              <div style={csSecTitle}>CONTACTS</div>
+              <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>CONTACTS</span>
+                <button data-noprint="1" onClick={exportContactsExcel} style={{background:"none",border:"1px solid #ddd",borderRadius:4,padding:"3px 10px",fontSize:9,color:"#666",cursor:"pointer",fontFamily:"inherit",textTransform:"none",letterSpacing:0}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#666";}}>Export to Excel</button>
+              </div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr>
                   <td data-noprint="1" style={{width:16}}></td>
@@ -334,7 +350,7 @@ export default function Documents({
                           <button onClick={()=>rmDept(di)} style={{background:"none",border:"none",color:dept.discrete?"#bbb":"#777",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#ff6b6b")} onMouseLeave={e=>(e.target.style.color=dept.discrete?"#bbb":"#777")}>×</button>
                         </div>
                       </td></tr>
-                      {deptOpen && dept.crew.map((cr,ci) => (
+                      {deptOpen && dept.crew.map((cr,ci) => ([
                         <tr key={ci} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",breakInside:"avoid"}}>
                           <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}><span draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);}} style={{cursor:"grab"}}>☰</span></td>
                           <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
@@ -353,17 +369,41 @@ export default function Documents({
                             <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder autoFit style={{fontSize:10,fontWeight:600,fontStyle:dept.discrete?"italic":"normal"}} placeholder="Time"/>
                           </td>
                           <td><div style={{display:"flex",alignItems:"center",gap:3}}><CSHighlightDot value={cr.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.hl`,cycleHighlight(cr.hl))} size={6}/><CSXbtn onClick={()=>rmCrew(di,ci)}/></div></td>
-                        </tr>
-                      ))}
+                        </tr>,
+                        cr.agent ? (
+                          <tr key={ci+"-agent"} style={{background:CS_HL_BG[cr.agent.hl||""]||"#fafafa",borderBottom:"1px solid #f5f5f5"}}>
+                            <td data-noprint="1"></td>
+                            <td style={{padding:"3px 4px",fontSize:9,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
+                              <CSEditField value={cr.agent.role} onChange={v=>csU(`departments.${di}.crew.${ci}.agent.role`,v)} style={{fontSize:9,color:"#999",fontStyle:"italic"}} placeholder="Agent/Producer"/>
+                            </td>
+                            <td style={{padding:"3px 4px",fontSize:10,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
+                              <CSEditField value={cr.agent.name} onChange={v=>csU(`departments.${di}.crew.${ci}.agent.name`,v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Name"/>
+                            </td>
+                            <td style={{padding:"3px 4px",fontSize:10,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
+                              <CSEditField value={cr.agent.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.agent.mobile`,v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Phone"/>
+                            </td>
+                            <td style={{padding:"3px 4px",fontSize:10,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
+                              <CSEditField value={cr.agent.email} onChange={v=>csU(`departments.${di}.crew.${ci}.agent.email`,v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Email"/>
+                            </td>
+                            <td style={{padding:"3px 8px 3px 4px",fontSize:10,color:"#999",fontStyle:"italic",fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
+                              <CSEditField value={cr.agent.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.agent.callTime`,v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic",fontWeight:600}} placeholder="Time"/>
+                            </td>
+                            <td><div style={{display:"flex",alignItems:"center",gap:3}}><CSHighlightDot value={cr.agent.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.agent.hl`,cycleHighlight(cr.agent.hl))} size={6}/><CSXbtn onClick={()=>rmAgentLine(di,ci)}/></div></td>
+                          </tr>
+                        ) : (
+                          <tr key={ci+"-addagent"} style={{background:"#fff"}}>
+                            <td colSpan={7} style={{padding:"1px 4px 3px 22px"}}>
+                              <button data-noprint="1" onClick={()=>addAgentLine(di,ci)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:8,padding:0,fontFamily:"inherit",fontStyle:"italic"}} onMouseEnter={e=>e.currentTarget.style.color="#999"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>+ Agent / Producer</button>
+                            </td>
+                          </tr>
+                        )
+                      ]))}
                       {deptOpen && <tr style={{background:"#fff"}}><td colSpan={7} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr>}
                     </Fragment>
                   );})}
                 </tbody>
               </table>
-              <div style={{display:"flex",gap:8}}>
-                <CSAddBtn onClick={addDept} label="Add Department"/>
-                {!hasAgentProducerDept && <CSAddBtn onClick={addAgentProducerDept} label="+ Add Agent / Producer"/>}
-              </div>
+              <CSAddBtn onClick={addDept} label="Add Department"/>
             </div>
 
             {/* MAP */}
@@ -375,9 +415,9 @@ export default function Documents({
                 {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
               </div>
               {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
-              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
-                {(csData.extraMapImages||[]).map((img,i)=><CSResizableImage key={i} label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/>)}
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>
+                <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={220}/>
+                {(csData.extraMapImages||[]).map((img,i)=><CSResizableImage key={i} label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={220}/>)}
               </div>
               <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
             </div>
@@ -394,23 +434,35 @@ export default function Documents({
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL HIGH: </span><CSEditField value={csData.weatherRealFeelHighC||""} onChange={v=>csU("weatherRealFeelHighC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelHighF||""} onChange={v=>csU("weatherRealFeelHighF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>REAL FEEL LOW: </span><CSEditField value={csData.weatherRealFeelLowC||""} onChange={v=>csU("weatherRealFeelLowC",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°C / <CSEditField value={csData.weatherRealFeelLowF||""} onChange={v=>csU("weatherRealFeelLowF",v)} isPlaceholder style={{fontSize:10,minWidth:20}} placeholder="—"/>°F</div>
               </div>
-              {(csData.weatherHourly||[]).length>0?<div style={{marginBottom:10}}>
-                <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
-                <div style={{display:"flex",gap:0,width:"100%"}}>
-                  {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
-                    <div style={{fontWeight:700,color:"#555"}}>{h.time}</div>
-                    <div style={{fontSize:13,margin:"2px 0"}}>{(h.condition||"").toLowerCase().includes("sun")||(h.condition||"").toLowerCase().includes("clear")?"☀️":(h.condition||"").toLowerCase().includes("cloud")?"⛅":(h.condition||"").toLowerCase().includes("rain")||(h.condition||"").toLowerCase().includes("shower")?"🌧️":(h.condition||"").toLowerCase().includes("storm")||(h.condition||"").toLowerCase().includes("thunder")?"⛈️":(h.condition||"").toLowerCase().includes("wind")?"💨":(h.condition||"").toLowerCase().includes("fog")||(h.condition||"").toLowerCase().includes("mist")?"🌫️":(h.condition||"").toLowerCase().includes("snow")?"❄️":"🌤️"}</div>
-                    <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a",margin:"1px 0"}}>{h.tempC}°</div>
-                    <div style={{fontSize:8,color:"#888"}}>{h.tempF}°F</div>
-                  </div>))}
+              {csData.weatherImage ? (
+                <div style={{marginBottom:10}}>
+                  <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
+                  <CSResizableImage label="Weather Forecast Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={200}/>
                 </div>
-              </div>:<div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}><div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div><div style={{fontSize:9,color:"#ccc"}}>Ask Connie for weather details to populate</div></div>}
+              ) : (csData.weatherHourly||[]).length>0 ? (
+                <div style={{marginBottom:10}}>
+                  <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
+                  <div style={{display:"flex",gap:0,width:"100%"}}>
+                    {csData.weatherHourly.map((h,i)=>(<div key={i} style={{flex:1,textAlign:"center",padding:"4px 2px",borderRight:i<csData.weatherHourly.length-1?"1px solid #eee":"none",fontSize:9,fontFamily:CS_FONT}}>
+                      <div style={{fontWeight:700,color:"#555"}}>{h.time}</div>
+                      <div style={{fontSize:13,margin:"2px 0"}}>{(h.condition||"").toLowerCase().includes("sun")||(h.condition||"").toLowerCase().includes("clear")?"☀️":(h.condition||"").toLowerCase().includes("cloud")?"⛅":(h.condition||"").toLowerCase().includes("rain")||(h.condition||"").toLowerCase().includes("shower")?"🌧️":(h.condition||"").toLowerCase().includes("storm")||(h.condition||"").toLowerCase().includes("thunder")?"⛈️":(h.condition||"").toLowerCase().includes("wind")?"💨":(h.condition||"").toLowerCase().includes("fog")||(h.condition||"").toLowerCase().includes("mist")?"🌫️":(h.condition||"").toLowerCase().includes("snow")?"❄️":"🌤️"}</div>
+                      <div style={{fontSize:11,fontWeight:800,color:"#1a1a1a",margin:"1px 0"}}>{h.tempC}°</div>
+                      <div style={{fontSize:8,color:"#888"}}>{h.tempF}°F</div>
+                    </div>))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{marginBottom:10,border:"1px dashed #ddd",borderRadius:6,padding:"14px 10px",textAlign:"center"}}>
+                  <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#bbb",marginBottom:4}}>HOURLY FORECAST</div>
+                  <div style={{fontSize:9,color:"#ccc",marginBottom:8}}>Ask Connie for weather details, or upload a screenshot below</div>
+                  <CSResizableImage label="Weather Forecast Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/>
+                </div>
+              )}
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
                 <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
               </div>
-              <CSResizableImage label="Weather Forecast Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={200}/>
               </div>
 
             {/* INVOICING */}
@@ -460,10 +512,10 @@ export default function Documents({
                 ))}
                 <CSAddBtn onClick={addEmergencyNum} label="Add"/>
               </div>
-              <div style={{fontSize:11,marginBottom:4,background:"#FFFDE7",padding:"3px 6px",borderRadius:2}}>
+              <div style={{fontSize:11,marginBottom:4,background:csData.emergency.hospital?"transparent":"#FFFDE7",padding:"3px 6px",borderRadius:2}}>
                 <strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/>
               </div>
-              <div style={{fontSize:11,background:"#FFFDE7",padding:"3px 6px",borderRadius:2}}>
+              <div style={{fontSize:11,background:csData.emergency.police?"transparent":"#FFFDE7",padding:"3px 6px",borderRadius:2}}>
                 <strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/>
               </div>
             </div>

@@ -310,7 +310,11 @@ export const _proxy = (path) => `/api/relay?target=${encodeURIComponent(path)}`;
 export const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 export const getToken = () => localStorage.getItem("onna_token") || "";
 const _h = (extra={}) => ({"Authorization":`Bearer ${getToken()}`,...extra});
-const _guard = r => { if(r.status===401){const t=getToken();if(t){localStorage.removeItem("onna_token");window.location.reload();}return Promise.reject(new Error("Unauthorized"));} return r.json(); };
+const _guard = r => {
+  if(r.status===401){const t=getToken();if(t){localStorage.removeItem("onna_token");window.location.reload();}return Promise.reject(new Error("Unauthorized"));}
+  if(!r.ok){return r.json().catch(()=>({})).then(body=>Promise.reject(new Error((body&&body.error)||`Request failed (${r.status})`)));}
+  return r.json();
+};
 import { enqueue as _sqEnqueue } from './syncQueue.js';
 const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).catch(err => {
   if (isWrite && !navigator.onLine) { _sqEnqueue(url, opts); return { ok: true, queued: true }; }
@@ -727,7 +731,11 @@ export const printCallSheetPDF = (cs) => {
   const deptHTML = (cs.departments||[]).map(dept => {
     const discrete = !!dept.discrete;
     const fs = discrete ? "font-style:italic;" : "";
-    const crewRows = (discrete && dept.collapsed) ? "" : (dept.crew||[]).map(c=>`<tr style="background:#fff;border-bottom:1px solid #f5f5f5"><td style="padding:3px 4px;font-size:9px;color:${discrete?"#999":"#666"};${fs}">${e(c.role)}</td><td style="padding:3px 4px;font-size:10px;font-weight:${discrete?400:600};${fs}">${e(c.name)}</td><td style="padding:3px 4px;font-size:10px;${fs}">${e(c.mobile)}</td><td style="padding:3px 4px;font-size:10px;color:${discrete?"#777":"#1565C0"};${fs}">${e(c.email)}</td><td style="padding:3px 8px 3px 4px;font-size:10px;font-weight:600;text-align:right;${fs}">${e(c.callTime)}</td></tr>`).join("");
+    const crewRows = (discrete && dept.collapsed) ? "" : (dept.crew||[]).map(c=>{
+      const row = `<tr style="background:#fff;border-bottom:1px solid #f5f5f5"><td style="padding:3px 4px;font-size:9px;color:${discrete?"#999":"#666"};${fs}">${e(c.role)}</td><td style="padding:3px 4px;font-size:10px;font-weight:${discrete?400:600};${fs}">${e(c.name)}</td><td style="padding:3px 4px;font-size:10px;${fs}">${e(c.mobile)}</td><td style="padding:3px 4px;font-size:10px;color:${discrete?"#777":"#1565C0"};${fs}">${e(c.email)}</td><td style="padding:3px 8px 3px 4px;font-size:10px;font-weight:600;text-align:right;${fs}">${e(c.callTime)}</td></tr>`;
+      const agentRow = c.agent ? `<tr style="background:#fafafa;border-bottom:1px solid #f5f5f5"><td style="padding:3px 4px;font-size:9px;color:#999;font-style:italic">${e(c.agent.role)}</td><td style="padding:3px 4px;font-size:10px;color:#999;font-style:italic">${e(c.agent.name)}</td><td style="padding:3px 4px;font-size:10px;color:#999;font-style:italic">${e(c.agent.mobile)}</td><td style="padding:3px 4px;font-size:10px;color:#999;font-style:italic">${e(c.agent.email)}</td><td style="padding:3px 8px 3px 4px;font-size:10px;font-weight:600;text-align:right;color:#999;font-style:italic">${e(c.agent.callTime)}</td></tr>` : "";
+      return row + agentRow;
+    }).join("");
     return `<tr><td colspan="5" style="padding:0"><div style="background:${discrete?"#f2f2f2":"#1a1a1a"};padding:3px 8px;font-size:9px;font-weight:800;${LS}color:${discrete?"#888":"#fff"};${fs}">${e(dept.name)}</div></td></tr>${crewRows}`;
   }).join("");
   const emergNums = (cs.emergencyNumbers||[]).map(en=>`<span style="color:#C62828;font-weight:800;font-size:10px">${e(en.number)}</span> <span style="font-weight:600;font-size:10px;${LS}">FOR</span> <strong style="font-size:10px;font-weight:700;${LS}">${e(en.label)}</strong>`).join(` <span style="color:#ccc;margin:0 4px">|</span> `);
@@ -744,10 +752,12 @@ export const printCallSheetPDF = (cs) => {
   const weatherImg = cs.weatherImage ? `<img src="${cs.weatherImage}" style="width:100%;max-height:400px;object-fit:contain;border-radius:4px;margin-top:8px"/>` : "";
   const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
 ${logos}
-<div style="text-align:center;padding:20px 32px 4px"><div style="font-size:11px;font-weight:800;${LS}color:#000">CALL SHEET</div></div>
-<div style="padding:8px 32px 10px;display:flex;justify-content:space-between;align-items:baseline;position:relative">
-  <div style="font-size:11px;font-weight:800;${LS}">${e(cs.shootName)}</div>
-  <div style="font-size:11px;font-weight:800;${LS}position:absolute;left:50%;transform:translateX(-50%)">${e(cs.date)}</div>
+<div style="padding:20px 32px 4px;display:flex;justify-content:space-between;align-items:center">
+  <div style="font-size:11px;font-weight:800;${LS}color:#000">CALL SHEET</div>
+  <div style="font-size:11px;font-weight:800;${LS}text-align:right">${e(cs.shootName)}</div>
+</div>
+<div style="padding:4px 32px 10px;display:flex;justify-content:space-between;align-items:baseline">
+  <div style="font-size:11px;font-weight:800;${LS}">${e(cs.date)}</div>
   <div style="font-size:11px;font-weight:800;${LS}white-space:nowrap">${e((cs.dayLabel!==undefined?cs.dayLabel:"SHOOT DAY")||"SHOOT DAY")} ${e(cs.dayNumber||"#")}</div>
 </div>
 ${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C62828;font-size:8px;font-weight:700;${LS}">${e(cs.passportNote)}</div>`:""}
@@ -768,8 +778,8 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
 <div style="padding:10px 32px"><div style="${secTitle}">PROTOCOL ON SET</div><div style="font-size:10px;color:#555;line-height:1.7;white-space:pre-wrap">${e(cs.protocol)}</div></div>
 <div style="padding:10px 32px"><div style="${secTitle}">NEAREST EMERGENCY SERVICES</div>
   <div style="font-size:9px;margin-bottom:8px;display:flex;flex-wrap:nowrap;align-items:center;gap:3px"><strong style="font-size:9px;font-weight:700;${LS}">${e(cs.emergencyDialPrefix)}</strong> ${emergNums}</div>
-  <div style="font-size:11px;margin-bottom:4px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST HOSPITAL: </strong>${e(cs.emergency?.hospital)}</div>
-  <div style="font-size:11px;background:#FFFDE7;padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
+  <div style="font-size:11px;margin-bottom:4px;background:${cs.emergency?.hospital?"transparent":"#FFFDE7"};padding:3px 6px;border-radius:2px"><strong>NEAREST HOSPITAL: </strong>${e(cs.emergency?.hospital)}</div>
+  <div style="font-size:11px;background:${cs.emergency?.police?"transparent":"#FFFDE7"};padding:3px 6px;border-radius:2px"><strong>NEAREST POLICE STATION: </strong>${e(cs.emergency?.police)}</div>
 </div>
 ${cs.footer?.show !== false ? `<div style="border-top:2px solid #000;margin:16px 32px 0;padding:14px 0 20px;display:flex;justify-content:space-between;align-items:center">
   <div><div style="font-size:10px;font-weight:700;${LS}color:#000">@ONNAPRODUCTION</div><div style="font-size:9px;color:#888;${LS}">DUBAI | LONDON</div></div>
@@ -777,7 +787,7 @@ ${cs.footer?.show !== false ? `<div style="border-top:2px solid #000;margin:16px
 </div>` : ""}
 </div>`;
   const csTitle = `${cs.label||"Day 1"} Call Sheet${cs.shootName?" | "+cs.shootName:""}`;
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};padding:12mm;}@media print{@page{margin:0;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${csTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};}@media print{@page{margin:12mm;size:A4;}}${PRINT_CLEANUP_CSS}</style></head><body>${body}<script>window.onload=function(){document.title="${csTitle.replace(/"/g,'\\"')}";window.print();};<\/script></body></html>`;
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
   const w=window.open(url,"_blank");

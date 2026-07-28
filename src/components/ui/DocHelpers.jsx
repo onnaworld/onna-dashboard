@@ -85,7 +85,7 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
     while (el.scrollWidth > parent.clientWidth && fs > 6) { fs -= 0.5; el.style.fontSize = fs + "px"; }
   }, [value, autoFit, editing, style.fontSize]);
   if (editing) return <textarea ref={el=>{if(el){requestAnimationFrame(()=>autoSize(el));}}} autoFocus value={temp} onChange={e=>{setTemp(e.target.value);autoSize(e.target);}} onBlur={commit} onKeyDown={handleKeyDown} style={{...style,fontFamily:CS_FONT,fontSize:style.fontSize||11,fontWeight:bold?700:style.fontWeight||400,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"2px 5px",width:style.width||"100%",minWidth:style.minWidth||60,maxWidth:"100%",boxSizing:"border-box",color:style.color||"#1a1a1a",resize:"none",overflow:"hidden",lineHeight:1.5,display:"inline-block",verticalAlign:"middle"}} placeholder={placeholder}/>;
-  return <span ref={spanRef} onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:autoFit?"nowrap":"pre-wrap",wordBreak:autoFit?"normal":"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value?renderCSLinks(value):<span style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+  return <span ref={spanRef} onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:autoFit?"nowrap":"pre-wrap",wordBreak:autoFit?"normal":"break-word"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value?renderCSLinks(value):<span data-noprint="1" style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
 };
 
 const SignaturePad = ({ value, onChange, height = 60 }) => {
@@ -142,10 +142,12 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
   const computeDims = (naturalW, naturalH) => {
     const aspect = naturalW / naturalH || 1;
     aspectRef.current = aspect;
-    let w, h;
-    if (aspect < 0.95) { h = 340; w = Math.round(h * aspect); } // portrait: cap by height so several fit side by side
-    else { w = Math.min(CS_IMG_MAX_W, 820); h = Math.round(w / aspect); } // landscape: cap by width
-    setDims({ w, h: Math.max(80, Math.min(h, 1000)) });
+    // Always target the same height regardless of orientation, so portrait and
+    // landscape images sitting in the same row line up; width follows aspect ratio.
+    let h = defaultHeight;
+    let w = Math.round(h * aspect);
+    if (w > CS_IMG_MAX_W) { w = CS_IMG_MAX_W; h = Math.round(w / aspect); }
+    setDims({ w, h: Math.max(80, h) });
   };
   const handleImgLoad = e => { if (!dims) computeDims(e.target.naturalWidth, e.target.naturalHeight); };
   const loadFile = f => { if(!validateImg(f))return; const r=new FileReader(); r.onload=ev=>{ setDims(null); onUpload(ev.target.result); }; r.readAsDataURL(f); };
@@ -349,7 +351,6 @@ const CALLSHEET_INIT = {
     {name:"MOTION",crew:[{role:"DIRECTOR OF PHOTOGRAPHY",name:"",mobile:"",email:"",callTime:""},{role:"1ST ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"2ND ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"KEY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"BEST BOY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"GAFFER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK/DRIVER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"VTO",name:"",mobile:"",email:"",callTime:""},{role:"DIT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PHOTOGRAPHY",crew:[{role:"PHOTOGRAPHER",name:"",mobile:"",email:"",callTime:""},{role:"LIGHTING ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"DIGI TECH",name:"",mobile:"",email:"",callTime:""}]},
     {name:"STYLING",crew:[{role:"STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"STYLIST ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
-    {name:"AGENT / PRODUCER",discrete:true,collapsed:false,crew:[{role:"AGENT",name:"",mobile:"",email:"",callTime:""},{role:"PRODUCER",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PROPS",crew:[{role:"PROP STYLIST",name:"",mobile:"",email:"",callTime:""}]},
     {name:"BEAUTY TEAM",crew:[{role:"HAIR STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"HAIR ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ARTIST",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"MODEL",crew:[{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"WAITER",name:"",mobile:"",email:"",callTime:""}]},
