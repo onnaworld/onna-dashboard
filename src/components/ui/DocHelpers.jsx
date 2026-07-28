@@ -16,17 +16,39 @@ const RA_LS = 0.5; const RA_LS_HDR = 1.5; const RA_GREY = "#F4F4F4";
 const CT_FONT = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const CT_LS = 0.5; const CT_LS_HDR = 1.5;
 
-const CS_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const CS_MD_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const CS_BARE_URL_RE = /(https?:\/\/[^\s]+)/g;
+const shortenCSUrl = (url) => {
+  try {
+    const u = new URL(url);
+    let label = u.hostname.replace(/^www\./, "") + (u.pathname !== "/" ? u.pathname : "");
+    return label.length > 40 ? label.slice(0, 37) + "…" : label;
+  } catch { return url.length > 40 ? url.slice(0, 37) + "…" : url; }
+};
 const renderCSLinks = (text) => {
   if (!text) return text;
-  const parts = []; let lastIndex = 0; let m; let key = 0;
-  CS_LINK_RE.lastIndex = 0;
-  while ((m = CS_LINK_RE.exec(text))) {
-    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
-    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{m[1]}</a>);
+  const parts = []; let key = 0; let lastIndex = 0; let m;
+  const segments = [];
+  CS_MD_LINK_RE.lastIndex = 0;
+  while ((m = CS_MD_LINK_RE.exec(text))) {
+    if (m.index > lastIndex) segments.push({ type: "text", value: text.slice(lastIndex, m.index) });
+    segments.push({ type: "link", label: m[1], url: m[2] });
     lastIndex = m.index + m[0].length;
   }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  if (lastIndex < text.length) segments.push({ type: "text", value: text.slice(lastIndex) });
+  segments.forEach(seg => {
+    if (seg.type === "link") {
+      parts.push(<a key={key++} href={seg.url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{seg.label}</a>);
+      return;
+    }
+    let li = 0; let bm; CS_BARE_URL_RE.lastIndex = 0;
+    while ((bm = CS_BARE_URL_RE.exec(seg.value))) {
+      if (bm.index > li) parts.push(seg.value.slice(li, bm.index));
+      parts.push(<a key={key++} href={bm[1]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{shortenCSUrl(bm[1])}</a>);
+      li = bm.index + bm[1].length;
+    }
+    if (li < seg.value.length) parts.push(seg.value.slice(li));
+  });
   return parts.length ? parts : text;
 };
 
@@ -311,7 +333,7 @@ const CALLSHEET_INIT = {
     {name:"MOTION",crew:[{role:"DIRECTOR OF PHOTOGRAPHY",name:"",mobile:"",email:"",callTime:""},{role:"1ST ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"2ND ASSISTANT CAMERA",name:"",mobile:"",email:"",callTime:""},{role:"KEY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"BEST BOY GRIP",name:"",mobile:"",email:"",callTime:""},{role:"GAFFER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK/DRIVER",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"SPARK",name:"",mobile:"",email:"",callTime:""},{role:"VTO",name:"",mobile:"",email:"",callTime:""},{role:"DIT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PHOTOGRAPHY",crew:[{role:"PHOTOGRAPHER",name:"",mobile:"",email:"",callTime:""},{role:"LIGHTING ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"DIGI TECH",name:"",mobile:"",email:"",callTime:""}]},
     {name:"STYLING",crew:[{role:"STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"STYLIST ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
-    {name:"AGENT / PRODUCER",discrete:true,collapsed:true,crew:[{role:"AGENT",name:"",mobile:"",email:"",callTime:""},{role:"PRODUCER",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"AGENT / PRODUCER",discrete:true,collapsed:false,crew:[{role:"AGENT",name:"",mobile:"",email:"",callTime:""},{role:"PRODUCER",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PROPS",crew:[{role:"PROP STYLIST",name:"",mobile:"",email:"",callTime:""}]},
     {name:"BEAUTY TEAM",crew:[{role:"HAIR STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"HAIR ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ARTIST",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"MODEL",crew:[{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"WAITER",name:"",mobile:"",email:"",callTime:""}]},

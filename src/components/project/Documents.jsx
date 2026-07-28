@@ -147,6 +147,8 @@ export default function Documents({
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
     const rmCrew = (di,ci) => csSet(d => {d.departments[di].crew.splice(ci,1); return d;});
     const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
+    const hasAgentProducerDept = csData.departments.some(d=>d.discrete);
+    const addAgentProducerDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"AGENT / PRODUCER",discrete:true,collapsed:false,crew:[{role:"AGENT",name:"",mobile:"",email:"",callTime:""},{role:"PRODUCER",name:"",mobile:"",email:"",callTime:""}]}]}));
     const rmDept = i => csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)}));
     const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
     const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
@@ -207,6 +209,7 @@ export default function Documents({
               <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
               {(csData.productionContactsExtra||[]).map((line,i) => (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                  <span style={csLbl}>Production On Set: </span>
                   <CSEditField value={line} onChange={v=>csU(`productionContactsExtra.${i}`,v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
                   <CSXbtn onClick={()=>csSet(d=>({...d,productionContactsExtra:d.productionContactsExtra.filter((_,j)=>j!==i)}))}/>
                 </div>
@@ -248,13 +251,13 @@ export default function Documents({
                   {csData.schedule.map((row,i) => (
                     <tr key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:CS_HL_BG[row.hl||""]||"#fff",cursor:"grab",breakInside:"avoid"}}>
                       <td data-noprint="1" style={{padding:"4px 2px",color:"#ccc",fontSize:10}}><span style={{userSelect:"none"}}>☰</span></td>
-                      <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}>
+                      <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                         <CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder autoFit placeholder="00:00" style={{fontSize:11,fontWeight:600}}/>
                       </td>
-                      <td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}>
+                      <td style={{padding:"4px 4px",fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                         <CSEditField value={row.activity} onChange={v=>csU(`schedule.${i}.activity`,v)} isPlaceholder autoFit placeholder="Activity" style={{fontSize:11,fontWeight:600}}/>
                       </td>
-                      <td style={{padding:"4px 4px",fontSize:11}}>
+                      <td style={{padding:"4px 4px",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                         <CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/>
                       </td>
                       <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:4}}><CSHighlightDot value={row.hl} onClick={()=>csU(`schedule.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmScheduleRow(i)}/></div></td>
@@ -283,13 +286,13 @@ export default function Documents({
                     {sched.rows.map((row,i) => (
                       <tr key={i} style={{borderBottom:"1px solid #f0f0f0",background:CS_HL_BG[row.hl||""]||"#fff",breakInside:"avoid"}}>
                         <td data-noprint="1" style={{padding:"4px 2px",color:"#ccc",fontSize:10}}><span style={{userSelect:"none"}}>☰</span></td>
-                        <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600}}>
+                        <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                           <CSEditField value={row.time} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.time`,v)} isPlaceholder autoFit placeholder="00:00" style={{fontSize:11,fontWeight:600}}/>
                         </td>
-                        <td style={{padding:"4px 4px",fontSize:11,fontWeight:600}}>
+                        <td style={{padding:"4px 4px",fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                           <CSEditField value={row.activity} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.activity`,v)} isPlaceholder autoFit placeholder="Activity" style={{fontSize:11,fontWeight:600}}/>
                         </td>
-                        <td style={{padding:"4px 4px",fontSize:11}}>
+                        <td style={{padding:"4px 4px",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                           <CSEditField value={row.notes} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/>
                         </td>
                         <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:4}}><CSHighlightDot value={row.hl} onClick={()=>csU(`extraSchedules.${si}.rows.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmExtraScheduleRow(si,i)}/></div></td>
@@ -334,19 +337,19 @@ export default function Documents({
                       {deptOpen && dept.crew.map((cr,ci) => (
                         <tr key={ci} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",cursor:"grab",breakInside:"avoid"}}>
                           <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}>☰</td>
-                          <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666"}}>
+                          <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} autoFit style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Role"/>
                           </td>
-                          <td style={{padding:"3px 4px",fontSize:10,fontWeight:dept.discrete?400:600}}>
+                          <td style={{padding:"3px 4px",fontSize:10,fontWeight:dept.discrete?400:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Name"/>
                           </td>
-                          <td style={{padding:"3px 4px",fontSize:10}}>
+                          <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Phone"/>
                           </td>
-                          <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis"}}>
+                          <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder autoFit style={{fontSize:10,color:dept.discrete?"#777":"#1565C0",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Email"/>
                           </td>
-                          <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right"}}>
+                          <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder autoFit style={{fontSize:10,fontWeight:600,fontStyle:dept.discrete?"italic":"normal"}} placeholder="Time"/>
                           </td>
                           <td><div style={{display:"flex",alignItems:"center",gap:3}}><CSHighlightDot value={cr.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.hl`,cycleHighlight(cr.hl))} size={6}/><CSXbtn onClick={()=>rmCrew(di,ci)}/></div></td>
@@ -357,7 +360,10 @@ export default function Documents({
                   );})}
                 </tbody>
               </table>
-              <CSAddBtn onClick={addDept} label="Add Department"/>
+              <div style={{display:"flex",gap:8}}>
+                <CSAddBtn onClick={addDept} label="Add Department"/>
+                {!hasAgentProducerDept && <CSAddBtn onClick={addAgentProducerDept} label="+ Add Agent / Producer"/>}
+              </div>
             </div>
 
             {/* MAP */}
