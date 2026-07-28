@@ -272,7 +272,7 @@ export default function Documents({
 
             {/* SCHEDULE */}
             <div style={{padding:"10px 32px"}}>
-              <div style={csSecTitle}>SCHEDULE</div>
+              <div style={csSecTitle}><CSEditField value={csData.scheduleLabel!==undefined?csData.scheduleLabel:"SCHEDULE"} onChange={v=>csU("scheduleLabel",v)} bold isPlaceholder style={{fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="SCHEDULE"/></div>
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr style={{background:csDeptBg}}>
                   <td data-noprint="1" style={{width:16,background:csDeptBg}}></td>

@@ -27,7 +27,29 @@ export function AgentProvider({ debouncedDocSave, children }) {
 
   // ── Call Sheets ──
   const [callSheetStore,setCallSheetStore]               = useState(()=>{try{const s=localStorage.getItem('onna_callsheets');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Day 1",...d[k]}];}});return d;}catch{return {}}});
-  const [activeCSVersion,setActiveCSVersion]             = useState(null);
+  const [activeCSVersion,setActiveCSVersion]             = useState(()=>{
+    try {
+      const saved = JSON.parse(localStorage.getItem('onna_active_cs')||"null");
+      if (!saved) return null;
+      const parts = window.location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
+      if (parts[0]!=="projects" || parts[1]!==saved.pid || parts[3]!=="callsheet") return null;
+      const store = JSON.parse(localStorage.getItem('onna_callsheets')||"{}");
+      const arr = store[saved.pid];
+      if (!Array.isArray(arr)) return null;
+      const idx = arr.findIndex(cs=>cs.id===saved.csId);
+      return idx>=0 ? idx : null;
+    } catch { return null; }
+  });
+  useEffect(()=>{
+    try {
+      const parts = window.location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
+      if (parts[0]!=="projects" || parts[3]!=="callsheet") return;
+      if (activeCSVersion===null) { localStorage.removeItem('onna_active_cs'); return; }
+      const pid = parts[1];
+      const cs = (callSheetStore[pid]||[])[activeCSVersion];
+      if (cs) localStorage.setItem('onna_active_cs', JSON.stringify({pid, csId:cs.id}));
+    } catch {}
+  },[activeCSVersion, callSheetStore]);
 
   // ── Risk Assessments ──
   const [riskAssessmentStore,setRiskAssessmentStore]     = useState(()=>{try{const s=localStorage.getItem('onna_riskassessments');if(!s)return {};const d=JSON.parse(s);Object.keys(d).forEach(k=>{if(d[k]&&!Array.isArray(d[k])){d[k]=[{id:Date.now(),label:"Risk Assessment",...d[k]}];}});return d;}catch{return {}}});

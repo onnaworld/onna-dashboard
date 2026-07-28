@@ -322,9 +322,9 @@ const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).catc
 });
 export const api = {
   get:    (path)       => _offlineFetch(_proxy(path),{headers:_h()}, false),
-  post:   (path, body) => _offlineFetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}, true),
-  put:    (path, body) => _offlineFetch(_proxy(path),{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body)}, true),
-  delete: (path)       => _offlineFetch(_proxy(path),{method:"DELETE",headers:_h()}, true),
+  post:   (path, body) => _offlineFetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body),keepalive:true}, true),
+  put:    (path, body) => _offlineFetch(_proxy(path),{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body),keepalive:true}, true),
+  delete: (path)       => _offlineFetch(_proxy(path),{method:"DELETE",headers:_h(),keepalive:true}, true),
 };
 
 // ─── Document store API helpers (Turso-backed) ─────────────────────────────
@@ -764,7 +764,7 @@ ${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C628
 <div style="height:1px;background:#eee;margin:0 32px"></div>
 <div style="padding:10px 32px;border-bottom:1px solid #eee;font-size:11px"><span style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;${LS}">Production On Set: </span>${e(cs.productionContacts)}</div>
 <div style="padding:14px 32px 8px"><div style="${secTitle}">SHOOT</div>${venueHTML}</div>
-<div style="padding:10px 32px"><div style="${secTitle}">SCHEDULE</div>
+<div style="padding:10px 32px"><div style="${secTitle}">${e(cs.scheduleLabel!==undefined?cs.scheduleLabel:"SCHEDULE")||"SCHEDULE"}</div>
   <table style="width:100%;border-collapse:collapse;table-layout:fixed"><thead><tr style="background:#F4F4F4"><td style="${thStyle}background:#F4F4F4;width:10%">TIME</td><td style="${thStyle}background:#F4F4F4;width:18%">ACTIVITY</td><td style="${thStyle}background:#F4F4F4">NOTES</td></tr></thead><tbody>${schedHTML}</tbody></table>
 </div>
 <div style="padding:10px 32px"><div style="${secTitle}">CONTACTS</div>
