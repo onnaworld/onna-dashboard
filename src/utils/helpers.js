@@ -378,7 +378,7 @@ let _onSaveStatus = null;
 export const setSaveStatusCallback = (cb) => { _onSaveStatus = cb; };
 const _notifySaving = () => { _pendingSaves++; if (_onSaveStatus) _onSaveStatus("saving"); };
 const _notifySaved = () => { _pendingSaves = Math.max(0, _pendingSaves - 1); if (_pendingSaves === 0 && _onSaveStatus) _onSaveStatus("saved"); };
-const _notifySaveError = (err) => { _pendingSaves = Math.max(0, _pendingSaves - 1); console.error("ONNA save failed:", err); if (_onSaveStatus) _onSaveStatus("error"); };
+const _notifySaveError = (err) => { _pendingSaves = Math.max(0, _pendingSaves - 1); console.error("ONNA save failed:", err); if (_onSaveStatus) _onSaveStatus("error", (err && err.message) || String(err)); };
 export const debouncedDocSave = (table, storeObj, delay = 2000) => {
   if (!getToken()) return;
   const prev = _prevStoreSnaps[table] || {};
