@@ -238,7 +238,7 @@ export default function Documents({
             </div>
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
 
-            <div style={{padding:"10px 32px",borderBottom:"1px solid #eee",fontSize:11}}>
+            <div style={{padding:"10px 32px",fontSize:11}}>
               <div><span style={csLbl}>Production On Set: </span>
               <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
               {(csData.productionContactsExtra||[]).map((line,i) => (
@@ -249,6 +249,7 @@ export default function Documents({
                 </div>
               ))}
               <button data-noprint="1" onClick={()=>csSet(d=>({...d,productionContactsExtra:[...(d.productionContactsExtra||[]),""]}))} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
+              <div style={{borderBottom:"1px solid #eee",marginTop:10}}/>
             </div>
 
             {/* SHOOT */}

@@ -1,36 +1,18 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
-import { registerSW } from 'virtual:pwa-register'
-import { flushAllSaves, waitForPendingSaves } from './utils/helpers'
 
-registerSW({
-  immediate: true,
-  onRegisteredSW(swUrl, registration) {
-    // Workbox only checks for a new deploy on page load by default, so a
-    // tab left open for a long session (exactly the case that kept biting
-    // us) would never notice new deploys until manually reloaded. Poll
-    // explicitly so onNeedRefresh actually fires while the tab is open.
-    if (!registration) return;
-    setInterval(() => { registration.update(); }, 60 * 1000);
-  },
-  onNeedRefresh() {
-    // A new deploy is available. Reloading immediately would abort any
-    // debounced save still in flight and lose unsaved edits, so we wait
-    // until the user isn't actively typing and any pending save has
-    // actually reached the server before reloading.
-    const isEditing = () => {
-      const el = document.activeElement;
-      return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
-    };
-    const tryReload = () => {
-      if (isEditing()) { setTimeout(tryReload, 1500); return; }
-      flushAllSaves();
-      waitForPendingSaves(8000).then(() => window.location.reload());
-    };
-    tryReload();
-  },
-})
+// One-time cleanup: forcibly remove any service worker + caches left behind
+// by the old vite-plugin-pwa setup (removed — it was the root cause of
+// deployed fixes being invisible in already-open tabs). Without this, a
+// browser that already installed the old SW would keep running it forever,
+// since nothing in the new code path ever tells it to go away.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+}
+if ('caches' in window) {
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
