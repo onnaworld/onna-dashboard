@@ -320,11 +320,22 @@ const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).catc
   if (isWrite && !navigator.onLine) { _sqEnqueue(url, opts); return { ok: true, queued: true }; }
   throw err;
 });
+// Chrome hard-rejects (TypeError: Failed to fetch) any fetch with
+// keepalive:true whose body exceeds 64KB — a real call sheet document
+// blows past that in plain text alone, with zero images involved. Only
+// set keepalive when the body is small enough for the browser to honor it;
+// otherwise every save with a body over 64KB would fail outright.
+const KEEPALIVE_MAX_BYTES = 60 * 1024;
+const _writeOpts = (method, bodyStr, extraHeaders) => {
+  const opts = { method, headers: _h(extraHeaders), body: bodyStr };
+  if (!bodyStr || bodyStr.length < KEEPALIVE_MAX_BYTES) opts.keepalive = true;
+  return opts;
+};
 export const api = {
   get:    (path)       => _offlineFetch(_proxy(path),{headers:_h()}, false),
-  post:   (path, body) => _offlineFetch(_proxy(path),{method:"POST",  headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body),keepalive:true}, true),
-  put:    (path, body) => _offlineFetch(_proxy(path),{method:"PUT",   headers:_h({"Content-Type":"application/json"}),body:JSON.stringify(body),keepalive:true}, true),
-  delete: (path)       => _offlineFetch(_proxy(path),{method:"DELETE",headers:_h(),keepalive:true}, true),
+  post:   (path, body) => { const b = JSON.stringify(body); return _offlineFetch(_proxy(path), _writeOpts("POST", b, {"Content-Type":"application/json"}), true); },
+  put:    (path, body) => { const b = JSON.stringify(body); return _offlineFetch(_proxy(path), _writeOpts("PUT", b, {"Content-Type":"application/json"}), true); },
+  delete: (path)       => _offlineFetch(_proxy(path),{method:"DELETE",headers:_h()}, true),
 };
 
 // ─── Document store API helpers (Turso-backed) ─────────────────────────────
