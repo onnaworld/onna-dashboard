@@ -206,10 +206,10 @@ export default function Documents({
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
 
             {/* TOP BAR */}
-            <div style={{padding:"40px 40px 0"}}>
+            <div style={{padding:"40px 32px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
-                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3}}>
+                <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3,marginRight:10}}>
                   <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
                   <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                 </div>

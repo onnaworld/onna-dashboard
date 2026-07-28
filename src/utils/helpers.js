@@ -341,6 +341,32 @@ export const configApi = {
   put: (key, data) => api.post(`/api/user_config`, { key, data: JSON.stringify(data) }),
 };
 
+// ─── Auto-shrink oversized call sheet images right before a save fires ────
+// Covers images that predate client-side compression (older uploads, cloned
+// call sheets, map-fetch API results) so a save can never get permanently
+// stuck failing just because one embedded photo is too large.
+const CS_IMG_FIELDS = ["productionLogo","agencyLogo","clientLogo","mapImage","weatherImage"];
+const _shrinkDataUrl = (dataUrl, maxDim, quality) => new Promise(resolve => {
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image") || dataUrl.length < 600000) { resolve(dataUrl); return; }
+  const img = new Image();
+  img.onload = () => {
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (w > maxDim || h > maxDim) { const s = maxDim / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    resolve(c.toDataURL("image/jpeg", quality));
+  };
+  img.onerror = () => resolve(dataUrl);
+  img.src = dataUrl;
+});
+const _shrinkCallSheetImages = async (cs) => {
+  if (!cs || typeof cs !== "object") return cs;
+  const out = { ...cs };
+  for (const f of CS_IMG_FIELDS) { if (out[f]) out[f] = await _shrinkDataUrl(out[f], f === "mapImage" || f === "weatherImage" ? 1600 : 500, f === "mapImage" || f === "weatherImage" ? 0.75 : 0.85); }
+  if (Array.isArray(out.extraMapImages)) out.extraMapImages = await Promise.all(out.extraMapImages.map(img => _shrinkDataUrl(img, 1600, 0.75)));
+  return out;
+};
+
 // ─── Debounced save to Turso (dual-write alongside localStorage) ───────────
 const _saveTimers = {};
 const _pendingFlush = {};
@@ -367,7 +393,16 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
     const key = `${table}:${pid}`;
     clearTimeout(_saveTimers[key]);
     _notifySaving();
-    const fire = () => { _inFlight[key] = true; docApi.put(table, pid, storeObj[pid]).then(_notifySaved).catch(_notifySaveError).finally(() => { delete _inFlight[key]; }); };
+    const fire = () => {
+      _inFlight[key] = true;
+      const send = (data) => docApi.put(table, pid, data).then(_notifySaved).catch(_notifySaveError).finally(() => { delete _inFlight[key]; });
+      const payload = storeObj[pid];
+      if (table === "callsheets" && Array.isArray(payload)) {
+        Promise.all(payload.map(_shrinkCallSheetImages)).then(send).catch(() => send(payload));
+      } else {
+        send(payload);
+      }
+    };
     _pendingFlush[key] = fire;
     _saveTimers[key] = setTimeout(() => {
       delete _pendingFlush[key];
