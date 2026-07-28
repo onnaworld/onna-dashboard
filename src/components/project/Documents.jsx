@@ -224,8 +224,8 @@ export default function Documents({
                 <div key={i} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8,background:CS_HL_BG[row.hl||""],borderRadius:3,padding:"2px 4px",cursor:"grab",breakInside:"avoid"}}>
                   <span data-noprint="1" style={{color:"#ccc",fontSize:10,padding:"2px 0",userSelect:"none"}}>☰</span>
                   <CSHighlightDot value={row.hl} onClick={()=>csU(`venueRows.${i}.hl`,cycleHighlight(row.hl))}/>
-                  <div style={{minWidth:95}}>
-                    <CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold autoFit style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/>
+                  <div style={{width:100,flexShrink:0}}>
+                    <CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/>
                   </div>
                   <div style={{flex:1,minWidth:0,fontSize:11,overflowWrap:"anywhere"}}>
                     <CSEditField value={row.value} onChange={v=>csU(`venueRows.${i}.value`,v)} isPlaceholder style={{fontSize:11,overflowWrap:"anywhere"}} placeholder="Enter details..."/>
