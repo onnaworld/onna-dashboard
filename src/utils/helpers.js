@@ -316,8 +316,16 @@ const _guard = r => {
   return r.json();
 };
 import { enqueue as _sqEnqueue } from './syncQueue.js';
+// A write that fails for ANY reason (not just genuine offline — server
+// errors, rate limits, transient network blips, browser-level fetch
+// rejections) gets queued for background retry instead of surfacing as a
+// failure. The edit is already safe in localStorage the instant it's made;
+// this queue is what makes "never fails to save" actually true rather than
+// just suppressing the error message. Auth failures are the one exception —
+// retrying an unauthenticated request can't succeed, and _guard already
+// reloads the page for that case.
 const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).catch(err => {
-  if (isWrite && !navigator.onLine) { _sqEnqueue(url, opts); return { ok: true, queued: true }; }
+  if (isWrite && !(err && err.message === "Unauthorized")) { _sqEnqueue(url, opts); return { ok: true, queued: true }; }
   throw err;
 });
 // Chrome hard-rejects (TypeError: Failed to fetch) any fetch with

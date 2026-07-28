@@ -57,7 +57,12 @@ export async function pendingCount() {
 }
 
 export async function flush() {
-  if (_flushing || !navigator.onLine) return;
+  // Deliberately does not gate on navigator.onLine — it's an unreliable
+  // signal (can report "online" while a specific request still can't
+  // succeed, e.g. server error, rate limit, DNS hiccup for one host). Just
+  // attempt delivery and let a failed fetch decide, so periodic polling
+  // below is the actual retry mechanism rather than a browser flag.
+  if (_flushing) return;
   _flushing = true;
   try {
     const db = await _openDb();
@@ -95,7 +100,12 @@ export async function flush() {
   }
 }
 
-// Auto-flush on reconnect
+// Auto-flush on reconnect, on startup (picks up anything still queued from
+// a previous session/tab), and periodically — the periodic poll is the
+// real safety net, since 'online'/'offline' events don't fire for the
+// failure modes that actually land writes in this queue.
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => flush());
+  flush();
+  setInterval(() => flush(), 15 * 1000);
 }
