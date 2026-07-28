@@ -410,6 +410,7 @@ export default function Documents({
                 <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
                 <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
               </div>
+              <CSResizableImage label="Weather Forecast Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={200}/>
               </div>
 
             {/* INVOICING */}
@@ -419,7 +420,7 @@ export default function Documents({
                 Please note that payment terms are <strong><CSEditField value={csData.invoicing.terms} onChange={v=>csU("invoicing.terms",v)} bold style={{fontSize:11}}/></strong> from the date of invoice.
               </div>
               <div style={{fontSize:11}}>
-                <div style={{fontWeight:700,marginBottom:2}}>FOR DUBAI CREW:</div>
+                <div style={{fontWeight:700,marginBottom:2}}><CSEditField value={csData.invoicing.crewLabel!==undefined?csData.invoicing.crewLabel:"FOR CREW:"} onChange={v=>csU("invoicing.crewLabel",v)} bold style={{fontSize:11,fontWeight:700,textTransform:"uppercase"}} placeholder="FOR CREW:"/></div>
                 <div>PLEASE SEND INVOICES TO: <CSEditField value={csData.invoicing.email} onChange={v=>csU("invoicing.email",v)} style={{fontSize:11,color:"#1565C0"}}/></div>
                 <div style={{fontWeight:700,marginTop:6}}>BILLING ADDRESS:</div>
                 <CSEditTextarea value={csData.invoicing.address} onChange={v=>csU("invoicing.address",v)} style={{fontSize:11,lineHeight:1.6}}/>

@@ -741,7 +741,7 @@ export const printCallSheetPDF = (cs) => {
   <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px">${cs.weatherHighC?`<div><strong style="font-size:9px;${LS}color:#888">HIGH: </strong>${e(cs.weatherHighC)}°C / ${e(cs.weatherHighF||"—")}°F</div>`:""}${cs.weatherLowC?`<div><strong style="font-size:9px;${LS}color:#888">LOW: </strong>${e(cs.weatherLowC)}°C / ${e(cs.weatherLowF||"—")}°F</div>`:""}</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:10px">${cs.weatherRealFeelHighC?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL HIGH: </strong>${e(cs.weatherRealFeelHighC)}°C / ${e(cs.weatherRealFeelHighF||"—")}°F</div>`:""}${cs.weatherRealFeelLowC?`<div><strong style="font-size:9px;${LS}color:#888">REAL FEEL LOW: </strong>${e(cs.weatherRealFeelLowC)}°C / ${e(cs.weatherRealFeelLowF||"—")}°F</div>`:""}</div>
   <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:10px">${cs.weatherSunrise?`<div><strong style="font-size:9px;${LS}color:#888">SUNRISE: </strong>${e(cs.weatherSunrise)}</div>`:""}${cs.weatherSunset?`<div><strong style="font-size:9px;${LS}color:#888">SUNSET: </strong>${e(cs.weatherSunset)}</div>`:""}${cs.weatherBlueHour?`<div><strong style="font-size:9px;${LS}color:#888">BLUE HOUR: </strong>${e(cs.weatherBlueHour)}</div>`:""}</div></div>`;
-  const weatherImg = "";
+  const weatherImg = cs.weatherImage ? `<img src="${cs.weatherImage}" style="width:100%;max-height:400px;object-fit:contain;border-radius:4px;margin-top:8px"/>` : "";
   const body = `<div style="max-width:880px;margin:0 auto;background:#fff;font-family:${F};color:#1a1a1a">
 ${logos}
 <div style="text-align:center;padding:20px 32px 4px"><div style="font-size:11px;font-weight:800;${LS}color:#000">CALL SHEET</div></div>
@@ -763,7 +763,7 @@ ${cs.passportNote?`<div style="padding:0 32px 10px;text-align:center;color:#C628
 ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
 <div style="padding:14px 32px"><div style="${secTitle}">INVOICING</div>
   <div style="font-size:11px;margin-bottom:8px">Please note that payment terms are <strong>${e(cs.invoicing?.terms)}</strong> from the date of invoice.</div>
-  <div style="font-size:11px"><div style="font-weight:700;margin-bottom:2px">FOR DUBAI CREW:</div><div>PLEASE SEND INVOICES TO: <span style="color:#1565C0">${e(cs.invoicing?.email)}</span></div><div style="font-weight:700;margin-top:6px">BILLING ADDRESS:</div><div style="white-space:pre-line;line-height:1.6">${e(cs.invoicing?.address)}</div><div style="margin-top:4px"><strong>TRN:</strong> ${e(cs.invoicing?.trn)}</div></div>
+  <div style="font-size:11px"><div style="font-weight:700;margin-bottom:2px">${e(cs.invoicing?.crewLabel!==undefined?cs.invoicing.crewLabel:"FOR CREW:")}</div><div>PLEASE SEND INVOICES TO: <span style="color:#1565C0">${e(cs.invoicing?.email)}</span></div><div style="font-weight:700;margin-top:6px">BILLING ADDRESS:</div><div style="white-space:pre-line;line-height:1.6">${e(cs.invoicing?.address)}</div><div style="margin-top:4px"><strong>TRN:</strong> ${e(cs.invoicing?.trn)}</div></div>
 </div>
 <div style="padding:10px 32px"><div style="${secTitle}">PROTOCOL ON SET</div><div style="font-size:10px;color:#555;line-height:1.7;white-space:pre-wrap">${e(cs.protocol)}</div></div>
 <div style="padding:10px 32px"><div style="${secTitle}">NEAREST EMERGENCY SERVICES</div>
