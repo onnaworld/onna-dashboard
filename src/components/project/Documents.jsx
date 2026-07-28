@@ -521,8 +521,8 @@ export default function Documents({
 
             {/* PROTOCOL */}
             <div style={{padding:"10px 32px"}}>
-              <div style={csSecTitle}>PROTOCOL ON SET</div>
-              <CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#555",lineHeight:1.7}}/>
+              <div style={{...csSecTitle,color:"#C62828",borderBottomColor:"#C62828"}}>PROTOCOL ON SET</div>
+              <CSEditTextarea value={csData.protocol} onChange={v=>csU("protocol",v)} style={{fontSize:10,color:"#C62828",lineHeight:1.7}}/>
             </div>
 
             {/* EMERGENCY */}

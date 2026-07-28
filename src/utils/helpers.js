@@ -775,7 +775,7 @@ ${mapImg||mapLink}${weatherFields}${weatherHourlyPDF}${weatherImg}
   <div style="font-size:11px;margin-bottom:8px">Please note that payment terms are <strong>${e(cs.invoicing?.terms)}</strong> from the date of invoice.</div>
   <div style="font-size:11px"><div style="font-weight:700;margin-bottom:2px">${e(cs.invoicing?.crewLabel!==undefined?cs.invoicing.crewLabel:"FOR CREW:")}</div><div>PLEASE SEND INVOICES TO: <span style="color:#1565C0">${e(cs.invoicing?.email)}</span></div><div style="font-weight:700;margin-top:6px">BILLING ADDRESS:</div><div style="white-space:pre-line;line-height:1.6">${e(cs.invoicing?.address)}</div><div style="margin-top:4px"><strong>TRN:</strong> ${e(cs.invoicing?.trn)}</div></div>
 </div>
-<div style="padding:10px 32px"><div style="${secTitle}">PROTOCOL ON SET</div><div style="font-size:10px;color:#555;line-height:1.7;white-space:pre-wrap">${e(cs.protocol)}</div></div>
+<div style="padding:10px 32px"><div style="${secTitle}color:#C62828;border-bottom-color:#C62828">PROTOCOL ON SET</div><div style="font-size:10px;color:#C62828;line-height:1.7;white-space:pre-wrap">${e(cs.protocol)}</div></div>
 <div style="padding:10px 32px"><div style="${secTitle}">NEAREST EMERGENCY SERVICES</div>
   <div style="font-size:9px;margin-bottom:8px;display:flex;flex-wrap:nowrap;align-items:center;gap:3px"><strong style="font-size:9px;font-weight:700;${LS}">${e(cs.emergencyDialPrefix)}</strong> ${emergNums}</div>
   <div style="font-size:11px;margin-bottom:4px;background:${cs.emergency?.hospital?"transparent":"#FFFDE7"};padding:3px 6px;border-radius:2px"><strong>NEAREST HOSPITAL: </strong>${e(cs.emergency?.hospital)}</div>
