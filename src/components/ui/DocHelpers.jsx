@@ -133,36 +133,34 @@ const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}} onDragOver={e=>{e.preventDefault();e.stopPropagation();}} onDrop={e=>{e.preventDefault();e.stopPropagation();readFile(e.dataTransfer.files[0]);}}><img src={image} alt={label} style={{maxHeight:30,maxWidth:120,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click or drag to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} style={{width:120,height:30,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
+const CS_IMG_MAX_W = 800; // approx available content width inside the 880px document
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
   const ref = useRef();
-  const boxRef = useRef();
-  const [height, setHeight] = useState(defaultHeight);
+  const [dims, setDims] = useState(null); // {w,h} once we know the image's aspect ratio
+  const aspectRef = useRef(1);
   const dragRef = useRef({ dragging: false, startY: 0, startH: 0 });
-  const loadFile = f => {
-    if(!validateImg(f))return;
-    const r=new FileReader();
-    r.onload=ev=>{
-      const dataUrl=ev.target.result;
-      const img=new Image();
-      img.onload=()=>{
-        const w=(boxRef.current&&boxRef.current.clientWidth)||800;
-        const h=Math.round(w*(img.naturalHeight/img.naturalWidth));
-        setHeight(Math.max(80,Math.min(h,1000)));
-        onUpload(dataUrl);
-      };
-      img.onerror=()=>onUpload(dataUrl);
-      img.src=dataUrl;
-    };
-    r.readAsDataURL(f);
+  const computeDims = (naturalW, naturalH) => {
+    const aspect = naturalW / naturalH || 1;
+    aspectRef.current = aspect;
+    let w, h;
+    if (aspect < 0.95) { h = 340; w = Math.round(h * aspect); } // portrait: cap by height so several fit side by side
+    else { w = Math.min(CS_IMG_MAX_W, 820); h = Math.round(w / aspect); } // landscape: cap by width
+    setDims({ w, h: Math.max(80, Math.min(h, 1000)) });
   };
+  const handleImgLoad = e => { if (!dims) computeDims(e.target.naturalWidth, e.target.naturalHeight); };
+  const loadFile = f => { if(!validateImg(f))return; const r=new FileReader(); r.onload=ev=>{ setDims(null); onUpload(ev.target.result); }; r.readAsDataURL(f); };
   const handleFile = e => { loadFile(e.target.files[0]); };
   const onMouseDown = useCallback(e => {
-    e.preventDefault(); dragRef.current = { dragging:true, startY:e.clientY, startH:height };
-    const onMove = ev => { if(!dragRef.current.dragging)return; setHeight(Math.max(80,dragRef.current.startH+(ev.clientY-dragRef.current.startY))); };
+    e.preventDefault();
+    const startH = (dims && dims.h) || defaultHeight;
+    dragRef.current = { dragging:true, startY:e.clientY, startH };
+    const onMove = ev => { if(!dragRef.current.dragging)return; const newH=Math.max(80,dragRef.current.startH+(ev.clientY-dragRef.current.startY)); setDims({ w: Math.round(newH*aspectRef.current), h: newH }); };
     const onUp = () => { dragRef.current.dragging=false; window.removeEventListener("mousemove",onMove); window.removeEventListener("mouseup",onUp); };
     window.addEventListener("mousemove",onMove); window.addEventListener("mouseup",onUp);
-  }, [height]);
-  return <div ref={boxRef}>{image?<div style={{position:"relative"}}><img src={image} alt={label} style={{width:"100%",height,objectFit:"contain",borderRadius:4,display:"block",background:"#fafafa"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} onDrop={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="#ddd";loadFile(e.dataTransfer.files[0]);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="#666";}} onDragLeave={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ddd";}} style={{width:"100%",height,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload or drop {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
+  }, [dims, defaultHeight]);
+  const w = dims ? dims.w : undefined;
+  const h = dims ? dims.h : defaultHeight;
+  return <div style={{display:"inline-block",verticalAlign:"top",maxWidth:"100%"}}>{image?<div style={{position:"relative",width:w||"100%",maxWidth:"100%",height:h}}><img src={image} alt={label} onLoad={handleImgLoad} style={{width:"100%",height:"100%",objectFit:"contain",borderRadius:4,display:"block",background:"#fafafa"}}/><button onClick={onRemove} style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.55)",color:"#fff",border:"none",borderRadius:"50%",width:24,height:24,fontSize:14,cursor:"pointer",lineHeight:"22px",textAlign:"center"}}>×</button><div onMouseDown={onMouseDown} style={{position:"absolute",bottom:0,left:0,right:0,height:14,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(transparent, rgba(0,0,0,0.15))",borderRadius:"0 0 4px 4px"}}><div style={{width:40,height:3,background:"rgba(255,255,255,0.7)",borderRadius:2}}/></div></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} onDrop={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="#ddd";loadFile(e.dataTransfer.files[0]);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="#666";}} onDragLeave={e=>{e.preventDefault();e.currentTarget.style.borderColor="#ddd";}} style={{width:220,maxWidth:"100%",height:defaultHeight,border:"2px dashed #ddd",borderRadius:6,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"#FAFAFA"}} onMouseEnter={e=>(e.currentTarget.style.borderColor="#999")} onMouseLeave={e=>(e.currentTarget.style.borderColor="#ddd")}><div style={{fontSize:28,color:"#ccc",marginBottom:4,lineHeight:1}}>+</div><div style={{fontSize:10,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>Upload or drop {label}</div></div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
 const CSXbtn = ({ onClick, size = 16 }) => <button onClick={onClick} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:size,padding:"0 3px",lineHeight:1,transition:"color 0.15s"}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>×</button>;
