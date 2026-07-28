@@ -1,12 +1,37 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 
 // ─── IMAGE UPLOAD VALIDATION ────────────────────────────────────────────────
-const MAX_IMG_SIZE = 3 * 1024 * 1024; // 3 MB (base64-encoded, this stays under Vercel's ~4.5 MB request body limit)
+const MAX_IMG_SIZE = 15 * 1024 * 1024; // raw file size before compression
 const validateImg = (f) => {
   if (!f || !f.type.startsWith("image/")) return false;
-  if (f.size > MAX_IMG_SIZE) { alert(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Max image size is 3 MB.`); return false; }
+  if (f.size > MAX_IMG_SIZE) { alert(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Max image size is 15 MB.`); return false; }
   return true;
 };
+// Re-encodes an image client-side to keep stored payloads small — call sheets
+// dual-write their entire JSON blob (all photos included) on every save, so
+// multiple full-resolution phone photos can blow past the ~4.5MB request
+// body limit and cause "Save failed" even though each file passed validation.
+const compressImageFile = (file, maxDim = 1600, quality = 0.8) => new Promise((resolve) => {
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      let { naturalWidth: w, naturalHeight: h } = img;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(ev.target.result);
+    img.src = ev.target.result;
+  };
+  reader.onerror = () => resolve(null);
+  reader.readAsDataURL(file);
+});
 // ─── CALL SHEET TEMPLATE ─────────────────────────────────────────────────────
 const CS_FONT = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const CS_LS = 1.5;
@@ -125,7 +150,7 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
 
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   const ref = useRef();
-  const readFile = f => { if(!validateImg(f))return; const r=new FileReader(); r.onload=ev=>onUpload(ev.target.result); r.readAsDataURL(f); };
+  const readFile = f => { if(!validateImg(f))return; compressImageFile(f, 500, 0.85).then(dataUrl=>{ if(dataUrl) onUpload(dataUrl); }); };
   const handleFile = e => { readFile(e.target.files[0]); };
   const onDrop = e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor="#ccc"; readFile(e.dataTransfer.files[0]); };
   const onDragOver = e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor="#666"; };
@@ -150,7 +175,7 @@ const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 18
     setDims({ w, h: Math.max(80, h) });
   };
   const handleImgLoad = e => { if (!dims) computeDims(e.target.naturalWidth, e.target.naturalHeight); };
-  const loadFile = f => { if(!validateImg(f))return; const r=new FileReader(); r.onload=ev=>{ setDims(null); onUpload(ev.target.result); }; r.readAsDataURL(f); };
+  const loadFile = f => { if(!validateImg(f))return; setDims(null); compressImageFile(f).then(dataUrl=>{ if(dataUrl) onUpload(dataUrl); }); };
   const handleFile = e => { loadFile(e.target.files[0]); };
   const onMouseDown = useCallback(e => {
     e.preventDefault();
