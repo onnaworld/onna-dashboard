@@ -344,27 +344,53 @@ export const configApi = {
 // ─── Auto-shrink oversized call sheet images right before a save fires ────
 // Covers images that predate client-side compression (older uploads, cloned
 // call sheets, map-fetch API results) so a save can never get permanently
-// stuck failing just because one embedded photo is too large.
+// stuck failing just because embedded photos are too large. Operates on the
+// WHOLE call sheets array for the project (that's what actually gets sent
+// in one request) and, if it's still too big after a normal compression
+// pass, keeps squeezing every image harder — repeatedly — until the total
+// payload is guaranteed to fit, rather than checking each image in
+// isolation and still failing when several "reasonable" images add up.
 const CS_IMG_FIELDS = ["productionLogo","agencyLogo","clientLogo","mapImage","weatherImage"];
+const SAFE_PAYLOAD_BYTES = 3.5 * 1024 * 1024; // stay comfortably under Vercel's ~4.5MB request limit
 const _shrinkDataUrl = (dataUrl, maxDim, quality) => new Promise(resolve => {
-  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image") || dataUrl.length < 600000) { resolve(dataUrl); return; }
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) { resolve(dataUrl); return; }
   const img = new Image();
   img.onload = () => {
     let w = img.naturalWidth, h = img.naturalHeight;
     if (w > maxDim || h > maxDim) { const s = maxDim / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
-    const c = document.createElement("canvas"); c.width = w; c.height = h;
-    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    const c = document.createElement("canvas"); c.width = Math.max(1, w); c.height = Math.max(1, h);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
     resolve(c.toDataURL("image/jpeg", quality));
   };
   img.onerror = () => resolve(dataUrl);
   img.src = dataUrl;
 });
-const _shrinkCallSheetImages = async (cs) => {
-  if (!cs || typeof cs !== "object") return cs;
-  const out = { ...cs };
-  for (const f of CS_IMG_FIELDS) { if (out[f]) out[f] = await _shrinkDataUrl(out[f], f === "mapImage" || f === "weatherImage" ? 1600 : 500, f === "mapImage" || f === "weatherImage" ? 0.75 : 0.85); }
-  if (Array.isArray(out.extraMapImages)) out.extraMapImages = await Promise.all(out.extraMapImages.map(img => _shrinkDataUrl(img, 1600, 0.75)));
-  return out;
+const _shrinkAllImagesIn = async (cs, maxDim, quality, onlyIfLarge) => {
+  for (const f of CS_IMG_FIELDS) {
+    const v = cs[f];
+    if (v && typeof v === "string" && v.startsWith("data:image") && (!onlyIfLarge || v.length > 150000)) {
+      cs[f] = await _shrinkDataUrl(v, f === "mapImage" || f === "weatherImage" ? maxDim : Math.min(maxDim, 400), quality);
+    }
+  }
+  if (Array.isArray(cs.extraMapImages)) {
+    for (let i = 0; i < cs.extraMapImages.length; i++) {
+      const v = cs.extraMapImages[i];
+      if (v && typeof v === "string" && v.startsWith("data:image") && (!onlyIfLarge || v.length > 150000)) {
+        cs.extraMapImages[i] = await _shrinkDataUrl(v, maxDim, quality);
+      }
+    }
+  }
+};
+const _shrinkCallSheetsArray = async (csArray) => {
+  if (!Array.isArray(csArray)) return csArray;
+  const arr = csArray.map(cs => (cs && typeof cs === "object") ? { ...cs, extraMapImages: Array.isArray(cs.extraMapImages) ? [...cs.extraMapImages] : cs.extraMapImages } : cs);
+  for (const cs of arr) { if (cs && typeof cs === "object") await _shrinkAllImagesIn(cs, 1400, 0.72, true); }
+  let dim = 1000, quality = 0.6, attempts = 0;
+  while (JSON.stringify(arr).length > SAFE_PAYLOAD_BYTES && attempts < 4) {
+    for (const cs of arr) { if (cs && typeof cs === "object") await _shrinkAllImagesIn(cs, dim, quality, false); }
+    dim = Math.round(dim * 0.7); quality = Math.max(0.35, quality - 0.15); attempts++;
+  }
+  return arr;
 };
 
 // ─── Debounced save to Turso (dual-write alongside localStorage) ───────────
@@ -395,10 +421,14 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
     _notifySaving();
     const fire = () => {
       _inFlight[key] = true;
-      const send = (data) => docApi.put(table, pid, data).then(_notifySaved).catch(_notifySaveError).finally(() => { delete _inFlight[key]; });
+      const isRateLimit = (err) => { const m = (err && err.message) || ""; return m.includes("429") || /too many requests/i.test(m); };
+      const putOnce = (data) => docApi.put(table, pid, data);
+      const send = (data) => putOnce(data)
+        .catch(err => isRateLimit(err) ? new Promise(r => setTimeout(r, 3000)).then(() => putOnce(data)) : Promise.reject(err))
+        .then(_notifySaved).catch(_notifySaveError).finally(() => { delete _inFlight[key]; });
       const payload = storeObj[pid];
       if (table === "callsheets" && Array.isArray(payload)) {
-        Promise.all(payload.map(_shrinkCallSheetImages)).then(send).catch(() => send(payload));
+        _shrinkCallSheetsArray(payload).then(send).catch(() => send(payload));
       } else {
         send(payload);
       }
