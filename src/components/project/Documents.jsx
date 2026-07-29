@@ -141,6 +141,7 @@ export default function Documents({
     const rmScheduleRow = i => { if(!confirm("Remove this schedule row?"))return; csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)})); };
     const addSchedule = () => csSet(d => ({...d, extraSchedules:[...(d.extraSchedules||[]),{title:"ADDITIONAL SCHEDULE",rows:[{time:"",activity:"",notes:""}]}]}));
     const rmSchedule = si => { if(!confirm("Remove this whole schedule block?"))return; csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)})); };
+    const moveSchedule = (from,to) => csSet(d => { const a=[...(d.extraSchedules||[])]; if(to<0||to>=a.length)return d; const[m]=a.splice(from,1); a.splice(to,0,m); return {...d, extraSchedules:a}; });
     const addExtraScheduleRow = si => csSet(d => {d.extraSchedules[si].rows.push({time:"",activity:"",notes:""}); return d;});
     const rmExtraScheduleRow = (si,i) => { if(!confirm("Remove this schedule row?"))return; csSet(d => {d.extraSchedules[si].rows.splice(i,1); return d;}); };
     const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
@@ -308,10 +309,17 @@ export default function Documents({
             </div>
 
             {(csData.extraSchedules||[]).map((sched,si) => (
-              <div key={si} style={{padding:"10px 32px"}}>
+              <div key={si} draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","xsched:"+si);e.currentTarget.style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.style.opacity=1;}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const dt=e.dataTransfer.getData("text/plain");if(dt.startsWith("xsched:")){const from=+dt.split(":")[1];if(from!==si)moveSchedule(from,si);}}} style={{padding:"10px 32px"}}>
                 <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <CSEditField value={sched.title} onChange={v=>csU(`extraSchedules.${si}.title`,v)} bold style={{fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase"}}/>
-                  <button data-noprint="1" onClick={()=>rmSchedule(si)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>Remove ×</button>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span data-noprint="1" draggable onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/plain","xsched:"+si);}} title="Drag to reorder" style={{cursor:"grab",color:"#ccc",fontSize:12,userSelect:"none"}}>☰</span>
+                    <CSEditField value={sched.title} onChange={v=>csU(`extraSchedules.${si}.title`,v)} bold style={{fontSize:10,fontWeight:800,letterSpacing:CS_LS,textTransform:"uppercase"}}/>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <button data-noprint="1" onClick={()=>moveSchedule(si,si-1)} disabled={si===0} title="Move up" style={{background:"none",border:"1px solid #eee",borderRadius:4,color:si===0?"#eee":"#999",cursor:si===0?"default":"pointer",fontSize:11,padding:"1px 6px",lineHeight:1,fontFamily:"inherit"}}>↑</button>
+                    <button data-noprint="1" onClick={()=>moveSchedule(si,si+1)} disabled={si===(csData.extraSchedules||[]).length-1} title="Move down" style={{background:"none",border:"1px solid #eee",borderRadius:4,color:si===(csData.extraSchedules||[]).length-1?"#eee":"#999",cursor:si===(csData.extraSchedules||[]).length-1?"default":"pointer",fontSize:11,padding:"1px 6px",lineHeight:1,fontFamily:"inherit"}}>↓</button>
+                    <button data-noprint="1" onClick={()=>rmSchedule(si)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:12,padding:"0 3px",lineHeight:1}} onMouseEnter={e=>(e.target.style.color="#d32f2f")} onMouseLeave={e=>(e.target.style.color="#ccc")}>Remove ×</button>
+                  </div>
                 </div>
                 <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                   <thead><tr style={{background:csDeptBg}}>
