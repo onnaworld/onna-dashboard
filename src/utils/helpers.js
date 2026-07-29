@@ -315,7 +315,7 @@ const _guard = r => {
   if(!r.ok){return r.json().catch(()=>({})).then(body=>Promise.reject(new Error((body&&body.error)||`Request failed (${r.status})`)));}
   return r.json();
 };
-import { enqueue as _sqEnqueue } from './syncQueue.js';
+import { enqueue as _sqEnqueue, purgeUrl as _sqPurgeUrl } from './syncQueue.js';
 // A write that fails for ANY reason (not just genuine offline — server
 // errors, rate limits, transient network blips, browser-level fetch
 // rejections) gets queued for background retry instead of surfacing as a
@@ -324,7 +324,12 @@ import { enqueue as _sqEnqueue } from './syncQueue.js';
 // just suppressing the error message. Auth failures are the one exception —
 // retrying an unauthenticated request can't succeed, and _guard already
 // reloads the page for that case.
-const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).catch(err => {
+//
+// Whenever a normal write for this URL succeeds, purge any older queued
+// retry for that same resource — otherwise a stale queued attempt (from an
+// earlier failure) can replay later and silently overwrite newer data that
+// already saved successfully through the normal path.
+const _offlineFetch = (url, opts, isWrite) => fetch(url, opts).then(_guard).then(res => { if (isWrite) _sqPurgeUrl(url); return res; }).catch(err => {
   if (isWrite && !(err && err.message === "Unauthorized")) { _sqEnqueue(url, opts); return { ok: true, queued: true }; }
   throw err;
 });

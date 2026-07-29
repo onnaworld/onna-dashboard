@@ -26,11 +26,27 @@ function _openDb() {
   });
 }
 
+async function _deleteAllForUrl(store, url) {
+  const existing = await new Promise(resolve => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+  existing.filter(i => i.url === url).forEach(i => store.delete(i.id));
+}
+
 export async function enqueue(url, options) {
   try {
     const db = await _openDb();
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).add({
+    const store = tx.objectStore(STORE);
+    // A save is always the full current document, not a diff — so if a
+    // newer attempt for this same resource fails too, only the latest one
+    // is worth replaying. Keeping older queued attempts around risks one
+    // of them later succeeding and overwriting data that's already been
+    // superseded, which is exactly how an edit can silently "vanish."
+    await _deleteAllForUrl(store, url);
+    store.add({
       url,
       method: options.method || 'GET',
       headers: Object.fromEntries(Object.entries(options.headers || {})),
@@ -42,6 +58,19 @@ export async function enqueue(url, options) {
   } catch (e) {
     console.warn('[SyncQueue] enqueue failed:', e);
   }
+}
+
+// Call after a normal (non-queued) write for this URL succeeds, so a stale
+// queued retry for the same resource — from an earlier failed attempt —
+// can never later replay and clobber the newer data that already saved.
+export async function purgeUrl(url) {
+  try {
+    const db = await _openDb();
+    const tx = db.transaction(STORE, 'readwrite');
+    await _deleteAllForUrl(tx.objectStore(STORE), url);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    if (_onStatusChange) _onStatusChange(await pendingCount());
+  } catch {}
 }
 
 export async function pendingCount() {
