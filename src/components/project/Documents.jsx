@@ -138,17 +138,17 @@ export default function Documents({
       });
     };
     const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
-    const rmScheduleRow = i => csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)}));
+    const rmScheduleRow = i => { if(!confirm("Remove this schedule row?"))return; csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)})); };
     const addSchedule = () => csSet(d => ({...d, extraSchedules:[...(d.extraSchedules||[]),{title:"ADDITIONAL SCHEDULE",rows:[{time:"",activity:"",notes:""}]}]}));
-    const rmSchedule = si => csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)}));
+    const rmSchedule = si => { if(!confirm("Remove this whole schedule block?"))return; csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)})); };
     const addExtraScheduleRow = si => csSet(d => {d.extraSchedules[si].rows.push({time:"",activity:"",notes:""}); return d;});
-    const rmExtraScheduleRow = (si,i) => csSet(d => {d.extraSchedules[si].rows.splice(i,1); return d;});
+    const rmExtraScheduleRow = (si,i) => { if(!confirm("Remove this schedule row?"))return; csSet(d => {d.extraSchedules[si].rows.splice(i,1); return d;}); };
     const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
-    const rmVenueRow = i => csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)}));
+    const rmVenueRow = i => { if(!confirm("Remove this row?"))return; csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)})); };
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
-    const rmCrew = (di,ci) => csSet(d => {d.departments[di].crew.splice(ci,1); return d;});
+    const rmCrew = (di,ci) => { if(!confirm("Remove this crew member?"))return; csSet(d => {d.departments[di].crew.splice(ci,1); return d;}); };
     const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
-    const rmDept = i => csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)}));
+    const rmDept = i => { if(!confirm("Remove this whole department, including everyone in it?"))return; csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)})); };
     const addAgentLine = (di,ci) => csSet(d => {
       const cr = d.departments[di].crew[ci];
       const existing = cr.agents || (cr.agent ? [cr.agent] : []);
@@ -157,14 +157,17 @@ export default function Documents({
       cr.agents = [...existing,{role:nextRole,name:"",mobile:"",email:"",callTime:""}];
       return d;
     });
-    const rmAgentLine = (di,ci,ai) => csSet(d => {
-      const cr = d.departments[di].crew[ci];
-      const existing = cr.agents || (cr.agent ? [cr.agent] : []);
-      delete cr.agent;
-      existing.splice(ai,1);
-      cr.agents = existing;
-      return d;
-    });
+    const rmAgentLine = (di,ci,ai) => {
+      if(!confirm("Remove this agent/producer line?"))return;
+      csSet(d => {
+        const cr = d.departments[di].crew[ci];
+        const existing = cr.agents || (cr.agent ? [cr.agent] : []);
+        delete cr.agent;
+        existing.splice(ai,1);
+        cr.agents = existing;
+        return d;
+      });
+    };
     const setAgentField = (di,ci,ai,field,val) => csSet(d => {
       const cr = d.departments[di].crew[ci];
       if (!cr.agents) cr.agents = cr.agent ? [cr.agent] : [];
@@ -186,7 +189,7 @@ export default function Documents({
       ], `${csData.label||"Call Sheet"} Contacts.csv`);
     };
     const addEmergencyNum = () => csSet(d => ({...d, emergencyNumbers:[...d.emergencyNumbers,{label:"",number:""}]}));
-    const rmEmergencyNum = i => csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)}));
+    const rmEmergencyNum = i => { if(!confirm("Remove this emergency number?"))return; csSet(d => ({...d, emergencyNumbers:d.emergencyNumbers.filter((_,j)=>j!==i)})); };
 
     const csLbl = {fontSize:9,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:CS_LS};
     const csDeptBg = "#F4F4F4";
