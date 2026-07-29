@@ -424,7 +424,7 @@ export const setSaveStatusCallback = (cb) => { _onSaveStatus = cb; };
 const _notifySaving = () => { _pendingSaves++; if (_onSaveStatus) _onSaveStatus("saving"); };
 const _notifySaved = () => { _pendingSaves = Math.max(0, _pendingSaves - 1); if (_pendingSaves === 0 && _onSaveStatus) _onSaveStatus("saved"); };
 const _notifySaveError = (err) => { _pendingSaves = Math.max(0, _pendingSaves - 1); console.error("ONNA save failed:", err); if (_onSaveStatus) _onSaveStatus("error", (err && err.message) || String(err)); };
-export const debouncedDocSave = (table, storeObj, delay = 2000) => {
+export const debouncedDocSave = (table, storeObj, delay = 500) => {
   if (!getToken()) return;
   const prev = _prevStoreSnaps[table] || {};
   const changedPids = Object.keys(storeObj).filter(pid => {
@@ -460,7 +460,7 @@ export const debouncedDocSave = (table, storeObj, delay = 2000) => {
     }, delay);
   });
 };
-export const debouncedGlobalSave = (table, data, delay = 2000) => {
+export const debouncedGlobalSave = (table, data, delay = 500) => {
   if (!getToken()) return;
   clearTimeout(_saveTimers[table]);
   _notifySaving();
@@ -472,7 +472,7 @@ export const debouncedGlobalSave = (table, data, delay = 2000) => {
     fire();
   }, delay);
 };
-export const debouncedConfigSave = (key, data, delay = 2000) => {
+export const debouncedConfigSave = (key, data, delay = 500) => {
   if (!getToken()) return;
   const fk = `cfg:${key}`;
   clearTimeout(_saveTimers[fk]);
