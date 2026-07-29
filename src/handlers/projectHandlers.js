@@ -1,4 +1,4 @@
-import { _proxy, buildPath, parseICS, GCAL_CLIENT_ID, api, hasPendingSave } from "../utils/helpers";
+import { _proxy, buildPath, parseICS, GCAL_CLIENT_ID, api, isSafeToHydrate } from "../utils/helpers";
 
 // ── Auth handlers ────────────────────────────────────────────────────────────
 
@@ -272,12 +272,13 @@ export const connectGCal = (showAlert, calMonth, setGcalToken, fetchGCalEventsFn
 
 export const doHydrateProject = (pid, setters) => {
   const { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting, setProductionBriefStore } = setters;
+  const requestStartedAt = Date.now();
   return api.get(`/api/project-data/${pid}`).then(d => {
     if (!d) return;
-    if (d.callsheets && !hasPendingSave('callsheets', pid)) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
-    if (d.riskassessments && !hasPendingSave('riskassessments', pid)) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
-    if (d.contracts_doc && !hasPendingSave('contracts_doc', pid)) setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc}));
-    if (!hasPendingSave('estimates', pid)) {
+    if (d.callsheets && isSafeToHydrate('callsheets', pid, requestStartedAt)) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
+    if (d.riskassessments && isSafeToHydrate('riskassessments', pid, requestStartedAt)) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
+    if (d.contracts_doc && isSafeToHydrate('contracts_doc', pid, requestStartedAt)) setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc}));
+    if (isSafeToHydrate('estimates', pid, requestStartedAt)) {
       setProjectEstimates(prev => {
         const local = prev[pid] || [];
         const remote = d.estimates || [];
@@ -286,22 +287,22 @@ export const doHydrateProject = (pid, setters) => {
         return {...prev, [pid]: remote.length > 0 ? remote : local};
       });
     }
-    if (d.dietaries && !hasPendingSave('dietaries', pid)) setDietaryStore(prev => ({...prev, [pid]: d.dietaries}));
-    if (d.travel_itineraries && !hasPendingSave('travel_itineraries', pid)) setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries}));
-    if (d.shotlists && !hasPendingSave('shotlists', pid)) setShotListStore(prev => ({...prev, [pid]: d.shotlists}));
-    if (d.storyboards && !hasPendingSave('storyboards', pid)) setStoryboardStore(prev => ({...prev, [pid]: d.storyboards}));
-    if (d.fittings && !hasPendingSave('fittings', pid)) setFittingStore(prev => ({...prev, [pid]: d.fittings}));
-    if (d.loc_decks && !hasPendingSave('loc_decks', pid)) setLocDeckStore(prev => ({...prev, [pid]: d.loc_decks}));
-    if (d.cps && !hasPendingSave('cps', pid)) setCpsStore(prev => ({...prev, [pid]: d.cps}));
-    if (d.postprod && !hasPendingSave('postprod', pid)) setPostProdStore(prev => ({...prev, [pid]: d.postprod}));
-    if (d.casting_tables && !hasPendingSave('casting_tables', pid)) setCastingTableStore(prev => ({...prev, [pid]: d.casting_tables}));
-    if (d.casting_decks && !hasPendingSave('casting_decks', pid)) setCastingDeckStore(prev => ({...prev, [pid]: d.casting_decks}));
-    if (d.recce_reports && !hasPendingSave('recce_reports', pid)) setRecceReportStore(prev => ({...prev, [pid]: d.recce_reports}));
-    if (d.cashflows && setCashFlowStore && !hasPendingSave('cashflows', pid)) setCashFlowStore(prev => ({...prev, [pid]: d.cashflows}));
-    if (d.project_info && !hasPendingSave('project_info', pid)) setProjectInfo(prev => ({...prev, [pid]: d.project_info}));
-    if (d.creative_links && !hasPendingSave('creative_links', pid)) setProjectCreativeLinks(prev => ({...prev, [pid]: d.creative_links}));
-    if (d.project_actuals && !hasPendingSave('project_actuals', pid)) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
-    if (d.project_casting && !hasPendingSave('project_casting', pid)) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
-    if (d.prod_briefs && setProductionBriefStore && !hasPendingSave('prod_briefs', pid)) setProductionBriefStore(prev => ({...prev, [pid]: d.prod_briefs}));
+    if (d.dietaries && isSafeToHydrate('dietaries', pid, requestStartedAt)) setDietaryStore(prev => ({...prev, [pid]: d.dietaries}));
+    if (d.travel_itineraries && isSafeToHydrate('travel_itineraries', pid, requestStartedAt)) setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries}));
+    if (d.shotlists && isSafeToHydrate('shotlists', pid, requestStartedAt)) setShotListStore(prev => ({...prev, [pid]: d.shotlists}));
+    if (d.storyboards && isSafeToHydrate('storyboards', pid, requestStartedAt)) setStoryboardStore(prev => ({...prev, [pid]: d.storyboards}));
+    if (d.fittings && isSafeToHydrate('fittings', pid, requestStartedAt)) setFittingStore(prev => ({...prev, [pid]: d.fittings}));
+    if (d.loc_decks && isSafeToHydrate('loc_decks', pid, requestStartedAt)) setLocDeckStore(prev => ({...prev, [pid]: d.loc_decks}));
+    if (d.cps && isSafeToHydrate('cps', pid, requestStartedAt)) setCpsStore(prev => ({...prev, [pid]: d.cps}));
+    if (d.postprod && isSafeToHydrate('postprod', pid, requestStartedAt)) setPostProdStore(prev => ({...prev, [pid]: d.postprod}));
+    if (d.casting_tables && isSafeToHydrate('casting_tables', pid, requestStartedAt)) setCastingTableStore(prev => ({...prev, [pid]: d.casting_tables}));
+    if (d.casting_decks && isSafeToHydrate('casting_decks', pid, requestStartedAt)) setCastingDeckStore(prev => ({...prev, [pid]: d.casting_decks}));
+    if (d.recce_reports && isSafeToHydrate('recce_reports', pid, requestStartedAt)) setRecceReportStore(prev => ({...prev, [pid]: d.recce_reports}));
+    if (d.cashflows && setCashFlowStore && isSafeToHydrate('cashflows', pid, requestStartedAt)) setCashFlowStore(prev => ({...prev, [pid]: d.cashflows}));
+    if (d.project_info && isSafeToHydrate('project_info', pid, requestStartedAt)) setProjectInfo(prev => ({...prev, [pid]: d.project_info}));
+    if (d.creative_links && isSafeToHydrate('creative_links', pid, requestStartedAt)) setProjectCreativeLinks(prev => ({...prev, [pid]: d.creative_links}));
+    if (d.project_actuals && isSafeToHydrate('project_actuals', pid, requestStartedAt)) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
+    if (d.project_casting && isSafeToHydrate('project_casting', pid, requestStartedAt)) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
+    if (d.prod_briefs && setProductionBriefStore && isSafeToHydrate('prod_briefs', pid, requestStartedAt)) setProductionBriefStore(prev => ({...prev, [pid]: d.prod_briefs}));
   }).catch(() => {});
 };
