@@ -148,6 +148,7 @@ export default function Documents({
     const rmVenueRow = i => { if(!confirm("Remove this row?"))return; csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)})); };
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
     const rmCrew = (di,ci) => { if(!confirm("Remove this crew member?"))return; csSet(d => {d.departments[di].crew.splice(ci,1); return d;}); };
+    const moveCrew = (di,ci,dir) => csSet(d => { const crew=[...d.departments[di].crew]; const j=ci+dir; if(j<0||j>=crew.length)return d; [crew[ci],crew[j]]=[crew[j],crew[ci]]; const depts=[...d.departments]; depts[di]={...depts[di],crew}; return {...d, departments:depts}; });
     const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
     const rmDept = i => { if(!confirm("Remove this whole department, including everyone in it?"))return; csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)})); };
     const addAgentLine = (di,ci) => csSet(d => {
@@ -346,7 +347,7 @@ export default function Documents({
                           <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder autoFit style={{fontSize:10,fontWeight:600,fontStyle:dept.discrete?"italic":"normal"}} placeholder="Time"/>
                           </td>
-                          <td><div style={{display:"flex",alignItems:"center",gap:3}}><CSHighlightDot value={cr.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.hl`,cycleHighlight(cr.hl))} size={6}/><CSXbtn onClick={()=>rmCrew(di,ci)}/></div></td>
+                          <td><div style={{display:"flex",alignItems:"center",gap:2}}><button data-noprint="1" onClick={()=>moveCrew(di,ci,-1)} disabled={ci===0} title="Move up" style={{background:"none",border:"none",color:ci===0?"#eee":"#bbb",cursor:ci===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button><button data-noprint="1" onClick={()=>moveCrew(di,ci,1)} disabled={ci===dept.crew.length-1} title="Move down" style={{background:"none",border:"none",color:ci===dept.crew.length-1?"#eee":"#bbb",cursor:ci===dept.crew.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button><CSHighlightDot value={cr.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.hl`,cycleHighlight(cr.hl))} size={6}/><CSXbtn onClick={()=>rmCrew(di,ci)}/></div></td>
                         </tr>,
                         ...(cr.agents || (cr.agent ? [cr.agent] : [])).map((ag,ai) => (
                           <tr key={ci+"-agent-"+ai} style={{background:CS_HL_BG[ag.hl||""]||"#fafafa",borderBottom:"1px solid #f5f5f5"}}>
