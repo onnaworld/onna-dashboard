@@ -139,11 +139,13 @@ export default function Documents({
     };
     const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
     const rmScheduleRow = i => { if(!confirm("Remove this schedule row?"))return; csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)})); };
+    const moveScheduleRow = (i,dir) => csSet(d => { const a=[...d.schedule]; const j=i+dir; if(j<0||j>=a.length)return d; [a[i],a[j]]=[a[j],a[i]]; return {...d, schedule:a}; });
     const addSchedule = () => csSet(d => ({...d, extraSchedules:[...(d.extraSchedules||[]),{title:"ADDITIONAL SCHEDULE",rows:[{time:"",activity:"",notes:""}]}]}));
     const rmSchedule = si => { if(!confirm("Remove this whole schedule block?"))return; csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)})); };
     const moveSchedule = (from,to) => csSet(d => { const a=[...(d.extraSchedules||[])]; if(to<0||to>=a.length)return d; const[m]=a.splice(from,1); a.splice(to,0,m); return {...d, extraSchedules:a}; });
     const addExtraScheduleRow = si => csSet(d => {d.extraSchedules[si].rows.push({time:"",activity:"",notes:""}); return d;});
     const rmExtraScheduleRow = (si,i) => { if(!confirm("Remove this schedule row?"))return; csSet(d => {d.extraSchedules[si].rows.splice(i,1); return d;}); };
+    const moveExtraScheduleRow = (si,i,dir) => csSet(d => { const rows=[...d.extraSchedules[si].rows]; const j=i+dir; if(j<0||j>=rows.length)return d; [rows[i],rows[j]]=[rows[j],rows[i]]; const xs=[...d.extraSchedules]; xs[si]={...xs[si],rows}; return {...d, extraSchedules:xs}; });
     const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
     const rmVenueRow = i => { if(!confirm("Remove this row?"))return; csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)})); };
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
@@ -244,7 +246,7 @@ export default function Documents({
                       <td style={{padding:"4px 4px",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                         <CSEditField value={row.notes} onChange={v=>csU(`schedule.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/>
                       </td>
-                      <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:4}}><CSHighlightDot value={row.hl} onClick={()=>csU(`schedule.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmScheduleRow(i)}/></div></td>
+                      <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:2}}><button data-noprint="1" onClick={()=>moveScheduleRow(i,-1)} disabled={i===0} title="Move up" style={{background:"none",border:"none",color:i===0?"#eee":"#bbb",cursor:i===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button><button data-noprint="1" onClick={()=>moveScheduleRow(i,1)} disabled={i===csData.schedule.length-1} title="Move down" style={{background:"none",border:"none",color:i===csData.schedule.length-1?"#eee":"#bbb",cursor:i===csData.schedule.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button><CSHighlightDot value={row.hl} onClick={()=>csU(`schedule.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmScheduleRow(i)}/></div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -286,7 +288,7 @@ export default function Documents({
                         <td style={{padding:"4px 4px",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                           <CSEditField value={row.notes} onChange={v=>csU(`extraSchedules.${si}.rows.${i}.notes`,v)} isPlaceholder placeholder="Notes" style={{fontSize:11}}/>
                         </td>
-                        <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:4}}><CSHighlightDot value={row.hl} onClick={()=>csU(`extraSchedules.${si}.rows.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmExtraScheduleRow(si,i)}/></div></td>
+                        <td style={{padding:"4px 0"}}><div style={{display:"flex",alignItems:"center",gap:2}}><button data-noprint="1" onClick={()=>moveExtraScheduleRow(si,i,-1)} disabled={i===0} title="Move up" style={{background:"none",border:"none",color:i===0?"#eee":"#bbb",cursor:i===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button><button data-noprint="1" onClick={()=>moveExtraScheduleRow(si,i,1)} disabled={i===sched.rows.length-1} title="Move down" style={{background:"none",border:"none",color:i===sched.rows.length-1?"#eee":"#bbb",cursor:i===sched.rows.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button><CSHighlightDot value={row.hl} onClick={()=>csU(`extraSchedules.${si}.rows.${i}.hl`,cycleHighlight(row.hl))}/><CSXbtn onClick={()=>rmExtraScheduleRow(si,i)}/></div></td>
                       </tr>
                     ))}
                   </tbody>
