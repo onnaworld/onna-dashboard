@@ -453,6 +453,18 @@ export const setSaveStatusCallback = (cb) => { _onSaveStatus = cb; };
 const _notifySaving = () => { _pendingSaves++; if (_onSaveStatus) _onSaveStatus("saving"); };
 const _notifySaved = (key) => { _lastSaveAt[key] = Date.now(); _pendingSaves = Math.max(0, _pendingSaves - 1); if (_pendingSaves === 0 && _onSaveStatus) _onSaveStatus("saved"); };
 const _notifySaveError = (err) => { _pendingSaves = Math.max(0, _pendingSaves - 1); console.error("ONNA save failed:", err); if (_onSaveStatus) _onSaveStatus("error", (err && err.message) || String(err)); };
+// Seed the change-tracking snapshot for a per-document store from data that was
+// just loaded from local cache (IndexedDB). Without this, `_prevStoreSnaps` is
+// empty on every page load, so the first save effect after hydration treats
+// every key as "changed" and re-uploads the whole local blob to the server —
+// which silently overwrites any key another device/tab saved more recently but
+// that this browser's cache hadn't caught up on. Seeding makes a plain reload a
+// no-op for the server; only genuine post-load edits get pushed.
+export const seedDocSaveSnapshot = (table, storeObj) => {
+  const snap = {};
+  Object.keys(storeObj || {}).forEach(pid => { snap[pid] = JSON.stringify(storeObj[pid]); });
+  _prevStoreSnaps[table] = snap;
+};
 export const debouncedDocSave = (table, storeObj, delay = 500) => {
   if (!getToken()) return;
   const prev = _prevStoreSnaps[table] || {};

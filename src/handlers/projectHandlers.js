@@ -1,4 +1,4 @@
-import { _proxy, buildPath, parseICS, GCAL_CLIENT_ID, api, isSafeToHydrate } from "../utils/helpers";
+import { _proxy, buildPath, parseICS, GCAL_CLIENT_ID, api, docApi, isSafeToHydrate } from "../utils/helpers";
 
 // ── Auth handlers ────────────────────────────────────────────────────────────
 
@@ -304,5 +304,19 @@ export const doHydrateProject = (pid, setters) => {
     if (d.project_actuals && isSafeToHydrate('project_actuals', pid, requestStartedAt)) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));
     if (d.project_casting && isSafeToHydrate('project_casting', pid, requestStartedAt)) setProjectCasting(prev => ({...prev, [pid]: d.project_casting}));
     if (d.prod_briefs && setProductionBriefStore && isSafeToHydrate('prod_briefs', pid, requestStartedAt)) setProductionBriefStore(prev => ({...prev, [pid]: d.prod_briefs}));
+  }).then(() => {
+    // Budget-tracker meta (view mode, invoiced/advance overrides, notes, column
+    // show/hide, collapsed sections) is persisted as a sibling `_meta_<pid>`
+    // document in the project_actuals table. The per-project bundle above only
+    // returns the row keyed by <pid>, so this meta gets saved but never restored
+    // on a fresh device or after a cache clear — fetch it explicitly and merge.
+    const metaPid = `_meta_${pid}`;
+    const metaStartedAt = Date.now();
+    if (!isSafeToHydrate('project_actuals', metaPid, metaStartedAt)) return;
+    return docApi.get('project_actuals', metaPid).then(meta => {
+      if (meta && isSafeToHydrate('project_actuals', metaPid, metaStartedAt)) {
+        setProjectActuals(prev => ({...prev, [metaPid]: meta}));
+      }
+    }).catch(() => {});
   }).catch(() => {});
 };
