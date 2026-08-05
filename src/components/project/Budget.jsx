@@ -1,5 +1,5 @@
 import React, { Fragment, useState } from "react";
-import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsRowFinalsTotal, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, ACTUALS_STATUSES } from "../../utils/helpers";
+import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsRowFinalsTotal, actualsRowFinalsEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsRowSpend, actualsSectionSpend, actualsGrandSpend, ACTUALS_STATUSES } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
 
 export default function Budget({
@@ -193,14 +193,16 @@ export default function Budget({
     const actExpenseTotal = actualsGrandExpenseTotal(actSections);
     const actEffectiveTotal = actualsGrandEffective(actSections);
     const actZohoTotal = actualsGrandZohoTotal(actSections);
+    // Spend = finals where a row has them, else actuals — the base variance measures against.
+    const actSpendTotal = actualsGrandSpend(actSections);
     const metricsMode = _meta.metricsMode || (p.status==="Archived"?"finals":"budget");
     // Invoiced amount (hoisted for variance calc)
     const _pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
     const _advPct = advancePct != null ? advancePct : (_pctMatch ? parseInt(_pctMatch[1]) : 75);
     const _invoicedAmt = invoicedOverride !== null ? invoicedOverride : (estTotals.grandTotal * (_advPct / 100));
     const budgetUsedMode = _meta.budgetUsedMode || "actuals";
-    const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actExpenseTotal;
-    const actVariance = metricsMode === "finals" ? (_invoicedAmt - actZohoTotal) : (estTotals.grandTotal - actEffectiveTotal);
+    const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actEffectiveTotal;
+    const actVariance = metricsMode === "finals" ? (_invoicedAmt - actZohoTotal) : (estTotals.grandTotal - actSpendTotal);
     const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((budgetUsedBase / estTotals.grandTotal) * 1000) / 10 : 0;
 
     // Update a row in actuals
@@ -315,7 +317,7 @@ export default function Budget({
     const advPct = advancePct != null ? advancePct : (pctMatch ? parseInt(pctMatch[1]) : 75);
     const autoInvoiced = estTotals.grandTotal * (advPct / 100);
     const invoicedAmt = invoicedOverride !== null ? invoicedOverride : autoInvoiced;
-    const finalInvoice = invoicedAmt - actExpenseTotal;
+    const finalInvoice = invoicedAmt - actEffectiveTotal;
 
     // Export column picker
     const ALL_COLS = [
@@ -519,7 +521,7 @@ export default function Budget({
             </div>
             {[
               ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a", "estimate", metricsMode==="budget"],
-              ["ACTUALS TOTAL", estFmt(actExpenseTotal), "#1a1a1a", "actuals", metricsMode==="budget"],
+              ["ACTUALS TOTAL", estFmt(actEffectiveTotal), "#1a1a1a", "actuals", metricsMode==="budget"],
               ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals", metricsMode==="finals"],
               ["VARIANCE", (actVariance>=0?"+":"") + estFmt(actVariance), actVariance>=0?"#147d50":"#c0392b", "variance", true],
             ].filter(([,,,colId]) => !colId || colVisible(colId)).map(([lbl,val,clr,colId,isActive],i,arr)=>(
@@ -579,10 +581,10 @@ export default function Budget({
                   if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                   return sum + estRowTotal(row);
                 }, 0) : estSectionTotal(estSec)) : 0;
-                const actExp = actualsSectionExpenseTotal(sec);
+                const actExp = actualsSectionEffective(sec);
                 const actEff = actualsSectionEffective(sec);
                 const actZoho = actualsSectionZohoTotal(sec);
-                const sv = estSecTot - actEff;
+                const sv = estSecTot - actualsSectionSpend(sec);
                 return (
                   <div key={si} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
                     <div data-col style={{width:24,padding:"4px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
@@ -596,7 +598,7 @@ export default function Budget({
               <div style={{display:"flex",borderTop:"2px solid #000"}}>
                 <div data-col-desc style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
                 <div data-col style={colStyle("estimate",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(estTotals.grandTotal)}</div>
-                <div data-col style={colStyle("actuals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actExpenseTotal)}</div>
+                <div data-col style={colStyle("actuals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actEffectiveTotal)}</div>
                 <div data-col style={colStyle("finals",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actZohoTotal)}</div>
                 <div data-col style={colStyle("variance",{width:110,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,color:actVariance>=0?"#147d50":"#c0392b"})}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
               </div>
@@ -657,7 +659,8 @@ export default function Budget({
                     const finalsExpTotal = actualsRowFinalsTotal(row);
                     const zohoVal = estNum(row.zohoAmount);
                     const actVal = actualsRowEffective(row);
-                    const rv = estVal - actVal;
+                    // Finals override actuals in the variance once entered for this row.
+                    const rv = estVal - actualsRowSpend(row);
                     const rowKey = `${si}-${ri}`;
                     const isExpanded = expandedRows[rowKey];
                     return (
@@ -738,9 +741,9 @@ export default function Budget({
                     <div style={{display:"flex",gap:0,padding:"4px 0"}}>
                       <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"0 8px",letterSpacing:EST_LS}}>TOTAL</div>
                       <div data-col style={colStyle("estimate",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS})}>{estFmt(secEstTotal)}</div>
-                      <div data-col style={colStyle("actuals",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"})}>{estFmt(actualsSectionExpenseTotal(sec))}</div>
+                      <div data-col style={colStyle("actuals",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:"#0066cc"})}>{estFmt(actualsSectionEffective(sec))}</div>
                       <div data-col style={colStyle("finals",{width:80,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS})}>{estFmt(actualsSectionZohoTotal(sec))}</div>
-                      <div data-col style={colStyle("variance",{width:70,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionEffective(sec))>=0?"#147d50":"#c0392b"})}>{(secEstTotal-actualsSectionEffective(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionEffective(sec))}</div>
+                      <div data-col style={colStyle("variance",{width:70,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"0 6px",letterSpacing:EST_LS,color:(secEstTotal-actualsSectionSpend(sec))>=0?"#147d50":"#c0392b"})}>{(secEstTotal-actualsSectionSpend(sec)>=0?"+":"")}{estFmt(secEstTotal-actualsSectionSpend(sec))}</div>
                       <div data-col style={colStyle("status",{width:60})}></div>
                       <div style={{width:24}}></div>
                       <div style={{width:18}}></div>
@@ -753,7 +756,7 @@ export default function Budget({
               <div style={{display:"flex",background:"#000",color:"#fff",marginTop:4}}>
                 <div data-col-desc style={{flex:1,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,textAlign:"right"}}>GRAND TOTAL</div>
                 <div data-col style={colStyle("estimate",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(estTotals.grandTotal)}</div>
-                <div data-col style={colStyle("actuals",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actExpenseTotal)}</div>
+                <div data-col style={colStyle("actuals",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actEffectiveTotal)}</div>
                 <div data-col style={colStyle("finals",{width:80,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{estFmt(actZohoTotal)}</div>
                 <div data-col style={colStyle("variance",{width:70,padding:"6px 6px",fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS})}>{(actVariance>=0?"+":"")}{estFmt(actVariance)}</div>
                 <div data-col style={colStyle("status",{width:60})}></div>

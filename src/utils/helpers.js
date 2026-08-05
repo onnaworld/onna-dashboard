@@ -305,6 +305,14 @@ export const actualsGrandExpenseTotal = (sections) => r2(sections.reduce((s, sec
 export const actualsGrandEffective = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionEffective(sec), 0));
 export const actualsGrandZohoTotal = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionZohoTotal(sec), 0));
 
+// "Spend" is the figure variance is measured against: when a row has finals
+// entered, finals override the actuals; otherwise the actuals stand. This lets a
+// budget with a mix of finalised and still-actuals rows compute a correct variance.
+export const actualsRowHasFinals = (row) => actualsRowFinalsEffective(row) > 0;
+export const actualsRowSpend = (row) => actualsRowHasFinals(row) ? actualsRowFinalsEffective(row) : actualsRowEffective(row);
+export const actualsSectionSpend = (sec) => r2(sec.rows.reduce((s, r) => s + actualsRowSpend(r), 0));
+export const actualsGrandSpend = (sections) => r2(sections.reduce((s, sec) => s + actualsSectionSpend(sec), 0));
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 export const _proxy = (path) => `/api/relay?target=${encodeURIComponent(path)}`;
 export const GCAL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
