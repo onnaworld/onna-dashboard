@@ -257,6 +257,17 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     const el = printRef.current;
     if (!el || !active) return;
     const clone = el.cloneNode(true);
+    // cloneNode() does NOT carry over the live value of React-controlled form
+    // fields — their current value/selectedIndex is a JS property, not an
+    // HTML attribute, so the clone would silently revert to whatever was
+    // there at mount (e.g. Currency reverting to the first option). Copy the
+    // live values across, in DOM order, before doing anything else.
+    const origInputs = el.querySelectorAll('input');
+    const cloneInputs = clone.querySelectorAll('input');
+    origInputs.forEach((o, i) => { if (cloneInputs[i]) cloneInputs[i].value = o.value; });
+    const origSelects = el.querySelectorAll('select');
+    const cloneSelects = clone.querySelectorAll('select');
+    origSelects.forEach((o, i) => { if (cloneSelects[i]) cloneSelects[i].selectedIndex = o.selectedIndex; });
     clone.querySelectorAll('[data-noprint]').forEach((n) => n.remove());
     clone.querySelectorAll('[data-cs-placeholder]').forEach((n) => n.remove());
     clone.querySelectorAll('textarea').forEach((n) => n.remove());
@@ -266,13 +277,14 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
       const sp = document.createElement('span');
       sp.textContent = inp.value || "";
       sp.style.cssText = inp.style.cssText;
-      sp.style.border = "none"; sp.style.outline = "none"; sp.style.background = "transparent";
+      sp.style.border = "none"; sp.style.outline = "none"; sp.style.background = "transparent"; sp.style.padding = "0";
       inp.parentNode.replaceChild(sp, inp);
     });
     clone.querySelectorAll('select').forEach((sel) => {
       const sp = document.createElement('span');
       sp.textContent = sel.options[sel.selectedIndex]?.text || sel.value || "";
       sp.style.cssText = sel.style.cssText;
+      sp.style.border = "none"; sp.style.outline = "none"; sp.style.background = "transparent"; sp.style.padding = "0";
       sel.parentNode.replaceChild(sp, sel);
     });
     clone.style.margin = "0"; clone.style.maxWidth = "none"; clone.style.width = "100%"; clone.style.minWidth = "0"; clone.style.border = "none"; clone.style.borderRadius = "0";
@@ -374,6 +386,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
 
   // ── Detail / editor view ──
   const totals = invCalcTotals(active);
+  const hasAnyBankInfo = BANK_FIELDS.some(([, key]) => active.from.bank?.[key]) || active.from.bank?.otherDetails;
   return (
     <div>
       <button onClick={() => setActiveId(null)} style={{ background: "none", border: "none", color: T.link, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>‹ Back to Invoices</button>
@@ -486,16 +499,16 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
             </div>
           </div>
 
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 24 }} data-noprint={hasAnyBankInfo ? undefined : "1"}>
             <div style={lbl}>Bank Details</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "2px 24px", background: "#fafafa", borderRadius: 8, padding: "10px 14px" }}>
               {BANK_FIELDS.map(([label, key]) => (
-                <div key={key}>
+                <div key={key} data-noprint={active.from.bank?.[key] ? undefined : "1"}>
                   <div style={{ ...lbl, marginBottom: 2 }}>{label}</div>
                   <Cell value={active.from.bank?.[key]} onChange={(v) => setField(`from.bank.${key}`, v)} />
                 </div>
               ))}
-              <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ gridColumn: "1 / -1" }} data-noprint={active.from.bank?.otherDetails ? undefined : "1"}>
                 <div style={{ ...lbl, marginBottom: 2 }}>Other Details</div>
                 <Cell value={active.from.bank?.otherDetails} onChange={(v) => setField("from.bank.otherDetails", v)} textarea placeholder="details" />
               </div>
