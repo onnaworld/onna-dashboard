@@ -3,6 +3,7 @@ import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
 import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, docApi, FINANCE_SLUGS } from "../utils/helpers";
 import PipelineChart from "./finance/PipelineChart";
+import InvoiceGenerator from "./finance/InvoiceGenerator";
 
 /* ── Branded constants (matching estimates/callsheets) ── */
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
@@ -105,6 +106,7 @@ export default function Finance({
   projectEstimates, projectActuals,
   SearchBar, Pill, setUndoToastMsg,
   localLeadsForPipeline,
+  invoiceStore, setInvoiceStore, localClients, setLocalClients,
 }) {
   const [financeTab, _setFinanceTab] = useState(() => {
     const parts = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -426,6 +428,7 @@ export default function Finance({
     { key: "tax", label: "Tax & VAT", emoji: "\ud83c\udfe6", sub: "Tax filings & VAT" },
     { key: "expenses", label: "Expenses", emoji: "\ud83d\udcb3", sub: "Expense tracking" },
     { key: "pipeline", label: "Pipeline", emoji: "\ud83d\udcc8", sub: "Revenue forecasting" },
+    { key: "invoices", label: "Invoices", emoji: "\ud83e\uddfe", sub: "Client invoices" },
   ];
 
   /* ── Shared table styles ── */
@@ -1021,6 +1024,9 @@ export default function Finance({
       )}
       {financeTab === "pipeline" && (
         <PipelineChart T={T} isMobile={isMobile} localLeads={localLeadsForPipeline || localLeads} allProjectsMerged={allProjectsMerged} getProjRevenue={getProjRevenue} />
+      )}
+      {financeTab === "invoices" && (
+        <InvoiceGenerator T={T} isMobile={isMobile} invoiceStore={invoiceStore} setInvoiceStore={setInvoiceStore} localClients={localClients} setLocalClients={setLocalClients} projectEstimates={projectEstimates} allProjectsMerged={allProjectsMerged} />
       )}
     </div>
   );
