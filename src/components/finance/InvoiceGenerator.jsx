@@ -39,7 +39,7 @@ const blankInvoice = (store) => ({
   logo: null,
   from: { ...ONNA_FROM, bank: blankBank() },
   clientId: null,
-  billTo: { company: "", name: "", email: "", address: "" },
+  billTo: { company: "", name: "", email: "", phone: "", address: "" },
   items: [{ id: 1, desc: "", qty: "1", rate: "0" }],
   taxPct: 5,
   notes: "",
@@ -78,7 +78,7 @@ function Cell({ value, onChange, align, placeholder, style, textarea }) {
   return (
     <div onClick={() => { setTemp(value || ""); setEditing(true); }} style={{ ...baseStyle, cursor: "text", minHeight: 20, whiteSpace: textarea ? "pre-wrap" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", border: "1px solid transparent" }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#eee")} onMouseLeave={(e) => (e.currentTarget.style.borderColor = "transparent")}>
-      {value || <span style={{ color: "#bbb" }}>{placeholder || ""}</span>}
+      {value || <span data-noprint="1" style={{ color: "#bbb" }}>{placeholder || ""}</span>}
     </div>
   );
 }
@@ -97,6 +97,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
   const [newClientModal, setNewClientModal] = useState(false);
   const [newClientForm, setNewClientForm] = useState(blankNewClient());
   const [newClientSaving, setNewClientSaving] = useState(false);
+  const [editingClientId, setEditingClientId] = useState(null);
   const [senderPickerOpen, setSenderPickerOpen] = useState(false);
   const [senderSearch, setSenderSearch] = useState("");
   const [newSenderModal, setNewSenderModal] = useState(false);
@@ -137,27 +138,50 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
   const removeItem = (idx) => updateActive((inv) => { if (inv.items.length > 1) inv.items.splice(idx, 1); return inv; });
   const setItemField = (idx, field, val) => updateActive((inv) => { inv.items[idx][field] = val; return inv; });
 
+  // Editing Bill To fields while a client is linked also updates that client's saved record
+  const updateLinkedClientField = (clientField, val) => {
+    if (!active?.clientId) return;
+    const patch = { [clientField]: val };
+    setLocalClients?.((prev) => (prev || []).map((c) => (c.id === active.clientId ? { ...c, ...patch } : c)));
+    api.put(`/api/clients/${active.clientId}`, patch).catch(() => {});
+  };
+
   const applyClient = (c) => updateActive((inv) => {
     inv.clientId = c.id;
-    inv.billTo = { company: c.company || "", name: c.name || "", email: c.email || "", address: c.billingAddress || c.country || "" };
+    inv.billTo = { company: c.company || "", name: c.name || "", email: c.email || "", phone: c.phone || "", address: c.billingAddress || c.country || "" };
     return inv;
   });
+
+  const openNewClientModal = () => { setEditingClientId(null); setNewClientForm(blankNewClient()); setNewClientModal(true); };
+  const openEditClientModal = (c) => {
+    setEditingClientId(c.id);
+    setNewClientForm({ company: c.company || "", name: c.name || "", email: c.email || "", phone: c.phone || "", billingAddress: c.billingAddress || c.country || "" });
+    setNewClientModal(true);
+  };
 
   const saveNewClient = async () => {
     const company = newClientForm.company.trim();
     if (!company) return;
     setNewClientSaving(true);
-    const nc = { company, name: newClientForm.name.trim(), email: newClientForm.email.trim(), phone: newClientForm.phone.trim(), billingAddress: newClientForm.billingAddress.trim(), category: "Client", status: "client", source: "Invoice" };
+    const nc = { company, name: newClientForm.name.trim(), email: newClientForm.email.trim(), phone: newClientForm.phone.trim(), billingAddress: newClientForm.billingAddress.trim() };
     try {
-      const saved = await api.post("/api/clients", nc);
-      const withId = { ...nc, id: saved?.id ?? Date.now() };
-      setLocalClients?.((prev) => [...(prev || []), withId]);
-      applyClient(withId);
+      if (editingClientId) {
+        await api.put(`/api/clients/${editingClientId}`, nc);
+        const withId = { ...nc, id: editingClientId };
+        setLocalClients?.((prev) => (prev || []).map((c) => (c.id === editingClientId ? { ...c, ...nc } : c)));
+        if (active?.clientId === editingClientId) applyClient(withId);
+      } else {
+        const saved = await api.post("/api/clients", { ...nc, category: "Client", status: "client", source: "Invoice" });
+        const withId = { ...nc, id: saved?.id ?? Date.now() };
+        setLocalClients?.((prev) => [...(prev || []), withId]);
+        applyClient(withId);
+      }
       setNewClientModal(false);
       setClientPickerOpen(false);
+      setEditingClientId(null);
       setNewClientForm(blankNewClient());
     } catch {
-      window.alert("Could not save the new client — please try again.");
+      window.alert("Could not save the client — please try again.");
     } finally {
       setNewClientSaving(false);
     }
@@ -218,7 +242,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
       });
     });
     const inv = blankInvoice(store);
-    inv.billTo = { company: proj.client || "", name: "", email: "", address: "" };
+    inv.billTo = { company: proj.client || "", name: "", email: "", phone: "", address: "" };
     inv.items = items.length ? items : inv.items;
     inv.currency = est.currency || "AED";
     inv.taxPct = est.vatPct !== undefined ? est.vatPct : 5;
@@ -417,9 +441,9 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                 </div>
               </div>
               <Cell value={active.from.name} onChange={(v) => setField("from.name", v)} style={{ fontWeight: 700 }} />
-              <Cell value={active.from.address} onChange={(v) => setField("from.address", v)} textarea style={{ color: "#666" }} />
-              <Cell value={active.from.email} onChange={(v) => setField("from.email", v)} style={{ color: "#666" }} />
+              <Cell value={active.from.email} onChange={(v) => setField("from.email", v)} placeholder="Email" style={{ color: "#666" }} />
               <Cell value={active.from.phone} onChange={(v) => setField("from.phone", v)} placeholder="Phone" style={{ color: "#666" }} />
+              <Cell value={active.from.address} onChange={(v) => setField("from.address", v)} textarea placeholder="Address" style={{ color: "#666" }} />
             </div>
             <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -438,22 +462,27 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                         <div style={{ overflowY: "auto", maxHeight: 260 }}>
                           {filtered.length === 0 && <div style={{ padding: "10px 14px", fontSize: 11, color: "#999" }}>{q ? "No matching clients." : "No clients found."}</div>}
                           {filtered.map((c) => (
-                            <div key={c.id} onClick={() => { applyClient(c); setClientPickerOpen(false); }} style={{ padding: "8px 14px", fontSize: 11.5, cursor: "pointer", borderBottom: "1px solid #f5f5f5" }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                              <div style={{ fontWeight: 600 }}>{c.company || c.name}</div>
-                              {c.name && c.company && <div style={{ color: "#999", fontSize: 10 }}>{c.name}</div>}
+                            <div key={c.id} style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #f5f5f5" }}>
+                              <div onClick={() => { applyClient(c); setClientPickerOpen(false); }} style={{ flex: 1, cursor: "pointer", fontSize: 11.5 }} onMouseEnter={(e) => (e.currentTarget.parentElement.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.parentElement.style.background = "transparent")}>
+                                <div style={{ fontWeight: 600 }}>{c.company || c.name}</div>
+                                {c.name && c.company && <div style={{ color: "#999", fontSize: 10 }}>{c.name}</div>}
+                              </div>
+                              <span onClick={() => openEditClientModal(c)} title="Edit client" style={{ cursor: "pointer", fontSize: 11, color: "#bbb", padding: "0 4px" }} onMouseEnter={(e) => (e.target.style.color = "#666")} onMouseLeave={(e) => (e.target.style.color = "#bbb")}>{"✎"}</span>
                             </div>
                           ))}
                         </div>
-                        <div onClick={() => { setNewClientForm({ ...blankNewClient(), company: clientSearch.trim() && filtered.length === 0 ? clientSearch.trim() : "" }); setNewClientModal(true); }} style={{ padding: "9px 14px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", color: T.accent, borderTop: "1px solid #eee", flexShrink: 0 }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>+ Add New Client</div>
+                        <div onClick={() => { openNewClientModal(); setNewClientForm((f) => ({ ...f, company: clientSearch.trim() && filtered.length === 0 ? clientSearch.trim() : "" })); }} style={{ padding: "9px 14px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", color: T.accent, borderTop: "1px solid #eee", flexShrink: 0 }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>+ Add New Client</div>
                       </div>
                     );
                   })()}
                 </div>
               </div>
-              <Cell value={active.billTo.company} onChange={(v) => setField("billTo.company", v)} placeholder="Client / Company" style={{ fontWeight: 700 }} />
-              <Cell value={active.billTo.name} onChange={(v) => setField("billTo.name", v)} placeholder="Contact name" style={{ color: "#666" }} />
-              <Cell value={active.billTo.email} onChange={(v) => setField("billTo.email", v)} placeholder="Email" style={{ color: "#666" }} />
-              <Cell value={active.billTo.address} onChange={(v) => setField("billTo.address", v)} textarea placeholder="Billing address" style={{ color: "#666" }} />
+              <Cell value={active.billTo.company} onChange={(v) => { setField("billTo.company", v); updateLinkedClientField("company", v); }} placeholder="Client / Company" style={{ fontWeight: 700 }} />
+              <Cell value={active.billTo.name} onChange={(v) => { setField("billTo.name", v); updateLinkedClientField("name", v); }} placeholder="Contact name" style={{ color: "#666" }} />
+              <Cell value={active.billTo.email} onChange={(v) => { setField("billTo.email", v); updateLinkedClientField("email", v); }} placeholder="Email" style={{ color: "#666" }} />
+              <Cell value={active.billTo.phone} onChange={(v) => { setField("billTo.phone", v); updateLinkedClientField("phone", v); }} placeholder="Phone" style={{ color: "#666" }} />
+              <Cell value={active.billTo.address} onChange={(v) => { setField("billTo.address", v); updateLinkedClientField("billingAddress", v); }} textarea placeholder="Billing address" style={{ color: "#666" }} />
+              {active.clientId && <div style={{ fontSize: 9, color: "#bbb", marginTop: 2 }} data-noprint="1">Synced with saved client</div>}
             </div>
           </div>
 
@@ -463,12 +492,12 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
               {BANK_FIELDS.map(([label, key]) => (
                 <div key={key}>
                   <div style={{ ...lbl, marginBottom: 2 }}>{label}</div>
-                  <Cell value={active.from.bank?.[key]} onChange={(v) => setField(`from.bank.${key}`, v)} placeholder="—" />
+                  <Cell value={active.from.bank?.[key]} onChange={(v) => setField(`from.bank.${key}`, v)} />
                 </div>
               ))}
               <div style={{ gridColumn: "1 / -1" }}>
                 <div style={{ ...lbl, marginBottom: 2 }}>Other Details</div>
-                <Cell value={active.from.bank?.otherDetails} onChange={(v) => setField("from.bank.otherDetails", v)} textarea placeholder="Branch, routing number, notes…" />
+                <Cell value={active.from.bank?.otherDetails} onChange={(v) => setField("from.bank.otherDetails", v)} textarea placeholder="details" />
               </div>
             </div>
           </div>
@@ -542,7 +571,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
       {newClientModal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => !newClientSaving && setNewClientModal(false)}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, padding: 24, width: 420, maxWidth: "90vw" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1a1a1a" }}>Add New Client</div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1a1a1a" }}>{editingClientId ? "Edit Client" : "Add New Client"}</div>
             {[["Company *", "company"], ["Contact Name", "name"], ["Email", "email"], ["Phone", "phone"]].map(([label, key]) => (
               <div key={key} style={{ marginBottom: 10 }}>
                 <div style={lbl}>{label}</div>
@@ -554,8 +583,8 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
               <textarea value={newClientForm.billingAddress} onChange={(e) => setNewClientForm((f) => ({ ...f, billingAddress: e.target.value }))} rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", resize: "vertical" }} />
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button onClick={() => setNewClientModal(false)} disabled={newClientSaving} style={{ padding: "8px 16px", borderRadius: 8, background: "#f0f0f0", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-              <button onClick={saveNewClient} disabled={!newClientForm.company.trim() || newClientSaving} style={{ padding: "8px 16px", borderRadius: 8, background: newClientForm.company.trim() ? T.accent : "#ccc", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: newClientForm.company.trim() ? "pointer" : "default", fontFamily: "inherit" }}>{newClientSaving ? "Saving…" : "Save Client"}</button>
+              <button onClick={() => { setNewClientModal(false); setEditingClientId(null); }} disabled={newClientSaving} style={{ padding: "8px 16px", borderRadius: 8, background: "#f0f0f0", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={saveNewClient} disabled={!newClientForm.company.trim() || newClientSaving} style={{ padding: "8px 16px", borderRadius: 8, background: newClientForm.company.trim() ? T.accent : "#ccc", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: newClientForm.company.trim() ? "pointer" : "default", fontFamily: "inherit" }}>{newClientSaving ? "Saving…" : editingClientId ? "Save Changes" : "Save Client"}</button>
             </div>
           </div>
         </div>
