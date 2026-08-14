@@ -612,7 +612,7 @@ function OnnaDashboardInner() {
   const addTodoFromInput = (text) => _addTodoFromInput(text, todoTopFilter, todoFilter, pushUndo, setProjectTodos, setPendingProjectTask, setTodos);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
   useEffect(()=>{try{localStorage.setItem('onna_billie_rates',JSON.stringify(billieRateCards));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('billie_rates',billieRateCards);},[billieRateCards]);
-  useEffect(()=>{try{localStorage.setItem('onna_invoices',JSON.stringify(invoiceStore));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoices',invoiceStore);},[invoiceStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_invoices',JSON.stringify(invoiceStore));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoice_documents',invoiceStore);},[invoiceStore]);
   useEffect(()=>{try{localStorage.setItem('onna_invoice_senders',JSON.stringify(senderProfiles));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoice_senders',senderProfiles);},[senderProfiles]);
   useEffect(()=>{try{localStorage.setItem('onna_cache_clients',JSON.stringify(localClients));}catch{}},[localClients]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d){seedDocSaveSnapshot('project_actuals',d);setProjectActuals(d);}setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
@@ -898,7 +898,7 @@ function OnnaDashboardInner() {
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
           if (gd.billie_rates) setBillieRateCards(gd.billie_rates);
-          if (gd.invoices) setInvoiceStore(gd.invoices);
+          if (gd.invoice_documents) setInvoiceStore(gd.invoice_documents);
           if (gd.invoice_senders) setSenderProfiles(gd.invoice_senders);
           if (gd.activity_log) setActivityLog(gd.activity_log);
           if (gd.template_files && Array.isArray(gd.template_files)) setTemplateFiles(gd.template_files);
