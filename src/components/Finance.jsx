@@ -106,7 +106,7 @@ export default function Finance({
   projectEstimates, projectActuals,
   SearchBar, Pill, setUndoToastMsg,
   localLeadsForPipeline,
-  invoiceStore, setInvoiceStore, localClients, setLocalClients,
+  invoiceStore, setInvoiceStore, localClients, setLocalClients, senderProfiles, setSenderProfiles,
 }) {
   const [financeTab, _setFinanceTab] = useState(() => {
     const parts = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -1026,7 +1026,7 @@ export default function Finance({
         <PipelineChart T={T} isMobile={isMobile} localLeads={localLeadsForPipeline || localLeads} allProjectsMerged={allProjectsMerged} getProjRevenue={getProjRevenue} />
       )}
       {financeTab === "invoices" && (
-        <InvoiceGenerator T={T} isMobile={isMobile} invoiceStore={invoiceStore} setInvoiceStore={setInvoiceStore} localClients={localClients} setLocalClients={setLocalClients} projectEstimates={projectEstimates} allProjectsMerged={allProjectsMerged} />
+        <InvoiceGenerator T={T} isMobile={isMobile} invoiceStore={invoiceStore} setInvoiceStore={setInvoiceStore} localClients={localClients} setLocalClients={setLocalClients} senderProfiles={senderProfiles} setSenderProfiles={setSenderProfiles} projectEstimates={projectEstimates} allProjectsMerged={allProjectsMerged} />
       )}
     </div>
   );

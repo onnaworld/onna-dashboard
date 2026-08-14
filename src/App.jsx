@@ -530,6 +530,7 @@ function OnnaDashboardInner() {
   const [showArchive,setShowArchive]         = useState(false);
   const [billieRateCards,setBillieRateCards] = useState(()=>{try{const r=localStorage.getItem('onna_billie_rates');if(r)return JSON.parse(r);}catch{}return[];});
   const [invoiceStore,setInvoiceStore] = useState(()=>{try{const r=localStorage.getItem('onna_invoices');if(r)return JSON.parse(r);}catch{}return[];});
+  const [senderProfiles,setSenderProfiles] = useState(()=>{try{const r=localStorage.getItem('onna_invoice_senders');if(r)return JSON.parse(r);}catch{}return[];});
   // showBillieRates removed — rate card now in Information section
   // showArchivedProjects moved to Projects component
   const [showUserMenu,setShowUserMenu]       = useState(false);
@@ -612,6 +613,8 @@ function OnnaDashboardInner() {
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
   useEffect(()=>{try{localStorage.setItem('onna_billie_rates',JSON.stringify(billieRateCards));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('billie_rates',billieRateCards);},[billieRateCards]);
   useEffect(()=>{try{localStorage.setItem('onna_invoices',JSON.stringify(invoiceStore));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoices',invoiceStore);},[invoiceStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_invoice_senders',JSON.stringify(senderProfiles));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoice_senders',senderProfiles);},[senderProfiles]);
+  useEffect(()=>{try{localStorage.setItem('onna_cache_clients',JSON.stringify(localClients));}catch{}},[localClients]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d){seedDocSaveSnapshot('project_actuals',d);setProjectActuals(d);}setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
   useEffect(()=>{idbGet("projectCasting").then(d=>{if(d){seedDocSaveSnapshot('project_casting',d);setProjectCasting(d);}setCastingReady(true);}).catch(()=>setCastingReady(true));},[]);
@@ -896,6 +899,7 @@ function OnnaDashboardInner() {
           if (gd.sops) setSops(gd.sops);
           if (gd.billie_rates) setBillieRateCards(gd.billie_rates);
           if (gd.invoices) setInvoiceStore(gd.invoices);
+          if (gd.invoice_senders) setSenderProfiles(gd.invoice_senders);
           if (gd.activity_log) setActivityLog(gd.activity_log);
           if (gd.template_files && Array.isArray(gd.template_files)) setTemplateFiles(gd.template_files);
           if (gd.reminders) setReminders(gd.reminders);
@@ -1389,7 +1393,7 @@ function OnnaDashboardInner() {
 
           {activeTab==="Projects"&&<ProjectsTab T={T} isMobile={isMobile} api={api} selectedProject={selectedProject} setSelectedProject={setSelectedProject} projectSection={projectSection} setProjectSection={setProjectSection} localProjects={localProjects} setLocalProjects={setLocalProjects} allProjectsMerged={allProjectsMerged} archivedProjects={archivedProjects} setArchivedProjects={setArchivedProjects} saveStatus={saveStatus} saveErrorMsg={saveErrorMsg} setShowFromTemplate={setShowFromTemplate} setEditingEstimate={setEditingEstimate} setCreativeSubSection={setCreativeSubSection} setBudgetSubSection={setBudgetSubSection} setDocumentsSubSection={setDocumentsSubSection} setScheduleSubSection={setScheduleSubSection} setTravelSubSection={setTravelSubSection} setPermitsSubSection={setPermitsSubSection} setStylingSubSection={setStylingSubSection} setCastingSubSection={setCastingSubSection} setActiveCastingDeckVersion={setActiveCastingDeckVersion} setActiveCastingTableVersion={setActiveCastingTableVersion} setActiveCSVersion={setActiveCSVersion} setLocSubSection={setLocSubSection} setActiveRecceVersion={setActiveRecceVersion} renderProjectSection={renderProjectSection} getProjRevenue={getProjRevenue} getProjCost={getProjCost} archiveItem={archiveItem} buildPath={buildPath} pushNav={pushNav} getSearch={getSearch} setSearch={setSearch} PROJECT_SECTIONS={PROJECT_SECTIONS} SearchBar={SearchBar} Pill={Pill} StatCard={StatCard}/>}
 
-          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} localLeadsForPipeline={localLeads} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg} invoiceStore={invoiceStore} setInvoiceStore={setInvoiceStore} localClients={localClients} setLocalClients={setLocalClients}/>}
+          {activeTab==="Finance"&&<Finance T={T} isMobile={isMobile} allProjectsMerged={allProjectsMerged} localLeads={localLeads} getProjRevenue={getProjRevenue} getProjCost={getProjCost} localLeadsForPipeline={localLeads} apiLoading={apiLoading} cashFlowStore={cashFlowStore} setCashFlowStore={setCashFlowStore} activeCashFlowVersion={activeCashFlowVersion} setActiveCashFlowVersion={setActiveCashFlowVersion} debouncedDocSave={debouncedDocSave} allProjects={allProjectsMerged} projectEstimates={projectEstimates} projectActuals={projectActuals} SearchBar={SearchBar} Pill={Pill} setUndoToastMsg={setUndoToastMsg} invoiceStore={invoiceStore} setInvoiceStore={setInvoiceStore} localClients={localClients} setLocalClients={setLocalClients} senderProfiles={senderProfiles} setSenderProfiles={setSenderProfiles}/>}
 
           {activeTab==="Resources"&&<Resources T={T} isMobile={isMobile} api={api}
             vaultLocked={vaultLocked} setVaultLocked={setVaultLocked}

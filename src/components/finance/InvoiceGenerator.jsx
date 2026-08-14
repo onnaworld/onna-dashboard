@@ -1,16 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { CSLogoSlot } from "../ui/DocHelpers";
-import { estFmt, estNum, exportToPDF, api } from "../../utils/helpers";
+import { estFmt, estNum, api, PRINT_CLEANUP_CSS } from "../../utils/helpers";
 
 const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const LS = 0.5;
+
+const blankBank = () => ({ bankName: "", accountName: "", accountNumber: "", iban: "", swift: "", otherDetails: "" });
 
 const ONNA_FROM = {
   name: "ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC",
   address: "OFFICE NO. F1-022,\nPROPERTY INVESTMENT OFFICE 4-F1\nDUBAI, UNITED ARAB EMIRATES",
   email: "accounts@onnaproduction.com",
-  trn: "105161036600003",
+  phone: "",
+  bank: blankBank(),
 };
+
+const BANK_FIELDS = [["Bank Name", "bankName"], ["Account Name", "accountName"], ["Account Number", "accountNumber"], ["IBAN", "iban"], ["SWIFT / BIC", "swift"]];
 
 const CURRENCIES = ["AED", "USD", "GBP", "EUR", "SAR"];
 const STATUSES = ["Draft", "Sent", "Paid", "Overdue"];
@@ -32,7 +37,7 @@ const blankInvoice = (store) => ({
   dueDate: "",
   currency: "AED",
   logo: null,
-  from: { ...ONNA_FROM },
+  from: { ...ONNA_FROM, bank: blankBank() },
   clientId: null,
   billTo: { company: "", name: "", email: "", address: "" },
   items: [{ id: 1, desc: "", qty: "1", rate: "0" }],
@@ -50,32 +55,6 @@ const invCalcTotals = (inv) => {
   return { subtotal, tax, total: subtotal + tax };
 };
 
-const escHTML = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-const buildInvoiceHTML = (inv) => {
-  const totals = invCalcTotals(inv);
-  const bt = inv.billTo || {};
-  const itemsRows = (inv.items || []).map((r) => `<tr><td>${escHTML(r.desc)}</td><td class="right">${escHTML(r.qty)}</td><td class="right">${inv.currency} ${estFmt(estNum(r.rate))}</td><td class="right">${inv.currency} ${estFmt(invRowTotal(r))}</td></tr>`).join("");
-  return `
-    <div class="meta">
-      <div class="ml"><label>Bill To</label>${escHTML(bt.company)}${bt.name ? "<br>" + escHTML(bt.name) : ""}${bt.email ? "<br>" + escHTML(bt.email) : ""}${bt.address ? "<br>" + escHTML(bt.address).replace(/\n/g, "<br>") : ""}</div>
-      <div class="ml"><label>Invoice #</label>${escHTML(inv.number)}</div>
-      <div class="ml"><label>Date</label>${escHTML(inv.date)}</div>
-      <div class="ml"><label>Due Date</label>${escHTML(inv.dueDate || "—")}</div>
-    </div>
-    <table>
-      <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
-      <tbody>${itemsRows}</tbody>
-      <tbody>
-        <tr class="sub"><td colspan="3" class="right">Subtotal</td><td class="right">${inv.currency} ${estFmt(totals.subtotal)}</td></tr>
-        <tr class="vat"><td colspan="3" class="right">Tax (${escHTML(inv.taxPct || 0)}%)</td><td class="right">${inv.currency} ${estFmt(totals.tax)}</td></tr>
-        <tr class="grand"><td colspan="3" class="right">Total Due</td><td class="right">${inv.currency} ${estFmt(totals.total)}</td></tr>
-      </tbody>
-    </table>
-    ${inv.paymentTerms ? `<div class="sec">Payment Terms</div><p>${escHTML(inv.paymentTerms)}</p>` : ""}
-    ${inv.notes ? `<div class="sec">Notes</div><p style="white-space:pre-line">${escHTML(inv.notes)}</p>` : ""}
-  `;
-};
 
 // ── Small inline-editable cell (click to edit, blur/Enter to commit) ──
 function Cell({ value, onChange, align, placeholder, style, textarea }) {
@@ -105,17 +84,24 @@ function Cell({ value, onChange, align, placeholder, style, textarea }) {
 }
 
 const blankNewClient = () => ({ company: "", name: "", email: "", phone: "", billingAddress: "" });
+const blankNewSender = (seed) => ({ nickname: "", name: seed?.name || "", address: seed?.address || "", email: seed?.email || "", phone: seed?.phone || "", bank: { ...blankBank(), ...(seed?.bank || {}) } });
 
-export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoiceStore, localClients, setLocalClients, projectEstimates, allProjectsMerged }) {
+export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoiceStore, localClients, setLocalClients, senderProfiles, setSenderProfiles, projectEstimates, allProjectsMerged }) {
   const [activeId, setActiveId] = useState(null);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [convertModal, setConvertModal] = useState(false);
   const [convertProjectId, setConvertProjectId] = useState("");
   const [convertVersionIdx, setConvertVersionIdx] = useState(0);
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const [newClientModal, setNewClientModal] = useState(false);
   const [newClientForm, setNewClientForm] = useState(blankNewClient());
   const [newClientSaving, setNewClientSaving] = useState(false);
+  const [senderPickerOpen, setSenderPickerOpen] = useState(false);
+  const [senderSearch, setSenderSearch] = useState("");
+  const [newSenderModal, setNewSenderModal] = useState(false);
+  const [newSenderForm, setNewSenderForm] = useState(blankNewSender());
+  const printRef = useRef(null);
 
   const store = invoiceStore || [];
   const active = store.find((i) => i.id === activeId) || null;
@@ -126,7 +112,10 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
   const setField = (path, val) => updateActive((inv) => {
     const keys = path.split(".");
     let o = inv;
-    for (let i = 0; i < keys.length - 1; i++) o = o[keys[i]];
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (o[keys[i]] == null) o[keys[i]] = {};
+      o = o[keys[i]];
+    }
     o[keys[keys.length - 1]] = val;
     return inv;
   });
@@ -174,6 +163,43 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     }
   };
 
+  const applySender = (s) => updateActive((inv) => {
+    inv.fromSenderId = s.id;
+    inv.from = { name: s.name || "", address: s.address || "", email: s.email || "", phone: s.phone || "", bank: { ...blankBank(), ...(s.bank || {}) } };
+    return inv;
+  });
+
+  const saveNewSender = () => {
+    const nickname = newSenderForm.nickname.trim();
+    if (!nickname) return;
+    const profile = {
+      id: Date.now(),
+      nickname,
+      name: newSenderForm.name.trim(),
+      address: newSenderForm.address.trim(),
+      email: newSenderForm.email.trim(),
+      phone: newSenderForm.phone.trim(),
+      bank: {
+        bankName: newSenderForm.bank.bankName.trim(),
+        accountName: newSenderForm.bank.accountName.trim(),
+        accountNumber: newSenderForm.bank.accountNumber.trim(),
+        iban: newSenderForm.bank.iban.trim(),
+        swift: newSenderForm.bank.swift.trim(),
+        otherDetails: newSenderForm.bank.otherDetails.trim(),
+      },
+    };
+    setSenderProfiles?.((prev) => [...(prev || []), profile]);
+    applySender(profile);
+    setNewSenderModal(false);
+    setSenderPickerOpen(false);
+    setNewSenderForm(blankNewSender());
+  };
+
+  const deleteSenderProfile = (id) => {
+    if (!window.confirm("Delete this saved sender? This cannot be undone.")) return;
+    setSenderProfiles?.((prev) => (prev || []).filter((s) => s.id !== id));
+  };
+
   // ── Convert from estimate ──
   const estimateProjects = (allProjectsMerged || []).filter((p) => (projectEstimates || {})[p.id]?.length);
   const versionsForProject = convertProjectId ? (projectEstimates[convertProjectId] || []) : [];
@@ -202,10 +228,46 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     setConvertModal(false); setConvertProjectId(""); setConvertVersionIdx(0); setCreateMenuOpen(false);
   };
 
-  const exportPDF = () => {
-    if (!active) return;
-    exportToPDF(buildInvoiceHTML(active), `Invoice ${active.number}`);
+  // ── Export exactly what's on screen: clone the live document DOM, strip editing chrome, print ──
+  const doPrint = () => {
+    const el = printRef.current;
+    if (!el || !active) return;
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[data-noprint]').forEach((n) => n.remove());
+    clone.querySelectorAll('[data-cs-placeholder]').forEach((n) => n.remove());
+    clone.querySelectorAll('textarea').forEach((n) => n.remove());
+    clone.querySelectorAll('button').forEach((n) => n.remove());
+    clone.querySelectorAll('input[type=file]').forEach((n) => n.remove());
+    clone.querySelectorAll('input').forEach((inp) => {
+      const sp = document.createElement('span');
+      sp.textContent = inp.value || "";
+      sp.style.cssText = inp.style.cssText;
+      sp.style.border = "none"; sp.style.outline = "none"; sp.style.background = "transparent";
+      inp.parentNode.replaceChild(sp, inp);
+    });
+    clone.querySelectorAll('select').forEach((sel) => {
+      const sp = document.createElement('span');
+      sp.textContent = sel.options[sel.selectedIndex]?.text || sel.value || "";
+      sp.style.cssText = sel.style.cssText;
+      sel.parentNode.replaceChild(sp, sel);
+    });
+    clone.style.margin = "0"; clone.style.maxWidth = "none"; clone.style.width = "100%"; clone.style.minWidth = "0"; clone.style.border = "none"; clone.style.borderRadius = "0";
+    const docTitle = `Invoice ${active.number}`;
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+    document.body.appendChild(iframe);
+    const _d = iframe.contentDocument;
+    _d.open();
+    _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:${F};font-size:11px;color:#1a1a1a;margin:0;padding:0;}@page{size:A4;margin:10mm 12mm;}@media print{*{overflow:visible!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);
+    _d.close();
+    _d.body.appendChild(_d.adoptNode(clone));
+    const prevTitle = document.title;
+    document.title = docTitle;
+    const restoreTitle = () => { document.title = prevTitle; try { document.body.removeChild(iframe); } catch {} window.removeEventListener("afterprint", restoreTitle); };
+    window.addEventListener("afterprint", restoreTitle);
+    setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 300);
   };
+  const exportPDF = () => doPrint();
 
   const lbl = { fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, color: "#999", textTransform: "uppercase", marginBottom: 4 };
   const th = { fontFamily: F, fontSize: 9, fontWeight: 800, letterSpacing: LS, color: "#555", textTransform: "uppercase", padding: "6px 6px", background: "#f4f4f4", borderBottom: "1px solid #ddd" };
@@ -304,7 +366,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div ref={printRef} style={{ maxWidth: 900, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "40px 40px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
             <CSLogoSlot label="Production Logo" image={active.logo} onUpload={(v) => setField("logo", v)} onRemove={() => setField("logo", null)} />
@@ -322,38 +384,92 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
           )}
 
           <div style={{ display: "flex", gap: 30, marginBottom: 24, flexWrap: isMobile ? "wrap" : "nowrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={lbl}>From</div>
+            <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={lbl}>From</div>
+                <div style={{ position: "relative" }} data-noprint="1">
+                  <button onClick={() => { setSenderPickerOpen((v) => !v); setSenderSearch(""); }} style={{ background: "none", border: "1px solid #ddd", borderRadius: 6, fontSize: 9, color: "#666", cursor: "pointer", fontFamily: "inherit", padding: "2px 8px" }}>Pick Sender ▾</button>
+                  {senderPickerOpen && <div onClick={() => setSenderPickerOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />}
+                  {senderPickerOpen && (() => {
+                    const q = senderSearch.trim().toLowerCase();
+                    const filtered = (senderProfiles || []).filter((s) => !q || [s.nickname, s.name].some((v) => (v || "").toLowerCase().includes(q)));
+                    return (
+                      <div style={{ position: "absolute", top: 24, right: 0, zIndex: 9999, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 240, maxHeight: 320, display: "flex", flexDirection: "column" }}>
+                        <div style={{ padding: 8, borderBottom: "1px solid #eee", flexShrink: 0 }}>
+                          <input autoFocus value={senderSearch} onChange={(e) => setSenderSearch(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder="Search senders…" style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 11, fontFamily: "inherit", outline: "none" }} />
+                        </div>
+                        <div style={{ overflowY: "auto", maxHeight: 260 }}>
+                          {filtered.length === 0 && <div style={{ padding: "10px 14px", fontSize: 11, color: "#999" }}>{q ? "No matching senders." : "No saved senders yet."}</div>}
+                          {filtered.map((s) => (
+                            <div key={s.id} style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #f5f5f5" }}>
+                              <div onClick={() => { applySender(s); setSenderPickerOpen(false); }} style={{ flex: 1, cursor: "pointer" }} onMouseEnter={(e) => (e.currentTarget.parentElement.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.parentElement.style.background = "transparent")}>
+                                <div style={{ fontWeight: 600, fontSize: 11.5 }}>{s.nickname}</div>
+                                {s.name && <div style={{ color: "#999", fontSize: 10 }}>{s.name}</div>}
+                              </div>
+                              <span onClick={() => deleteSenderProfile(s.id)} style={{ cursor: "pointer", fontSize: 12, color: "#ccc", padding: "0 2px" }} onMouseEnter={(e) => (e.target.style.color = "#f44")} onMouseLeave={(e) => (e.target.style.color = "#ccc")}>{"×"}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div onClick={() => { setNewSenderForm(blankNewSender(active.from)); setNewSenderModal(true); }} style={{ padding: "9px 14px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", color: T.accent, borderTop: "1px solid #eee", flexShrink: 0 }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>+ Add New Sender</div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
               <Cell value={active.from.name} onChange={(v) => setField("from.name", v)} style={{ fontWeight: 700 }} />
               <Cell value={active.from.address} onChange={(v) => setField("from.address", v)} textarea style={{ color: "#666" }} />
               <Cell value={active.from.email} onChange={(v) => setField("from.email", v)} style={{ color: "#666" }} />
+              <Cell value={active.from.phone} onChange={(v) => setField("from.phone", v)} placeholder="Phone" style={{ color: "#666" }} />
             </div>
             <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={lbl}>Bill To</div>
-                <div style={{ position: "relative" }}>
-                  <button onClick={() => setClientPickerOpen((v) => !v)} style={{ background: "none", border: "1px solid #ddd", borderRadius: 6, fontSize: 9, color: "#666", cursor: "pointer", fontFamily: "inherit", padding: "2px 8px" }}>Pick Client ▾</button>
+                <div style={{ position: "relative" }} data-noprint="1">
+                  <button onClick={() => { setClientPickerOpen((v) => !v); setClientSearch(""); }} style={{ background: "none", border: "1px solid #ddd", borderRadius: 6, fontSize: 9, color: "#666", cursor: "pointer", fontFamily: "inherit", padding: "2px 8px" }}>Pick Client ▾</button>
                   {clientPickerOpen && <div onClick={() => setClientPickerOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />}
-                  {clientPickerOpen && (
-                    <div style={{ position: "absolute", top: 24, right: 0, zIndex: 9999, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 220, maxHeight: 300, display: "flex", flexDirection: "column" }}>
-                      <div style={{ overflowY: "auto", maxHeight: 260 }}>
-                        {(localClients || []).length === 0 && <div style={{ padding: "10px 14px", fontSize: 11, color: "#999" }}>No clients found.</div>}
-                        {(localClients || []).map((c) => (
-                          <div key={c.id} onClick={() => { applyClient(c); setClientPickerOpen(false); }} style={{ padding: "8px 14px", fontSize: 11.5, cursor: "pointer", borderBottom: "1px solid #f5f5f5" }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                            <div style={{ fontWeight: 600 }}>{c.company || c.name}</div>
-                            {c.name && c.company && <div style={{ color: "#999", fontSize: 10 }}>{c.name}</div>}
-                          </div>
-                        ))}
+                  {clientPickerOpen && (() => {
+                    const q = clientSearch.trim().toLowerCase();
+                    const filtered = (localClients || []).filter((c) => !q || [c.company, c.name, c.email].some((v) => (v || "").toLowerCase().includes(q)));
+                    return (
+                      <div style={{ position: "absolute", top: 24, right: 0, zIndex: 9999, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 240, maxHeight: 320, display: "flex", flexDirection: "column" }}>
+                        <div style={{ padding: 8, borderBottom: "1px solid #eee", flexShrink: 0 }}>
+                          <input autoFocus value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder="Search clients…" style={{ width: "100%", boxSizing: "border-box", padding: "6px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 11, fontFamily: "inherit", outline: "none" }} />
+                        </div>
+                        <div style={{ overflowY: "auto", maxHeight: 260 }}>
+                          {filtered.length === 0 && <div style={{ padding: "10px 14px", fontSize: 11, color: "#999" }}>{q ? "No matching clients." : "No clients found."}</div>}
+                          {filtered.map((c) => (
+                            <div key={c.id} onClick={() => { applyClient(c); setClientPickerOpen(false); }} style={{ padding: "8px 14px", fontSize: 11.5, cursor: "pointer", borderBottom: "1px solid #f5f5f5" }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                              <div style={{ fontWeight: 600 }}>{c.company || c.name}</div>
+                              {c.name && c.company && <div style={{ color: "#999", fontSize: 10 }}>{c.name}</div>}
+                            </div>
+                          ))}
+                        </div>
+                        <div onClick={() => { setNewClientForm({ ...blankNewClient(), company: clientSearch.trim() && filtered.length === 0 ? clientSearch.trim() : "" }); setNewClientModal(true); }} style={{ padding: "9px 14px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", color: T.accent, borderTop: "1px solid #eee", flexShrink: 0 }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>+ Add New Client</div>
                       </div>
-                      <div onClick={() => { setNewClientForm(blankNewClient()); setNewClientModal(true); }} style={{ padding: "9px 14px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", color: T.accent, borderTop: "1px solid #eee", flexShrink: 0 }} onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>+ Add New Client</div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
               <Cell value={active.billTo.company} onChange={(v) => setField("billTo.company", v)} placeholder="Client / Company" style={{ fontWeight: 700 }} />
               <Cell value={active.billTo.name} onChange={(v) => setField("billTo.name", v)} placeholder="Contact name" style={{ color: "#666" }} />
               <Cell value={active.billTo.email} onChange={(v) => setField("billTo.email", v)} placeholder="Email" style={{ color: "#666" }} />
               <Cell value={active.billTo.address} onChange={(v) => setField("billTo.address", v)} textarea placeholder="Billing address" style={{ color: "#666" }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <div style={lbl}>Bank Details</div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "2px 24px", background: "#fafafa", borderRadius: 8, padding: "10px 14px" }}>
+              {BANK_FIELDS.map(([label, key]) => (
+                <div key={key}>
+                  <div style={{ ...lbl, marginBottom: 2 }}>{label}</div>
+                  <Cell value={active.from.bank?.[key]} onChange={(v) => setField(`from.bank.${key}`, v)} placeholder="—" />
+                </div>
+              ))}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ ...lbl, marginBottom: 2 }}>Other Details</div>
+                <Cell value={active.from.bank?.otherDetails} onChange={(v) => setField("from.bank.otherDetails", v)} textarea placeholder="Branch, routing number, notes…" />
+              </div>
             </div>
           </div>
 
@@ -396,13 +512,13 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                   <td><Cell value={row.rate} onChange={(v) => setItemField(i, "rate", v)} align="right" /></td>
                   <td style={{ padding: "5px 6px", fontFamily: F, fontSize: 11, textAlign: "right" }}>{estFmt(invRowTotal(row))}</td>
                   <td style={{ textAlign: "center" }}>
-                    <span onClick={() => removeItem(i)} style={{ cursor: "pointer", fontSize: 12, color: "#ccc" }} onMouseEnter={(e) => (e.target.style.color = "#f44")} onMouseLeave={(e) => (e.target.style.color = "#ccc")}>{"×"}</span>
+                    <span data-noprint="1" onClick={() => removeItem(i)} style={{ cursor: "pointer", fontSize: 12, color: "#ccc" }} onMouseEnter={(e) => (e.target.style.color = "#f44")} onMouseLeave={(e) => (e.target.style.color = "#ccc")}>{"×"}</span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div onClick={addItem} style={{ fontFamily: F, fontSize: 10, color: "#999", cursor: "pointer", letterSpacing: LS, marginBottom: 20 }}>+ Add Line</div>
+          <div data-noprint="1" onClick={addItem} style={{ fontFamily: F, fontSize: 10, color: "#999", cursor: "pointer", letterSpacing: LS, marginBottom: 20 }}>+ Add Line</div>
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <div style={{ width: 260 }}>
@@ -440,6 +556,45 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button onClick={() => setNewClientModal(false)} disabled={newClientSaving} style={{ padding: "8px 16px", borderRadius: 8, background: "#f0f0f0", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
               <button onClick={saveNewClient} disabled={!newClientForm.company.trim() || newClientSaving} style={{ padding: "8px 16px", borderRadius: 8, background: newClientForm.company.trim() ? T.accent : "#ccc", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: newClientForm.company.trim() ? "pointer" : "default", fontFamily: "inherit" }}>{newClientSaving ? "Saving…" : "Save Client"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {newSenderModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setNewSenderModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, padding: 24, width: 460, maxWidth: "90vw", maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1a1a1a" }}>Add New Sender</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={lbl}>Billing Nickname *</div>
+              <input value={newSenderForm.nickname} onChange={(e) => setNewSenderForm((f) => ({ ...f, nickname: e.target.value }))} placeholder="e.g. ONNA (AED — Emirates NBD)" style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit" }} />
+            </div>
+            {[["Name", "name"], ["Email", "email"], ["Phone", "phone"]].map(([label, key]) => (
+              <div key={key} style={{ marginBottom: 10 }}>
+                <div style={lbl}>{label}</div>
+                <input value={newSenderForm[key]} onChange={(e) => setNewSenderForm((f) => ({ ...f, [key]: e.target.value }))} style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit" }} />
+              </div>
+            ))}
+            <div style={{ marginBottom: 16 }}>
+              <div style={lbl}>Address</div>
+              <textarea value={newSenderForm.address} onChange={(e) => setNewSenderForm((f) => ({ ...f, address: e.target.value }))} rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", resize: "vertical" }} />
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: LS, textTransform: "uppercase", color: "#666", marginBottom: 10, borderTop: "1px solid #eee", paddingTop: 14 }}>Bank Details</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              {BANK_FIELDS.map(([label, key]) => (
+                <div key={key}>
+                  <div style={lbl}>{label}</div>
+                  <input value={newSenderForm.bank[key]} onChange={(e) => setNewSenderForm((f) => ({ ...f, bank: { ...f.bank, [key]: e.target.value } }))} style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit" }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={lbl}>Other Bank Details</div>
+              <textarea value={newSenderForm.bank.otherDetails} onChange={(e) => setNewSenderForm((f) => ({ ...f, bank: { ...f.bank, otherDetails: e.target.value } }))} rows={2} placeholder="Branch, routing number, notes…" style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", resize: "vertical" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={() => setNewSenderModal(false)} style={{ padding: "8px 16px", borderRadius: 8, background: "#f0f0f0", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={saveNewSender} disabled={!newSenderForm.nickname.trim()} style={{ padding: "8px 16px", borderRadius: 8, background: newSenderForm.nickname.trim() ? T.accent : "#ccc", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: newSenderForm.nickname.trim() ? "pointer" : "default", fontFamily: "inherit" }}>Save Sender</button>
             </div>
           </div>
         </div>
