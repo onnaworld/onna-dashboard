@@ -36,6 +36,7 @@ const blankInvoice = (store) => ({
   date: new Date().toISOString().slice(0, 10),
   dueDate: "",
   currency: "AED",
+  project: "",
   logo: null,
   from: { ...ONNA_FROM, bank: blankBank() },
   clientId: null,
@@ -243,6 +244,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     });
     const inv = blankInvoice(store);
     inv.billTo = { company: proj.client || "", name: "", email: "", phone: "", address: "" };
+    inv.project = proj.name || "";
     inv.items = items.length ? items : inv.items;
     inv.currency = est.currency || "AED";
     inv.taxPct = est.vatPct !== undefined ? est.vatPct : 5;
@@ -288,7 +290,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
       sel.parentNode.replaceChild(sp, sel);
     });
     clone.style.margin = "0"; clone.style.maxWidth = "none"; clone.style.width = "100%"; clone.style.minWidth = "0"; clone.style.border = "none"; clone.style.borderRadius = "0";
-    const docTitle = `Invoice ${active.number}`;
+    const docTitle = `Invoice ${active.number}${active.project ? ` — ${active.project}` : ""}`;
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
@@ -338,7 +340,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                     <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: STATUS_BG[inv.status] || "#eee", color: STATUS_COLOR[inv.status] || "#555", padding: "2px 8px", borderRadius: 4 }}>{inv.status}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{inv.number}</span>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{inv.billTo?.company || "No client set"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{inv.billTo?.company || "No client set"}{inv.project ? ` — ${inv.project}` : ""}</div>
                   <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{inv.date || "No date"}{inv.dueDate ? ` · Due ${inv.dueDate}` : ""}</div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{inv.currency} {estFmt(totals.total)}</div>
@@ -513,6 +515,11 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                 <Cell value={active.from.bank?.otherDetails} onChange={(v) => setField("from.bank.otherDetails", v)} textarea placeholder="details" />
               </div>
             </div>
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <div style={lbl}>Project</div>
+            <Cell value={active.project} onChange={(v) => setField("project", v)} placeholder="Project / job name" style={{ fontWeight: 700 }} />
           </div>
 
           <div style={{ display: "flex", gap: 20, marginBottom: 24, flexWrap: "wrap" }}>
