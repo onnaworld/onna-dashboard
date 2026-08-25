@@ -229,6 +229,79 @@ export const estCalcTotals = (sections) => {
   return { subtotal, feesTotal, grandTotal: subtotal + feesTotal };
 };
 
+// ─── ESTIMATE PHASES ─────────────────────────────────────────────────────────
+// An estimate can be split into named phases (e.g. "Pre-Production", "Shoot
+// Days"), each with its own sections/subtotal/VAT, plus a combined total
+// across all phases. Legacy estimates only have a flat `sections` array (no
+// `phases`) — getEstPhases() normalizes both shapes into one phase array so
+// every consumer can work against `phases` without caring which shape the
+// underlying document actually has on disk.
+export const emptyPhase = (title = "") => ({ id: Date.now() + Math.random(), title, vatPct: 5, sections: defaultSections() });
+
+export const getEstPhases = (estData) => {
+  if (estData && Array.isArray(estData.phases) && estData.phases.length) return estData.phases;
+  return [{
+    id: "legacy",
+    title: "",
+    vatPct: estData && estData.vatPct !== undefined ? estData.vatPct : 5,
+    sections: (estData && estData.sections) || defaultSections(),
+  }];
+};
+
+// Every section across every phase, in order — used by consumers that only
+// need a combined flat view (revenue totals, Budget Actuals, template export)
+// and don't (yet) need to distinguish which phase a section belongs to.
+export const flattenPhaseSections = (phases) => (phases || []).flatMap(ph => ph.sections || []);
+
+// Same idea, but for Budget Actuals sync: when there's more than one phase,
+// section `num` / row `ref` get phase-prefixed so sections from different
+// phases never collide when actuals are keyed/merged by num or ref (the
+// single-phase case — by far the common one — is returned completely
+// unchanged, so existing actuals continue to match up exactly as before).
+export const flattenPhaseSectionsForActuals = (phases) => {
+  const list = phases || [];
+  if (list.length <= 1) return (list[0] && list[0].sections) || [];
+  return list.flatMap((ph, pi) => (ph.sections || []).map(sec => ({
+    ...sec,
+    num: `P${pi + 1}.${sec.num}`,
+    rows: (sec.rows || []).map(r => ({ ...r, ref: `P${pi + 1}.${r.ref}` })),
+  })));
+};
+
+export const estCalcPhaseTotals = (phase) => {
+  const t = estCalcTotals(phase.sections || []);
+  const vatPct = phase.vatPct !== undefined ? estNum(phase.vatPct) : 5;
+  const vat = t.grandTotal * (vatPct / 100);
+  return { ...t, vatPct, vat, totalIncVat: t.grandTotal + vat };
+};
+
+export const estCalcCombinedTotals = (phases) => (phases || []).reduce((acc, ph) => {
+  const p = estCalcPhaseTotals(ph);
+  return {
+    subtotal: acc.subtotal + p.subtotal,
+    feesTotal: acc.feesTotal + p.feesTotal,
+    grandTotal: acc.grandTotal + p.grandTotal,
+    vat: acc.vat + p.vat,
+    totalIncVat: acc.totalIncVat + p.totalIncVat,
+  };
+}, { subtotal: 0, feesTotal: 0, grandTotal: 0, vat: 0, totalIncVat: 0 });
+
+// Canonical "blank estimate" shape — phases-based from the start.
+export const emptyEstimate = (overrides = {}) => ({
+  ts: { version: "PRODUCTION ESTIMATE V1", date: "[Date]", client: "[Client]", project: "[Project]",
+    attention: "[Attention]", photographer: "[Photographer / Director]",
+    deliverables: "[TBC]", deadlines: "[TBC]", usage: "[Usage Terms]", shootDate: "[Shoot Date]",
+    shootDays: "[1 SHOOT DAY]", shootHours: "[BASED ON A 10 HOUR SHOOT DAY]",
+    location: "[DUBAI]", payment: "[75% ADVANCE, 25% UPON COMPLETION (30 DAYS FROM INVOICE)]",
+    notes: "" },
+  phases: [emptyPhase()],
+  saFields: null,
+  tcsText: null,
+  saSigs: {},
+  prodLogo: null,
+  ...overrides,
+});
+
 // ─── PRINT CLEANUP: strip browser headers/footers & extension injections ───
 export const PRINT_CLEANUP_CSS = `[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]{display:none!important;visibility:hidden!important;height:0!important;width:0!important;overflow:hidden!important;position:absolute!important;pointer-events:none!important;}`;
 export const PRINT_CLEANUP_SCRIPT = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},100);};<\/script>`;

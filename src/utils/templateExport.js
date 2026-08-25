@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { defaultSections, estRowTotal, estNum } from "./helpers";
+import { defaultSections, estRowTotal, estNum, getEstPhases, flattenPhaseSections, flattenPhaseSectionsForActuals } from "./helpers";
 
 const s2ab = (s) => {
   const buf = new ArrayBuffer(s.length);
@@ -29,7 +29,7 @@ export const downloadAoaXlsx = (sheets, filename) => {
 export function genEstimate(estimateData) {
   const est = estimateData || {};
   const ts = est.ts || {};
-  const sections = est.sections || defaultSections();
+  const sections = flattenPhaseSections(getEstPhases(est));
   const rows = [["REF", "DESCRIPTION", "NOTES", "DAYS", "QTY", "RATE", "TOTAL"]];
   sections.forEach(sec => {
     rows.push([]);
@@ -48,7 +48,7 @@ export function genEstimate(estimateData) {
 
 export function genBudgetTracker(estimateData, actualsData) {
   const est = estimateData || {};
-  const sections = est.sections || defaultSections();
+  const sections = flattenPhaseSectionsForActuals(getEstPhases(est));
   const actSections = actualsData || [];
   const rows = [["REF", "DESCRIPTION", "NOTES", "DAYS", "QTY", "RATE", "ESTIMATE", "ACTUALS", "FINALS", "VARIANCE", "STATUS"]];
   sections.forEach((sec, si) => {

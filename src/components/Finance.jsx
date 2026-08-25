@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import Expenses from "./Expenses";
 import { CSLogoSlot } from "./ui/DocHelpers";
-import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, docApi, FINANCE_SLUGS } from "../utils/helpers";
+import { PRINT_CLEANUP_CSS, estCalcTotals, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsSectionExpenseTotal, actualsSectionEffective, defaultSections, debouncedGlobalSave, globalApi, docApi, FINANCE_SLUGS, getEstPhases, estCalcCombinedTotals } from "../utils/helpers";
 import PipelineChart from "./finance/PipelineChart";
 import InvoiceGenerator from "./finance/InvoiceGenerator";
 
@@ -324,7 +324,7 @@ export default function Finance({
       const profit = rev - cost;
       // Get estimate vs actual variance
       const ests = projectEstimates?.[p.id];
-      const estimateTotal = ests && ests.length > 0 ? estCalcTotals(ests[ests.length - 1].sections || defaultSections()).grandTotal : null;
+      const estimateTotal = ests && ests.length > 0 ? estCalcCombinedTotals(getEstPhases(ests[ests.length - 1])).grandTotal : null;
       const acts = projectActuals?.[p.id];
       const actualTotal = acts ? actualsGrandEffective(acts) : null;
       const variance = estimateTotal !== null && actualTotal !== null ? estimateTotal - actualTotal : null;

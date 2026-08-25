@@ -33,7 +33,7 @@ import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
 import { TodoProvider, useTodo } from "./context/TodoContext";
 import { setSyncStatusCallback, pendingCount as syncPendingCount, flush as flushSyncQueue } from "./utils/syncQueue";
-import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, seedDocSaveSnapshot, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS, normalizeLocation, LOCATION_ALIASES, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater } from "./utils/helpers";
+import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, seedDocSaveSnapshot, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS, normalizeLocation, LOCATION_ALIASES, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater, getEstPhases, estCalcCombinedTotals } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
 import { OutreachModal } from "./components/modals/OutreachModal";
@@ -1033,7 +1033,7 @@ function OnnaDashboardInner() {
     const cache={};
     allProjectsMerged.forEach(p=>{
       const ests=projectEstimates?.[p.id];
-      if(ests&&ests.length>0){const latest=ests[ests.length-1];const secs=latest.sections||defaultSections();cache[p.id]=estCalcTotals(secs).grandTotal;}
+      if(ests&&ests.length>0){const latest=ests[ests.length-1];cache[p.id]=estCalcCombinedTotals(getEstPhases(latest)).grandTotal;}
       else cache[p.id]=null;
     });
     return cache;
@@ -1053,8 +1053,8 @@ function OnnaDashboardInner() {
       const ests=projectEstimates?.[p.id];
       const meta=projectActuals[`_meta_${p.id}`]||{};
       if(ests&&ests.length>0){
-        const latest=ests[ests.length-1];const secs=latest.sections||defaultSections();
-        const gt=estCalcTotals(secs).grandTotal;
+        const latest=ests[ests.length-1];
+        const gt=estCalcCombinedTotals(getEstPhases(latest)).grandTotal;
         // Invoiced = override or auto-calc from advance %
         if(meta.invoicedOverride!=null){cache[p.id]=meta.invoicedOverride;}
         else{const pctMatch=(latest.ts?.payment||"").match(/(\d+)%/);const pct=meta.advancePct!=null?meta.advancePct:(pctMatch?parseInt(pctMatch[1]):100);cache[p.id]=gt*(pct/100);}

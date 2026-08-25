@@ -1,5 +1,5 @@
 import React, { Fragment, useState } from "react";
-import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsRowFinalsTotal, actualsRowFinalsEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsRowSpend, actualsSectionSpend, actualsGrandSpend, ACTUALS_STATUSES } from "../../utils/helpers";
+import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsRowFinalsTotal, actualsRowFinalsEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsRowSpend, actualsSectionSpend, actualsGrandSpend, ACTUALS_STATUSES, getEstPhases, flattenPhaseSectionsForActuals, estCalcCombinedTotals } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
 
 export default function Budget({
@@ -170,8 +170,9 @@ export default function Budget({
     // Pull estimate data
     const estVersions = projectEstimates[p.id] || [];
     const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
-    const estSections = latestEst ? (latestEst.sections || defaultSections()) : defaultSections();
-    const estTotals = estCalcTotals(estSections);
+    const estPhases = getEstPhases(latestEst);
+    const estSections = flattenPhaseSectionsForActuals(estPhases);
+    const estTotals = estCalcCombinedTotals(estPhases);
     const actProdLogo = latestEst?.prodLogo || null;
 
     // Auto-sync actuals with estimate — merges new sections/rows without wiping existing data
@@ -1020,8 +1021,7 @@ export default function Budget({
       {estimates.length===0?(projectEstimates[p.id]===undefined?<div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>Loading estimates…</div></div>:<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>):(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {estimates.map((est)=>{
-            const secs = est.sections || defaultSections();
-            const { grandTotal: gt } = estCalcTotals(secs);
+            const { grandTotal: gt } = estCalcCombinedTotals(getEstPhases(est));
             const totalIncVat = gt + gt * 0.05;
             return (
               <div key={est.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setEditingEstimate(est.id)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>

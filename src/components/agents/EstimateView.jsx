@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, isFeeSec, defaultSections, PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { estFmt, estRowTotal, estSectionTotal, isFeeSec, PRINT_CLEANUP_CSS, getEstPhases, estCalcPhaseTotals, estCalcCombinedTotals, flattenPhaseSections, emptyPhase } from "../../utils/helpers";
 import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { CSLogoSlot } from "../ui/DocHelpers";
 
@@ -77,65 +77,50 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   }, []);
 
   const ts = estData.ts || ESTIMATE_INIT.ts;
-  const sections = estData.sections || defaultSections();
+  // ── Phases: an estimate is a list of phases, each its own sections/subtotal/VAT.
+  // Legacy estimates (flat `sections`, no `phases`) are normalized into one
+  // implicit, untitled phase — they render exactly as before, no phase chrome
+  // shown, until the user explicitly adds a second phase.
+  const phases = getEstPhases(estData);
+  const multiPhase = phases.length > 1;
   const saFields = estData.saFields || (() => { const init = {}; EST_SA_FIELDS.forEach((f,i) => { init[i] = f.defaultValue; }); return init; })();
   const tcsText = estData.tcsText || DEFAULT_TCS;
   const saSigs = estData.saSigs || {};
   const prodLogo = estData.prodLogo || null;
-  const vatPct = estData.vatPct !== undefined ? estData.vatPct : 5;
-  const vatRate = vatPct / 100;
 
-  // ── Tally scratchpad ──
-  const [tallyItems, setTallyItems] = useState([]);
-  const toggleTally = (si, ri, tot) => {
-    const key = `${si}-${ri}`;
-    setTallyItems(prev => {
-      if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
-      const sec = sections[si]; const row = sec?.rows[ri]; if (!row) return prev;
-      return [...prev, { key, ref: row.ref, desc: row.desc, amount: tot }];
+  // ── Phase-aware mutation helper: rewrites `phases`, keeps a flattened
+  // `sections` mirror in sync (for single-phase estimates this mirror is
+  // byte-identical to the legacy shape, so anything reading `.sections`
+  // directly — e.g. AI agent tooling not yet updated for phases — keeps
+  // working unchanged as long as the estimate has only one phase).
+  const setPhases = (fn) => {
+    onSet(d => {
+      const curPhases = getEstPhases(d);
+      const nextPhases = fn(JSON.parse(JSON.stringify(curPhases)));
+      return { ...d, phases: nextPhases, sections: flattenPhaseSections(nextPhases) };
     });
   };
-  const toggleTallySection = (si, secTotal) => {
-    const key = `sec-${si}`;
-    setTallyItems(prev => {
-      if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
-      const sec = sections[si]; if (!sec) return prev;
-      return [...prev, { key, ref: sec.num, desc: sec.title, amount: secTotal, isSection: true }];
-    });
-  };
-  const isTallied = (si, ri) => tallyItems.some(t => t.key === `${si}-${ri}`);
-  const isSectionTallied = (si) => tallyItems.some(t => t.key === `sec-${si}`);
-  const tallyTotal = Math.round(tallyItems.reduce((s, t) => s + t.amount, 0) * 100) / 100;
 
-  const _bprMarkers = pendingReview ? new Set(pendingReview.markers) : null;
-  const _hasBM = (m) => _bprMarkers && _bprMarkers.has(m);
-  const _bRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
-  const _bHL = {borderLeft:"3px solid #4caf50",paddingLeft:4,marginLeft:-7};
-
+  const reRefRows = (sec) => { sec.rows.forEach((r, i) => { r.ref = sec.num + String.fromCharCode(65 + i); }); };
   const tsSet = (k, v) => onSet(d => ({...d, ts: {...(d.ts||ESTIMATE_INIT.ts), [k]: v}}));
   const logoSet = (v) => onSet(d => ({...d, prodLogo: v}));
-  const reRefRows = (sec) => { sec.rows.forEach((r, i) => { r.ref = sec.num + String.fromCharCode(65 + i); }); };
-  const updateRow = (si,ri,field,val) => {
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
-      secs[si].rows[ri][field] = val;
-      return {...d, sections: secs};
-    });
+
+  const updateRow = (pi,si,ri,field,val) => {
+    setPhases(ps => { ps[pi].sections[si].rows[ri][field] = val; return ps; });
   };
-  const addRow = (si) => {
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
-      const sec = secs[si];
+  const addRow = (pi,si) => {
+    setPhases(ps => {
+      const sec = ps[pi].sections[si];
       const nextRef = sec.num + String.fromCharCode(65 + sec.rows.length);
       sec.rows.push({ref:nextRef,desc:"",notes:"",days:"0",qty:"0",rate:"0"});
-      return {...d, sections: secs};
+      return ps;
     });
   };
-  const removeRow = (si, ri) => {
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
-      if (secs[si].rows.length > 1) { secs[si].rows.splice(ri, 1); reRefRows(secs[si]); }
-      return {...d, sections: secs};
+  const removeRow = (pi,si,ri) => {
+    setPhases(ps => {
+      const sec = ps[pi].sections[si];
+      if (sec.rows.length > 1) { sec.rows.splice(ri, 1); reRefRows(sec); }
+      return ps;
     });
   };
 
@@ -143,53 +128,102 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const EST_ST_BG = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
   const EST_ST_COLOR = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
   const EST_ST_DOT = { "": "#ddd", Pending: "#d4a800", Confirmed: "#3399ff", Paid: "#2e7d32" };
-  const cycleRowStatus = (si, ri) => {
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
-      const row = secs[si].rows[ri];
+  const cycleRowStatus = (pi,si,ri) => {
+    setPhases(ps => {
+      const row = ps[pi].sections[si].rows[ri];
       const cur = row.rowStatus || "";
       row.rowStatus = EST_STATUSES[(EST_STATUSES.indexOf(cur) + 1) % EST_STATUSES.length];
-      return {...d, sections: secs};
+      return ps;
     });
   };
 
-  // ── Drag & reorder state ──
+  // ── Phase CRUD ──
+  const addPhase = () => {
+    setPhases(ps => {
+      // First time a second phase is added, name the (previously untitled) first phase too.
+      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Phase 1" };
+      ps.push(emptyPhase(`Phase ${ps.length + 1}`));
+      return ps;
+    });
+  };
+  const renamePhase = (pi, title) => setPhases(ps => { ps[pi].title = title; return ps; });
+  const setPhaseVat = (pi, val) => setPhases(ps => { ps[pi].vatPct = val; return ps; });
+  const removePhase = (pi) => {
+    if (phases.length <= 1) return;
+    if (!confirm(`Delete "${phases[pi].title || "this phase"}"? This removes all its sections and cannot be undone via redo of this action.`)) return;
+    setPhases(ps => { ps.splice(pi, 1); if (ps.length === 1) ps[0] = { ...ps[0], title: "" }; return ps; });
+  };
+  const movePhase = (pi, dir) => {
+    setPhases(ps => {
+      const j = pi + dir;
+      if (j < 0 || j >= ps.length) return ps;
+      [ps[pi], ps[j]] = [ps[j], ps[pi]];
+      return ps;
+    });
+  };
+
+  // ── Tally scratchpad ──
+  const [tallyItems, setTallyItems] = useState([]);
+  const toggleTally = (pi, si, ri, tot) => {
+    const key = `${pi}-${si}-${ri}`;
+    setTallyItems(prev => {
+      if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
+      const row = phases[pi]?.sections[si]?.rows[ri]; if (!row) return prev;
+      return [...prev, { key, ref: row.ref, desc: row.desc, amount: tot }];
+    });
+  };
+  const toggleTallySection = (pi, si, secTotal) => {
+    const key = `sec-${pi}-${si}`;
+    setTallyItems(prev => {
+      if (prev.find(t => t.key === key)) return prev.filter(t => t.key !== key);
+      const sec = phases[pi]?.sections[si]; if (!sec) return prev;
+      return [...prev, { key, ref: sec.num, desc: sec.title, amount: secTotal, isSection: true }];
+    });
+  };
+  const isTallied = (pi, si, ri) => tallyItems.some(t => t.key === `${pi}-${si}-${ri}`);
+  const isSectionTallied = (pi, si) => tallyItems.some(t => t.key === `sec-${pi}-${si}`);
+  const tallyTotal = Math.round(tallyItems.reduce((s, t) => s + t.amount, 0) * 100) / 100;
+
+  const _bprMarkers = pendingReview ? new Set(pendingReview.markers) : null;
+  const _hasBM = (m) => _bprMarkers && _bprMarkers.has(m);
+  const _bRevBtn = (type) => ({width:16,height:16,borderRadius:3,border:"none",background:type==="accept"?"#4caf50":"#ef5350",color:"#fff",fontSize:9,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:2,lineHeight:1,verticalAlign:"middle"});
+  const _bHL = {borderLeft:"3px solid #4caf50",paddingLeft:4,marginLeft:-7};
+
+  // ── Drag & reorder state (within a phase only — sections/rows don't drag across phases) ──
   const dragRef = useRef(null);
-  const [dropIndicator, setDropIndicator] = useState(null); // {type:"row"|"section", si, ri?}
+  const [dropIndicator, setDropIndicator] = useState(null); // {type:"row"|"section", pi, si, ri?}
 
-  const reorderRows = (si, fromRi, toRi) => {
+  const reorderRows = (pi, si, fromRi, toRi) => {
     if (fromRi === toRi) return;
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
-      const [moved] = secs[si].rows.splice(fromRi, 1);
-      secs[si].rows.splice(toRi > fromRi ? toRi - 1 : toRi, 0, moved);
-      reRefRows(secs[si]);
-      return { ...d, sections: secs };
+    setPhases(ps => {
+      const sec = ps[pi].sections[si];
+      const [moved] = sec.rows.splice(fromRi, 1);
+      sec.rows.splice(toRi > fromRi ? toRi - 1 : toRi, 0, moved);
+      reRefRows(sec);
+      return ps;
     });
   };
 
-  const moveRowToSection = (fromSi, fromRi, toSi, toRi) => {
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+  const moveRowToSection = (pi, fromSi, fromRi, toSi, toRi) => {
+    setPhases(ps => {
+      const secs = ps[pi].sections;
       const [moved] = secs[fromSi].rows.splice(fromRi, 1);
       secs[toSi].rows.splice(toRi, 0, moved);
       reRefRows(secs[fromSi]);
       reRefRows(secs[toSi]);
-      return { ...d, sections: secs };
+      return ps;
     });
   };
 
-  const reorderSections = (fromSi, toSi) => {
+  const reorderSections = (pi, fromSi, toSi) => {
     if (fromSi === toSi) return;
-    onSet(d => {
-      const secs = JSON.parse(JSON.stringify(d.sections || defaultSections()));
+    setPhases(ps => {
+      const secs = ps[pi].sections;
       const [moved] = secs.splice(fromSi, 1);
       secs.splice(toSi > fromSi ? toSi - 1 : toSi, 0, moved);
-      return { ...d, sections: secs };
+      return ps;
     });
   };
-
-  const { subtotal, feesTotal, grandTotal } = estCalcTotals(sections);
 
   const notesW = showCurrency2 ? 120 : 210;
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
@@ -233,6 +267,12 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     return () => window.removeEventListener('onna-export-estimate', handler);
   });
 
+  const combined = estCalcCombinedTotals(phases);
+  const phaseTotals = phases.map(ph => estCalcPhaseTotals(ph));
+
+  const phaseHdrBar = { fontFamily:EST_F,fontSize:9,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"6px 10px",background:"#efece0",border:"1px solid #ddd4b0",borderRadius:4,display:"flex",alignItems:"center",gap:8,marginBottom:2 };
+  const phaseArrowBtn = { background:"none",border:"1px solid #ddd",borderRadius:4,color:"#999",cursor:"pointer",fontSize:10,padding:"1px 6px",lineHeight:1,fontFamily:"inherit" };
+
   return (
     <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
       <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
@@ -258,7 +298,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           </>}
         </div>
       </div>
-      <div data-noprint style={{ display:"flex", gap:_narrow?6:12, alignItems:"center", padding:_narrow?"6px 10px":"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee" }}>
+      <div data-noprint style={{ display:"flex", gap:_narrow?6:12, alignItems:"center", padding:_narrow?"6px 10px":"6px 16px", background:"#fafafa", borderBottom:"1px solid #eee", flexWrap:"wrap" }}>
         <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>CURRENCY</span>
         <select value={baseCurrency} onChange={e => { setBaseCurrency(e.target.value); onSet(d => ({...d, currency: e.target.value})); }}
           style={{ fontFamily:EST_F, fontSize:9, letterSpacing:EST_LS, border:"1px solid #ddd", borderRadius:2, padding:"3px 6px", background:"#fff", cursor:"pointer", outline:"none" }}>
@@ -300,6 +340,10 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div style={{ position:"absolute", top:2, left:showRateLine?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
           </div>
         </div>
+        <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
+          <span onClick={addPhase} style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Phase</span>
+        </div>
       </div>
 
       <div ref={printRef} id="onna-est-print" style={{ padding:_narrow?"20px 16px":"40px 40px" }}>
@@ -324,47 +368,67 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               </div>);
             })}
           </div>
-          <div style={{borderTop:"2px solid #000",marginTop:8}}>
-            <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
-              <div style={{flex:1,...hdr}}>CATEGORY</div>
-              <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{baseCurrency}</div>
-              {showCurrency2 && <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>}
+
+          {phases.map((phase, pi) => {
+            const pt = phaseTotals[pi];
+            return (
+            <div key={phase.id} style={{marginBottom:14}}>
+              {multiPhase && <div style={{fontFamily:EST_F,fontSize:10,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"4px 0",borderBottom:"1px solid #ccc",marginBottom:4}}>{phase.title || `Phase ${pi+1}`}</div>}
+              <div style={{borderTop:"2px solid #000"}}>
+                <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+                  <div style={{flex:1,...hdr}}>CATEGORY</div>
+                  <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{baseCurrency}</div>
+                  {showCurrency2 && <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>}
+                </div>
+                {phase.sections.map((sec)=>{
+                  const isF = isFeeSec(sec);
+                  const t = isF ? sec.rows.reduce((sum, row) => {
+                    const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                    if (pctMatch) return sum + pt.subtotal * (parseFloat(pctMatch[1]) / 100);
+                    return sum + estRowTotal(row);
+                  }, 0) : estSectionTotal(sec);
+                  return(
+                  <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
+                    <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
+                    <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,letterSpacing:EST_LS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sec.title}</div>
+                    <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
+                    {showCurrency2 && <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>}
+                  </div>);
+                })}
+                <div style={{display:"flex",borderTop:"2px solid #000"}}>
+                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL"}</div>
+                  <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.grandTotal)}</div>
+                  {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.grandTotal*xRate)}</div>}
+                </div>
+                <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
+                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={phase.vatPct} onChange={e=>{const v=parseFloat(e.target.value);setPhaseVat(pi,isNaN(v)?0:v);}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} />%)</div>
+                  <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.vat)}</div>
+                  {showCurrency2 && <div style={{width:_narrow?70:100}}></div>}
+                </div>
+                <div style={{display:"flex",borderBottom:"2px solid #000"}}>
+                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "PHASE TOTAL" : "GRAND TOTAL"}</div>
+                  <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat)}</div>
+                  {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat*xRate)}</div>}
+                </div>
+              </div>
             </div>
-            {sections.map((sec)=>{
-              const isF = isFeeSec(sec);
-              const t = isF ? sec.rows.reduce((sum, row) => {
-                const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
-                if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
-                return sum + estRowTotal(row);
-              }, 0) : estSectionTotal(sec);
-              return(
-              <div key={sec.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
-                <div style={{width:24,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS}}>{sec.num}</div>
-                <div style={{flex:1,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,letterSpacing:EST_LS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sec.title}</div>
-                <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t)}</div>
-                {showCurrency2 && <div style={{width:_narrow?70:100,padding:"3px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(t*xRate)}</div>}
-              </div>);
-            })}
-            <div style={{display:"flex",borderTop:"2px solid #000"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>SUB TOTAL</div>
-              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal)}</div>
-              {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*xRate)}</div>}
+            );
+          })}
+
+          {multiPhase && (
+            <div style={{borderTop:"3px double #000",marginTop:4}}>
+              <div style={{display:"flex",borderBottom:"2px solid #000"}}>
+                <div style={{flex:1,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>COMBINED GRAND TOTAL (ALL PHASES)</div>
+                <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(combined.totalIncVat)}</div>
+                {showCurrency2 && <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(combined.totalIncVat*xRate)}</div>}
+              </div>
             </div>
-            <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);onSet(d=>({...d,vatPct:isNaN(v)?0:v}));}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} /><span data-noprint style={{display:"none"}}></span>%)</div>
-              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal*vatRate)}</div>
-              {showCurrency2 && <div style={{width:_narrow?70:100}}></div>}
-            </div>
-            <div style={{display:"flex",borderBottom:"2px solid #000"}}>
-              <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>GRAND TOTAL</div>
-              <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(grandTotal + grandTotal*vatRate)}</div>
-              {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt((grandTotal + grandTotal*vatRate)*xRate)}</div>}
-            </div>
-          </div>
+          )}
+
           {(() => {
             const pctMatch = (ts.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-            const totalIncVat = grandTotal + grandTotal * vatRate;
+            const totalIncVat = combined.totalIncVat;
             return (
               <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
@@ -378,98 +442,127 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         </div>}
 
         {(estTab === "estimates" || showAll) && <div data-page="estimates">
-          {sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
-            const isFeesSection = isFeeSec(sec);
-            const getRowDisplay = (row) => {
-              let tot = estRowTotal(row);
-              let autoCalc = false;
-              if (isFeesSection && row.notes) {
-                const pctMatch = row.notes.match(/(\d+(?:\.\d+)?)%/);
-                if (pctMatch) { tot = subtotal * (parseFloat(pctMatch[1]) / 100); autoCalc = true; }
-              }
-              return { tot, autoCalc };
-            };
-            const feeSectionTotal = isFeesSection
-              ? sec.rows.reduce((sum, row) => {
-                  const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
-                  if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
-                  return sum + estRowTotal(row);
-                }, 0)
-              : secTot;
-            return(
-            <div key={sec.id}>
-              <div style={{marginBottom:12}}>
-              <div
-                draggable={!isFeeSec(sec)}
-                onDragStart={e => { if (isFeeSec(sec)) { e.preventDefault(); return; } dragRef.current = { type: "section", si }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `section:${si}`); e.currentTarget.style.opacity = "0.4"; }}
-                onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
-                onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "section") return; if (src.si !== si && !isFeeSec(sec)) setDropIndicator({ type: "section", si }); }}
-                onDragLeave={() => { if (dropIndicator?.type === "section" && dropIndicator.si === si) setDropIndicator(null); }}
-                onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "section" || isFeeSec(sec)) return; reorderSections(src.si, si); }}
-                style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:isFeeSec(sec)?"default":"grab",position:"relative",
-                  ...(dropIndicator?.type === "section" && dropIndicator.si === si ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
-                <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:isFeeSec(sec)?"default":"grab"}}>{isFeeSec(sec) ? "" : "⠿"}</div>
-                <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
-                <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
-                <div style={{width:notesW,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
-                <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
-                <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
-                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
-                <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {baseCurrency}</div>
-                {showCurrency2 && <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>}
-                <div style={{width:24,flexShrink:0}}></div>
-              </div>
-              {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);const _rowBg=_rHas?"#E8F5E9":(EST_ST_BG[row.rowStatus||""]||"transparent");return(
-                <div key={ri}
-                  draggable
-                  onDragStart={e => { dragRef.current = { type: "row", si, ri }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `row:${si}:${ri}`); e.currentTarget.style.opacity = "0.4"; }}
-                  onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
-                  onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "row") return; setDropIndicator({ type: "row", si, ri }); }}
-                  onDragLeave={() => { if (dropIndicator?.type === "row" && dropIndicator.si === si && dropIndicator.ri === ri) setDropIndicator(null); }}
-                  onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "row") return; if (src.si === si) reorderRows(si, src.ri, ri); else moveRowToSection(src.si, src.ri, si, ri); }}
-                  style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",background:_rowBg,transition:"background 0.15s",
-                    ...(dropIndicator?.type === "row" && dropIndicator.si === si && dropIndicator.ri === ri ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
-                  {_rHas&&<div style={{position:"absolute",left:-28,top:4,display:"flex",gap:1,zIndex:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_rm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_rm)} style={_bRevBtn("decline")}>{"✕"}</button></div>}
-                  <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",fontSize:10,color:"#ccc"}} onMouseEnter={e=>{e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc"}}>
-                    <span style={{userSelect:"none",lineHeight:1,pointerEvents:"none"}}>⠿</span>
+          {phases.map((phase, pi) => {
+            const pt = phaseTotals[pi];
+            const subtotal = pt.subtotal;
+            return (
+            <div key={phase.id} style={{marginBottom:24}}>
+              {multiPhase && (
+                <div style={phaseHdrBar}>
+                  <span data-noprint style={{fontSize:9,color:"#aaa"}}>PHASE {pi+1}</span>
+                  <div style={{flex:1}}>
+                    <EstCell value={phase.title} onChange={v=>renamePhase(pi,v)} style={{fontSize:11,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase"}} />
                   </div>
-                  <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <span onClick={()=>cycleRowStatus(si,ri)} title={(row.rowStatus||"No status")+" — click to cycle"} style={{cursor:"pointer",fontSize:8,color:EST_ST_DOT[row.rowStatus||""]||"#ddd",userSelect:"none",lineHeight:1}}>●</span>
+                  <span data-noprint onClick={()=>movePhase(pi,-1)} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
+                  <span data-noprint onClick={()=>movePhase(pi,1)} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
+                  <span data-noprint onClick={()=>removePhase(pi)} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Phase</span>
+                </div>
+              )}
+              {phase.sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
+                const isFeesSection = isFeeSec(sec);
+                const getRowDisplay = (row) => {
+                  let tot = estRowTotal(row);
+                  let autoCalc = false;
+                  if (isFeesSection && row.notes) {
+                    const pctMatch = row.notes.match(/(\d+(?:\.\d+)?)%/);
+                    if (pctMatch) { tot = subtotal * (parseFloat(pctMatch[1]) / 100); autoCalc = true; }
+                  }
+                  return { tot, autoCalc };
+                };
+                const feeSectionTotal = isFeesSection
+                  ? sec.rows.reduce((sum, row) => {
+                      const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                      if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
+                      return sum + estRowTotal(row);
+                    }, 0)
+                  : secTot;
+                return(
+                <div key={sec.id}>
+                  <div style={{marginBottom:12}}>
+                  <div
+                    draggable={!isFeeSec(sec)}
+                    onDragStart={e => { if (isFeeSec(sec)) { e.preventDefault(); return; } dragRef.current = { type: "section", pi, si }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `section:${pi}:${si}`); e.currentTarget.style.opacity = "0.4"; }}
+                    onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
+                    onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "section" || src.pi !== pi) return; if (src.si !== si && !isFeeSec(sec)) setDropIndicator({ type: "section", pi, si }); }}
+                    onDragLeave={() => { if (dropIndicator?.type === "section" && dropIndicator.pi === pi && dropIndicator.si === si) setDropIndicator(null); }}
+                    onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "section" || src.pi !== pi || isFeeSec(sec)) return; reorderSections(pi, src.si, si); }}
+                    style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:isFeeSec(sec)?"default":"grab",position:"relative",
+                      ...(dropIndicator?.type === "section" && dropIndicator.pi === pi && dropIndicator.si === si ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
+                    <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:isFeeSec(sec)?"default":"grab"}}>{isFeeSec(sec) ? "" : "⠿"}</div>
+                    <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
+                    <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
+                    <div style={{width:notesW,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
+                    <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
+                    <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
+                    <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
+                    <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {baseCurrency}</div>
+                    {showCurrency2 && <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>}
+                    <div style={{width:24,flexShrink:0}}></div>
                   </div>
-                  <div style={{width:34,flexShrink:0,padding:"4px 2px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
-                  <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(si,ri,"desc",v)} /></div>
-                  <div style={{width:notesW,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
-                  <div style={{width:50,flexShrink:0}}><EstCell value={row.days} onChange={v=>updateRow(si,ri,"days",v)} align="center" /></div>
-                  <div style={{width:40,flexShrink:0}}><EstCell value={row.qty} onChange={v=>updateRow(si,ri,"qty",v)} align="center" /></div>
-                  <div style={{width:90,flexShrink:0}}>{autoCalc
-                    ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
-                    : <EstCell value={row.rate} onChange={v=>updateRow(si,ri,"rate",v)} align="right" />}</div>
-                  <div onClick={()=>tot>0&&toggleTally(si,ri,tot)} style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS,cursor:tot>0?"pointer":"default",background:isTallied(si,ri)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(tot)}</div>
-                  {showCurrency2 && <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>}
-                  <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <span onClick={()=>removeRow(si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span></div>
+                  {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);const _rowBg=_rHas?"#E8F5E9":(EST_ST_BG[row.rowStatus||""]||"transparent");return(
+                    <div key={ri}
+                      draggable
+                      onDragStart={e => { dragRef.current = { type: "row", pi, si, ri }; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `row:${pi}:${si}:${ri}`); e.currentTarget.style.opacity = "0.4"; }}
+                      onDragEnd={e => { e.currentTarget.style.opacity = "1"; dragRef.current = null; setDropIndicator(null); }}
+                      onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "row" || src.pi !== pi) return; setDropIndicator({ type: "row", pi, si, ri }); }}
+                      onDragLeave={() => { if (dropIndicator?.type === "row" && dropIndicator.pi === pi && dropIndicator.si === si && dropIndicator.ri === ri) setDropIndicator(null); }}
+                      onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "row" || src.pi !== pi) return; if (src.si === si) reorderRows(pi, si, src.ri, ri); else moveRowToSection(pi, src.si, src.ri, si, ri); }}
+                      style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",position:"relative",background:_rowBg,transition:"background 0.15s",
+                        ...(dropIndicator?.type === "row" && dropIndicator.pi === pi && dropIndicator.si === si && dropIndicator.ri === ri ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
+                      {_rHas&&<div style={{position:"absolute",left:-28,top:4,display:"flex",gap:1,zIndex:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_rm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_rm)} style={_bRevBtn("decline")}>{"✕"}</button></div>}
+                      <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",fontSize:10,color:"#ccc"}} onMouseEnter={e=>{e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc"}}>
+                        <span style={{userSelect:"none",lineHeight:1,pointerEvents:"none"}}>⠿</span>
+                      </div>
+                      <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <span onClick={()=>cycleRowStatus(pi,si,ri)} title={(row.rowStatus||"No status")+" — click to cycle"} style={{cursor:"pointer",fontSize:8,color:EST_ST_DOT[row.rowStatus||""]||"#ddd",userSelect:"none",lineHeight:1}}>●</span>
+                      </div>
+                      <div style={{width:34,flexShrink:0,padding:"4px 2px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
+                      <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(pi,si,ri,"desc",v)} /></div>
+                      <div style={{width:notesW,flexShrink:0}}><EstCell value={row.notes} onChange={v=>updateRow(pi,si,ri,"notes",v)} style={{fontSize:9,color:"#666"}} /></div>
+                      <div style={{width:50,flexShrink:0}}><EstCell value={row.days} onChange={v=>updateRow(pi,si,ri,"days",v)} align="center" /></div>
+                      <div style={{width:40,flexShrink:0}}><EstCell value={row.qty} onChange={v=>updateRow(pi,si,ri,"qty",v)} align="center" /></div>
+                      <div style={{width:90,flexShrink:0}}>{autoCalc
+                        ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
+                        : <EstCell value={row.rate} onChange={v=>updateRow(pi,si,ri,"rate",v)} align="right" />}</div>
+                      <div onClick={()=>tot>0&&toggleTally(pi,si,ri,tot)} style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS,cursor:tot>0?"pointer":"default",background:isTallied(pi,si,ri)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(tot)}</div>
+                      {showCurrency2 && <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>}
+                      <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        <span onClick={()=>removeRow(pi,si,ri)} style={{cursor:"pointer",fontSize:11,color:"#ccc"}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"×"}</span></div>
+                    </div>);})}
+                  <div style={{display:"flex",justifyContent:"space-between"}}>
+                    <div data-noprint onClick={()=>addRow(pi,si)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}}>+ Add Line</div>
+                    <div style={{display:"flex",gap:0}}>
+                      <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"4px 8px",letterSpacing:EST_LS}}>TOTAL</div>
+                      <div onClick={()=>feeSectionTotal>0&&toggleTallySection(pi,si,feeSectionTotal)} style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS,cursor:feeSectionTotal>0?"pointer":"default",background:isSectionTallied(pi,si)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(feeSectionTotal)}</div>
+                      {showCurrency2 && <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*xRate)}</div>}
+                      <div style={{width:24}}></div>
+                    </div>
+                  </div>
+                  </div>
                 </div>);})}
-              <div style={{display:"flex",justifyContent:"space-between"}}>
-                <div data-noprint onClick={()=>addRow(si)} style={{fontFamily:EST_F,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:EST_LS,padding:"4px 6px"}}>+ Add Line</div>
-                <div style={{display:"flex",gap:0}}>
-                  <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,padding:"4px 8px",letterSpacing:EST_LS}}>TOTAL</div>
-                  <div onClick={()=>feeSectionTotal>0&&toggleTallySection(si,feeSectionTotal)} style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS,cursor:feeSectionTotal>0?"pointer":"default",background:isSectionTallied(si)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(feeSectionTotal)}</div>
-                  {showCurrency2 && <div style={{width:90,fontFamily:EST_F,fontSize:10,fontWeight:700,textAlign:"right",padding:"4px 6px",letterSpacing:EST_LS}}>{estFmt(feeSectionTotal*xRate)}</div>}
-                  <div style={{width:24}}></div>
+              <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
+                <div style={{width:420}}>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
+                    <span>{multiPhase ? "PHASE TOTAL" : "GRAND TOTAL"}</span><span>{baseCurrency} {estFmt(pt.grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.grandTotal*xRate)}</span>}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
+                    <span>VAT ({phase.vatPct}%)</span><span>{baseCurrency} {estFmt(pt.vat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.vat*xRate)}</span>}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
+                    <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(pt.totalIncVat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.totalIncVat*xRate)}</span>}</div>
                 </div>
               </div>
-              </div>
-            </div>);})}
-          <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
-            <div style={{width:420}}>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
-                <span>GRAND TOTAL</span><span>{baseCurrency} {estFmt(grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*xRate)}</span>}</div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
-                <span>VAT ({vatPct}%)</span><span>{baseCurrency} {estFmt(grandTotal*vatRate)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(grandTotal*vatRate*xRate)}</span>}</div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
-                <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(grandTotal + grandTotal*vatRate)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt((grandTotal + grandTotal*vatRate)*xRate)}</span>}</div>
             </div>
-          </div>
+            );
+          })}
+          <div data-noprint onClick={addPhase} style={{border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer",marginBottom:multiPhase?16:0}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>+ Add Phase</div>
+          {multiPhase && (
+            <div style={{borderTop:"3px double #000",display:"flex",justifyContent:"flex-end"}}>
+              <div style={{width:420}}>
+                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:11,fontWeight:800,letterSpacing:EST_LS}}>
+                  <span>COMBINED GRAND TOTAL</span><span>{baseCurrency} {estFmt(combined.totalIncVat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(combined.totalIncVat*xRate)}</span>}</div>
+              </div>
+            </div>
+          )}
         </div>}
 
         {(estTab === "services" || showAll) && <div data-page="services">
@@ -578,7 +671,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div style={{maxHeight:200,overflowY:"auto",padding:"6px 0"}}>
             {tallyItems.map(t => (
               <div key={t.key} style={{display:"flex",alignItems:"center",padding:"4px 14px",gap:8,borderBottom:"1px solid #f5f5f5"}}>
-                <span onClick={()=>setTallyItems(prev=>prev.filter(x=>x.key!==t.key))} style={{cursor:"pointer",fontSize:11,color:"#ccc",flexShrink:0}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"\u00d7"}</span>
+                <span onClick={()=>setTallyItems(prev=>prev.filter(x=>x.key!==t.key))} style={{cursor:"pointer",fontSize:11,color:"#ccc",flexShrink:0}} onMouseEnter={e=>{e.target.style.color="#f44"}} onMouseLeave={e=>{e.target.style.color="#ccc"}}>{"×"}</span>
                 <span style={{fontSize:8,color:t.isSection?"#666":"#999",fontWeight:700,letterSpacing:EST_LS,flexShrink:0,width:28}}>{t.ref}</span>
                 <span style={{fontSize:9,color:"#333",letterSpacing:EST_LS,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:t.isSection?700:400,textTransform:t.isSection?"uppercase":"none"}}>{t.desc}</span>
                 <span style={{fontSize:9,fontWeight:t.isSection?700:600,letterSpacing:EST_LS,color:"#1a1a1a",flexShrink:0,textAlign:"right",minWidth:60}}>{estFmt(t.amount)}</span>

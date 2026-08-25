@@ -1,4 +1,5 @@
 import React from "react";
+import { getEstPhases, estCalcCombinedTotals } from "../../utils/helpers";
 
 export function GenericDuplicateModal({ duplicateModal, setDuplicateModal, duplicateSearch, setDuplicateSearch, localProjects, archivedProjects, selectedProject, pushUndo, cpsStore, setCpsStore, shotListStore, setShotListStore, storyboardStore, setStoryboardStore, postProdStore, setPostProdStore, castingDeckStore, setCastingDeckStore, castingTableStore, setCastingTableStore, fittingStore, setFittingStore, locDeckStore, setLocDeckStore, recceReportStore, setRecceReportStore, dietaryStore, setDietaryStore, travelItineraryStore, setTravelItineraryStore, projectEstimates, setProjectEstimates }) {
     const dt=duplicateModal.type;
@@ -14,7 +15,7 @@ export function GenericDuplicateModal({ duplicateModal, setDuplicateModal, dupli
       recce:{store:recceReportStore,setStore:setRecceReportStore,archiveTable:"recceReports",archiveKey:"recceReport",title:"Recce Report",descFn:r=>{const l=(r.item?.locations||[]).length;return `${l} location${l!==1?"s":""}`;},labelKey:"label"},
       dietary:{store:dietaryStore,setStore:setDietaryStore,archiveTable:"dietaries",archiveKey:"dietary",title:"Dietary List",descFn:r=>{const c=(r.item?.people||[]).length;return `${c} crew`;},labelKey:"label"},
       itinerary:{store:travelItineraryStore,setStore:setTravelItineraryStore,archiveTable:"travelItineraries",archiveKey:"travelItinerary",title:"Travel Itinerary",descFn:r=>{const s=(r.item?.sections||[]).length;return `${s} section${s!==1?"s":""}`;},labelKey:"label"},
-      estimate:{store:projectEstimates,setStore:setProjectEstimates,archiveTable:"estimates",archiveKey:"estimate",title:"Production Estimate",descFn:r=>{const secs=r.item?.sections||[];const gt=secs.reduce((s,sec)=>(sec.items||[]).reduce((a,it)=>a+(parseFloat(it.total)||0),0)+s,0);return gt>0?`AED ${gt.toLocaleString(undefined,{maximumFractionDigits:0})}`:"Empty";},labelKey:"ts.version",getLabelFn:item=>item?.ts?.version||"Untitled",setLabelFn:(clone,label)=>{if(!clone.ts)clone.ts={};clone.ts.version=label;}},
+      estimate:{store:projectEstimates,setStore:setProjectEstimates,archiveTable:"estimates",archiveKey:"estimate",title:"Production Estimate",descFn:r=>{const gt=estCalcCombinedTotals(getEstPhases(r.item)).grandTotal;return gt>0?`AED ${gt.toLocaleString(undefined,{maximumFractionDigits:0})}`:"Empty";},labelKey:"ts.version",getLabelFn:item=>item?.ts?.version||"Untitled",setLabelFn:(clone,label)=>{if(!clone.ts)clone.ts={};clone.ts.version=label;}},
     };
     const conf=DCONF[dt];if(!conf)return null;
     const q=duplicateSearch.toLowerCase().trim();

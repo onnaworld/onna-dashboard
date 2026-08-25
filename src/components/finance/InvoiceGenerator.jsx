@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { CSLogoSlot } from "../ui/DocHelpers";
-import { estFmt, estNum, api, PRINT_CLEANUP_CSS } from "../../utils/helpers";
+import { estFmt, estNum, api, PRINT_CLEANUP_CSS, getEstPhases } from "../../utils/helpers";
 
 const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const LS = 0.5;
@@ -93,6 +93,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
   const [convertModal, setConvertModal] = useState(false);
   const [convertProjectId, setConvertProjectId] = useState("");
   const [convertVersionIdx, setConvertVersionIdx] = useState(0);
+  const [convertPhaseKey, setConvertPhaseKey] = useState("all"); // "all" or a phase index
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [newClientModal, setNewClientModal] = useState(false);
@@ -228,18 +229,25 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
   // ── Convert from estimate ──
   const estimateProjects = (allProjectsMerged || []).filter((p) => (projectEstimates || {})[p.id]?.length);
   const versionsForProject = convertProjectId ? (projectEstimates[convertProjectId] || []) : [];
+  const selectedEstimate = versionsForProject[convertVersionIdx] || null;
+  const phasesForSelectedEstimate = selectedEstimate ? getEstPhases(selectedEstimate) : [];
+  const multiPhaseEstimate = phasesForSelectedEstimate.length > 1;
 
   const doConvert = () => {
     const proj = (allProjectsMerged || []).find((p) => String(p.id) === String(convertProjectId));
     const est = versionsForProject[convertVersionIdx];
     if (!proj || !est) return;
+    const phases = getEstPhases(est);
+    const phasesToConvert = convertPhaseKey === "all" ? phases : [phases[Number(convertPhaseKey)]].filter(Boolean);
     const items = [];
-    (est.sections || []).forEach((sec) => {
-      (sec.rows || []).forEach((row) => {
-        const days = estNum(row.days) || 1, qty = estNum(row.qty) || 1, rate = estNum(row.rate);
-        const desc = [row.desc, row.notes].filter(Boolean).join(" — ") || sec.title;
-        if (!row.desc && !rate) return;
-        items.push({ id: Date.now() + Math.random(), desc, qty: String(days * qty), rate: String(rate) });
+    phasesToConvert.forEach((phase) => {
+      (phase.sections || []).forEach((sec) => {
+        (sec.rows || []).forEach((row) => {
+          const days = estNum(row.days) || 1, qty = estNum(row.qty) || 1, rate = estNum(row.rate);
+          const desc = [row.desc, row.notes].filter(Boolean).join(" — ") || sec.title;
+          if (!row.desc && !rate) return;
+          items.push({ id: Date.now() + Math.random(), desc, qty: String(days * qty), rate: String(rate) });
+        });
       });
     });
     const inv = blankInvoice(store);
@@ -248,10 +256,11 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     inv.items = items.length ? items : inv.items;
     inv.currency = est.currency || "AED";
     inv.taxPct = est.vatPct !== undefined ? est.vatPct : 5;
-    inv.sourceEstimate = { projectId: proj.id, projectName: proj.name, versionLabel: est.ts?.version || "" };
+    const phaseLabel = convertPhaseKey === "all" ? null : (phases[Number(convertPhaseKey)]?.title || `Phase ${Number(convertPhaseKey) + 1}`);
+    inv.sourceEstimate = { projectId: proj.id, projectName: proj.name, versionLabel: est.ts?.version || "", phaseLabel };
     setInvoiceStore((prev) => [...(prev || []), inv]);
     setActiveId(inv.id);
-    setConvertModal(false); setConvertProjectId(""); setConvertVersionIdx(0); setCreateMenuOpen(false);
+    setConvertModal(false); setConvertProjectId(""); setConvertVersionIdx(0); setConvertPhaseKey("all"); setCreateMenuOpen(false);
   };
 
   // ── Export exactly what's on screen: clone the live document DOM, strip editing chrome, print ──
@@ -361,15 +370,24 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
               ) : (
                 <>
                   <div style={{ ...lbl, marginTop: 0 }}>Project</div>
-                  <select value={convertProjectId} onChange={(e) => { setConvertProjectId(e.target.value); setConvertVersionIdx(0); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", marginBottom: 12 }}>
+                  <select value={convertProjectId} onChange={(e) => { setConvertProjectId(e.target.value); setConvertVersionIdx(0); setConvertPhaseKey("all"); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", marginBottom: 12 }}>
                     <option value="">Select a project…</option>
                     {estimateProjects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.client ? ` (${p.client})` : ""}</option>)}
                   </select>
                   {convertProjectId && (
                     <>
                       <div style={lbl}>Estimate Version</div>
-                      <select value={convertVersionIdx} onChange={(e) => setConvertVersionIdx(Number(e.target.value))} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", marginBottom: 16 }}>
+                      <select value={convertVersionIdx} onChange={(e) => { setConvertVersionIdx(Number(e.target.value)); setConvertPhaseKey("all"); }} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", marginBottom: multiPhaseEstimate ? 12 : 16 }}>
                         {versionsForProject.map((v, i) => <option key={v.id || i} value={i}>{v.label || v.ts?.version || `Version ${i + 1}`}</option>)}
+                      </select>
+                    </>
+                  )}
+                  {convertProjectId && multiPhaseEstimate && (
+                    <>
+                      <div style={lbl}>Convert</div>
+                      <select value={convertPhaseKey} onChange={(e) => setConvertPhaseKey(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12, fontFamily: "inherit", marginBottom: 16 }}>
+                        <option value="all">Whole estimate (all phases)</option>
+                        {phasesForSelectedEstimate.map((ph, i) => <option key={ph.id || i} value={i}>{ph.title || `Phase ${i + 1}`} only</option>)}
                       </select>
                     </>
                   )}
@@ -418,7 +436,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
 
           {active.sourceEstimate && (
             <div style={{ fontSize: 10, color: "#999", marginBottom: 14, fontStyle: "italic" }}>
-              Converted from estimate "{active.sourceEstimate.versionLabel}" — {active.sourceEstimate.projectName}
+              Converted from estimate "{active.sourceEstimate.versionLabel}" — {active.sourceEstimate.projectName}{active.sourceEstimate.phaseLabel ? ` (${active.sourceEstimate.phaseLabel} only)` : ""}
             </div>
           )}
 

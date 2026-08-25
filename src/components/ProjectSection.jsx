@@ -1,5 +1,5 @@
 import React from "react";
-import { estCalcTotals, defaultSections, estNum, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal } from "../utils/helpers";
+import { estCalcTotals, defaultSections, estNum, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, getEstPhases, estCalcCombinedTotals } from "../utils/helpers";
 import Creative from "./project/Creative";
 import Budget from "./project/Budget";
 import Documents from "./project/Documents";
@@ -129,7 +129,7 @@ export default function ProjectSection({
   // Revenue & cost calculation — mode-aware (budget vs finals)
   const estVersions = projectEstimates[p.id] || [];
   const latestEst = estVersions.length > 0 ? estVersions[estVersions.length - 1] : null;
-  const estTotals = latestEst ? estCalcTotals(latestEst.sections || defaultSections()) : { grandTotal: 0 };
+  const estTotals = latestEst ? estCalcCombinedTotals(getEstPhases(latestEst)) : { grandTotal: 0 };
   const actData = projectActuals[p.id];
   const actEffective = actData ? actualsGrandEffective(actData) : 0;
   const actZoho = actData ? actualsGrandZohoTotal(actData) : 0;

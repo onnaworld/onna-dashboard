@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { defaultSections } from "../utils/helpers";
-import { ESTIMATE_INIT } from "./ui/DocHelpers";
+import { emptyEstimate } from "../utils/helpers";
 import EstimateView from "./agents/EstimateView";
 import CVView, { DEFAULT_CV } from "./agents/CVView";
 import { BillieRateCardInline } from "./modals/BillieRateCardModal";
@@ -56,7 +55,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
     switch (key) {
       case "estimate": {
         const ests = tplId ? projectEstimates?.[tplId] : null;
-        return ests?.length > 0 ? JSON.parse(JSON.stringify(ests[ests.length - 1])) : { ...ESTIMATE_INIT, sections: defaultSections() };
+        return ests?.length > 0 ? JSON.parse(JSON.stringify(ests[ests.length - 1])) : emptyEstimate();
       }
       case "budget": {
         const ests = tplId ? projectEstimates?.[tplId] : null;
@@ -128,7 +127,7 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
     const data = getDocData(key);
     switch (key) {
       case "estimate": {
-        const est = data || { ...ESTIMATE_INIT, sections: defaultSections() };
+        const est = data || emptyEstimate();
         setProjectEstimates(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), JSON.parse(JSON.stringify(est))] }));
         break;
       }
@@ -230,9 +229,9 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
             return (
               <EstimateView
                 key={resetKey}
-                estData={data || { ...ESTIMATE_INIT, sections: defaultSections() }}
+                estData={data || emptyEstimate()}
                 onSet={(updater) => {
-                  const current = getDocData("estimate") || { ...ESTIMATE_INIT, sections: defaultSections() };
+                  const current = getDocData("estimate") || emptyEstimate();
                   const next = typeof updater === "function" ? updater(current) : updater;
                   saveDoc("estimate", next);
                 }}
@@ -244,14 +243,14 @@ export default function Information({ T, api, isMobile, notes, setNotes, notesLo
           {/* Budget Tracker — render using actual EstimateView in estimates tab mode */}
           {openDoc === "budget" && (() => {
             const bd = getDocData("budget");
-            const estData = bd?.estimate || { ...ESTIMATE_INIT, sections: defaultSections() };
+            const estData = bd?.estimate || emptyEstimate();
             return (
               <EstimateView
                 key={resetKey}
                 estData={estData}
                 onSet={(updater) => {
                   const current = getDocData("budget");
-                  const curEst = current?.estimate || { ...ESTIMATE_INIT, sections: defaultSections() };
+                  const curEst = current?.estimate || emptyEstimate();
                   const next = typeof updater === "function" ? updater(curEst) : updater;
                   saveDoc("budget", { ...current, estimate: next });
                 }}
