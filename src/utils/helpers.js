@@ -219,6 +219,7 @@ export const estRowTotal = (r) => { const d=estNum(r.days)||1; const q=estNum(r.
 export const estSectionTotal = (s) => s.rows.reduce((sum,r)=>sum+estRowTotal(r),0);
 export const isFeeSec = (s) => !!(s.isFees || /production\s*fees?/i.test(s.title || ''));
 export const estCalcTotals = (sections) => {
+  sections = sections.filter(s=>!s.hidden);
   const subtotal = sections.filter(s=>!isFeeSec(s)).reduce((sum,s)=>sum+estSectionTotal(s),0);
   const feesTotal = sections.filter(s=>isFeeSec(s)).reduce((sum,s)=>
     s.rows.reduce((rsum, row) => {

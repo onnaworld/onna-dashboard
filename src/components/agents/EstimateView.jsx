@@ -123,6 +123,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       return ps;
     });
   };
+  // Hidden (not deleted) sections drop out of totals, the Top Sheet, and
+  // print/export, but stay in the document so they can be brought back.
+  const toggleSectionHidden = (pi,si) => {
+    setPhases(ps => { ps[pi].sections[si].hidden = !ps[pi].sections[si].hidden; return ps; });
+  };
 
   const EST_STATUSES = ["", "Pending", "Confirmed", "Paid"];
   const EST_ST_BG = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
@@ -380,7 +385,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{baseCurrency}</div>
                   {showCurrency2 && <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>}
                 </div>
-                {phase.sections.map((sec)=>{
+                {phase.sections.filter(sec=>!sec.hidden).map((sec)=>{
                   const isF = isFeeSec(sec);
                   const t = isF ? sec.rows.reduce((sum, row) => {
                     const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
@@ -477,7 +482,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                     }, 0)
                   : secTot;
                 return(
-                <div key={sec.id}>
+                <div key={sec.id} data-noprint={sec.hidden ? "1" : undefined}>
                   <div style={{marginBottom:12}}>
                   <div
                     draggable={!isFeeSec(sec)}
@@ -486,19 +491,23 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                     onDragOver={e => { e.preventDefault(); const src = dragRef.current; if (!src || src.type !== "section" || src.pi !== pi) return; if (src.si !== si && !isFeeSec(sec)) setDropIndicator({ type: "section", pi, si }); }}
                     onDragLeave={() => { if (dropIndicator?.type === "section" && dropIndicator.pi === pi && dropIndicator.si === si) setDropIndicator(null); }}
                     onDrop={e => { e.preventDefault(); setDropIndicator(null); const src = dragRef.current; if (!src || src.type !== "section" || src.pi !== pi || isFeeSec(sec)) return; reorderSections(pi, src.si, si); }}
-                    style={{display:"flex",background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:isFeeSec(sec)?"default":"grab",position:"relative",
+                    style={{display:"flex",background:sec.hidden?"#999":"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,padding:"4px 0",textTransform:"uppercase",alignItems:"center",cursor:isFeeSec(sec)?"default":"grab",position:"relative",
                       ...(dropIndicator?.type === "section" && dropIndicator.pi === pi && dropIndicator.si === si ? { boxShadow: "0 -2px 0 0 #2196F3" } : {})}}>
                     <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"rgba(255,255,255,0.4)",cursor:isFeeSec(sec)?"default":"grab"}}>{isFeeSec(sec) ? "" : "⠿"}</div>
                     <div style={{width:34,padding:"0 2px",flexShrink:0}}>{sec.num}</div>
-                    <div style={{flex:1,padding:"0 6px"}}>{sec.title}</div>
+                    <div style={{flex:1,padding:"0 6px"}}>{sec.title}{sec.hidden ? " (Hidden)" : ""}</div>
+                    {!sec.hidden && <>
                     <div style={{width:notesW,padding:"0 6px",fontSize:9,flexShrink:0}}>NOTES</div>
                     <div style={{width:50,textAlign:"center",padding:"0 4px",flexShrink:0}}>DAYS</div>
                     <div style={{width:40,textAlign:"center",padding:"0 4px",flexShrink:0}}>QTY</div>
                     <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>RATE</div>
                     <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {baseCurrency}</div>
                     {showCurrency2 && <div style={{width:90,textAlign:"right",padding:"0 4px",flexShrink:0}}>TOTAL {secondCurrency}</div>}
-                    <div style={{width:24,flexShrink:0}}></div>
+                    </>}
+                    <div data-noprint onClick={()=>toggleSectionHidden(pi,si)} style={{flexShrink:0,padding:"2px 10px",fontSize:9,fontWeight:700,letterSpacing:EST_LS,cursor:"pointer",color:"rgba(255,255,255,0.75)",whiteSpace:"nowrap"}}
+                      onMouseEnter={e=>{e.currentTarget.style.color="#fff"}} onMouseLeave={e=>{e.currentTarget.style.color="rgba(255,255,255,0.75)"}}>{sec.hidden ? "UNHIDE" : "HIDE"}</div>
                   </div>
+                  {!sec.hidden && <>
                   {sec.rows.map((row,ri)=>{const {tot,autoCalc}=getRowDisplay(row);const _rm="est:row:"+row.ref;const _rHas=_hasBM(_rm);const _rowBg=_rHas?"#E8F5E9":(EST_ST_BG[row.rowStatus||""]||"transparent");return(
                     <div key={ri}
                       draggable
@@ -538,6 +547,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                       <div style={{width:24}}></div>
                     </div>
                   </div>
+                  </>}
                   </div>
                 </div>);})}
               <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>

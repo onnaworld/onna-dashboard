@@ -29,7 +29,7 @@ export const downloadAoaXlsx = (sheets, filename) => {
 export function genEstimate(estimateData) {
   const est = estimateData || {};
   const ts = est.ts || {};
-  const sections = flattenPhaseSections(getEstPhases(est));
+  const sections = flattenPhaseSections(getEstPhases(est)).filter(s => !s.hidden);
   const rows = [["REF", "DESCRIPTION", "NOTES", "DAYS", "QTY", "RATE", "TOTAL"]];
   sections.forEach(sec => {
     rows.push([]);

@@ -241,7 +241,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     const phasesToConvert = convertPhaseKey === "all" ? phases : [phases[Number(convertPhaseKey)]].filter(Boolean);
     const items = [];
     phasesToConvert.forEach((phase) => {
-      (phase.sections || []).forEach((sec) => {
+      (phase.sections || []).filter((sec) => !sec.hidden).forEach((sec) => {
         (sec.rows || []).forEach((row) => {
           const days = estNum(row.days) || 1, qty = estNum(row.qty) || 1, rate = estNum(row.rate);
           const desc = [row.desc, row.notes].filter(Boolean).join(" — ") || sec.title;
