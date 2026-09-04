@@ -202,14 +202,20 @@ const TICell = ({value,onChange,style:s={},align="left"}) => {
   if(editing)return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>;
   return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>}</div>;
 };
-const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote,onDeleteRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn}) => (
-  <div style={{marginBottom:16}}>
+const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote,onDeleteRow,onReorderRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn,
+  sectionDraggable,onSectionDragStart,onSectionDragOver,onSectionDrop,onSectionDragEnd,sectionDropHere}) => {
+  const rowDragRef = useRef(null);
+  const [rowDropAt,setRowDropAt] = useState(null);
+  return (
+  <div style={{marginBottom:16,position:"relative",...(sectionDropHere?{boxShadow:"0 -2px 0 0 #2196F3"}:{})}}
+    draggable={!!sectionDraggable} onDragStart={onSectionDragStart} onDragOver={onSectionDragOver} onDrop={onSectionDrop} onDragEnd={onSectionDragEnd}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#000",padding:"4px 8px"}}>
       <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
+        {sectionDraggable&&<span data-noprint style={{color:"rgba(255,255,255,0.4)",fontSize:10,cursor:"grab",flexShrink:0}}>⠿</span>}
         <div onClick={onEditTitle} style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>{title}</div>
         {subtitle&&<div onClick={onEditSubtitle} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:"rgba(255,255,255,0.55)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{subtitle}</div>}
       </div>
-      <div style={{display:"flex",gap:10,flexShrink:0}}>
+      <div data-noprint style={{display:"flex",gap:10,flexShrink:0}}>
         {isCustom&&onAddColumn&&<span onClick={onAddColumn} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD COLUMN</span>}
         <span onClick={onAddRow} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
         {onAddNote&&<span onClick={onAddNote} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD NOTE</span>}
@@ -217,38 +223,56 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
       </div>
     </div>
     <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
-      <div style={{width:18}}/>
+      <div style={{width:32}}/>
       {columns.map((col,ci)=>(
         <div key={col.key} style={{flex:col.flex,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",padding:"4px 4px",display:"flex",alignItems:"center",gap:2}}>
           <span onClick={isCustom&&onEditColumn?()=>onEditColumn(ci):undefined} style={{cursor:isCustom?"pointer":"default"}}>{col.label}</span>
-          {isCustom&&onDeleteColumn&&columns.length>1&&<span onClick={()=>onDeleteColumn(ci)} style={{cursor:"pointer",fontSize:8,color:"#ddd",marginLeft:2}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>}
+          {isCustom&&onDeleteColumn&&columns.length>1&&<span data-noprint onClick={()=>onDeleteColumn(ci)} style={{cursor:"pointer",fontSize:8,color:"#ddd",marginLeft:2}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>}
         </div>
       ))}
     </div>
-    {rows.map((row,ri)=>row.isNote ? (
-      <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,background:"#FFFDE7"}}>
-        <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
-        </div>
-        <div style={{flex:1,fontStyle:"italic"}}>
-          <TICell value={row.text||""} onChange={v=>onUpdate(ri,"text",v)} style={{color:"#8a6d00"}}/>
-        </div>
-      </div>
-    ) : (
-      <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
-        <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
-        </div>
-        {columns.map(col=>(
-          <div key={col.key} style={{flex:col.flex}}>
-            <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
+    {rows.map((row,ri)=>{
+      const dragHandle = onReorderRow && (
+        <div draggable data-noprint
+          onDragStart={e=>{rowDragRef.current=ri;e.dataTransfer.effectAllowed="move";e.currentTarget.parentElement.style.opacity="0.4";}}
+          onDragEnd={e=>{e.currentTarget.parentElement.style.opacity="1";rowDragRef.current=null;setRowDropAt(null);}}
+          style={{width:14,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",fontSize:10,color:"#ccc",flexShrink:0}}
+          onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>⠿</div>
+      );
+      const rowWrapProps = onReorderRow ? {
+        onDragOver:e=>{e.preventDefault();if(rowDragRef.current!==null&&rowDragRef.current!==ri)setRowDropAt(ri);},
+        onDragLeave:()=>{if(rowDropAt===ri)setRowDropAt(null);},
+        onDrop:e=>{e.preventDefault();const from=rowDragRef.current;setRowDropAt(null);rowDragRef.current=null;if(from===null||from===ri)return;onReorderRow(from,ri);},
+      } : {};
+      const dropStyle = rowDropAt===ri ? {boxShadow:"0 -2px 0 0 #2196F3"} : {};
+      return row.isNote ? (
+        <div key={row.id} {...rowWrapProps} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,background:"#FFFDE7",...dropStyle}}>
+          <div style={{width:32,display:"flex",alignItems:"center"}}>
+            {dragHandle}
+            <span data-noprint onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
           </div>
-        ))}
-      </div>
-    ))}
+          <div style={{flex:1,fontStyle:"italic"}}>
+            <TICell value={row.text||""} onChange={v=>onUpdate(ri,"text",v)} style={{color:"#8a6d00"}}/>
+          </div>
+        </div>
+      ) : (
+        <div key={row.id} {...rowWrapProps} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,...dropStyle}}>
+          <div style={{width:32,display:"flex",alignItems:"center"}}>
+            {dragHandle}
+            <span data-noprint onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+          </div>
+          {columns.map(col=>(
+            <div key={col.key} style={{flex:col.flex}}>
+              <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
+            </div>
+          ))}
+        </div>
+      );
+    })}
     {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
   </div>
-);
+  );
+};
 
 // ─── DIETARY LIST HELPERS ────────────────────────────────────────────────────
 const DIETARY_TAGS = ["None","Vegetarian","Vegan","Halal","Kosher","Gluten-Free","Dairy-Free","Nut Allergy","Shellfish Allergy","Pescatarian","Other"];

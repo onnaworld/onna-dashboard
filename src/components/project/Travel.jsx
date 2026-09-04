@@ -149,6 +149,14 @@ export default function Travel({
     };
     const tiDeleteRow = (si,ri) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data=d.sections[si].data.filter((_,j)=>j!==ri);arr[tiIdx]=d;store[p.id]=arr;return store;});};
     const tiAddNote = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({id:Date.now(),isNote:true,text:""});arr[tiIdx]=d;store[p.id]=arr;return store;});};
+    const tiReorderRow = (si,fromRi,toRi) => {
+      setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const data=d.sections[si].data;const [moved]=data.splice(fromRi,1);data.splice(toRi,0,moved);arr[tiIdx]=d;store[p.id]=arr;return store;});
+    };
+    const tiSectionDragRef = useRef(null);
+    const [tiSectionDropAt,setTiSectionDropAt] = useState(null);
+    const tiReorderSections = (fromSi,toSi) => {
+      setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const secs=[...(d.sections||[])];const [moved]=secs.splice(fromSi,1);secs.splice(toSi,0,moved);d.sections=secs;arr[tiIdx]=d;store[p.id]=arr;return store;});
+    };
     const tiDeleteSection = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.filter((_,i)=>i!==si);arr[tiIdx]=d;store[p.id]=arr;return store;});};
     const tiEditSectionTitle = async (si) => {const val=await showPrompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
     const tiEditSectionSubtitle = async (si) => {const val=await showPrompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
@@ -239,10 +247,23 @@ export default function Travel({
 
     const tiExportPDF = () => {
       const el=document.getElementById("onna-ti-print");if(!el)return;
-      const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+      const clone=el.cloneNode(true);
+      // cloneNode() doesn't carry over the live value of controlled <input>/
+      // <select> elements (Movement Order day fields, Rooming List cells) —
+      // copy the live values across before stripping/converting them.
+      const origInputs=el.querySelectorAll('input');const cloneInputs=clone.querySelectorAll('input');
+      origInputs.forEach((o,i)=>{if(cloneInputs[i])cloneInputs[i].value=o.value;});
+      const origSelects=el.querySelectorAll('select');const cloneSelects=clone.querySelectorAll('select');
+      origSelects.forEach((o,i)=>{if(cloneSelects[i])cloneSelects[i].selectedIndex=o.selectedIndex;});
+      clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());
+      clone.querySelectorAll('[data-cs-placeholder]').forEach(n=>n.remove());
+      clone.querySelectorAll("button").forEach(b=>b.remove());
+      clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());
+      clone.querySelectorAll('input').forEach(inp=>{const sp=document.createElement('span');sp.textContent=inp.value||"";sp.style.cssText=inp.style.cssText;sp.style.border="none";sp.style.outline="none";sp.style.background="transparent";sp.style.padding="0";inp.parentNode.replaceChild(sp,inp);});
+      clone.querySelectorAll('select').forEach(sel=>{const sp=document.createElement('span');sp.textContent=sel.options[sel.selectedIndex]?.text||sel.value||"";sp.style.cssText=sel.style.cssText;sp.style.border="none";sp.style.outline="none";sp.style.background="transparent";sp.style.padding="0";sel.parentNode.replaceChild(sp,sel);});
       const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
       const tiTitle=`Travel Itinerary | ${p?.name||""}`;
-      const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tiTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;padding:10mm 12mm;}@media print{@page{margin:0;size:A4 landscape;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
+      const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tiTitle}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@page{size:A4 landscape;margin:10mm 12mm;}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();
       doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=tiTitle;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);
       setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();},300);
     };
@@ -272,7 +293,7 @@ export default function Travel({
             </div>
 
             {/* Tab bar */}
-            <div style={{display:"flex",borderBottom:"2px solid #000",overflowX:"auto",margin:isMobile?"0 8px":"0 32px"}}>
+            <div data-noprint style={{display:"flex",borderBottom:"2px solid #000",overflowX:"auto",margin:isMobile?"0 8px":"0 40px"}}>
               {[{id:"itinerary",label:"ITINERARY"},{id:"rooming",label:"ROOMING LIST"},{id:"movement",label:"MOVEMENT ORDER"}].map(t=>(
                 <div key={t.id} onClick={()=>tiSetTravelTab(t.id)}
                   style={{fontFamily:CS_FONT,fontSize:9,fontWeight:tiTravelTab===t.id?700:400,letterSpacing:0.5,padding:isMobile?"8px 10px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,background:tiTravelTab===t.id?"#000":"#f5f5f5",color:tiTravelTab===t.id?"#fff":"#666",textTransform:"uppercase",borderRight:"1px solid #ddd"}}>{t.label}</div>
@@ -286,12 +307,12 @@ export default function Travel({
               )}
             </div>
 
-            <div style={{textAlign:"center",padding:isMobile?"12px 12px 4px":"20px 32px 4px"}}>
+            <div style={{textAlign:"center",padding:isMobile?"12px 12px 4px":"20px 40px 4px"}}>
               <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>{tiTravelTab==="itinerary"?"TRAVEL ITINERARY":tiTravelTab==="rooming"?"ROOMING LIST":"MOVEMENT ORDER"}</div>
             </div>
 
             {/* Project info */}
-            <div style={{padding:isMobile?"8px 12px 12px":"8px 32px 16px",display:"flex",gap:4,flexWrap:"wrap"}}>
+            <div style={{padding:isMobile?"8px 12px 12px":"8px 40px 16px",display:"flex",gap:4,flexWrap:"wrap"}}>
               {[["PROJECT:",tiData.project?.name,"project.name"],["CLIENT:",tiData.project?.client,"project.client"],["DESTINATION:",tiData.project?.destination,"project.destination"],["DATE:",tiData.project?.date,"project.date"],["PRODUCER:",tiData.project?.producer,"project.producer"]].map(([lbl,val,key])=>(
                 <div key={key} style={{display:"flex",gap:4,alignItems:"baseline",flex:1,minWidth:isMobile?"45%":"auto",marginRight:16}}>
                   <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>{lbl}</span>
@@ -301,18 +322,25 @@ export default function Travel({
             </div>
 
             {/* ========= ITINERARY TAB ========= */}
-            {tiTravelTab==="itinerary"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
+            {tiTravelTab==="itinerary"&&(<div style={{padding:isMobile?"0 8px":"0 40px",overflowX:"auto"}}>
               {(tiData.sections||[]).map((sec,si)=>(
                 <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={tiRowsFor(sec)}
                   onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onAddNote={()=>tiAddNote(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
+                  onReorderRow={(fromRi,toRi)=>tiReorderRow(si,fromRi,toRi)}
                   onDelete={()=>tiDeleteSection(si)} onEditTitle={()=>tiEditSectionTitle(si)} onEditSubtitle={()=>tiEditSectionSubtitle(si)}
                   isCustom={sec.type==="custom"} onAddColumn={sec.type==="custom"?()=>tiAddCustomColumn(si):null}
-                  onEditColumn={sec.type==="custom"?(ci)=>tiEditCustomColumn(si,ci):null} onDeleteColumn={sec.type==="custom"?(ci)=>tiDeleteCustomColumn(si,ci):null}/>
+                  onEditColumn={sec.type==="custom"?(ci)=>tiEditCustomColumn(si,ci):null} onDeleteColumn={sec.type==="custom"?(ci)=>tiDeleteCustomColumn(si,ci):null}
+                  sectionDraggable
+                  sectionDropHere={tiSectionDropAt===si}
+                  onSectionDragStart={()=>{tiSectionDragRef.current=si;}}
+                  onSectionDragOver={e=>{e.preventDefault();if(tiSectionDragRef.current!==null&&tiSectionDragRef.current!==si)setTiSectionDropAt(si);}}
+                  onSectionDrop={e=>{e.preventDefault();const from=tiSectionDragRef.current;setTiSectionDropAt(null);tiSectionDragRef.current=null;if(from===null||from===si)return;tiReorderSections(from,si);}}
+                  onSectionDragEnd={()=>{tiSectionDragRef.current=null;setTiSectionDropAt(null);}}/>
               ))}
               {(tiData.sections||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:10,color:"#ccc",letterSpacing:0.5,padding:"40px 0",textAlign:"center"}}>No sections — click + ADD SECTION below to begin</div>}
 
               {/* Add section menu */}
-              <div style={{position:"relative",marginBottom:16}}>
+              <div data-noprint style={{position:"relative",marginBottom:16}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:tiShowAddMenu?"#333":"#f4f4f4",padding:"6px 8px",cursor:"pointer",borderRadius:1,transition:"background .15s"}}
                   onClick={()=>setTiShowAddMenu(!tiShowAddMenu)} onMouseEnter={e=>{if(!tiShowAddMenu)e.currentTarget.style.background="#eee";}} onMouseLeave={e=>{if(!tiShowAddMenu)e.currentTarget.style.background="#f4f4f4";}}>
                   <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:tiShowAddMenu?"#fff":"#999",textTransform:"uppercase"}}>+ ADD SECTION</span>
@@ -341,7 +369,7 @@ export default function Travel({
             </div>)}
 
             {/* ========= ROOMING LIST TAB ========= */}
-            {tiTravelTab==="rooming"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
+            {tiTravelTab==="rooming"&&(<div style={{padding:isMobile?"0 8px":"0 40px",overflowX:"auto"}}>
               {/* Room summary badges */}
               {(()=>{
                 const types={};const hotels={};
@@ -388,12 +416,12 @@ export default function Travel({
                     onDragLeave={()=>setTiDropRmAt(null)}
                     style={{display:"flex",borderBottom:isDropHere?"2px solid #FFD54F":"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
                     <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      <span onClick={()=>tiDeleteRoomingRow(rm.id)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
+                      <span data-noprint onClick={()=>tiDeleteRoomingRow(rm.id)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
                         onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
                     </div>
                     <div draggable onDragStart={()=>{tiDragRm.current=ri;}} onDragEnd={()=>{tiDragRm.current=null;setTiDropRmAt(null);}}
                       style={{width:14,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab"}}>
-                      <span style={{fontFamily:CS_FONT,fontSize:8,color:"#ccc"}}>≡</span>
+                      <span data-noprint style={{fontFamily:CS_FONT,fontSize:8,color:"#ccc"}}>≡</span>
                     </div>
                     <div style={{width:22,fontFamily:CS_FONT,fontSize:8,fontWeight:700,color:"#ccc",display:"flex",alignItems:"center",padding:"0 2px"}}>{ri+1}</div>
                     {TI_ROOMING_COLS.map(col=>(
@@ -409,20 +437,20 @@ export default function Travel({
               })}
 
               {/* Add guest row */}
-              <div style={{marginTop:4,marginBottom:16}}>
+              <div data-noprint style={{marginTop:4,marginBottom:16}}>
                 <div onClick={tiAddRoomingRow} style={{display:"flex",alignItems:"center",background:"#f4f4f4",padding:"6px 8px",cursor:"pointer",borderRadius:1}}
                   onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="#f4f4f4"}>
                   <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#999",textTransform:"uppercase"}}>+ ADD GUEST</span>
                 </div>
               </div>
 
-              <div style={{fontFamily:CS_FONT,fontSize:8,color:"#999",letterSpacing:0.5,padding:"8px 0",borderTop:"1px solid #eee"}}>
+              <div data-noprint style={{fontFamily:CS_FONT,fontSize:8,color:"#999",letterSpacing:0.5,padding:"8px 0",borderTop:"1px solid #eee"}}>
                 Click SYNC TO HOTELS in the tab bar to push this rooming list into the Hotel Accommodation section on the Itinerary tab.
               </div>
             </div>)}
 
             {/* ========= MOVEMENT ORDER TAB ========= */}
-            {tiTravelTab==="movement"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
+            {tiTravelTab==="movement"&&(<div style={{padding:isMobile?"0 8px":"0 40px",overflowX:"auto"}}>
               {tiMoveDays.map((day,di)=>(
                 <div key={day.id} style={{marginBottom:14}}>
                   {/* Day header */}
@@ -434,7 +462,7 @@ export default function Travel({
                       <input value={day.title} onChange={e=>tiUpdateDay(day.id,"title",e.target.value)} placeholder="e.g. Travel Day / Shoot Day 1 / Recce"
                         style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"rgba(255,255,255,0.6)",background:"transparent",border:"none",outline:"none",width:250,padding:"2px 4px"}}/>
                     </div>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <div data-noprint style={{display:"flex",gap:8,alignItems:"center"}}>
                       <span onClick={()=>tiAddMove(day.id)} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.5)",cursor:"pointer",letterSpacing:0.5}}>+ ADD</span>
                       <span onClick={()=>tiDeleteDay(day.id)} style={{fontSize:12,color:"rgba(255,255,255,0.3)",cursor:"pointer"}}
                         onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.3)"}>×</span>
@@ -451,7 +479,7 @@ export default function Travel({
                   {day.moves.map(mv=>(
                     <div key={mv.id} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderBottom:"1px solid #f0f0f0"}}>
                       <div style={{width:14}}>
-                        <span onClick={()=>tiDeleteMove(day.id,mv.id)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
+                        <span data-noprint onClick={()=>tiDeleteMove(day.id,mv.id)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
                           onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
                       </div>
                       {TI_MOVEMENT_COLS.map(col=>(
@@ -468,7 +496,7 @@ export default function Travel({
                 </div>
               ))}
 
-              <div style={{marginBottom:16}}>
+              <div data-noprint style={{marginBottom:16}}>
                 <div onClick={tiAddDay} style={{display:"flex",alignItems:"center",background:"#f4f4f4",padding:"6px 8px",cursor:"pointer",borderRadius:1}}
                   onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="#f4f4f4"}>
                   <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#999",textTransform:"uppercase"}}>+ ADD DAY</span>
@@ -485,7 +513,7 @@ export default function Travel({
               const fr1 = fd.rightLine1 !== undefined ? fd.rightLine1 : "WWW.ONNA.WORLD";
               const fr2 = fd.rightLine2 !== undefined ? fd.rightLine2 : "HELLO@ONNAPRODUCTION.COM";
               if (!footerShow) return (
-                <div data-noprint style={{padding:"0 32px 32px"}}>
+                <div data-noprint style={{padding:"0 40px 32px"}}>
                   <div style={{marginTop:32,borderTop:"2px solid #000",paddingTop:12}}>
                     <div onClick={() => tiSetFooter({ show: true })}
                       style={{border:"1.5px dashed #ddd",borderRadius:4,padding:"6px 12px",display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}
@@ -497,7 +525,7 @@ export default function Travel({
                 </div>
               );
               return (
-                <div style={{padding:"0 32px 32px"}}>
+                <div style={{padding:"0 40px 32px"}}>
                   <div style={{marginTop:32,position:"relative"}} onMouseEnter={()=>setTiFooterHovered(true)} onMouseLeave={()=>setTiFooterHovered(false)}>
                     <div style={{display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
                       <div>
