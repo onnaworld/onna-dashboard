@@ -4,8 +4,7 @@ import { stripThinking } from "../../utils/helpers";
 
 // ─── TRAVEL ITINERARY (TI) HELPERS ──────────────────────────────────────────
 const TI_FLIGHT_COLS = [
-  {key:"name",label:"NAME / ROLE",flex:1.2},{key:"dateOut",label:"DATE (OUT)",flex:0.7},{key:"routeOut",label:"ROUTE (OUTBOUND)",flex:2},{key:"timeOut",label:"TIME",flex:0.8},
-  {key:"dateReturn",label:"DATE (RET)",flex:0.7},{key:"routeReturn",label:"ROUTE (RETURN)",flex:2},{key:"timeReturn",label:"TIME",flex:0.8},
+  {key:"name",label:"NAME / ROLE",flex:1.2},{key:"date",label:"DATE",flex:0.7},{key:"route",label:"ROUTE",flex:2},{key:"time",label:"TIME",flex:0.8},
   {key:"airline",label:"AIRLINE",flex:0.7},{key:"flightNo",label:"FLIGHT NO.",flex:0.7},{key:"bookingRef",label:"BOOKING REF",flex:0.7},
 ];
 const TI_CAR_COLS = [
@@ -33,7 +32,10 @@ const tiMkDay = () => ({id:"dy"+Date.now()+Math.random(),date:"",title:"",moves:
 const TRAVEL_ITINERARY_INIT = {
   project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",producer:"[Producer]",destination:"[Destination]"},
   sections:[
-    {id:"flights",type:"flights",title:"FLIGHT SCHEDULE",subtitle:"",data:[{id:1,name:"[Name / Role]",dateOut:"[Date]",routeOut:"[City (Code) > City (Code)]",timeOut:"[00:00 > 00:00]",dateReturn:"[Date]",routeReturn:"[City (Code) > City (Code)]",timeReturn:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"}]},
+    {id:"flights",type:"flights",title:"FLIGHT SCHEDULE",subtitle:"",data:[
+      {id:1,name:"[Name / Role]",date:"[Date]",route:"[City (Code) > City (Code)]",time:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"},
+      {id:2,name:"[Name / Role]",date:"[Date]",route:"[City (Code) > City (Code)]",time:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"},
+    ]},
     {id:"cars",type:"cars",title:"AIRPORT TRANSFERS",subtitle:"All passengers will receive a text with driver details and live tracking link.",data:[{id:1,name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}]},
     {id:"hotels",type:"hotels",title:"HOTEL ACCOMMODATION",subtitle:"",data:[{id:1,name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""}]},
   ],

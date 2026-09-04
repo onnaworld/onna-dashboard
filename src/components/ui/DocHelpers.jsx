@@ -202,7 +202,7 @@ const TICell = ({value,onChange,style:s={},align="left"}) => {
   if(editing)return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>;
   return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>}</div>;
 };
-const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn}) => (
+const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote,onDeleteRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn}) => (
   <div style={{marginBottom:16}}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#000",padding:"4px 8px"}}>
       <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
@@ -212,6 +212,7 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteR
       <div style={{display:"flex",gap:10,flexShrink:0}}>
         {isCustom&&onAddColumn&&<span onClick={onAddColumn} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD COLUMN</span>}
         <span onClick={onAddRow} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
+        {onAddNote&&<span onClick={onAddNote} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD NOTE</span>}
         <span onClick={onDelete} style={{fontFamily:CS_FONT,fontSize:10,color:"rgba(255,255,255,0.3)",cursor:"pointer"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.3)"}>×</span>
       </div>
     </div>
@@ -224,7 +225,16 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onDeleteR
         </div>
       ))}
     </div>
-    {rows.map((row,ri)=>(
+    {rows.map((row,ri)=>row.isNote ? (
+      <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,background:"#FFFDE7"}}>
+        <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+        </div>
+        <div style={{flex:1,fontStyle:"italic"}}>
+          <TICell value={row.text||""} onChange={v=>onUpdate(ri,"text",v)} style={{color:"#8a6d00"}}/>
+        </div>
+      </div>
+    ) : (
       <div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26}}>
         <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <span onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>

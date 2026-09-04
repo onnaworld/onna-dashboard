@@ -131,7 +131,14 @@ export default function Travel({
       });
     };
     const tiColsFor = (sec) => sec.type==="flights"?TI_FLIGHT_COLS:sec.type==="cars"?TI_CAR_COLS:sec.type==="hotels"?TI_HOTEL_COLS:(sec.columns||[]);
-    const tiTemplateFor = (type) => type==="flights"?{id:Date.now(),name:"[Name / Role]",dateOut:"[Date]",routeOut:"[City (Code) > City (Code)]",timeOut:"[00:00 > 00:00]",dateReturn:"[Date]",routeReturn:"[City (Code) > City (Code)]",timeReturn:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"}:type==="cars"?{id:Date.now(),name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}:{id:Date.now(),name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""};
+    // Older flight rows stored separate outbound/return columns on one row.
+    // Show the outbound leg under the new single date/route/time columns so
+    // existing entries don't appear to have gone blank; the return-leg data
+    // (dateReturn/routeReturn/timeReturn) stays in storage untouched — add a
+    // new row for it going forward.
+    const tiRowsFor = (sec) => sec.type!=="flights" ? (sec.data||[]) : (sec.data||[]).map(r =>
+      (r.date===undefined && r.dateOut!==undefined) ? {...r, date:r.dateOut, route:r.routeOut, time:r.timeOut} : r);
+    const tiTemplateFor = (type) => type==="flights"?{id:Date.now(),name:"[Name / Role]",date:"[Date]",route:"[City (Code) > City (Code)]",time:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"}:type==="cars"?{id:Date.now(),name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}:{id:Date.now(),name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""};
     const tiUpdateRow = (si,ri,key,val) => {
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.map((s,i)=>i===si?{...s,data:s.data.map((r,j)=>j===ri?{...r,[key]:val}:r)}:s);arr[tiIdx]=d;store[p.id]=arr;return store;});
     };
@@ -141,6 +148,7 @@ export default function Travel({
       else{setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({...tiTemplateFor(sec.type),id:Date.now()});arr[tiIdx]=d;store[p.id]=arr;return store;});}
     };
     const tiDeleteRow = (si,ri) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data=d.sections[si].data.filter((_,j)=>j!==ri);arr[tiIdx]=d;store[p.id]=arr;return store;});};
+    const tiAddNote = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({id:Date.now(),isNote:true,text:""});arr[tiIdx]=d;store[p.id]=arr;return store;});};
     const tiDeleteSection = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.filter((_,i)=>i!==si);arr[tiIdx]=d;store[p.id]=arr;return store;});};
     const tiEditSectionTitle = async (si) => {const val=await showPrompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
     const tiEditSectionSubtitle = async (si) => {const val=await showPrompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
@@ -187,6 +195,10 @@ export default function Travel({
     };
     const tiDragRm = useRef(null);
     const [tiDropRmAt, setTiDropRmAt] = useState(null);
+    const [tiFooterHovered, setTiFooterHovered] = useState(false);
+    const tiSetFooter = (patch) => {
+      setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.footer={...(d.footer||{}),...patch};store[p.id]=arr;return store;});
+    };
     const tiReorderRooming = (fromIdx, toIdx) => {
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const rm=[...(d.rooming||[])];const [moved]=rm.splice(fromIdx,1);rm.splice(toIdx,0,moved);d.rooming=rm;store[p.id]=arr;return store;});
     };
@@ -291,8 +303,8 @@ export default function Travel({
             {/* ========= ITINERARY TAB ========= */}
             {tiTravelTab==="itinerary"&&(<div style={{padding:isMobile?"0 8px":"0 32px",overflowX:"auto"}}>
               {(tiData.sections||[]).map((sec,si)=>(
-                <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={sec.data||[]}
-                  onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
+                <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={tiRowsFor(sec)}
+                  onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onAddNote={()=>tiAddNote(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
                   onDelete={()=>tiDeleteSection(si)} onEditTitle={()=>tiEditSectionTitle(si)} onEditSubtitle={()=>tiEditSectionSubtitle(si)}
                   isCustom={sec.type==="custom"} onAddColumn={sec.type==="custom"?()=>tiAddCustomColumn(si):null}
                   onEditColumn={sec.type==="custom"?(ci)=>tiEditCustomColumn(si,ci):null} onDeleteColumn={sec.type==="custom"?(ci)=>tiDeleteCustomColumn(si,ci):null}/>
@@ -465,12 +477,48 @@ export default function Travel({
             </div>)}
 
             {/* Footer */}
-            <div style={{padding:"0 32px 32px"}}>
-              <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
-                <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
-                <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
-              </div>
-            </div>
+            {(() => {
+              const fd = tiData.footer || {};
+              const footerShow = fd.show !== false;
+              const fl1 = fd.leftLine1  !== undefined ? fd.leftLine1  : "@ONNAPRODUCTION";
+              const fl2 = fd.leftLine2  !== undefined ? fd.leftLine2  : "DUBAI | LONDON";
+              const fr1 = fd.rightLine1 !== undefined ? fd.rightLine1 : "WWW.ONNA.WORLD";
+              const fr2 = fd.rightLine2 !== undefined ? fd.rightLine2 : "HELLO@ONNAPRODUCTION.COM";
+              if (!footerShow) return (
+                <div data-noprint style={{padding:"0 32px 32px"}}>
+                  <div style={{marginTop:32,borderTop:"2px solid #000",paddingTop:12}}>
+                    <div onClick={() => tiSetFooter({ show: true })}
+                      style={{border:"1.5px dashed #ddd",borderRadius:4,padding:"6px 12px",display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#aaa";}}>
+                      + Add Footer
+                    </div>
+                  </div>
+                </div>
+              );
+              return (
+                <div style={{padding:"0 32px 32px"}}>
+                  <div style={{marginTop:32,position:"relative"}} onMouseEnter={()=>setTiFooterHovered(true)} onMouseLeave={()=>setTiFooterHovered(false)}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
+                      <div>
+                        <div style={{fontWeight:700}}><TICell value={fl1} onChange={v=>tiSetFooter({leftLine1:v})}/></div>
+                        <div><TICell value={fl2} onChange={v=>tiSetFooter({leftLine2:v})}/></div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:700}}><TICell value={fr1} onChange={v=>tiSetFooter({rightLine1:v})} align="right"/></div>
+                        <div><TICell value={fr2} onChange={v=>tiSetFooter({rightLine2:v})} align="right"/></div>
+                      </div>
+                    </div>
+                    {tiFooterHovered && <button data-noprint onClick={()=>tiSetFooter({show:false})}
+                      style={{position:"absolute",top:16,left:"50%",transform:"translateX(-50%)",background:"#eee",border:"none",borderRadius:10,padding:"2px 10px",fontSize:9,fontWeight:700,letterSpacing:0.5,cursor:"pointer",color:"#666",fontFamily:CS_FONT,whiteSpace:"nowrap"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background="#f44";e.currentTarget.style.color="#fff";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background="#eee";e.currentTarget.style.color="#666";}}>
+                      REMOVE FOOTER
+                    </button>}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
