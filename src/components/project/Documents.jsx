@@ -542,6 +542,7 @@ export default function Documents({
     const _normSecOrder = (o) => { const saved = Array.isArray(o) ? o.filter(k=>CS_SEC_DEFAULT.includes(k)) : []; return [...saved, ...CS_SEC_DEFAULT.filter(k=>!saved.includes(k))]; };
     const csSecOrder = _normSecOrder(csData.sectionOrder);
     const moveSection = (key, dir) => csSet(d => { const base = _normSecOrder(d.sectionOrder); const i = base.indexOf(key); const j = i + dir; if (i<0||j<0||j>=base.length) return d; const a=[...base]; [a[i],a[j]]=[a[j],a[i]]; return {...d, sectionOrder:a}; });
+    const moveSectionTo = (fromKey, toKey) => csSet(d => { const base = _normSecOrder(d.sectionOrder); const from = base.indexOf(fromKey); const to = base.indexOf(toKey); if (from<0||to<0||from===to) return d; const a=[...base]; const [m]=a.splice(from,1); a.splice(to,0,m); return {...d, sectionOrder:a}; });
     const _secMoveBtnStyle = (disabled) => ({background:"#fff",border:"1px solid #ddd",borderRadius:4,color:disabled?"#ddd":"#666",cursor:disabled?"default":"pointer",fontSize:11,padding:"1px 7px",lineHeight:1.4,fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.08)"});
 
     return (
@@ -591,8 +592,9 @@ export default function Documents({
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
 
 {csSecOrder.map((key,ki) => (
-              <div key={key} style={{position:"relative"}}>
-                <div data-noprint="1" style={{position:"absolute",right:34,top:10,display:"flex",gap:4,zIndex:3}}>
+              <div key={key} data-cs-section="1" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("csSec:")){const fromKey=d.slice(6);if(fromKey!==key)moveSectionTo(fromKey,key);}}} style={{position:"relative"}}>
+                <div data-noprint="1" style={{position:"absolute",right:34,top:10,display:"flex",gap:4,alignItems:"center",zIndex:3}}>
+                  <span draggable onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/plain","csSec:"+key);e.currentTarget.closest("[data-cs-section]").style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.closest("[data-cs-section]").style.opacity=1;}} title="Drag to reorder section" style={{cursor:"grab",color:"#999",fontSize:13,userSelect:"none",background:"#fff",border:"1px solid #ddd",borderRadius:4,padding:"1px 6px",boxShadow:"0 1px 2px rgba(0,0,0,0.08)"}}>☰</span>
                   <button onClick={()=>moveSection(key,-1)} disabled={ki===0} title="Move section up" style={_secMoveBtnStyle(ki===0)}>↑ Move up</button>
                   <button onClick={()=>moveSection(key,1)} disabled={ki===csSecOrder.length-1} title="Move section down" style={_secMoveBtnStyle(ki===csSecOrder.length-1)}>↓ Move down</button>
                 </div>
