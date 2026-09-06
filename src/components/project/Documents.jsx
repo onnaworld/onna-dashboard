@@ -316,7 +316,7 @@ export default function Documents({
                   <td style={{...csTh,width:"16%"}}>MOBILE</td>
                   <td style={{...csTh,width:"30%"}}>EMAIL</td>
                   <td style={{...csTh,width:"8%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
-                  <td style={{...csTh,width:22}}></td>
+                  <td data-noprint="1" style={{...csTh,width:22}}></td>
                 </tr></thead>
                 <tbody>
                   {csData.departments.map((dept,di) => { const deptOpen = !dept.discrete || !dept.collapsed; return (
@@ -350,7 +350,7 @@ export default function Documents({
                           <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder autoFit style={{fontSize:10,fontWeight:600,fontStyle:dept.discrete?"italic":"normal"}} placeholder="Time"/>
                           </td>
-                          <td><div style={{display:"flex",alignItems:"center",gap:2}}><button data-noprint="1" onClick={()=>moveCrew(di,ci,-1)} disabled={ci===0} title="Move up" style={{background:"none",border:"none",color:ci===0?"#eee":"#bbb",cursor:ci===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button><button data-noprint="1" onClick={()=>moveCrew(di,ci,1)} disabled={ci===dept.crew.length-1} title="Move down" style={{background:"none",border:"none",color:ci===dept.crew.length-1?"#eee":"#bbb",cursor:ci===dept.crew.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button><CSHighlightDot value={cr.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.hl`,cycleHighlight(cr.hl))} size={6}/><CSXbtn onClick={()=>rmCrew(di,ci)}/></div></td>
+                          <td data-noprint="1"><div style={{display:"flex",alignItems:"center",gap:2}}><button onClick={()=>moveCrew(di,ci,-1)} disabled={ci===0} title="Move up" style={{background:"none",border:"none",color:ci===0?"#eee":"#bbb",cursor:ci===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button><button onClick={()=>moveCrew(di,ci,1)} disabled={ci===dept.crew.length-1} title="Move down" style={{background:"none",border:"none",color:ci===dept.crew.length-1?"#eee":"#bbb",cursor:ci===dept.crew.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button><CSHighlightDot value={cr.hl} onClick={()=>csU(`departments.${di}.crew.${ci}.hl`,cycleHighlight(cr.hl))} size={6}/><CSXbtn onClick={()=>rmCrew(di,ci)}/></div></td>
                         </tr>,
                         ...(cr.agents || (cr.agent ? [cr.agent] : [])).map((ag,ai) => (
                           <tr key={ci+"-agent-"+ai} style={{background:CS_HL_BG[ag.hl||""]||"#fafafa",borderBottom:"1px solid #f5f5f5"}}>
@@ -370,7 +370,7 @@ export default function Documents({
                             <td style={{padding:"3px 8px 3px 4px",fontSize:10,color:"#999",fontStyle:"italic",fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                               <CSEditField value={ag.callTime} onChange={v=>setAgentField(di,ci,ai,"callTime",v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic",fontWeight:600}} placeholder="Time"/>
                             </td>
-                            <td><div style={{display:"flex",alignItems:"center",gap:3}}><CSHighlightDot value={ag.hl} onClick={()=>setAgentField(di,ci,ai,"hl",cycleHighlight(ag.hl))} size={6}/><CSXbtn onClick={()=>rmAgentLine(di,ci,ai)}/></div></td>
+                            <td data-noprint="1"><div style={{display:"flex",alignItems:"center",gap:3}}><CSHighlightDot value={ag.hl} onClick={()=>setAgentField(di,ci,ai,"hl",cycleHighlight(ag.hl))} size={6}/><CSXbtn onClick={()=>rmAgentLine(di,ci,ai)}/></div></td>
                           </tr>
                         )),
                         <tr key={ci+"-addagent"} style={{background:"#fff"}}>
