@@ -140,6 +140,7 @@ export default function Documents({
     const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
     const rmScheduleRow = i => { if(!confirm("Remove this schedule row?"))return; csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)})); };
     const moveScheduleRow = (i,dir) => csSet(d => { const a=[...d.schedule]; const j=i+dir; if(j<0||j>=a.length)return d; [a[i],a[j]]=[a[j],a[i]]; return {...d, schedule:a}; });
+    const moveContactLine = (i,dir) => csSet(d => { const a=[...(d.productionContactsExtra||[])]; const j=i+dir; if(j<0||j>=a.length)return d; [a[i],a[j]]=[a[j],a[i]]; return {...d, productionContactsExtra:a}; });
     const addSchedule = () => csSet(d => ({...d, extraSchedules:[...(d.extraSchedules||[]),{title:"ADDITIONAL SCHEDULE",rows:[{time:"",activity:"",notes:""}]}]}));
     const rmSchedule = si => { if(!confirm("Remove this whole schedule block?"))return; csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)})); };
     const moveSchedule = (from,to) => csSet(d => { const a=[...(d.extraSchedules||[])]; if(to<0||to>=a.length)return d; const[m]=a.splice(from,1); a.splice(to,0,m); return {...d, extraSchedules:a}; });
@@ -574,9 +575,12 @@ export default function Documents({
               <div><span style={csLbl}>Production On Set: </span>
               <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
               {(csData.productionContactsExtra||[]).map((line,i) => (
-                <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("pcontact:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.productionContactsExtra];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,productionContactsExtra:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                  <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","pcontact:"+i);}} style={{color:"#ccc",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
                   <span style={csLbl}>Production On Set: </span>
                   <CSEditField value={line} onChange={v=>csU(`productionContactsExtra.${i}`,v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
+                  <button data-noprint="1" onClick={()=>moveContactLine(i,-1)} disabled={i===0} title="Move up" style={{background:"none",border:"none",color:i===0?"#eee":"#bbb",cursor:i===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button>
+                  <button data-noprint="1" onClick={()=>moveContactLine(i,1)} disabled={i===csData.productionContactsExtra.length-1} title="Move down" style={{background:"none",border:"none",color:i===csData.productionContactsExtra.length-1?"#eee":"#bbb",cursor:i===csData.productionContactsExtra.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button>
                   <CSXbtn onClick={()=>csSet(d=>({...d,productionContactsExtra:d.productionContactsExtra.filter((_,j)=>j!==i)}))}/>
                 </div>
               ))}
