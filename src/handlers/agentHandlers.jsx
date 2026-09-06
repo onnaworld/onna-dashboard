@@ -7,6 +7,7 @@ const UNDO_SCOPE = {
   toggle: ["todos"], color: ["todos"], "move task": ["todos"], reorder: ["todos"],
   edit: ["todos"], "edit task": ["todos"], "move to project": ["todos", "projectTodos"],
   archive: ["todos", "archivedTodos", "archive"], "toggle project": ["projectTodos"],
+  "edit travel itinerary": ["travelItineraryStore"],
 };
 
 export const doPushUndo = (label, undoStack, state) => {

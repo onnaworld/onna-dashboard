@@ -195,27 +195,74 @@ const CSAddBtn = ({ onClick, label }) => <button onClick={onClick} style={{backg
 
 // ─── Travel Itinerary cell components ────────────────────────────────────────
 const TIHl = ({text,style:s={}}) => {if(!text)return null;const parts=String(text).split(/(\[.*?\])/g);return <span style={s}>{parts.map((pt,i)=>pt.startsWith("[")&&pt.endsWith("]")?<span key={i} style={{background:"#FFF9C4",borderRadius:2,padding:"0 2px"}}>{pt}</span>:<span key={i}>{pt}</span>)}</span>;};
+// Cells store links inline as "[text](url)" — parseTILink() reads it back out.
+// This is intentionally the same bracket syntax used elsewhere, but a link
+// only ever matches the full trimmed value (a lone "(url)" tail after the
+// brackets), so it never collides with TIHl's "[placeholder]" highlighting.
+const parseTILink = (v) => { const m=/^\[(.*)\]\((https?:\/\/[^\s)]+)\)$/.exec(String(v||"").trim()); return m?{text:m[1],url:m[2]}:null; };
 const TICell = ({value,onChange,style:s={},align="left"}) => {
   const [editing,setEditing]=useState(false);const [temp,setTemp]=useState(value);
+  const [linkOpen,setLinkOpen]=useState(false);const [linkInput,setLinkInput]=useState("");
   useEffect(()=>{setTemp(value);},[value]);
-  const commit=()=>{setEditing(false);onChange(temp);};
-  if(editing)return <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={e=>e.key==="Enter"&&commit()} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>;
-  return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>}</div>;
+  const commit=(v)=>{setEditing(false);onChange(v!==undefined?v:temp);};
+  const openLink=()=>{const existing=parseTILink(temp);setLinkInput(existing?existing.url:"");setLinkOpen(true);};
+  const applyLink=()=>{
+    const url=linkInput.trim();const existing=parseTILink(temp);const text=existing?existing.text:temp;
+    const newVal=url?`[${text}](${url})`:text;
+    setTemp(newVal);
+    setLinkOpen(false);
+    commit(newVal);
+  };
+  if(editing)return (
+    <div style={{position:"relative"}}>
+      <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)}
+        onBlur={()=>{if(!linkOpen)commit();}}
+        onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();e.stopPropagation();openLink();}else if(e.key==="Enter"&&!linkOpen){commit();}}}
+        style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>
+      {linkOpen&&<>
+        <div onClick={()=>{setLinkOpen(false);commit();}} style={{position:"fixed",inset:0,zIndex:9998}}/>
+        <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"100%",left:0,marginTop:2,zIndex:9999,background:"#fff",border:"1px solid #ddd",borderRadius:6,padding:6,boxShadow:"0 4px 12px rgba(0,0,0,0.15)",display:"flex",gap:6,alignItems:"center",minWidth:220}}>
+          <input autoFocus value={linkInput} onChange={e=>setLinkInput(e.target.value)} placeholder="https://… (blank removes link)"
+            onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();applyLink();}if(e.key==="Escape"){e.preventDefault();setLinkOpen(false);}}}
+            style={{flex:1,fontSize:9,padding:"4px 6px",border:"1px solid #ddd",borderRadius:4,fontFamily:CS_FONT,outline:"none"}}/>
+          <button onClick={applyLink} style={{fontSize:9,fontWeight:700,letterSpacing:0.5,padding:"4px 10px",borderRadius:4,border:"none",background:"#000",color:"#fff",cursor:"pointer",fontFamily:CS_FONT}}>Link</button>
+        </div>
+      </>}
+    </div>
+  );
+  const link=parseTILink(value);
+  return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+    {link
+      ? <a href={link.url} target="_blank" rel="noreferrer" draggable={false} onClick={e=>e.stopPropagation()} style={{color:"#1565C0",textDecoration:"underline"}}>{link.text||link.url}</a>
+      : (value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>)}
+  </div>;
 };
-const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote,onDeleteRow,onReorderRow,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn,
-  sectionDraggable,onSectionDragStart,onSectionDragOver,onSectionDrop,onSectionDragEnd,sectionDropHere}) => {
-  const rowDragRef = useRef(null);
-  const [rowDropAt,setRowDropAt] = useState(null);
+const TI_HEADER_COLORS = ["#000000","#c0392b","#1565C0","#2e7d32","#6A1B9A","#E65100","#555555"];
+const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote,onDeleteRow,onRowDragStart,onRowDragOver,onRowDrop,onRowDragEnd,rowDropRi,onDelete,onEditTitle,onEditSubtitle,isCustom,onAddColumn,onEditColumn,onDeleteColumn,
+  sectionDraggable,onSectionDragStart,onSectionDragOver,onSectionDrop,onSectionDragEnd,sectionDropHere,headerColor,onSetHeaderColor}) => {
+  const [colorPickerOpen,setColorPickerOpen] = useState(false);
+  const hdrColor = headerColor || "#000000";
   return (
   <div style={{marginBottom:16,position:"relative",...(sectionDropHere?{boxShadow:"0 -2px 0 0 #2196F3"}:{})}}
     draggable={!!sectionDraggable} onDragStart={onSectionDragStart} onDragOver={onSectionDragOver} onDrop={onSectionDrop} onDragEnd={onSectionDragEnd}>
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#000",padding:"4px 8px"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:hdrColor,padding:"4px 8px"}}>
       <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
         {sectionDraggable&&<span data-noprint style={{color:"rgba(255,255,255,0.4)",fontSize:10,cursor:"grab",flexShrink:0}}>⠿</span>}
         <div onClick={onEditTitle} style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>{title}</div>
-        {subtitle&&<div onClick={onEditSubtitle} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:"rgba(255,255,255,0.55)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{subtitle}</div>}
+        <div onClick={onEditSubtitle} data-noprint={subtitle?undefined:"1"} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:subtitle?"rgba(255,255,255,0.55)":"rgba(255,255,255,0.3)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:subtitle?"normal":"italic"}}>{subtitle||"+ add subtitle"}</div>
       </div>
-      <div data-noprint style={{display:"flex",gap:10,flexShrink:0}}>
+      <div data-noprint style={{display:"flex",gap:10,flexShrink:0,alignItems:"center",position:"relative"}}>
+        {onSetHeaderColor&&<>
+          <span onClick={()=>setColorPickerOpen(v=>!v)} style={{width:10,height:10,borderRadius:"50%",background:hdrColor,border:"1px solid rgba(255,255,255,0.6)",cursor:"pointer",flexShrink:0}} title="Header colour"/>
+          {colorPickerOpen&&<>
+            <div onClick={()=>setColorPickerOpen(false)} style={{position:"fixed",inset:0,zIndex:9998}}/>
+            <div style={{position:"absolute",top:"100%",right:0,marginTop:6,background:"#fff",border:"1px solid #ddd",borderRadius:6,padding:6,display:"flex",gap:6,boxShadow:"0 4px 12px rgba(0,0,0,0.15)",zIndex:9999}}>
+              {TI_HEADER_COLORS.map(c=>(
+                <span key={c} onClick={()=>{onSetHeaderColor(c);setColorPickerOpen(false);}} style={{width:16,height:16,borderRadius:"50%",background:c,cursor:"pointer",border:c===hdrColor?"2px solid #999":"1px solid #ddd"}}/>
+              ))}
+            </div>
+          </>}
+        </>}
         {isCustom&&onAddColumn&&<span onClick={onAddColumn} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD COLUMN</span>}
         <span onClick={onAddRow} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD ROW</span>
         {onAddNote&&<span onClick={onAddNote} style={{fontFamily:CS_FONT,fontSize:8,color:"rgba(255,255,255,0.55)",cursor:"pointer",letterSpacing:0.5}} onMouseEnter={e=>e.target.style.color="#fff"} onMouseLeave={e=>e.target.style.color="rgba(255,255,255,0.55)"}>+ ADD NOTE</span>}
@@ -226,33 +273,32 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
       <div style={{width:32}}/>
       {columns.map((col,ci)=>(
         <div key={col.key} style={{flex:col.flex,fontFamily:CS_FONT,fontSize:7,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",padding:"4px 4px",display:"flex",alignItems:"center",gap:2}}>
-          <span onClick={isCustom&&onEditColumn?()=>onEditColumn(ci):undefined} style={{cursor:isCustom?"pointer":"default"}}>{col.label}</span>
+          <span onClick={onEditColumn?()=>onEditColumn(ci):undefined} style={{cursor:onEditColumn?"pointer":"default"}}>{col.label}</span>
           {isCustom&&onDeleteColumn&&columns.length>1&&<span data-noprint onClick={()=>onDeleteColumn(ci)} style={{cursor:"pointer",fontSize:8,color:"#ddd",marginLeft:2}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>}
         </div>
       ))}
     </div>
     {rows.map((row,ri)=>{
-      const dragHandle = onReorderRow && (
+      const dragHandle = onRowDragStart && (
         <div draggable data-noprint
-          onDragStart={e=>{rowDragRef.current=ri;e.dataTransfer.effectAllowed="move";e.currentTarget.parentElement.style.opacity="0.4";}}
-          onDragEnd={e=>{e.currentTarget.parentElement.style.opacity="1";rowDragRef.current=null;setRowDropAt(null);}}
+          onDragStart={e=>{e.stopPropagation();onRowDragStart(ri);e.dataTransfer.effectAllowed="move";e.currentTarget.parentElement.style.opacity="0.4";}}
+          onDragEnd={e=>{e.stopPropagation();e.currentTarget.parentElement.style.opacity="1";onRowDragEnd&&onRowDragEnd();}}
           style={{width:14,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",fontSize:10,color:"#ccc",flexShrink:0}}
           onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>⠿</div>
       );
-      const rowWrapProps = onReorderRow ? {
-        onDragOver:e=>{e.preventDefault();if(rowDragRef.current!==null&&rowDragRef.current!==ri)setRowDropAt(ri);},
-        onDragLeave:()=>{if(rowDropAt===ri)setRowDropAt(null);},
-        onDrop:e=>{e.preventDefault();const from=rowDragRef.current;setRowDropAt(null);rowDragRef.current=null;if(from===null||from===ri)return;onReorderRow(from,ri);},
+      const rowWrapProps = onRowDragOver ? {
+        onDragOver:e=>{e.preventDefault();e.stopPropagation();onRowDragOver(ri);},
+        onDrop:e=>{e.preventDefault();e.stopPropagation();onRowDrop(ri);},
       } : {};
-      const dropStyle = rowDropAt===ri ? {boxShadow:"0 -2px 0 0 #2196F3"} : {};
+      const dropStyle = rowDropRi===ri ? {boxShadow:"0 -2px 0 0 #2196F3"} : {};
       return row.isNote ? (
-        <div key={row.id} {...rowWrapProps} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,background:"#FFFDE7",...dropStyle}}>
+        <div key={row.id} {...rowWrapProps} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,background:"#FDECEA",...dropStyle}}>
           <div style={{width:32,display:"flex",alignItems:"center"}}>
             {dragHandle}
             <span data-noprint onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
           </div>
           <div style={{flex:1,fontStyle:"italic"}}>
-            <TICell value={row.text||""} onChange={v=>onUpdate(ri,"text",v)} style={{color:"#8a6d00"}}/>
+            <TICell value={row.text||""} onChange={v=>onUpdate(ri,"text",v)} style={{color:"#c0392b"}}/>
           </div>
         </div>
       ) : (

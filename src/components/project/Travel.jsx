@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { downloadAoaXlsx } from "../../utils/templateExport";
 
 export default function Travel({
   T, isMobile, p,
@@ -118,7 +119,7 @@ export default function Travel({
     const tiData = tiVersions[tiIdx] || tiVersions[0];
     if(!tiData){setActiveTIVersion(null);return null;}
 
-    const tiU = (path, val) => {
+    const tiU = (path, val) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{
         const store=JSON.parse(JSON.stringify(prev));
         const arr=store[p.id]||[];
@@ -139,28 +140,38 @@ export default function Travel({
     const tiRowsFor = (sec) => sec.type!=="flights" ? (sec.data||[]) : (sec.data||[]).map(r =>
       (r.date===undefined && r.dateOut!==undefined) ? {...r, date:r.dateOut, route:r.routeOut, time:r.timeOut} : r);
     const tiTemplateFor = (type) => type==="flights"?{id:Date.now(),name:"[Name / Role]",date:"[Date]",route:"[City (Code) > City (Code)]",time:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"}:type==="cars"?{id:Date.now(),name:"[Name]",date:"[Date]",flightTime:"[00:00 > 00:00]",collectionTime:"[00:00]",flightNo:"[XX 000]",pickUp:"[Airport / Hotel / Full Address]",dropOff:"[Hotel / Location / Full Address]",vehicleType:"[Sedan]",bookingRef:"[Ref]"}:{id:Date.now(),name:"[Name / Role]",hotel:"[Hotel Name]",address:"[Full Address]",checkIn:"[Date]",checkOut:"[Date]",roomType:"[Standard]",bookingRef:"[Ref]",notes:""};
-    const tiUpdateRow = (si,ri,key,val) => {
+    const tiUpdateRow = (si,ri,key,val) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.map((s,i)=>i===si?{...s,data:s.data.map((r,j)=>j===ri?{...r,[key]:val}:r)}:s);arr[tiIdx]=d;store[p.id]=arr;return store;});
     };
-    const tiAddRow = (si) => {
+    const tiAddRow = (si) => {pushUndo("edit travel itinerary");
       const sec=tiData.sections[si];
       if(sec.type==="custom"){const emptyRow={id:Date.now()};(sec.columns||[]).forEach(c=>{emptyRow[c.key]="";});setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push(emptyRow);arr[tiIdx]=d;store[p.id]=arr;return store;});}
       else{setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({...tiTemplateFor(sec.type),id:Date.now()});arr[tiIdx]=d;store[p.id]=arr;return store;});}
     };
-    const tiDeleteRow = (si,ri) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data=d.sections[si].data.filter((_,j)=>j!==ri);arr[tiIdx]=d;store[p.id]=arr;return store;});};
-    const tiAddNote = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({id:Date.now(),isNote:true,text:""});arr[tiIdx]=d;store[p.id]=arr;return store;});};
-    const tiReorderRow = (si,fromRi,toRi) => {
-      setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const data=d.sections[si].data;const [moved]=data.splice(fromRi,1);data.splice(toRi,0,moved);arr[tiIdx]=d;store[p.id]=arr;return store;});
+    const tiDeleteRow = (si,ri) => {pushUndo("edit travel itinerary");setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data=d.sections[si].data.filter((_,j)=>j!==ri);arr[tiIdx]=d;store[p.id]=arr;return store;});};
+    const tiAddNote = (si) => {pushUndo("edit travel itinerary");setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].data.push({id:Date.now(),isNote:true,text:""});arr[tiIdx]=d;store[p.id]=arr;return store;});};
+    // Moves a row within its section OR across into a different section.
+    const tiMoveRow = (fromSi,fromRi,toSi,toRi) => {pushUndo("edit travel itinerary");
+      setTravelItineraryStore(prev=>{
+        const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];
+        const fromData=d.sections[fromSi].data;
+        const [moved]=fromData.splice(fromRi,1);
+        (fromSi===toSi?fromData:d.sections[toSi].data).splice(toRi,0,moved);
+        arr[tiIdx]=d;store[p.id]=arr;return store;
+      });
     };
+    const tiRowDragRef = useRef(null); // {si,ri}
+    const [tiRowDropTarget,setTiRowDropTarget] = useState(null); // {si,ri}
     const tiSectionDragRef = useRef(null);
     const [tiSectionDropAt,setTiSectionDropAt] = useState(null);
-    const tiReorderSections = (fromSi,toSi) => {
+    const tiReorderSections = (fromSi,toSi) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const secs=[...(d.sections||[])];const [moved]=secs.splice(fromSi,1);secs.splice(toSi,0,moved);d.sections=secs;arr[tiIdx]=d;store[p.id]=arr;return store;});
     };
-    const tiDeleteSection = (si) => {setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.filter((_,i)=>i!==si);arr[tiIdx]=d;store[p.id]=arr;return store;});};
-    const tiEditSectionTitle = async (si) => {const val=await showPrompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
-    const tiEditSectionSubtitle = async (si) => {const val=await showPrompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
-    const tiAddSection = async (type) => {
+    const tiDeleteSection = (si) => {pushUndo("edit travel itinerary");setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections=d.sections.filter((_,i)=>i!==si);arr[tiIdx]=d;store[p.id]=arr;return store;});};
+    const tiSetSectionColor = (si,color) => {pushUndo("edit travel itinerary");setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.sections[si].headerColor=color;arr[tiIdx]=d;store[p.id]=arr;return store;});};
+    const tiEditSectionTitle = async (si) => {pushUndo("edit travel itinerary");const val=await showPrompt("Section title:",tiData.sections[si].title);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].title=val.toUpperCase();store[p.id]=arr;return store;});}};
+    const tiEditSectionSubtitle = async (si) => {pushUndo("edit travel itinerary");const val=await showPrompt("Subtitle (leave blank for none):",tiData.sections[si].subtitle);if(val!==null){setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].subtitle=val;store[p.id]=arr;return store;});}};
+    const tiAddSection = async (type) => {pushUndo("edit travel itinerary");
       if(type==="custom"){
         const title=await showPrompt("Section title:","NEW SECTION");if(!title)return;
         const colInput=await showPrompt("Enter column names separated by commas:","Name, Date, Details, Notes");if(!colInput)return;
@@ -173,17 +184,17 @@ export default function Travel({
         setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections.push({...defs[type],id:`${type}_${Date.now()}`});store[p.id]=arr;return store;});
       }
     };
-    const tiAddCustomColumn = async (si) => {
+    const tiAddCustomColumn = async (si) => {pushUndo("edit travel itinerary");
       const name=await showPrompt("Column name:");if(!name)return;
       const sec=tiData.sections[si];const newKey=`col${(sec.columns||[]).length+1}_${Date.now()}`;
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=[...(s.columns||[]),{key:newKey,label:name.toUpperCase(),flex:1}];s.data=s.data.map(r=>({...r,[newKey]:"[Value]"}));store[p.id]=arr;return store;});
     };
-    const tiEditCustomColumn = async (si,ci) => {
+    const tiEditCustomColumn = async (si,ci) => {pushUndo("edit travel itinerary");
       const sec=tiData.sections[si];const col=(sec.columns||[])[ci];if(!col)return;
       const name=await showPrompt("Rename column:",col.label);if(!name)return;
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];arr[tiIdx].sections[si].columns=(arr[tiIdx].sections[si].columns||[]).map((c,j)=>j===ci?{...c,label:name.toUpperCase()}:c);store[p.id]=arr;return store;});
     };
-    const tiDeleteCustomColumn = (si,ci) => {
+    const tiDeleteCustomColumn = (si,ci) => {pushUndo("edit travel itinerary");
       const sec=tiData.sections[si];const col=(sec.columns||[])[ci];if(!col)return;
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const s=arr[tiIdx].sections[si];s.columns=(s.columns||[]).filter((_,j)=>j!==ci);s.data=s.data.map(r=>{const nr={...r};delete nr[col.key];return nr;});store[p.id]=arr;return store;});
     };
@@ -192,25 +203,26 @@ export default function Travel({
     const tiRooming = tiData.rooming || [];
     const tiTravelTab = tiData.travelTab || "itinerary";
     const tiSetTravelTab = (tab) => tiU("travelTab", tab);
-    const tiUpdateRooming = (id,key,val) => {
+    const tiUpdateRooming = (id,key,val) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.rooming=(d.rooming||[]).map(r=>r.id===id?{...r,[key]:val}:r);store[p.id]=arr;return store;});
     };
-    const tiAddRoomingRow = () => {
+    const tiAddRoomingRow = () => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];if(!d.rooming)d.rooming=[];d.rooming.push({id:"rm"+Date.now(),passportName:"",hotel:"",roomType:"",sharingWith:"",checkIn:"",checkOut:"",confirmNo:"",requests:""});store[p.id]=arr;return store;});
     };
-    const tiDeleteRoomingRow = (id) => {
+    const tiDeleteRoomingRow = (id) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.rooming=(d.rooming||[]).filter(r=>r.id!==id);store[p.id]=arr;return store;});
     };
     const tiDragRm = useRef(null);
     const [tiDropRmAt, setTiDropRmAt] = useState(null);
     const [tiFooterHovered, setTiFooterHovered] = useState(false);
-    const tiSetFooter = (patch) => {
+    const [tiNotesHovered, setTiNotesHovered] = useState(false);
+    const tiSetFooter = (patch) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.footer={...(d.footer||{}),...patch};store[p.id]=arr;return store;});
     };
-    const tiReorderRooming = (fromIdx, toIdx) => {
+    const tiReorderRooming = (fromIdx, toIdx) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const rm=[...(d.rooming||[])];const [moved]=rm.splice(fromIdx,1);rm.splice(toIdx,0,moved);d.rooming=rm;store[p.id]=arr;return store;});
     };
-    const tiSyncRoomingToHotels = () => {
+    const tiSyncRoomingToHotels = () => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{
         const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];
         const hotelIdx=(d.sections||[]).findIndex(s=>s.type==="hotels");
@@ -226,23 +238,60 @@ export default function Travel({
 
     // ── Movement order helpers ──
     const tiMoveDays = tiData.moveDays || [tiMkDay()];
-    const tiUpdateDay = (did,key,val) => {
+    const tiUpdateDay = (did,key,val) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,[key]:val}:dy);store[p.id]=arr;return store;});
     };
-    const tiAddDay = () => {
+    const tiAddDay = () => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];if(!d.moveDays)d.moveDays=[];d.moveDays.push(tiMkDay());store[p.id]=arr;return store;});
     };
-    const tiDeleteDay = (did) => {
+    const tiDeleteDay = (did) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).filter(dy=>dy.id!==did);store[p.id]=arr;return store;});
     };
-    const tiUpdateMove = (did,mid,key,val) => {
+    const tiUpdateMove = (did,mid,key,val) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,moves:dy.moves.map(m=>m.id===mid?{...m,[key]:val}:m)}:dy);store[p.id]=arr;return store;});
     };
-    const tiAddMove = (did) => {
+    const tiAddMove = (did) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,moves:[...dy.moves,tiMkMove()]}:dy);store[p.id]=arr;return store;});
     };
-    const tiDeleteMove = (did,mid) => {
+    const tiDeleteMove = (did,mid) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.moveDays=(d.moveDays||[]).map(dy=>dy.id===did?{...dy,moves:dy.moves.filter(m=>m.id!==mid)}:dy);store[p.id]=arr;return store;});
+    };
+
+    const tiExportExcel = () => {
+      const usedNames = new Set();
+      const sheetName = (raw) => {
+        let name = (raw||"Section").replace(/[\\/?*[\]:]/g,"").slice(0,31) || "Section";
+        let unique = name; let n = 2;
+        while (usedNames.has(unique)) { unique = `${name.slice(0,28)} ${n}`; n++; }
+        usedNames.add(unique);
+        return unique;
+      };
+      const sheets = [];
+      (tiData.sections||[]).forEach(sec => {
+        const cols = tiColsFor(sec);
+        const rows = tiRowsFor(sec);
+        const data = [cols.map(c=>c.label)];
+        rows.forEach(row => {
+          if (row.isNote) { data.push([`NOTE: ${row.text||""}`]); return; }
+          data.push(cols.map(c=>row[c.key]||""));
+        });
+        sheets.push({ name: sheetName(sec.title), data, cols: cols.map(()=>({wch:18})) });
+      });
+      if ((tiRooming||[]).length) {
+        const data = [TI_ROOMING_COLS.map(c=>c.label), ...tiRooming.map(rm=>TI_ROOMING_COLS.map(c=>rm[c.key]||""))];
+        sheets.push({ name: sheetName("Rooming List"), data, cols: TI_ROOMING_COLS.map(()=>({wch:18})) });
+      }
+      if ((tiMoveDays||[]).length) {
+        const data = [["DAY","DATE","TITLE",...TI_MOVEMENT_COLS.map(c=>c.label)]];
+        tiMoveDays.forEach((day,di)=>{
+          (day.moves||[]).forEach(mv=>{
+            data.push([`Day ${di+1}`, day.date||"", day.title||"", ...TI_MOVEMENT_COLS.map(c=>mv[c.key]||"")]);
+          });
+        });
+        sheets.push({ name: sheetName("Movement Order"), data, cols: [{wch:8},{wch:12},{wch:20},...TI_MOVEMENT_COLS.map(()=>({wch:16}))] });
+      }
+      if (!sheets.length) sheets.push({ name:"Itinerary", data:[["No content yet"]] });
+      downloadAoaXlsx(sheets, `${tiData.label||"Travel Itinerary"}.xlsx`);
     };
 
     const tiExportPDF = () => {
@@ -273,6 +322,7 @@ export default function Travel({
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setActiveTIVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Itineraries</button>
           <div style={{flex:1}}/>
+          <BtnExport onClick={tiExportExcel}>Export Excel</BtnExport>
           <BtnExport onClick={tiExportPDF}>Export PDF</BtnExport>
         </div>
         <div style={{marginBottom:12}}>
@@ -326,7 +376,13 @@ export default function Travel({
               {(tiData.sections||[]).map((sec,si)=>(
                 <TITableSection key={sec.id} title={sec.title} subtitle={sec.subtitle} columns={tiColsFor(sec)} rows={tiRowsFor(sec)}
                   onUpdate={(ri,key,val)=>tiUpdateRow(si,ri,key,val)} onAddRow={()=>tiAddRow(si)} onAddNote={()=>tiAddNote(si)} onDeleteRow={(ri)=>tiDeleteRow(si,ri)}
-                  onReorderRow={(fromRi,toRi)=>tiReorderRow(si,fromRi,toRi)}
+                  onRowDragStart={(ri)=>{tiRowDragRef.current={si,ri};}}
+                  onRowDragOver={(ri)=>{if(tiRowDragRef.current)setTiRowDropTarget({si,ri});}}
+                  onRowDrop={(ri)=>{const from=tiRowDragRef.current;setTiRowDropTarget(null);tiRowDragRef.current=null;if(!from||(from.si===si&&from.ri===ri))return;tiMoveRow(from.si,from.ri,si,ri);}}
+                  onRowDragEnd={()=>{tiRowDragRef.current=null;setTiRowDropTarget(null);}}
+                  rowDropRi={tiRowDropTarget&&tiRowDropTarget.si===si?tiRowDropTarget.ri:null}
+                  headerColor={sec.headerColor}
+                  onSetHeaderColor={(c)=>tiSetSectionColor(si,c)}
                   onDelete={()=>tiDeleteSection(si)} onEditTitle={()=>tiEditSectionTitle(si)} onEditSubtitle={()=>tiEditSectionSubtitle(si)}
                   isCustom={sec.type==="custom"} onAddColumn={sec.type==="custom"?()=>tiAddCustomColumn(si):null}
                   onEditColumn={sec.type==="custom"?(ci)=>tiEditCustomColumn(si,ci):null} onDeleteColumn={sec.type==="custom"?(ci)=>tiDeleteCustomColumn(si,ci):null}
@@ -359,13 +415,28 @@ export default function Travel({
               </div>
 
               {/* Confidentiality notice */}
-              <div style={{marginTop:16,padding:"10px 0",borderTop:"1px solid #eee"}}>
-                <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999",marginBottom:4}}>CONFIDENTIALITY NOTICE</div>
-                <div onClick={async ()=>{const val=await showPrompt("Edit notice:",tiData.notes);if(val!==null)tiU("notes",val);}}
-                  style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,lineHeight:1.5,color:"#999",cursor:"text"}}>
-                  {tiData.notes||"Click to add confidentiality notice"}
+              {tiData.notesShow===false ? (
+                <div data-noprint style={{marginTop:16,padding:"10px 0",borderTop:"1px solid #eee"}}>
+                  <div onClick={()=>tiU("notesShow",true)}
+                    style={{border:"1.5px dashed #ddd",borderRadius:4,padding:"6px 12px",display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#aaa";}}>
+                    + Add Confidentiality Notice
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div style={{marginTop:16,padding:"10px 0",borderTop:"1px solid #eee",position:"relative"}} onMouseEnter={()=>setTiNotesHovered(true)} onMouseLeave={()=>setTiNotesHovered(false)}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <div style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",color:"#999"}}>CONFIDENTIALITY NOTICE</div>
+                    {tiNotesHovered&&<span data-noprint onClick={()=>tiU("notesShow",false)} style={{fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#999",cursor:"pointer",background:"#eee",borderRadius:8,padding:"2px 8px"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background="#f44";e.currentTarget.style.color="#fff";}} onMouseLeave={e=>{e.currentTarget.style.background="#eee";e.currentTarget.style.color="#999";}}>REMOVE</span>}
+                  </div>
+                  <div onClick={async ()=>{const val=await showPrompt("Edit notice:",tiData.notes);if(val!==null)tiU("notes",val);}}
+                    style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,lineHeight:1.5,color:"#999",cursor:"text"}}>
+                    {tiData.notes||"Click to add confidentiality notice"}
+                  </div>
+                </div>
+              )}
             </div>)}
 
             {/* ========= ROOMING LIST TAB ========= */}
