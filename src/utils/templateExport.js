@@ -8,6 +8,86 @@ const s2ab = (s) => {
   return buf;
 };
 
+const _downloadBlob = (blob, filename) => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+// Single-sheet export with real cell styling (black section header bars, etc) — the
+// plain `xlsx` package (community edition) cannot write cell fills/fonts at all, so
+// this uses exceljs for anything that needs to visually match the app's own styling.
+export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
+  const { default: ExcelJS } = await import("exceljs");
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(opts.sheetName || "Sheet1", {
+    pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: opts.orientation || "landscape", margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } },
+    views: [{ showGridLines: false }],
+  });
+  let r = 1;
+  const maxCols = Math.max(1, ...blocks.map(b => (b.columns || []).length));
+  if (opts.title) {
+    ws.mergeCells(r, 1, r, maxCols);
+    const cell = ws.getRow(r).getCell(1);
+    cell.value = opts.title;
+    cell.font = { bold: true, size: 13, color: { argb: "FF1A1A1A" } };
+    ws.getRow(r).height = 22;
+    r += 2;
+  }
+  blocks.forEach(block => {
+    const cols = block.columns || [];
+    const span = Math.max(1, cols.length);
+    const hdrColor = (block.headerColor || "#000000").replace("#", "FF").toUpperCase();
+    const titleRow = ws.getRow(r);
+    ws.mergeCells(r, 1, r, span);
+    const titleCell = titleRow.getCell(1);
+    titleCell.value = block.title || "";
+    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: hdrColor } };
+    titleCell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+    titleCell.alignment = { vertical: "middle" };
+    titleRow.height = 20;
+    for (let c = 1; c <= span; c++) titleRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: hdrColor } };
+    r++;
+    if (block.subtitle) {
+      ws.mergeCells(r, 1, r, span);
+      const subCell = ws.getRow(r).getCell(1);
+      subCell.value = block.subtitle;
+      subCell.font = { italic: true, size: 8, color: { argb: "FF888888" } };
+      r++;
+    }
+    if (cols.length) {
+      const hdrRow = ws.getRow(r);
+      cols.forEach((c, ci) => {
+        const cell = hdrRow.getCell(ci + 1);
+        cell.value = c.label;
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F4" } };
+        cell.font = { bold: true, size: 9, color: { argb: "FF999999" } };
+        cell.border = { bottom: { style: "thin", color: { argb: "FFDDDDDD" } } };
+      });
+      r++;
+    }
+    (block.rows || []).forEach(row => {
+      const dataRow = ws.getRow(r);
+      if (row.isNote) {
+        ws.mergeCells(r, 1, r, span);
+        const cell = dataRow.getCell(1);
+        cell.value = `NOTE: ${row.text || ""}`;
+        cell.font = { italic: true, size: 9, color: { argb: "FFC0392B" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDECEA" } };
+      } else {
+        cols.forEach((c, ci) => { dataRow.getCell(ci + 1).value = row[c.key] || ""; });
+      }
+      r++;
+    });
+    r++;
+  });
+  for (let c = 1; c <= maxCols; c++) ws.getColumn(c).width = opts.colWidth || 18;
+  const buf = await wb.xlsx.writeBuffer();
+  _downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), filename);
+};
+
 export const downloadAoaXlsx = (sheets, filename) => {
   const wb = XLSX.utils.book_new();
   sheets.forEach(({ name, data, cols }) => {

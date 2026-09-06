@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { downloadAoaXlsx } from "../../utils/templateExport";
+import { downloadStyledXlsx } from "../../utils/templateExport";
 
 export default function Travel({
   T, isMobile, p,
@@ -267,40 +267,21 @@ export default function Travel({
     };
 
     const tiExportExcel = () => {
-      const usedNames = new Set();
-      const sheetName = (raw) => {
-        let name = (raw||"Section").replace(/[\\/?*[\]:]/g,"").slice(0,31) || "Section";
-        let unique = name; let n = 2;
-        while (usedNames.has(unique)) { unique = `${name.slice(0,28)} ${n}`; n++; }
-        usedNames.add(unique);
-        return unique;
-      };
-      const sheets = [];
+      const blocks = [];
       (tiData.sections||[]).forEach(sec => {
-        const cols = tiColsFor(sec);
-        const rows = tiRowsFor(sec);
-        const data = [cols.map(c=>c.label)];
-        rows.forEach(row => {
-          if (row.isNote) { data.push([`NOTE: ${row.text||""}`]); return; }
-          data.push(cols.map(c=>row[c.key]||""));
-        });
-        sheets.push({ name: sheetName(sec.title), data, cols: cols.map(()=>({wch:18})) });
+        blocks.push({ title:(sec.title||"").toUpperCase(), subtitle:sec.subtitle, headerColor:sec.headerColor, columns:tiColsFor(sec), rows:tiRowsFor(sec) });
       });
       if ((tiRooming||[]).length) {
-        const data = [TI_ROOMING_COLS.map(c=>c.label), ...tiRooming.map(rm=>TI_ROOMING_COLS.map(c=>rm[c.key]||""))];
-        sheets.push({ name: sheetName("Rooming List"), data, cols: TI_ROOMING_COLS.map(()=>({wch:18})) });
+        blocks.push({ title:"ROOMING LIST", columns:TI_ROOMING_COLS, rows:tiRooming });
       }
       if ((tiMoveDays||[]).length) {
-        const data = [["DAY","DATE","TITLE",...TI_MOVEMENT_COLS.map(c=>c.label)]];
-        tiMoveDays.forEach((day,di)=>{
-          (day.moves||[]).forEach(mv=>{
-            data.push([`Day ${di+1}`, day.date||"", day.title||"", ...TI_MOVEMENT_COLS.map(c=>mv[c.key]||"")]);
-          });
-        });
-        sheets.push({ name: sheetName("Movement Order"), data, cols: [{wch:8},{wch:12},{wch:20},...TI_MOVEMENT_COLS.map(()=>({wch:16}))] });
+        const movementCols = [{key:"day",label:"Day"},{key:"date",label:"Date"},{key:"dayTitle",label:"Title"},...TI_MOVEMENT_COLS];
+        const rows = [];
+        tiMoveDays.forEach((day,di)=>{ (day.moves||[]).forEach(mv=>{ rows.push({...mv, day:`Day ${di+1}`, date:day.date||"", dayTitle:day.title||""}); }); });
+        blocks.push({ title:"MOVEMENT ORDER", columns:movementCols, rows });
       }
-      if (!sheets.length) sheets.push({ name:"Itinerary", data:[["No content yet"]] });
-      downloadAoaXlsx(sheets, `${tiData.label||"Travel Itinerary"}.xlsx`);
+      if (!blocks.length) blocks.push({ title:"ITINERARY", columns:[{key:"none",label:"No content yet"}], rows:[] });
+      downloadStyledXlsx(blocks, `${tiData.label||"Travel Itinerary"}.xlsx`, { title:`${tiData.label||"Travel Itinerary"} — ${p.name||""}`, sheetName:"Travel Itinerary" });
     };
 
     const tiExportPDF = () => {
