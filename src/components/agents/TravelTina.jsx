@@ -31,6 +31,8 @@ const tiMkMove = () => ({id:"mv"+Date.now()+Math.random(),time:"",activity:"",lo
 const tiMkDay = () => ({id:"dy"+Date.now()+Math.random(),date:"",title:"",moves:[tiMkMove(),tiMkMove(),tiMkMove()]});
 const TRAVEL_ITINERARY_INIT = {
   project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",producer:"[Producer]",destination:"[Destination]"},
+  productionContacts:"",
+  productionContactsExtra:[],
   sections:[
     {id:"flights",type:"flights",title:"FLIGHT SCHEDULE",subtitle:"",data:[
       {id:1,name:"[Name / Role]",date:"[Date]",route:"[City (Code) > City (Code)]",time:"[00:00 > 00:00]",airline:"[Airline]",flightNo:"[XX 000]",bookingRef:"[Ref]"},

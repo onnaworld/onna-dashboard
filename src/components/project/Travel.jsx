@@ -219,6 +219,12 @@ export default function Travel({
     const tiSetFooter = (patch) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.footer={...(d.footer||{}),...patch};store[p.id]=arr;return store;});
     };
+    const tiAddContactLine = () => {pushUndo("edit travel itinerary");
+      setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.productionContactsExtra=[...(d.productionContactsExtra||[]),""];store[p.id]=arr;return store;});
+    };
+    const tiRemoveContactLine = (i) => {pushUndo("edit travel itinerary");
+      setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];d.productionContactsExtra=(d.productionContactsExtra||[]).filter((_,j)=>j!==i);store[p.id]=arr;return store;});
+    };
     const tiReorderRooming = (fromIdx, toIdx) => {pushUndo("edit travel itinerary");
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[tiIdx];const rm=[...(d.rooming||[])];const [moved]=rm.splice(fromIdx,1);rm.splice(toIdx,0,moved);d.rooming=rm;store[p.id]=arr;return store;});
     };
@@ -359,6 +365,23 @@ export default function Travel({
 
             <div style={{textAlign:"center",padding:isMobile?"12px 12px 4px":"20px 40px 4px"}}>
               <div style={{fontSize:12,fontWeight:800,letterSpacing:CS_LS,color:"#000"}}>{tiTravelTab==="itinerary"?"TRAVEL ITINERARY":tiTravelTab==="rooming"?"ROOMING LIST":"MOVEMENT ORDER"}</div>
+            </div>
+
+            {/* Production contact line(s) */}
+            <div style={{padding:isMobile?"0 12px":"0 40px",fontSize:11}}>
+              <div><span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>PRODUCTION ON SET: </span>
+              <TICell value={tiData.productionContacts||""} onChange={v=>tiU("productionContacts",v)}/></div>
+              {(tiData.productionContactsExtra||[]).map((line,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                  <span style={{fontFamily:CS_FONT,fontSize:9,fontWeight:700,letterSpacing:0.5}}>PRODUCTION ON SET: </span>
+                  <div style={{flex:1}}><TICell value={line} onChange={v=>tiU(`productionContactsExtra.${i}`,v)}/></div>
+                  <span data-noprint="1" onClick={()=>tiRemoveContactLine(i)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}}
+                    onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+                </div>
+              ))}
+              <button data-noprint="1" onClick={tiAddContactLine} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}}
+                onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
+              <div style={{borderBottom:"1px solid #eee",marginTop:10}}/>
             </div>
 
             {/* Project info */}
