@@ -584,14 +584,12 @@ export default function Documents({
               <div style={{borderBottom:"1px solid #eee",marginTop:10}}/>
             </div>
 
-{csSecOrder.map((key) => (
+{csSecOrder.map((key,ki) => (
               <div key={key} style={{position:"relative"}}>
-                {key==="schedule" && (
-                  <div data-noprint="1" style={{position:"absolute",right:34,top:10,display:"flex",gap:4,zIndex:3}}>
-                    <button onClick={()=>moveSection("schedule",-1)} disabled={csSecOrder.indexOf("schedule")===0} title="Move schedule up" style={_secMoveBtnStyle(csSecOrder.indexOf("schedule")===0)}>↑ Move up</button>
-                    <button onClick={()=>moveSection("schedule",1)} disabled={csSecOrder.indexOf("schedule")===csSecOrder.length-1} title="Move schedule down" style={_secMoveBtnStyle(csSecOrder.indexOf("schedule")===csSecOrder.length-1)}>↓ Move down</button>
-                  </div>
-                )}
+                <div data-noprint="1" style={{position:"absolute",right:34,top:10,display:"flex",gap:4,zIndex:3}}>
+                  <button onClick={()=>moveSection(key,-1)} disabled={ki===0} title="Move section up" style={_secMoveBtnStyle(ki===0)}>↑ Move up</button>
+                  <button onClick={()=>moveSection(key,1)} disabled={ki===csSecOrder.length-1} title="Move section down" style={_secMoveBtnStyle(ki===csSecOrder.length-1)}>↓ Move down</button>
+                </div>
                 {CS_SEC_MAP[key]}
               </div>
             ))}
