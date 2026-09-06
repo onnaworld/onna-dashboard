@@ -518,8 +518,27 @@ export default function Documents({
               </div>
             </div>
     </>);
-    const CS_SEC_MAP = { shoot: _sec_shoot, schedule: _sec_schedule, contacts: _sec_contacts, map: _sec_map, weather: _sec_weather, invoicing: _sec_invoicing, protocol: _sec_protocol, emergency: _sec_emergency };
-    const CS_SEC_DEFAULT = ["shoot", "schedule", "contacts", "map", "weather", "invoicing", "protocol", "emergency"];
+    const _sec_productionContacts = (<>
+{/* PRODUCTION CONTACTS */}
+            <div style={{padding:"10px 32px",fontSize:11}}>
+              <div><span style={csLbl}>Production On Set: </span>
+              <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
+              {(csData.productionContactsExtra||[]).map((line,i) => (
+                <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("pcontact:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.productionContactsExtra];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,productionContactsExtra:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                  <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","pcontact:"+i);}} style={{color:"#ccc",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
+                  <span style={csLbl}>Production On Set: </span>
+                  <CSEditField value={line} onChange={v=>csU(`productionContactsExtra.${i}`,v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
+                  <button data-noprint="1" onClick={()=>moveContactLine(i,-1)} disabled={i===0} title="Move up" style={{background:"none",border:"none",color:i===0?"#eee":"#bbb",cursor:i===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button>
+                  <button data-noprint="1" onClick={()=>moveContactLine(i,1)} disabled={i===csData.productionContactsExtra.length-1} title="Move down" style={{background:"none",border:"none",color:i===csData.productionContactsExtra.length-1?"#eee":"#bbb",cursor:i===csData.productionContactsExtra.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button>
+                  <CSXbtn onClick={()=>csSet(d=>({...d,productionContactsExtra:d.productionContactsExtra.filter((_,j)=>j!==i)}))}/>
+                </div>
+              ))}
+              <button data-noprint="1" onClick={()=>csSet(d=>({...d,productionContactsExtra:[...(d.productionContactsExtra||[]),""]}))} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
+              <div style={{borderBottom:"1px solid #eee",marginTop:10}}/>
+            </div>
+    </>);
+    const CS_SEC_MAP = { shoot: _sec_shoot, schedule: _sec_schedule, contacts: _sec_contacts, map: _sec_map, weather: _sec_weather, invoicing: _sec_invoicing, protocol: _sec_protocol, emergency: _sec_emergency, productionContacts: _sec_productionContacts };
+    const CS_SEC_DEFAULT = ["shoot", "schedule", "contacts", "map", "weather", "invoicing", "protocol", "emergency", "productionContacts"];
     const _normSecOrder = (o) => { const saved = Array.isArray(o) ? o.filter(k=>CS_SEC_DEFAULT.includes(k)) : []; return [...saved, ...CS_SEC_DEFAULT.filter(k=>!saved.includes(k))]; };
     const csSecOrder = _normSecOrder(csData.sectionOrder);
     const moveSection = (key, dir) => csSet(d => { const base = _normSecOrder(d.sectionOrder); const i = base.indexOf(key); const j = i + dir; if (i<0||j<0||j>=base.length) return d; const a=[...base]; [a[i],a[j]]=[a[j],a[i]]; return {...d, sectionOrder:a}; });
@@ -570,23 +589,6 @@ export default function Documents({
               <CSEditField value={csData.passportNote} onChange={v=>csU("passportNote",v)} style={{color:"#C62828",fontSize:8,fontWeight:700,letterSpacing:CS_LS}}/>
             </div>
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
-
-            <div style={{padding:"10px 32px",fontSize:11}}>
-              <div><span style={csLbl}>Production On Set: </span>
-              <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
-              {(csData.productionContactsExtra||[]).map((line,i) => (
-                <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("pcontact:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.productionContactsExtra];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,productionContactsExtra:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
-                  <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","pcontact:"+i);}} style={{color:"#ccc",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
-                  <span style={csLbl}>Production On Set: </span>
-                  <CSEditField value={line} onChange={v=>csU(`productionContactsExtra.${i}`,v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
-                  <button data-noprint="1" onClick={()=>moveContactLine(i,-1)} disabled={i===0} title="Move up" style={{background:"none",border:"none",color:i===0?"#eee":"#bbb",cursor:i===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button>
-                  <button data-noprint="1" onClick={()=>moveContactLine(i,1)} disabled={i===csData.productionContactsExtra.length-1} title="Move down" style={{background:"none",border:"none",color:i===csData.productionContactsExtra.length-1?"#eee":"#bbb",cursor:i===csData.productionContactsExtra.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button>
-                  <CSXbtn onClick={()=>csSet(d=>({...d,productionContactsExtra:d.productionContactsExtra.filter((_,j)=>j!==i)}))}/>
-                </div>
-              ))}
-              <button data-noprint="1" onClick={()=>csSet(d=>({...d,productionContactsExtra:[...(d.productionContactsExtra||[]),""]}))} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
-              <div style={{borderBottom:"1px solid #eee",marginTop:10}}/>
-            </div>
 
 {csSecOrder.map((key,ki) => (
               <div key={key} style={{position:"relative"}}>
