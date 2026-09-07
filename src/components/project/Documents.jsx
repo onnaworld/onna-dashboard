@@ -393,8 +393,8 @@ export default function Documents({
                       {deptOpen && dept.crew.map((cr,ci) => ([
                         <tr key={ci} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",breakInside:"avoid"}}>
                           <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}><span draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);}} style={{cursor:"grab"}}>☰</span></td>
-                          <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                            <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} autoFit style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Role"/>
+                          <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflowWrap:"break-word",whiteSpace:"normal",maxWidth:0}}>
+                            <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal",whiteSpace:"pre-wrap"}} placeholder="Role"/>
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,fontWeight:dept.discrete?400:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Name"/>
@@ -413,7 +413,7 @@ export default function Documents({
                         ...(cr.agents || (cr.agent ? [cr.agent] : [])).map((ag,ai) => (
                           <tr key={ci+"-agent-"+ai} style={{background:CS_HL_BG[ag.hl||""]||"#fafafa",borderBottom:"1px solid #f5f5f5"}}>
                             <td data-noprint="1"></td>
-                            <td style={{padding:"3px 4px",fontSize:9,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
+                            <td style={{padding:"3px 4px",fontSize:9,color:"#999",fontStyle:"italic",overflowWrap:"break-word",whiteSpace:"normal",maxWidth:0}}>
                               <CSEditField value={ag.role} onChange={v=>setAgentField(di,ci,ai,"role",v)} style={{fontSize:9,color:"#999",fontStyle:"italic"}} placeholder="Agent/Producer"/>
                             </td>
                             <td style={{padding:"3px 4px",fontSize:10,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
