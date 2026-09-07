@@ -1089,29 +1089,46 @@ export default function Documents({
   // ── Dietaries section ──
   if (documentsSubSection==="dietaries") {
     const dietVersions = dietaryStore[p.id] || [];
-    const addDietNew = () => {
-      pushUndo("add dietary");
-      const newId = Date.now();
-      const newDiet = {id:newId,label:`${p.name} Dietary V${dietVersions.length+1}`,...JSON.parse(JSON.stringify(DIETARY_INIT))};
+    const csVersionsForDiet = callSheetStore[p.id] || [];
+    // Builds a dietary list document tied to one specific call sheet (by id),
+    // so its crew/headcount always reflects THAT call sheet — not just
+    // "whichever call sheet happens to be last" — since with multiple call
+    // sheets (e.g. Recce + Shoot Day) they can have very different crew.
+    const makeDietFromCS = (cs) => {
+      const newId = Date.now()+Math.random();
+      const newDiet = {id:newId,label:cs?`${cs.label||"Call Sheet"} — Dietary`:`${p.name} Dietary V${dietVersions.length+1}`,callSheetId:cs?cs.id:null,...JSON.parse(JSON.stringify(DIETARY_INIT))};
       const _pi=(projectInfoRef.current||{})[p.id];
       if(_pi){if(_pi.shootName)newDiet.project.name=_pi.shootName;if(_pi.shootDate)newDiet.project.date=_pi.shootDate;}
       newDiet.project.name=newDiet.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newDiet.project.name;
-      // Auto-sync crew + project info from call sheets
-      const csVersions = callSheetStore[p.id] || [];
-      if (csVersions.length > 0) {
-        const latestCS = csVersions[csVersions.length - 1];
-        if(latestCS.shootName)newDiet.project.name=latestCS.shootName;
-        if(latestCS.date)newDiet.project.date=latestCS.date;
-        // Extract client from shootName if it contains " | " pattern
-        const csParts=(latestCS.shootName||"").split(" | ");
+      if (cs) {
+        if(cs.shootName)newDiet.project.name=cs.shootName;
+        if(cs.date)newDiet.project.date=cs.date;
+        const csParts=(cs.shootName||"").split(" | ");
         if(csParts.length>=2)newDiet.project.client=csParts[0].trim();
         const pulled = [];
-        (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:"None",allergies:"",notes:""});});});
+        (cs.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:["None"],allergies:"",notes:""});});});
         if(pulled.length>0)newDiet.people=pulled;
       }
-      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newDiet);return store;});
+      return newDiet;
+    };
+    const addDietLogo = (newId) => {
       const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setDietaryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
+    };
+    const addDietNew = (cs) => {
+      pushUndo("add dietary");
+      const newDiet = makeDietFromCS(cs||null);
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newDiet);return store;});
+      addDietLogo(newDiet.id);
       setActiveDietaryVersion(dietVersions.length);
+    };
+    // One dietary list per call sheet that doesn't already have one linked.
+    const linkedCsIds = new Set(dietVersions.map(d=>d.callSheetId).filter(Boolean));
+    const csMissingDiet = csVersionsForDiet.filter(cs=>!linkedCsIds.has(cs.id));
+    const createMissingDietLists = () => {
+      pushUndo("add dietary");
+      const newDiets = csMissingDiet.map(cs=>makeDietFromCS(cs));
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id]=[...store[p.id],...newDiets];return store;});
+      newDiets.forEach(d=>addDietLogo(d.id));
     };
     const deleteDiet = (idx) => {
       if(!confirm("Delete this dietary list? This will be moved to Deleted."))return;
@@ -1133,18 +1150,29 @@ export default function Documents({
               <button onClick={()=>setCreateMenuOpen(prev=>({...prev,diet:!prev.diet}))} style={{padding:"7px 16px",borderRadius:9,background:T.accent,color:"#fff",border:"none",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ New Dietary List ▾</button>
               {createMenuOpen.diet&&<div onClick={()=>setCreateMenuOpen(prev=>({...prev,diet:false}))} style={{position:"fixed",inset:0,zIndex:9998}} />}
               {createMenuOpen.diet&&(
-                <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:180,overflow:"hidden"}}>
-                  <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));addDietNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
-                  <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));setDuplicateModal({type:"dietary"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
+                <div style={{position:"absolute",top:36,right:0,zIndex:9999,background:"#fff",border:"1px solid #e0e0e0",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,0.12)",minWidth:220,overflow:"hidden"}}>
+                  {csVersionsForDiet.length>1 ? (<>
+                    <div style={{padding:"8px 16px 4px",fontSize:9,fontWeight:700,letterSpacing:0.5,color:"#999",textTransform:"uppercase"}}>Link to a call sheet</div>
+                    {csVersionsForDiet.map(cs=>(
+                      <div key={cs.id} onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));addDietNew(cs);}} style={{padding:"9px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ {cs.label||"Call Sheet"}</div>
+                    ))}
+                    <div style={{borderTop:"1px solid #f0f0f0"}}/>
+                    <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));addDietNew();}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#666",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ Blank (no call sheet)</div>
+                  </>) : (
+                    <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));addDietNew(csVersionsForDiet[0]);}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderBottom:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New Blank</div>
+                  )}
+                  <div onClick={()=>{setCreateMenuOpen(prev=>({...prev,diet:false}));setDuplicateModal({type:"dietary"});setDuplicateSearch("");}} style={{padding:"10px 16px",fontSize:12,fontWeight:600,cursor:"pointer",color:"#1d1d1f",fontFamily:"inherit",borderTop:"1px solid #f0f0f0"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>Duplicate Existing</div>
                 </div>
               )}
             </div>
           </div>
+          {csMissingDiet.length>0 && dietVersions.length>0 && <div onClick={createMissingDietLists} style={{cursor:"pointer",marginBottom:14,padding:"10px 14px",borderRadius:10,background:"#fff8e1",border:"1px solid #ffe082",fontSize:12,color:"#8a6d00",fontWeight:600}}>+ Create {csMissingDiet.length} missing dietary list{csMissingDiet.length===1?"":"s"} (one per call sheet without one)</div>}
           {dietVersions.length===0 && <div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No dietary lists yet. Click "+ New Dietary List" to get started.</div></div>}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {dietVersions.map((diet,i)=>{
               const crewCount=(diet.people||[]).length;
-              const dietaryCount=(diet.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
+              const dietaryCount=(diet.people||[]).filter(pr=>{const t=Array.isArray(pr.dietary)?pr.dietary:(pr.dietary?[pr.dietary]:["None"]);return t.some(x=>x!=="None"&&x!=="TBC");}).length;
+              const linkedCS=csVersionsForDiet.find(cs=>cs.id===diet.callSheetId);
               return(
                 <div key={diet.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setActiveDietaryVersion(i)}>
                   <div style={{flex:1}}>
@@ -1153,7 +1181,7 @@ export default function Documents({
                       <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:crewCount>0?"#e8f5e9":"#f5f5f5",color:crewCount>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>{crewCount} crew · {dietaryCount} dietary</span>
                     </div>
                     <div style={{fontSize:13,fontWeight:600,color:T.text}}>{diet.label||"Untitled"}</div>
-                    <div style={{fontSize:11,color:T.muted,marginTop:2}}>{diet.project?.date||"No date set"}</div>
+                    <div style={{fontSize:11,color:T.muted,marginTop:2}}>{linkedCS?`Synced with: ${linkedCS.label||"Call Sheet"}`:diet.project?.date||"No date set"}</div>
                   </div>
                   <button onClick={e=>{e.stopPropagation();deleteDiet(i);}} style={{padding:"4px 10px",borderRadius:7,background:"#fff5f5",color:"#c0392b",border:"1px solid #f5c6cb",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>
                 </div>
@@ -1204,18 +1232,24 @@ export default function Documents({
     // people (active or Not On Set) by name so their dietary/allergy/notes carry
     // over instead of being wiped; anyone no longer on the call sheet moves to
     // Not On Set rather than being deleted, and brand new crew are added fresh.
+    const dietLinkedCS = csVersionsForDiet.find(cs=>cs.id===dietData.callSheetId);
     const dietSyncFromCS = () => {
-      const csVersions = callSheetStore[p.id] || [];
+      const csVersions = csVersionsForDiet;
       if(csVersions.length===0){showAlert("No call sheets found for this project. Create a call sheet first.");return;}
-      const latestCS = csVersions[csVersions.length-1];
+      // Sync from whichever call sheet this dietary list is linked to, not just
+      // the latest one — with 2+ call sheets (e.g. Recce + Shoot Day) they can
+      // have completely different crews. Falls back to the latest for dietary
+      // lists created before this linking existed.
+      const targetCS = dietLinkedCS || csVersions[csVersions.length-1];
       const pulled = [];
-      (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
-      if(pulled.length===0){showAlert("No crew names found in the latest call sheet.");return;}
+      (targetCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
+      if(pulled.length===0){showAlert(`No crew names found in "${targetCS.label||"that call sheet"}".`);return;}
       setDietaryStore(prev=>{
         const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
-        if(latestCS.shootName)d.project.name=latestCS.shootName;
-        if(latestCS.date)d.project.date=latestCS.date;
-        const csParts=(latestCS.shootName||"").split(" | ");
+        d.callSheetId=targetCS.id;
+        if(targetCS.shootName)d.project.name=targetCS.shootName;
+        if(targetCS.date)d.project.date=targetCS.date;
+        const csParts=(targetCS.shootName||"").split(" | ");
         if(csParts.length>=2)d.project.client=csParts[0].trim();
         const byName={};
         [...(d.people||[]),...(d.notOnSet||[])].forEach(pr=>{if(pr.name)byName[pr.name.trim().toLowerCase()]=pr;});
@@ -1253,7 +1287,13 @@ export default function Documents({
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
           <button onClick={()=>setActiveDietaryVersion(null)} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,display:"flex",alignItems:"center",gap:4}}>‹ Back to Dietary Lists</button>
           <div style={{flex:1}}/>
-          {dietaryTab==="dietary"&&<button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>}
+          {dietaryTab==="dietary"&&csVersionsForDiet.length>1&&(
+            <select value={dietData.callSheetId||""} onChange={e=>{const csId=e.target.value?Number(e.target.value):null;dietU("callSheetId",csId);}} style={{padding:"5px 9px",borderRadius:8,background:"#fff",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontFamily:"inherit"}} title="Which call sheet this dietary list syncs with">
+              <option value="">Not linked to a call sheet</option>
+              {csVersionsForDiet.map(cs=><option key={cs.id} value={cs.id}>{cs.label||"Call Sheet"}</option>)}
+            </select>
+          )}
+          {dietaryTab==="dietary"&&<button onClick={dietSyncFromCS} title={dietLinkedCS?`Syncs from "${dietLinkedCS.label||"Call Sheet"}"`:undefined} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>}
           <BtnExport onClick={()=>dietExportPDF(dietaryTab==="menu"?"onna-menu-print":"onna-diet-print",dietaryTab==="menu"?"portrait":"landscape")}>Export PDF</BtnExport>
         </div>
         <div style={{marginBottom:12}}>
