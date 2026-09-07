@@ -348,7 +348,7 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
             <div key={sn.id} style={{display:"flex",alignItems:"stretch",borderBottom:si===subnotes.length-1?"1px solid #f0f0f0":"none",background:"#fafafa"}}>
               <div style={{width:32}}/>
               <div style={{flex:1,fontStyle:"italic"}}>
-                <TICell value={sn.text||""} onChange={v=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,text:v}:x))} style={{color:sn.red?"#c0392b":"#1a1a1a",fontWeight:600}}/>
+                <TICell value={sn.text||""} onChange={v=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,text:v}:x))} style={{color:sn.red?"#c0392b":"#1a1a1a"}}/>
               </div>
               <span data-noprint onClick={()=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,red:!x.red}:x))} title="Toggle red" style={{cursor:"pointer",width:9,height:9,borderRadius:"50%",background:sn.red?"#c0392b":"#ccc",border:"1px solid #fff",boxShadow:"0 0 0 1px #ddd",alignSelf:"center",marginRight:8,flexShrink:0}}/>
               <span data-noprint onClick={()=>setSubnotes(subnotes.filter((_,j)=>j!==si))} style={{cursor:"pointer",fontSize:10,color:"#ddd",display:"flex",alignItems:"center",padding:"0 8px"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
