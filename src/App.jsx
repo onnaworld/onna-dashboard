@@ -58,7 +58,7 @@ import { logActivity } from "./utils/activityLog";
 import { checkDueReminders, createNotification, createReminder, sendPushNotification, requestPushPermission } from "./utils/reminders";
 import { NotificationBell } from "./components/ui/NotificationCenter";
 // Doc helper components & constants
-import { MAX_IMG_SIZE, validateImg, CS_FONT, CS_LS, CS_YELLOW, RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CSEditField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn, TIHl, TICell, TITableSection, DIETARY_TAGS, DIETARY_TAG_COLORS, DietaryTagSelect, DIETARY_INIT, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EstHl, EstCell, EstSignaturePad, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT, CALLSHEET_INIT } from "./components/ui/DocHelpers";
+import { MAX_IMG_SIZE, validateImg, CS_FONT, CS_LS, CS_YELLOW, RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CSEditField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn, TIHl, TICell, TITableSection, DIETARY_TAGS, DIETARY_TAG_COLORS, DietaryTagSelect, DietaryMultiTagSelect, DIETARY_INIT, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EstHl, EstCell, EstSignaturePad, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT, CALLSHEET_INIT } from "./components/ui/DocHelpers";
 // Doc components
 import CPSPolly, { cpsDefaultPhases } from "./components/docs/CPSPolly";
 import ShotListPolly from "./components/docs/ShotListPolly";
@@ -1226,7 +1226,7 @@ function OnnaDashboardInner() {
     PROJECT_SECTIONS={PROJECT_SECTIONS} ProjectTodoList={ProjectTodoList}
     EstCell={EstCell} EstimateView={EstimateView} BtnPrimary={BtnPrimary} BtnExport={BtnExport} UploadZone={UploadZone}
     CSLogoSlot={CSLogoSlot} CSAddBtn={CSAddBtn} CSEditField={CSEditField} CSEditTextarea={CSEditTextarea} CSResizableImage={CSResizableImage} CSXbtn={CSXbtn}
-    DietaryTagSelect={DietaryTagSelect} SignaturePad={SignaturePad} TICell={TICell} TITableSection={TITableSection}
+    DietaryTagSelect={DietaryTagSelect} DietaryMultiTagSelect={DietaryMultiTagSelect} SignaturePad={SignaturePad} TICell={TICell} TITableSection={TITableSection}
     CS_FONT={CS_FONT} CS_LS={CS_LS} PRINT_CLEANUP_CSS={PRINT_CLEANUP_CSS}
     CALLSHEET_INIT={CALLSHEET_INIT} DIETARY_INIT={DIETARY_INIT}
     LocationsConnie={LocationsConnie} mkLoc={mkLoc} mkDetail={mkDetail}

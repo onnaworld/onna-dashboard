@@ -23,7 +23,7 @@ export default function Documents({
   getProjectFiles, addProjectFiles, buildPath,
   projectInfoRef, CALLSHEET_INIT, DIETARY_INIT,
   CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage, CSXbtn,
-  BtnExport, UploadZone, DietaryTagSelect, SignaturePad, TICell,
+  BtnExport, UploadZone, DietaryTagSelect, DietaryMultiTagSelect, SignaturePad, TICell,
   CS_FONT, CS_LS, PRINT_CLEANUP_CSS,
 }) {
   // Documents sub-navigation — Call Sheet, Risk Assessment, Contracts, Permits
@@ -1185,7 +1185,10 @@ export default function Documents({
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[p.id]=arr;return store;});
     };
     const dietAddPerson = () => {
-      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[p.id]=arr;return store;});
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:["None"],allergies:"",notes:""});arr[dietIdx]=d;store[p.id]=arr;return store;});
+    };
+    const dietSet = (fn) => {
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];if(arr.length===0)return store;const idx=Math.min(dietIdx,arr.length-1);arr[idx]=fn(arr[idx]);store[p.id]=arr;return store;});
     };
     const dietDeletePerson = (i) => {
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[p.id]=arr;return store;});
@@ -1204,16 +1207,17 @@ export default function Documents({
         if(latestCS.date)d.project.date=latestCS.date;
         const csParts=(latestCS.shootName||"").split(" | ");
         if(csParts.length>=2)d.project.client=csParts[0].trim();
-        d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));
+        d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:["None"],allergies:"",notes:""}));
         arr[dietIdx]=d;store[p.id]=arr;return store;
       });
       showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);
     };
 
     // Summary counts
+    const dietTagsOfPerson = (pr) => Array.isArray(pr.dietary) ? (pr.dietary.length?pr.dietary:["None"]) : (pr.dietary ? [pr.dietary] : ["None"]);
     const dietCounts={};
-    (dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
-    const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
+    (dietData.people||[]).forEach(pr=>{dietTagsOfPerson(pr).forEach(d=>{dietCounts[d]=(dietCounts[d]||0)+1;});});
+    const dietTotalWithDietary=(dietData.people||[]).filter(pr=>dietTagsOfPerson(pr).some(d=>d!=="None"&&d!=="TBC")).length;
     const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
 
     const dietExportPDF = (elId,orient) => {
@@ -1304,7 +1308,7 @@ export default function Documents({
                   <div style={{flex:1.2}}><TICell value={person.name} onChange={v=>dietUpdatePerson(i,"name",v)} style={{fontWeight:600}}/></div>
                   <div style={{flex:0.8}}><TICell value={person.role} onChange={v=>dietUpdatePerson(i,"role",v)} style={{color:"#666"}}/></div>
                   <div style={{flex:0.7}}><TICell value={person.department} onChange={v=>dietUpdatePerson(i,"department",v)} style={{color:"#999"}}/></div>
-                  <div style={{flex:0.7,padding:"2px 4px"}}><DietaryTagSelect value={person.dietary} onChange={v=>dietUpdatePerson(i,"dietary",v)}/></div>
+                  <div style={{flex:0.7,padding:"2px 4px"}}><DietaryMultiTagSelect value={person.dietary} onChange={v=>dietUpdatePerson(i,"dietary",v)}/></div>
                   <div style={{flex:1}}><TICell value={person.allergies} onChange={v=>dietUpdatePerson(i,"allergies",v)} style={{color:person.allergies?"#C62828":"#ddd"}}/></div>
                   <div style={{flex:1.2}}><TICell value={person.notes} onChange={v=>dietUpdatePerson(i,"notes",v)} style={{color:"#999",fontStyle:person.notes?"italic":"normal"}}/></div>
                 </div>
@@ -1314,10 +1318,17 @@ export default function Documents({
 
             {/* Footer */}
             <div style={{padding:"0 32px 32px"}}>
-              <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
-                <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
-                <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
-              </div>
+              {dietData.footer?.show !== false ? (
+                <div style={{marginTop:32,display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12,gap:12}}>
+                  <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+                  <button data-noprint="1" onClick={()=>dietSet(d=>({...d,footer:{...(d.footer||{}),show:false}}))} style={{background:"none",border:"1px solid #eee",borderRadius:4,fontSize:8,color:"#bbb",cursor:"pointer",padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.color="#d32f2f";e.currentTarget.style.borderColor="#f5c6cb";}} onMouseLeave={e=>{e.currentTarget.style.color="#bbb";e.currentTarget.style.borderColor="#eee";}}>Remove Footer</button>
+                </div>
+              ) : (
+                <div style={{marginTop:16,padding:"6px 0",textAlign:"center"}}>
+                  <button data-noprint="1" onClick={()=>dietSet(d=>({...d,footer:{...(d.footer||{}),show:true}}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 12px",fontFamily:"inherit"}}>+ Add Footer</button>
+                </div>
+              )}
             </div>
           </div>
         </div>}
@@ -1352,10 +1363,17 @@ export default function Documents({
               {(dietData.menu||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:10,color:"#ccc",letterSpacing:0.5,padding:"24px 8px",fontStyle:"italic",textAlign:"center"}}>No menu added yet \u2014 click + ADD SECTION above</div>}
             </div>
             <div style={{padding:"0 40px 40px"}}>
-              <div style={{marginTop:32,display:"flex",justifyContent:"space-between",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12}}>
-                <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
-                <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
-              </div>
+              {dietData.footer?.show !== false ? (
+                <div style={{marginTop:32,display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,color:"#000",borderTop:"2px solid #000",paddingTop:12,gap:12}}>
+                  <div><div style={{fontWeight:700}}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontWeight:700}}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+                  <button data-noprint="1" onClick={()=>dietSet(d=>({...d,footer:{...(d.footer||{}),show:false}}))} style={{background:"none",border:"1px solid #eee",borderRadius:4,fontSize:8,color:"#bbb",cursor:"pointer",padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.color="#d32f2f";e.currentTarget.style.borderColor="#f5c6cb";}} onMouseLeave={e=>{e.currentTarget.style.color="#bbb";e.currentTarget.style.borderColor="#eee";}}>Remove Footer</button>
+                </div>
+              ) : (
+                <div style={{marginTop:16,padding:"6px 0",textAlign:"center"}}>
+                  <button data-noprint="1" onClick={()=>dietSet(d=>({...d,footer:{...(d.footer||{}),show:true}}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 12px",fontFamily:"inherit"}}>+ Add Footer</button>
+                </div>
+              )}
             </div>
           </div>
         </div>}
