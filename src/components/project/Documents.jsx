@@ -1190,10 +1190,20 @@ export default function Documents({
     const dietSet = (fn) => {
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];if(arr.length===0)return store;const idx=Math.min(dietIdx,arr.length-1);arr[idx]=fn(arr[idx]);store[p.id]=arr;return store;});
     };
+    // Removing someone doesn't discard their dietary/allergy details — it just
+    // moves them out of the active crew list into "Not On Set", where they can
+    // be undone back in later (e.g. someone drops off the call sheet but might
+    // return, or was added by mistake).
     const dietDeletePerson = (i) => {
-      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[p.id]=arr;return store;});
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];const removed=d.people[i];d.people=d.people.filter((_,j)=>j!==i);d.notOnSet=[...(d.notOnSet||[]),removed];arr[dietIdx]=d;store[p.id]=arr;return store;});
     };
-    // Sync from call sheet — pulls crew from latest call sheet, reflects deleted rows
+    const dietRestorePerson = (i) => {
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];const restored=(d.notOnSet||[])[i];d.notOnSet=(d.notOnSet||[]).filter((_,j)=>j!==i);d.people=[...d.people,restored];arr[dietIdx]=d;store[p.id]=arr;return store;});
+    };
+    // Sync from call sheet — pulls crew from latest call sheet. Matches existing
+    // people (active or Not On Set) by name so their dietary/allergy/notes carry
+    // over instead of being wiped; anyone no longer on the call sheet moves to
+    // Not On Set rather than being deleted, and brand new crew are added fresh.
     const dietSyncFromCS = () => {
       const csVersions = callSheetStore[p.id] || [];
       if(csVersions.length===0){showAlert("No call sheets found for this project. Create a call sheet first.");return;}
@@ -1207,10 +1217,19 @@ export default function Documents({
         if(latestCS.date)d.project.date=latestCS.date;
         const csParts=(latestCS.shootName||"").split(" | ");
         if(csParts.length>=2)d.project.client=csParts[0].trim();
-        d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:["None"],allergies:"",notes:""}));
+        const byName={};
+        [...(d.people||[]),...(d.notOnSet||[])].forEach(pr=>{if(pr.name)byName[pr.name.trim().toLowerCase()]=pr;});
+        const pulledNames=new Set(pulled.map(pr=>pr.name));
+        d.people=pulled.map(pr=>{
+          const existing=byName[pr.name];
+          return existing?{...existing,role:pr.role||existing.role,department:pr.department||existing.department,name:pr.origName}:{id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:["None"],allergies:"",notes:""};
+        });
+        const seenIds=new Set();
+        const carryOver=[...(prev[p.id][dietIdx].people||[]),...(prev[p.id][dietIdx].notOnSet||[])].filter(pr=>pr.name&&!pulledNames.has(pr.name.trim().toLowerCase()));
+        d.notOnSet=carryOver.filter(pr=>{if(seenIds.has(pr.id))return false;seenIds.add(pr.id);return true;});
         arr[dietIdx]=d;store[p.id]=arr;return store;
       });
-      showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);
+      showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet.`);
     };
 
     // Summary counts
@@ -1315,6 +1334,27 @@ export default function Documents({
               ))}
               {(dietData.people||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No crew listed — click Sync from Call Sheet or + ADD ROW</div>}
             </div>
+
+            {/* Not On Set — removed crew, kept aside with their dietary info instead of deleted */}
+            {(dietData.notOnSet||[]).length>0 && <div data-noprint="1" style={{padding:"0 32px",marginBottom:16}}>
+              <div style={{display:"flex",background:"#f4f4f4",padding:"4px 8px",alignItems:"center",justifyContent:"space-between"}}>
+                <span style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#888",textTransform:"uppercase"}}>NOT ON SET ({dietData.notOnSet.length})</span>
+              </div>
+              {dietData.notOnSet.map((person,i)=>(
+                <div key={person.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"center",minHeight:26,opacity:0.6}}>
+                  <div style={{width:24,fontFamily:CS_FONT,fontSize:8,fontWeight:700,letterSpacing:0.5,color:"#ccc",padding:"3px 4px",textAlign:"center"}}>{i+1}</div>
+                  <div style={{width:18,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span onClick={()=>dietRestorePerson(i)} title="Move back to crew list" style={{cursor:"pointer",fontSize:11,color:"#999"}} onMouseEnter={e=>e.target.style.color="#2e7d32"} onMouseLeave={e=>e.target.style.color="#999"}>↺</span>
+                  </div>
+                  <div style={{flex:1.2,fontFamily:CS_FONT,fontSize:10,fontWeight:600,padding:"3px 4px"}}>{person.name}</div>
+                  <div style={{flex:0.8,fontFamily:CS_FONT,fontSize:10,color:"#666",padding:"3px 4px"}}>{person.role}</div>
+                  <div style={{flex:0.7,fontFamily:CS_FONT,fontSize:10,color:"#999",padding:"3px 4px"}}>{person.department}</div>
+                  <div style={{flex:0.7,padding:"2px 4px",pointerEvents:"none"}}><DietaryMultiTagSelect value={person.dietary} onChange={()=>{}}/></div>
+                  <div style={{flex:1,fontFamily:CS_FONT,fontSize:10,color:"#999",padding:"3px 4px"}}>{person.allergies}</div>
+                  <div style={{flex:1.2,fontFamily:CS_FONT,fontSize:10,color:"#999",padding:"3px 4px",fontStyle:"italic"}}>{person.notes}</div>
+                </div>
+              ))}
+            </div>}
 
             {/* Footer */}
             <div style={{padding:"0 32px 32px"}}>

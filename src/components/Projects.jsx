@@ -36,7 +36,18 @@ export default function Projects({
   // ── Computed values ──
   const projStatusColor = { Proposal: "#f57f17", Confirmed: "#1565c0", Active: "#147d50", Archived: T.muted };
   const projStatusBg = { Proposal: "#fff8e1", Confirmed: "#e3f2fd", Active: "#edfaf3", Archived: "#f5f5f7" };
-  const projects = allProjectsMerged.filter(p => p.year === projectYear || p.client === "TEMPLATE");
+  // A project's status can independently be set to "Archived" (a label) without
+  // ever being dragged into the Archived Projects drop zone, which left it
+  // showing an "Archived" badge while still sitting in the live grid. Treat
+  // status==="Archived" as belonging in the archive section too, so the two
+  // mechanisms don't visually disagree.
+  const statusArchived = allProjectsMerged.filter(p => p.status === "Archived" && !archivedProjects.some(a => a.id === p.id));
+  const allArchived = [...archivedProjects, ...statusArchived];
+  const projects = allProjectsMerged.filter(p => (p.year === projectYear || p.client === "TEMPLATE") && p.status !== "Archived");
+  const unarchiveProject = (p) => {
+    setArchivedProjects(prev => prev.filter(a => a.id !== p.id));
+    if (p.status === "Archived") setLocalProjects(prev => prev.map(lp => lp.id === p.id ? { ...lp, status: "Active" } : lp));
+  };
 
   if (selectedProject) return (
     <div>
@@ -96,14 +107,14 @@ export default function Projects({
           <div style={{ fontSize: 12.5, fontWeight: 600, color: T.sub }}>Archived Projects</div>
           <div style={{ fontSize: 11.5, color: T.muted }}>Drag a project here to archive it</div>
         </div>
-        {archivedProjects.length > 0 && <button onClick={() => setShowArchivedProjects(v => !v)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", border: `1px solid ${T.border}`, background: showArchivedProjects ? "#1d1d1f" : "transparent", color: showArchivedProjects ? "#fff" : T.sub, fontFamily: "inherit", transition: "all 0.12s" }}>{showArchivedProjects ? "Hide" : "Show"} ({archivedProjects.length})</button>}
+        {allArchived.length > 0 && <button onClick={() => setShowArchivedProjects(v => !v)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", border: `1px solid ${T.border}`, background: showArchivedProjects ? "#1d1d1f" : "transparent", color: showArchivedProjects ? "#fff" : T.sub, fontFamily: "inherit", transition: "all 0.12s" }}>{showArchivedProjects ? "Hide" : "Show"} ({allArchived.length})</button>}
       </div>
 
-      {showArchivedProjects && archivedProjects.length > 0 && (
+      {showArchivedProjects && allArchived.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: T.muted, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 10 }}>Archived Projects</div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14 }}>
-            {archivedProjects.filter(p => !getSearch("Projects") || `${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p => {
+            {allArchived.filter(p => !getSearch("Projects") || `${p.client} ${p.name}`.toLowerCase().includes(getSearch("Projects").toLowerCase())).map(p => {
               const _rev = getProjRevenue(p); const _rawCost = getProjCost(p); const _cost = (p.status === "Proposal" && _rawCost === 0 && _rev > 0) ? _rev : _rawCost; const profit = _rev - _cost; const margin = _rev > 0 ? Math.round((profit / _rev) * 100) : 0;
               return (
                 <div key={p.id} className="proj-card" style={{ borderRadius: 16, padding: 20, background: T.surface, border: `1px solid ${T.border}`, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
@@ -118,7 +129,7 @@ export default function Projects({
                   </a>
                   <div style={{ display: "flex", gap: 8, marginTop: -3 }}>
                     <button
-                      onClick={e => { e.stopPropagation(); setArchivedProjects(prev => prev.filter(a => a.id !== p.id)); }}
+                      onClick={e => { e.stopPropagation(); unarchiveProject(p); }}
                       style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "7px", borderRadius: 9, background: "transparent", border: `1px solid ${T.borderSub}`, color: T.muted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 500, transition: "all 0.12s" }}
                       onMouseOver={e => { e.currentTarget.style.background = "#f5f5f7"; e.currentTarget.style.color = T.sub; }}
                       onMouseOut={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.muted; }}
