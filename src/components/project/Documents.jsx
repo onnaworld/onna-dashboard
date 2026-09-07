@@ -266,7 +266,7 @@ export default function Documents({
                 {subnotes.map((sn,si)=>(
                   <div key={sn.id} style={{display:"flex",alignItems:"center",gap:6,paddingLeft:26,marginBottom:si===subnotes.length-1?5:2}}>
                     <div style={{flex:1,fontStyle:"italic"}}>
-                      <CSEditField value={sn.text||""} onChange={v=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,text:v}:x))} style={{fontSize:10,fontStyle:"italic",color:sn.red?"#c0392b":"#1a1a1a"}}/>
+                      <CSEditField value={sn.text||""} onChange={v=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,text:v}:x))} isPlaceholder placeholder="Add a note..." style={{fontSize:10,fontStyle:"italic",color:sn.red?"#c0392b":"#1a1a1a"}}/>
                     </div>
                     <span data-noprint="1" onClick={()=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,red:!x.red}:x))} title="Toggle red" style={{cursor:"pointer",width:8,height:8,borderRadius:"50%",background:sn.red?"#c0392b":"#ccc",border:"1px solid #fff",boxShadow:"0 0 0 1px #ddd",flexShrink:0}}/>
                     <CSXbtn onClick={()=>setSubnotes(subnotes.filter((_,j)=>j!==si))} size={12}/>
@@ -452,7 +452,7 @@ export default function Documents({
               {(() => { const locs=csMapLocations(); return locs.map((loc,li) => (
                 <div key={loc.id} style={{marginBottom:16,paddingBottom:li<locs.length-1?14:0,borderBottom:li<locs.length-1?"1px dashed #eee":"none"}}>
                   {locs.length>1 && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                    <span style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS,color:"#888"}}>LOCATION {li+1}:</span>
+                    <div style={{flex:1}}><CSEditField value={loc.label!==undefined?loc.label:`LOCATION ${li+1}`} onChange={v=>csUpdateMapLoc(li,{label:v})} bold style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS,color:"#888",textTransform:"uppercase"}}/></div>
                     <CSXbtn onClick={()=>csRmMapLoc(li)}/>
                   </div>}
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
@@ -655,8 +655,9 @@ export default function Documents({
         const multi = locs.length>1;
         const rows = [];
         locs.forEach((l,li)=>{
-          rows.push({label:multi?`Location ${li+1} Link`:"Link",value:l.link||""});
-          if (l.note) rows.push({label:multi?`Location ${li+1} Note`:"Note",value:l.note});
+          const locLabel = l.label!==undefined?l.label:`Location ${li+1}`;
+          rows.push({label:multi?`${locLabel} Link`:"Link",value:l.link||""});
+          if (l.note) rows.push({label:multi?`${locLabel} Note`:"Note",value:l.note});
         });
         return [{ title:"MAP", columns:fv, rows }];
       }

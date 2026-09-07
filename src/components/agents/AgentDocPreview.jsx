@@ -153,6 +153,20 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
     const csIdx = Math.min(activeCSVersion||0, csVersions.length - 1);
     const csData = csVersions[csIdx] || csVersions[0];
     const {update:csU, set:csSet} = makeDocUpdater(projectId, csIdx, setCallSheetStore, CALLSHEET_INIT, "Day 1");
+    // The main Call Sheet editor (Documents.jsx) migrated map data from a
+    // single mapLink/mapImage/extraMapImages set into a mapLocations array
+    // supporting multiple locations. This preview must read/write the SAME
+    // field or edits made here silently diverge from — and can look like
+    // they "delete" — whatever's showing in the main editor.
+    const csMapLocations = () => {
+      if (Array.isArray(csData.mapLocations)) return csData.mapLocations;
+      const legacy = [{id:1, link:csData.mapLink||"", image:csData.mapImage||null}];
+      (csData.extraMapImages||[]).forEach((img,i)=>legacy.push({id:2+i, link:"", image:img}));
+      return legacy;
+    };
+    const csUpdateMapLoc = (i, patch) => csSet(d => { const locs=csMapLocations().map((l,j)=>j===i?{...l,...patch}:l); return {...d, mapLocations:locs}; });
+    const csAddMapLoc = () => csSet(d => ({...d, mapLocations:[...csMapLocations(), {id:Date.now(), link:"", image:null}]}));
+    const csRmMapLoc = (i) => csSet(d => ({...d, mapLocations:csMapLocations().filter((_,j)=>j!==i)}));
 
     // ── Confirmed-fields tracking: yellow until user accepts or manually edits ──
     const cfSet = new Set(csData._confirmed || []);
@@ -262,16 +276,23 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
             </div>
             {/* MAP */}
             <div style={{padding:"14px 32px 10px 48px"}}><div style={csSecTitle}>MAP</div>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT,position:"relative",...(hasCM("cs:scalar:mapLink")?cHL:{})}}>
-                <span style={{fontSize:14}}>🔗</span>
-                <span style={{flex:1}}><CSEditField value={csData.mapLink||""} onChange={v=>{csU("mapLink",v);confirmFC("mapLink");}} alwaysYellow={!isFC("mapLink")} style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/></span>
-                {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
-                {hasCM("cs:scalar:mapLink")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:mapLink")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:mapLink")} style={cRevBtn("decline")}>{"✕"}</button></span>}
-              </div>
-              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
-              <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={280}/>
-              {(csData.extraMapImages||[]).map((img,i)=><div key={i} style={{marginTop:8}}><CSResizableImage label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={200}/></div>)}
-              <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
+              {(() => { const locs=csMapLocations(); return locs.map((loc,li) => (
+                <div key={loc.id} style={{marginBottom:16,paddingBottom:li<locs.length-1?14:0,borderBottom:li<locs.length-1?"1px dashed #eee":"none"}}>
+                  {locs.length>1 && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                    <div style={{flex:1}}><CSEditField value={loc.label!==undefined?loc.label:`LOCATION ${li+1}`} onChange={v=>csUpdateMapLoc(li,{label:v})} bold style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS,color:"#888",textTransform:"uppercase"}}/></div>
+                    <button onClick={()=>csRmMapLoc(li)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:12}}>×</button>
+                  </div>}
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT,position:"relative",...(li===0&&hasCM("cs:scalar:mapLink")?cHL:{})}}>
+                    <span style={{fontSize:14}}>🔗</span>
+                    <span style={{flex:1}}><CSEditField value={loc.link||""} onChange={v=>{csUpdateMapLoc(li,{link:v});if(li===0)confirmFC("mapLink");}} alwaysYellow={li===0?!isFC("mapLink"):false} style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/></span>
+                    {loc.link&&<a href={loc.link} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
+                    {li===0&&hasCM("cs:scalar:mapLink")&&<span style={{position:"absolute",left:-28,top:"50%",transform:"translateY(-50%)",display:"flex",gap:1}}><button onClick={()=>acceptCM("cs:scalar:mapLink")} style={cRevBtn("accept")}>{"✓"}</button><button onClick={()=>declineCM("cs:scalar:mapLink")} style={cRevBtn("decline")}>{"✕"}</button></span>}
+                  </div>
+                  {loc.link&&!loc.image&&<button onClick={()=>{const link=loc.link;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csUpdateMapLoc(li,{image:e.target.result});reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+                  <CSResizableImage label="Map Image (JPEG)" image={loc.image} onUpload={v=>csUpdateMapLoc(li,{image:v})} onRemove={()=>csUpdateMapLoc(li,{image:null})} defaultHeight={280}/>
+                </div>
+              ));})()}
+              <button onClick={csAddMapLoc} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Location</button>
               </div>
             {/* WEATHER */}
             <div style={{padding:"10px 32px 14px 48px"}}><div style={csSecTitle}>WEATHER</div>

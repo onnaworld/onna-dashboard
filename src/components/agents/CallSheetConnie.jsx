@@ -79,14 +79,40 @@ RESPONSE STYLE:
 - When confirming changes, summarise what was updated in a quick bullet list`;
 }
 
+// The main editor (Documents.jsx) migrated map data from mapLink/mapImage/
+// extraMapImages into a mapLocations array (multiple locations, each with its
+// own link/image/note). Once mapLocations exists on a version, the editor
+// ignores the legacy fields entirely — so if Connie kept patching mapLink/
+// mapImage directly, those updates would silently have no visible effect (or
+// vice versa, an old cached mapLocations would "win" over a fresh Connie
+// update), which is exactly what made the map look like it kept vanishing.
+// Route every map patch through the same migration so there's one source of
+// truth regardless of which surface wrote it.
+function applyMapLocationPatch(ver, patch) {
+  if (patch.mapLink === undefined && patch.mapImage === undefined && patch.extraMapImages === undefined) return;
+  const locs = Array.isArray(ver.mapLocations) && ver.mapLocations.length
+    ? ver.mapLocations.map(l => ({ ...l }))
+    : [{ id: 1, link: ver.mapLink || "", image: ver.mapImage || null }];
+  if (patch.mapLink !== undefined) locs[0] = { ...locs[0], link: patch.mapLink };
+  if (patch.mapImage !== undefined) locs[0] = { ...locs[0], image: patch.mapImage };
+  if (patch.extraMapImages) {
+    patch.extraMapImages.forEach((img, i) => {
+      if (locs[i + 1]) locs[i + 1] = { ...locs[i + 1], image: img };
+      else locs.push({ id: Date.now() + i, link: "", image: img });
+    });
+  }
+  ver.mapLocations = locs;
+}
+
 function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCallSheetStore) {
   const versions = [...currentVersions];
   const ver = { ...versions[versionIdx] };
 
   // Merge scalar fields
-  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour","mapLink","mapImage"];
+  const scalars = ["shootName","date","dayNumber","productionContacts","passportNote","emergencyDialPrefix","protocol","weatherSummary","weatherHighC","weatherHighF","weatherLowC","weatherLowF","weatherRealFeelHighC","weatherRealFeelHighF","weatherRealFeelLowC","weatherRealFeelLowF","weatherSunrise","weatherSunset","weatherBlueHour"];
   scalars.forEach(k => { if (patch[k] !== undefined) ver[k] = patch[k]; });
   if (patch.weatherHourly !== undefined) ver.weatherHourly = patch.weatherHourly;
+  applyMapLocationPatch(ver, patch);
 
   // Merge emergency object
   if (patch.emergency) ver.emergency = { ...(ver.emergency || {}), ...patch.emergency };
@@ -96,7 +122,6 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
   if (patch.schedule) ver.schedule = patch.schedule;
   if (patch.venueRows) ver.venueRows = patch.venueRows;
   if (patch.emergencyNumbers) ver.emergencyNumbers = patch.emergencyNumbers;
-  if (patch.extraMapImages) ver.extraMapImages = patch.extraMapImages;
 
   // Merge departments/crew by role (case-insensitive)
   if (patch.departments && Array.isArray(patch.departments)) {
@@ -123,8 +148,8 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
   versions[versionIdx] = ver;
   setCallSheetStore(prev => ({ ...prev, [projectId]: versions }));
 
-  // Auto-fetch map screenshot when Connie sets mapLink and no mapImage exists
-  if (patch.mapLink && !ver.mapImage) {
+  // Auto-fetch map screenshot when Connie sets mapLink and no image exists yet
+  if (patch.mapLink && !(ver.mapLocations && ver.mapLocations[0] && ver.mapLocations[0].image)) {
     try {
       const link = patch.mapLink;
       let q = "";
@@ -140,7 +165,14 @@ function applyConniePatch(patch, projectId, versionIdx, currentVersions, setCall
         reader.onload = e => {
           setCallSheetStore(prev => {
             const vs = JSON.parse(JSON.stringify(prev[projectId] || []));
-            if (vs[versionIdx]) vs[versionIdx].mapImage = e.target.result;
+            if (vs[versionIdx]) {
+              const v = vs[versionIdx];
+              const locs = Array.isArray(v.mapLocations) && v.mapLocations.length
+                ? v.mapLocations
+                : [{ id: 1, link: v.mapLink || "", image: v.mapImage || null }];
+              locs[0] = { ...locs[0], image: e.target.result };
+              v.mapLocations = locs;
+            }
             return { ...prev, [projectId]: vs };
           });
         };
