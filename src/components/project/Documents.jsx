@@ -551,7 +551,7 @@ export default function Documents({
     const csSecToExcelBlocks = (key) => {
       const fv = [{key:"label",label:"Field"},{key:"value",label:"Value"}];
       if (key === "shoot") {
-        return [{ title:"SHOOT", columns:fv, rows:(csData.venueRows||[]).map(r=>({label:r.label,value:r.value})) }];
+        return [{ title:"SHOOT", columns:fv, rows:(csData.venueRows||[]).map(r=>({label:r.label,value:r.value,hl:r.hl})) }];
       }
       if (key === "schedule") {
         const schedCols = [{key:"time",label:"Time"},{key:"activity",label:"Activity"},{key:"notes",label:"Notes"}];
@@ -563,11 +563,11 @@ export default function Documents({
         const rows = [];
         (csData.departments||[]).forEach(dept => {
           (dept.crew||[]).forEach(cr => {
-            rows.push({department:dept.name,role:cr.role,name:cr.name,mobile:cr.mobile,email:cr.email,callTime:cr.callTime});
-            (cr.agents || (cr.agent ? [cr.agent] : [])).forEach(ag => rows.push({department:dept.name,role:ag.role,name:ag.name,mobile:ag.mobile,email:ag.email,callTime:ag.callTime}));
+            rows.push({department:dept.name,role:cr.role,name:cr.name,mobile:cr.mobile,email:cr.email,callTime:cr.callTime,hl:cr.hl});
+            (cr.agents || (cr.agent ? [cr.agent] : [])).forEach(ag => rows.push({department:dept.name,role:ag.role,name:ag.name,mobile:ag.mobile,email:ag.email,callTime:ag.callTime,hl:ag.hl}));
           });
         });
-        return [{ title:"CONTACTS", columns:[{key:"department",label:"Department"},{key:"role",label:"Role"},{key:"name",label:"Name"},{key:"mobile",label:"Mobile"},{key:"email",label:"Email"},{key:"callTime",label:"Call Time"}], rows }];
+        return [{ title:"CONTACTS", columns:[{key:"department",label:"Department"},{key:"role",label:"Role"},{key:"name",label:"Name"},{key:"mobile",label:"Mobile"},{key:"email",label:"Email"},{key:"callTime",label:"Call Time",align:"right"}], rows }];
       }
       if (key === "map") {
         if (!csData.mapLink) return [];
@@ -608,7 +608,7 @@ export default function Documents({
       }
       if (key === "emergency") {
         const rows = [{label:"Dial",value:csData.emergencyDialPrefix||""}];
-        (csData.emergencyNumbers||[]).forEach(en => rows.push({label:en.label||"Emergency",value:en.number||""}));
+        (csData.emergencyNumbers||[]).forEach(en => rows.push({label:en.label||"Emergency",value:en.number||"",hl:en.hl}));
         rows.push({label:"Nearest Hospital",value:csData.emergency?.hospital||""});
         rows.push({label:"Nearest Police Station",value:csData.emergency?.police||""});
         return [{ title:"NEAREST EMERGENCY SERVICES", columns:fv, rows }];

@@ -16,9 +16,13 @@ const _downloadBlob = (blob, filename) => {
   URL.revokeObjectURL(a.href);
 };
 
-// Single-sheet export with real cell styling (black section header bars, etc) — the
-// plain `xlsx` package (community edition) cannot write cell fills/fonts at all, so
-// this uses exceljs for anything that needs to visually match the app's own styling.
+const _toArgb = (hex) => "FF" + String(hex || "000000").replace("#", "").toUpperCase().padStart(6, "0");
+const _thinBorder = { style: "thin", color: { argb: "FFE0E0E0" } };
+const HL_FILL = { pending: "FFFFF8E8", confirmed: "FFE8F4FD", paid: "FFEDFAF3" };
+
+// Single-sheet export with real cell styling (black section header bars, table
+// borders, etc) — the plain `xlsx` package (community edition) cannot write cell
+// fills/fonts/borders at all, so this uses exceljs to visually match the app/PDF.
 export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
   const { default: ExcelJS } = await import("exceljs");
   const wb = new ExcelJS.Workbook();
@@ -26,8 +30,20 @@ export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
     pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: opts.orientation || "landscape", margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } },
     views: [{ showGridLines: false }],
   });
-  let r = 1;
   const maxCols = Math.max(1, ...blocks.map(b => (b.columns || []).length));
+
+  // Auto-size columns from actual header/value content, since different blocks
+  // reuse the same column indices for different data (mirrors PDF column widths).
+  const colWidths = new Array(maxCols).fill(9);
+  blocks.forEach(block => {
+    (block.columns || []).forEach((c, ci) => { colWidths[ci] = Math.max(colWidths[ci], String(c.label || "").length + 2); });
+    (block.rows || []).forEach(row => {
+      if (row.isNote) return;
+      (block.columns || []).forEach((c, ci) => { colWidths[ci] = Math.max(colWidths[ci], Math.min(String(row[c.key] ?? "").length + 2, 45)); });
+    });
+  });
+
+  let r = 1;
   if (opts.title) {
     ws.mergeCells(r, 1, r, maxCols);
     const cell = ws.getRow(r).getCell(1);
@@ -38,52 +54,63 @@ export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
   }
   blocks.forEach(block => {
     const cols = block.columns || [];
-    const span = Math.max(1, cols.length);
-    const hdrColor = (block.headerColor || "#000000").replace("#", "FF").toUpperCase();
+    const hdrColor = _toArgb(block.headerColor || "#000000");
     const titleRow = ws.getRow(r);
-    ws.mergeCells(r, 1, r, span);
+    ws.mergeCells(r, 1, r, maxCols);
     const titleCell = titleRow.getCell(1);
-    titleCell.value = block.title || "";
-    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: hdrColor } };
+    titleCell.value = (block.title || "").toUpperCase();
     titleCell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
     titleCell.alignment = { vertical: "middle" };
     titleRow.height = 20;
-    for (let c = 1; c <= span; c++) titleRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: hdrColor } };
+    for (let c = 1; c <= maxCols; c++) titleRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: hdrColor } };
     r++;
     if (block.subtitle) {
-      ws.mergeCells(r, 1, r, span);
+      ws.mergeCells(r, 1, r, maxCols);
       const subCell = ws.getRow(r).getCell(1);
       subCell.value = block.subtitle;
       subCell.font = { italic: true, size: 8, color: { argb: "FF888888" } };
       r++;
     }
-    if (cols.length) {
+    if (cols.length > 1) {
       const hdrRow = ws.getRow(r);
       cols.forEach((c, ci) => {
         const cell = hdrRow.getCell(ci + 1);
         cell.value = c.label;
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F4F4" } };
         cell.font = { bold: true, size: 9, color: { argb: "FF999999" } };
-        cell.border = { bottom: { style: "thin", color: { argb: "FFDDDDDD" } } };
+        cell.border = { top: _thinBorder, left: _thinBorder, right: _thinBorder, bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
+        if (c.align) cell.alignment = { horizontal: c.align };
       });
       r++;
     }
     (block.rows || []).forEach(row => {
       const dataRow = ws.getRow(r);
       if (row.isNote) {
-        ws.mergeCells(r, 1, r, span);
+        ws.mergeCells(r, 1, r, maxCols);
         const cell = dataRow.getCell(1);
         cell.value = `NOTE: ${row.text || ""}`;
         cell.font = { italic: true, size: 9, color: { argb: "FFC0392B" } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDECEA" } };
+      } else if (cols.length <= 1) {
+        ws.mergeCells(r, 1, r, maxCols);
+        const cell = dataRow.getCell(1);
+        cell.value = cols.length ? (row[cols[0].key] || "") : "";
+        cell.alignment = { wrapText: true, vertical: "top" };
       } else {
-        cols.forEach((c, ci) => { dataRow.getCell(ci + 1).value = row[c.key] || ""; });
+        const rowFill = row.hl && HL_FILL[row.hl];
+        cols.forEach((c, ci) => {
+          const cell = dataRow.getCell(ci + 1);
+          cell.value = row[c.key] || "";
+          cell.border = { top: _thinBorder, left: _thinBorder, right: _thinBorder, bottom: _thinBorder };
+          if (c.align) cell.alignment = { horizontal: c.align };
+          if (rowFill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
+        });
       }
       r++;
     });
     r++;
   });
-  for (let c = 1; c <= maxCols; c++) ws.getColumn(c).width = opts.colWidth || 18;
+  colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = Math.min(Math.max(w, 10), 45); });
   const buf = await wb.xlsx.writeBuffer();
   _downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), filename);
 };
