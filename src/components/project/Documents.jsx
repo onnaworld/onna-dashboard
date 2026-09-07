@@ -1,5 +1,6 @@
 import React, { Fragment } from "react";
 import { getToken, downloadCSV } from "../../utils/helpers";
+import { downloadStyledXlsx } from "../../utils/templateExport";
 import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CS_HL_BG, cycleHighlight, CSHighlightDot } from "../ui/DocHelpers";
 import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_DOC_TYPES, CONTRACT_TYPE_LABELS, GENERAL_TERMS_DOC } from "../agents/ContractCody";
@@ -547,6 +548,84 @@ export default function Documents({
     const moveSectionTo = (fromKey, toKey) => csSet(d => { const base = _normSecOrder(d.sectionOrder); const from = base.indexOf(fromKey); const to = base.indexOf(toKey); if (from<0||to<0||from===to) return d; const a=[...base]; const [m]=a.splice(from,1); a.splice(to,0,m); return {...d, sectionOrder:a}; });
     const _secMoveBtnStyle = (disabled) => ({background:"#fff",border:"1px solid #ddd",borderRadius:4,color:disabled?"#ddd":"#666",cursor:disabled?"default":"pointer",fontSize:11,padding:"1px 7px",lineHeight:1.4,fontFamily:"inherit",boxShadow:"0 1px 2px rgba(0,0,0,0.08)"});
 
+    const csSecToExcelBlocks = (key) => {
+      const fv = [{key:"label",label:"Field"},{key:"value",label:"Value"}];
+      if (key === "shoot") {
+        return [{ title:"SHOOT", columns:fv, rows:(csData.venueRows||[]).map(r=>({label:r.label,value:r.value})) }];
+      }
+      if (key === "schedule") {
+        const schedCols = [{key:"time",label:"Time"},{key:"activity",label:"Activity"},{key:"notes",label:"Notes"}];
+        const blocks = [{ title:csData.scheduleLabel||"SCHEDULE", columns:schedCols, rows:csData.schedule||[] }];
+        (csData.extraSchedules||[]).forEach(sched => blocks.push({ title:sched.title||"ADDITIONAL SCHEDULE", columns:schedCols, rows:sched.rows||[] }));
+        return blocks;
+      }
+      if (key === "contacts") {
+        const rows = [];
+        (csData.departments||[]).forEach(dept => {
+          (dept.crew||[]).forEach(cr => {
+            rows.push({department:dept.name,role:cr.role,name:cr.name,mobile:cr.mobile,email:cr.email,callTime:cr.callTime});
+            (cr.agents || (cr.agent ? [cr.agent] : [])).forEach(ag => rows.push({department:dept.name,role:ag.role,name:ag.name,mobile:ag.mobile,email:ag.email,callTime:ag.callTime}));
+          });
+        });
+        return [{ title:"CONTACTS", columns:[{key:"department",label:"Department"},{key:"role",label:"Role"},{key:"name",label:"Name"},{key:"mobile",label:"Mobile"},{key:"email",label:"Email"},{key:"callTime",label:"Call Time"}], rows }];
+      }
+      if (key === "map") {
+        if (!csData.mapLink) return [];
+        return [{ title:"MAP", columns:fv, rows:[{label:"Link",value:csData.mapLink}] }];
+      }
+      if (key === "weather") {
+        const rows = [
+          {label:"Summary",value:csData.weatherSummary||""},
+          {label:"High",value:[csData.weatherHighC&&`${csData.weatherHighC}°C`,csData.weatherHighF&&`${csData.weatherHighF}°F`].filter(Boolean).join(" / ")},
+          {label:"Low",value:[csData.weatherLowC&&`${csData.weatherLowC}°C`,csData.weatherLowF&&`${csData.weatherLowF}°F`].filter(Boolean).join(" / ")},
+        ];
+        if (csData.weatherShowRealFeel !== false) {
+          rows.push({label:"Real Feel High",value:[csData.weatherRealFeelHighC&&`${csData.weatherRealFeelHighC}°C`,csData.weatherRealFeelHighF&&`${csData.weatherRealFeelHighF}°F`].filter(Boolean).join(" / ")});
+          rows.push({label:"Real Feel Low",value:[csData.weatherRealFeelLowC&&`${csData.weatherRealFeelLowC}°C`,csData.weatherRealFeelLowF&&`${csData.weatherRealFeelLowF}°F`].filter(Boolean).join(" / ")});
+        }
+        rows.push({label:"Sunrise",value:csData.weatherSunrise||""});
+        rows.push({label:"Sunset",value:csData.weatherSunset||""});
+        rows.push({label:"Blue Hour",value:csData.weatherBlueHour||""});
+        const blocks = [{ title:"WEATHER", columns:fv, rows }];
+        if ((csData.weatherHourly||[]).length) {
+          blocks.push({ title:"HOURLY FORECAST", columns:[{key:"time",label:"Time"},{key:"condition",label:"Condition"},{key:"tempC",label:"°C"},{key:"tempF",label:"°F"}], rows:csData.weatherHourly });
+        }
+        return blocks;
+      }
+      if (key === "invoicing") {
+        const rows = [
+          {label:"Payment Terms",value:csData.invoicing?.terms||""},
+          {label:csData.invoicing?.crewLabel||"For Crew",value:""},
+          {label:"Send Invoices To",value:csData.invoicing?.email||""},
+          {label:"Billing Address",value:csData.invoicing?.address||""},
+        ];
+        if (csData.invoicing?.showTrn !== false) rows.push({label:"TRN",value:csData.invoicing?.trn||""});
+        return [{ title:"INVOICING", columns:fv, rows }];
+      }
+      if (key === "protocol") {
+        if (!csData.protocol) return [];
+        return [{ title:"PROTOCOL ON SET", headerColor:"#C62828", columns:[{key:"text",label:"Protocol"}], rows:[{text:csData.protocol}] }];
+      }
+      if (key === "emergency") {
+        const rows = [{label:"Dial",value:csData.emergencyDialPrefix||""}];
+        (csData.emergencyNumbers||[]).forEach(en => rows.push({label:en.label||"Emergency",value:en.number||""}));
+        rows.push({label:"Nearest Hospital",value:csData.emergency?.hospital||""});
+        rows.push({label:"Nearest Police Station",value:csData.emergency?.police||""});
+        return [{ title:"NEAREST EMERGENCY SERVICES", columns:fv, rows }];
+      }
+      if (key === "productionContacts") {
+        const lines = [csData.productionContacts, ...(csData.productionContactsExtra||[])].filter(Boolean);
+        if (!lines.length) return [];
+        return [{ title:"PRODUCTION ON SET", columns:[{key:"line",label:"Contact"}], rows:lines.map(line=>({line})) }];
+      }
+      return [];
+    };
+    const csExportExcel = () => {
+      const blocks = csSecOrder.flatMap(csSecToExcelBlocks);
+      if (!blocks.length) blocks.push({ title:"CALL SHEET", columns:[{key:"none",label:"No content yet"}], rows:[] });
+      downloadStyledXlsx(blocks, `${csData.label||"Call Sheet"}.xlsx`, { title:`${csData.label||"Call Sheet"} — ${csData.shootName||p.name||""}`, sheetName:"Call Sheet" });
+    };
+
     return (
       <div>
         {docBack}
@@ -555,7 +634,10 @@ export default function Documents({
             <button onClick={()=>setActiveCSVersion(null)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:500,cursor:"pointer",border:`1px solid ${T.border}`,fontFamily:"inherit",background:"transparent",color:T.sub}}>‹ Back to Call Sheets</button>
             <div style={{fontSize:11,color:T.muted}}>Label: <input value={csData.label||""} onChange={e=>csU("label",e.target.value)} style={{padding:"4px 9px",borderRadius:7,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",color:T.text,width:160}} placeholder="Call Sheet"/></div>
           </div>
-          <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());clone.querySelectorAll("[data-noprint]").forEach(b=>b.remove());clone.querySelectorAll("[data-yellow]").forEach(b=>{b.style.background="transparent";b.style.padding="0";b.style.borderRadius="0";});const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csData.label||"Day 1"} Call Sheet | ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:12mm;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=`${csData.label||"Day 1"} Call Sheet | ${p.name}`;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);}}>Export PDF</BtnExport>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <BtnExport onClick={csExportExcel}>Export Excel</BtnExport>
+            <BtnExport onClick={()=>{const el=document.getElementById("onna-cs-print");if(!el)return;const clone=el.cloneNode(true);clone.querySelectorAll("button").forEach(b=>b.remove());clone.querySelectorAll("input[type=file]").forEach(b=>b.remove());clone.querySelectorAll("[data-cs-placeholder]").forEach(b=>b.remove());clone.querySelectorAll("[data-noprint]").forEach(b=>b.remove());clone.querySelectorAll("[data-yellow]").forEach(b=>{b.style.background="transparent";b.style.padding="0";b.style.borderRadius="0";});const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);const doc=iframe.contentDocument;doc.open();doc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${csData.label||"Day 1"} Call Sheet | ${p.name}</title><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;}@media print{@page{margin:12mm;size:A4;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);doc.close();doc.body.appendChild(doc.adoptNode(clone));const prevTitle=document.title;document.title=`${csData.label||"Day 1"} Call Sheet | ${p.name}`;const restoreTitle=()=>{document.title=prevTitle;try{document.body.removeChild(iframe);}catch{}window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{doc.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);}}>Export PDF</BtnExport>
+          </div>
         </div>
         <div id="onna-cs-print" style={{background:"#fff",padding:"0",fontFamily:CS_FONT,borderRadius:0}}>
           <div style={{maxWidth:880,margin:"0 auto",background:"#FFFFFF"}}>
