@@ -320,12 +320,22 @@ export const rebalancePrintTableWidths = (root) => {
   root.querySelectorAll("table").forEach(table => {
     const headRow = table.querySelector("thead tr") || table.querySelector("tr");
     if (!headRow) return;
+    const cells = Array.from(headRow.children);
+    if (!cells.length) return;
     const pctCells = [];
     let totalPct = 0;
-    Array.from(headRow.children).forEach(td => {
+    let hasUnstyledCell = false;
+    cells.forEach(td => {
       const w = (td.style.width || "").trim();
+      if (!w) { hasUnstyledCell = true; return; }
       if (w.endsWith("%")) { const v = parseFloat(w); if (!isNaN(v)) { totalPct += v; pctCells.push({ td, v }); } }
     });
+    // A column left with no explicit width (e.g. a Notes column) is meant to
+    // flexibly absorb whatever space remains — it already grows correctly
+    // once the noprint columns are gone, so rescaling here would just starve
+    // it instead of fixing anything. Only rebalance tables where every
+    // surviving column is explicitly percentage-sized.
+    if (hasUnstyledCell) return;
     if (pctCells.length && totalPct > 0 && totalPct < 99.5) {
       const scale = 100 / totalPct;
       pctCells.forEach(({ td, v }) => { td.style.width = (v * scale).toFixed(3) + "%"; });
