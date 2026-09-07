@@ -197,6 +197,7 @@ export default function Documents({
     const rmCrew = (di,ci) => { if(!confirm("Remove this crew member?"))return; csSet(d => {d.departments[di].crew.splice(ci,1); return d;}); };
     const moveCrew = (di,ci,dir) => csSet(d => { const crew=[...d.departments[di].crew]; const j=ci+dir; if(j<0||j>=crew.length)return d; [crew[ci],crew[j]]=[crew[j],crew[ci]]; const depts=[...d.departments]; depts[di]={...depts[di],crew}; return {...d, departments:depts}; });
     const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
+    const moveDept = (di,dir) => csSet(d => { const depts=[...d.departments]; const j=di+dir; if(j<0||j>=depts.length)return d; [depts[di],depts[j]]=[depts[j],depts[di]]; return {...d, departments:depts}; });
     const rmDept = i => { if(!confirm("Remove this whole department, including everyone in it?"))return; csSet(d => ({...d, departments:d.departments.filter((_,j)=>j!==i)})); };
     const addAgentLine = (di,ci) => csSet(d => {
       const cr = d.departments[di].crew[ci];
@@ -383,6 +384,10 @@ export default function Documents({
                         <div style={{background:dept.discrete?"#f2f2f2":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center",breakInside:"avoid"}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","dept:"+di);}} style={{color:dept.discrete?"#aaa":"#666",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
+                            <span data-noprint="1" style={{display:"flex",gap:1}}>
+                              <button onClick={()=>moveDept(di,-1)} disabled={di===0} title="Move department up" style={{background:"none",border:"none",color:di===0?(dept.discrete?"#ddd":"#555"):(dept.discrete?"#aaa":"#bbb"),cursor:di===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button>
+                              <button onClick={()=>moveDept(di,1)} disabled={di===csData.departments.length-1} title="Move department down" style={{background:"none",border:"none",color:di===csData.departments.length-1?(dept.discrete?"#ddd":"#555"):(dept.discrete?"#aaa":"#bbb"),cursor:di===csData.departments.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button>
+                            </span>
                             {dept.discrete&&<span data-noprint="1" style={{fontSize:9,color:"#999",display:"inline-block",cursor:"pointer",transform:deptOpen?"rotate(0deg)":"rotate(-90deg)",transition:"transform 0.15s"}} onClick={()=>csU(`departments.${di}.collapsed`,!dept.collapsed)}>▾</span>}
                             <CSHighlightDot value={dept.hl} onClick={(e)=>{e.stopPropagation();csU(`departments.${di}.hl`,cycleHighlight(dept.hl));}}/>
                             <CSEditField value={dept.name} onChange={v=>csU(`departments.${di}.name`,v)} bold style={{fontSize:9,fontWeight:800,letterSpacing:CS_LS,color:dept.discrete?"#888":"#fff",fontStyle:dept.discrete?"italic":"normal"}}/>
