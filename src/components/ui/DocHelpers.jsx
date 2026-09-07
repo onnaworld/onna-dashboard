@@ -222,20 +222,20 @@ const CSAddBtn = ({ onClick, label }) => <button onClick={onClick} style={{backg
 
 // ─── Travel Itinerary cell components ────────────────────────────────────────
 const TIHl = ({text,style:s={}}) => {if(!text)return null;const parts=String(text).split(/(\[.*?\])/g);return <span style={s}>{parts.map((pt,i)=>pt.startsWith("[")&&pt.endsWith("]")?<span key={i} style={{background:"#FFF9C4",borderRadius:2,padding:"0 2px"}}>{pt}</span>:<span key={i}>{pt}</span>)}</span>;};
-// Cells store links inline as "[text](url)" — parseTILink() reads it back out.
-// This is intentionally the same bracket syntax used elsewhere, but a link
-// only ever matches the full trimmed value (a lone "(url)" tail after the
-// brackets), so it never collides with TIHl's "[placeholder]" highlighting.
-const parseTILink = (v) => { const m=/^\[(.*)\]\((https?:\/\/[^\s)]+)\)$/.exec(String(v||"").trim()); return m?{text:m[1],url:m[2]}:null; };
 const TICell = ({value,onChange,style:s={},align="left"}) => {
   const [editing,setEditing]=useState(false);const [temp,setTemp]=useState(value);
   const [linkOpen,setLinkOpen]=useState(false);const [linkInput,setLinkInput]=useState("");
+  const selRef=useRef({start:0,end:0});
   useEffect(()=>{setTemp(value);},[value]);
   const commit=(v)=>{setEditing(false);onChange(v!==undefined?v:temp);};
-  const openLink=()=>{const existing=parseTILink(temp);setLinkInput(existing?existing.url:"");setLinkOpen(true);};
+  // Only the highlighted portion of the text becomes the link — everything
+  // before/after the selection is preserved as-is, not swallowed by the link.
+  const openLink=(ta)=>{selRef.current={start:ta.selectionStart,end:ta.selectionEnd};setLinkInput("");setLinkOpen(true);};
   const applyLink=()=>{
-    const url=linkInput.trim();const existing=parseTILink(temp);const text=existing?existing.text:temp;
-    const newVal=url?`[${text}](${url})`:text;
+    const url=linkInput.trim();
+    const {start,end}=selRef.current;
+    const selected=temp.slice(start,end)||"link";
+    const newVal=url?temp.slice(0,start)+`[${selected}](${url})`+temp.slice(end):temp;
     setTemp(newVal);
     setLinkOpen(false);
     commit(newVal);
@@ -244,7 +244,7 @@ const TICell = ({value,onChange,style:s={},align="left"}) => {
     <div style={{position:"relative"}}>
       <input autoFocus value={temp} onChange={e=>setTemp(e.target.value)}
         onBlur={()=>{if(!linkOpen)commit();}}
-        onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();e.stopPropagation();openLink();}else if(e.key==="Enter"&&!linkOpen){commit();}}}
+        onKeyDown={e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();e.stopPropagation();openLink(e.target);}else if(e.key==="Enter"&&!linkOpen){commit();}}}
         style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,border:"none",outline:"none",background:"#FFFDE7",width:"100%",boxSizing:"border-box",padding:"3px 4px",textAlign:align,...s}}/>
       {linkOpen&&<>
         <div onClick={()=>{setLinkOpen(false);commit();}} style={{position:"fixed",inset:0,zIndex:9998}}/>
@@ -257,11 +257,8 @@ const TICell = ({value,onChange,style:s={},align="left"}) => {
       </>}
     </div>
   );
-  const link=parseTILink(value);
   return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{fontFamily:CS_FONT,fontSize:9,letterSpacing:0.5,cursor:"text",padding:"3px 4px",minHeight:16,textAlign:align,whiteSpace:"pre-wrap",...s}} onMouseEnter={e=>e.currentTarget.style.background="#fafafa"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-    {link
-      ? <a href={link.url} target="_blank" rel="noreferrer" draggable={false} onClick={e=>e.stopPropagation()} style={{color:"#1565C0",textDecoration:"underline"}}>{link.text||link.url}</a>
-      : (value?<TIHl text={value}/>:<span style={{color:"#ddd"}}>&mdash;</span>)}
+    {value?renderCSLinks(value,"#FFF9C4"):<span style={{color:"#ddd"}}>&mdash;</span>}
   </div>;
 };
 const TI_HEADER_COLORS = ["#000000","#c0392b","#1565C0","#2e7d32","#6A1B9A","#E65100","#555555"];
