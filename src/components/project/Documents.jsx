@@ -232,8 +232,8 @@ export default function Documents({
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr style={{background:csDeptBg}}>
                   <td data-noprint="1" style={{width:16,background:csDeptBg}}></td>
-                  <td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td>
-                  <td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td>
+                  <td style={{...csTh,background:csDeptBg,width:"16%"}}>TIME</td>
+                  <td style={{...csTh,background:csDeptBg,width:"16%"}}>ACTIVITY</td>
                   <td style={{...csTh,background:csDeptBg}}>NOTES</td>
                   <td style={{width:24,background:csDeptBg}}></td>
                 </tr></thead>
@@ -274,8 +274,8 @@ export default function Documents({
                 <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                   <thead><tr style={{background:csDeptBg}}>
                     <td data-noprint="1" style={{width:16,background:csDeptBg}}></td>
-                    <td style={{...csTh,background:csDeptBg,width:"10%"}}>TIME</td>
-                    <td style={{...csTh,background:csDeptBg,width:"18%"}}>ACTIVITY</td>
+                    <td style={{...csTh,background:csDeptBg,width:"16%"}}>TIME</td>
+                    <td style={{...csTh,background:csDeptBg,width:"16%"}}>ACTIVITY</td>
                     <td style={{...csTh,background:csDeptBg}}>NOTES</td>
                     <td style={{width:24,background:csDeptBg}}></td>
                   </tr></thead>
