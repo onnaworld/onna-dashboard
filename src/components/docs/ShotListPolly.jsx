@@ -7,12 +7,25 @@ const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.5;
 const YELLOW = "#FFF9C4";
 
+const MD_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 const Hl = ({ text, style = {} }) => {
   if (!text) return null;
+  const parts = []; let key = 0; let lastIndex = 0; let m;
+  MD_LINK_RE.lastIndex = 0;
+  const str = String(text);
+  while ((m = MD_LINK_RE.exec(str))) {
+    if (m.index > lastIndex) parts.push(<span key={key++}>{highlightBrackets(str.slice(lastIndex, m.index))}</span>);
+    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{m[1]}</a>);
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < str.length) parts.push(<span key={key++}>{highlightBrackets(str.slice(lastIndex))}</span>);
+  return <span style={style}>{parts}</span>;
+};
+const highlightBrackets = (text) => {
   const parts = String(text).split(/(\[.*?\])/g);
-  return <span style={style}>{parts.map((p, i) => p.startsWith("[") && p.endsWith("]")
+  return parts.map((p, i) => p.startsWith("[") && p.endsWith("]")
     ? <span key={i} style={{ background: YELLOW, borderRadius: 2, padding: "0 2px" }}>{p}</span>
-    : <span key={i}>{p}</span>)}</span>;
+    : <span key={i}>{p}</span>);
 };
 
 const Cell = ({ value, onChange, style = {}, align = "left", placeholder = "", multiline = false }) => {
@@ -24,9 +37,20 @@ const Cell = ({ value, onChange, style = {}, align = "left", placeholder = "", m
   const isP = (v) => v && v.startsWith("[") && v.endsWith("]");
   const startEdit = () => { setTemp(isP(value) ? "" : value); setEditing(true); };
   useEffect(() => { if (editing && inputRef.current) inputRef.current.select(); }, [editing]);
+  const handleLinkKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      e.stopPropagation();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      const selected = temp.slice(start, end) || "link";
+      const url = window.prompt("Link URL:", "https://");
+      if (url) { const newVal = temp.slice(0, start) + `[${selected}](${url})` + temp.slice(end); setTemp(newVal); requestAnimationFrame(() => ta.focus()); }
+    }
+  };
   if (editing && multiline) {
     return <input ref={inputRef} autoFocus value={temp} onChange={e => setTemp(e.target.value)}
-      onBlur={commit} onKeyDown={e => e.key === "Enter" && commit()}
+      onBlur={commit} onKeyDown={e => { handleLinkKeyDown(e); if (!e.defaultPrevented && e.key === "Enter") commit(); }}
       placeholder={placeholder || (isP(value) ? value.slice(1, -1) : "")}
       style={{ fontFamily: F, fontSize: 9, letterSpacing: LS, border: "1px solid #f0f0f0", outline: "none",
         background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "4px 8px", height: 24,
@@ -34,7 +58,7 @@ const Cell = ({ value, onChange, style = {}, align = "left", placeholder = "", m
   }
   if (editing) {
     return <input ref={inputRef} autoFocus value={temp} onChange={e => setTemp(e.target.value)}
-      onBlur={commit} onKeyDown={e => e.key === "Enter" && commit()}
+      onBlur={commit} onKeyDown={e => { handleLinkKeyDown(e); if (!e.defaultPrevented && e.key === "Enter") commit(); }}
       placeholder={placeholder || (isP(value) ? value.slice(1, -1) : "")}
       style={{ fontFamily: F, fontSize: 9, letterSpacing: LS, border: "none", outline: "none",
         background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "3px 6px",

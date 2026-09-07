@@ -58,10 +58,34 @@ const invCalcTotals = (inv) => {
 
 
 // ── Small inline-editable cell (click to edit, blur/Enter to commit) ──
+const INV_MD_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const renderInvLinks = (text) => {
+  if (!text) return text;
+  const parts = []; let key = 0; let lastIndex = 0; let m;
+  INV_MD_LINK_RE.lastIndex = 0;
+  while ((m = INV_MD_LINK_RE.exec(text))) {
+    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
+    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{m[1]}</a>);
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length ? parts : text;
+};
 function Cell({ value, onChange, align, placeholder, style, textarea }) {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value || "");
   const baseStyle = { fontFamily: F, fontSize: 11, letterSpacing: LS, padding: "5px 6px", textAlign: align || "left", width: "100%", boxSizing: "border-box", ...style };
+  const handleLinkKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      e.stopPropagation();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      const selected = temp.slice(start, end) || "link";
+      const url = window.prompt("Link URL:", "https://");
+      if (url) { const newVal = temp.slice(0, start) + `[${selected}](${url})` + temp.slice(end); setTemp(newVal); requestAnimationFrame(() => ta.focus()); }
+    }
+  };
   if (editing) {
     const Tag = textarea ? "textarea" : "input";
     return (
@@ -70,7 +94,7 @@ function Cell({ value, onChange, align, placeholder, style, textarea }) {
         value={temp}
         onChange={(e) => setTemp(e.target.value)}
         onBlur={() => { setEditing(false); onChange(temp); }}
-        onKeyDown={(e) => { if (!textarea && e.key === "Enter") e.target.blur(); }}
+        onKeyDown={(e) => { handleLinkKeyDown(e); if (!e.defaultPrevented && !textarea && e.key === "Enter") e.target.blur(); }}
         rows={textarea ? 3 : undefined}
         style={{ ...baseStyle, border: "1px solid #E0D9A8", background: "#FFFDE7", outline: "none", resize: textarea ? "vertical" : "none" }}
       />
@@ -79,7 +103,7 @@ function Cell({ value, onChange, align, placeholder, style, textarea }) {
   return (
     <div onClick={() => { setTemp(value || ""); setEditing(true); }} style={{ ...baseStyle, cursor: "text", minHeight: 20, whiteSpace: textarea ? "pre-wrap" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", border: "1px solid transparent" }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#eee")} onMouseLeave={(e) => (e.currentTarget.style.borderColor = "transparent")}>
-      {value || <span data-noprint="1" style={{ color: "#bbb" }}>{placeholder || ""}</span>}
+      {value ? renderInvLinks(value) : <span data-noprint="1" style={{ color: "#bbb" }}>{placeholder || ""}</span>}
     </div>
   );
 }

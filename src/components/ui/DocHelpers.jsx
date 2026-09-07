@@ -50,7 +50,10 @@ const shortenCSUrl = (url) => {
     return label.length > 40 ? label.slice(0, 37) + "…" : label;
   } catch { return url.length > 40 ? url.slice(0, 37) + "…" : url; }
 };
-const renderCSLinks = (text) => {
+// hlBg, if given, additionally highlights standalone "[placeholder]" brackets
+// (that aren't themselves markdown links) with that background color — used
+// by cell types that show bracketed placeholder text (e.g. "[Name]").
+const renderCSLinks = (text, hlBg) => {
   if (!text) return text;
   const parts = []; let key = 0; let lastIndex = 0; let m;
   const segments = [];
@@ -68,13 +71,21 @@ const renderCSLinks = (text) => {
     }
     let li = 0; let bm; CS_BARE_URL_RE.lastIndex = 0;
     while ((bm = CS_BARE_URL_RE.exec(seg.value))) {
-      if (bm.index > li) parts.push(seg.value.slice(li, bm.index));
+      if (bm.index > li) parts.push(renderBrackets(seg.value.slice(li, bm.index), hlBg, key));
       parts.push(<a key={key++} href={bm[1]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{shortenCSUrl(bm[1])}</a>);
       li = bm.index + bm[1].length;
     }
-    if (li < seg.value.length) parts.push(seg.value.slice(li));
+    if (li < seg.value.length) parts.push(renderBrackets(seg.value.slice(li), hlBg, key));
   });
-  return parts.length ? parts : text;
+  return parts.length ? parts.flat() : text;
+};
+const renderBrackets = (text, hlBg, keyBase) => {
+  if (!hlBg) return text;
+  const bits = String(text).split(/(\[.*?\])/g);
+  if (bits.length===1) return text;
+  return bits.map((p,i) => p.startsWith("[")&&p.endsWith("]")
+    ? <span key={`${keyBase}-${i}`} style={{background:hlBg,borderRadius:2,padding:"0 2px"}}>{p}</span>
+    : p);
 };
 
 const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = false, isPlaceholder = false, alwaysYellow = false, autoFit = false }) => {
@@ -87,6 +98,7 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
   const handleKeyDown = (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
+      e.stopPropagation();
       const ta = e.target;
       const start = ta.selectionStart, end = ta.selectionEnd;
       const selected = temp.slice(start, end) || "link";
@@ -144,8 +156,23 @@ const CSEditTextarea = ({ value, onChange, style = {} }) => {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
   const commit = () => { setEditing(false); onChange(temp); };
-  if (editing) return <textarea autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} rows={4} style={{...style,fontFamily:CS_FONT,fontSize:11,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"4px 6px",width:"100%",boxSizing:"border-box",resize:"vertical"}}/>;
-  return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,cursor:"text",whiteSpace:"pre-wrap",fontFamily:CS_FONT,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value||<span style={{color:"#999",fontSize:10}}>Click to edit</span>}</div>;
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      e.stopPropagation();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      const selected = temp.slice(start, end) || "link";
+      const url = window.prompt("Link URL:", "https://");
+      if (url) {
+        const newVal = temp.slice(0, start) + `[${selected}](${url})` + temp.slice(end);
+        setTemp(newVal);
+        requestAnimationFrame(() => ta.focus());
+      }
+    }
+  };
+  if (editing) return <textarea autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit} onKeyDown={handleKeyDown} rows={4} style={{...style,fontFamily:CS_FONT,fontSize:11,background:"#FFFDE7",border:"1px solid #E0D9A8",borderRadius:2,outline:"none",padding:"4px 6px",width:"100%",boxSizing:"border-box",resize:"vertical"}}/>;
+  return <div onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,cursor:"text",whiteSpace:"pre-wrap",fontFamily:CS_FONT,borderBottom:"1px dashed transparent",transition:"all 0.15s"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value?renderCSLinks(value):<span style={{color:"#999",fontSize:10}}>Click to edit</span>}</div>;
 };
 
 const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
@@ -418,16 +445,31 @@ const EstCell = ({ value, onChange, style = {}, align = "left" }) => {
   useEffect(() => { setTemp(value); }, [value]);
   const commit = () => { setEditing(false); onChange(temp); };
   const autoR = useCallback((el) => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }, []);
+  const handleLinkKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      e.stopPropagation();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      const selected = temp.slice(start, end) || "link";
+      const url = window.prompt("Link URL:", "https://");
+      if (url) {
+        const newVal = temp.slice(0, start) + `[${selected}](${url})` + temp.slice(end);
+        setTemp(newVal);
+        requestAnimationFrame(() => { ta.focus(); if (ta.tagName === "TEXTAREA") autoR(ta); });
+      }
+    }
+  };
   if (editing) {
     const long = (temp || "").length > 50;
     if (long) return <textarea ref={el => autoR(el)} autoFocus value={temp}
       onChange={e => { setTemp(e.target.value); autoR(e.target); }} onBlur={commit}
-      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } }}
+      onKeyDown={e => { handleLinkKeyDown(e); if (!e.defaultPrevented && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } }}
       style={{ fontFamily: EST_F, fontSize: 10, letterSpacing: EST_LS, border: "none", outline: "none",
         background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "4px 6px",
         textAlign: align, resize: "none", overflow: "hidden", lineHeight: 1.5, ...style }} />;
     return <input autoFocus value={temp} onChange={e => setTemp(e.target.value)}
-      onBlur={commit} onKeyDown={e => e.key === "Enter" && commit()}
+      onBlur={commit} onKeyDown={e => { handleLinkKeyDown(e); if (!e.defaultPrevented && e.key === "Enter") commit(); }}
       style={{ fontFamily: EST_F, fontSize: 10, letterSpacing: EST_LS, border: "none", outline: "none",
         background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "4px 6px",
         textAlign: align, ...style }} />;
@@ -437,7 +479,7 @@ const EstCell = ({ value, onChange, style = {}, align = "left" }) => {
       minHeight: 18, textAlign: align, whiteSpace: "pre-wrap", transition: "all .1s", ...style }}
     onMouseEnter={e => e.currentTarget.style.background = "#fafafa"}
     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-    {value ? <EstHl text={(() => { const n = parseFloat(String(value).replace(/,/g, "")); return (!isNaN(n) && String(value).replace(/,/g, "").match(/^\-?\d+\.?\d*$/)) ? (Math.round(n * 100) / 100).toString() : value; })()} /> : <span style={{ color: "#ccc" }}>&mdash;</span>}
+    {value ? renderCSLinks((() => { const n = parseFloat(String(value).replace(/,/g, "")); return (!isNaN(n) && String(value).replace(/,/g, "").match(/^\-?\d+\.?\d*$/)) ? (Math.round(n * 100) / 100).toString() : value; })(), EST_YELLOW) : <span style={{ color: "#ccc" }}>&mdash;</span>}
   </div>;
 };
 

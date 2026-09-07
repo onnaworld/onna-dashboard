@@ -7,12 +7,22 @@ const CPS_F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const CPS_LS = 0.5;
 const CPS_YELLOW = "#FFF9C4";
 
+const CPS_MD_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 const CpsHl = ({ text, style = {} }) => {
   if (!text) return null;
-  const parts = String(text).split(/(\[.*?\])/g);
-  return <span style={style}>{parts.map((p, i) => p.startsWith("[") && p.endsWith("]")
-    ? <span key={i} style={{ background: CPS_YELLOW, borderRadius: 2, padding: "0 2px" }}>{p}</span>
-    : <span key={i}>{p}</span>)}</span>;
+  const parts = []; let key = 0; let lastIndex = 0; let m;
+  CPS_MD_LINK_RE.lastIndex = 0;
+  const str = String(text);
+  const brackets = (t) => t.split(/(\[.*?\])/g).map((p,i) => p.startsWith("[")&&p.endsWith("]")
+    ? <span key={`${key}-${i}`} style={{ background: CPS_YELLOW, borderRadius: 2, padding: "0 2px" }}>{p}</span>
+    : p);
+  while ((m = CPS_MD_LINK_RE.exec(str))) {
+    if (m.index > lastIndex) parts.push(...brackets(str.slice(lastIndex, m.index)));
+    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{m[1]}</a>);
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < str.length) parts.push(...brackets(str.slice(lastIndex)));
+  return <span style={style}>{parts}</span>;
 };
 
 const CpsCell = ({ value, onChange, style = {}, align = "left", placeholder = "" }) => {
@@ -27,9 +37,20 @@ const CpsCell = ({ value, onChange, style = {}, align = "left", placeholder = ""
     setEditing(true);
   };
   useEffect(() => { if (editing && inputRef.current) inputRef.current.select(); }, [editing]);
+  const handleLinkKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      e.stopPropagation();
+      const ta = e.target;
+      const start = ta.selectionStart, end = ta.selectionEnd;
+      const selected = temp.slice(start, end) || "link";
+      const url = window.prompt("Link URL:", "https://");
+      if (url) { const newVal = temp.slice(0, start) + `[${selected}](${url})` + temp.slice(end); setTemp(newVal); requestAnimationFrame(() => ta.focus()); }
+    }
+  };
   if (editing) {
     return <input ref={inputRef} autoFocus value={temp} onChange={e => setTemp(e.target.value)}
-      onBlur={commit} onKeyDown={e => e.key === "Enter" && commit()}
+      onBlur={commit} onKeyDown={e => { handleLinkKeyDown(e); if (!e.defaultPrevented && e.key === "Enter") commit(); }}
       placeholder={placeholder || (isPlaceholder(value) ? value.slice(1, -1) : "")}
       style={{ fontFamily: CPS_F, fontSize: 9, letterSpacing: CPS_LS, border: "none", outline: "none",
         background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "3px 6px",
