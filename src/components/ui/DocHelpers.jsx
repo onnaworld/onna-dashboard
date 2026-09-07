@@ -326,8 +326,11 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
           </div>
         </div>
       ) : (() => {
-        const subnotes = row.subnotes||[];
-        const setSubnotes = (next) => onUpdate(ri,"subnotes",next);
+        // Rows saved before subnotes supported more than one carry a legacy
+        // singular `subnote` string — fall back to it so that data isn't
+        // silently hidden, and fold it into the new array on the next edit.
+        const subnotes = row.subnotes!==undefined ? row.subnotes : (row.subnote!==undefined ? [{id:`${row.id}-legacy`,text:row.subnote,red:false}] : []);
+        const setSubnotes = (next) => { onUpdate(ri,"subnotes",next); if (row.subnote!==undefined) onUpdate(ri,"subnote",undefined); };
         return (
         <Fragment key={row.id}>
           <div {...rowWrapProps} style={{display:"flex",borderBottom:subnotes.length?"none":"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,...dropStyle}}>
