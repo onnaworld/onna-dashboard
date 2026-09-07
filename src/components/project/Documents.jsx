@@ -1273,6 +1273,22 @@ export default function Documents({
     const dietTotalWithDietary=(dietData.people||[]).filter(pr=>dietTagsOfPerson(pr).some(d=>d!=="None"&&d!=="TBC")).length;
     const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
 
+    const dietExportExcel = () => {
+      const fmtTags = (pr) => dietTagsOfPerson(pr).join(", ");
+      const peopleCols = [{key:"name",label:"Name"},{key:"role",label:"Role"},{key:"department",label:"Department"},{key:"dietary",label:"Dietary"},{key:"allergies",label:"Allergies / Intolerances"},{key:"notes",label:"Notes"}];
+      const peopleRows = (dietData.people||[]).map(pr=>({name:pr.name,role:pr.role,department:pr.department,dietary:fmtTags(pr),allergies:pr.allergies,notes:pr.notes}));
+      const blocks = [{ title:"CREW DIETARY NOTES", columns:peopleCols, rows:peopleRows }];
+      if ((dietData.notOnSet||[]).length) {
+        blocks.push({ title:"NOT ON SET", headerColor:"#888888", columns:peopleCols, rows:(dietData.notOnSet||[]).map(pr=>({name:pr.name,role:pr.role,department:pr.department,dietary:fmtTags(pr),allergies:pr.allergies,notes:pr.notes})) });
+      }
+      if ((dietData.menu||[]).length) {
+        (dietData.menu||[]).forEach(m=>{
+          blocks.push({ title:(m.category||"MENU").toUpperCase(), columns:[{key:"items",label:"Items"}], rows:[{items:m.items||""}] });
+        });
+      }
+      downloadStyledXlsx(blocks, `${dietData.label||"Dietary List"}.xlsx`, { title:`${dietData.label||"Dietary List"} — ${dietData.project?.name||p.name||""}`, sheetName:"Dietary" });
+    };
+
     const dietExportPDF = (elId,orient) => {
       const _eid=elId||"onna-diet-print";const _ori=orient||"landscape";
       const el=document.getElementById(_eid);if(!el)return;
@@ -1294,6 +1310,7 @@ export default function Documents({
             </select>
           )}
           {dietaryTab==="dietary"&&<button onClick={dietSyncFromCS} title={dietLinkedCS?`Syncs from "${dietLinkedCS.label||"Call Sheet"}"`:undefined} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>}
+          <BtnExport onClick={dietExportExcel}>Export Excel</BtnExport>
           <BtnExport onClick={()=>dietExportPDF(dietaryTab==="menu"?"onna-menu-print":"onna-diet-print",dietaryTab==="menu"?"portrait":"landscape")}>Export PDF</BtnExport>
         </div>
         <div style={{marginBottom:12}}>
