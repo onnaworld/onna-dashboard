@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { Fragment, useState, useRef, useEffect, useCallback } from "react";
 
 // ─── IMAGE UPLOAD VALIDATION ────────────────────────────────────────────────
 const MAX_IMG_SIZE = 15 * 1024 * 1024; // raw file size before compression
@@ -244,10 +244,10 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
   const hdrColor = headerColor || "#000000";
   return (
   <div style={{marginBottom:16,position:"relative",...(sectionDropHere?{boxShadow:"0 -2px 0 0 #2196F3"}:{})}}
-    draggable={!!sectionDraggable} onDragStart={onSectionDragStart} onDragOver={onSectionDragOver} onDrop={onSectionDrop} onDragEnd={onSectionDragEnd}>
+    onDragOver={onSectionDragOver} onDrop={onSectionDrop}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:hdrColor,padding:"4px 8px"}}>
       <div style={{display:"flex",alignItems:"baseline",gap:8,flex:1,minWidth:0}}>
-        {sectionDraggable&&<span data-noprint style={{color:"rgba(255,255,255,0.4)",fontSize:10,cursor:"grab",flexShrink:0}}>⠿</span>}
+        {sectionDraggable&&<span draggable data-noprint onDragStart={onSectionDragStart} onDragEnd={onSectionDragEnd} title="Drag to reorder section" style={{color:"rgba(255,255,255,0.4)",fontSize:10,cursor:"grab",flexShrink:0}}>⠿</span>}
         <div onClick={onEditTitle} style={{fontFamily:CS_FONT,fontSize:10,fontWeight:700,letterSpacing:0.5,color:"#fff",textTransform:"uppercase",cursor:"pointer",whiteSpace:"nowrap"}}>{title}</div>
         <div onClick={onEditSubtitle} data-noprint={subtitle?undefined:"1"} style={{fontFamily:CS_FONT,fontSize:8,letterSpacing:0.5,color:subtitle?"rgba(255,255,255,0.55)":"rgba(255,255,255,0.3)",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontStyle:subtitle?"normal":"italic"}}>{subtitle||"+ add subtitle"}</div>
       </div>
@@ -302,17 +302,32 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
           </div>
         </div>
       ) : (
-        <div key={row.id} {...rowWrapProps} style={{display:"flex",borderBottom:"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,...dropStyle}}>
-          <div style={{width:32,display:"flex",alignItems:"center"}}>
-            {dragHandle}
-            <span data-noprint onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
-          </div>
-          {columns.map(col=>(
-            <div key={col.key} style={{flex:col.flex}}>
-              <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
+        <Fragment key={row.id}>
+          <div {...rowWrapProps} style={{display:"flex",borderBottom:row.subnote!==undefined?"none":"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,...dropStyle}}>
+            <div style={{width:32,display:"flex",alignItems:"center"}}>
+              {dragHandle}
+              <span data-noprint onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
             </div>
-          ))}
-        </div>
+            {columns.map(col=>(
+              <div key={col.key} style={{flex:col.flex}}>
+                <TICell value={row[col.key]||""} onChange={v=>onUpdate(ri,col.key,v)}/>
+              </div>
+            ))}
+          </div>
+          {row.subnote!==undefined ? (
+            <div style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0",background:"#fafafa"}}>
+              <div style={{width:32}}/>
+              <div style={{flex:1,fontStyle:"italic"}}>
+                <TICell value={row.subnote||""} onChange={v=>onUpdate(ri,"subnote",v)} style={{color:"#999"}}/>
+              </div>
+              <span data-noprint onClick={()=>onUpdate(ri,"subnote",undefined)} style={{cursor:"pointer",fontSize:10,color:"#ddd",display:"flex",alignItems:"center",padding:"0 8px"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+            </div>
+          ) : (
+            <div data-noprint style={{borderBottom:"1px solid #f0f0f0",paddingLeft:32}}>
+              <span onClick={()=>onUpdate(ri,"subnote","")} style={{cursor:"pointer",fontSize:8,color:"#ccc",fontStyle:"italic",padding:"2px 4px",display:"inline-block"}} onMouseEnter={e=>e.target.style.color="#999"} onMouseLeave={e=>e.target.style.color="#ccc"}>+ add subnote</span>
+            </div>
+          )}
+        </Fragment>
       );
     })}
     {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
