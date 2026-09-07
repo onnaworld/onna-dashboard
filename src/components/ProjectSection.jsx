@@ -110,7 +110,7 @@ export default function ProjectSection({
   PROJECT_SECTIONS, ProjectTodoList,
   EstCell, EstimateView, BtnPrimary, BtnExport, UploadZone,
   CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage, CSXbtn,
-  DietaryTagSelect, SignaturePad, TICell, TITableSection,
+  DietaryTagSelect, DietaryMultiTagSelect, SignaturePad, TICell, TITableSection,
   CS_FONT, CS_LS, PRINT_CLEANUP_CSS,
   CALLSHEET_INIT, DIETARY_INIT,
   LocationsConnie, mkLoc, mkDetail,
@@ -330,7 +330,7 @@ export default function ProjectSection({
       getProjectFiles={getProjectFiles} addProjectFiles={addProjectFiles} buildPath={buildPath}
       projectInfoRef={projectInfoRef} CALLSHEET_INIT={CALLSHEET_INIT} DIETARY_INIT={DIETARY_INIT}
       CSLogoSlot={CSLogoSlot} CSAddBtn={CSAddBtn} CSEditField={CSEditField} CSEditTextarea={CSEditTextarea} CSResizableImage={CSResizableImage} CSXbtn={CSXbtn}
-      BtnExport={BtnExport} UploadZone={UploadZone} DietaryTagSelect={DietaryTagSelect} SignaturePad={SignaturePad} TICell={TICell}
+      BtnExport={BtnExport} UploadZone={UploadZone} DietaryTagSelect={DietaryTagSelect} DietaryMultiTagSelect={DietaryMultiTagSelect} SignaturePad={SignaturePad} TICell={TICell}
       CS_FONT={CS_FONT} CS_LS={CS_LS} PRINT_CLEANUP_CSS={PRINT_CLEANUP_CSS}
     />;
   }
