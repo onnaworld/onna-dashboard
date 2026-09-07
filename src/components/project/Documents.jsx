@@ -129,6 +129,7 @@ export default function Documents({
     if(!csData) { setActiveCSVersion(null); return null; }
 
     const csU = (path, val) => {
+      if (pushUndo) pushUndo("edit call sheet");
       setCallSheetStore(prev => {
         const store = JSON.parse(JSON.stringify(prev));
         const arr = store[p.id] || [];
@@ -158,6 +159,7 @@ export default function Documents({
       }
     };
     const csSet = (fn) => {
+      if (pushUndo) pushUndo("edit call sheet");
       setCallSheetStore(prev => {
         const store = JSON.parse(JSON.stringify(prev));
         const arr = store[p.id] || [];
@@ -855,8 +857,8 @@ export default function Documents({
     const raIdx = Math.min(activeRAVersion, raVersions.length - 1);
     const raData = raVersions[raIdx] || raVersions[0];
     if(!raData) { setActiveRAVersion(null); return null; }
-    const raU = (path, val) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
-    const raSet = (fn) => { setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
+    const raU = (path, val) => { if (pushUndo) pushUndo("edit risk assessment"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); const d = arr[idx]; const k = path.split("."); let o = d; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; arr[idx] = d; store[p.id] = arr; return store; }); };
+    const raSet = (fn) => { if (pushUndo) pushUndo("edit risk assessment"); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; if(!arr.length)return store; const idx = Math.min(raIdx, arr.length - 1); arr[idx] = fn(JSON.parse(JSON.stringify(arr[idx]))); store[p.id] = arr; return store; }); };
     // RA_FONT, RA_LS, RA_LS_HDR, RA_GREY hoisted to top level
     const raSectionHdr = (title) => (<div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24,marginBottom:0}}>{title}</div>);
 
@@ -896,7 +898,7 @@ export default function Documents({
               <div style={{background:"#000",color:"#fff",fontFamily:RA_FONT,fontSize:10,fontWeight:700,letterSpacing:RA_LS_HDR,textAlign:"center",padding:"4px 8px",textTransform:"uppercase",marginTop:24,marginBottom:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
                 <span style={{marginRight:4}}>{si+1}.</span>
                 <CSEditField value={sec.title} onChange={v=>{raSet(d=>{d.sections[si].title=v;return d;});}} placeholder="Section Title" style={{fontSize:10,color:"#fff",letterSpacing:RA_LS_HDR}} bold/>
-                <div onClick={()=>{if(pushUndo)pushUndo("delete section");raSet(d=>({...d,sections:d.sections.filter((_,j)=>j!==si)}));}} style={{position:"absolute",right:8,cursor:"pointer",fontSize:13,color:"#666",opacity:0.6}} onMouseEnter={e=>(e.target.style.opacity=1)} onMouseLeave={e=>(e.target.style.opacity=0.6)}>×</div>
+                <div onClick={()=>{raSet(d=>({...d,sections:d.sections.filter((_,j)=>j!==si)}));}} style={{position:"absolute",right:8,cursor:"pointer",fontSize:13,color:"#666",opacity:0.6}} onMouseEnter={e=>(e.target.style.opacity=1)} onMouseLeave={e=>(e.target.style.opacity=0.6)}>×</div>
               </div>
               <div style={{display:"flex",background:RA_GREY,borderBottom:"1px solid #ddd",padding:"5px 0"}}>
                 {(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation Strategy"]).map((c,ci)=>(<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,fontFamily:RA_FONT,fontSize:9,fontWeight:700,letterSpacing:RA_LS_HDR,padding:"0 6px",color:"#000"}}>{c}</div>))}
@@ -905,7 +907,7 @@ export default function Documents({
               {(sec.rows||[]).map((row,ri) => (
                 <div key={ri} style={{display:"flex",borderBottom:"1px solid #eee",padding:"4px 0",alignItems:"flex-start"}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}>
                   {row.map((cell,ci) => (<div key={ci} style={{flex:ci===0?3:ci===3?5:1.2,padding:"0 6px"}}><CSEditField value={cell} onChange={v=>{raSet(d=>{d.sections[si].rows[ri][ci]=v;return d;});}} isPlaceholder={!cell} placeholder={(sec.cols||["Hazard","Risk Level","Who is at Risk","Mitigation"])[ci]} style={{fontSize:10,letterSpacing:RA_LS}} bold={ci===0}/></div>))}
-                  <div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete row");raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}));}} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>
+                  <div className="ra-rm" onClick={()=>{raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:s.rows.filter((_,k)=>k!==ri)}:s)}));}} style={{width:24,cursor:"pointer",textAlign:"center",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div>
                 </div>
               ))}
               <div onClick={()=>raSet(d=>({...d,sections:d.sections.map((s,j)=>j===si?{...s,rows:[...s.rows,(s.cols||["","","",""]).map(()=>"")]}:s)}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",padding:"4px 6px",letterSpacing:RA_LS,marginTop:2}}>+ Add Row</div>
@@ -916,20 +918,20 @@ export default function Documents({
           {raSectionHdr("PROFESSIONAL CODE OF CONDUCT")}
           <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.conductIntro||""} onChange={v=>raU("conductIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
           <div style={{padding:"8px 12px"}}>
-            {(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete conduct item");raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+            {(raData.conductItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.conductItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.conductItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{raSet(d=>({...d,conductItems:d.conductItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
             <div onClick={()=>raSet(d=>({...d,conductItems:[...d.conductItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
           </div>
 
           {raSectionHdr("LIABILITY WAIVER & ACKNOWLEDGMENT")}
           <div style={{padding:"8px 12px"}}><CSEditTextarea value={raData.waiverIntro||""} onChange={v=>raU("waiverIntro",v)} style={{fontSize:10,letterSpacing:RA_LS,marginBottom:8}}/></div>
           <div style={{padding:"8px 12px"}}>
-            {(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete waiver item");raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+            {(raData.waiverItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10,fontWeight:700,minWidth:14}}>{i+1}.</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.waiverItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.waiverItems[i].text=v;return d;})} isPlaceholder={!item.text} placeholder="Description" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{raSet(d=>({...d,waiverItems:d.waiverItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
             <div onClick={()=>raSet(d=>({...d,waiverItems:[...d.waiverItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
           </div>
 
           {raSectionHdr("EMERGENCY RESPONSE PLAN")}
           <div style={{padding:"8px 12px"}}>
-            {(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/to be confirmed/i.test(item.text)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{if(pushUndo)pushUndo("delete emergency item");raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
+            {(raData.emergencyItems||[]).map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"baseline",marginBottom:4,gap:4}} onMouseEnter={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=1;}} onMouseLeave={e=>{const rm=e.currentTarget.querySelector(".ra-rm");if(rm)rm.style.opacity=0;}}><span style={{fontFamily:RA_FONT,fontSize:10}}>•</span><div style={{flex:1}}><CSEditField value={item.label} onChange={v=>raSet(d=>{d.emergencyItems[i].label=v;return d;})} bold isPlaceholder={!item.label} placeholder="Label:" style={{fontSize:10,letterSpacing:RA_LS}}/>{" "}<CSEditField value={item.text} onChange={v=>raSet(d=>{d.emergencyItems[i].text=v;return d;})} isPlaceholder={!item.text||/to be confirmed/i.test(item.text)} placeholder="Details" style={{fontSize:10,letterSpacing:RA_LS}}/></div><div className="ra-rm" onClick={()=>{raSet(d=>({...d,emergencyItems:d.emergencyItems.filter((_,j)=>j!==i)}));}} style={{cursor:"pointer",fontSize:12,color:"#bbb",opacity:0,transition:"opacity .15s"}}>×</div></div>))}
             <div onClick={()=>raSet(d=>({...d,emergencyItems:[...d.emergencyItems,{label:"",text:""}]}))} style={{fontFamily:RA_FONT,fontSize:9,color:"#999",cursor:"pointer",letterSpacing:RA_LS}}>+ Add Item</div>
           </div>
 
@@ -1295,6 +1297,7 @@ export default function Documents({
     if(!dietData){setActiveDietaryVersion(null);return null;}
 
     const dietU = (path, val) => {
+      if (pushUndo) pushUndo("edit dietary");
       setDietaryStore(prev=>{
         const store=JSON.parse(JSON.stringify(prev));
         const arr=store[p.id]||[];
@@ -1307,12 +1310,15 @@ export default function Documents({
       });
     };
     const dietUpdatePerson = (i,key,val) => {
+      if (pushUndo) pushUndo("edit dietary");
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[p.id]=arr;return store;});
     };
     const dietAddPerson = () => {
+      if (pushUndo) pushUndo("add dietary person");
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:["TBC"],allergies:"",notes:""});arr[dietIdx]=d;store[p.id]=arr;return store;});
     };
     const dietSet = (fn) => {
+      if (pushUndo) pushUndo("edit dietary");
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];if(arr.length===0)return store;const idx=Math.min(dietIdx,arr.length-1);arr[idx]=fn(arr[idx]);store[p.id]=arr;return store;});
     };
     // Removing someone doesn't discard their dietary/allergy details — it just

@@ -200,9 +200,9 @@ export default function Locations({
           initialProject={locData.project}
           initialLocations={locData.locations}
           initialDetails={locData.details}
-          onChangeProject={proj => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].project = proj; return s; })}
-          onChangeLocations={locs => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].locations = locs; return s; })}
-          onChangeDetails={dets => setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].details = dets; return s; })}
+          onChangeProject={proj => { if (pushUndo) pushUndo("edit location deck"); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].project = proj; return s; }); }}
+          onChangeLocations={locs => { if (pushUndo) pushUndo("edit location deck"); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].locations = locs; return s; }); }}
+          onChangeDetails={dets => { if (pushUndo) pushUndo("edit location deck"); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); s[p.id][locIdx].details = dets; return s; }); }}
           onShareUrl={(url, token, id) => { setLocShareUrl(url); setLocDeckStore(prev => { const s = JSON.parse(JSON.stringify(prev)); if (s[p.id] && s[p.id][locIdx]) { s[p.id][locIdx].shareToken = token; s[p.id][locIdx].shareResourceId = id; } return s; }); }}
         />
       </div>
@@ -279,6 +279,7 @@ export default function Locations({
     if(!rcData){setActiveRecceVersion(null);return null;}
 
     const rcU = (path, val) => {
+      if (pushUndo) pushUndo("edit recce report");
       setRecceReportStore(prev=>{
         const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];
         const k=path.split(".");let o=d;for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=val;
@@ -289,16 +290,20 @@ export default function Locations({
     const rcSelLoc = rcData.selLoc || (rcLocs.length>0?rcLocs[0].id:null);
     const curRecLoc = rcLocs.find(l=>l.id===rcSelLoc) || (rcLocs.length>0?rcLocs[0]:null);
     const rcUpdateLoc = (id,key,val) => {
+      if (pushUndo) pushUndo("edit recce report");
       setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).map(l=>l.id===id?{...l,[key]:val}:l);store[p.id]=arr;return store;});
     };
     const rcAddLoc = () => {
+      if (pushUndo) pushUndo("add recce location");
       const nl = mkRecceLocation();
       setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];if(!d.locations)d.locations=[];d.locations.push(nl);d.selLoc=nl.id;store[p.id]=arr;return store;});
     };
     const rcDeleteLoc = (id) => {
+      if (pushUndo) pushUndo("delete recce location");
       setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).filter(l=>l.id!==id);if(d.selLoc===id)d.selLoc=null;store[p.id]=arr;return store;});
     };
     const rcAddImage = (locId, fileList) => {
+      if (pushUndo) pushUndo("add recce image");
       Array.from(fileList).forEach(file=>{
         if(!file.type.startsWith("image/"))return;
         const r=new FileReader();
@@ -307,6 +312,7 @@ export default function Locations({
       });
     };
     const rcRemoveImage = (locId,idx) => {
+      if (pushUndo) pushUndo("remove recce image");
       setRecceReportStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[rcIdx];d.locations=(d.locations||[]).map(l=>l.id===locId?{...l,images:l.images.filter((_,i)=>i!==idx)}:l);store[p.id]=arr;return store;});
     };
     const rcExportPDF = () => {
