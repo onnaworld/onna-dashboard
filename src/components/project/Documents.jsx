@@ -498,25 +498,25 @@ export default function Documents({
             <div style={{padding:"10px 32px"}}>
               <div style={csSecTitle}>NEAREST EMERGENCY SERVICES</div>
               <div style={{marginBottom:8}}>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></div>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:4}}><CSEditField value={csData.emergencyDialPrefix} onChange={v=>csU("emergencyDialPrefix",v)} bold alwaysYellow={csData.emergencyDialPrefix==="TBC"} style={{fontSize:11,fontWeight:700,letterSpacing:0.5}}/></div>
                 {csData.emergencyNumbers.map((en,i) => (
                   <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("emg:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.emergencyNumbers];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,emergencyNumbers:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginBottom:2,background:CS_HL_BG[en.hl||""],borderRadius:3,padding:"1px 3px",breakInside:"avoid"}}>
                     <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","emg:"+i);}} style={{color:"#ccc",fontSize:9,cursor:"grab",userSelect:"none"}}>☰</span>
                     <CSHighlightDot value={en.hl} onClick={()=>csU(`emergencyNumbers.${i}.hl`,cycleHighlight(en.hl))} size={6}/>
                     <span style={{color:"#C62828",fontWeight:800,fontSize:11,minWidth:30}}>
-                      <CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} style={{color:"#C62828",fontWeight:800,fontSize:11}}/>
+                      <CSEditField value={en.number} onChange={v=>csU(`emergencyNumbers.${i}.number`,v)} alwaysYellow={en.number==="TBC"} style={{color:"#C62828",fontWeight:800,fontSize:11}}/>
                     </span>
                     <span style={{fontWeight:600,fontSize:9,letterSpacing:0.3,color:"#888"}}>FOR</span>
-                    <CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/>
+                    <CSEditField value={en.label} onChange={v=>csU(`emergencyNumbers.${i}.label`,v)} bold alwaysYellow={en.label==="TBC"} style={{fontSize:11,fontWeight:700,letterSpacing:0.3}}/>
                     <CSXbtn onClick={()=>rmEmergencyNum(i)} size={10}/>
                   </div>
                 ))}
                 <CSAddBtn onClick={addEmergencyNum} label="Add"/>
               </div>
-              <div style={{fontSize:11,marginBottom:4,background:csData.emergency.hospital?"transparent":"#FFFDE7",padding:"3px 6px",borderRadius:2}}>
+              <div style={{fontSize:11,marginBottom:4,background:(!csData.emergency.hospital||csData.emergency.hospital==="TBC")?"#FFFDE7":"transparent",padding:"3px 6px",borderRadius:2}}>
                 <strong>NEAREST HOSPITAL: </strong><CSEditField value={csData.emergency.hospital} onChange={v=>csU("emergency.hospital",v)} style={{fontSize:11}}/>
               </div>
-              <div style={{fontSize:11,background:csData.emergency.police?"transparent":"#FFFDE7",padding:"3px 6px",borderRadius:2}}>
+              <div style={{fontSize:11,background:(!csData.emergency.police||csData.emergency.police==="TBC")?"#FFFDE7":"transparent",padding:"3px 6px",borderRadius:2}}>
                 <strong>NEAREST POLICE STATION: </strong><CSEditField value={csData.emergency.police} onChange={v=>csU("emergency.police",v)} style={{fontSize:11}}/>
               </div>
             </div>
