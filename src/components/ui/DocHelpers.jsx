@@ -301,9 +301,12 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
             <TICell value={row.text||""} onChange={v=>onUpdate(ri,"text",v)} style={{color:"#c0392b"}}/>
           </div>
         </div>
-      ) : (
+      ) : (() => {
+        const subnotes = row.subnotes||[];
+        const setSubnotes = (next) => onUpdate(ri,"subnotes",next);
+        return (
         <Fragment key={row.id}>
-          <div {...rowWrapProps} style={{display:"flex",borderBottom:row.subnote!==undefined?"none":"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,...dropStyle}}>
+          <div {...rowWrapProps} style={{display:"flex",borderBottom:subnotes.length?"none":"1px solid #f0f0f0",alignItems:"stretch",minHeight:26,...dropStyle}}>
             <div style={{width:32,display:"flex",alignItems:"center"}}>
               {dragHandle}
               <span data-noprint onClick={()=>onDeleteRow(ri)} style={{cursor:"pointer",fontSize:10,color:"#ddd"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
@@ -314,21 +317,22 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
               </div>
             ))}
           </div>
-          {row.subnote!==undefined ? (
-            <div style={{display:"flex",alignItems:"stretch",borderBottom:"1px solid #f0f0f0",background:"#fafafa"}}>
+          {subnotes.map((sn,si)=>(
+            <div key={sn.id} style={{display:"flex",alignItems:"stretch",borderBottom:si===subnotes.length-1?"1px solid #f0f0f0":"none",background:"#fafafa"}}>
               <div style={{width:32}}/>
               <div style={{flex:1,fontStyle:"italic"}}>
-                <TICell value={row.subnote||""} onChange={v=>onUpdate(ri,"subnote",v)} style={{color:"#999"}}/>
+                <TICell value={sn.text||""} onChange={v=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,text:v}:x))} style={{color:sn.red?"#c0392b":"#1a1a1a",fontWeight:600}}/>
               </div>
-              <span data-noprint onClick={()=>onUpdate(ri,"subnote",undefined)} style={{cursor:"pointer",fontSize:10,color:"#ddd",display:"flex",alignItems:"center",padding:"0 8px"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
+              <span data-noprint onClick={()=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,red:!x.red}:x))} title="Toggle red" style={{cursor:"pointer",width:9,height:9,borderRadius:"50%",background:sn.red?"#c0392b":"#ccc",border:"1px solid #fff",boxShadow:"0 0 0 1px #ddd",alignSelf:"center",marginRight:8,flexShrink:0}}/>
+              <span data-noprint onClick={()=>setSubnotes(subnotes.filter((_,j)=>j!==si))} style={{cursor:"pointer",fontSize:10,color:"#ddd",display:"flex",alignItems:"center",padding:"0 8px"}} onMouseEnter={e=>e.target.style.color="#e53935"} onMouseLeave={e=>e.target.style.color="#ddd"}>×</span>
             </div>
-          ) : (
-            <div data-noprint style={{borderBottom:"1px solid #f0f0f0",paddingLeft:32}}>
-              <span onClick={()=>onUpdate(ri,"subnote","")} style={{cursor:"pointer",fontSize:8,color:"#ccc",fontStyle:"italic",padding:"2px 4px",display:"inline-block"}} onMouseEnter={e=>e.target.style.color="#999"} onMouseLeave={e=>e.target.style.color="#ccc"}>+ add subnote</span>
-            </div>
-          )}
+          ))}
+          <div data-noprint style={{borderBottom:"1px solid #f0f0f0",paddingLeft:32}}>
+            <span onClick={()=>setSubnotes([...subnotes,{id:Date.now()+Math.random(),text:"",red:false}])} style={{cursor:"pointer",fontSize:8,color:"#ccc",fontStyle:"italic",padding:"2px 4px",display:"inline-block"}} onMouseEnter={e=>e.target.style.color="#999"} onMouseLeave={e=>e.target.style.color="#ccc"}>+ add subnote</span>
+          </div>
         </Fragment>
-      );
+        );
+      })();
     })}
     {rows.length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No entries — click + ADD ROW</div>}
   </div>
