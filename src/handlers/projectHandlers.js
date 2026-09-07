@@ -1,4 +1,4 @@
-import { _proxy, buildPath, parseICS, GCAL_CLIENT_ID, api, docApi, isSafeToHydrate } from "../utils/helpers";
+import { _proxy, buildPath, parseICS, GCAL_CLIENT_ID, api, docApi, isSafeToHydrate, noteKnownArrayIds } from "../utils/helpers";
 
 // ── Auth handlers ────────────────────────────────────────────────────────────
 
@@ -275,9 +275,9 @@ export const doHydrateProject = (pid, setters) => {
   const requestStartedAt = Date.now();
   return api.get(`/api/project-data/${pid}`).then(d => {
     if (!d) return;
-    if (d.callsheets && isSafeToHydrate('callsheets', pid, requestStartedAt)) setCallSheetStore(prev => ({...prev, [pid]: d.callsheets}));
-    if (d.riskassessments && isSafeToHydrate('riskassessments', pid, requestStartedAt)) setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments}));
-    if (d.contracts_doc && isSafeToHydrate('contracts_doc', pid, requestStartedAt)) setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc}));
+    if (d.callsheets && isSafeToHydrate('callsheets', pid, requestStartedAt)) { setCallSheetStore(prev => ({...prev, [pid]: d.callsheets})); noteKnownArrayIds('callsheets', pid, d.callsheets); }
+    if (d.riskassessments && isSafeToHydrate('riskassessments', pid, requestStartedAt)) { setRiskAssessmentStore(prev => ({...prev, [pid]: d.riskassessments})); noteKnownArrayIds('riskassessments', pid, d.riskassessments); }
+    if (d.contracts_doc && isSafeToHydrate('contracts_doc', pid, requestStartedAt)) { setContractDocStore(prev => ({...prev, [pid]: d.contracts_doc})); noteKnownArrayIds('contracts_doc', pid, d.contracts_doc); }
     if (isSafeToHydrate('estimates', pid, requestStartedAt)) {
       setProjectEstimates(prev => {
         const local = prev[pid] || [];
@@ -286,19 +286,20 @@ export const doHydrateProject = (pid, setters) => {
         if (local.length > remote.length) return {...prev, [pid]: local};
         return {...prev, [pid]: remote.length > 0 ? remote : local};
       });
+      noteKnownArrayIds('estimates', pid, d.estimates);
     }
-    if (d.dietaries && isSafeToHydrate('dietaries', pid, requestStartedAt)) setDietaryStore(prev => ({...prev, [pid]: d.dietaries}));
-    if (d.travel_itineraries && isSafeToHydrate('travel_itineraries', pid, requestStartedAt)) setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries}));
-    if (d.shotlists && isSafeToHydrate('shotlists', pid, requestStartedAt)) setShotListStore(prev => ({...prev, [pid]: d.shotlists}));
-    if (d.storyboards && isSafeToHydrate('storyboards', pid, requestStartedAt)) setStoryboardStore(prev => ({...prev, [pid]: d.storyboards}));
-    if (d.fittings && isSafeToHydrate('fittings', pid, requestStartedAt)) setFittingStore(prev => ({...prev, [pid]: d.fittings}));
-    if (d.loc_decks && isSafeToHydrate('loc_decks', pid, requestStartedAt)) setLocDeckStore(prev => ({...prev, [pid]: d.loc_decks}));
-    if (d.cps && isSafeToHydrate('cps', pid, requestStartedAt)) setCpsStore(prev => ({...prev, [pid]: d.cps}));
-    if (d.postprod && isSafeToHydrate('postprod', pid, requestStartedAt)) setPostProdStore(prev => ({...prev, [pid]: d.postprod}));
-    if (d.casting_tables && isSafeToHydrate('casting_tables', pid, requestStartedAt)) setCastingTableStore(prev => ({...prev, [pid]: d.casting_tables}));
-    if (d.casting_decks && isSafeToHydrate('casting_decks', pid, requestStartedAt)) setCastingDeckStore(prev => ({...prev, [pid]: d.casting_decks}));
-    if (d.recce_reports && isSafeToHydrate('recce_reports', pid, requestStartedAt)) setRecceReportStore(prev => ({...prev, [pid]: d.recce_reports}));
-    if (d.cashflows && setCashFlowStore && isSafeToHydrate('cashflows', pid, requestStartedAt)) setCashFlowStore(prev => ({...prev, [pid]: d.cashflows}));
+    if (d.dietaries && isSafeToHydrate('dietaries', pid, requestStartedAt)) { setDietaryStore(prev => ({...prev, [pid]: d.dietaries})); noteKnownArrayIds('dietaries', pid, d.dietaries); }
+    if (d.travel_itineraries && isSafeToHydrate('travel_itineraries', pid, requestStartedAt)) { setTravelItineraryStore(prev => ({...prev, [pid]: d.travel_itineraries})); noteKnownArrayIds('travel_itineraries', pid, d.travel_itineraries); }
+    if (d.shotlists && isSafeToHydrate('shotlists', pid, requestStartedAt)) { setShotListStore(prev => ({...prev, [pid]: d.shotlists})); noteKnownArrayIds('shotlists', pid, d.shotlists); }
+    if (d.storyboards && isSafeToHydrate('storyboards', pid, requestStartedAt)) { setStoryboardStore(prev => ({...prev, [pid]: d.storyboards})); noteKnownArrayIds('storyboards', pid, d.storyboards); }
+    if (d.fittings && isSafeToHydrate('fittings', pid, requestStartedAt)) { setFittingStore(prev => ({...prev, [pid]: d.fittings})); noteKnownArrayIds('fittings', pid, d.fittings); }
+    if (d.loc_decks && isSafeToHydrate('loc_decks', pid, requestStartedAt)) { setLocDeckStore(prev => ({...prev, [pid]: d.loc_decks})); noteKnownArrayIds('loc_decks', pid, d.loc_decks); }
+    if (d.cps && isSafeToHydrate('cps', pid, requestStartedAt)) { setCpsStore(prev => ({...prev, [pid]: d.cps})); noteKnownArrayIds('cps', pid, d.cps); }
+    if (d.postprod && isSafeToHydrate('postprod', pid, requestStartedAt)) { setPostProdStore(prev => ({...prev, [pid]: d.postprod})); noteKnownArrayIds('postprod', pid, d.postprod); }
+    if (d.casting_tables && isSafeToHydrate('casting_tables', pid, requestStartedAt)) { setCastingTableStore(prev => ({...prev, [pid]: d.casting_tables})); noteKnownArrayIds('casting_tables', pid, d.casting_tables); }
+    if (d.casting_decks && isSafeToHydrate('casting_decks', pid, requestStartedAt)) { setCastingDeckStore(prev => ({...prev, [pid]: d.casting_decks})); noteKnownArrayIds('casting_decks', pid, d.casting_decks); }
+    if (d.recce_reports && isSafeToHydrate('recce_reports', pid, requestStartedAt)) { setRecceReportStore(prev => ({...prev, [pid]: d.recce_reports})); noteKnownArrayIds('recce_reports', pid, d.recce_reports); }
+    if (d.cashflows && setCashFlowStore && isSafeToHydrate('cashflows', pid, requestStartedAt)) { setCashFlowStore(prev => ({...prev, [pid]: d.cashflows})); noteKnownArrayIds('cashflows', pid, d.cashflows); }
     if (d.project_info && isSafeToHydrate('project_info', pid, requestStartedAt)) setProjectInfo(prev => ({...prev, [pid]: d.project_info}));
     if (d.creative_links && isSafeToHydrate('creative_links', pid, requestStartedAt)) setProjectCreativeLinks(prev => ({...prev, [pid]: d.creative_links}));
     if (d.project_actuals && isSafeToHydrate('project_actuals', pid, requestStartedAt)) setProjectActuals(prev => ({...prev, [pid]: d.project_actuals}));

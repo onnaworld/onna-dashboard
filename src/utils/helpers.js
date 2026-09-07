@@ -539,6 +539,27 @@ export const seedDocSaveSnapshot = (table, storeObj) => {
   Object.keys(storeObj || {}).forEach(pid => { snap[pid] = JSON.stringify(storeObj[pid]); });
   _prevStoreSnaps[table] = snap;
 };
+// Every per-project document table (call sheets, travel itineraries, risk
+// assessments, etc.) stores ALL versions for a project as one JSON array in a
+// single row, and saves have always PUT the whole array, overwriting whatever
+// was on the server. If a second tab/device/stale reload holds a shorter or
+// older copy of that array and saves (even for an unrelated edit), it silently
+// wipes out any version that tab didn't know about — e.g. a call sheet created
+// after that tab last synced. `_knownArrayIds` tracks, per table+pid, the ids
+// this browser has actually seen (from its own prior saves or from server
+// hydration). Before a save overwrites the server, we diff the fresh server
+// array against that "seen" set: anything the server has that we've genuinely
+// never seen gets merged back in (another tab's addition — don't lose it);
+// anything we HAVE seen before but dropped locally is trusted as a deliberate
+// deletion and is allowed to disappear.
+const _knownArrayIds = {};
+const _idsOf = (arr) => Array.isArray(arr) ? new Set(arr.filter(x => x && typeof x === "object" && x.id != null).map(x => String(x.id))) : new Set();
+export const noteKnownArrayIds = (table, pid, arr) => {
+  const key = `${table}:${pid}`;
+  const seen = _knownArrayIds[key] || new Set();
+  _idsOf(arr).forEach(id => seen.add(id));
+  _knownArrayIds[key] = seen;
+};
 export const debouncedDocSave = (table, storeObj, delay = 500) => {
   if (!getToken()) return;
   const prev = _prevStoreSnaps[table] || {};
@@ -551,6 +572,7 @@ export const debouncedDocSave = (table, storeObj, delay = 500) => {
   _prevStoreSnaps[table] = snap;
   changedPids.forEach(pid => {
     const key = `${table}:${pid}`;
+    noteKnownArrayIds(table, pid, storeObj[pid]);
     clearTimeout(_saveTimers[key]);
     _notifySaving();
     const fire = () => {
@@ -561,8 +583,19 @@ export const debouncedDocSave = (table, storeObj, delay = 500) => {
         .catch(err => isRateLimit(err) ? new Promise(r => setTimeout(r, 3000)).then(() => putOnce(data)) : Promise.reject(err))
         .then(() => _notifySaved(key)).catch(_notifySaveError).finally(() => { delete _inFlight[key]; });
       const payload = storeObj[pid];
-      if (table === "callsheets" && Array.isArray(payload)) {
-        _shrinkCallSheetsArray(payload).then(send).catch(() => send(payload));
+      const finishArray = (arr) => {
+        if (table === "callsheets") _shrinkCallSheetsArray(arr).then(send).catch(() => send(arr));
+        else send(arr);
+      };
+      if (Array.isArray(payload)) {
+        docApi.get(table, pid).then(serverArr => {
+          if (!Array.isArray(serverArr)) return payload;
+          const known = _knownArrayIds[key] || new Set();
+          const localIds = _idsOf(payload);
+          const recovered = serverArr.filter(x => x && x.id != null && !localIds.has(String(x.id)) && !known.has(String(x.id)));
+          if (recovered.length) { console.warn(`ONNA: recovered ${recovered.length} item(s) in ${table} for project ${pid} that this tab didn't know about — merging instead of overwriting.`); noteKnownArrayIds(table, pid, serverArr); return [...payload, ...recovered]; }
+          return payload;
+        }).catch(() => payload).then(finishArray);
       } else {
         send(payload);
       }
