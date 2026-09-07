@@ -173,6 +173,18 @@ export default function Documents({
     const rmScheduleRow = i => { if(!confirm("Remove this schedule row?"))return; csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)})); };
     const moveScheduleRow = (i,dir) => csSet(d => { const a=[...d.schedule]; const j=i+dir; if(j<0||j>=a.length)return d; [a[i],a[j]]=[a[j],a[i]]; return {...d, schedule:a}; });
     const moveContactLine = (i,dir) => csSet(d => { const a=[...(d.productionContactsExtra||[])]; const j=i+dir; if(j<0||j>=a.length)return d; [a[i],a[j]]=[a[j],a[i]]; return {...d, productionContactsExtra:a}; });
+    // MAP used to support only one link/image; migrate that legacy shape (plus
+    // any extraMapImages) into a list of locations the first time it's read,
+    // so multiple map links each with their own image/note are supported.
+    const csMapLocations = () => {
+      if (Array.isArray(csData.mapLocations)) return csData.mapLocations;
+      const legacy = [{id:1, link:csData.mapLink||"", image:csData.mapImage||null}];
+      (csData.extraMapImages||[]).forEach((img,i)=>legacy.push({id:2+i, link:"", image:img}));
+      return legacy;
+    };
+    const csUpdateMapLoc = (i, patch) => csSet(d => { const locs=csMapLocations().map((l,j)=>j===i?{...l,...patch}:l); return {...d, mapLocations:locs}; });
+    const csAddMapLoc = () => csSet(d => ({...d, mapLocations:[...csMapLocations(), {id:Date.now(), link:"", image:null}]}));
+    const csRmMapLoc = (i) => csSet(d => ({...d, mapLocations:csMapLocations().filter((_,j)=>j!==i)}));
     const addSchedule = () => csSet(d => ({...d, extraSchedules:[...(d.extraSchedules||[]),{title:"ADDITIONAL SCHEDULE",rows:[{time:"",activity:"",notes:""}]}]}));
     const rmSchedule = si => { if(!confirm("Remove this whole schedule block?"))return; csSet(d => ({...d, extraSchedules:(d.extraSchedules||[]).filter((_,j)=>j!==si)})); };
     const moveSchedule = (from,to) => csSet(d => { const a=[...(d.extraSchedules||[])]; if(to<0||to>=a.length)return d; const[m]=a.splice(from,1); a.splice(to,0,m); return {...d, extraSchedules:a}; });
@@ -238,8 +250,9 @@ export default function Documents({
 {/* SHOOT */}
             <div style={{padding:"14px 32px 8px"}}>
               <div style={csSecTitle}>SHOOT</div>
-              {csData.venueRows.map((row,i) => (
-                <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}} style={{display:"flex",alignItems:"flex-start",marginBottom:5,gap:8,background:CS_HL_BG[row.hl||""],borderRadius:3,padding:"2px 4px",breakInside:"avoid"}}>
+              {csData.venueRows.map((row,i) => { const subnotes=row.subnotes||[]; const setSubnotes=(next)=>csU(`venueRows.${i}.subnotes`,next); return (
+                <Fragment key={i}>
+                <div onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}} style={{display:"flex",alignItems:"flex-start",marginBottom:subnotes.length?0:5,gap:8,background:CS_HL_BG[row.hl||""],borderRadius:3,padding:"2px 4px",breakInside:"avoid"}}>
                   <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);}} style={{color:"#ccc",fontSize:10,padding:"2px 0",cursor:"grab",userSelect:"none"}}>☰</span>
                   <CSHighlightDot value={row.hl} onClick={()=>csU(`venueRows.${i}.hl`,cycleHighlight(row.hl))}/>
                   <div style={{width:100,flexShrink:0}}>
@@ -250,7 +263,20 @@ export default function Documents({
                   </div>
                   <CSXbtn onClick={()=>rmVenueRow(i)}/>
                 </div>
-              ))}
+                {subnotes.map((sn,si)=>(
+                  <div key={sn.id} style={{display:"flex",alignItems:"center",gap:6,paddingLeft:26,marginBottom:si===subnotes.length-1?5:2}}>
+                    <div style={{flex:1,fontStyle:"italic"}}>
+                      <CSEditField value={sn.text||""} onChange={v=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,text:v}:x))} style={{fontSize:10,fontStyle:"italic",color:sn.red?"#c0392b":"#1a1a1a"}}/>
+                    </div>
+                    <span data-noprint="1" onClick={()=>setSubnotes(subnotes.map((x,j)=>j===si?{...x,red:!x.red}:x))} title="Toggle red" style={{cursor:"pointer",width:8,height:8,borderRadius:"50%",background:sn.red?"#c0392b":"#ccc",border:"1px solid #fff",boxShadow:"0 0 0 1px #ddd",flexShrink:0}}/>
+                    <CSXbtn onClick={()=>setSubnotes(subnotes.filter((_,j)=>j!==si))} size={12}/>
+                  </div>
+                ))}
+                <div data-noprint="1" style={{paddingLeft:26,marginBottom:5}}>
+                  <span onClick={()=>setSubnotes([...subnotes,{id:Date.now()+Math.random(),text:"",red:false}])} style={{cursor:"pointer",fontSize:9,color:"#ccc",fontStyle:"italic"}} onMouseEnter={e=>e.target.style.color="#999"} onMouseLeave={e=>e.target.style.color="#ccc"}>+ add subnote</span>
+                </div>
+                </Fragment>
+              );})}
               <CSAddBtn onClick={addVenueRow} label="Add Row"/>
             </div>
     </>);
@@ -423,19 +449,32 @@ export default function Documents({
 {/* MAP */}
             <div style={{padding:"14px 32px 10px"}}>
               <div style={csSecTitle}>MAP</div>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
-                <span style={{fontSize:14}}>🔗</span>
-                <CSEditField value={csData.mapLink||""} onChange={v=>csU("mapLink",v)} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
-                {csData.mapLink&&<a href={csData.mapLink} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
-              </div>
-              {csData.mapLink&&!csData.mapImage&&<button onClick={()=>{const link=csData.mapLink;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csU("mapImage",e.target.result);reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
-              <div style={{display:"flex",justifyContent:"center",marginBottom:(csData.extraMapImages||[]).length?8:0}}>
-                <CSResizableImage label="Map Image (JPEG)" image={csData.mapImage} onUpload={v=>csU("mapImage",v)} onRemove={()=>csU("mapImage",null)} defaultHeight={300}/>
-              </div>
-              {(csData.extraMapImages||[]).length>0 && <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>
-                {(csData.extraMapImages||[]).map((img,i)=><CSResizableImage key={i} label={"Extra Image "+(i+1)} image={img} onUpload={v=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).map((x,j)=>j===i?v:x)}))} onRemove={()=>csSet(d=>({...d,extraMapImages:(d.extraMapImages||[]).filter((_,j)=>j!==i)}))} defaultHeight={300}/>)}
-              </div>}
-              <button onClick={()=>csSet(d=>({...d,extraMapImages:[...(d.extraMapImages||[]),null]}))} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Image</button>
+              {(() => { const locs=csMapLocations(); return locs.map((loc,li) => (
+                <div key={loc.id} style={{marginBottom:16,paddingBottom:li<locs.length-1?14:0,borderBottom:li<locs.length-1?"1px dashed #eee":"none"}}>
+                  {locs.length>1 && <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                    <span style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS,color:"#888"}}>LOCATION {li+1}:</span>
+                    <CSXbtn onClick={()=>csRmMapLoc(li)}/>
+                  </div>}
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,fontSize:10,fontFamily:CS_FONT}}>
+                    <span style={{fontSize:14}}>🔗</span>
+                    <CSEditField value={loc.link||""} onChange={v=>csUpdateMapLoc(li,{link:v})} isPlaceholder style={{fontSize:10,color:"#1565C0",flex:1}} placeholder="Paste Google Maps link..."/>
+                    {loc.link&&<a href={loc.link} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#1565C0",textDecoration:"none",whiteSpace:"nowrap"}}>Open ↗</a>}
+                  </div>
+                  {loc.link&&!loc.image&&<button onClick={()=>{const link=loc.link;let q="";try{const u=new URL(link);q=u.pathname.replace("/maps/search/","").replace("/maps/place/","").split("/@")[0];if(!q)q=u.searchParams.get("q")||"";}catch{}if(!q)q=link.replace(/https?:\/\/[^/]+\//,"");q=decodeURIComponent(q).replace(/\+/g," ");const coords=link.match(/@(-?[\d.]+),(-?[\d.]+)/);let mapApiUrl;if(coords){mapApiUrl=`/api/map-image?lat=${coords[1]}&lon=${coords[2]}`;}else{mapApiUrl=`/api/map-image?q=${encodeURIComponent(q)}`;}fetch(mapApiUrl).then(r=>{if(!r.ok)throw new Error("Map service error");return r.blob();}).then(blob=>{const reader=new FileReader();reader.onload=e=>csUpdateMapLoc(li,{image:e.target.result});reader.readAsDataURL(blob);}).catch(()=>showAlert("Could not fetch map image. Try uploading a screenshot manually."));}} style={{background:"#1565C0",color:"#fff",border:"none",borderRadius:6,padding:"6px 14px",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"flex",alignItems:"center",gap:4}} onMouseEnter={e=>e.currentTarget.style.background="#0D47A1"} onMouseLeave={e=>e.currentTarget.style.background="#1565C0"}>Fetch Map Screenshot</button>}
+                  <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
+                    <CSResizableImage label="Map Image (JPEG)" image={loc.image} onUpload={v=>csUpdateMapLoc(li,{image:v})} onRemove={()=>csUpdateMapLoc(li,{image:null})} defaultHeight={300}/>
+                  </div>
+                  {loc.note!==undefined ? (
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{flex:1,fontStyle:"italic"}}><CSEditField value={loc.note} onChange={v=>csUpdateMapLoc(li,{note:v})} isPlaceholder style={{fontSize:10,fontStyle:"italic",color:"#666"}} placeholder="Add a note..."/></div>
+                      <CSXbtn data-noprint="1" onClick={()=>csUpdateMapLoc(li,{note:undefined})} size={12}/>
+                    </div>
+                  ) : (
+                    <div data-noprint="1"><span onClick={()=>csUpdateMapLoc(li,{note:""})} style={{cursor:"pointer",fontSize:9,color:"#ccc",fontStyle:"italic"}} onMouseEnter={e=>e.target.style.color="#999"} onMouseLeave={e=>e.target.style.color="#ccc"}>+ add note</span></div>
+                  )}
+                </div>
+              ));})()}
+              <button data-noprint="1" onClick={csAddMapLoc} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,padding:"6px 14px",fontSize:10,color:"#999",cursor:"pointer",fontFamily:"inherit",marginTop:8,width:"100%"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ddd";e.currentTarget.style.color="#999";}}>+ Add Another Location</button>
             </div>
     </>);
     const _sec_weather = (<>
@@ -550,28 +589,40 @@ export default function Documents({
               </div>
             </div>
     </>);
+    // Extra lines used to be plain strings; normalize to {text,hl} so each line
+    // can carry its own highlight color like every other row type in the app.
+    const _pcLine = (line) => typeof line==="string" ? {text:line,hl:""} : (line||{text:"",hl:""});
     const _sec_productionContacts = (<>
 {/* PRODUCTION CONTACTS */}
             <div style={{padding:"10px 32px",fontSize:11}}>
-              <div><span style={csLbl}>Production On Set: </span>
-              <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS}} placeholder="Name + Number / Name + Number"/></div>
-              {(csData.productionContactsExtra||[]).map((line,i) => (
-                <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("pcontact:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.productionContactsExtra];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,productionContactsExtra:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,background:CS_HL_BG[csData.productionContactsHl||""],borderRadius:3,padding:"1px 3px"}}>
+                <CSHighlightDot value={csData.productionContactsHl} onClick={()=>csU("productionContactsHl",cycleHighlight(csData.productionContactsHl))}/>
+                <span style={csLbl}>Production On Set: </span>
+                <CSEditField value={csData.productionContacts} onChange={v=>csU("productionContacts",v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number / Name + Number"/>
+              </div>
+              {(csData.productionContactsExtra||[]).map((rawLine,i) => { const line=_pcLine(rawLine); return (
+                <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("pcontact:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.productionContactsExtra];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,productionContactsExtra:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginTop:3,background:CS_HL_BG[line.hl||""],borderRadius:3,padding:"1px 3px"}}>
                   <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","pcontact:"+i);}} style={{color:"#ccc",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
+                  <CSHighlightDot value={line.hl} onClick={()=>csU(`productionContactsExtra.${i}`,{...line,hl:cycleHighlight(line.hl)})}/>
                   <span style={csLbl}>Production On Set: </span>
-                  <CSEditField value={line} onChange={v=>csU(`productionContactsExtra.${i}`,v)} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
+                  <CSEditField value={line.text} onChange={v=>csU(`productionContactsExtra.${i}`,{...line,text:v})} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
                   <button data-noprint="1" onClick={()=>moveContactLine(i,-1)} disabled={i===0} title="Move up" style={{background:"none",border:"none",color:i===0?"#eee":"#bbb",cursor:i===0?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↑</button>
                   <button data-noprint="1" onClick={()=>moveContactLine(i,1)} disabled={i===csData.productionContactsExtra.length-1} title="Move down" style={{background:"none",border:"none",color:i===csData.productionContactsExtra.length-1?"#eee":"#bbb",cursor:i===csData.productionContactsExtra.length-1?"default":"pointer",fontSize:10,padding:"0 1px",lineHeight:1}}>↓</button>
                   <CSXbtn onClick={()=>csSet(d=>({...d,productionContactsExtra:d.productionContactsExtra.filter((_,j)=>j!==i)}))}/>
                 </div>
-              ))}
-              <button data-noprint="1" onClick={()=>csSet(d=>({...d,productionContactsExtra:[...(d.productionContactsExtra||[]),""]}))} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
+              );})}
+              <button data-noprint="1" onClick={()=>csSet(d=>({...d,productionContactsExtra:[...(d.productionContactsExtra||[]),{text:"",hl:""}]}))} style={{background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:10,padding:"3px 0 0",fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.color="#666"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>+ Add Line</button>
               <div style={{borderBottom:"1px solid #eee",marginTop:10}}/>
             </div>
     </>);
     const CS_SEC_MAP = { shoot: _sec_shoot, schedule: _sec_schedule, contacts: _sec_contacts, map: _sec_map, weather: _sec_weather, invoicing: _sec_invoicing, protocol: _sec_protocol, emergency: _sec_emergency, productionContacts: _sec_productionContacts };
-    const CS_SEC_DEFAULT = ["shoot", "schedule", "contacts", "map", "weather", "invoicing", "protocol", "emergency", "productionContacts"];
-    const _normSecOrder = (o) => { const saved = Array.isArray(o) ? o.filter(k=>CS_SEC_DEFAULT.includes(k)) : []; return [...saved, ...CS_SEC_DEFAULT.filter(k=>!saved.includes(k))]; };
+    const CS_SEC_DEFAULT = ["productionContacts", "shoot", "schedule", "contacts", "map", "weather", "invoicing", "protocol", "emergency"];
+    // Production On Set is pinned to the top always — it's the first thing
+    // anyone glances at on set, and letting it drift into the reorderable list
+    // meant it kept ending up at the bottom (its default position when the
+    // reordering feature was added). Re-pinning on every normalize means even
+    // an existing saved order from before this rule can't keep it elsewhere.
+    const _normSecOrder = (o) => { const saved = Array.isArray(o) ? o.filter(k=>CS_SEC_DEFAULT.includes(k)) : []; const withDefaults = [...saved, ...CS_SEC_DEFAULT.filter(k=>!saved.includes(k))]; const rest = withDefaults.filter(k=>k!=="productionContacts"); return ["productionContacts", ...rest]; };
     const csSecOrder = _normSecOrder(csData.sectionOrder);
     const moveSection = (key, dir) => csSet(d => { const base = _normSecOrder(d.sectionOrder); const i = base.indexOf(key); const j = i + dir; if (i<0||j<0||j>=base.length) return d; const a=[...base]; [a[i],a[j]]=[a[j],a[i]]; return {...d, sectionOrder:a}; });
     const moveSectionTo = (fromKey, toKey) => csSet(d => { const base = _normSecOrder(d.sectionOrder); const from = base.indexOf(fromKey); const to = base.indexOf(toKey); if (from<0||to<0||from===to) return d; const a=[...base]; const [m]=a.splice(from,1); a.splice(to,0,m); return {...d, sectionOrder:a}; });
@@ -599,8 +650,15 @@ export default function Documents({
         return [{ title:"CONTACTS", columns:[{key:"department",label:"Department"},{key:"role",label:"Role"},{key:"name",label:"Name"},{key:"mobile",label:"Mobile"},{key:"email",label:"Email"},{key:"callTime",label:"Call Time",align:"right"}], rows }];
       }
       if (key === "map") {
-        if (!csData.mapLink) return [];
-        return [{ title:"MAP", columns:fv, rows:[{label:"Link",value:csData.mapLink}] }];
+        const locs = csMapLocations().filter(l=>l.link||l.note);
+        if (!locs.length) return [];
+        const multi = locs.length>1;
+        const rows = [];
+        locs.forEach((l,li)=>{
+          rows.push({label:multi?`Location ${li+1} Link`:"Link",value:l.link||""});
+          if (l.note) rows.push({label:multi?`Location ${li+1} Note`:"Note",value:l.note});
+        });
+        return [{ title:"MAP", columns:fv, rows }];
       }
       if (key === "weather") {
         const rows = [
@@ -643,7 +701,7 @@ export default function Documents({
         return [{ title:"NEAREST EMERGENCY SERVICES", columns:fv, rows }];
       }
       if (key === "productionContacts") {
-        const lines = [csData.productionContacts, ...(csData.productionContactsExtra||[])].filter(Boolean);
+        const lines = [csData.productionContacts, ...(csData.productionContactsExtra||[]).map(l=>typeof l==="string"?l:l?.text)].filter(Boolean);
         if (!lines.length) return [];
         return [{ title:"PRODUCTION ON SET", columns:[{key:"line",label:"Contact"}], rows:lines.map(line=>({line})) }];
       }
@@ -705,12 +763,12 @@ export default function Documents({
             <div style={{height:1,background:"#eee",margin:"0 32px"}}/>
 
 {csSecOrder.map((key,ki) => (
-              <div key={key} data-cs-section="1" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("csSec:")){const fromKey=d.slice(6);if(fromKey!==key)moveSectionTo(fromKey,key);}}} style={{position:"relative"}}>
-                <div data-noprint="1" style={{position:"absolute",right:34,top:10,display:"flex",gap:4,alignItems:"center",zIndex:3}}>
+              <div key={key} data-cs-section="1" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("csSec:")){const fromKey=d.slice(6);if(fromKey!==key&&key!=="productionContacts")moveSectionTo(fromKey,key);}}} style={{position:"relative"}}>
+                {key!=="productionContacts" && <div data-noprint="1" style={{position:"absolute",right:34,top:10,display:"flex",gap:4,alignItems:"center",zIndex:3}}>
                   <span draggable onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/plain","csSec:"+key);e.currentTarget.closest("[data-cs-section]").style.opacity=0.4;}} onDragEnd={e=>{e.currentTarget.closest("[data-cs-section]").style.opacity=1;}} title="Drag to reorder section" style={{cursor:"grab",color:"#999",fontSize:13,userSelect:"none",background:"#fff",border:"1px solid #ddd",borderRadius:4,padding:"1px 6px",boxShadow:"0 1px 2px rgba(0,0,0,0.08)"}}>☰</span>
                   <button onClick={()=>moveSection(key,-1)} disabled={ki===0} title="Move section up" style={_secMoveBtnStyle(ki===0)}>↑ Move up</button>
                   <button onClick={()=>moveSection(key,1)} disabled={ki===csSecOrder.length-1} title="Move section down" style={_secMoveBtnStyle(ki===csSecOrder.length-1)}>↓ Move down</button>
-                </div>
+                </div>}
                 {CS_SEC_MAP[key]}
               </div>
             ))}
