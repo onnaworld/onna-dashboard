@@ -328,7 +328,7 @@ export default function ProjectSection({
       createMenuOpen={createMenuOpen} setCreateMenuOpen={setCreateMenuOpen} setDuplicateModal={setDuplicateModal} setDuplicateSearch={setDuplicateSearch}
       pushUndo={pushUndo} archiveItem={archiveItem} pushNav={pushNav} showAlert={showAlert}
       getProjectFiles={getProjectFiles} addProjectFiles={addProjectFiles} buildPath={buildPath}
-      projectInfoRef={projectInfoRef} CALLSHEET_INIT={CALLSHEET_INIT} DIETARY_INIT={DIETARY_INIT}
+      projectInfoRef={projectInfoRef} setProjectInfo={setProjectInfo} syncProjectInfoToDocs={syncProjectInfoToDocs} CALLSHEET_INIT={CALLSHEET_INIT} DIETARY_INIT={DIETARY_INIT}
       CSLogoSlot={CSLogoSlot} CSAddBtn={CSAddBtn} CSEditField={CSEditField} CSEditTextarea={CSEditTextarea} CSResizableImage={CSResizableImage} CSXbtn={CSXbtn}
       BtnExport={BtnExport} UploadZone={UploadZone} DietaryTagSelect={DietaryTagSelect} DietaryMultiTagSelect={DietaryMultiTagSelect} SignaturePad={SignaturePad} TICell={TICell}
       CS_FONT={CS_FONT} CS_LS={CS_LS} PRINT_CLEANUP_CSS={PRINT_CLEANUP_CSS}

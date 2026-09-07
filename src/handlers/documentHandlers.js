@@ -4,9 +4,18 @@ import { ESTIMATE_INIT, EST_SA_FIELDS } from "../components/ui/DocHelpers";
 
 // ── Sync project info to docs ────────────────────────────────────────────────
 
-export const syncProjectInfoToDocs = (pid, infoOverride, projectInfoRef, localProjectsRef, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates) => {
+export const syncProjectInfoToDocs = (pid, infoOverride, projectInfoRef, localProjectsRef, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore) => {
   const info = infoOverride || (projectInfoRef.current||{})[pid];
   if(!info) return;
+  // A logo only fills in a document that doesn't already have one — deliberately
+  // different logos on different documents are left alone. This is a one-way,
+  // non-destructive fill, unlike shootName/shootDate/etc below which always
+  // overwrite (project info is the source of truth for those).
+  const fillLogo=(c,changedRef)=>{
+    if(info.clientLogo && !c.clientLogo){c.clientLogo=info.clientLogo;changedRef.v=true;}
+    if(info.agencyLogo && !c.agencyLogo){c.agencyLogo=info.agencyLogo;changedRef.v=true;}
+    if(info.productionLogo && !c.productionLogo){c.productionLogo=info.productionLogo;changedRef.v=true;}
+  };
   // Call Sheets
   setCallSheetStore(prev=>{
     const arr=prev[pid]; if(!arr||!arr.length) return prev;
@@ -19,6 +28,7 @@ export const syncProjectInfoToDocs = (pid, infoOverride, projectInfoRef, localPr
         const locRow=c.venueRows.find(r=>r.label==="LOCATIONS");
         if(locRow&&locRow.value!==info.shootLocation){c.venueRows=c.venueRows.map(r=>r.label==="LOCATIONS"?{...r,value:info.shootLocation}:r);changed=true;}
       }
+      const cr={v:changed}; fillLogo(c,cr); changed=cr.v;
       return c;
     });
     return changed?{...prev,[pid]:next}:prev;
@@ -33,6 +43,29 @@ export const syncProjectInfoToDocs = (pid, infoOverride, projectInfoRef, localPr
       if(info.shootDate && c.shootDate!==info.shootDate){c.shootDate=info.shootDate;changed=true;}
       if(info.shootLocation && c.locations!==info.shootLocation){c.locations=info.shootLocation;changed=true;}
       if(info.crewOnSet && c.crewOnSet!==info.crewOnSet){c.crewOnSet=info.crewOnSet;changed=true;}
+      const cr={v:changed}; fillLogo(c,cr); changed=cr.v;
+      return c;
+    });
+    return changed?{...prev,[pid]:next}:prev;
+  });
+  // Dietary Lists
+  if(setDietaryStore) setDietaryStore(prev=>{
+    const arr=prev[pid]; if(!arr||!arr.length) return prev;
+    let changed=false;
+    const next=arr.map(dl=>{
+      const c={...dl};
+      const cr={v:false}; fillLogo(c,cr); if(cr.v)changed=true;
+      return c;
+    });
+    return changed?{...prev,[pid]:next}:prev;
+  });
+  // Travel Itineraries
+  if(setTravelItineraryStore) setTravelItineraryStore(prev=>{
+    const arr=prev[pid]; if(!arr||!arr.length) return prev;
+    let changed=false;
+    const next=arr.map(ti=>{
+      const c={...ti};
+      const cr={v:false}; fillLogo(c,cr); if(cr.v)changed=true;
       return c;
     });
     return changed?{...prev,[pid]:next}:prev;

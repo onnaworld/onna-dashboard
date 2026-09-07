@@ -21,7 +21,7 @@ export default function Documents({
   createMenuOpen, setCreateMenuOpen, setDuplicateModal, setDuplicateSearch,
   pushUndo, archiveItem, pushNav, showAlert,
   getProjectFiles, addProjectFiles, buildPath,
-  projectInfoRef, CALLSHEET_INIT, DIETARY_INIT,
+  projectInfoRef, setProjectInfo, syncProjectInfoToDocs, CALLSHEET_INIT, DIETARY_INIT,
   CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage, CSXbtn,
   BtnExport, UploadZone, DietaryTagSelect, DietaryMultiTagSelect, SignaturePad, TICell,
   CS_FONT, CS_LS, PRINT_CLEANUP_CSS,
@@ -52,6 +52,17 @@ export default function Documents({
   // Back button for all document sub-sections
   const docBack = <button onClick={()=>window.history.back()} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>‹ Back to Documents</button>;
 
+  // A logo uploaded on any document is remembered at the project level so newly
+  // created documents inherit it automatically instead of needing a re-upload —
+  // mirrors the existing shootName/shootDate pre-fill pattern below.
+  const fillSharedLogos = (target) => {
+    const info = (projectInfoRef.current||{})[p.id];
+    if (!info) return;
+    if (info.clientLogo && !target.clientLogo) target.clientLogo = info.clientLogo;
+    if (info.agencyLogo && !target.agencyLogo) target.agencyLogo = info.agencyLogo;
+    if (info.productionLogo && !target.productionLogo) target.productionLogo = info.productionLogo;
+  };
+
   if (documentsSubSection==="callsheet") {
     const csVersions = callSheetStore[p.id] || [];
     const addCSNew = () => {
@@ -61,6 +72,7 @@ export default function Documents({
       newCS.shootName=`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,"");
       const _pi2=(projectInfoRef.current||{})[p.id];
       if(_pi2){if(_pi2.shootName)newCS.shootName=_pi2.shootName;if(_pi2.shootDate)newCS.date=_pi2.shootDate;if(_pi2.shootLocation&&newCS.venueRows){const lr=newCS.venueRows.find(r=>r.label==="LOCATIONS");if(lr)lr.value=_pi2.shootLocation;}}
+      fillSharedLogos(newCS);
       setCallSheetStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newCS);return store;});
       setActiveCSVersion(csVersions.length);
       const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setCallSheetStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
@@ -127,6 +139,23 @@ export default function Documents({
         o[k[k.length - 1]] = val;
         arr[idx] = d; store[p.id] = arr; return store;
       });
+    };
+    // Logos uploaded on the Call Sheet are remembered at the project level, so
+    // the same logo automatically fills in on Dietary/Travel/Risk Assessment
+    // docs for this project instead of having to be re-uploaded everywhere.
+    // Only fills documents that don't already have their own logo set.
+    const csSetLogo = (key, val) => {
+      csU(key, val);
+      if (val) {
+        const info = { ...((projectInfoRef.current||{})[p.id]||{}), [key]: val };
+        // Go through setProjectInfo (not just the ref) so this actually
+        // persists — its own effect mirrors to the ref, localStorage, and the
+        // server. Mutating the ref directly is invisible to a fresh page load
+        // and gets clobbered the next time setProjectInfo fires from anywhere.
+        if (setProjectInfo) setProjectInfo(prev=>({...prev,[p.id]:info}));
+        else projectInfoRef.current = { ...(projectInfoRef.current||{}), [p.id]: info };
+        if (syncProjectInfoToDocs) syncProjectInfoToDocs(p.id, info);
+      }
     };
     const csSet = (fn) => {
       setCallSheetStore(prev => {
@@ -645,10 +674,10 @@ export default function Documents({
             {/* TOP BAR */}
             <div style={{padding:"40px 32px 0"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csU("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
+                <CSLogoSlot label="Production Logo" image={csData.productionLogo} onUpload={v=>csSetLogo("productionLogo",v)} onRemove={()=>csU("productionLogo",null)}/>
                 <div style={{display:"flex",gap:16,alignItems:"center",marginTop:-3,marginRight:10}}>
-                  <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csU("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
-                  <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csU("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
+                  <CSLogoSlot label="Agency Logo" image={csData.agencyLogo} onUpload={v=>csSetLogo("agencyLogo",v)} onRemove={()=>csU("agencyLogo",null)}/>
+                  <CSLogoSlot label="Client Logo" image={csData.clientLogo} onUpload={v=>csSetLogo("clientLogo",v)} onRemove={()=>csU("clientLogo",null)}/>
                 </div>
               </div>
               <div style={{borderBottom:"2.5px solid #000",marginBottom:16}}/>
@@ -712,7 +741,7 @@ export default function Documents({
 
   if (documentsSubSection==="risk") {
     const raVersions = riskAssessmentStore[p.id] || [];
-    const addRAVersion = () => { pushUndo("add risk assessment"); const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
+    const addRAVersion = () => { pushUndo("add risk assessment"); const newId=Date.now(); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.push({id:newId,label:`${p.name} Risk Assessment V${arr.length+1}`,...JSON.parse(JSON.stringify(RISK_ASSESSMENT_INIT))}); const _rn=arr[arr.length-1];const _pi4=(projectInfoRef.current||{})[p.id];if(_pi4){if(_pi4.shootName)_rn.shootName=_pi4.shootName;if(_pi4.shootDate)_rn.shootDate=_pi4.shootDate;if(_pi4.shootLocation)_rn.locations=_pi4.shootLocation;if(_pi4.crewOnSet)_rn.crewOnSet=_pi4.crewOnSet;} fillSharedLogos(_rn); store[p.id] = arr; return store; }); const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setRiskAssessmentStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png"; };
     const deleteRA = (idx) => { if(!confirm("Delete this risk assessment? This will be moved to Deleted."))return; pushUndo("delete risk assessment"); const raData=JSON.parse(JSON.stringify((riskAssessmentStore[p.id]||[])[idx])); if(raData)archiveItem('riskAssessments',{projectId:p.id,riskAssessment:raData}); setRiskAssessmentStore(prev => { const store = JSON.parse(JSON.stringify(prev)); const arr = store[p.id] || []; arr.splice(idx, 1); store[p.id] = arr; return store; }); setActiveRAVersion(null); };
 
     // ── List view: no RA selected ──
@@ -1106,9 +1135,13 @@ export default function Documents({
         const csParts=(cs.shootName||"").split(" | ");
         if(csParts.length>=2)newDiet.project.client=csParts[0].trim();
         const pulled = [];
-        (cs.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:["None"],allergies:"",notes:""});});});
+        (cs.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:["TBC"],allergies:"",notes:""});});});
         if(pulled.length>0)newDiet.people=pulled;
+        if(cs.clientLogo)newDiet.clientLogo=cs.clientLogo;
+        if(cs.agencyLogo)newDiet.agencyLogo=cs.agencyLogo;
+        if(cs.productionLogo)newDiet.productionLogo=cs.productionLogo;
       }
+      fillSharedLogos(newDiet);
       return newDiet;
     };
     const addDietLogo = (newId) => {
@@ -1213,7 +1246,7 @@ export default function Documents({
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[p.id]=arr;return store;});
     };
     const dietAddPerson = () => {
-      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:["None"],allergies:"",notes:""});arr[dietIdx]=d;store[p.id]=arr;return store;});
+      setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:["TBC"],allergies:"",notes:""});arr[dietIdx]=d;store[p.id]=arr;return store;});
     };
     const dietSet = (fn) => {
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];if(arr.length===0)return store;const idx=Math.min(dietIdx,arr.length-1);arr[idx]=fn(arr[idx]);store[p.id]=arr;return store;});
@@ -1244,6 +1277,7 @@ export default function Documents({
       const pulled = [];
       (targetCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
       if(pulled.length===0){showAlert(`No crew names found in "${targetCS.label||"that call sheet"}".`);return;}
+      let addedCount = 0;
       setDietaryStore(prev=>{
         const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
         d.callSheetId=targetCS.id;
@@ -1251,23 +1285,22 @@ export default function Documents({
         if(targetCS.date)d.project.date=targetCS.date;
         const csParts=(targetCS.shootName||"").split(" | ");
         if(csParts.length>=2)d.project.client=csParts[0].trim();
-        const byName={};
-        [...(d.people||[]),...(d.notOnSet||[])].forEach(pr=>{if(pr.name)byName[pr.name.trim().toLowerCase()]=pr;});
-        const pulledNames=new Set(pulled.map(pr=>pr.name));
-        d.people=pulled.map(pr=>{
-          const existing=byName[pr.name];
-          return existing?{...existing,role:pr.role||existing.role,department:pr.department||existing.department,name:pr.origName}:{id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:["None"],allergies:"",notes:""};
-        });
-        const seenIds=new Set();
-        const carryOver=[...(prev[p.id][dietIdx].people||[]),...(prev[p.id][dietIdx].notOnSet||[])].filter(pr=>pr.name&&!pulledNames.has(pr.name.trim().toLowerCase()));
-        d.notOnSet=carryOver.filter(pr=>{if(seenIds.has(pr.id))return false;seenIds.add(pr.id);return true;});
+        // Purely additive: never touch existing people or notOnSet — if you've
+        // moved someone to Not On Set, syncing again must not pull them back
+        // just because they're still listed on the call sheet. Only crew
+        // genuinely new to this dietary list (not in either list yet) get added.
+        const known=new Set();
+        [...(d.people||[]),...(d.notOnSet||[])].forEach(pr=>{if(pr.name)known.add(pr.name.trim().toLowerCase());});
+        const newPeople=pulled.filter(pr=>!known.has(pr.name)).map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:["TBC"],allergies:"",notes:""}));
+        addedCount=newPeople.length;
+        d.people=[...(d.people||[]),...newPeople];
         arr[dietIdx]=d;store[p.id]=arr;return store;
       });
-      showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet.`);
+      showAlert(addedCount>0?`Added ${addedCount} new crew member${addedCount===1?"":"s"} from call sheet.`:"No new crew to add — everyone from the call sheet is already tracked here.");
     };
 
     // Summary counts
-    const dietTagsOfPerson = (pr) => Array.isArray(pr.dietary) ? (pr.dietary.length?pr.dietary:["None"]) : (pr.dietary ? [pr.dietary] : ["None"]);
+    const dietTagsOfPerson = (pr) => Array.isArray(pr.dietary) ? (pr.dietary.length?pr.dietary:["TBC"]) : (pr.dietary ? [pr.dietary] : ["TBC"]);
     const dietCounts={};
     (dietData.people||[]).forEach(pr=>{dietTagsOfPerson(pr).forEach(d=>{dietCounts[d]=(dietCounts[d]||0)+1;});});
     const dietTotalWithDietary=(dietData.people||[]).filter(pr=>dietTagsOfPerson(pr).some(d=>d!=="None"&&d!=="TBC")).length;

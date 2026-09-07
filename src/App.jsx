@@ -697,7 +697,7 @@ function OnnaDashboardInner() {
   useEffect(()=>{localProjectsRef.current=localProjects;},[localProjects]);
 
   // ── Auto-fill matching document fields from project info ──────────────────
-  const syncProjectInfoToDocs = (pid, infoOverride) => _syncProjectInfoToDocs(pid, infoOverride, projectInfoRef, localProjectsRef, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates);
+  const syncProjectInfoToDocs = (pid, infoOverride) => _syncProjectInfoToDocs(pid, infoOverride, projectInfoRef, localProjectsRef, setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore);
 
   // ── Auto-populate default logo for all document types on mount ────────────
   useEffect(() => {

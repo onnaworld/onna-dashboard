@@ -369,7 +369,7 @@ const TITableSection = ({title,subtitle,columns,rows,onUpdate,onAddRow,onAddNote
 // ─── DIETARY LIST HELPERS ────────────────────────────────────────────────────
 const DIETARY_TAGS = ["None","TBC","Vegetarian","Vegan","Halal","Kosher","Gluten-Free","Dairy-Free","Nut Allergy","Shellfish Allergy","Pescatarian","Other"];
 const DIETARY_TAG_COLORS = {"None":{bg:"#f4f4f4",text:"#999"},"TBC":{bg:"#FFF8E1",text:"#F9A825"},"Vegetarian":{bg:"#E8F5E9",text:"#2E7D32"},"Vegan":{bg:"#C8E6C9",text:"#1B5E20"},"Halal":{bg:"#E3F2FD",text:"#1565C0"},"Kosher":{bg:"#E8EAF6",text:"#283593"},"Gluten-Free":{bg:"#FFF3E0",text:"#E65100"},"Dairy-Free":{bg:"#FFF8E1",text:"#F57F17"},"Nut Allergy":{bg:"#FCE4EC",text:"#C62828"},"Shellfish Allergy":{bg:"#FCE4EC",text:"#C62828"},"Pescatarian":{bg:"#E0F7FA",text:"#00695C"},"Other":{bg:"#F3E5F5",text:"#6A1B9A"}};
-const dietTagsOf = (v) => Array.isArray(v) ? (v.length?v:["None"]) : (v ? [v] : ["None"]);
+const dietTagsOf = (v) => Array.isArray(v) ? (v.length?v:["TBC"]) : (v ? [v] : ["TBC"]);
 const DietaryMultiTagSelect = ({value,onChange}) => {
   const [open,setOpen]=useState(false);
   const tags = dietTagsOf(value);
@@ -422,7 +422,7 @@ const DietaryTagSelect = ({value,onChange}) => {
 };
 const DIETARY_INIT = {
   project:{name:"[Project Name]",client:"[Client Name]",date:"[Date]",cateringContact:"[Catering Company / Contact]"},
-  people:[{id:1,name:"[Name]",role:"[Role]",department:"[Department]",dietary:["None"],allergies:"",notes:""}],
+  people:[{id:1,name:"[Name]",role:"[Role]",department:"[Department]",dietary:["TBC"],allergies:"",notes:""}],
   menu:[{id:1,category:"Starters",items:""}],
 };
 

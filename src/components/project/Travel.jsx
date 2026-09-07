@@ -57,7 +57,11 @@ export default function Travel({
       const newId = Date.now();
       const newTI = {id:newId,label:`${p.name} Travel Itinerary V${tiVersions.length+1}`,...JSON.parse(JSON.stringify(TRAVEL_ITINERARY_INIT))};
       const _pi=(projectInfoRef.current||{})[p.id];
-      if(_pi){if(_pi.shootName)newTI.project.name=_pi.shootName;if(_pi.shootDate)newTI.project.date=_pi.shootDate;}
+      if(_pi){if(_pi.shootName)newTI.project.name=_pi.shootName;if(_pi.shootDate)newTI.project.date=_pi.shootDate;
+        if(_pi.clientLogo&&!newTI.clientLogo)newTI.clientLogo=_pi.clientLogo;
+        if(_pi.agencyLogo&&!newTI.agencyLogo)newTI.agencyLogo=_pi.agencyLogo;
+        if(_pi.productionLogo&&!newTI.productionLogo)newTI.productionLogo=_pi.productionLogo;
+      }
       newTI.project.name=newTI.project.name==="[Project Name]"?`${p.client||""} | ${p.name}`.replace(/^TEMPLATE \| /,""):newTI.project.name;
       setTravelItineraryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[p.id])store[p.id]=[];store[p.id].push(newTI);return store;});
       const logoImg=new Image();logoImg.crossOrigin="anonymous";logoImg.onload=()=>{try{const cv=document.createElement("canvas");cv.width=logoImg.naturalWidth;cv.height=logoImg.naturalHeight;cv.getContext("2d").drawImage(logoImg,0,0);const dataUrl=cv.toDataURL("image/png");setTravelItineraryStore(prev=>{const s=JSON.parse(JSON.stringify(prev));const arr=s[p.id]||[];const idx=arr.findIndex(e=>e.id===newId);if(idx>=0&&!arr[idx].productionLogo){arr[idx].productionLogo=dataUrl;}return s;});}catch{}};logoImg.src="/onna-default-logo.png";
