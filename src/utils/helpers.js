@@ -307,6 +307,32 @@ export const emptyEstimate = (overrides = {}) => ({
 export const PRINT_CLEANUP_CSS = `[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]{display:none!important;visibility:hidden!important;height:0!important;width:0!important;overflow:hidden!important;position:absolute!important;pointer-events:none!important;}`;
 export const PRINT_CLEANUP_SCRIPT = `<script>window.onload=function(){document.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(function(el){el.remove();});setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},100);};<\/script>`;
 
+// Builder tables have edit-only columns (drag handle, move/highlight/delete
+// icons) that are removed entirely on export via [data-noprint]. Those
+// columns had a real width (px or %) that the table's OTHER columns were
+// sized around — once removed, table-layout:fixed doesn't grow the survivors
+// to fill the freed space, so the table renders narrower than the page and
+// visibly stops short of the right margin (e.g. Call Time not reaching the
+// same right edge as everything else on the page). Call this AFTER stripping
+// [data-noprint] elements from a print clone: it rescales each table's
+// surviving percentage-width header cells so they sum back to 100%.
+export const rebalancePrintTableWidths = (root) => {
+  root.querySelectorAll("table").forEach(table => {
+    const headRow = table.querySelector("thead tr") || table.querySelector("tr");
+    if (!headRow) return;
+    const pctCells = [];
+    let totalPct = 0;
+    Array.from(headRow.children).forEach(td => {
+      const w = (td.style.width || "").trim();
+      if (w.endsWith("%")) { const v = parseFloat(w); if (!isNaN(v)) { totalPct += v; pctCells.push({ td, v }); } }
+    });
+    if (pctCells.length && totalPct > 0 && totalPct < 99.5) {
+      const scale = 100 / totalPct;
+      pctCells.forEach(({ td, v }) => { td.style.width = (v * scale).toFixed(3) + "%"; });
+    }
+  });
+};
+
 // ─── ACTUALS TRACKER HELPERS ────────────────────────────────────────────────
 export const buildActualsFromEstimate = (estimateSections) => {
   const secs = estimateSections || defaultSections();
