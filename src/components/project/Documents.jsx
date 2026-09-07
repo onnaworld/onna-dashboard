@@ -314,12 +314,12 @@ export default function Documents({
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr>
                   <td data-noprint="1" style={{width:16}}></td>
-                  <td style={{...csTh,width:"17%"}}>ROLE</td>
-                  <td style={{...csTh,width:"15%"}}>NAME</td>
-                  <td style={{...csTh,width:"16%"}}>MOBILE</td>
-                  <td style={{...csTh,width:"30%"}}>EMAIL</td>
-                  <td style={{...csTh,width:"8%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
-                  <td data-noprint="1" style={{...csTh,width:22}}></td>
+                  <td style={{...csTh,width:"16%"}}>ROLE</td>
+                  <td style={{...csTh,width:"14%"}}>NAME</td>
+                  <td style={{...csTh,width:"15%"}}>MOBILE</td>
+                  <td style={{...csTh,width:"27%"}}>EMAIL</td>
+                  <td style={{...csTh,width:"10%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
+                  <td data-noprint="1" style={{...csTh,width:60}}></td>
                 </tr></thead>
                 <tbody>
                   {csData.departments.map((dept,di) => { const deptOpen = !dept.discrete || !dept.collapsed; return (
