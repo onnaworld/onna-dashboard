@@ -8,9 +8,26 @@ const UNDO_SCOPE = {
   edit: ["todos"], "edit task": ["todos"], "move to project": ["todos", "projectTodos"],
   archive: ["todos", "archivedTodos", "archive"], "toggle project": ["projectTodos"],
   "edit travel itinerary": ["travelItineraryStore"],
+  "edit call sheet": ["callSheetStore"], "edit risk assessment": ["riskAssessmentStore"],
+  "edit dietary": ["dietaryStore"], "add dietary person": ["dietaryStore"],
+  "edit recce report": ["recceReportStore"], "add recce location": ["recceReportStore"],
+  "delete recce location": ["recceReportStore"], "add recce image": ["recceReportStore"],
+  "remove recce image": ["recceReportStore"], "edit location deck": ["locDeckStore"],
 };
 
+// Fields that commit on every keystroke (plain <input>/<textarea> onChange,
+// as opposed to CSEditField's commit-on-blur) would otherwise push a fresh
+// deep-clone snapshot per character typed. On a store carrying embedded
+// photos (e.g. Recce Report locations), that clone is heavy enough to make
+// typing itself lag or drop keystrokes — it looked like edits "just weren't
+// saving". Coalescing same-label pushes within a short window turns a whole
+// burst of typing into one undo step, which is what a user wants anyway.
+let _lastPushLabel = null, _lastPushAt = 0;
+const PUSH_COALESCE_MS = 700;
 export const doPushUndo = (label, undoStack, state) => {
+  const now = Date.now();
+  if (label === _lastPushLabel && now - _lastPushAt < PUSH_COALESCE_MS) { _lastPushAt = now; return; }
+  _lastPushLabel = label; _lastPushAt = now;
   const clone = (v) => JSON.parse(JSON.stringify(v));
   const keys = UNDO_SCOPE[label];
   if (keys) {
