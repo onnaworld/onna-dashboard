@@ -609,8 +609,16 @@ export const debouncedDocSave = (table, storeObj, delay = 500) => {
   changedPids.forEach(pid => {
     const key = `${table}:${pid}`;
     noteKnownArrayIds(table, pid, storeObj[pid]);
+    // Only count this as a new "pending save" if one isn't already in
+    // flight/queued for this key. Editing the same document again before the
+    // debounce timer fires just resets the timer below (one save still goes
+    // out) — but without this check, _notifySaving() would increment again
+    // with no matching decrement, permanently inflating the counter and
+    // leaving the "Saving..." indicator stuck even long after the save
+    // actually succeeded.
+    const alreadyPending = !!(_saveTimers[key] || _inFlight[key]);
     clearTimeout(_saveTimers[key]);
-    _notifySaving();
+    if (!alreadyPending) _notifySaving();
     const fire = () => {
       _inFlight[key] = true;
       const isRateLimit = (err) => { const m = (err && err.message) || ""; return m.includes("429") || /too many requests/i.test(m); };
