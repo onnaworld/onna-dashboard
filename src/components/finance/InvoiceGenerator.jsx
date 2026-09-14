@@ -18,6 +18,7 @@ const ONNA_FROM = {
 const BANK_FIELDS = [["Bank Name", "bankName"], ["Account Name", "accountName"], ["Account Number", "accountNumber"], ["Routing Number", "routingNumber"], ["IBAN", "iban"], ["SWIFT / BIC", "swift"]];
 
 const CURRENCIES = ["AED", "USD", "GBP", "EUR", "SAR"];
+const PAYMENT_TERMS_PRESETS = ["Due on Receipt", "NET 7 days", "NET 15 days", "NET 30 days", "NET 45 days", "NET 60 days"];
 const STATUSES = ["Draft", "Sent", "Paid", "Overdue"];
 const STATUS_BG = { Draft: "#f0f0f0", Sent: "#e8f4fd", Paid: "#edfaf3", Overdue: "#fdecea" };
 const STATUS_COLOR = { Draft: "#666", Sent: "#0066cc", Paid: "#147d50", Overdue: "#c0392b" };
@@ -57,6 +58,8 @@ const blankInvoice = (store, sender) => ({
 // Filename shown to Save-as-PDF dialogs — always EL_<InvoiceNumber>_<ProjectName>
 const sanitizeForFilename = (s) => (s || "").trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
 const invoiceFilename = (inv) => `EL_${sanitizeForFilename(inv.number) || "Invoice"}_${sanitizeForFilename(inv.project) || "Untitled"}`;
+
+const hasVal = (v) => !!(v && String(v).trim());
 
 const invRowTotal = (r) => (estNum(r.qty) || 0) * estNum(r.rate);
 const invCalcTotals = (inv) => {
@@ -466,7 +469,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
 
   // ── Detail / editor view ──
   const totals = invCalcTotals(active);
-  const hasAnyBankInfo = BANK_FIELDS.some(([, key]) => active.from.bank?.[key]) || active.from.bank?.otherDetails;
+  const hasAnyBankInfo = BANK_FIELDS.some(([, key]) => hasVal(active.from.bank?.[key])) || hasVal(active.from.bank?.otherDetails);
   return (
     <div>
       <button onClick={() => setActiveId(null)} style={{ background: "none", border: "none", color: T.link, fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>‹ Back to Invoices</button>
@@ -585,12 +588,12 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
             <div style={lbl}>Bank Details</div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "2px 24px", background: "#fafafa", borderRadius: 8, padding: "10px 14px" }}>
               {BANK_FIELDS.map(([label, key]) => (
-                <div key={key} data-noprint={active.from.bank?.[key] ? undefined : "1"}>
+                <div key={key} data-noprint={hasVal(active.from.bank?.[key]) ? undefined : "1"}>
                   <div style={{ ...lbl, marginBottom: 2 }}>{label}</div>
                   <Cell value={active.from.bank?.[key]} onChange={(v) => setField(`from.bank.${key}`, v)} />
                 </div>
               ))}
-              <div style={{ gridColumn: "1 / -1" }} data-noprint={active.from.bank?.otherDetails ? undefined : "1"}>
+              <div style={{ gridColumn: "1 / -1" }} data-noprint={hasVal(active.from.bank?.otherDetails) ? undefined : "1"}>
                 <div style={{ ...lbl, marginBottom: 2 }}>Other Details</div>
                 <Cell value={active.from.bank?.otherDetails} onChange={(v) => setField("from.bank.otherDetails", v)} textarea placeholder="details" />
               </div>
@@ -659,7 +662,17 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
 
           <div style={{ marginTop: 24 }}>
             <div style={lbl}>Payment Terms</div>
-            <Cell value={active.paymentTerms} onChange={(v) => setField("paymentTerms", v)} placeholder="e.g. NET 30 days" />
+            <div data-noprint="1" style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+              <select
+                value={PAYMENT_TERMS_PRESETS.includes(active.paymentTerms) ? active.paymentTerms : "Custom"}
+                onChange={(e) => setField("paymentTerms", e.target.value === "Custom" ? "" : e.target.value)}
+                style={{ fontFamily: F, fontSize: 11, border: "1px solid #eee", borderRadius: 4, padding: "5px 8px" }}
+              >
+                {PAYMENT_TERMS_PRESETS.map((t) => <option key={t} value={t}>{t}</option>)}
+                <option value="Custom">Custom / specific date…</option>
+              </select>
+            </div>
+            <Cell value={active.paymentTerms} onChange={(v) => setField("paymentTerms", v)} placeholder="e.g. Due by 15 Oct 2026" />
           </div>
           <div style={{ marginTop: 12 }}>
             <div style={lbl}>Notes</div>
