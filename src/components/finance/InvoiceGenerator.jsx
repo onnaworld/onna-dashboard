@@ -5,7 +5,7 @@ import { estFmt, estNum, api, PRINT_CLEANUP_CSS, getEstPhases } from "../../util
 const F = "'Avenir','Avenir Next','Nunito Sans',sans-serif";
 const LS = 0.5;
 
-const blankBank = () => ({ bankName: "", accountName: "", accountNumber: "", iban: "", swift: "", otherDetails: "" });
+const blankBank = () => ({ bankName: "", accountName: "", accountNumber: "", routingNumber: "", iban: "", swift: "", otherDetails: "" });
 
 const ONNA_FROM = {
   name: "ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC",
@@ -15,7 +15,7 @@ const ONNA_FROM = {
   bank: blankBank(),
 };
 
-const BANK_FIELDS = [["Bank Name", "bankName"], ["Account Name", "accountName"], ["Account Number", "accountNumber"], ["IBAN", "iban"], ["SWIFT / BIC", "swift"]];
+const BANK_FIELDS = [["Bank Name", "bankName"], ["Account Name", "accountName"], ["Account Number", "accountNumber"], ["Routing Number", "routingNumber"], ["IBAN", "iban"], ["SWIFT / BIC", "swift"]];
 
 const CURRENCIES = ["AED", "USD", "GBP", "EUR", "SAR"];
 const STATUSES = ["Draft", "Sent", "Paid", "Overdue"];
@@ -29,7 +29,10 @@ const nextInvoiceNumber = (store) => {
   return `INV-${pad4(max + 1)}`;
 };
 
-const blankInvoice = (store) => ({
+// `sender` (a saved sender profile) is applied as the invoice's default "From" so the
+// user's company name, address, and bank details carry over instead of being re-entered
+// on every new invoice. Falls back to the hardcoded ONNA_FROM when no sender is saved yet.
+const blankInvoice = (store, sender) => ({
   id: Date.now(),
   number: nextInvoiceNumber(store),
   status: "Draft",
@@ -38,7 +41,10 @@ const blankInvoice = (store) => ({
   currency: "AED",
   project: "",
   logo: null,
-  from: { ...ONNA_FROM, bank: blankBank() },
+  from: sender
+    ? { name: sender.name || "", address: sender.address || "", email: sender.email || "", phone: sender.phone || "", bank: { ...blankBank(), ...(sender.bank || {}) } }
+    : { ...ONNA_FROM, bank: blankBank() },
+  fromSenderId: sender ? sender.id : undefined,
   clientId: null,
   billTo: { company: "", name: "", email: "", phone: "", address: "" },
   items: [{ id: 1, desc: "", qty: "1", rate: "0" }],
@@ -47,6 +53,10 @@ const blankInvoice = (store) => ({
   paymentTerms: "NET 30 days",
   sourceEstimate: null, // {projectId, projectName, versionLabel}
 });
+
+// Filename shown to Save-as-PDF dialogs — always EL_<InvoiceNumber>_<ProjectName>
+const sanitizeForFilename = (s) => (s || "").trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
+const invoiceFilename = (inv) => `EL_${sanitizeForFilename(inv.number) || "Invoice"}_${sanitizeForFilename(inv.project) || "Untitled"}`;
 
 const invRowTotal = (r) => (estNum(r.qty) || 0) * estNum(r.rate);
 const invCalcTotals = (inv) => {
@@ -132,6 +142,11 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
 
   const store = invoiceStore || [];
   const active = store.find((i) => i.id === activeId) || null;
+  const defaultSender = (senderProfiles || []).find((s) => s.isDefault) || (senderProfiles || [])[0] || null;
+
+  const setDefaultSender = (id) => {
+    setSenderProfiles?.((prev) => (prev || []).map((s) => ({ ...s, isDefault: s.id === id })));
+  };
 
   const updateActive = (fn) => {
     setInvoiceStore((prev) => (prev || []).map((inv) => (inv.id === activeId ? fn(JSON.parse(JSON.stringify(inv))) : inv)));
@@ -148,7 +163,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
   });
 
   const addBlank = () => {
-    const inv = blankInvoice(store);
+    const inv = blankInvoice(store, defaultSender);
     setInvoiceStore((prev) => [...(prev || []), inv]);
     setActiveId(inv.id);
     setCreateMenuOpen(false);
@@ -158,6 +173,21 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     if (!window.confirm("Delete this invoice? This cannot be undone.")) return;
     setInvoiceStore((prev) => (prev || []).filter((i) => i.id !== id));
     if (activeId === id) setActiveId(null);
+  };
+
+  // Clone an existing invoice as a starting point for a new one — new id, fresh
+  // auto-number, reset to Draft/today, everything else (client, items, bank, notes) carried over.
+  const duplicateInvoice = (id) => {
+    const src = store.find((i) => i.id === id);
+    if (!src) return;
+    const dup = JSON.parse(JSON.stringify(src));
+    dup.id = Date.now();
+    dup.number = nextInvoiceNumber(store);
+    dup.status = "Draft";
+    dup.date = new Date().toISOString().slice(0, 10);
+    dup.dueDate = "";
+    setInvoiceStore((prev) => [...(prev || []), dup]);
+    setActiveId(dup.id);
   };
 
   const addItem = () => updateActive((inv) => { inv.items.push({ id: Date.now(), desc: "", qty: "1", rate: "0" }); return inv; });
@@ -233,10 +263,13 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
         bankName: newSenderForm.bank.bankName.trim(),
         accountName: newSenderForm.bank.accountName.trim(),
         accountNumber: newSenderForm.bank.accountNumber.trim(),
+        routingNumber: newSenderForm.bank.routingNumber.trim(),
         iban: newSenderForm.bank.iban.trim(),
         swift: newSenderForm.bank.swift.trim(),
         otherDetails: newSenderForm.bank.otherDetails.trim(),
       },
+      // First saved sender becomes the default automatically applied to new invoices
+      isDefault: !(senderProfiles || []).length,
     };
     setSenderProfiles?.((prev) => [...(prev || []), profile]);
     applySender(profile);
@@ -274,7 +307,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
         });
       });
     });
-    const inv = blankInvoice(store);
+    const inv = blankInvoice(store, defaultSender);
     inv.billTo = { company: proj.client || "", name: "", email: "", phone: "", address: "" };
     inv.project = proj.name || "";
     inv.items = items.length ? items : inv.items;
@@ -323,7 +356,9 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
       sel.parentNode.replaceChild(sp, sel);
     });
     clone.style.margin = "0"; clone.style.maxWidth = "none"; clone.style.width = "100%"; clone.style.minWidth = "0"; clone.style.border = "none"; clone.style.borderRadius = "0";
-    const docTitle = `Invoice ${active.number}${active.project ? ` — ${active.project}` : ""}`;
+    // Browsers default the "Save as PDF" filename to document.title, so set it to the
+    // required EL_<InvoiceNumber>_<ProjectName> prefix instead of a human-readable label.
+    const docTitle = invoiceFilename(active);
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
     document.body.appendChild(iframe);
@@ -378,6 +413,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{inv.currency} {estFmt(totals.total)}</div>
                 <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => duplicateInvoice(inv.id)} style={{ padding: "4px 10px", borderRadius: 7, background: "#f5f5f7", color: "#444", border: "1px solid #e0e0e0", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Duplicate</button>
                   <button onClick={() => deleteInvoice(inv.id)} style={{ padding: "4px 10px", borderRadius: 7, background: "#fff5f5", color: "#c0392b", border: "1px solid #f5c6cb", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
                 </div>
               </div>
@@ -442,6 +478,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
           </select>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => duplicateInvoice(active.id)} style={{ padding: "7px 16px", borderRadius: 9, background: "#f5f5f7", color: "#444", border: "1px solid #e0e0e0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Duplicate</button>
           <button onClick={exportPDF} style={{ padding: "7px 16px", borderRadius: 9, background: "#000", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Export PDF</button>
           <button onClick={() => deleteInvoice(active.id)} style={{ padding: "7px 16px", borderRadius: 9, background: "#fff5f5", color: "#c0392b", border: "1px solid #f5c6cb", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>
         </div>
@@ -484,9 +521,10 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                           {filtered.map((s) => (
                             <div key={s.id} style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #f5f5f5" }}>
                               <div onClick={() => { applySender(s); setSenderPickerOpen(false); }} style={{ flex: 1, cursor: "pointer" }} onMouseEnter={(e) => (e.currentTarget.parentElement.style.background = "#f5f5f7")} onMouseLeave={(e) => (e.currentTarget.parentElement.style.background = "transparent")}>
-                                <div style={{ fontWeight: 600, fontSize: 11.5 }}>{s.nickname}</div>
+                                <div style={{ fontWeight: 600, fontSize: 11.5, display: "flex", alignItems: "center", gap: 6 }}>{s.nickname}{s.isDefault && <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#147d50", background: "#edfaf3", padding: "1px 6px", borderRadius: 4 }}>Default</span>}</div>
                                 {s.name && <div style={{ color: "#999", fontSize: 10 }}>{s.name}</div>}
                               </div>
+                              {!s.isDefault && <span onClick={() => setDefaultSender(s.id)} title="Set as default sender" style={{ cursor: "pointer", fontSize: 10, color: "#bbb", padding: "0 4px" }} onMouseEnter={(e) => (e.target.style.color = "#666")} onMouseLeave={(e) => (e.target.style.color = "#bbb")}>{"☆"}</span>}
                               <span onClick={() => deleteSenderProfile(s.id)} style={{ cursor: "pointer", fontSize: 12, color: "#ccc", padding: "0 2px" }} onMouseEnter={(e) => (e.target.style.color = "#f44")} onMouseLeave={(e) => (e.target.style.color = "#ccc")}>{"×"}</span>
                             </div>
                           ))}
