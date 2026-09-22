@@ -153,6 +153,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   };
   const renamePhase = (pi, title) => setPhases(ps => { ps[pi].title = title; return ps; });
   const setPhaseVat = (pi, val) => setPhases(ps => { ps[pi].vatPct = val; return ps; });
+  const setPhaseNotes = (pi, val) => setPhases(ps => { ps[pi].notes = val; return ps; });
   const removePhase = (pi) => {
     if (phases.length <= 1) return;
     if (!confirm(`Delete "${phases[pi].title || "this phase"}"? This removes all its sections and cannot be undone via redo of this action.`)) return;
@@ -559,6 +560,10 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
                     <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(pt.totalIncVat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.totalIncVat*xRate)}</span>}</div>
                 </div>
+              </div>
+              <div style={{marginTop:10}} data-noprint={phase.notes ? undefined : "1"}>
+                <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",marginBottom:3}}>PHASE NOTES</div>
+                <EstCell value={phase.notes || ""} onChange={v=>setPhaseNotes(pi,v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
               </div>
             </div>
             );
