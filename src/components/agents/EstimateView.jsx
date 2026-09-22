@@ -258,8 +258,13 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           if (!pages.includes(pg.getAttribute('data-page'))) pg.remove();
         });
       }
-      const vLabel=(ts.version||"V1").replace(/\s*production\s*estimate/i,"").trim();
-      const docTitle=`${vLabel} Production Estimate${projectName?" | "+projectName:""}`;
+      // Filename browsers default "Save as PDF" to (via document.title below):
+      // "V1 PRODUCTION ESTIMATE_ClientName_ProjectName"
+      const sanitizeForFilename = (s) => (s || "").trim().replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_");
+      const vLabel=(ts.version||"V1").replace(/\s*production\s*estimate/i,"").trim() || "V1";
+      const clientName = sanitizeForFilename(ts.client && ts.client !== "[Client]" ? ts.client : "") || "Client";
+      const projName = sanitizeForFilename(projectName || (ts.project && ts.project !== "[Project]" ? ts.project : "")) || "Project";
+      const docTitle=`${vLabel} PRODUCTION ESTIMATE_${clientName}_${projName}`;
       clone.style.padding="0";clone.style.maxWidth="none";clone.style.width="100%";clone.style.minWidth="0";
       const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
       const _d=iframe.contentDocument;_d.open();_d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:10px;color:#1a1a1a;margin:0;padding:0;}[data-page]+[data-page]{break-before:page;}@page{size:A4;margin:10mm 12mm;}@media print{*{overflow:visible!important;}}${PRINT_CLEANUP_CSS}</style></head><body></body></html>`);_d.close();_d.body.appendChild(_d.adoptNode(clone));const prevTitle=document.title;document.title=docTitle;const restoreTitle=()=>{document.title=prevTitle;document.body.removeChild(iframe);window.removeEventListener("afterprint",restoreTitle);};window.addEventListener("afterprint",restoreTitle);setTimeout(()=>{_d.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"]').forEach(el=>el.remove());iframe.contentWindow.focus();iframe.contentWindow.print();},300);
