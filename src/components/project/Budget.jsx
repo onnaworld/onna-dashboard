@@ -479,8 +479,8 @@ export default function Budget({
               </div>
             ))}
             <div style={{borderTop:"1px solid #f0f0f0",padding:"8px 14px 6px",display:"flex",gap:12}}>
-              <span onClick={()=>{setHiddenCols({});try{localStorage.setItem(hiddenColsKey,JSON.stringify({}));}catch{}}} style={{fontFamily:EST_F,fontSize:10,color:"#1976D2",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>SELECT ALL</span>
-              <span onClick={()=>{const h={};ALL_COLS.forEach(c=>{h[c.id]=true});setHiddenCols(h);try{localStorage.setItem(hiddenColsKey,JSON.stringify(h));}catch{}}} style={{fontFamily:EST_F,fontSize:10,color:"#999",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>DESELECT ALL</span>
+              <span onClick={()=>_setMeta({hiddenCols:{}})} style={{fontFamily:EST_F,fontSize:10,color:"#1976D2",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>SELECT ALL</span>
+              <span onClick={()=>{const h={};ALL_COLS.forEach(c=>{h[c.id]=true});_setMeta({hiddenCols:h});}} style={{fontFamily:EST_F,fontSize:10,color:"#999",cursor:"pointer",letterSpacing:EST_LS,fontWeight:700}}>DESELECT ALL</span>
             </div>
           </div>
         )}
