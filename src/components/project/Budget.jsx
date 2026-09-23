@@ -456,8 +456,11 @@ export default function Budget({
         }
       `;
       document.body.appendChild(wrapper);
+      // Browsers default the "Save as PDF" filename to document.title —
+      // format it as "Budget Tracker_Client_ProjectName".
+      const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
       const origTitle = document.title;
-      document.title = `Actuals Tracker | ${p.name||""}`;
+      document.title = `Budget Tracker_${sanitizeForFilename(p.client)}_${sanitizeForFilename(p.name)}`;
       const cleanup = () => { wrapper.remove(); document.title = origTitle; window.removeEventListener("afterprint", cleanup); };
       window.addEventListener("afterprint", cleanup);
       setTimeout(() => window.print(), 100);
