@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { estFmt, estRowTotal, estSectionTotal, isFeeSec, PRINT_CLEANUP_CSS, getEstPhases, estCalcPhaseTotals, estCalcCombinedTotals, flattenPhaseSections, emptyPhase } from "../../utils/helpers";
 import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { CSLogoSlot } from "../ui/DocHelpers";
+import { downloadStyledXlsx } from "../../utils/templateExport";
 
 const EST_CURRENCIES = [
   { code: "AED", label: "AED — UAE Dirham", symbol: "AED", rates: { USD: 0.2722, GBP: 0.2043, EUR: 0.2300, SAR: 1.0206 } },
@@ -283,6 +284,64 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const combined = estCalcCombinedTotals(phases);
   const phaseTotals = phases.map(ph => estCalcPhaseTotals(ph));
 
+  // Excel export — mirrors the ESTIMATES tab exactly: one styled block per
+  // section (black header bar, same REF/DESCRIPTION/NOTES/DAYS/QTY/RATE/TOTAL
+  // columns), a totals block per phase (subtotal/VAT/total), phase notes, and
+  // a combined grand-total block when there's more than one phase.
+  const doExcelExport = () => {
+    setShowExportMenu(false);
+    const blocks = [];
+    phases.forEach((phase, pi) => {
+      const pt = phaseTotals[pi];
+      if (multiPhase) blocks.push({ title: phase.title || `PHASE ${pi + 1}`, columns: [{ key: "label", label: "" }], rows: [] });
+      phase.sections.filter(sec => !sec.hidden).forEach(sec => {
+        const isF = isFeeSec(sec);
+        const rows = sec.rows.map(row => {
+          let tot = estRowTotal(row);
+          if (isF) {
+            const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+            if (pctMatch) tot = pt.subtotal * (parseFloat(pctMatch[1]) / 100);
+          }
+          return { ref: row.ref, desc: row.desc, notes: row.notes || "", days: row.days, qty: row.qty, rate: row.rate, total: Math.round(tot * 100) / 100 };
+        });
+        const secTotal = rows.reduce((s, r) => s + r.total, 0);
+        rows.push({ ref: "", desc: "SECTION TOTAL", notes: "", days: "", qty: "", rate: "", total: Math.round(secTotal * 100) / 100 });
+        blocks.push({
+          title: `${sec.num}  ${sec.title}`,
+          columns: [
+            { key: "ref", label: "REF" }, { key: "desc", label: "DESCRIPTION" }, { key: "notes", label: "NOTES" },
+            { key: "days", label: "DAYS", align: "center" }, { key: "qty", label: "QTY", align: "center" },
+            { key: "rate", label: "RATE", align: "right" }, { key: "total", label: "TOTAL", align: "right" },
+          ],
+          rows,
+        });
+      });
+      if (phase.notes) blocks.push({ title: "PHASE NOTES", columns: [{ key: "text", label: "" }], rows: [{ isNote: true, text: phase.notes }] });
+      blocks.push({
+        title: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL",
+        columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
+        rows: [
+          { label: multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL", value: Math.round(pt.grandTotal * 100) / 100 },
+          { label: `VAT (${pt.vatPct}%)`, value: Math.round(pt.vat * 100) / 100 },
+          { label: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL", value: Math.round(pt.totalIncVat * 100) / 100 },
+        ],
+      });
+    });
+    if (multiPhase) {
+      blocks.push({
+        title: "COMBINED GRAND TOTAL (ALL PHASES)",
+        columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
+        rows: [{ label: "TOTAL INC. VAT", value: Math.round(combined.totalIncVat * 100) / 100 }],
+      });
+    }
+    const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
+    const vLabel = (ts.version || "V1").replace(/\s*production\s*estimate/i, "").trim() || "V1";
+    const clientName = sanitizeForFilename(ts.client && ts.client !== "[Client]" ? ts.client : "") || "Client";
+    const projName = sanitizeForFilename(projectName || (ts.project && ts.project !== "[Project]" ? ts.project : "")) || "Project";
+    downloadStyledXlsx(blocks, `${vLabel} PRODUCTION ESTIMATE_${clientName}_${projName}.xlsx`,
+      { title: `PRODUCTION ESTIMATE ${vLabel} — ${ts.client || ""} | ${ts.project || ""}`.trim(), sheetName: "Estimate" });
+  };
+
   const phaseHdrBar = { fontFamily:EST_F,fontSize:9,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"6px 10px",background:"#efece0",border:"1px solid #ddd4b0",borderRadius:4,display:"flex",alignItems:"center",gap:8,marginBottom:2 };
   const phaseArrowBtn = { background:"none",border:"1px solid #ddd",borderRadius:4,color:"#999",cursor:"pointer",fontSize:10,padding:"1px 6px",lineHeight:1,fontFamily:"inherit" };
 
@@ -291,6 +350,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
         <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
+          <div onClick={doExcelExport} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#147d50",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+            onMouseEnter={e=>{e.target.style.background="#0f6640"}} onMouseLeave={e=>{e.target.style.background="#147d50"}}>{_narrow?"XLS":"EXPORT EXCEL"}</div>
           <div onClick={()=>setShowExportMenu(v=>!v)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showExportMenu?"#333":"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd",userSelect:"none" }}
             onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{if(!showExportMenu)e.target.style.background="#000"}}>EXPORT ▾</div>
           {showExportMenu && <>
