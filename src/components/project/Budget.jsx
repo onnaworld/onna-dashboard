@@ -42,6 +42,9 @@ export default function Budget({
   const setExpandedRows = (next) => { const val = typeof next === "function" ? next(expandedRows) : next; _setMeta({ expandedRows: val }); };
 
   const [showColPicker, setShowColPicker] = React.useState(false);
+  // Forces both Summary and Actuals Tracker tabs to render at once, purely
+  // for export — normally only the active tab is mounted.
+  const [exportAllTabs, setExportAllTabs] = React.useState(false);
 
   // All remaining hooks must be top-level to satisfy React rules of hooks
   const [dragExp, setDragExp] = React.useState(null);
@@ -419,51 +422,58 @@ export default function Budget({
     // Print export — move print area to body root so links stay clickable in PDF
     const doActPrint = () => {
       setShowColPicker(false);
-      const src = document.getElementById("actuals-print-area");
-      if (!src) return;
-      // Clone into a wrapper appended directly to <body>
-      const wrapper = document.createElement("div");
-      wrapper.id = "actuals-print-wrapper";
-      const clone = src.cloneNode(true);
-      clone.removeAttribute("id");
-      // Clean up clone for print
-      clone.querySelectorAll("[data-noprint]").forEach(el => el.remove());
-      clone.querySelectorAll("[data-noprint-hide]").forEach(el => el.remove());
-      clone.querySelectorAll("[data-cs-placeholder]").forEach(el => el.remove());
-      clone.querySelectorAll("input[type=file]").forEach(el => el.remove());
-      clone.querySelectorAll("button").forEach(el => el.remove());
-      clone.querySelectorAll("[data-print-expand]").forEach(el => { el.style.display = "block"; });
-      clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
-      clone.querySelectorAll("[data-noprint-drag]").forEach(el => { el.removeAttribute("draggable"); el.style.cursor = "default"; });
-      clone.querySelectorAll("a[href]").forEach(el => { el.style.color = "#0066cc"; el.style.textDecoration = "underline"; el.style.overflow = "visible"; el.style.display = "inline"; el.style.fontSize = "9px"; el.removeAttribute("target"); el.removeAttribute("rel"); });
-      clone.style.maxWidth = "none";
-      clone.style.width = "100%";
-      clone.style.padding = "0";
-      clone.style.margin = "0";
-      wrapper.appendChild(clone);
-      // Inject print styles
-      const styleId = "actuals-print-style";
-      let style = document.getElementById(styleId);
-      if (!style) { style = document.createElement("style"); style.id = styleId; document.head.appendChild(style); }
-      style.textContent = `
-        @media print {
-          @page { margin: 0; size: A4 portrait; }
-          body > *:not(#actuals-print-wrapper) { display: none !important; }
-          #actuals-print-wrapper { display: block !important; padding: 10mm 12mm !important; margin: 0 !important; width: 100% !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
-          #actuals-print-wrapper [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
-          #actuals-print-wrapper [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
-          #actuals-print-wrapper a[href] { color: #0066cc !important; text-decoration: underline !important; }
-        }
-      `;
-      document.body.appendChild(wrapper);
-      // Browsers default the "Save as PDF" filename to document.title —
-      // format it as "Budget Tracker_Client_ProjectName".
-      const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
-      const origTitle = document.title;
-      document.title = `Budget Tracker_${sanitizeForFilename(p.client)}_${sanitizeForFilename(p.name)}`;
-      const cleanup = () => { wrapper.remove(); document.title = origTitle; window.removeEventListener("afterprint", cleanup); };
-      window.addEventListener("afterprint", cleanup);
-      setTimeout(() => window.print(), 100);
+      // Mount both tabs so the export includes Summary + Actuals Tracker, not
+      // just whichever one is currently on screen — then wait a tick for
+      // React to render the newly-mounted tab before cloning the DOM.
+      setExportAllTabs(true);
+      setTimeout(() => {
+        const src = document.getElementById("actuals-print-area");
+        if (!src) { setExportAllTabs(false); return; }
+        // Clone into a wrapper appended directly to <body>
+        const wrapper = document.createElement("div");
+        wrapper.id = "actuals-print-wrapper";
+        const clone = src.cloneNode(true);
+        clone.removeAttribute("id");
+        // Clean up clone for print
+        clone.querySelectorAll("[data-noprint]").forEach(el => el.remove());
+        clone.querySelectorAll("[data-noprint-hide]").forEach(el => el.remove());
+        clone.querySelectorAll("[data-cs-placeholder]").forEach(el => el.remove());
+        clone.querySelectorAll("input[type=file]").forEach(el => el.remove());
+        clone.querySelectorAll("button").forEach(el => el.remove());
+        clone.querySelectorAll("[data-print-expand]").forEach(el => { el.style.display = "block"; });
+        clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
+        clone.querySelectorAll("[data-noprint-drag]").forEach(el => { el.removeAttribute("draggable"); el.style.cursor = "default"; });
+        clone.querySelectorAll("a[href]").forEach(el => { el.style.color = "#0066cc"; el.style.textDecoration = "underline"; el.style.overflow = "visible"; el.style.display = "inline"; el.style.fontSize = "9px"; el.removeAttribute("target"); el.removeAttribute("rel"); });
+        clone.style.maxWidth = "none";
+        clone.style.width = "100%";
+        clone.style.padding = "0";
+        clone.style.margin = "0";
+        wrapper.appendChild(clone);
+        // Inject print styles
+        const styleId = "actuals-print-style";
+        let style = document.getElementById(styleId);
+        if (!style) { style = document.createElement("style"); style.id = styleId; document.head.appendChild(style); }
+        style.textContent = `
+          @media print {
+            @page { margin: 0; size: A4 portrait; }
+            body > *:not(#actuals-print-wrapper) { display: none !important; }
+            #actuals-print-wrapper { display: block !important; padding: 10mm 12mm !important; margin: 0 !important; width: 100% !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box !important; overflow: visible !important; }
+            #actuals-print-wrapper [data-col] { flex: 1 1 0 !important; width: auto !important; min-width: 0 !important; }
+            #actuals-print-wrapper [data-col-desc] { flex: 2 1 0 !important; width: auto !important; min-width: 0 !important; }
+            #actuals-print-wrapper a[href] { color: #0066cc !important; text-decoration: underline !important; }
+            #actuals-print-wrapper [data-page]+[data-page] { break-before: page; padding-top: 10mm; }
+          }
+        `;
+        document.body.appendChild(wrapper);
+        // Browsers default the "Save as PDF" filename to document.title —
+        // format it as "Budget Tracker_Client_ProjectName".
+        const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
+        const origTitle = document.title;
+        document.title = `Budget Tracker_${sanitizeForFilename(p.client)}_${sanitizeForFilename(p.name)}`;
+        const cleanup = () => { wrapper.remove(); document.title = origTitle; setExportAllTabs(false); window.removeEventListener("afterprint", cleanup); };
+        window.addEventListener("afterprint", cleanup);
+        setTimeout(() => window.print(), 100);
+      }, 50);
     };
 
     return (
@@ -584,8 +594,8 @@ export default function Budget({
           </div>
 
           {/* Summary Tab */}
-          {trackerTab==="summary" && (
-            <div>
+          {(trackerTab==="summary"||exportAllTabs) && (
+            <div data-page="summary">
               <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
                 <div data-col-desc style={{flex:1,...actHdr}}>SECTION</div>
                 <div data-col style={colStyle("estimate",{width:110,...actHdr,textAlign:"right"})}>ESTIMATE</div>
@@ -633,9 +643,9 @@ export default function Budget({
           )}
 
           {/* Detail Tab */}
-          {trackerTab==="detail" && (
-            <div>
-              <div data-noprint style={{display:"flex",gap:16,alignItems:"center",marginBottom:12,padding:"6px 0"}}>
+          {(trackerTab==="detail"||exportAllTabs) && (
+            <div data-page="detail">
+              <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:12,padding:"6px 0"}}>
                 <span style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase"}}>KEY:</span>
                 <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#FFF9C4",border:"1px solid #e0d88a",flexShrink:0}}></span><EstCell value={keyLabels.toReconcile ?? "TO RECONCILE"} onChange={v=>setKeyLabel("toReconcile",v)} style={{fontSize:8,letterSpacing:EST_LS,color:"#666"}} /></span>
                 <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#E8F5E9",border:"1px solid #a5d6a7",flexShrink:0}}></span><EstCell value={keyLabels.reconciled ?? "RECONCILED"} onChange={v=>setKeyLabel("reconciled",v)} style={{fontSize:8,letterSpacing:EST_LS,color:"#666"}} /></span>
