@@ -638,7 +638,12 @@ export default function Documents({
     const csSecToExcelBlocks = (key) => {
       const fv = [{key:"label",label:"Field"},{key:"value",label:"Value"}];
       if (key === "shoot") {
-        return [{ title:"SHOOT", columns:fv, rows:(csData.venueRows||[]).map(r=>({label:r.label,value:r.value,hl:r.hl})) }];
+        const rows = [];
+        (csData.venueRows||[]).forEach(r => {
+          rows.push({label:r.label,value:r.value,hl:r.hl});
+          (r.subnotes||[]).forEach(sn => { if (sn.text) rows.push({label:"", value:`— ${sn.text}`}); });
+        });
+        return [{ title:"SHOOT", columns:fv, rows }];
       }
       if (key === "schedule") {
         const schedCols = [{key:"time",label:"Time"},{key:"activity",label:"Activity"},{key:"notes",label:"Notes"}];
@@ -649,6 +654,9 @@ export default function Documents({
       if (key === "contacts") {
         const rows = [];
         (csData.departments||[]).forEach(dept => {
+          // Discrete departments collapsed on screen are also omitted from the PDF's
+          // crew list — match that here instead of always listing every crew member.
+          if (dept.discrete && dept.collapsed) return;
           (dept.crew||[]).forEach(cr => {
             rows.push({department:dept.name,role:cr.role,name:cr.name,mobile:cr.mobile,email:cr.email,callTime:cr.callTime,hl:cr.hl});
             (cr.agents || (cr.agent ? [cr.agent] : [])).forEach(ag => rows.push({department:dept.name,role:ag.role,name:ag.name,mobile:ag.mobile,email:ag.email,callTime:ag.callTime,hl:ag.hl}));
@@ -716,8 +724,15 @@ export default function Documents({
       return [];
     };
     const csExportExcel = () => {
-      const blocks = csSecOrder.flatMap(csSecToExcelBlocks);
-      if (!blocks.length) blocks.push({ title:"CALL SHEET", columns:[{key:"none",label:"No content yet"}], rows:[] });
+      // Header fields (shoot name, date, day #, passport note) live outside the
+      // reorderable sections — they weren't in the Excel output at all before.
+      const headerRows = [
+        {label:"Shoot Name",value:csData.shootName||""},
+        {label:"Date",value:csData.date||""},
+        {label:csData.dayLabel!==undefined?csData.dayLabel:"SHOOT DAY",value:csData.dayNumber||""},
+      ];
+      if (csData.passportNote) headerRows.push({label:"Note",value:csData.passportNote});
+      const blocks = [{ title:"CALL SHEET", columns:[{key:"label",label:"Field"},{key:"value",label:"Value"}], rows:headerRows }, ...csSecOrder.flatMap(csSecToExcelBlocks)];
       downloadStyledXlsx(blocks, `${csData.label||"Call Sheet"}.xlsx`, { title:`${csData.label||"Call Sheet"} — ${csData.shootName||p.name||""}`, sheetName:"Call Sheet" });
     };
 
@@ -1380,7 +1395,17 @@ export default function Documents({
       const fmtTags = (pr) => dietTagsOfPerson(pr).join(", ");
       const peopleCols = [{key:"name",label:"Name"},{key:"role",label:"Role"},{key:"department",label:"Department"},{key:"dietary",label:"Dietary"},{key:"allergies",label:"Allergies / Intolerances"},{key:"notes",label:"Notes"}];
       const peopleRows = (dietData.people||[]).map(pr=>({name:pr.name,role:pr.role,department:pr.department,dietary:fmtTags(pr),allergies:pr.allergies,notes:pr.notes}));
-      const blocks = [{ title:"CREW DIETARY NOTES", columns:peopleCols, rows:peopleRows }];
+      // Project/client/date/catering header — was on screen but missing from the export entirely.
+      const headerRows = [
+        {label:"Project",value:dietData.project?.name||""},
+        {label:"Client",value:dietData.project?.client||""},
+        {label:"Date",value:dietData.project?.date||""},
+        {label:"Catering",value:dietData.project?.cateringContact||""},
+      ];
+      const blocks = [
+        { title:"DIETARY LIST", columns:[{key:"label",label:"Field"},{key:"value",label:"Value"}], rows:headerRows },
+        { title:"CREW DIETARY NOTES", columns:peopleCols, rows:peopleRows },
+      ];
       if ((dietData.notOnSet||[]).length) {
         blocks.push({ title:"NOT ON SET", headerColor:"#888888", columns:peopleCols, rows:(dietData.notOnSet||[]).map(pr=>({name:pr.name,role:pr.role,department:pr.department,dietary:fmtTags(pr),allergies:pr.allergies,notes:pr.notes})) });
       }
