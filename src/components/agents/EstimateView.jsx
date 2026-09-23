@@ -516,15 +516,26 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         </div>}
 
         {(estTab === "estimates" || showAll) && <div data-page="estimates">
-          <div data-noprint style={{display:"flex",gap:16,alignItems:"center",marginBottom:14,padding:"6px 0",flexWrap:"wrap"}}>
-            <span style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase"}}>KEY:</span>
-            {["Pending","Confirmed","Paid"].map(key=>(
-              <span key={key} style={{display:"flex",alignItems:"center",gap:4}}>
-                <span style={{width:8,height:8,borderRadius:"50%",background:EST_ST_DOT[key],flexShrink:0}}></span>
-                <EstCell value={statusLabels[key] ?? key} onChange={v=>setStatusLabel(key,v)} style={{fontSize:9,letterSpacing:EST_LS,color:"#666"}} />
-              </span>
-            ))}
-          </div>
+          {(() => {
+            // Only show a status in the key once at least one row is actually
+            // set to it — an unused status cluttering the key just invites
+            // "what does that dot mean, nothing's that color" confusion.
+            const usedStatuses = new Set();
+            phases.forEach(ph => (ph.sections || []).forEach(sec => (sec.rows || []).forEach(row => { if (row.rowStatus) usedStatuses.add(row.rowStatus); })));
+            const visibleStatuses = ["Pending", "Confirmed", "Paid"].filter(key => usedStatuses.has(key));
+            if (!visibleStatuses.length) return null;
+            return (
+              <div data-noprint style={{display:"flex",gap:16,alignItems:"center",marginBottom:14,padding:"6px 0",flexWrap:"wrap"}}>
+                <span style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase"}}>KEY:</span>
+                {visibleStatuses.map(key=>(
+                  <span key={key} style={{display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:EST_ST_DOT[key],flexShrink:0}}></span>
+                    <EstCell value={statusLabels[key] ?? key} onChange={v=>setStatusLabel(key,v)} style={{fontSize:9,letterSpacing:EST_LS,color:"#666"}} />
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
           {phases.map((phase, pi) => {
             const pt = phaseTotals[pi];
             const subtotal = pt.subtotal;
