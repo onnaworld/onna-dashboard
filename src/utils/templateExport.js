@@ -18,7 +18,7 @@ const _downloadBlob = (blob, filename) => {
 
 const _toArgb = (hex) => "FF" + String(hex || "000000").replace("#", "").toUpperCase().padStart(6, "0");
 const _thinBorder = { style: "thin", color: { argb: "FFE0E0E0" } };
-const HL_FILL = { pending: "FFFFF8E8", confirmed: "FFE8F4FD", paid: "FFEDFAF3" };
+const HL_FILL = { pending: "FFFFF8E8", confirmed: "FFE8F4FD", paid: "FFEDFAF3", toReconcile: "FFFFF9C4", reconciled: "FFE8F5E9" };
 
 // Single-sheet export with real cell styling (black section header bars, table
 // borders, etc) — the plain `xlsx` package (community edition) cannot write cell
@@ -100,7 +100,7 @@ export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
         const rowFill = row.hl && HL_FILL[row.hl];
         cols.forEach((c, ci) => {
           const cell = dataRow.getCell(ci + 1);
-          cell.value = row[c.key] || "";
+          cell.value = row[c.key] ?? "";
           cell.border = { top: _thinBorder, left: _thinBorder, right: _thinBorder, bottom: _thinBorder };
           if (c.align) cell.alignment = { horizontal: c.align };
           if (rowFill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };

@@ -1,6 +1,7 @@
 import React, { Fragment, useState } from "react";
 import { defaultSections, estCalcTotals, isFeeSec, estSectionTotal, estRowTotal, estNum, estFmt, buildActualsFromEstimate, syncActualsWithEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsRowFinalsTotal, actualsRowFinalsEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, actualsRowSpend, actualsSectionSpend, actualsGrandSpend, ACTUALS_STATUSES, getEstPhases, flattenPhaseSectionsForActuals, estCalcCombinedTotals } from "../../utils/helpers";
 import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } from "../ui/DocHelpers";
+import { downloadStyledXlsx } from "../../utils/templateExport";
 
 export default function Budget({
   T, isMobile, p,
@@ -476,6 +477,72 @@ export default function Budget({
       }, 50);
     };
 
+    // Excel export — mirrors the on-screen Detail table + Grand Total exactly:
+    // one styled block per section (black header bar, same column set, same
+    // yellow/green reconcile row highlight), plus a totals block at the end.
+    const doActExcel = () => {
+      setShowColPicker(false);
+      const r2v = (n) => Math.round((n || 0) * 100) / 100;
+      const blocks = [];
+      actSections.forEach((sec, si) => {
+        const estSec = estSections[si];
+        const _isFeeSec = estSec ? isFeeSec(estSec) : false;
+        const rows = sec.rows.map((row, ri) => {
+          const estRow = estSec?.rows[ri];
+          let estVal = estRow ? estRowTotal(estRow) : 0;
+          if (_isFeeSec && estRow) {
+            const pctMatch = (estRow.notes || "").match(/(\d+(?:\.\d+)?)%/);
+            if (pctMatch) estVal = estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
+          }
+          const actVal = actualsRowEffective(row);
+          const finVal = estNum(row.zohoAmount);
+          const rv = estVal - actualsRowSpend(row);
+          return {
+            ref: row.ref || estRow?.ref || "",
+            desc: row.desc || estRow?.desc || "",
+            notes: row.notes || estRow?.notes || "",
+            days: estRow ? estNum(estRow.days) : "",
+            qty: estRow ? estNum(estRow.qty) : "",
+            rate: estRow ? r2v(estNum(estRow.rate)) : "",
+            estimate: r2v(estVal),
+            actuals: r2v(actVal),
+            finals: r2v(finVal),
+            variance: r2v(rv),
+            status: row.status || "",
+            hl: row.rowColor || (row.highlighted ? "toReconcile" : ""),
+          };
+        });
+        const secEstTotal = estSec ? (_isFeeSec ? estSec.rows.reduce((sum, row) => {
+          const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+          if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
+          return sum + estRowTotal(row);
+        }, 0) : estSectionTotal(estSec)) : 0;
+        rows.push({ ref: "", desc: "SECTION TOTAL", notes: "", days: "", qty: "", rate: "",
+          estimate: r2v(secEstTotal), actuals: r2v(actualsSectionEffective(sec)), finals: r2v(actualsSectionZohoTotal(sec)), variance: "", status: "" });
+        blocks.push({
+          title: `${sec.num}  ${sec.title}`,
+          columns: [
+            { key: "ref", label: "REF" }, { key: "desc", label: "DESCRIPTION" }, { key: "notes", label: "NOTES" },
+            { key: "days", label: "DAYS", align: "center" }, { key: "qty", label: "QTY", align: "center" }, { key: "rate", label: "RATE", align: "right" },
+            { key: "estimate", label: "ESTIMATE", align: "right" }, { key: "actuals", label: "ACTUALS", align: "right" }, { key: "finals", label: "FINALS", align: "right" },
+            { key: "variance", label: "VARIANCE", align: "right" }, { key: "status", label: "STATUS", align: "center" },
+          ],
+          rows,
+        });
+      });
+      blocks.push({
+        title: "GRAND TOTAL",
+        columns: [
+          { key: "label", label: "" }, { key: "estimate", label: "ESTIMATE", align: "right" }, { key: "actuals", label: "ACTUALS", align: "right" },
+          { key: "finals", label: "FINALS", align: "right" }, { key: "variance", label: "VARIANCE", align: "right" },
+        ],
+        rows: [{ label: "TOTAL", estimate: r2v(estTotals.grandTotal), actuals: r2v(actEffectiveTotal), finals: r2v(actZohoTotal), variance: r2v(actVariance) }],
+      });
+      const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
+      const fname = `Budget Tracker_${sanitizeForFilename(p.client)}_${sanitizeForFilename(p.name)}.xlsx`;
+      downloadStyledXlsx(blocks, fname, { title: `BUDGET TRACKER — ${p.client || ""} ${p.name || ""}`.trim(), sheetName: "Budget Tracker" });
+    };
+
     return (
     <div onClick={()=>showColPicker&&setShowColPicker(false)}>
       <button onClick={()=>{setBudgetSubSection(null);setActualsTrackerTab("detail");}} style={{background:"none",border:"none",color:T.link,fontSize:13,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>&#8249; Back to Budget</button>
@@ -493,6 +560,8 @@ export default function Budget({
             })}
             <div onClick={e=>{e.stopPropagation();setShowColPicker(p=>!p);}} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showColPicker?"#333":"#f5f5f5",color:showColPicker?"#fff":"#666",textTransform:"uppercase",borderLeft:"1px solid #ddd",transition:"all .15s" }}
               onMouseEnter={e=>{if(!showColPicker){e.target.style.background="#e8e8e8";e.target.style.color="#333";}}} onMouseLeave={e=>{if(!showColPicker){e.target.style.background="#f5f5f5";e.target.style.color="#666";}}}>{Object.keys(hiddenCols).length>0?`COLUMNS (${ALL_COLS.length-Object.keys(hiddenCols).length}/${ALL_COLS.length})`:"COLUMNS ▾"}</div>
+            <div onClick={doActExcel} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#147d50",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+              onMouseEnter={e=>{e.target.style.background="#0f6640"}} onMouseLeave={e=>{e.target.style.background="#147d50"}}>EXPORT EXCEL</div>
             <div onClick={doActPrint} style={{ fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
               onMouseEnter={e=>{e.target.style.background="#333"}} onMouseLeave={e=>{e.target.style.background="#000"}}>EXPORT PDF</div>
           </div>
