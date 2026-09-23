@@ -173,7 +173,12 @@ export default function Budget({
     const estPhases = getEstPhases(latestEst);
     const estSections = flattenPhaseSectionsForActuals(estPhases);
     const estTotals = estCalcCombinedTotals(estPhases);
-    const actProdLogo = latestEst?.prodLogo || null;
+    // Tracker logo is independent of the estimate's own logo — defaults to
+    // mirroring it, but an explicit override (including "removed", stored as
+    // null) sticks even if the underlying estimate's logo later changes.
+    const estDefaultLogo = latestEst?.prodLogo || null;
+    const actProdLogo = _meta.trackerLogo !== undefined ? _meta.trackerLogo : estDefaultLogo;
+    const setTrackerLogo = (v) => _setMeta({ trackerLogo: v });
 
     // Auto-sync actuals with estimate — merges new sections/rows without wiping existing data
     if (latestEst) {
@@ -416,6 +421,8 @@ export default function Budget({
       // Clean up clone for print
       clone.querySelectorAll("[data-noprint]").forEach(el => el.remove());
       clone.querySelectorAll("[data-noprint-hide]").forEach(el => el.remove());
+      clone.querySelectorAll("[data-cs-placeholder]").forEach(el => el.remove());
+      clone.querySelectorAll("input[type=file]").forEach(el => el.remove());
       clone.querySelectorAll("button").forEach(el => el.remove());
       clone.querySelectorAll("[data-print-expand]").forEach(el => { el.style.display = "block"; });
       clone.querySelectorAll("[data-print-only]").forEach(el => { el.style.display = "block"; });
@@ -488,7 +495,7 @@ export default function Budget({
         <div id="actuals-print-area" style={{ padding:"40px 40px" }}>
           {/* Logo + header */}
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
-            {actProdLogo ? <img src={actProdLogo} style={{maxHeight:36,maxWidth:140,objectFit:"contain"}} alt="Logo"/> : <div/>}
+            <CSLogoSlot label="Logo" image={actProdLogo} onUpload={setTrackerLogo} onRemove={()=>setTrackerLogo(null)} />
           </div>
           <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
 
