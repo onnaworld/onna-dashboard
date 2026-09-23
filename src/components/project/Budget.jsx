@@ -540,7 +540,7 @@ export default function Budget({
       });
       const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
       const fname = `Budget Tracker_${sanitizeForFilename(p.client)}_${sanitizeForFilename(p.name)}.xlsx`;
-      downloadStyledXlsx(blocks, fname, { title: `BUDGET TRACKER — ${p.client || ""} ${p.name || ""}`.trim(), sheetName: "Budget Tracker" });
+      downloadStyledXlsx(blocks, fname, { title: `BUDGET TRACKER — ${p.client || ""} | ${p.name || ""}`.trim(), sheetName: "Budget Tracker" });
     };
 
     return (
@@ -590,7 +590,7 @@ export default function Budget({
           <div style={{ borderBottom:"2.5px solid #000",marginBottom:16 }} />
 
           <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:4}}>BUDGET TRACKER</div>
-          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} &#8212; {p.name}</div>
+          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:10,letterSpacing:EST_LS,color:"#666",marginBottom:16}}>{p.client} | {p.name}</div>
 
           {/* Summary cards row */}
           <div style={{display:"flex",gap:0,borderTop:"2px solid #000",borderBottom:"2px solid #000",marginBottom:20}}>
