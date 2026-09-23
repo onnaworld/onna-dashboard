@@ -958,8 +958,15 @@ function OnnaDashboardInner() {
   const urlInitDone = useRef(false);
   useEffect(()=>{
     if (urlInitDone.current) return;
-    urlInitDone.current = true;
     const parsed = parseURL(window.location.pathname, allProjectsMerged);
+    // A deep link into a specific project (e.g. a hard refresh on the Budget
+    // Tracker) can fire this effect before `allProjectsMerged` has hydrated
+    // from cache/API — parseURL then can't find the project and silently
+    // falls back to the bare Projects list. Wait for projects to actually be
+    // loaded before giving up, instead of locking in a failed lookup.
+    const pathHasProjectId = /^\/projects\/[^/]+/.test(window.location.pathname);
+    if (pathHasProjectId && !parsed.project && allProjectsMerged.length===0) return;
+    urlInitDone.current = true;
     if (parsed.tab) setActiveTab(parsed.tab);
     if (parsed.project) {
       setSelectedProject(parsed.project);
