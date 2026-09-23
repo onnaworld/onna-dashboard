@@ -133,6 +133,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const EST_ST_BG = { "": "transparent", Pending: "#fff8e8", Confirmed: "#e8f4fd", Paid: "#edfaf3" };
   const EST_ST_COLOR = { "": "#ccc", Pending: "#92680a", Confirmed: "#0066cc", Paid: "#147d50" };
   const EST_ST_DOT = { "": "#ddd", Pending: "#d4a800", Confirmed: "#3399ff", Paid: "#2e7d32" };
+  const statusLabels = estData.statusLabels || {};
+  const setStatusLabel = (key, val) => onSet(d => ({ ...d, statusLabels: { ...(d.statusLabels || {}), [key]: val } }));
   const cycleRowStatus = (pi,si,ri) => {
     setPhases(ps => {
       const row = ps[pi].sections[si].rows[ri];
@@ -453,6 +455,15 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         </div>}
 
         {(estTab === "estimates" || showAll) && <div data-page="estimates">
+          <div data-noprint style={{display:"flex",gap:16,alignItems:"center",marginBottom:14,padding:"6px 0",flexWrap:"wrap"}}>
+            <span style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase"}}>KEY:</span>
+            {["Pending","Confirmed","Paid"].map(key=>(
+              <span key={key} style={{display:"flex",alignItems:"center",gap:4}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:EST_ST_DOT[key],flexShrink:0}}></span>
+                <EstCell value={statusLabels[key] ?? key} onChange={v=>setStatusLabel(key,v)} style={{fontSize:9,letterSpacing:EST_LS,color:"#666"}} />
+              </span>
+            ))}
+          </div>
           {phases.map((phase, pi) => {
             const pt = phaseTotals[pi];
             const subtotal = pt.subtotal;
@@ -529,7 +540,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                         <span style={{userSelect:"none",lineHeight:1,pointerEvents:"none"}}>⠿</span>
                       </div>
                       <div data-noprint style={{width:16,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                        <span onClick={()=>cycleRowStatus(pi,si,ri)} title={(row.rowStatus||"No status")+" — click to cycle"} style={{cursor:"pointer",fontSize:8,color:EST_ST_DOT[row.rowStatus||""]||"#ddd",userSelect:"none",lineHeight:1}}>●</span>
+                        <span onClick={()=>cycleRowStatus(pi,si,ri)} title={(row.rowStatus?(statusLabels[row.rowStatus]??row.rowStatus):"No status")+" — click to cycle"} style={{cursor:"pointer",fontSize:8,color:EST_ST_DOT[row.rowStatus||""]||"#ddd",userSelect:"none",lineHeight:1}}>●</span>
                       </div>
                       <div style={{width:34,flexShrink:0,padding:"4px 2px",fontFamily:EST_F,fontSize:9,color:"#999"}}>{row.ref}</div>
                       <div style={{flex:1,minWidth:0}}><EstCell value={row.desc} onChange={v=>updateRow(pi,si,ri,"desc",v)} /></div>

@@ -35,6 +35,8 @@ export default function Budget({
     ...prev, [`_meta_${p.id}`]: { ...(prev[`_meta_${p.id}`] || {}), ...patch }
   }));
   const saveBudgetNotes = (val) => _setMeta({ budgetNotes: val });
+  const keyLabels = _meta.keyLabels || {};
+  const setKeyLabel = (id, val) => _setMeta({ keyLabels: { ...keyLabels, [id]: val } });
   const toggleCol = (id) => { const n = { ...hiddenCols }; if (n[id]) delete n[id]; else n[id] = true; _setMeta({ hiddenCols: n }); };
   const setCollapsedSecs = (next) => _setMeta({ collapsedSecs: typeof next === "function" ? next(collapsedSecs) : next });
   const setExpandedRows = (next) => { const val = typeof next === "function" ? next(expandedRows) : next; _setMeta({ expandedRows: val }); };
@@ -206,7 +208,13 @@ export default function Budget({
     const _pctMatch = (latestEst?.ts?.payment || "").match(/(\d+)%/);
     const _advPct = advancePct != null ? advancePct : (_pctMatch ? parseInt(_pctMatch[1]) : 75);
     const _invoicedAmt = invoicedOverride !== null ? invoicedOverride : (estTotals.grandTotal * (_advPct / 100));
-    const budgetUsedMode = _meta.budgetUsedMode || "actuals";
+    // If Actuals or Finals is hidden via the Columns picker, Budget Used can't stay
+    // pinned to a metric the user can't see — snap it to whichever one is still
+    // visible. Only respect the stored toggle when both (or neither) are visible.
+    const bothMetricColsVisible = !hiddenCols.actuals && !hiddenCols.finals;
+    const budgetUsedMode = !bothMetricColsVisible
+      ? (hiddenCols.actuals ? "finals" : "actuals")
+      : (_meta.budgetUsedMode || "actuals");
     const budgetUsedBase = budgetUsedMode === "finals" ? actZohoTotal : actEffectiveTotal;
     const actVariance = metricsMode === "finals" ? (_invoicedAmt - actZohoTotal) : (estTotals.grandTotal - actSpendTotal);
     const budgetUsedPct = estTotals.grandTotal > 0 ? Math.round((budgetUsedBase / estTotals.grandTotal) * 1000) / 10 : 0;
@@ -530,7 +538,7 @@ export default function Budget({
             {[
               ["ESTIMATE TOTAL", estFmt(estTotals.grandTotal), "#1a1a1a", "estimate", metricsMode==="budget"],
               ["ACTUALS TOTAL", estFmt(actEffectiveTotal), "#1a1a1a", "actuals", metricsMode==="budget"],
-              ["FINALS (ZOHO)", estFmt(actZohoTotal), "#1a1a1a", "finals", metricsMode==="finals"],
+              ["FINALS", estFmt(actZohoTotal), "#1a1a1a", "finals", metricsMode==="finals"],
               ["VARIANCE", (actVariance>=0?"+":"") + estFmt(actVariance), actVariance>=0?"#147d50":"#c0392b", "variance", true],
             ].filter(([,,,colId]) => !colId || colVisible(colId)).map(([lbl,val,clr,colId,isActive],i,arr)=>(
               <div key={lbl} style={{flex:1,padding:"8px 10px",borderRight:i<arr.length-1?"1px solid #ddd":"none",textAlign:"center",opacity:isActive?1:0.4,transition:"opacity .15s"}}>
@@ -538,7 +546,7 @@ export default function Budget({
                 <div style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:clr}}>{val}</div>
               </div>
             ))}
-            <div onClick={()=>_setMeta({budgetUsedMode: budgetUsedMode==="finals"?"actuals":"finals"})} style={{flex:1,padding:"8px 10px",textAlign:"center",cursor:"pointer",userSelect:"none"}} title="Click to toggle actuals / finals">
+            <div onClick={()=>bothMetricColsVisible&&_setMeta({budgetUsedMode: budgetUsedMode==="finals"?"actuals":"finals"})} style={{flex:1,padding:"8px 10px",textAlign:"center",cursor:bothMetricColsVisible?"pointer":"default",userSelect:"none"}} title={bothMetricColsVisible?"Click to toggle actuals / finals":"Following the only visible metric — unhide both Actuals and Finals columns to toggle"}>
               <div style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",color:"#888",marginBottom:2}}>BUDGET USED ({budgetUsedMode==="finals"?"FINALS":"ACTUALS"})</div>
               <div style={{fontFamily:EST_F,fontSize:11,fontWeight:700,letterSpacing:EST_LS,color:budgetUsedPct>100?"#c0392b":budgetUsedPct>80?"#92680a":"#147d50"}}>{budgetUsedPct}%</div>
             </div>
@@ -626,8 +634,8 @@ export default function Budget({
             <div>
               <div data-noprint style={{display:"flex",gap:16,alignItems:"center",marginBottom:12,padding:"6px 0"}}>
                 <span style={{fontFamily:EST_F,fontSize:8,fontWeight:700,letterSpacing:EST_LS,color:"#999",textTransform:"uppercase"}}>KEY:</span>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#FFF9C4",border:"1px solid #e0d88a",flexShrink:0}}></span><span style={{fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#666"}}>TO RECONCILE</span></span>
-                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#E8F5E9",border:"1px solid #a5d6a7",flexShrink:0}}></span><span style={{fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,color:"#666"}}>RECONCILED</span></span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#FFF9C4",border:"1px solid #e0d88a",flexShrink:0}}></span><EstCell value={keyLabels.toReconcile ?? "TO RECONCILE"} onChange={v=>setKeyLabel("toReconcile",v)} style={{fontSize:8,letterSpacing:EST_LS,color:"#666"}} /></span>
+                <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:"#E8F5E9",border:"1px solid #a5d6a7",flexShrink:0}}></span><EstCell value={keyLabels.reconciled ?? "RECONCILED"} onChange={v=>setKeyLabel("reconciled",v)} style={{fontSize:8,letterSpacing:EST_LS,color:"#666"}} /></span>
               </div>
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
