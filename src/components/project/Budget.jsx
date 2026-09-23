@@ -482,6 +482,7 @@ export default function Budget({
     // yellow/green reconcile row highlight), plus a totals block at the end.
     const doActExcel = () => {
       setShowColPicker(false);
+      try {
       const r2v = (n) => Math.round((n || 0) * 100) / 100;
       const blocks = [];
       actSections.forEach((sec, si) => {
@@ -540,7 +541,12 @@ export default function Budget({
       });
       const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
       const fname = `Budget Tracker_${sanitizeForFilename(p.client)}_${sanitizeForFilename(p.name)}.xlsx`;
-      downloadStyledXlsx(blocks, fname, { title: `BUDGET TRACKER — ${p.client || ""} | ${p.name || ""}`.trim(), sheetName: "Budget Tracker" });
+      downloadStyledXlsx(blocks, fname, { title: `BUDGET TRACKER — ${p.client || ""} | ${p.name || ""}`.trim(), sheetName: "Budget Tracker" })
+        .catch(err => { console.error("Budget Tracker Excel export failed:", err); showAlert?.("Could not export Excel — please try again."); });
+      } catch (err) {
+        console.error("Budget Tracker Excel export failed:", err);
+        showAlert?.("Could not export Excel — please try again.");
+      }
     };
 
     return (
