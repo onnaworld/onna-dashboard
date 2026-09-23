@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { estFmt, estRowTotal, estSectionTotal, isFeeSec, PRINT_CLEANUP_CSS, getEstPhases, estCalcPhaseTotals, estCalcCombinedTotals, flattenPhaseSections, emptyPhase } from "../../utils/helpers";
 import { EstHl, EstCell, EstSignaturePad, EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT } from "../ui/DocHelpers";
 import { CSLogoSlot } from "../ui/DocHelpers";
-import { downloadStyledXlsx } from "../../utils/templateExport";
+import { downloadStyledXlsxMultiSheet } from "../../utils/templateExport";
 
 const EST_CURRENCIES = [
   { code: "AED", label: "AED — UAE Dirham", symbol: "AED", rates: { USD: 0.2722, GBP: 0.2043, EUR: 0.2300, SAR: 1.0206 } },
@@ -284,29 +284,64 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const combined = estCalcCombinedTotals(phases);
   const phaseTotals = phases.map(ph => estCalcPhaseTotals(ph));
 
-  // Excel export — mirrors the ESTIMATES tab exactly: one styled block per
-  // section (black header bar, same REF/DESCRIPTION/NOTES/DAYS/QTY/RATE/TOTAL
-  // columns), a totals block per phase (subtotal/VAT/total), phase notes, and
-  // a combined grand-total block when there's more than one phase.
+  // Excel export — a full workbook with one tab per document page (Top Sheet,
+  // Estimate, Services Agreement, T&Cs), each mirroring that tab's on-screen
+  // content exactly, not just whichever tab happens to be open.
   const doExcelExport = () => {
     setShowExportMenu(false);
-    const blocks = [];
+    try {
+    const r2v = (n) => Math.round((n || 0) * 100) / 100;
+
+    // ── Top Sheet ──
+    const topSheetFieldRows = [["DATE",ts.date],["CLIENT",ts.client],["ATTENTION",ts.attention],["PROJECT",ts.project],["PHOTOGRAPHER / DIRECTOR",ts.photographer],["DELIVERABLES",ts.deliverables],["DEADLINES",ts.deadlines],["USAGE TERMS",ts.usage],["SHOOT DATE",ts.shootDate],["NUMBER OF SHOOT DAYS",ts.shootDays],["SHOOT HOURS",ts.shootHours],["SHOOT LOCATION",ts.location],["PAYMENT TERMS",ts.payment]]
+      .map(([label,value])=>({label,value:value||""}));
+    const topSheetBlocks = [{ title: ts.version || "PRODUCTION ESTIMATE", columns: [{key:"label",label:"Field"},{key:"value",label:"Value"}], rows: topSheetFieldRows }];
     phases.forEach((phase, pi) => {
       const pt = phaseTotals[pi];
-      if (multiPhase) blocks.push({ title: phase.title || `PHASE ${pi + 1}`, columns: [{ key: "label", label: "" }], rows: [] });
+      const catRows = phase.sections.filter(sec=>!sec.hidden).map(sec => {
+        const isF = isFeeSec(sec);
+        const amt = isF ? sec.rows.reduce((sum,row)=>{ const pctMatch=(row.notes||"").match(/(\d+(?:\.\d+)?)%/); if(pctMatch) return sum+pt.subtotal*(parseFloat(pctMatch[1])/100); return sum+estRowTotal(row); },0) : estSectionTotal(sec);
+        return { category: `${sec.num}  ${sec.title}`, amount: r2v(amt) };
+      });
+      topSheetBlocks.push({
+        title: multiPhase ? (phase.title || `PHASE ${pi+1}`) : "CATEGORY SUMMARY",
+        columns: [{key:"category",label:"Category"},{key:"amount",label:"Amount",align:"right"}],
+        rows: catRows,
+      });
+      topSheetBlocks.push({
+        title: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL",
+        columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}],
+        rows: [
+          { label: multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
+          { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
+          { label: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
+        ],
+      });
+    });
+    if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL PHASES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL INC. VAT", value: r2v(combined.totalIncVat) }] });
+    const pctMatch = (ts.payment || "").match(/(\d+)%/);
+    const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
+    topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
+    if (ts.notes) topSheetBlocks.push({ title: "NOTES", columns: [{key:"text",label:"Notes"}], rows: [{ isNote:true, text: ts.notes }] });
+
+    // ── Estimate (full line items — same as before) ──
+    const estimateBlocks = [];
+    phases.forEach((phase, pi) => {
+      const pt = phaseTotals[pi];
+      if (multiPhase) estimateBlocks.push({ title: phase.title || `PHASE ${pi + 1}`, columns: [{ key: "label", label: "" }], rows: [] });
       phase.sections.filter(sec => !sec.hidden).forEach(sec => {
         const isF = isFeeSec(sec);
         const rows = sec.rows.map(row => {
           let tot = estRowTotal(row);
           if (isF) {
-            const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
-            if (pctMatch) tot = pt.subtotal * (parseFloat(pctMatch[1]) / 100);
+            const pctMatch2 = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+            if (pctMatch2) tot = pt.subtotal * (parseFloat(pctMatch2[1]) / 100);
           }
-          return { ref: row.ref, desc: row.desc, notes: row.notes || "", days: row.days, qty: row.qty, rate: row.rate, total: Math.round(tot * 100) / 100 };
+          return { ref: row.ref, desc: row.desc, notes: row.notes || "", days: row.days, qty: row.qty, rate: row.rate, total: r2v(tot) };
         });
         const secTotal = rows.reduce((s, r) => s + r.total, 0);
-        rows.push({ ref: "", desc: "SECTION TOTAL", notes: "", days: "", qty: "", rate: "", total: Math.round(secTotal * 100) / 100 });
-        blocks.push({
+        rows.push({ ref: "", desc: "SECTION TOTAL", notes: "", days: "", qty: "", rate: "", total: r2v(secTotal) });
+        estimateBlocks.push({
           title: `${sec.num}  ${sec.title}`,
           columns: [
             { key: "ref", label: "REF" }, { key: "desc", label: "DESCRIPTION" }, { key: "notes", label: "NOTES" },
@@ -316,30 +351,60 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           rows,
         });
       });
-      if (phase.notes) blocks.push({ title: "PHASE NOTES", columns: [{ key: "text", label: "" }], rows: [{ isNote: true, text: phase.notes }] });
-      blocks.push({
+      if (phase.notes) estimateBlocks.push({ title: "PHASE NOTES", columns: [{ key: "text", label: "" }], rows: [{ isNote: true, text: phase.notes }] });
+      estimateBlocks.push({
         title: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL",
         columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
         rows: [
-          { label: multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL", value: Math.round(pt.grandTotal * 100) / 100 },
-          { label: `VAT (${pt.vatPct}%)`, value: Math.round(pt.vat * 100) / 100 },
-          { label: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL", value: Math.round(pt.totalIncVat * 100) / 100 },
+          { label: multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
+          { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
+          { label: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
         ],
       });
     });
     if (multiPhase) {
-      blocks.push({
+      estimateBlocks.push({
         title: "COMBINED GRAND TOTAL (ALL PHASES)",
         columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
-        rows: [{ label: "TOTAL INC. VAT", value: Math.round(combined.totalIncVat * 100) / 100 }],
+        rows: [{ label: "TOTAL INC. VAT", value: r2v(combined.totalIncVat) }],
       });
     }
+
+    // ── Services Agreement ──
+    const servicesBlocks = [{
+      title: "PRODUCTION SERVICES AGREEMENT",
+      columns: [{key:"label",label:"Field"},{key:"value",label:"Value"}],
+      rows: EST_SA_FIELDS.map((f,i)=>({ label: f.label, value: saFields[i] || "" })),
+    }, {
+      title: "SIGNATURES",
+      columns: [{key:"label",label:"Field"},{key:"value",label:"Value"}],
+      rows: [
+        { label:"ONNA — Print Name", value: saSigs["left_Print Name:"] || "" },
+        { label:"ONNA — Date", value: saSigs["left_Date:"] || "" },
+        { label:"Client — Print Name", value: saSigs["right_Print Name:"] || "" },
+        { label:"Client — Date", value: saSigs["right_Date:"] || "" },
+      ],
+    }];
+
+    // ── T&Cs (plain text, one row per line) ──
+    const tcsBlocks = [{ title: "GENERAL TERMS & CONDITIONS", columns: [{key:"text",label:"Text"}], rows: tcsText.split("\n").filter(l=>l.trim()).map(l=>({text:l})) }];
+
     const sanitizeForFilename = (s) => (s || "").replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "");
     const vLabel = (ts.version || "V1").replace(/\s*production\s*estimate/i, "").trim() || "V1";
     const clientName = sanitizeForFilename(ts.client && ts.client !== "[Client]" ? ts.client : "") || "Client";
     const projName = sanitizeForFilename(projectName || (ts.project && ts.project !== "[Project]" ? ts.project : "")) || "Project";
-    downloadStyledXlsx(blocks, `${vLabel} PRODUCTION ESTIMATE_${clientName}_${projName}.xlsx`,
-      { title: `PRODUCTION ESTIMATE ${vLabel} — ${ts.client || ""} | ${ts.project || ""}`.trim(), sheetName: "Estimate" });
+    const docLabel = `PRODUCTION ESTIMATE ${vLabel} — ${ts.client || ""} | ${ts.project || ""}`.trim();
+    downloadStyledXlsxMultiSheet([
+      { name: "Top Sheet", blocks: topSheetBlocks, title: docLabel },
+      { name: "Estimate", blocks: estimateBlocks, title: docLabel },
+      { name: "Services Agreement", blocks: servicesBlocks, title: docLabel },
+      { name: "T&Cs", blocks: tcsBlocks, title: docLabel },
+    ], `${vLabel} PRODUCTION ESTIMATE_${clientName}_${projName}.xlsx`)
+      .catch(err => { console.error("Estimate Excel export failed:", err); window.alert("Could not export Excel — please try again."); });
+    } catch (err) {
+      console.error("Estimate Excel export failed:", err);
+      window.alert("Could not export Excel — please try again.");
+    }
   };
 
   const phaseHdrBar = { fontFamily:EST_F,fontSize:9,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"6px 10px",background:"#efece0",border:"1px solid #ddd4b0",borderRadius:4,display:"flex",alignItems:"center",gap:8,marginBottom:2 };

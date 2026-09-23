@@ -20,16 +20,9 @@ const _toArgb = (hex) => "FF" + String(hex || "000000").replace("#", "").toUpper
 const _thinBorder = { style: "thin", color: { argb: "FFE0E0E0" } };
 const HL_FILL = { pending: "FFFFF8E8", confirmed: "FFE8F4FD", paid: "FFEDFAF3", toReconcile: "FFFFF9C4", reconciled: "FFE8F5E9" };
 
-// Single-sheet export with real cell styling (black section header bars, table
-// borders, etc) — the plain `xlsx` package (community edition) cannot write cell
-// fills/fonts/borders at all, so this uses exceljs to visually match the app/PDF.
-export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
-  const { default: ExcelJS } = await import("exceljs");
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(opts.sheetName || "Sheet1", {
-    pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: opts.orientation || "landscape", margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } },
-    views: [{ showGridLines: false }],
-  });
+// Writes one block set into a single worksheet — shared by the single-sheet
+// and multi-sheet (tabbed) exports below so both stay visually identical.
+const _writeBlocksToSheet = (ws, blocks, title) => {
   const maxCols = Math.max(1, ...blocks.map(b => (b.columns || []).length));
 
   // Auto-size columns from actual header/value content, since different blocks
@@ -44,10 +37,10 @@ export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
   });
 
   let r = 1;
-  if (opts.title) {
+  if (title) {
     ws.mergeCells(r, 1, r, maxCols);
     const cell = ws.getRow(r).getCell(1);
-    cell.value = opts.title;
+    cell.value = title;
     cell.font = { bold: true, size: 13, color: { argb: "FF1A1A1A" } };
     ws.getRow(r).height = 22;
     r += 2;
@@ -111,6 +104,43 @@ export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
     r++;
   });
   colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = Math.min(Math.max(w, 10), 45); });
+};
+
+// Single-sheet export with real cell styling (black section header bars, table
+// borders, etc) — the plain `xlsx` package (community edition) cannot write cell
+// fills/fonts/borders at all, so this uses exceljs to visually match the app/PDF.
+export const downloadStyledXlsx = async (blocks, filename, opts = {}) => {
+  const { default: ExcelJS } = await import("exceljs");
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(opts.sheetName || "Sheet1", {
+    pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: opts.orientation || "portrait", margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } },
+    views: [{ showGridLines: false }],
+  });
+  _writeBlocksToSheet(ws, blocks, opts.title);
+  const buf = await wb.xlsx.writeBuffer();
+  _downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), filename);
+};
+
+// Multi-sheet (tabbed) export — same styling as downloadStyledXlsx, but each
+// entry in `sheets` becomes its own tab in one workbook, e.g. Top Sheet /
+// Estimate / Services Agreement / T&Cs as four tabs in one file.
+// `sheets`: [{ name, blocks, title?, orientation? }]
+export const downloadStyledXlsxMultiSheet = async (sheets, filename) => {
+  const { default: ExcelJS } = await import("exceljs");
+  const wb = new ExcelJS.Workbook();
+  const usedNames = new Set();
+  sheets.forEach(sheet => {
+    // Excel sheet names: max 31 chars, no []:*?/\ characters, must be unique.
+    let name = (sheet.name || "Sheet").replace(/[\[\]:*?/\\]/g, "").slice(0, 31) || "Sheet";
+    let n = name, i = 2;
+    while (usedNames.has(n)) { n = `${name.slice(0, 28)} ${i++}`; }
+    usedNames.add(n);
+    const ws = wb.addWorksheet(n, {
+      pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0, orientation: sheet.orientation || "portrait", margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } },
+      views: [{ showGridLines: false }],
+    });
+    _writeBlocksToSheet(ws, sheet.blocks || [], sheet.title);
+  });
   const buf = await wb.xlsx.writeBuffer();
   _downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), filename);
 };
