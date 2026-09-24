@@ -193,6 +193,10 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     setActiveId(dup.id);
   };
 
+  const cycleInvoiceStatus = (id) => {
+    setInvoiceStore((prev) => (prev || []).map((inv) => inv.id === id ? { ...inv, status: STATUSES[(STATUSES.indexOf(inv.status) + 1) % STATUSES.length] } : inv));
+  };
+
   const addItem = () => updateActive((inv) => { inv.items.push({ id: Date.now(), desc: "", qty: "1", rate: "0" }); return inv; });
   const removeItem = (idx) => updateActive((inv) => { if (inv.items.length > 1) inv.items.splice(idx, 1); return inv; });
   const setItemField = (idx, field, val) => updateActive((inv) => { inv.items[idx][field] = val; return inv; });
@@ -408,7 +412,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
               <div key={inv.id} onClick={() => setActiveId(inv.id)} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "border-color 0.15s" }} onMouseEnter={(e) => (e.currentTarget.style.borderColor = T.accent)} onMouseLeave={(e) => (e.currentTarget.style.borderColor = T.border)}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: STATUS_BG[inv.status] || "#eee", color: STATUS_COLOR[inv.status] || "#555", padding: "2px 8px", borderRadius: 4 }}>{inv.status}</span>
+                    <span onClick={(e) => { e.stopPropagation(); cycleInvoiceStatus(inv.id); }} title="Click to cycle status" style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: STATUS_BG[inv.status] || "#eee", color: STATUS_COLOR[inv.status] || "#555", padding: "2px 8px", borderRadius: 4, cursor: "pointer" }}>{inv.status}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{inv.number}</span>
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{inv.billTo?.company || "No client set"}{inv.project ? ` — ${inv.project}` : ""}</div>
