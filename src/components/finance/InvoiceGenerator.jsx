@@ -415,7 +415,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
                     <span onClick={(e) => { e.stopPropagation(); cycleInvoiceStatus(inv.id); }} title="Click to cycle status" style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: STATUS_BG[inv.status] || "#eee", color: STATUS_COLOR[inv.status] || "#555", padding: "2px 8px", borderRadius: 4, cursor: "pointer" }}>{inv.status}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{inv.number}</span>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{inv.billTo?.company || "No client set"}{inv.project ? ` — ${inv.project}` : ""}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{inv.billTo?.company || "No client set"}{inv.project ? ` | ${inv.project}` : ""}</div>
                   <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{inv.date || "No date"}{inv.dueDate ? ` · Due ${inv.dueDate}` : ""}</div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{inv.currency} {estFmt(totals.total)}</div>
