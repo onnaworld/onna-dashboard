@@ -757,10 +757,10 @@ const SENIOR_PRODUCER_CV_V1 = {
       company: "Net-a-Porter Group Ltd. / Richemont (MR PORTER)",
       dates: "July 2019 - May 2024",
       bullets: [
-        "MR PORTER In America: Produced the 360° multi-brand US campaign across LA, New York and Miami — 2.65M views, 75% engagement uplift.",
+        "MR PORTER In America: Produced the 360° multi-brand US campaign across LA, New York and Miami | 2.65M views, 75% engagement uplift.",
         "Brand Partnership Framework: Built a white-label production framework generating $500K+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island and Hennessy.",
         "Gen Z Social Strategy: Grew MR PORTER's TikTok channel to 50K followers in its first year via the Helping Hands and Ask Mr Porter franchise formats.",
-        "Career Growth: Promoted twice in five years — Picture Assistant to Social Media Production Coordinator to Producer.",
+        "Career Growth: Promoted twice in five years | Picture Assistant to Social Media Production Coordinator to Producer.",
       ],
     },
     {
@@ -1793,6 +1793,113 @@ export default function CVView({ cvData, onSet, projectName }) {
 
     // Thick rule
     html += `<div style="border-bottom:2.5px solid #000;margin:8px 0 4px 0;"></div>`;
+
+    if (c._template === "bold") {
+      // Two-column label-grid layout (Contact/About, Experience/Selected
+      // Work, Education/Languages, Voluntary, Skills) — matches the
+      // scannable resume layout this template is built to reproduce.
+      const gHdr = (label) => `<div style="font-size:10.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;border-bottom:1.5px solid #000;padding-bottom:6px;margin-bottom:10px;">${label}</div>`;
+
+      // Contact | About
+      const contactLines = [];
+      if (ct.location) contactLines.push(esc(ct.location));
+      if (ct.phone) contactLines.push(esc(ct.phone));
+      if (ct.email) contactLines.push(esc(ct.email));
+      if (ct.citizenship) contactLines.push(esc(ct.citizenship));
+      const linkLines = [];
+      if (ct.linkedin) { const url = ct.linkedin.startsWith("http") ? ct.linkedin : `https://${ct.linkedin}`; linkLines.push(`<a href="${esc(url)}" style="color:#1a1a1a;">LinkedIn</a>`); }
+      if (ct.website) { const url = ct.website.startsWith("http") ? ct.website : `https://${ct.website}`; linkLines.push(`<a href="${esc(url)}" style="color:#1a1a1a;">Portfolio</a>`); }
+
+      html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:22px;"><tr>`;
+      html += `<td style="width:27%;vertical-align:top;padding-right:18px;">`;
+      html += gHdr("CONTACT");
+      contactLines.forEach(l => { html += `<div style="${S}margin-bottom:3px;">${l}</div>`; });
+      html += `</td>`;
+      html += `<td style="width:73%;vertical-align:top;">`;
+      html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+      html += `<td style="padding:0;vertical-align:top;">${gHdr("ABOUT")}</td>`;
+      html += `<td style="padding:0;vertical-align:top;text-align:right;width:90px;">${linkLines.map(l => `<div style="${S}margin-bottom:2px;">${l}</div>`).join("")}</td>`;
+      html += `</tr></table>`;
+      (c.summary || []).forEach(p => { html += `<div style="${S}margin-bottom:6px;">${esc(p)}</div>`; });
+      html += `</td></tr></table>`;
+
+      // Experience | Selected Work
+      html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;"><tr>`;
+      html += `<td style="width:27%;vertical-align:top;padding-right:18px;">${gHdr("EXPERIENCE")}</td>`;
+      html += `<td style="width:73%;vertical-align:top;">${gHdr("SELECTED WORK")}</td>`;
+      html += `</tr></table>`;
+      (c.experience || []).forEach(exp => {
+        html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:14px;"><tr>`;
+        html += `<td style="width:27%;vertical-align:top;padding-right:18px;">`;
+        html += `<div style="font-size:11.5px;font-weight:700;line-height:${LINE_H};">${esc(exp.company)}</div>`;
+        html += `<div style="font-size:11.5px;font-weight:700;line-height:${LINE_H};margin-bottom:2px;">${esc(exp.role)}</div>`;
+        html += `<div style="font-size:10px;color:#666;line-height:${LINE_H};">${esc(exp.dates)}</div>`;
+        html += `</td>`;
+        html += `<td style="width:73%;vertical-align:top;">`;
+        html += `<ul style="list-style:none;margin:0;padding:0;">`;
+        (exp.bullets || []).forEach(b => {
+          html += `<li style="${S}margin-bottom:5px;padding-left:16px;position:relative;"><span style="position:absolute;left:0;">o</span>${boldLeadIn(b)}</li>`;
+        });
+        html += `</ul></td></tr></table>`;
+      });
+      if (c.clients) html += `<div style="${S}font-weight:700;margin:-4px 0 22px 0;">Selected clients: ${esc(c.clients)}</div>`;
+      else html += `<div style="margin-bottom:8px;"></div>`;
+
+      // Education | Languages
+      html += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:22px;"><tr>`;
+      html += `<td style="width:50%;vertical-align:top;padding-right:18px;">`;
+      html += gHdr("EDUCATION");
+      (c.education || []).forEach(edu => {
+        html += `<div style="font-size:11.5px;font-weight:700;line-height:${LINE_H};">${esc(edu.institution)}</div>`;
+        html += `<div style="${S}margin-bottom:8px;">${esc(edu.title)}${edu.result ? " (" + esc(edu.result) + ")" : ""}</div>`;
+      });
+      html += `</td>`;
+      html += `<td style="width:50%;vertical-align:top;">`;
+      html += gHdr("LANGUAGES");
+      (c.languages || []).forEach(l => { html += `<div style="${S}margin-bottom:4px;">${esc(l.name)}: ${esc(l.level)}</div>`; });
+      html += `</td></tr></table>`;
+
+      // Voluntary
+      if ((c.volunteer || []).length > 0) {
+        html += gHdr("VOLUNTARY");
+        c.volunteer.forEach(vol => {
+          html += `<div style="margin-bottom:16px;">`;
+          html += `<div style="font-size:11.5px;font-weight:700;line-height:${LINE_H};">${esc(vol.role)}${vol.organization ? ", " + esc(vol.organization) : ""}</div>`;
+          html += `<div style="font-size:10px;color:#666;line-height:${LINE_H};margin-bottom:4px;">${esc(vol.dates)}</div>`;
+          if (vol.description) html += `<div style="${S}">${esc(vol.description)}</div>`;
+          html += `</div>`;
+        });
+      }
+
+      // Skills — two-column label/value rows
+      html += gHdr("SKILLS");
+      const skillRows = (c.skills || []).map(s => typeof s === "string" ? s : s.name || "").filter(Boolean);
+      skillRows.forEach(name => {
+        const ci = name.indexOf(":");
+        const label = ci >= 0 ? name.slice(0, ci) : "";
+        const val = ci >= 0 ? name.slice(ci + 1).trim() : name;
+        html += `<table style="width:100%;border-collapse:collapse;"><tr>`;
+        html += `<td style="width:150px;padding:4px 0;font-size:11px;font-weight:700;color:#1a1a1a;line-height:${LINE_H};vertical-align:top;">${esc(label)}</td>`;
+        html += `<td style="padding:4px 0;${S}vertical-align:top;">${esc(val)}</td>`;
+        html += `</tr></table>`;
+      });
+
+      html += `</div>`;
+      const docTitle = `CV - ${c.name || "CV"}${activeItem ? " - " + activeItem.label : ""}${projectName ? " | " + projectName : ""}`;
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";
+      document.body.appendChild(iframe);
+      const _d = iframe.contentDocument;
+      _d.open();
+      _d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${docTitle}</title><style>@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap");*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:"Avenir","Nunito Sans",sans-serif;font-size:11px;color:#1a1a1a;padding:0 12mm;}a{color:#1a1a1a;text-decoration:none;}@media print{@page{margin:10mm 0;size:A4;}}</style></head><body>${html}</body></html>`);
+      _d.close();
+      const prevTitle = document.title;
+      document.title = docTitle;
+      const restoreTitle = () => { document.title = prevTitle; document.body.removeChild(iframe); window.removeEventListener("afterprint", restoreTitle); };
+      window.addEventListener("afterprint", restoreTitle);
+      setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 250);
+      return;
+    }
 
     // Summary
     html += secHdr("SUMMARY");
