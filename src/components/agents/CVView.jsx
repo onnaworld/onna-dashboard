@@ -1434,6 +1434,9 @@ export default function CVView({ cvData, onSet, projectName }) {
   const [renamingId, setRenamingId] = useState(null);
   const [renameVal, setRenameVal] = useState("");
   const renameRef = useRef(null);
+  // List vs. editor — mirrors the Invoices pattern: land on a clickable list
+  // of CVs/cover letters, open one to edit, "‹ Back" to return to the list.
+  const [showEditor, setShowEditor] = useState(false);
 
   // Update the active CV's data within the multi-CV store
   const setCvData = (updater) => {
@@ -1521,17 +1524,15 @@ export default function CVView({ cvData, onSet, projectName }) {
     }));
   };
 
-  const duplicateCv = () => {
-    const label = prompt("Name for the duplicate:", (activeItem?.label || "CV") + " (Copy)");
-    if (!label) return;
+  // Instant duplicate from the list row — no prompt, matches the Invoices
+  // "+ Duplicate" behavior. Stays on the list rather than opening the copy.
+  const duplicateCvById = (cvId) => {
+    const item = store.cvList.find(c => c.id === cvId);
+    if (!item) return;
     const id = "cv_" + Date.now();
-    const dupeData = JSON.parse(JSON.stringify(cv));
-    dupeData.title = label;
-    setStore(s => ({
-      ...s,
-      cvList: [...s.cvList, { id, label, data: dupeData }],
-      activeCvId: id,
-    }));
+    const label = `${item.label || "CV"} (Copy)`;
+    const dupeData = JSON.parse(JSON.stringify(item.data));
+    setStore(s => ({ ...s, cvList: [...s.cvList, { id, label, data: dupeData }] }));
   };
 
   // ── Cover Letter actions ──
@@ -2005,91 +2006,68 @@ export default function CVView({ cvData, onSet, projectName }) {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", background: "#fff", fontFamily: F, color: "#1a1a1a", minWidth: 700 }}>
-      {/* ── CV Selector Bar ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 0, borderBottom: "2px solid #000", overflowX: "auto" }}>
-        {store.cvList.map(item => (
-          <div key={item.id} style={{ display: "flex", alignItems: "center", position: "relative" }}>
-            {renamingId === item.id ? (
-              <div style={{ display: "flex", alignItems: "center", background: "#000", padding: "0 4px" }}>
-                <input
-                  ref={renameRef}
-                  value={renameVal}
-                  onChange={e => setRenameVal(e.target.value)}
-                  onBlur={commitRename}
-                  onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
-                  style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 8px", background: "transparent", border: "none", outline: "none", color: "#fff", textTransform: "uppercase", width: Math.max(80, renameVal.length * 7) }}
-                />
-              </div>
-            ) : (
-              <div
-                onClick={() => switchCv(item.id)}
-                onDoubleClick={() => startRename(item.id)}
-                style={{
-                  fontFamily: F, fontSize: 9, fontWeight: store.activeCvId === item.id ? 700 : 400, letterSpacing: LS,
-                  padding: "10px 16px", cursor: "pointer", whiteSpace: "nowrap",
-                  background: store.activeCvId === item.id ? "#000" : "#f5f5f5",
-                  color: store.activeCvId === item.id ? "#fff" : "#666",
-                  transition: "all .15s", textTransform: "uppercase", borderRight: "1px solid #ddd",
-                  display: "flex", alignItems: "center", gap: 8,
-                }}
-              >
-                {item.label || "Untitled CV"}
-                {store.activeCvId === item.id && store.cvList.length > 1 && (
-                  <span
-                    onClick={e => { e.stopPropagation(); deleteCv(item.id); }}
-                    style={{ fontSize: 12, opacity: 0.5, cursor: "pointer", lineHeight: 1 }}
-                    onMouseOver={e => e.currentTarget.style.opacity = 1}
-                    onMouseOut={e => e.currentTarget.style.opacity = 0.5}
-                  >&times;</span>
-                )}
-              </div>
-            )}
+      {!showEditor ? (
+        /* ── List view — same pattern as Invoices: clickable rows, not tabs ── */
+        <div style={{ padding: "24px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a" }}>CVs & Cover Letters</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { addNewCv(); setShowEditor(true); }} style={{ padding: "7px 16px", borderRadius: 9, background: "#1a1a1a", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New CV</button>
+              <button onClick={() => { addNewCoverLetter(); setShowEditor(true); }} style={{ padding: "7px 16px", borderRadius: 9, background: "#f5f5f7", color: "#444", border: "1px solid #e0e0e0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Cover Letter</button>
+            </div>
           </div>
-        ))}
-        {/* Add / Duplicate buttons */}
-        <div
-          onClick={addNewCv}
-          style={{
-            fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
-            cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
-            textTransform: "uppercase", borderRight: "1px solid #ddd",
-          }}
-          onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
-          onMouseLeave={e => { e.target.style.color = "#888"; }}
-        >+ NEW CV</div>
-        <div
-          onClick={addNewCoverLetter}
-          style={{
-            fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
-            cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
-            textTransform: "uppercase", borderRight: "1px solid #ddd",
-          }}
-          onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
-          onMouseLeave={e => { e.target.style.color = "#888"; }}
-        >+ COVER LETTER</div>
-        <div
-          onClick={duplicateCv}
-          style={{
-            fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
-            cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
-            textTransform: "uppercase", borderRight: "1px solid #ddd",
-          }}
-          onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
-          onMouseLeave={e => { e.target.style.color = "#888"; }}
-        >DUPLICATE</div>
-        {/* Right-side actions */}
-        <div style={{ marginLeft: "auto", display: "flex" }}>
-          {store.activeCvId && (
-            <div
-              onClick={() => startRename(store.activeCvId)}
-              style={{
-                fontFamily: F, fontSize: 9, fontWeight: 600, letterSpacing: LS, padding: "10px 12px",
-                cursor: "pointer", whiteSpace: "nowrap", background: "#f5f5f5", color: "#888",
-                textTransform: "uppercase", borderLeft: "1px solid #ddd",
-              }}
-              onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }}
-              onMouseLeave={e => { e.target.style.color = "#888"; }}
-            >RENAME</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {store.cvList.map(item => {
+              const isCL = item.data?._docType === "coverletter";
+              return renamingId === item.id ? (
+                <div key={item.id} style={{ background: "#fff", border: "1px solid #1a1a1a", borderRadius: 12, padding: "16px 20px" }}>
+                  <input
+                    ref={renameRef}
+                    value={renameVal}
+                    onChange={e => setRenameVal(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                    style={{ fontFamily: F, fontSize: 13, fontWeight: 700, padding: "4px 0", background: "transparent", border: "none", outline: "none", width: "100%" }}
+                  />
+                </div>
+              ) : (
+                <div key={item.id} onClick={() => { switchCv(item.id); setShowEditor(true); }} onDoubleClick={() => startRename(item.id)}
+                  style={{ background: "#fff", border: "1px solid #e0e0e0", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", transition: "border-color 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = "#1a1a1a")} onMouseLeave={e => (e.currentTarget.style.borderColor = "#e0e0e0")}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: isCL ? "#e8f4fd" : "#f0f0f0", color: isCL ? "#0066cc" : "#666", padding: "2px 8px", borderRadius: 4 }}>{isCL ? "Cover Letter" : "CV"}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{item.label || "Untitled"}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#888" }}>{item.data?.title || item.data?.company || ""}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => duplicateCvById(item.id)} style={{ padding: "4px 10px", borderRadius: 7, background: "#f5f5f7", color: "#444", border: "1px solid #e0e0e0", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Duplicate</button>
+                    {store.cvList.length > 1 && <button onClick={() => deleteCv(item.id)} style={{ padding: "4px 10px", borderRadius: 7, background: "#fff5f5", color: "#c0392b", border: "1px solid #f5c6cb", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Delete</button>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+      <>
+      {/* ── Editor toolbar ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "2px solid #000", padding: "10px 0", flexWrap: "wrap", gap: 8 }}>
+        <button onClick={() => setShowEditor(false)} style={{ background: "none", border: "none", color: "#666", fontSize: 13, cursor: "pointer", fontFamily: "inherit", padding: "0 16px", display: "flex", alignItems: "center", gap: 4 }}>‹ Back to CVs</button>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {renamingId === store.activeCvId ? (
+            <input
+              ref={renameRef}
+              value={renameVal}
+              onChange={e => setRenameVal(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+              style={{ fontFamily: F, fontSize: 11, fontWeight: 700, padding: "6px 12px", border: "1px solid #ddd", borderRadius: 6, outline: "none", marginRight: 8 }}
+            />
+          ) : (
+            <div onClick={() => startRename(store.activeCvId)} title="Click to rename" style={{ fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 12px", cursor: "pointer", color: "#888", textTransform: "uppercase" }}
+              onMouseEnter={e => { e.target.style.color = "#1a1a1a"; }} onMouseLeave={e => { e.target.style.color = "#888"; }}>{activeItem?.label || "Untitled"} ✎</div>
           )}
           <div onClick={isCoverLetter ? doExportWordCoverLetter : doExportWord} style={{
             fontFamily: F, fontSize: 9, fontWeight: 700, letterSpacing: LS, padding: "10px 16px",
@@ -2109,8 +2087,8 @@ export default function CVView({ cvData, onSet, projectName }) {
 
         {/* Header */}
         <div style={{ marginBottom: 10 }}>
-          <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15 }} />
-          <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#1a1a1a", letterSpacing: LS, marginTop: 2 }} />
+          <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15, textAlign: "center" }} />
+          <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#1a1a1a", letterSpacing: LS, marginTop: 2, textAlign: "center" }} />
         </div>
 
         {/* Contact — centred, bold, horizontal with dot separators */}
@@ -2363,6 +2341,8 @@ export default function CVView({ cvData, onSet, projectName }) {
 
         </>)}
       </div>
+      </>
+      )}
     </div>
   );
 }
