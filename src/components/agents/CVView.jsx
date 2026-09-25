@@ -1429,6 +1429,11 @@ export default function CVView({ cvData, onSet, projectName }) {
 
   const cv = getActiveCv(store);
   const activeItem = getActiveItem(store);
+  // Opt-in alternate header style — a bigger, bolder name treatment.
+  // Marked per-CV via data._template so existing/default CVs are
+  // untouched; only a CV explicitly created as "+ Bold Template" (or
+  // duplicated from one) uses it.
+  const isBoldTemplate = cv?._template === "bold";
   const printRef = useRef(null);
 
   const [renamingId, setRenamingId] = useState(null);
@@ -1517,6 +1522,23 @@ export default function CVView({ cvData, onSet, projectName }) {
     const id = "cv_" + Date.now();
     const newCvData = JSON.parse(JSON.stringify(DEFAULT_CV));
     newCvData.title = label;
+    setStore(s => ({
+      ...s,
+      cvList: [...s.cvList, { id, label, data: newCvData }],
+      activeCvId: id,
+    }));
+  };
+
+  // Same as addNewCv, but marked with the bigger/bolder header style
+  // (data._template = "bold") — an opt-in alternate design, not a
+  // change to the default CV template.
+  const addNewBoldTemplateCv = () => {
+    const label = prompt("CV name (e.g. Production Director, EP):");
+    if (!label) return;
+    const id = "cv_" + Date.now();
+    const newCvData = JSON.parse(JSON.stringify(DEFAULT_CV));
+    newCvData.title = label;
+    newCvData._template = "bold";
     setStore(s => ({
       ...s,
       cvList: [...s.cvList, { id, label, data: newCvData }],
@@ -1624,12 +1646,15 @@ export default function CVView({ cvData, onSet, projectName }) {
     const c = cv;
     const ct = c.contact || {};
     const S = `font-size:11px;line-height:${LINE_H};color:#1a1a1a;`;
+    const nameStyle = c._template === "bold"
+      ? "font-size:40px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;line-height:1.1;color:#1a1a1a;"
+      : "font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;";
 
     let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11px;line-height:${LINE_H};">`;
 
     // Header — name + title
     html += `<div style="margin-bottom:10px;">`;
-    html += `<div style="font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;">${esc(c.name)}</div>`;
+    html += `<div style="${nameStyle}">${esc(c.name)}</div>`;
     html += `<div style="font-size:14px;color:#1a1a1a;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
     html += `</div>`;
 
@@ -1857,12 +1882,15 @@ export default function CVView({ cvData, onSet, projectName }) {
     const ct = c.contact || {};
     const r = c.recipient || {};
     const S = `font-size:11px;line-height:${LINE_H};color:#1a1a1a;`;
+    const nameStyle = c._template === "bold"
+      ? "font-size:40px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;line-height:1.1;color:#1a1a1a;"
+      : "font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;";
 
     let html = `<div style="font-family:'Avenir','Nunito Sans',sans-serif;color:#1a1a1a;font-size:11px;line-height:${LINE_H};">`;
 
     // Header — name + title
     html += `<div style="margin-bottom:10px;">`;
-    html += `<div style="font-size:30px;font-weight:700;letter-spacing:2px;text-transform:uppercase;line-height:1.15;color:#1a1a1a;">${esc(c.name)}</div>`;
+    html += `<div style="${nameStyle}">${esc(c.name)}</div>`;
     html += `<div style="font-size:14px;color:#1a1a1a;letter-spacing:0.3px;margin-top:3px;line-height:${LINE_H};">${esc(c.title)}</div>`;
     html += `</div>`;
 
@@ -2013,6 +2041,7 @@ export default function CVView({ cvData, onSet, projectName }) {
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a" }}>CVs & Cover Letters</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => { addNewCv(); setShowEditor(true); }} style={{ padding: "7px 16px", borderRadius: 9, background: "#1a1a1a", color: "#fff", border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ New CV</button>
+              <button onClick={() => { addNewBoldTemplateCv(); setShowEditor(true); }} style={{ padding: "7px 16px", borderRadius: 9, background: "#f5f5f7", color: "#444", border: "1px solid #e0e0e0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Bold Template</button>
               <button onClick={() => { addNewCoverLetter(); setShowEditor(true); }} style={{ padding: "7px 16px", borderRadius: 9, background: "#f5f5f7", color: "#444", border: "1px solid #e0e0e0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Cover Letter</button>
             </div>
           </div>
@@ -2037,6 +2066,9 @@ export default function CVView({ cvData, onSet, projectName }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: isCL ? "#e8f4fd" : "#f0f0f0", color: isCL ? "#0066cc" : "#666", padding: "2px 8px", borderRadius: 4 }}>{isCL ? "Cover Letter" : "CV"}</span>
+                      {item.data?._template === "bold" && (
+                        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: "#fff4e5", color: "#b8600a", padding: "2px 8px", borderRadius: 4 }}>Bold Template</span>
+                      )}
                       <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{item.label || "Untitled"}</span>
                     </div>
                     <div style={{ fontSize: 11, color: "#888" }}>{item.data?.title || item.data?.company || ""}</div>
@@ -2087,7 +2119,7 @@ export default function CVView({ cvData, onSet, projectName }) {
 
         {/* Header */}
         <div style={{ marginBottom: 10 }}>
-          <InlineEdit value={cv.name} onChange={v => set("name", v)} style={{ fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15, textAlign: "center" }} />
+          <InlineEdit value={cv.name} onChange={v => set("name", v)} style={isBoldTemplate ? { fontSize: 40, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.1, textAlign: "center" } : { fontSize: 28, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", lineHeight: 1.15, textAlign: "center" }} />
           <InlineEdit value={cv.title} onChange={v => set("title", v)} style={{ fontSize: 14, fontWeight: 400, color: "#1a1a1a", letterSpacing: LS, marginTop: 2, textAlign: "center" }} />
         </div>
 
