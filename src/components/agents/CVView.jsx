@@ -712,6 +712,92 @@ const MATADOR_CV_V1 = {
   ],
 };
 
+// One-page, scan-first layout: short bolded lead-in bullets (see
+// boldLeadIn() below) instead of long paragraph blocks, so a recruiter
+// can pull the headline fact from each line without reading it in full.
+const SENIOR_PRODUCER_CV_V1 = {
+  name: "EMILY LUCAS",
+  title: "Senior Producer",
+  contact: {
+    phone: "+1 (917) 735-8545",
+    email: "emily@emilyelucas.com",
+    linkedin: "linkedin.com/in/emilyelucas",
+    website: "emilyelucas.com",
+    location: "Brooklyn, New York",
+    citizenship: "US, UK, Japanese Citizen",
+  },
+  summary: [
+    "Senior Producer across fashion, luxury hospitality and editorial, working in-house, direct-to-client and with agencies to lead campaigns from brief through delivery across the US, UK and Middle East.",
+    "Brings sharp visual and commercial judgment, trusted client relationships, and a track record of building production systems and partnerships that generate revenue across markets.",
+  ],
+  clients: "AMAN | NIKE | ONE&ONLY | MASTERCARD | JANU | VOGUE ARABIA | JUMEIRAH | HARVEY NICHOLS | CIPRIANI | COLUMBIA SPORTSWEAR | MR PORTER | CHARLOTTE TILBURY | LOUIS VUITTON | J.CREW | HAMILTON WATCHES",
+  experience: [
+    {
+      role: "Senior Producer",
+      company: "Freelance / Self-Employed",
+      dates: "November 2024 - Present",
+      bullets: [
+        "Aman & Janu Portfolio: Local Production Lead across an ongoing festive campaign in New York and a flagship pre-completion campaign for properties in Saudi Arabia and Dubai.",
+        "Nike, One&Only & Mastercard: Local Production Lead on Nike's Vomero 18 activation at Kite Beach and the Burj Khalifa and Mastercard's inaugural SailGP partnership; Executive Producer on One&Only's first North American resort campaign in Big Sky, Montana.",
+        "Vogue Arabia (Condé Nast): Visuals Editor on the brand's return to Condé Nast, setting the visual standard across the first three relaunch issues with Imaan Hammam, Achraf Hakimi, Halima Aden and Balqees Fathi.",
+        "Additional Clients: Jumeirah, Cipriani, Columbia Sportswear.",
+      ],
+    },
+    {
+      role: "Senior Producer",
+      company: "Al Tayer Insignia LLC (Harvey Nichols)",
+      dates: "June 2024 - November 2024",
+      bullets: [
+        "Seasonal Content Engine: Owned photography, film and digital production across Harvey Nichols' seasonal calendar, delivering 40+ assets per shoot day to luxury retail standard.",
+        "Retainer Model: Designed a retainer partnership model that cut variable production costs 20% while holding brand standards.",
+      ],
+    },
+    {
+      role: "Producer",
+      company: "Net-a-Porter Group Ltd. / Richemont (MR PORTER)",
+      dates: "July 2019 - May 2024",
+      bullets: [
+        "MR PORTER In America: Produced the 360° multi-brand US campaign across LA, New York and Miami — 2.65M views, 75% engagement uplift.",
+        "Brand Partnership Framework: Built a white-label production framework generating $500K+ in incremental annual revenue across Loro Piana, Brunello Cucinelli, Stone Island and Hennessy.",
+        "Gen Z Social Strategy: Grew MR PORTER's TikTok channel to 50K followers in its first year via the Helping Hands and Ask Mr Porter franchise formats.",
+        "Career Growth: Promoted twice in five years — Picture Assistant to Social Media Production Coordinator to Producer.",
+      ],
+    },
+    {
+      role: "Producer & Writer",
+      company: "Freelance / Self-Employed",
+      dates: "2019 - 2024",
+      bullets: [
+        "Editorial Writing: Authored long-form features for Trippin and MR PORTER's Journal.",
+        "GUESS & Charlotte Tilbury: Senior Producer on GUESS's global Ramadan OOH campaign in Abu Dhabi; Production Coordinator on Charlotte Tilbury's $1M+ Disney 100 activation.",
+        "Additional Clients: J.Crew, Louis Vuitton x The Glass Magazine, Hamilton Watches, Siro Hotel, Puma.",
+      ],
+    },
+  ],
+  education: [
+    { title: "BA (Hons) Spanish & Business Management", institution: "The University of Manchester", result: "First Class Honours" },
+    { title: "Spanish Exchange Program", institution: "Universidad del Salvador, Buenos Aires", result: "1st Class (90%)" },
+  ],
+  skills: [
+    "Workflow Tools: Asana, Monday, Trello, Airtable, Frame.io",
+    "Creative Tools: Adobe Photoshop, Lightroom, InDesign, Midjourney",
+    "Visual Research: Art photography, Entertainment IP, Fashion runway, Street photography, Publishing rights",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Japanese", level: "B1" },
+    { name: "Spanish", level: "B2" },
+  ],
+  volunteer: [
+    {
+      role: "Mentor",
+      organization: "Graduate Fashion Foundation",
+      dates: "2023",
+      description: "Mentored a fashion graduate on CV development, career planning and interview preparation.",
+    },
+  ],
+};
+
 const F = "'Avenir', 'Avenir Next', 'Nunito Sans', sans-serif";
 const LS = 0.3;
 const LS_HDR = 1.2;
@@ -1271,6 +1357,35 @@ export default function CVView({ cvData, onSet, projectName }) {
     localStorage.setItem("onna_creative_producer_cv_added_v1", String(Date.now()));
   }, [cvData]);
 
+  // One-time addition: seed a "Senior Producer" CV variant using the Bold
+  // Template layout — a one-page, scan-first design (short bolded lead-in
+  // bullets, bigger name header) built to be quickly scannable rather than
+  // read in full, for senior production roles.
+  const seniorProducerAddedRef = useRef(false);
+  useEffect(() => {
+    if (seniorProducerAddedRef.current) return;
+    if (localStorage.getItem("onna_senior_producer_cv_added_v1")) return;
+    if (!cvData || !cvData._multi || !Array.isArray(cvData.cvList)) return;
+    seniorProducerAddedRef.current = true;
+    const exists = cvData.cvList.some(c => (c.label || "").toLowerCase() === "senior producer");
+    if (exists) {
+      localStorage.setItem("onna_senior_producer_cv_added_v1", String(Date.now()));
+      return;
+    }
+    try { flushAllSaves(); } catch {}
+    const id = "cv_" + Date.now() + "_sp";
+    onSet(prev => {
+      const s = migrateToMulti(prev);
+      if (s.cvList.some(c => (c.label || "").toLowerCase() === "senior producer")) return s;
+      const data = { ...JSON.parse(JSON.stringify(SENIOR_PRODUCER_CV_V1)), _template: "bold" };
+      return {
+        ...s,
+        cvList: [...s.cvList, { id, label: "Senior Producer", data }],
+      };
+    });
+    localStorage.setItem("onna_senior_producer_cv_added_v1", String(Date.now()));
+  }, [cvData]);
+
   // One-time addition: seed a "Visuals Editor" CV variant tailored for
   // editorial Visuals Editor roles, especially at Condé Nast titles
   // (e.g. Vanity Fair freelance Visuals Editor).
@@ -1695,7 +1810,7 @@ export default function CVView({ cvData, onSet, projectName }) {
       html += `<div style="border-bottom:1px solid #eee;margin:2px 0 5px 0;"></div>`;
       html += `<ul style="margin:0;padding-left:18px;list-style:disc;">`;
       (exp.bullets || []).forEach(b => {
-        html += `<li style="${S}margin-bottom:2px;">${esc(b)}</li>`;
+        html += `<li style="${S}margin-bottom:2px;">${boldLeadIn(b)}</li>`;
       });
       html += `</ul></div>`;
     });
@@ -2381,6 +2496,17 @@ export default function CVView({ cvData, onSet, projectName }) {
 
 // ── Print helpers ──
 function esc(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+// Bullets written as "Lead-in: rest of the sentence" get the lead-in bolded
+// in print/export, so a scanner's eye catches the headline fact first
+// (matches the "SENIOR_PRODUCER_CV_V1" bullet style). Falls back to plain
+// escaped text for bullets with no colon, or where the part before it runs
+// too long to plausibly be a lead-in label.
+function boldLeadIn(str) {
+  const s = str || "";
+  const m = /^([^:]{1,60}):\s*(.*)$/s.exec(s);
+  if (!m) return esc(s);
+  return `<b>${esc(m[1])}:</b> ${esc(m[2])}`;
+}
 function secHdr(label) { return `<div style="margin-top:20px;margin-bottom:8px;"><div style="font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1a1a1a;line-height:1.55;margin-bottom:5px;">${label}</div><div style="border-bottom:1px solid #ccc;"></div></div>`; }
 function badgeHtml(level) {
   const dark = level === "Expert" || level === "Native";
