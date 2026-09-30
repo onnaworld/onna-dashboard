@@ -491,7 +491,7 @@ export default function Budget({
         const rows = sec.rows.map((row, ri) => {
           const estRow = estSec?.rows[ri];
           let estVal = estRow ? estRowTotal(estRow) : 0;
-          if (_isFeeSec && estRow) {
+          if (_isFeeSec && estRow && !estRow.manualRate) {
             const pctMatch = (estRow.notes || "").match(/(\d+(?:\.\d+)?)%/);
             if (pctMatch) estVal = estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
           }
@@ -514,7 +514,7 @@ export default function Budget({
           };
         });
         const secEstTotal = estSec ? (_isFeeSec ? estSec.rows.reduce((sum, row) => {
-          const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+          const pctMatch = !row.manualRate && (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
           if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
           return sum + estRowTotal(row);
         }, 0) : estSectionTotal(estSec)) : 0;
@@ -681,7 +681,7 @@ export default function Budget({
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
                 const estSecTot = estSec ? (isFeeSec(estSec) ? estSec.rows.reduce((sum, row) => {
-                  const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                  const pctMatch = !row.manualRate && (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                   if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                   return sum + estRowTotal(row);
                 }, 0) : estSectionTotal(estSec)) : 0;
@@ -728,7 +728,7 @@ export default function Budget({
               {actSections.map((sec, si) => {
                 const estSec = estSections[si];
                 const secEstTotal = estSec ? (isFeeSec(estSec) ? estSec.rows.reduce((sum, row) => {
-                  const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                  const pctMatch = !row.manualRate && (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                   if (pctMatch) return sum + estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                   return sum + estRowTotal(row);
                 }, 0) : estSectionTotal(estSec)) : 0;
@@ -755,7 +755,7 @@ export default function Budget({
                     const estRow = estSec?.rows[ri];
                     const _isFeeSec = estSec ? isFeeSec(estSec) : false;
                     let estVal = estRow ? estRowTotal(estRow) : 0;
-                    if (_isFeeSec && estRow) {
+                    if (_isFeeSec && estRow && !estRow.manualRate) {
                       const pctMatch = (estRow.notes || "").match(/(\d+(?:\.\d+)?)%/);
                       if (pctMatch) estVal = estTotals.subtotal * (parseFloat(pctMatch[1]) / 100);
                     }

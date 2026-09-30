@@ -300,7 +300,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       const pt = phaseTotals[pi];
       const catRows = phase.sections.filter(sec=>!sec.hidden).map(sec => {
         const isF = isFeeSec(sec);
-        const amt = isF ? sec.rows.reduce((sum,row)=>{ const pctMatch=(row.notes||"").match(/(\d+(?:\.\d+)?)%/); if(pctMatch) return sum+pt.subtotal*(parseFloat(pctMatch[1])/100); return sum+estRowTotal(row); },0) : estSectionTotal(sec);
+        const amt = isF ? sec.rows.reduce((sum,row)=>{ const pctMatch=!row.manualRate&&(row.notes||"").match(/(\d+(?:\.\d+)?)%/); if(pctMatch) return sum+pt.subtotal*(parseFloat(pctMatch[1])/100); return sum+estRowTotal(row); },0) : estSectionTotal(sec);
         return { category: `${sec.num}  ${sec.title}`, amount: r2v(amt) };
       });
       topSheetBlocks.push({
@@ -333,7 +333,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         const isF = isFeeSec(sec);
         const rows = sec.rows.map(row => {
           let tot = estRowTotal(row);
-          if (isF) {
+          if (isF && !row.manualRate) {
             const pctMatch2 = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
             if (pctMatch2) tot = pt.subtotal * (parseFloat(pctMatch2[1]) / 100);
           }
@@ -522,7 +522,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 {phase.sections.filter(sec=>!sec.hidden).map((sec)=>{
                   const isF = isFeeSec(sec);
                   const t = isF ? sec.rows.reduce((sum, row) => {
-                    const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                    const pctMatch = !row.manualRate && (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                     if (pctMatch) return sum + pt.subtotal * (parseFloat(pctMatch[1]) / 100);
                     return sum + estRowTotal(row);
                   }, 0) : estSectionTotal(sec);
@@ -622,7 +622,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 const getRowDisplay = (row) => {
                   let tot = estRowTotal(row);
                   let autoCalc = false;
-                  if (isFeesSection && row.notes) {
+                  if (isFeesSection && row.notes && !row.manualRate) {
                     const pctMatch = row.notes.match(/(\d+(?:\.\d+)?)%/);
                     if (pctMatch) { tot = subtotal * (parseFloat(pctMatch[1]) / 100); autoCalc = true; }
                   }
@@ -630,7 +630,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 };
                 const feeSectionTotal = isFeesSection
                   ? sec.rows.reduce((sum, row) => {
-                      const pctMatch = (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
+                      const pctMatch = !row.manualRate && (row.notes || "").match(/(\d+(?:\.\d+)?)%/);
                       if (pctMatch) return sum + subtotal * (parseFloat(pctMatch[1]) / 100);
                       return sum + estRowTotal(row);
                     }, 0)
@@ -685,8 +685,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                       <div style={{width:50,flexShrink:0}}><EstCell value={row.days} onChange={v=>updateRow(pi,si,ri,"days",v)} align="center" /></div>
                       <div style={{width:40,flexShrink:0}}><EstCell value={row.qty} onChange={v=>updateRow(pi,si,ri,"qty",v)} align="center" /></div>
                       <div style={{width:90,flexShrink:0}}>{autoCalc
-                        ? <div style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS}}>auto</div>
-                        : <EstCell value={row.rate} onChange={v=>updateRow(pi,si,ri,"rate",v)} align="right" />}</div>
+                        ? <div onClick={()=>updateRow(pi,si,ri,"manualRate",true)} title="Auto-calculated from the % in Notes — click to type a figure instead" style={{padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:"#999",fontStyle:"italic",letterSpacing:EST_LS,cursor:"pointer"}}>auto</div>
+                        : <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>
+                            {row.manualRate && /\d+(?:\.\d+)?%/.test(row.notes||"") && <span data-noprint onClick={()=>updateRow(pi,si,ri,"manualRate",false)} title="Revert to auto-calculating from the % in Notes" style={{fontSize:8,color:"#aaa",cursor:"pointer",textDecoration:"underline",flexShrink:0}}>auto?</span>}
+                            <EstCell value={row.rate} onChange={v=>updateRow(pi,si,ri,"rate",v)} align="right" />
+                          </div>}</div>
                       <div onClick={()=>tot>0&&toggleTally(pi,si,ri,tot)} style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS,cursor:tot>0?"pointer":"default",background:isTallied(pi,si,ri)?"#E8F5E9":"transparent",borderRadius:2,transition:"background 0.15s"}}>{estFmt(tot)}</div>
                       {showCurrency2 && <div style={{width:90,flexShrink:0,padding:"4px 6px",fontFamily:EST_F,fontSize:10,textAlign:"right",color:tot>0?"#1a1a1a":"#ccc",letterSpacing:EST_LS}}>{estFmt(tot*xRate)}</div>}
                       <div style={{width:24,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
