@@ -576,7 +576,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             ); })()}
           <div style={{marginTop:12}}>
             <div style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,marginBottom:4}}>NOTES:</div>
-            <EstCell value={ts.notes || ""} onChange={v=>tsSet("notes",v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
+            <EstCell value={ts.notes || ""} onChange={v=>tsSet("notes",v)} multiline style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
           </div>
         </div>}
 
@@ -716,7 +716,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               </div>
               <div style={{marginTop:10}} data-noprint={phase.notes ? undefined : "1"}>
                 <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",marginBottom:3}}>PHASE NOTES</div>
-                <EstCell value={phase.notes || ""} onChange={v=>setPhaseNotes(pi,v)} style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
+                <EstCell value={phase.notes || ""} onChange={v=>setPhaseNotes(pi,v)} multiline style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
               </div>
             </div>
             );
@@ -740,7 +740,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               <div style={{width:220,minWidth:220,padding:"8px 12px",background:"#fafafa",borderRight:"1px solid #eee"}}>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:500,letterSpacing:EST_LS}}>{f.label}</span></div>
               <div style={{flex:1,padding:"8px 12px"}}>
-                <EstCell value={saFields[i]} onChange={v=>onSet(d=>({...d,saFields:{...(d.saFields||saFields),[i]:v}}))} /></div>
+                <EstCell value={saFields[i]} onChange={v=>onSet(d=>({...d,saFields:{...(d.saFields||saFields),[i]:v}}))} multiline /></div>
             </div>
           ))}
           <div style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666",marginTop:12,padding:"0 12px"}}>

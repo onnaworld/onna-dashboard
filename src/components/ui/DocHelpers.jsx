@@ -439,7 +439,7 @@ const EstHl = ({ text, style = {} }) => {
     : <span key={i}>{p}</span>)}</span>;
 };
 
-const EstCell = ({ value, onChange, style = {}, align = "left" }) => {
+const EstCell = ({ value, onChange, style = {}, align = "left", multiline }) => {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
   useEffect(() => { setTemp(value); }, [value]);
@@ -461,10 +461,12 @@ const EstCell = ({ value, onChange, style = {}, align = "left" }) => {
     }
   };
   if (editing) {
-    const long = (temp || "").length > 50;
+    const long = multiline || (temp || "").length > 50;
+    // Multi-line fields (Notes, Services Agreement fields): Enter inserts a
+    // newline like a normal textarea — only clicking/tabbing away commits.
     if (long) return <textarea ref={el => autoR(el)} autoFocus value={temp}
       onChange={e => { setTemp(e.target.value); autoR(e.target); }} onBlur={commit}
-      onKeyDown={e => { handleLinkKeyDown(e); if (!e.defaultPrevented && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } }}
+      onKeyDown={handleLinkKeyDown}
       style={{ fontFamily: EST_F, fontSize: 10, letterSpacing: EST_LS, border: "none", outline: "none",
         background: "#FFFDE7", width: "100%", boxSizing: "border-box", padding: "4px 6px",
         textAlign: align, resize: "none", overflow: "hidden", lineHeight: 1.5, ...style }} />;
