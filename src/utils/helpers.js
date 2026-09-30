@@ -1282,7 +1282,7 @@ export const vaultDecrypt = async (key, blob) => {
 
 // ─── DEFAULT ESTIMATE SECTIONS ──────────────────────────────────────────────
 export const defaultSections = () => [
-  { id:1, num:"1", title:"PHOTOGRAPY FEES", rows:[
+  { id:1, num:"1", title:"PHOTOGRAPHY FEES", rows:[
     {ref:"1A",desc:"PHOTOGRAPHER DAY RATE",notes:"",days:"0",qty:"0",rate:"0"},
     {ref:"1B",desc:"PHOTOGRAPHER RECCE",notes:"",days:"0",qty:"0",rate:"0"},
     {ref:"1C",desc:"USAGE",notes:"",days:"0",qty:"0",rate:"0"},
@@ -1439,7 +1439,7 @@ export const defaultSections = () => [
     {ref:"15K",desc:"OVERTIME",notes:"OT OVER 10 HR @ 1.5 x BHR",days:"0",qty:"0",rate:"0"},
   ]},
   { id:16, num:"16", title:"PERMITS", rows:[
-    {ref:"16A",desc:"DFTC PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
+    {ref:"16A",desc:"GENERAL PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
     {ref:"16B",desc:"DRONE PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
     {ref:"16C",desc:"CAR/DRIVING PERMITS",notes:"",days:"0",qty:"0",rate:"0"},
     {ref:"16D",desc:"OPEN SEA PERMIT",notes:"",days:"0",qty:"0",rate:"0"},
