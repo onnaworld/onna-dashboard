@@ -43,6 +43,8 @@ export default function Budget({
   const setExpandedRows = (next) => { const val = typeof next === "function" ? next(expandedRows) : next; _setMeta({ expandedRows: val }); };
 
   const [showColPicker, setShowColPicker] = React.useState(false);
+  const [renamingEstId, setRenamingEstId] = React.useState(null);
+  const [renameEstVal, setRenameEstVal] = React.useState("");
   // Forces both Summary and Actuals Tracker tabs to render at once, purely
   // for export — normally only the active tab is mounted.
   const [exportAllTabs, setExportAllTabs] = React.useState(false);
@@ -1078,6 +1080,30 @@ export default function Budget({
 
   // Estimates sub-section
   if (budgetSubSection!=="estimates") return null;
+  const moveEstimate = (idx, dir) => {
+    const j = idx + dir;
+    if (j < 0 || j >= estimates.length) return;
+    pushUndo("reorder estimates");
+    setProjectEstimates(prev => {
+      const arr = [...(prev[p.id] || [])];
+      [arr[idx], arr[j]] = [arr[j], arr[idx]];
+      return { ...prev, [p.id]: arr };
+    });
+  };
+  const startRenameEst = (est) => { setRenamingEstId(est.id); setRenameEstVal(est.ts?.version || ""); };
+  const commitRenameEst = () => {
+    if (!renamingEstId) return;
+    const val = renameEstVal.trim();
+    if (val) {
+      pushUndo("rename estimate");
+      setProjectEstimates(prev => ({
+        ...prev,
+        [p.id]: (prev[p.id] || []).map(e => e.id === renamingEstId ? { ...e, ts: { ...e.ts, version: val } } : e),
+      }));
+    }
+    setRenamingEstId(null);
+  };
+
   if (editingEstimate) {
     const estIdx = estimates.findIndex(e => e.id === editingEstimate);
     if (estIdx < 0) { setEditingEstimate(null); return null; }
@@ -1123,14 +1149,31 @@ export default function Budget({
       </div>
       {estimates.length===0?(projectEstimates[p.id]===undefined?<div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>Loading estimates…</div></div>:<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>):(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {estimates.map((est)=>{
+          {estimates.map((est,estIdx)=>{
             const { grandTotal: gt } = estCalcCombinedTotals(getEstPhases(est));
             const totalIncVat = gt + gt * 0.05;
+            const isRenaming = renamingEstId === est.id;
             return (
-              <div key={est.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"border-color 0.15s"}} onClick={()=>setEditingEstimate(est.id)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+              <div key={est.id} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:isRenaming?"default":"pointer",transition:"border-color 0.15s"}} onClick={()=>!isRenaming&&setEditingEstimate(est.id)} onMouseEnter={e=>e.currentTarget.style.borderColor=T.accent} onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
+                <div style={{display:"flex",flexDirection:"column",gap:2}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={()=>moveEstimate(estIdx,-1)} disabled={estIdx===0} title="Move up" style={{background:"#fff",border:"1px solid #ddd",borderRadius:4,color:estIdx===0?"#ddd":"#666",cursor:estIdx===0?"default":"pointer",fontSize:11,padding:"1px 6px",lineHeight:1.4,fontFamily:"inherit"}}>↑</button>
+                  <button onClick={()=>moveEstimate(estIdx,1)} disabled={estIdx===estimates.length-1} title="Move down" style={{background:"#fff",border:"1px solid #ddd",borderRadius:4,color:estIdx===estimates.length-1?"#ddd":"#666",cursor:estIdx===estimates.length-1?"default":"pointer",fontSize:11,padding:"1px 6px",lineHeight:1.4,fontFamily:"inherit"}}>↓</button>
+                </div>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                    <span style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555"}}>{est.ts?.version||"V1"}</span>
+                    {isRenaming ? (
+                      <input
+                        autoFocus
+                        value={renameEstVal}
+                        onChange={e=>setRenameEstVal(e.target.value)}
+                        onBlur={commitRenameEst}
+                        onKeyDown={e=>{ if(e.key==="Enter") commitRenameEst(); if(e.key==="Escape") setRenamingEstId(null); }}
+                        onClick={e=>e.stopPropagation()}
+                        style={{fontSize:11,fontWeight:700,letterSpacing:0.5,padding:"2px 8px",borderRadius:4,border:"1px solid #ddd",fontFamily:"inherit",outline:"none"}}
+                      />
+                    ) : (
+                      <span onClick={e=>{e.stopPropagation();startRenameEst(est);}} title="Click to rename" style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:"uppercase",background:"#eee",padding:"2px 8px",borderRadius:4,color:"#555",cursor:"pointer"}}>{est.ts?.version||"V1"} ✎</span>
+                    )}
                     <span style={{fontSize:8,fontWeight:600,letterSpacing:0.5,background:gt>0?"#e8f5e9":"#f5f5f5",color:gt>0?"#2e7d32":"#999",padding:"2px 8px",borderRadius:4}}>AED {totalIncVat.toLocaleString(undefined,{maximumFractionDigits:0})} inc. VAT</span>
                   </div>
                   <div style={{fontSize:13,fontWeight:600,color:T.text}}>{est.ts?.project||p.name}</div>
