@@ -746,13 +746,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           </div>
           <div style={{background:"#000",color:"#fff",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS_HDR,textAlign:"center",padding:"4px 0",textTransform:"uppercase",marginTop:24}}>SIGNATURE</div>
           <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
-            {[{side:"left",prefix:"Signed by an authorised representative for and on behalf of "},
-              {side:"right",label:"Signed by an authorised representative for and on behalf of [Client]"}].map(s=>(
+            {[{side:"left",prefix:"Signed by an authorised representative for and on behalf of ",key:"leftEntity",fallback:"ONNA"},
+              {side:"right",prefix:"Signed by an authorised representative for and on behalf of ",key:"rightEntity",fallback:"[Client]"}].map(s=>(
               <div key={s.side} style={{flex:1,padding:12,borderRight:s.side==="left"?"1px solid #eee":"none"}}>
                 <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,marginBottom:12}}>
-                  {s.side==="left"
-                    ? <>{s.prefix}<EstCell value={saSigs.leftEntity ?? "ONNA"} onChange={v=>onSet(d=>({...d,saSigs:{...(d.saSigs||{}),leftEntity:v}}))} style={{display:"inline-block",width:"auto",minWidth:40,fontWeight:700,padding:"0 2px"}} /></>
-                    : s.label}
+                  {s.prefix}<EstCell value={saSigs[s.key] ?? s.fallback} onChange={v=>onSet(d=>({...d,saSigs:{...(d.saSigs||{}),[s.key]:v}}))} style={{display:"inline-block",width:"auto",minWidth:40,fontWeight:700,padding:"0 2px"}} />
                 </div>
                 <div style={{marginBottom:8}}>
                   <span style={{fontFamily:EST_F,fontSize:10,fontWeight:500,letterSpacing:EST_LS,display:"block",marginBottom:4}}>Signature:</span>
