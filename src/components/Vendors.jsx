@@ -81,6 +81,24 @@ export default function Vendors({
     setVendors(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
     api.put(`/api/vendors/${id}`, { [field]: value }).catch(() => {});
   };
+  // "+ New Vendor" drops a blank row straight into the table (top) instead of
+  // opening a modal — fill it in via the inline cells above.
+  const [addingBlank, setAddingBlank] = useState(false);
+  const addBlankVendor = async () => {
+    if (addingBlank) return;
+    setAddingBlank(true);
+    const payload = { name: "", company: "", category: bbCat !== "All" ? bbCat : "", email: "", phone: "", website: "", location: bbLocation !== "All" ? bbLocation : "", notes: "", rateCard: "" };
+    try {
+      const saved = await api.post("/api/vendors", payload);
+      if (saved && saved.id) setVendors(prev => [saved, ...prev]);
+      else if (saved && saved.queued) setVendors(prev => [{ ...payload, id: Date.now(), _queued: true }, ...prev]);
+    } catch {}
+    setAddingBlank(false);
+  };
+  const openVendorCard = (b) => {
+    const d = b.dietaries;
+    setEditVendor({ ...b, dietaries: typeof d === "string" ? (() => { try { return JSON.parse(d); } catch { return []; } })() : Array.isArray(d) ? d : [], _xContacts: getXContacts('vendor', b.id) });
+  };
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
@@ -90,18 +108,19 @@ export default function Vendors({
         <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
         <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
         <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
-        <BtnPrimary onClick={()=>setShowAddVendor(true)}>+ New Vendor</BtnPrimary>
+        <BtnPrimary onClick={addBlankVendor} disabled={addingBlank}>+ New Vendor</BtnPrimary>
       </div>
       <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
         <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
           <thead><tr>
             <th style={{padding:"11px 8px",borderBottom:`1px solid ${T.border}`,width:32}}><input type="checkbox" checked={selectedIds.size===filteredBB.length&&filteredBB.length>0} onChange={toggleAll}/></th>
             <TH>Name</TH><TH>Company</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH>
+            <th style={{padding:"11px 8px",borderBottom:`1px solid ${T.border}`,width:32}}></th>
           </tr></thead>
           <tbody>
             {filteredBB.map(b=>(
-              <tr key={b.id} className="row" onClick={()=>{const d=b.dietaries;setEditVendor({...b,dietaries:typeof d==="string"?(() => {try{return JSON.parse(d)}catch{return []}})():Array.isArray(d)?d:[],_xContacts:getXContacts('vendor',b.id)});}} style={{cursor:"pointer",background:selectedIds.has(b.id)?"#fffbe6":undefined}}>
-                <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>{e.stopPropagation();toggleId(b.id);}}><input type="checkbox" checked={selectedIds.has(b.id)} readOnly/></td>
+              <tr key={b.id} className="row" style={{background:selectedIds.has(b.id)?"#fffbe6":undefined}}>
+                <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`}}><input type="checkbox" checked={selectedIds.has(b.id)} onChange={()=>toggleId(b.id)}/></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,fontWeight:600,color:T.text}}><VendorCell value={b.name} onSave={v=>updateVendorField(b.id,"name",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.company} onSave={v=>updateVendorField(b.id,"company",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.category} onSave={v=>updateVendorField(b.id,"category",v)} /></td>
@@ -109,9 +128,12 @@ export default function Vendors({
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.sub}}><VendorCell value={b.phone} onSave={v=>updateVendorField(b.id,"phone",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.link}}><VendorCell value={b.website} onSave={v=>updateVendorField(b.id,"website",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.location} onSave={v=>updateVendorField(b.id,"location",v)} /></td>
+                <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
+                  <button onClick={()=>openVendorCard(b)} title="Open full details" style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:2,lineHeight:1}}>⤢</button>
+                </td>
               </tr>
             ))}
-            {filteredBB.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
+            {filteredBB.length===0&&<tr><td colSpan={9} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
           </tbody>
         </table>
       </div>
