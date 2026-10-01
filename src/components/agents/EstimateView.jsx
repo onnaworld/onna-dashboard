@@ -154,6 +154,18 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       return ps;
     });
   };
+  const duplicatePreviousPhase = () => {
+    setPhases(ps => {
+      if (!ps.length) return ps;
+      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Phase 1" };
+      const src = ps[ps.length - 1];
+      const dup = JSON.parse(JSON.stringify(src));
+      dup.id = Date.now() + Math.random();
+      dup.title = `Phase ${ps.length + 1}`;
+      ps.push(dup);
+      return ps;
+    });
+  };
   const renamePhase = (pi, title) => setPhases(ps => { ps[pi].title = title; return ps; });
   const setPhaseVat = (pi, val) => setPhases(ps => { ps[pi].vatPct = val; return ps; });
   const setPhaseNotes = (pi, val) => setPhases(ps => { ps[pi].notes = val; return ps; });
@@ -477,6 +489,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
           <span onClick={addPhase} style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Phase</span>
+          <span onClick={duplicatePreviousPhase} title="Duplicate the last phase, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>Duplicate Previous Phase</span>
         </div>
       </div>
 
@@ -719,8 +733,12 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             </div>
             );
           })}
-          <div data-noprint onClick={addPhase} style={{border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer",marginBottom:multiPhase?16:0}}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>+ Add Phase</div>
+          <div data-noprint style={{display:"flex",gap:8,marginBottom:multiPhase?16:0}}>
+            <div onClick={addPhase} style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>+ Add Phase</div>
+            <div onClick={duplicatePreviousPhase} title="Duplicate the last phase, including its sections/rows" style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>Duplicate Previous Phase</div>
+          </div>
           {multiPhase && (
             <div style={{borderTop:"3px double #000",display:"flex",justifyContent:"flex-end"}}>
               <div style={{width:420}}>
