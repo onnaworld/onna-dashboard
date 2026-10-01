@@ -1,6 +1,44 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
-import { normalizeLocation, LOCATION_ALIASES } from "../utils/helpers";
+
+// Click-to-edit table cell — click anywhere in the cell to turn it into a
+// text input, blur/Enter commits, Escape cancels. Stops the row's own
+// onClick (which opens the full edit modal) so editing in-place doesn't
+// also pop the modal open.
+function VendorCell({ value, onSave, placeholder }) {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value || "");
+  useEffect(() => { if (!editing) setTemp(value || ""); }, [value, editing]);
+  const commit = () => {
+    setEditing(false);
+    if (temp !== (value || "")) onSave(temp);
+  };
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={temp}
+        onChange={e => setTemp(e.target.value)}
+        onBlur={commit}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => {
+          if (e.key === "Enter") e.target.blur();
+          if (e.key === "Escape") { setTemp(value || ""); setEditing(false); }
+        }}
+        style={{ fontSize: 12.5, fontFamily: "inherit", border: "1px solid #ddd", borderRadius: 4, padding: "3px 6px", width: "100%", boxSizing: "border-box", outline: "none" }}
+      />
+    );
+  }
+  return (
+    <span
+      onClick={e => { e.stopPropagation(); setEditing(true); }}
+      title="Click to edit"
+      style={{ cursor: "text", display: "block", minHeight: 16, color: value ? undefined : "#bbb" }}
+    >
+      {value || placeholder || "—"}
+    </span>
+  );
+}
 
 export default function Vendors({
   T, isMobile, api,
@@ -12,20 +50,6 @@ export default function Vendors({
   downloadCSV, exportTablePDF,
   SearchBar, Sel, TH, TD, BtnPrimary,
 }) {
-  // Auto-sync unknown locations from vendor data into customLocations (normalize aliases, case-insensitive dedup)
-  const vendorLocs = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.location||"").includes("|")?(v.location||"").split("|").map(s=>normalizeLocation(s.trim())).filter(Boolean):[v.location].filter(Boolean).map(normalizeLocation)))),[vendors]);
-  useEffect(()=>{
-    const knownLower = new Set(allLocations.map(l=>l.toLowerCase()));
-    const missing = vendorLocs.filter(l=>l&&!knownLower.has(l.toLowerCase())&&!LOCATION_ALIASES[l]);
-    if(missing.length>0) setCustomLocations(prev=>{const sLower=new Set(prev.map(p=>p.toLowerCase()));const added=missing.filter(m=>!sLower.has(m.toLowerCase()));if(!added.length)return prev;return[...prev,...added];});
-  },[vendorLocs]); // eslint-disable-line
-  // Auto-sync unknown categories from vendor data into customVendorCats (case-insensitive dedup)
-  const vendorCats = useMemo(()=>Array.from(new Set(vendors.flatMap(v=>(v.category||"").includes("|")?(v.category||"").split("|").map(s=>s.trim()).filter(Boolean):[v.category].filter(Boolean)))),[vendors]);
-  useEffect(()=>{
-    const knownLower = new Set(allVendorCats.map(c=>c.toLowerCase()));
-    const missing = vendorCats.filter(c=>c&&!knownLower.has(c.toLowerCase()));
-    if(missing.length>0) setCustomVendorCats(prev=>{const sLower=new Set(prev.map(p=>p.toLowerCase()));const added=missing.filter(m=>!sLower.has(m.toLowerCase()));if(!added.length)return prev;return[...prev,...added];});
-  },[vendorCats]); // eslint-disable-line
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleId = id => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleAll = () => { if (selectedIds.size === filteredBB.length) setSelectedIds(new Set()); else setSelectedIds(new Set(filteredBB.map(b => b.id))); };
@@ -52,6 +76,11 @@ export default function Vendors({
     setVendors(prev => prev.map(v => ids.includes(v.id) ? { ...v, location: loc } : v));
     setSelectedIds(new Set());
   };
+  // Inline table-cell edit — saves immediately, no modal needed.
+  const updateVendorField = (id, field, value) => {
+    setVendors(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
+    api.put(`/api/vendors/${id}`, { [field]: value }).catch(() => {});
+  };
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
@@ -73,13 +102,13 @@ export default function Vendors({
             {filteredBB.map(b=>(
               <tr key={b.id} className="row" onClick={()=>{const d=b.dietaries;setEditVendor({...b,dietaries:typeof d==="string"?(() => {try{return JSON.parse(d)}catch{return []}})():Array.isArray(d)?d:[],_xContacts:getXContacts('vendor',b.id)});}} style={{cursor:"pointer",background:selectedIds.has(b.id)?"#fffbe6":undefined}}>
                 <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`}} onClick={e=>{e.stopPropagation();toggleId(b.id);}}><input type="checkbox" checked={selectedIds.has(b.id)} readOnly/></td>
-                <TD bold>{b.name}</TD>
-                <TD muted>{b.company||"\u2014"}</TD>
-                <TD muted>{b.category||"\u2014"}</TD>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}><a href={`mailto:${b.email}`} onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.email||"\u2014"}</a></td>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,whiteSpace:"nowrap",fontSize:12.5,color:T.sub}}>{b.phone||"\u2014"}</td>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`}}>{b.website?<a href={`https://${b.website}`} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:12.5,color:T.link,textDecoration:"none"}}>{b.website}</a>:<span style={{color:T.muted,fontSize:12.5}}>{"\u2014"}</span>}</td>
-                <TD muted>{b.location||"\u2014"}</TD>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,fontWeight:600,color:T.text}}><VendorCell value={b.name} onSave={v=>updateVendorField(b.id,"name",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.company} onSave={v=>updateVendorField(b.id,"company",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.category} onSave={v=>updateVendorField(b.id,"category",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.link}}><VendorCell value={b.email} onSave={v=>updateVendorField(b.id,"email",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.sub}}><VendorCell value={b.phone} onSave={v=>updateVendorField(b.id,"phone",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.link}}><VendorCell value={b.website} onSave={v=>updateVendorField(b.id,"website",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.location} onSave={v=>updateVendorField(b.id,"location",v)} /></td>
               </tr>
             ))}
             {filteredBB.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
