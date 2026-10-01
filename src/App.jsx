@@ -1267,7 +1267,7 @@ function OnnaDashboardInner() {
     customVendorCats, setCustomVendorCats,
     OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, promoteToClient,
     localLeads, setLocalLeads, setLeadStatusOverrides, setOutreach,
-    archiveItem, pruneCustom, setXContacts, pushUndo,
+    archiveItem, pruneCustom, setXContacts, getXContacts, pushUndo,
     showRateModal, setShowRateModal, rateInput, setRateInput,
     editVendor, setEditVendor, vendors, setVendors,
     newVendor, setNewVendor, newLead, setNewLead,

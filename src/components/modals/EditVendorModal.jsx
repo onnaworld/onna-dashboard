@@ -1,10 +1,33 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import MobileDrawer, { CollapsibleSection } from "../ui/MobileDrawer";
+import { Typeahead } from "../ui/Typeahead";
 
-export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, LocationPicker, CategoryPicker, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, addNewOption, customVendorCats, setCustomVendorCats, allVendorCats, allLocations, customLocations, setCustomLocations, DIETARY_TAGS, DIETARY_TAG_COLORS, addContactForm, setAddContactForm, setXContacts, localLeads, setLocalLeads, setUndoToastMsg, doLogActivity }) {
+// Vendor record field reuse (no backend schema change available, so two
+// retired fields are repurposed rather than left unused):
+//   - `rateCard` now holds the Instagram handle/link (Rate Card UI is gone).
+//   - `dietaryNotes` now holds the primary contact's name (Dietary
+//     Requirements UI is gone) — paired with the existing `email`/`phone`
+//     columns to form the first row of the unified Contact list.
+// Anything additional beyond that first contact still lives in the
+// existing local `_xContacts` store (per-vendor, via getXContacts/setXContacts).
+const buildContacts = (ev) => {
+  const primary = { name: ev.dietaryNotes || "", email: ev.email || "", phone: ev.phone || "" };
+  const extra = Array.isArray(ev._xContacts) ? ev._xContacts.map(c => ({ name: c.name || "", email: c.email || "", phone: c.phone || "" })) : [];
+  return [primary, ...extra];
+};
+
+export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, editVendor, setEditVendor, api, vendors, setVendors, archiveItem, pruneCustom, customVendorCats, setCustomVendorCats, allVendorCats, allLocations, customLocations, setCustomLocations, setXContacts, getXContacts, localLeads, setLocalLeads, setUndoToastMsg }) {
   const showToast = msg => { if(setUndoToastMsg){setUndoToastMsg(msg);setTimeout(()=>setUndoToastMsg(""),3000);} };
+  const [contacts, setContacts] = useState(() => buildContacts(editVendor));
+  useEffect(() => { setContacts(buildContacts(editVendor)); }, [editVendor.id]); // eslint-disable-line
+
+  const loadVendor = (match) => {
+    if (!match) return;
+    setEditVendor({ ...match, _xContacts: getXContacts('vendor', match.id) });
+  };
+
   const vendorToLead = async (move) => {
-    const company = (editVendor.company||editVendor.name||"").trim();
+    const company = (editVendor.name||"").trim();
     if (!company) return;
     if (localLeads.some(l=>(l.company||"").toLowerCase()===company.toLowerCase())) {
       alert(`${company} is already a lead.`);
@@ -12,9 +35,9 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
     }
     const newLead = {
       company,
-      contact: editVendor.name||"",
-      email: editVendor.email||"",
-      phone: editVendor.phone||"",
+      contact: contacts[0]?.name||"",
+      email: contacts[0]?.email||"",
+      phone: contacts[0]?.phone||"",
       location: editVendor.location||"",
       category: editVendor.category||"",
       notes: editVendor.notes||"",
@@ -37,60 +60,49 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
     showToast(move?"Moved to Leads ✓":"Copied to Leads ✓");
     setEditVendor(null);
   };
+
+  const updateContact = (i, field, val) => setContacts(prev => prev.map((c,j) => j===i ? {...c,[field]:val} : c));
+  const removeContact = (i) => setContacts(prev => prev.filter((_,j) => j!==i));
+  const addContact = () => setContacts(prev => [...prev, { name:"", email:"", phone:"" }]);
+
+  const vendorNameOptions = vendors.map(v=>v.name).filter(n=>n && n!==editVendor.name);
+  const categoryOptions = allVendorCats.filter(c=>c!=="All");
+
+  const fieldLbl = { fontSize:10, color:T.muted, marginBottom:4, fontWeight:500, letterSpacing:"0.06em", textTransform:"uppercase" };
+  const fieldBox = { width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:9, background:"#f5f5f7", border:`1px solid ${T.border}`, color:T.text, fontSize:13, fontFamily:"inherit" };
+
   const content = (
     <>
-      {/* Contact details */}
-      <CollapsibleSection title="Contact Details" defaultOpen={true}>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
-          {[["Name","name"],["Company","company"],["Email","email"],["Phone","phone"],["Website","website"]].map(([label,key])=>(
-            <div key={key}>
-              <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>{label}</div>
-              <input value={editVendor[key]||""} onChange={e=>setEditVendor(p=>({...p,[key]:e.target.value}))}
-                style={{width:"100%",padding:"9px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit"}}/>
-            </div>
-          ))}
-          <div>
-            <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Category</div>
-            <CategoryPicker value={editVendor.category||""} onChange={v=>setEditVendor(p=>({...p,category:v}))} options={allVendorCats.filter(c=>c!=="All")} addNewOption={addNewOption} customCats={customVendorCats} setCustomCats={setCustomVendorCats} storageKey="onna_vendor_cats"/>
-          </div>
-          <div>
-            <div style={{fontSize:10,color:T.muted,marginBottom:4,fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Location</div>
-            <LocationPicker value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={allLocations} addNewOption={addNewOption} customLocs={customLocations} setCustomLocs={setCustomLocations} storageKey="onna_custom_locations"/>
-          </div>
+      <CollapsibleSection title="Name" defaultOpen={true}>
+        <div style={{marginBottom:14}}>
+          <Typeahead
+            value={editVendor.name||""}
+            onChange={v=>setEditVendor(p=>({...p,name:v}))}
+            options={vendorNameOptions}
+            onPickExisting={name=>loadVendor(vendors.find(v=>v.name===name))}
+            style={{...fieldBox}}
+            inputStyle={{padding:"9px 12px",borderRadius:9,fontSize:13}}
+          />
         </div>
       </CollapsibleSection>
 
-      {/* Additional Contacts — kept right under Contact Details so a second
-          contact is immediately visible, not buried in its own section at
-          the bottom of the card. */}
-      <CollapsibleSection title="Additional Contacts" defaultOpen={true}>
+      {/* Contact — one unified list: name/email/phone, add as many as needed. */}
+      <CollapsibleSection title="Contact" defaultOpen={true}>
         <div style={{marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:8}}>
-            <button onClick={()=>setAddContactForm({type:"vendor",name:"",email:"",phone:"",role:""})} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>+ Add Contact</button>
+            <button onClick={addContact} style={{fontSize:11,color:"#d4aa20",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:700,padding:0}}>+ Add Contact</button>
           </div>
-          {(editVendor._xContacts||[]).map((c,i)=>(
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8,padding:"8px 10px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
-              <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Name</div><div style={{fontSize:12,color:T.text}}>{c.name||"—"}</div></div>
-              <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Role</div><div style={{fontSize:12,color:T.text}}>{c.role||"—"}</div></div>
-              <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Email</div><div style={{fontSize:12,color:T.text}}>{c.email||"—"}</div></div>
-              <div><div style={{fontSize:9,color:T.muted,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>Phone</div><div style={{fontSize:12,color:T.text}}>{c.phone||"—"}</div></div>
-              <button onClick={()=>setEditVendor(p=>{const updated=(p._xContacts||[]).filter((_,j)=>j!==i);setXContacts('vendor',p.id,updated);return{...p,_xContacts:updated};})} style={{position:"absolute",top:4,right:8,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>x</button>
+          {contacts.map((c,i)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8,padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,position:"relative"}}>
+              {[["Name","name"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
+                <div key={k}>
+                  <div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
+                  <input value={c[k]||""} onChange={e=>updateContact(i,k,e.target.value)} style={{width:"100%",boxSizing:"border-box",padding:"6px 9px",borderRadius:7,background:"#fff",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/>
+                </div>
+              ))}
+              {contacts.length>1 && <button onClick={()=>removeContact(i)} style={{position:"absolute",top:4,right:6,background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:15,padding:0,lineHeight:1}}>×</button>}
             </div>
           ))}
-          {addContactForm?.type==="vendor"&&(
-            <div style={{padding:"10px 12px",borderRadius:9,background:"white",border:"1.5px solid #F5D13A",marginTop:4}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                {[["Name","name"],["Role","role"],["Email","email"],["Phone","phone"]].map(([lbl,k])=>(
-                  <div key={k}><div style={{fontSize:9,color:T.muted,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em",fontWeight:500}}>{lbl}</div>
-                    <input value={addContactForm[k]||""} onChange={e=>setAddContactForm(p=>({...p,[k]:e.target.value}))} style={{width:"100%",padding:"6px 9px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit"}}/></div>
-                ))}
-              </div>
-              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                <button onClick={()=>setAddContactForm(null)} style={{padding:"5px 14px",borderRadius:8,background:"none",border:`1px solid ${T.border}`,color:T.muted,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
-                <button onClick={()=>{const nc={name:addContactForm.name||"",email:addContactForm.email||"",phone:addContactForm.phone||"",role:addContactForm.role||""};setEditVendor(p=>{const updated=[...(p._xContacts||[]),nc];setXContacts('vendor',p.id,updated);return{...p,_xContacts:updated};});setAddContactForm(null);}} style={{padding:"5px 14px",borderRadius:8,background:"#F5D13A",border:"none",color:"#3d2800",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add</button>
-              </div>
-            </div>
-          )}
         </div>
       </CollapsibleSection>
 
@@ -98,43 +110,42 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
       <CollapsibleSection title="Notes" defaultOpen={!isMobile}>
         <div style={{marginBottom:16}}>
           <textarea value={editVendor.notes||""} onChange={e=>setEditVendor(p=>({...p,notes:e.target.value}))} rows={6}
-            placeholder="Parking, access, contacts on set, booking lead time…"
-            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
+            placeholder="Parking, access, contacts on set, booking lead time, rate card…"
+            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6",boxSizing:"border-box"}}/>
         </div>
       </CollapsibleSection>
 
-      {/* Rate card */}
-      <CollapsibleSection title="Rate Card" defaultOpen={!isMobile}>
-        <div style={{marginBottom:14}}>
-          <textarea value={editVendor.rateCard||""} onChange={e=>setEditVendor(p=>({...p,rateCard:e.target.value}))} rows={5}
-            placeholder="e.g. AED 1,500/half day · AED 2,800/full day · overtime at AED 300/hr"
-            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
-        </div>
-      </CollapsibleSection>
-
-      {/* Dietaries */}
-      <CollapsibleSection title="Dietary Requirements" defaultOpen={!isMobile}>
-        <div style={{marginBottom:14}}>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-            {DIETARY_TAGS.filter(t=>t!=="None").map(tag=>{const tc=DIETARY_TAG_COLORS[tag];const selected=(editVendor.dietaries||[]).includes(tag);return(
-              <button key={tag} onClick={()=>setEditVendor(p=>{const cur=p.dietaries||[];return{...p,dietaries:selected?cur.filter(t=>t!==tag):[...cur,tag]};})}
-                style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:selected?700:500,fontFamily:"inherit",cursor:"pointer",border:selected?`1.5px solid ${tc.text}`:`1px solid ${T.border}`,background:selected?tc.bg:"#fafafa",color:selected?tc.text:T.muted,transition:"all 0.15s ease"}}>{tag}</button>
-            );})}
+      {/* Website + Instagram */}
+      <CollapsibleSection title="Website & Instagram" defaultOpen={true}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+          <div>
+            <div style={fieldLbl}>Website</div>
+            <input value={editVendor.website||""} onChange={e=>setEditVendor(p=>({...p,website:e.target.value}))} style={fieldBox}/>
           </div>
-          {(editVendor.dietaries||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
-            {(editVendor.dietaries||[]).map(tag=>{const tc=DIETARY_TAG_COLORS[tag]||DIETARY_TAG_COLORS["Other"];return(
-              <span key={tag} style={{fontSize:10,fontWeight:600,background:tc.bg,color:tc.text,padding:"3px 8px",borderRadius:10,letterSpacing:"0.03em"}}>{tag}</span>
-            );})}
-          </div>}
-          <textarea value={editVendor.dietaryNotes||""} onChange={e=>setEditVendor(p=>({...p,dietaryNotes:e.target.value}))} rows={2}
-            placeholder="Additional dietary notes, allergies, preferences…"
-            style={{width:"100%",padding:"10px 12px",borderRadius:9,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:13,fontFamily:"inherit",resize:"vertical",lineHeight:"1.6"}}/>
+          <div>
+            <div style={fieldLbl}>Instagram</div>
+            <input value={editVendor.rateCard||""} onChange={e=>setEditVendor(p=>({...p,rateCard:e.target.value}))} placeholder="@handle" style={fieldBox}/>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Category + Location */}
+      <CollapsibleSection title="Category & Location" defaultOpen={true}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+          <div>
+            <div style={fieldLbl}>Category</div>
+            <Typeahead value={editVendor.category||""} onChange={v=>setEditVendor(p=>({...p,category:v}))} options={categoryOptions} style={fieldBox} inputStyle={{padding:"9px 12px",borderRadius:9,fontSize:13}}/>
+          </div>
+          <div>
+            <div style={fieldLbl}>Location</div>
+            <Typeahead value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={allLocations} style={fieldBox} inputStyle={{padding:"9px 12px",borderRadius:9,fontSize:13}}/>
+          </div>
         </div>
       </CollapsibleSection>
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
         <button onClick={()=>vendorToLead(false)} style={{padding:"7px 16px",borderRadius:9,background:"#f3f0ff",border:"1px solid #d8d0f8",color:"#7c3aed",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Copy to Lead</button>
-        <button onClick={()=>{if(window.confirm(`Move ${editVendor.name||editVendor.company} to Leads? This will remove it from Vendors.`))vendorToLead(true);}} style={{padding:"7px 16px",borderRadius:9,background:"#eff6ff",border:"1px solid #bfdbfe",color:"#1a56db",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Move to Lead</button>
+        <button onClick={()=>{if(window.confirm(`Move ${editVendor.name} to Leads? This will remove it from Vendors.`))vendorToLead(true);}} style={{padding:"7px 16px",borderRadius:9,background:"#eff6ff",border:"1px solid #bfdbfe",color:"#1a56db",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Move to Lead</button>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <button onClick={async()=>{
@@ -150,14 +161,15 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
         <div style={{display:"flex",gap:8}}>
           <BtnSecondary onClick={()=>setEditVendor(null)}>Cancel</BtnSecondary>
           <BtnPrimary onClick={async()=>{
-            const {id,_xContacts,...fields}=editVendor;
-            if(Array.isArray(fields.dietaries))fields.dietaries=JSON.stringify(fields.dietaries);
-            // Ensure no undefined/null values — backend may reject them
+            const {id,_xContacts,dietaries,...rest}=editVendor;
+            const [primary, ...extra] = contacts;
+            const fields = { ...rest, email: primary?.email||"", phone: primary?.phone||"", dietaryNotes: primary?.name||"" };
+            delete fields.company;
             Object.keys(fields).forEach(k=>{if(fields[k]==null)fields[k]="";});
-            setXContacts('vendor', id, _xContacts||[]);
+            setXContacts('vendor', id, extra);
             try{
               await api.put(`/api/vendors/${id}`,fields);
-              setVendors(prev=>prev.map(v=>v.id===id?editVendor:v));
+              setVendors(prev=>prev.map(v=>v.id===id?{...v,...fields}:v));
               showToast("Saved ✓");
               setEditVendor(null);
             }catch(e){showToast("Save failed — please try again");}
@@ -177,7 +189,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, Sel, Lo
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:22}}>
           <div>
             <div style={{fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:T.text}}>{editVendor.name||"Vendor"}</div>
-            <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[editVendor.company,editVendor.category,editVendor.location].filter(Boolean).join(" · ")}</div>
+            <div style={{fontSize:12,color:T.muted,marginTop:3}}>{[editVendor.category,editVendor.location].filter(Boolean).join(" · ")}</div>
           </div>
           <button onClick={()=>setEditVendor(null)} style={{background:"#f5f5f7",border:"none",color:T.sub,width:28,height:28,borderRadius:"50%",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>x</button>
         </div>

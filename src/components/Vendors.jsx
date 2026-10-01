@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
+import { Typeahead } from "./ui/Typeahead";
 
 // Click-to-edit table cell — click anywhere in the cell to turn it into a
 // text input, blur/Enter commits, Escape cancels. Stops the row's own
@@ -99,6 +100,8 @@ export default function Vendors({
     const d = b.dietaries;
     setEditVendor({ ...b, dietaries: typeof d === "string" ? (() => { try { return JSON.parse(d); } catch { return []; } })() : Array.isArray(d) ? d : [], _xContacts: getXContacts('vendor', b.id) });
   };
+  const vendorNameOptions = vendors.map(v => v.name).filter(Boolean);
+  const categoryOptions = allVendorCats.filter(c => c !== "All");
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
@@ -106,34 +109,39 @@ export default function Vendors({
         <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setBbCat(n);}else{setBbCat(v);}}} options={allVendorCats} minWidth={170} searchable/>
         <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLocations,setCustomLocations,'onna_custom_locations',"New location name:");if(n)setBbLocation(n);}else{setBbLocation(v);}}} options={allLocations} minWidth={170} searchable/>
         <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
-        <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Rate Card"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
-        <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"company",label:"Company"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
+        <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Instagram"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
+        <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
         <BtnPrimary onClick={addBlankVendor} disabled={addingBlank}>+ New Vendor</BtnPrimary>
       </div>
       <div className="mob-table-wrap" style={{borderRadius:16,border:`1px solid ${T.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
         <table style={{width:"100%",borderCollapse:"collapse",background:T.surface,minWidth:isMobile?520:"auto"}}>
           <thead><tr>
             <th style={{padding:"11px 8px",borderBottom:`1px solid ${T.border}`,width:32}}><input type="checkbox" checked={selectedIds.size===filteredBB.length&&filteredBB.length>0} onChange={toggleAll}/></th>
-            <TH>Name</TH><TH>Company</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH>
+            <TH>Name</TH><TH>Category</TH><TH>Email</TH><TH>Phone</TH><TH>Website</TH><TH>Location</TH>
             <th style={{padding:"11px 8px",borderBottom:`1px solid ${T.border}`,width:32}}></th>
           </tr></thead>
           <tbody>
             {filteredBB.map(b=>(
               <tr key={b.id} className="row" style={{background:selectedIds.has(b.id)?"#fffbe6":undefined}}>
                 <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`}}><input type="checkbox" checked={selectedIds.has(b.id)} onChange={()=>toggleId(b.id)}/></td>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,fontWeight:600,color:T.text}}><VendorCell value={b.name} onSave={v=>updateVendorField(b.id,"name",v)} /></td>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.company} onSave={v=>updateVendorField(b.id,"company",v)} /></td>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.category} onSave={v=>updateVendorField(b.id,"category",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,fontWeight:600,color:T.text}}>
+                  <Typeahead value={b.name} options={vendorNameOptions.filter(n=>n!==b.name)} onChange={v=>updateVendorField(b.id,"name",v)} onPickExisting={n=>{const match=vendors.find(v=>v.name===n);if(match)openVendorCard(match);}} />
+                </td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}>
+                  <Typeahead value={b.category} options={categoryOptions} onChange={v=>updateVendorField(b.id,"category",v)} />
+                </td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.link}}><VendorCell value={b.email} onSave={v=>updateVendorField(b.id,"email",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.sub}}><VendorCell value={b.phone} onSave={v=>updateVendorField(b.id,"phone",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.link}}><VendorCell value={b.website} onSave={v=>updateVendorField(b.id,"website",v)} /></td>
-                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}><VendorCell value={b.location} onSave={v=>updateVendorField(b.id,"location",v)} /></td>
+                <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}>
+                  <Typeahead value={b.location} options={allLocations} onChange={v=>updateVendorField(b.id,"location",v)} />
+                </td>
                 <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
                   <button onClick={()=>openVendorCard(b)} title="Open full details" style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:2,lineHeight:1}}>⤢</button>
                 </td>
               </tr>
             ))}
-            {filteredBB.length===0&&<tr><td colSpan={9} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
+            {filteredBB.length===0&&<tr><td colSpan={8} style={{padding:44,textAlign:"center",color:T.muted,fontSize:13}}>No contacts found.</td></tr>}
           </tbody>
         </table>
       </div>
