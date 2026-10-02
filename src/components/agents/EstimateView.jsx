@@ -11,7 +11,7 @@ const EST_CURRENCIES = [
   { code: "EUR", label: "EUR — Euro", symbol: "EUR", rates: { AED: 4.3478, USD: 1.1832, GBP: 0.8879, SAR: 4.4398 } },
   { code: "SAR", label: "SAR — Saudi Riyal", symbol: "SAR", rates: { AED: 0.9798, USD: 0.2667, GBP: 0.2001, EUR: 0.2252 } },
 ];
-function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker, projectName }) {
+function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker, projectName, projectId }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
   // Which phase's sections/rows are shown in the ESTIMATES tab when there's
@@ -325,6 +325,56 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     }, 150);
   };
 
+  // Client-facing read-only preview link — captures the same static snapshot
+  // as doPrint (same page/estimate filtering) but posts it to /api/estimate-share
+  // instead of opening a print dialog. Reuses the stored token/resourceId so
+  // re-sharing after edits updates the same link rather than minting a new one.
+  const [sharingLink, setSharingLink] = useState(false);
+  const generateShareLink = (pages) => {
+    setSharingLink(true);
+    setShowAll(true);
+    setTimeout(async () => {
+      const el = printRef.current; if (!el) { setShowAll(false); setSharingLink(false); return; }
+      const clone = el.cloneNode(true);
+      clone.querySelectorAll('[data-noprint]').forEach(n=>n.remove());
+      clone.querySelectorAll('[data-cs-placeholder]').forEach(n=>n.remove());
+      clone.querySelectorAll('textarea').forEach(n=>n.remove());
+      clone.querySelectorAll('button').forEach(n=>n.remove());
+      clone.querySelectorAll('input[type=file]').forEach(n=>n.remove());
+      clone.querySelectorAll('input').forEach(inp=>{const sp=document.createElement('span');sp.textContent=inp.value||"";sp.style.cssText=inp.style.cssText;sp.style.border="none";sp.style.outline="none";sp.style.background="transparent";inp.parentNode.replaceChild(sp,inp);});
+      clone.querySelectorAll('select').forEach(sel=>{const sp=document.createElement('span');sp.textContent=sel.options[sel.selectedIndex]?.text||sel.value||"";sp.style.cssText=sel.style.cssText;sel.parentNode.replaceChild(sp,sel);});
+      if (pages) {
+        clone.querySelectorAll('[data-page]').forEach(pg => { if (!pages.includes(pg.getAttribute('data-page'))) pg.remove(); });
+      }
+      if (exportPhaseIds !== null) {
+        const keepIds = exportPhaseIds.map(String);
+        clone.querySelectorAll('[data-phase-id]').forEach(ph => { if (!keepIds.includes(ph.getAttribute('data-phase-id'))) ph.remove(); });
+      }
+      clone.querySelectorAll('img').forEach(im => { if (im.src && !im.src.startsWith('data:') && !im.src.startsWith('http')) im.src = window.location.origin + im.getAttribute('src'); });
+      const html = clone.innerHTML;
+      setShowAll(false);
+      try {
+        const body = { html, projectName: projectName || ts.version || "", projectId: projectId || "" };
+        if (estData.shareToken) body.token = estData.shareToken;
+        if (estData.shareResourceId) body.resourceId = estData.shareResourceId;
+        const resp = await fetch("/api/estimate-share", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const data = await resp.json();
+        if (data.url) {
+          if (data.token !== estData.shareToken || data.id !== estData.shareResourceId) {
+            onSet(d => ({ ...d, shareToken: data.token, shareResourceId: data.id }));
+          }
+          await navigator.clipboard.writeText(data.url).catch(() => {});
+          window.alert("Preview link copied to clipboard!\n\n" + data.url + "\n\nThis link stops working once the project is archived.");
+        } else {
+          window.alert("Failed to generate link: " + (data.error || "Unknown error"));
+        }
+      } catch (err) {
+        window.alert("Error generating link: " + err.message);
+      }
+      setSharingLink(false);
+    }, 150);
+  };
+
   useEffect(() => {
     const handler = () => doPrint(null);
     window.addEventListener('onna-export-estimate', handler);
@@ -479,6 +529,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         </React.Fragment>)}
         </div>
         <div style={{ display:"flex",position:"relative",flexShrink:0 }}>
+          <div onClick={()=>{if(!sharingLink)generateShareLink(exportPages);}} title="Generate a read-only client preview link" style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:sharingLink?"default":"pointer",whiteSpace:"nowrap",background:sharingLink?"#555":"#333",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
+            onMouseEnter={e=>{if(!sharingLink)e.target.style.background="#222"}} onMouseLeave={e=>{if(!sharingLink)e.target.style.background="#333"}}>{sharingLink?"…":(_narrow?"LINK":"SHARE LINK")}</div>
           <div onClick={doExcelExport} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#147d50",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
             onMouseEnter={e=>{e.target.style.background="#0f6640"}} onMouseLeave={e=>{e.target.style.background="#147d50"}}>{_narrow?"XLS":"EXPORT EXCEL"}</div>
           <div onClick={()=>setShowExportMenu(v=>!v)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showExportMenu?"#333":"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd",userSelect:"none" }}
@@ -699,7 +751,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             const pt = phaseTotals[pi];
             const subtotal = pt.subtotal;
             return (
-            <div key={phase.id} data-phase-id={phase.id} style={{marginBottom:24}}>
+            <div key={phase.id} data-phase-id={phase.id} data-phase-label={phase.title || `Estimate ${pi+1}`} style={{marginBottom:24}}>
               {multiPhase && (
                 <div style={phaseHdrBar}>
                   <span data-noprint style={{fontSize:9,color:"#aaa"}}>ESTIMATE {pi+1}</span>

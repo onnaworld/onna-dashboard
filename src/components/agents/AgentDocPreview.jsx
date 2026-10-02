@@ -476,7 +476,7 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
           <span style={{display:"flex",alignItems:"center",gap:6}}>Estimate — <input value={estData.ts?.version||""} onChange={e=>{const v=e.target.value;estSet(d=>({...d,ts:{...(d.ts||ESTIMATE_INIT.ts),version:v}}));}} placeholder={`V${estIdx+1}`} style={{padding:"2px 6px",borderRadius:5,border:"1px solid #e0e0e0",fontSize:10,fontWeight:600,fontFamily:"inherit",color:"#555",width:180,letterSpacing:1,textTransform:"uppercase",background:"transparent"}} onFocus={e=>{e.target.style.borderColor="#7ab87a";e.target.style.background="#f3fff3";}} onBlur={e=>{e.target.style.borderColor="#e0e0e0";e.target.style.background="transparent";}}/></span>
           {bpr&&bpr.markers.length>0&&(<div style={{display:"flex",gap:4}}><button onClick={acceptAllB} style={{fontSize:9,fontWeight:600,color:"#2e7d32",background:"#e8f5e9",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Accept All</button><button onClick={declineAllB} style={{fontSize:9,fontWeight:600,color:"#c62828",background:"#fce4ec",border:"none",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>Decline All</button></div>)}
         </div>
-        <EstimateView estData={estData} onSet={estSet} pendingReview={bpr} onAcceptMarker={acceptBM} onDeclineMarker={declineBM} />
+        <EstimateView estData={estData} onSet={estSet} pendingReview={bpr} onAcceptMarker={acceptBM} onDeclineMarker={declineBM} projectId={projectId} />
       </div>
     );
   }
