@@ -14,6 +14,10 @@ const EST_CURRENCIES = [
 function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingReview, onAcceptMarker, onDeclineMarker, projectName }) {
   const [estTab, setEstTab] = useState("topsheet");
   const [showAll, setShowAll] = useState(false);
+  // Which phase's sections/rows are shown in the ESTIMATES tab when there's
+  // more than one phase — phases are edited one at a time, tab-style, but
+  // export/print always renders every phase (showAll overrides this).
+  const [activePhase, setActivePhase] = useState(0);
   // Responsive: measure container width
   const _containerRef = useRef(null);
   const [_cw, _setCw] = useState(900);
@@ -84,6 +88,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   // shown, until the user explicitly adds a second phase.
   const phases = getEstPhases(estData);
   const multiPhase = phases.length > 1;
+  useEffect(() => {
+    if (activePhase > phases.length - 1) setActivePhase(Math.max(0, phases.length - 1));
+  }, [phases.length]);
   const saFields = estData.saFields || (() => { const init = {}; EST_SA_FIELDS.forEach((f,i) => { init[i] = f.defaultValue; }); return init; })();
   const tcsText = estData.tcsText || DEFAULT_TCS;
   const saSigs = estData.saSigs || {};
@@ -147,6 +154,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
 
   // ── Phase CRUD ──
   const addPhase = () => {
+    setActivePhase(phases.length);
     setPhases(ps => {
       // First time a second phase is added, name the (previously untitled) first phase too.
       if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Phase 1" };
@@ -155,6 +163,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     });
   };
   const duplicatePreviousPhase = () => {
+    setActivePhase(phases.length);
     setPhases(ps => {
       if (!ps.length) return ps;
       if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Phase 1" };
@@ -610,7 +619,17 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               </div>
             );
           })()}
+          {multiPhase && !showAll && (
+            <div data-noprint style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+              {phases.map((phase,pi)=>(
+                <div key={phase.id} onClick={()=>setActivePhase(pi)} style={{fontFamily:EST_F,fontSize:9,fontWeight:activePhase===pi?800:600,letterSpacing:EST_LS,padding:"7px 16px",borderRadius:6,cursor:"pointer",background:activePhase===pi?"#000":"#f0f0f0",color:activePhase===pi?"#fff":"#666",textTransform:"uppercase",whiteSpace:"nowrap",transition:"all .15s"}}>
+                  {phase.title || `Phase ${pi+1}`}
+                </div>
+              ))}
+            </div>
+          )}
           {phases.map((phase, pi) => {
+            if (multiPhase && !showAll && pi !== activePhase) return null;
             const pt = phaseTotals[pi];
             const subtotal = pt.subtotal;
             return (
@@ -621,9 +640,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   <div style={{flex:1}}>
                     <EstCell value={phase.title} onChange={v=>renamePhase(pi,v)} style={{fontSize:11,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase"}} />
                   </div>
-                  <span data-noprint onClick={()=>movePhase(pi,-1)} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
-                  <span data-noprint onClick={()=>movePhase(pi,1)} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
-                  <span data-noprint onClick={()=>removePhase(pi)} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Phase</span>
+                  <span data-noprint onClick={()=>{movePhase(pi,-1);setActivePhase(a=>a===pi?pi-1:a===pi-1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
+                  <span data-noprint onClick={()=>{movePhase(pi,1);setActivePhase(a=>a===pi?pi+1:a===pi+1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
+                  <span data-noprint onClick={()=>{removePhase(pi);setActivePhase(0);}} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Phase</span>
                 </div>
               )}
               {phase.sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
