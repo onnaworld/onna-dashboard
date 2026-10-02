@@ -83,7 +83,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     return () => window.removeEventListener('keydown', handler, true);
   }, []);
 
-  const ts = estData.ts || ESTIMATE_INIT.ts;
+  // Backfill the standard Notes clause for estimates saved before it existed —
+  // only when notes is still blank, so anything actually typed is untouched.
+  const ts = estData.ts ? { ...estData.ts, notes: estData.ts.notes || ESTIMATE_INIT.ts.notes } : ESTIMATE_INIT.ts;
   // ── Phases: an estimate is a list of phases, each its own sections/subtotal/VAT.
   // Legacy estimates (flat `sections`, no `phases`) are normalized into one
   // implicit, untitled phase — they render exactly as before, no phase chrome
