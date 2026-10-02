@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
 import { Typeahead } from "./ui/Typeahead";
+import { WORLD_CITIES } from "../data/worldCities";
 
 // Click-to-edit table cell — click anywhere in the cell to turn it into a
 // text input, blur/Enter commits, Escape cancels. Stops the row's own
@@ -116,11 +117,14 @@ export default function Vendors({
     });
     return ["All", ...Array.from(set).sort(), "＋ Add location"];
   }, [vendors]);
-  // Full known-location registry, minus the "All"/"+ Add" sentinel entries —
-  // used to preload suggestions while typing a location (Category/Location
-  // Typeahead fields), as distinct from the filter dropdown above which only
+  // Preloaded world-cities list + whatever's already in use, minus the
+  // "All"/"+ Add" sentinel entries — used for Location type-ahead
+  // suggestions, as distinct from the filter dropdown above which only
   // lists locations a vendor is actually in.
-  const allLocationSuggestions = allLocations.filter(l => l !== "All" && l !== "＋ Add location");
+  const allLocationSuggestions = useMemo(() => {
+    const known = allLocations.filter(l => l !== "All" && l !== "＋ Add location");
+    return Array.from(new Set([...known, ...WORLD_CITIES])).sort();
+  }, [allLocations]);
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import MobileDrawer, { CollapsibleSection } from "../ui/MobileDrawer";
 import { Typeahead } from "../ui/Typeahead";
+import { WORLD_CITIES } from "../../data/worldCities";
 
 // Vendor record field reuse (no backend schema change available, so two
 // retired fields are repurposed rather than left unused):
@@ -67,6 +68,10 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, editVen
 
   const vendorNameOptions = vendors.map(v=>v.name).filter(n=>n && n!==editVendor.name);
   const categoryOptions = allVendorCats.filter(c=>c!=="All");
+  const locationOptions = useMemo(() => {
+    const known = allLocations.filter(l => l !== "All" && l !== "＋ Add location");
+    return Array.from(new Set([...known, ...WORLD_CITIES])).sort();
+  }, [allLocations]);
 
   const fieldLbl = { fontSize:10, color:T.muted, marginBottom:4, fontWeight:500, letterSpacing:"0.06em", textTransform:"uppercase" };
   const fieldBox = { width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:9, background:"#f5f5f7", border:`1px solid ${T.border}`, color:T.text, fontSize:13, fontFamily:"inherit" };
@@ -138,7 +143,7 @@ export function EditVendorModal({ T, isMobile, BtnPrimary, BtnSecondary, editVen
           </div>
           <div>
             <div style={fieldLbl}>Location</div>
-            <Typeahead value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={allLocations} style={fieldBox} inputStyle={{padding:"9px 12px",borderRadius:9,fontSize:13}}/>
+            <Typeahead value={editVendor.location||""} onChange={v=>setEditVendor(p=>({...p,location:v}))} options={locationOptions} style={fieldBox} inputStyle={{padding:"9px 12px",borderRadius:9,fontSize:13}}/>
           </div>
         </div>
       </CollapsibleSection>
