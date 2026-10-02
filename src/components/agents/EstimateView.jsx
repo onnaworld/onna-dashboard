@@ -162,24 +162,12 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       return ps;
     });
   };
-  const duplicatePreviousPhase = () => {
-    setActivePhase(phases.length);
-    setPhases(ps => {
-      if (!ps.length) return ps;
-      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Estimate 1" };
-      const src = ps[ps.length - 1];
-      const dup = JSON.parse(JSON.stringify(src));
-      dup.id = Date.now() + Math.random();
-      dup.title = `Estimate ${ps.length + 1}`;
-      ps.push(dup);
-      return ps;
-    });
-  };
-  // Duplicate one specific estimate (inserted right after it), as opposed to
-  // duplicatePreviousPhase which always duplicates the last one in the list.
+  // Duplicate one specific estimate, inserted right after it.
   const duplicatePhase = (pi) => {
     setActivePhase(pi + 1);
     setPhases(ps => {
+      // First time a second estimate is added, name the (previously untitled) first one too.
+      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Estimate 1" };
       const src = ps[pi];
       const dup = JSON.parse(JSON.stringify(src));
       dup.id = Date.now() + Math.random();
@@ -435,12 +423,14 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   return (
     <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
       <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
-        {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#fff",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
-        {multiPhase && phases.map((phase,pi)=>(
-          <div key={phase.id} onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#bbb",boxShadow:(estTab==="estimates"&&activePhase===pi)?"inset 0 -2px 0 #1a1a1a":"none",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #eee" }}>
-            {`Estimate ${pi+1}`}
-          </div>
-        ))}
+        {ETABS.map(t=><React.Fragment key={t.id}>
+          <div onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#fff",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>
+          {t.id==="estimates" && multiPhase && phases.map((phase,pi)=>(
+            <div key={phase.id} onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#bbb",boxShadow:(estTab==="estimates"&&activePhase===pi)?"inset 0 -2px 0 #1a1a1a":"none",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #eee" }}>
+              {`Estimate ${pi+1}`}
+            </div>
+          ))}
+        </React.Fragment>)}
         <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
           <div onClick={doExcelExport} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#147d50",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
             onMouseEnter={e=>{e.target.style.background="#0f6640"}} onMouseLeave={e=>{e.target.style.background="#147d50"}}>{_narrow?"XLS":"EXPORT EXCEL"}</div>
@@ -509,8 +499,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
           <span onClick={addPhase} style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Estimate</span>
-          <span onClick={duplicatePreviousPhase} title="Duplicate the last estimate, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>Duplicate Previous Estimate</span>
+          <span onClick={()=>duplicatePhase(activePhase)} title="Duplicate the current estimate, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>Duplicate Estimate</span>
         </div>
       </div>
 
@@ -645,7 +635,6 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   </div>
                   <span data-noprint onClick={()=>{movePhase(pi,-1);setActivePhase(a=>a===pi?pi-1:a===pi-1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
                   <span data-noprint onClick={()=>{movePhase(pi,1);setActivePhase(a=>a===pi?pi+1:a===pi+1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
-                  <span data-noprint onClick={()=>duplicatePhase(pi)} title="Duplicate this estimate, including its sections/rows" style={phaseArrowBtn}>Duplicate</span>
                   <span data-noprint onClick={()=>{removePhase(pi);setActivePhase(0);}} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Estimate</span>
                 </div>
               )}
@@ -759,8 +748,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div data-noprint style={{display:"flex",gap:8,marginBottom:multiPhase?16:0}}>
             <div onClick={addPhase} style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>+ Add Estimate</div>
-            <div onClick={duplicatePreviousPhase} title="Duplicate the last estimate, including its sections/rows" style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>Duplicate Previous Estimate</div>
+            <div onClick={()=>duplicatePhase(activePhase)} title="Duplicate the current estimate, including its sections/rows" style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>Duplicate Estimate</div>
           </div>
         </div>}
 
