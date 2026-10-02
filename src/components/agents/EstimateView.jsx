@@ -593,7 +593,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               <div key={key} style={{display:"flex",gap:4,marginBottom:0,minHeight:20,alignItems:"baseline",position:"relative",...(_tsHas?{background:"#E8F5E9"}:{})}}>
                 {_tsHas&&<span style={{position:"absolute",left:-28,top:2,display:"flex",gap:1}}><button onClick={()=>onAcceptMarker&&onAcceptMarker(_tsm)} style={_bRevBtn("accept")}>{"✓"}</button><button onClick={()=>onDeclineMarker&&onDeclineMarker(_tsm)} style={_bRevBtn("decline")}>{"✕"}</button></span>}
                 <span style={{fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,minWidth:_narrow?120:190,flexShrink:0}}>{lbl}</span>
-                <EstCell value={val} onChange={v=>tsSet(key,v)} style={{letterSpacing:EST_LS}} />
+                <EstCell value={val} onChange={v=>tsSet(key,v)} multiline={key==="deliverables"} style={{letterSpacing:EST_LS}} />
               </div>);
             })}
           </div>
