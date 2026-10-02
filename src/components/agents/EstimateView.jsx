@@ -425,7 +425,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
         {estTab==="estimates" && multiPhase && phases.map((phase,pi)=>(
           <div key={phase.id} onClick={()=>setActivePhase(pi)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:activePhase===pi?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:activePhase===pi?"#efece0":"#fafaf5",color:activePhase===pi?"#1a1a1a":"#999",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>
-            {phase.title || `Estimate ${pi+1}`}
+            {`Estimate ${pi+1}`}
           </div>
         ))}
         <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
