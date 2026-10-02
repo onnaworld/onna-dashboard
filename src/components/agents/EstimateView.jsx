@@ -272,6 +272,15 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const [footerHovered, setFooterHovered] = useState(false);
   const [exportPages, setExportPages] = useState(["topsheet","estimates","services","tcs"]);
   const toggleExportPage = (id) => setExportPages(prev => prev.includes(id) ? prev.filter(p=>p!==id) : [...prev,id]);
+  // Which individual estimates to include when the ESTIMATES page is exported —
+  // null means "all of them" (the common case); only built into a concrete
+  // id list once the user deselects at least one.
+  const [exportPhaseIds, setExportPhaseIds] = useState(null);
+  const isPhaseExported = (id) => exportPhaseIds === null || exportPhaseIds.includes(id);
+  const toggleExportPhase = (id) => setExportPhaseIds(prev => {
+    const cur = prev === null ? phases.map(p=>p.id) : prev;
+    return cur.includes(id) ? cur.filter(x=>x!==id) : [...cur,id];
+  });
   const doPrint = (pages) => {
     // pages = array of page ids to include, e.g. ["topsheet","estimates","services","tcs"]
     setShowAll(true);
@@ -289,6 +298,14 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       if (pages) {
         clone.querySelectorAll('[data-page]').forEach(pg => {
           if (!pages.includes(pg.getAttribute('data-page'))) pg.remove();
+        });
+      }
+      // Within the Estimates page, drop any individual estimates the user
+      // deselected (exportPhaseIds === null means all of them are included).
+      if (exportPhaseIds !== null) {
+        const keepIds = exportPhaseIds.map(String);
+        clone.querySelectorAll('[data-phase-id]').forEach(el => {
+          if (!keepIds.includes(el.getAttribute('data-phase-id'))) el.remove();
         });
       }
       // Filename browsers default "Save as PDF" to (via document.title below) —
@@ -454,12 +471,22 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div onClick={()=>setShowExportMenu(false)} style={{position:"fixed",inset:0,zIndex:999}} />
             <div style={{position:"absolute",top:"100%",right:0,background:"#fff",border:"1px solid #ddd",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:1000,minWidth:190,borderRadius:4,overflow:"hidden",marginTop:2}}>
               {[{id:"topsheet",label:"Top Sheet"},{id:"estimates",label:"Estimates"},{id:"services",label:"Services Agreement"},{id:"tcs",label:"T&Cs"}].map(opt=>(
-                <div key={opt.id} onClick={()=>toggleExportPage(opt.id)}
-                  style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,padding:"7px 12px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#333",display:"flex",alignItems:"center",gap:8}}
-                  onMouseEnter={e=>{e.currentTarget.style.background="#f5f5f5"}} onMouseLeave={e=>{e.currentTarget.style.background="#fff"}}>
-                  <span style={{width:14,height:14,border:"1.5px solid #999",borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:exportPages.includes(opt.id)?"#000":"#fff",color:"#fff",fontSize:10,lineHeight:1}}>{exportPages.includes(opt.id)?"✓":""}</span>
-                  {opt.label}
-                </div>
+                <React.Fragment key={opt.id}>
+                  <div onClick={()=>toggleExportPage(opt.id)}
+                    style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,padding:"7px 12px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#333",display:"flex",alignItems:"center",gap:8}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#f5f5f5"}} onMouseLeave={e=>{e.currentTarget.style.background="#fff"}}>
+                    <span style={{width:14,height:14,border:"1.5px solid #999",borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:exportPages.includes(opt.id)?"#000":"#fff",color:"#fff",fontSize:10,lineHeight:1}}>{exportPages.includes(opt.id)?"✓":""}</span>
+                    {opt.label}
+                  </div>
+                  {opt.id==="estimates" && multiPhase && exportPages.includes("estimates") && phases.map((phase,pi)=>(
+                    <div key={phase.id} onClick={()=>toggleExportPhase(phase.id)}
+                      style={{fontFamily:EST_F,fontSize:8,letterSpacing:EST_LS,padding:"6px 12px 6px 28px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#777",display:"flex",alignItems:"center",gap:8,background:"#fafafa"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background="#f0f0f0"}} onMouseLeave={e=>{e.currentTarget.style.background="#fafafa"}}>
+                      <span style={{width:12,height:12,border:"1.5px solid #aaa",borderRadius:2,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:isPhaseExported(phase.id)?"#000":"#fff",color:"#fff",fontSize:9,lineHeight:1}}>{isPhaseExported(phase.id)?"✓":""}</span>
+                      {phase.title || `Estimate ${pi+1}`}
+                    </div>
+                  ))}
+                </React.Fragment>
               ))}
               <div onClick={()=>{if(exportPages.length>0){setShowExportMenu(false);doPrint(exportPages);}}}
                 style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"8px 12px",cursor:exportPages.length>0?"pointer":"default",textTransform:"uppercase",color:"#fff",background:exportPages.length>0?"#000":"#ccc",textAlign:"center"}}
@@ -642,7 +669,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             const pt = phaseTotals[pi];
             const subtotal = pt.subtotal;
             return (
-            <div key={phase.id} style={{marginBottom:24}}>
+            <div key={phase.id} data-phase-id={phase.id} style={{marginBottom:24}}>
               {multiPhase && (
                 <div style={phaseHdrBar}>
                   <span data-noprint style={{fontSize:9,color:"#aaa"}}>ESTIMATE {pi+1}</span>
