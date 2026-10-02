@@ -380,13 +380,6 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         ],
       });
     });
-    if (multiPhase) {
-      estimateBlocks.push({
-        title: "COMBINED GRAND TOTAL (ALL PHASES)",
-        columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
-        rows: [{ label: "TOTAL INC. VAT", value: r2v(combined.totalIncVat) }],
-      });
-    }
 
     // ── Services Agreement ──
     const servicesBlocks = [{
@@ -754,14 +747,6 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div onClick={duplicatePreviousPhase} title="Duplicate the last phase, including its sections/rows" style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>Duplicate Previous Phase</div>
           </div>
-          {multiPhase && (
-            <div style={{borderTop:"3px double #000",display:"flex",justifyContent:"flex-end"}}>
-              <div style={{width:420}}>
-                <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:11,fontWeight:800,letterSpacing:EST_LS}}>
-                  <span>COMBINED GRAND TOTAL</span><span>{baseCurrency} {estFmt(combined.totalIncVat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(combined.totalIncVat*xRate)}</span>}</div>
-              </div>
-            </div>
-          )}
         </div>}
 
         {(estTab === "services" || showAll) && <div data-page="services">
