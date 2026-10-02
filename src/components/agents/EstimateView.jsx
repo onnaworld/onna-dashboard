@@ -157,8 +157,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     setActivePhase(phases.length);
     setPhases(ps => {
       // First time a second phase is added, name the (previously untitled) first phase too.
-      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Phase 1" };
-      ps.push(emptyPhase(`Phase ${ps.length + 1}`));
+      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Estimate 1" };
+      ps.push(emptyPhase(`Estimate ${ps.length + 1}`));
       return ps;
     });
   };
@@ -166,11 +166,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     setActivePhase(phases.length);
     setPhases(ps => {
       if (!ps.length) return ps;
-      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Phase 1" };
+      if (ps.length === 1 && !ps[0].title) ps[0] = { ...ps[0], title: "Estimate 1" };
       const src = ps[ps.length - 1];
       const dup = JSON.parse(JSON.stringify(src));
       dup.id = Date.now() + Math.random();
-      dup.title = `Phase ${ps.length + 1}`;
+      dup.title = `Estimate ${ps.length + 1}`;
       ps.push(dup);
       return ps;
     });
@@ -180,7 +180,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const setPhaseNotes = (pi, val) => setPhases(ps => { ps[pi].notes = val; return ps; });
   const removePhase = (pi) => {
     if (phases.length <= 1) return;
-    if (!confirm(`Delete "${phases[pi].title || "this phase"}"? This removes all its sections and cannot be undone via redo of this action.`)) return;
+    if (!confirm(`Delete "${phases[pi].title || "this estimate"}"? This removes all its sections and cannot be undone via redo of this action.`)) return;
     setPhases(ps => { ps.splice(pi, 1); if (ps.length === 1) ps[0] = { ...ps[0], title: "" }; return ps; });
   };
   const movePhase = (pi, dir) => {
@@ -322,21 +322,21 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         return { category: `${sec.num}  ${sec.title}`, amount: r2v(amt) };
       });
       topSheetBlocks.push({
-        title: multiPhase ? (phase.title || `PHASE ${pi+1}`) : "CATEGORY SUMMARY",
+        title: multiPhase ? (phase.title || `ESTIMATE ${pi+1}`) : "CATEGORY SUMMARY",
         columns: [{key:"category",label:"Category"},{key:"amount",label:"Amount",align:"right"}],
         rows: catRows,
       });
       topSheetBlocks.push({
-        title: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL",
+        title: multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL",
         columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}],
         rows: [
-          { label: multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
+          { label: multiPhase ? "ESTIMATE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
           { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
-          { label: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
+          { label: multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
         ],
       });
     });
-    if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL PHASES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL INC. VAT", value: r2v(combined.totalIncVat) }] });
+    if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL ESTIMATES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL INC. VAT", value: r2v(combined.totalIncVat) }] });
     const pctMatch = (ts.payment || "").match(/(\d+)%/);
     const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
     topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
@@ -346,7 +346,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     const estimateBlocks = [];
     phases.forEach((phase, pi) => {
       const pt = phaseTotals[pi];
-      if (multiPhase) estimateBlocks.push({ title: phase.title || `PHASE ${pi + 1}`, columns: [{ key: "label", label: "" }], rows: [] });
+      if (multiPhase) estimateBlocks.push({ title: phase.title || `ESTIMATE ${pi + 1}`, columns: [{ key: "label", label: "" }], rows: [] });
       phase.sections.filter(sec => !sec.hidden).forEach(sec => {
         const isF = isFeeSec(sec);
         const rows = sec.rows.map(row => {
@@ -369,14 +369,14 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           rows,
         });
       });
-      if (phase.notes) estimateBlocks.push({ title: "PHASE NOTES", columns: [{ key: "text", label: "" }], rows: [{ isNote: true, text: phase.notes }] });
+      if (phase.notes) estimateBlocks.push({ title: "ESTIMATE NOTES", columns: [{ key: "text", label: "" }], rows: [{ isNote: true, text: phase.notes }] });
       estimateBlocks.push({
-        title: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL",
+        title: multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL",
         columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
         rows: [
-          { label: multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
+          { label: multiPhase ? "ESTIMATE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
           { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
-          { label: multiPhase ? "PHASE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
+          { label: multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
         ],
       });
     });
@@ -425,7 +425,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
         {estTab==="estimates" && multiPhase && phases.map((phase,pi)=>(
           <div key={phase.id} onClick={()=>setActivePhase(pi)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:activePhase===pi?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:activePhase===pi?"#efece0":"#fafaf5",color:activePhase===pi?"#1a1a1a":"#999",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>
-            {phase.title || `Phase ${pi+1}`}
+            {phase.title || `Estimate ${pi+1}`}
           </div>
         ))}
         <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
@@ -495,9 +495,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         </div>
         <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
           <span onClick={addPhase} style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Phase</span>
-          <span onClick={duplicatePreviousPhase} title="Duplicate the last phase, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>Duplicate Previous Phase</span>
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Estimate</span>
+          <span onClick={duplicatePreviousPhase} title="Duplicate the last estimate, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>Duplicate Previous Estimate</span>
         </div>
       </div>
 
@@ -528,7 +528,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             const pt = phaseTotals[pi];
             return (
             <div key={phase.id} style={{marginBottom:14}}>
-              {multiPhase && <div style={{fontFamily:EST_F,fontSize:10,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"4px 0",borderBottom:"1px solid #ccc",marginBottom:4}}>{phase.title || `Phase ${pi+1}`}</div>}
+              {multiPhase && <div style={{fontFamily:EST_F,fontSize:10,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"4px 0",borderBottom:"1px solid #ccc",marginBottom:4}}>{phase.title || `Estimate ${pi+1}`}</div>}
               <div style={{borderTop:"2px solid #000"}}>
                 <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
                   <div style={{flex:1,...hdr}}>CATEGORY</div>
@@ -551,7 +551,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   </div>);
                 })}
                 <div style={{display:"flex",borderTop:"2px solid #000"}}>
-                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "PHASE SUB TOTAL" : "SUB TOTAL"}</div>
+                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "ESTIMATE SUB TOTAL" : "SUB TOTAL"}</div>
                   <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.grandTotal)}</div>
                   {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.grandTotal*xRate)}</div>}
                 </div>
@@ -561,7 +561,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   {showCurrency2 && <div style={{width:_narrow?70:100}}></div>}
                 </div>
                 <div style={{display:"flex",borderBottom:"2px solid #000"}}>
-                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "PHASE TOTAL" : "GRAND TOTAL"}</div>
+                  <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL"}</div>
                   <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat)}</div>
                   {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat*xRate)}</div>}
                 </div>
@@ -573,7 +573,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           {multiPhase && (
             <div style={{borderTop:"3px double #000",marginTop:4}}>
               <div style={{display:"flex",borderBottom:"2px solid #000"}}>
-                <div style={{flex:1,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>COMBINED GRAND TOTAL (ALL PHASES)</div>
+                <div style={{flex:1,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>COMBINED GRAND TOTAL (ALL ESTIMATES)</div>
                 <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(combined.totalIncVat)}</div>
                 {showCurrency2 && <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(combined.totalIncVat*xRate)}</div>}
               </div>
@@ -625,13 +625,13 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div key={phase.id} style={{marginBottom:24}}>
               {multiPhase && (
                 <div style={phaseHdrBar}>
-                  <span data-noprint style={{fontSize:9,color:"#aaa"}}>PHASE {pi+1}</span>
+                  <span data-noprint style={{fontSize:9,color:"#aaa"}}>ESTIMATE {pi+1}</span>
                   <div style={{flex:1}}>
                     <EstCell value={phase.title} onChange={v=>renamePhase(pi,v)} style={{fontSize:11,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase"}} />
                   </div>
                   <span data-noprint onClick={()=>{movePhase(pi,-1);setActivePhase(a=>a===pi?pi-1:a===pi-1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
                   <span data-noprint onClick={()=>{movePhase(pi,1);setActivePhase(a=>a===pi?pi+1:a===pi+1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
-                  <span data-noprint onClick={()=>{removePhase(pi);setActivePhase(0);}} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Phase</span>
+                  <span data-noprint onClick={()=>{removePhase(pi);setActivePhase(0);}} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Estimate</span>
                 </div>
               )}
               {phase.sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
@@ -727,7 +727,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               <div style={{borderTop:"2px solid #000",marginTop:8,display:"flex",justifyContent:"flex-end"}}>
                 <div style={{width:420}}>
                   <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
-                    <span>{multiPhase ? "PHASE TOTAL" : "GRAND TOTAL"}</span><span>{baseCurrency} {estFmt(pt.grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.grandTotal*xRate)}</span>}</div>
+                    <span>{multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL"}</span><span>{baseCurrency} {estFmt(pt.grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.grandTotal*xRate)}</span>}</div>
                   <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
                     <span>VAT ({phase.vatPct}%)</span><span>{baseCurrency} {estFmt(pt.vat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.vat*xRate)}</span>}</div>
                   <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
@@ -735,7 +735,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 </div>
               </div>
               <div style={{marginTop:10}} data-noprint={phase.notes ? undefined : "1"}>
-                <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",marginBottom:3}}>PHASE NOTES</div>
+                <div style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,color:"#999",marginBottom:3}}>ESTIMATE NOTES</div>
                 <EstCell value={phase.notes || ""} onChange={v=>setPhaseNotes(pi,v)} multiline style={{fontSize:9,letterSpacing:EST_LS,lineHeight:1.6,color:"#666"}} />
               </div>
             </div>
@@ -743,9 +743,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           })}
           <div data-noprint style={{display:"flex",gap:8,marginBottom:multiPhase?16:0}}>
             <div onClick={addPhase} style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>+ Add Phase</div>
-            <div onClick={duplicatePreviousPhase} title="Duplicate the last phase, including its sections/rows" style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>Duplicate Previous Phase</div>
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>+ Add Estimate</div>
+            <div onClick={duplicatePreviousPhase} title="Duplicate the last estimate, including its sections/rows" style={{flex:1,border:"1.5px dashed #ccc",borderRadius:6,padding:"8px 12px",textAlign:"center",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,color:"#999",cursor:"pointer"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#666"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#999"}}>Duplicate Previous Estimate</div>
           </div>
         </div>}
 
