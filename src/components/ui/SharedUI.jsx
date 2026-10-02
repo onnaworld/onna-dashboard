@@ -30,13 +30,24 @@ export const SearchBar = ({value,onChange,placeholder}) => (
   </div>
 );
 
-export const Sel = ({value,onChange,options,minWidth,searchable}) => {
+// Parses "City, Country" (or "City, State, Country") into { city, country } —
+// used only for the optional grouped-by-country rendering below. Anything
+// without a comma (custom one-word locations) falls into an "Other" group
+// rather than being dropped.
+const _splitLocation = (label) => {
+  const parts = label.split(",").map(s => s.trim()).filter(Boolean);
+  if (parts.length < 2) return { city: label, country: "Other" };
+  return { city: parts.slice(0, -1).join(", "), country: parts[parts.length - 1] };
+};
+
+export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry}) => {
   const [open,setOpen] = useState(false);
   const [search,setSearch] = useState("");
   const ref = useRef(null);
   const searchRef = useRef(null);
-  // For small lists or non-searchable, use native select
-  if (!searchable && options.length <= 12) {
+  // For small lists or non-searchable, use native select (grouping needs the
+  // custom dropdown below, so it always takes that path instead).
+  if (!searchable && !groupByCountry && options.length <= 12) {
     return (
       <select value={value} onChange={e=>onChange(e.target.value)} style={{padding:"8px 30px 8px 12px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",minWidth:minWidth||140,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
         {options.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
@@ -59,11 +70,34 @@ export const Sel = ({value,onChange,options,minWidth,searchable}) => {
           <div style={{padding:"4px 8px",position:"sticky",top:0,background:T.surface,zIndex:1}}>
             <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…" onClick={e=>e.stopPropagation()} style={{width:"100%",padding:"6px 10px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
           </div>
-          {filtered.map(o=>(
-            <div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);setSearch("");}} style={{padding:"7px 12px",cursor:"pointer",fontSize:12,color:o.value===value?T.accent:T.text,fontWeight:o.value===value?600:400,fontFamily:"inherit",background:o.value===value?"#f5f5f7":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=o.value===value?"#f5f5f7":"transparent"}>
-              {o.label}
-            </div>
-          ))}
+          {(() => {
+            const row = (o) => (
+              <div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);setSearch("");}} style={{padding:"7px 12px",cursor:"pointer",fontSize:12,color:o.value===value?T.accent:T.text,fontWeight:o.value===value?600:400,fontFamily:"inherit",background:o.value===value?"#f5f5f7":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=o.value===value?"#f5f5f7":"transparent"}>
+                {o.label}
+              </div>
+            );
+            if (!groupByCountry) return filtered.map(row);
+            // Grouped-by-country rendering: "All" and "＋ Add location" stay
+            // ungrouped (pinned top/bottom), everything else buckets by the
+            // text after the last comma in its label ("City, Country").
+            const special = new Set(["All","＋ Add location","＋ Add category"]);
+            const top = filtered.filter(o=>o.value==="All");
+            const bottom = filtered.filter(o=>o.value!=="All"&&special.has(o.value));
+            const normal = filtered.filter(o=>!special.has(o.value));
+            const groups = {};
+            normal.forEach(o=>{ const {country}=_splitLocation(o.label); (groups[country]=groups[country]||[]).push(o); });
+            const countryNames = Object.keys(groups).sort((a,b)=> a==="Other"?1 : b==="Other"?-1 : a.localeCompare(b));
+            return (<>
+              {top.map(row)}
+              {countryNames.map(country=>(
+                <div key={country}>
+                  <div style={{padding:"6px 12px 2px",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:T.muted}}>{country}</div>
+                  {groups[country].map(row)}
+                </div>
+              ))}
+              {bottom.map(row)}
+            </>);
+          })()}
           {filtered.length===0&&<div style={{padding:"12px",fontSize:12,color:T.muted,textAlign:"center"}}>No matches</div>}
         </div>
       )}

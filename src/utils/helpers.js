@@ -715,10 +715,10 @@ export const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Cas
 export const DEFAULT_LOCATIONS = ["Dubai, UAE","London, UK","New York, USA","Los Angeles, USA"];
 // Normalize common location variants to canonical names
 export const LOCATION_ALIASES = {
-  "Dubai, United Arab Emirates":"Dubai, UAE","Dubai United Arab Emirates":"Dubai, UAE","Dubai UAE":"Dubai, UAE",
-  "London UK":"London, UK","London, United Kingdom":"London, UK",
-  "New York, US":"New York, USA","New York US":"New York, USA","New York, United States":"New York, USA",
-  "Los Angeles, US":"Los Angeles, USA","Los Angeles US":"Los Angeles, USA","Los Angeles, United States":"Los Angeles, USA",
+  "Dubai, United Arab Emirates":"Dubai, UAE","Dubai United Arab Emirates":"Dubai, UAE","Dubai UAE":"Dubai, UAE","Dubai":"Dubai, UAE",
+  "London UK":"London, UK","London, United Kingdom":"London, UK","London":"London, UK",
+  "New York, US":"New York, USA","New York US":"New York, USA","New York, United States":"New York, USA","New York":"New York, USA","NYC":"New York, USA",
+  "Los Angeles, US":"Los Angeles, USA","Los Angeles US":"Los Angeles, USA","Los Angeles, United States":"Los Angeles, USA","Los Angeles":"Los Angeles, USA","LA":"Los Angeles, USA",
   "Leeds UK":"Leeds, UK",
 };
 export const normalizeLocation = loc => LOCATION_ALIASES[loc] || loc;
