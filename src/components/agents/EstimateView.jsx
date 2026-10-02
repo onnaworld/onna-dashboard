@@ -184,12 +184,18 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     if (!confirm(`Delete "${phases[pi].title || "this estimate"}"? This removes all its sections and cannot be undone via redo of this action.`)) return;
     setPhases(ps => { ps.splice(pi, 1); if (ps.length === 1) ps[0] = { ...ps[0], title: "" }; return ps; });
   };
-  const movePhase = (pi, dir) => {
+  // Drag-to-reorder for the top-bar estimate tabs — moves `from` to sit at `to`.
+  const reorderPhases = (from, to) => {
+    if (from === to) return;
     setPhases(ps => {
-      const j = pi + dir;
-      if (j < 0 || j >= ps.length) return ps;
-      [ps[pi], ps[j]] = [ps[j], ps[pi]];
+      const [moved] = ps.splice(from, 1);
+      ps.splice(to, 0, moved);
       return ps;
+    });
+    setActivePhase(cur => {
+      if (cur === from) return to;
+      if (from < to) return (cur > from && cur <= to) ? cur - 1 : cur;
+      return (cur >= to && cur < from) ? cur + 1 : cur;
     });
   };
 
@@ -222,6 +228,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
 
   // ── Drag & reorder state (within a phase only — sections/rows don't drag across phases) ──
   const dragRef = useRef(null);
+  const phaseDragRef = useRef(null);
+  const [phaseDropIdx, setPhaseDropIdx] = useState(null);
   const [dropIndicator, setDropIndicator] = useState(null); // {type:"row"|"section", pi, si, ri?}
 
   const reorderRows = (pi, si, fromRi, toRi) => {
@@ -418,7 +426,6 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   };
 
   const phaseHdrBar = { fontFamily:EST_F,fontSize:9,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"6px 10px",background:"#fafafa",border:"1px solid #e5e5e5",borderRadius:4,display:"flex",alignItems:"center",gap:8,marginBottom:2 };
-  const phaseArrowBtn = { background:"none",border:"1px solid #ddd",borderRadius:4,color:"#999",cursor:"pointer",fontSize:10,padding:"1px 6px",lineHeight:1,fontFamily:"inherit" };
 
   return (
     <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
@@ -426,8 +433,15 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         {ETABS.map(t=><React.Fragment key={t.id}>
           <div onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#fff",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>
           {t.id==="estimates" && multiPhase && phases.map((phase,pi)=>(
-            <div key={phase.id} onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#bbb",boxShadow:(estTab==="estimates"&&activePhase===pi)?"inset 0 -2px 0 #1a1a1a":"none",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #eee" }}>
-              {`Estimate ${pi+1}`}
+            <div key={phase.id}
+              draggable
+              onDragStart={e=>{phaseDragRef.current=pi;e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.4";}}
+              onDragEnd={e=>{e.currentTarget.style.opacity="1";phaseDragRef.current=null;setPhaseDropIdx(null);}}
+              onDragOver={e=>{e.preventDefault();if(phaseDragRef.current!==null&&phaseDragRef.current!==pi)setPhaseDropIdx(pi);}}
+              onDragLeave={()=>{if(phaseDropIdx===pi)setPhaseDropIdx(null);}}
+              onDrop={e=>{e.preventDefault();setPhaseDropIdx(null);const from=phaseDragRef.current;phaseDragRef.current=null;if(from===null||from===pi)return;reorderPhases(from,pi);}}
+              onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"grab",whiteSpace:"nowrap",background:"#fff",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#bbb",boxShadow:[phaseDropIdx===pi?"inset 2px 0 0 #2196F3":null,(estTab==="estimates"&&activePhase===pi)?"inset 0 -2px 0 #1a1a1a":null].filter(Boolean).join(", ")||"none",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #eee" }}>
+              {phase.title || `Estimate ${pi+1}`}
             </div>
           ))}
         </React.Fragment>)}
@@ -501,6 +515,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Estimate</span>
           <span onClick={()=>duplicatePhase(activePhase)} title="Duplicate the current estimate, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>Duplicate Estimate</span>
+          {multiPhase && <span onClick={()=>{removePhase(activePhase);setActivePhase(0);}} style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#c0392b", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #e0b4ac", borderRadius:4, padding:"3px 8px" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#c0392b"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e0b4ac"}}>Delete Estimate</span>}
         </div>
       </div>
 
@@ -633,9 +649,6 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   <div style={{flex:1}}>
                     <EstCell value={phase.title} onChange={v=>renamePhase(pi,v)} style={{fontSize:11,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase"}} />
                   </div>
-                  <span data-noprint onClick={()=>{movePhase(pi,-1);setActivePhase(a=>a===pi?pi-1:a===pi-1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
-                  <span data-noprint onClick={()=>{movePhase(pi,1);setActivePhase(a=>a===pi?pi+1:a===pi+1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
-                  <span data-noprint onClick={()=>{removePhase(pi);setActivePhase(0);}} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Estimate</span>
                 </div>
               )}
               {phase.sections.map((sec,si)=>{const secTot=estSectionTotal(sec);
