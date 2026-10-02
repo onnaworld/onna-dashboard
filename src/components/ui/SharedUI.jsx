@@ -33,11 +33,15 @@ export const SearchBar = ({value,onChange,placeholder}) => (
 // Parses "City, Country" (or "City, State, Country") into { city, country } —
 // used only for the optional grouped-by-country rendering below. Anything
 // without a comma (custom one-word locations) falls into an "Other" group
-// rather than being dropped.
+// rather than being dropped. Country is normalized so near-duplicate spellings
+// (US/USA, UK/United Kingdom, UAE/United Arab Emirates) group together even
+// if the underlying data hasn't been cleaned up to match.
+const _COUNTRY_ALIASES = { "US":"USA","U.S.":"USA","United States":"USA","United States of America":"USA", "United Kingdom":"UK", "United Arab Emirates":"UAE" };
 const _splitLocation = (label) => {
   const parts = label.split(",").map(s => s.trim()).filter(Boolean);
   if (parts.length < 2) return { city: label, country: "Other" };
-  return { city: parts.slice(0, -1).join(", "), country: parts[parts.length - 1] };
+  const rawCountry = parts[parts.length - 1];
+  return { city: parts.slice(0, -1).join(", "), country: _COUNTRY_ALIASES[rawCountry] || rawCountry };
 };
 
 export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry}) => {
@@ -71,31 +75,33 @@ export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry})
             <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…" onClick={e=>e.stopPropagation()} style={{width:"100%",padding:"6px 10px",borderRadius:7,background:"#f5f5f7",border:`1px solid ${T.border}`,color:T.text,fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
           </div>
           {(() => {
-            const row = (o) => (
+            const row = (o, displayLabel) => (
               <div key={o.value} onClick={()=>{onChange(o.value);setOpen(false);setSearch("");}} style={{padding:"7px 12px",cursor:"pointer",fontSize:12,color:o.value===value?T.accent:T.text,fontWeight:o.value===value?600:400,fontFamily:"inherit",background:o.value===value?"#f5f5f7":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background=o.value===value?"#f5f5f7":"transparent"}>
-                {o.label}
+                {displayLabel ?? o.label}
               </div>
             );
-            if (!groupByCountry) return filtered.map(row);
+            if (!groupByCountry) return filtered.map(o=>row(o));
             // Grouped-by-country rendering: "All" and "＋ Add location" stay
             // ungrouped (pinned top/bottom), everything else buckets by the
-            // text after the last comma in its label ("City, Country").
+            // text after the last comma in its label ("City, Country") — with
+            // the country already shown as the group header, each row just
+            // shows the city.
             const special = new Set(["All","＋ Add location","＋ Add category"]);
             const top = filtered.filter(o=>o.value==="All");
             const bottom = filtered.filter(o=>o.value!=="All"&&special.has(o.value));
             const normal = filtered.filter(o=>!special.has(o.value));
             const groups = {};
-            normal.forEach(o=>{ const {country}=_splitLocation(o.label); (groups[country]=groups[country]||[]).push(o); });
+            normal.forEach(o=>{ const {city,country}=_splitLocation(o.label); (groups[country]=groups[country]||[]).push({o,city}); });
             const countryNames = Object.keys(groups).sort((a,b)=> a==="Other"?1 : b==="Other"?-1 : a.localeCompare(b));
             return (<>
-              {top.map(row)}
+              {top.map(o=>row(o))}
               {countryNames.map(country=>(
                 <div key={country}>
                   <div style={{padding:"6px 12px 2px",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:T.muted}}>{country}</div>
-                  {groups[country].map(row)}
+                  {groups[country].map(({o,city})=>row(o,city))}
                 </div>
               ))}
-              {bottom.map(row)}
+              {bottom.map(o=>row(o))}
             </>);
           })()}
           {filtered.length===0&&<div style={{padding:"12px",fontSize:12,color:T.muted,textAlign:"center"}}>No matches</div>}

@@ -116,6 +116,11 @@ export default function Vendors({
     });
     return ["All", ...Array.from(set).sort(), "＋ Add location"];
   }, [vendors]);
+  // Full known-location registry, minus the "All"/"+ Add" sentinel entries —
+  // used to preload suggestions while typing a location (Category/Location
+  // Typeahead fields), as distinct from the filter dropdown above which only
+  // lists locations a vendor is actually in.
+  const allLocationSuggestions = allLocations.filter(l => l !== "All" && l !== "＋ Add location");
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
@@ -148,7 +153,7 @@ export default function Vendors({
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.sub}}><VendorCell value={b.phone} onSave={v=>updateVendorField(b.id,"phone",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.link}}><VendorCell value={b.website} onSave={v=>updateVendorField(b.id,"website",v)} /></td>
                 <td style={{padding:"11px 14px",borderBottom:`1px solid ${T.borderSub}`,fontSize:12.5,color:T.muted}}>
-                  <Typeahead value={b.location} options={allLocations} onChange={v=>updateVendorField(b.id,"location",v)} />
+                  <Typeahead value={b.location} options={allLocationSuggestions} onChange={v=>updateVendorField(b.id,"location",v)} />
                 </td>
                 <td style={{padding:"11px 8px",borderBottom:`1px solid ${T.borderSub}`,textAlign:"center"}}>
                   <button onClick={()=>openVendorCard(b)} title="Open full details" style={{background:"none",border:"none",cursor:"pointer",color:T.muted,fontSize:14,padding:2,lineHeight:1}}>⤢</button>
