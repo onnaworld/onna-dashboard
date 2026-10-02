@@ -175,6 +175,19 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       return ps;
     });
   };
+  // Duplicate one specific estimate (inserted right after it), as opposed to
+  // duplicatePreviousPhase which always duplicates the last one in the list.
+  const duplicatePhase = (pi) => {
+    setActivePhase(pi + 1);
+    setPhases(ps => {
+      const src = ps[pi];
+      const dup = JSON.parse(JSON.stringify(src));
+      dup.id = Date.now() + Math.random();
+      dup.title = "";
+      ps.splice(pi + 1, 0, dup);
+      return ps;
+    });
+  };
   const renamePhase = (pi, title) => setPhases(ps => { ps[pi].title = title; return ps; });
   const setPhaseVat = (pi, val) => setPhases(ps => { ps[pi].vatPct = val; return ps; });
   const setPhaseNotes = (pi, val) => setPhases(ps => { ps[pi].notes = val; return ps; });
@@ -416,7 +429,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     }
   };
 
-  const phaseHdrBar = { fontFamily:EST_F,fontSize:9,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"6px 10px",background:"#efece0",border:"1px solid #ddd4b0",borderRadius:4,display:"flex",alignItems:"center",gap:8,marginBottom:2 };
+  const phaseHdrBar = { fontFamily:EST_F,fontSize:9,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"6px 10px",background:"#fafafa",border:"1px solid #e5e5e5",borderRadius:4,display:"flex",alignItems:"center",gap:8,marginBottom:2 };
   const phaseArrowBtn = { background:"none",border:"1px solid #ddd",borderRadius:4,color:"#999",cursor:"pointer",fontSize:10,padding:"1px 6px",lineHeight:1,fontFamily:"inherit" };
 
   return (
@@ -424,7 +437,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
         {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
         {multiPhase && phases.map((phase,pi)=>(
-          <div key={phase.id} onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:(estTab==="estimates"&&activePhase===pi)?"#efece0":"#fafaf5",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#999",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>
+          <div key={phase.id} onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#bbb",boxShadow:(estTab==="estimates"&&activePhase===pi)?"inset 0 -2px 0 #1a1a1a":"none",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #eee" }}>
             {`Estimate ${pi+1}`}
           </div>
         ))}
@@ -631,6 +644,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   </div>
                   <span data-noprint onClick={()=>{movePhase(pi,-1);setActivePhase(a=>a===pi?pi-1:a===pi-1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===0?0.3:1, cursor:pi===0?"default":"pointer"}}>↑</span>
                   <span data-noprint onClick={()=>{movePhase(pi,1);setActivePhase(a=>a===pi?pi+1:a===pi+1?pi:a);}} style={{...phaseArrowBtn, opacity:pi===phases.length-1?0.3:1, cursor:pi===phases.length-1?"default":"pointer"}}>↓</span>
+                  <span data-noprint onClick={()=>duplicatePhase(pi)} title="Duplicate this estimate, including its sections/rows" style={phaseArrowBtn}>Duplicate</span>
                   <span data-noprint onClick={()=>{removePhase(pi);setActivePhase(0);}} style={{...phaseArrowBtn, color:"#c0392b"}}>Delete Estimate</span>
                 </div>
               )}
