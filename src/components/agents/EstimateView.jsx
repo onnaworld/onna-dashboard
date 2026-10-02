@@ -446,7 +446,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
 
   return (
     <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
-      <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
+      <div style={{ display:"flex",borderBottom:"2px solid #000" }}>
+        <div style={{ display:"flex",overflowX:"auto",flex:1,minWidth:0,WebkitOverflowScrolling:"touch",scrollbarWidth:"none" }}>
         {ETABS.map(t=><React.Fragment key={t.id}>
           <div onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#fff",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>
           {t.id==="estimates" && multiPhase && phases.map((phase,pi)=>(
@@ -462,7 +463,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             </div>
           ))}
         </React.Fragment>)}
-        <div style={{ marginLeft:"auto",display:"flex",position:"relative" }}>
+        </div>
+        <div style={{ display:"flex",position:"relative",flexShrink:0 }}>
           <div onClick={doExcelExport} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#147d50",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd" }}
             onMouseEnter={e=>{e.target.style.background="#0f6640"}} onMouseLeave={e=>{e.target.style.background="#147d50"}}>{_narrow?"XLS":"EXPORT EXCEL"}</div>
           <div onClick={()=>setShowExportMenu(v=>!v)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:700,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:showExportMenu?"#333":"#000",color:"#fff",textTransform:"uppercase",borderLeft:"1px solid #ddd",userSelect:"none" }}
