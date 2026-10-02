@@ -533,7 +533,7 @@ const ESTIMATE_INIT = {
     deliverables:"[TBC]", deadlines:"[TBC]", usage:"[Usage Terms]", shootDate:"[Shoot Date]",
     shootDays:"[1 SHOOT DAY]", shootHours:"[BASED ON A 10 HOUR SHOOT DAY]",
     location:"[DUBAI]", payment:"[75% ADVANCE, 25% UPON COMPLETION (30 DAYS FROM INVOICE)]",
-    notes:"" },
+    notes:"This estimate is valid for 21 days from the date above. Rates are quoted in the currency stated and may be subject to fluctuations in the exchange rate at time of invoicing. Based on a 10-hour shoot day; overtime will be billed separately unless otherwise stated." },
   sections: null,
   saFields: null,
   tcsText: null,
