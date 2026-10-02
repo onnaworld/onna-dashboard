@@ -269,7 +269,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   };
 
   const notesW = showCurrency2 ? 120 : 210;
-  const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#f4f4f4",borderBottom:"1px solid #ddd" };
+  const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#fff",borderBottom:"1px solid #ddd" };
   const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
 
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -352,7 +352,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL ESTIMATES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL INC. VAT", value: r2v(combined.totalIncVat) }] });
     const pctMatch = (ts.payment || "").match(/(\d+)%/);
     const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-    topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
+    if (advPct > 0) topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
     if (ts.notes) topSheetBlocks.push({ title: "NOTES", columns: [{key:"text",label:"Notes"}], rows: [{ isNote:true, text: ts.notes }] });
 
     // ── Estimate (full line items — same as before) ──
@@ -435,7 +435,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   return (
     <div ref={_containerRef} style={{ maxWidth:900,margin:"0 auto",background:"#fff",fontFamily:EST_F,color:"#1a1a1a" }}>
       <div style={{ display:"flex",borderBottom:"2px solid #000",flexWrap:_narrow?"wrap":"nowrap" }}>
-        {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#f5f5f5",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
+        {ETABS.map(t=><div key={t.id} onClick={()=>setEstTab(t.id)} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:estTab===t.id?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:estTab===t.id?"#000":"#fff",color:estTab===t.id?"#fff":"#666",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #ddd" }}>{_narrow&&t.id==="services"?"SERVICES":t.label}</div>)}
         {multiPhase && phases.map((phase,pi)=>(
           <div key={phase.id} onClick={()=>{setEstTab("estimates");setActivePhase(pi);}} style={{ fontFamily:EST_F,fontSize:_narrow?8:9,fontWeight:(estTab==="estimates"&&activePhase===pi)?700:400,letterSpacing:EST_LS,padding:_narrow?"7px 8px":"10px 16px",cursor:"pointer",whiteSpace:"nowrap",background:"#fff",color:(estTab==="estimates"&&activePhase===pi)?"#1a1a1a":"#bbb",boxShadow:(estTab==="estimates"&&activePhase===pi)?"inset 0 -2px 0 #1a1a1a":"none",transition:"all .15s",textTransform:"uppercase",borderRight:"1px solid #eee" }}>
             {`Estimate ${pi+1}`}
@@ -543,7 +543,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div key={phase.id} style={{marginBottom:14}}>
               {multiPhase && <div style={{fontFamily:EST_F,fontSize:10,fontWeight:800,letterSpacing:EST_LS_HDR,textTransform:"uppercase",padding:"4px 0",borderBottom:"1px solid #ccc",marginBottom:4}}>{phase.title || `Estimate ${pi+1}`}</div>}
               <div style={{borderTop:"2px solid #000"}}>
-                <div style={{display:"flex",background:"#f4f4f4",borderBottom:"1px solid #ddd"}}>
+                <div style={{display:"flex",background:"#fff",borderBottom:"1px solid #ddd"}}>
                   <div style={{flex:1,...hdr}}>CATEGORY</div>
                   <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{baseCurrency}</div>
                   {showCurrency2 && <div style={{width:_narrow?70:100,...hdr,textAlign:"right"}}>{secondCurrency}</div>}
@@ -597,6 +597,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             const pctMatch = (ts.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
             const totalIncVat = combined.totalIncVat;
+            if (advPct <= 0) return null;
             return (
               <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
