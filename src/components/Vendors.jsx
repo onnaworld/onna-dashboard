@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import BulkActionBar from "./ui/BulkActionBar";
 import { Typeahead } from "./ui/Typeahead";
 
@@ -102,12 +102,26 @@ export default function Vendors({
   };
   const vendorNameOptions = vendors.map(v => v.name).filter(Boolean);
   const categoryOptions = allVendorCats.filter(c => c !== "All");
+  // Location filter only lists places that actually have a vendor in them —
+  // built fresh from live vendor data each render (not a stored registry),
+  // so a brand-new location on a vendor shows up immediately without
+  // needing to be separately "added" anywhere first.
+  const activeLocationOptions = useMemo(() => {
+    const set = new Set();
+    vendors.forEach(v => {
+      const loc = (v.location || "").trim();
+      if (!loc) return;
+      if (loc.includes("|")) loc.split("|").forEach(l => { const t = l.trim(); if (t) set.add(t); });
+      else set.add(loc);
+    });
+    return ["All", ...Array.from(set).sort(), "＋ Add location"];
+  }, [vendors]);
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
         <SearchBar value={getSearch("Vendors")} onChange={v=>setSearch("Vendors",v)} placeholder="Search contacts…"/>
         <Sel value={bbCat} onChange={v=>{if(v==="＋ Add category"){const n=addNewOption(customVendorCats,setCustomVendorCats,'onna_vendor_cats',"New category name:");if(n)setBbCat(n);}else{setBbCat(v);}}} options={allVendorCats} minWidth={170} searchable/>
-        <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLocations,setCustomLocations,'onna_custom_locations',"New location name:");if(n)setBbLocation(n);}else{setBbLocation(v);}}} options={allLocations} minWidth={170} searchable groupByCountry/>
+        <Sel value={bbLocation} onChange={v=>{if(v==="＋ Add location"){const n=addNewOption(customLocations,setCustomLocations,'onna_custom_locations',"New location name:");if(n)setBbLocation(n);}else{setBbLocation(v);}}} options={activeLocationOptions} minWidth={170} searchable groupByCountry/>
         <span style={{fontSize:12,color:T.muted}}>{filteredBB.length} contacts</span>
         <button onClick={()=>downloadCSV(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"},{key:"rateCard",label:"Instagram"},{key:"notes",label:"Notes"}],"vendors.csv")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>CSV</button>
         <button onClick={()=>exportTablePDF(filteredBB,[{key:"name",label:"Name"},{key:"category",label:"Category"},{key:"location",label:"Location"},{key:"email",label:"Email"},{key:"phone",label:"Phone"},{key:"website",label:"Website"}],"Vendors")} style={{background:"#f5f5f7",border:"none",color:T.sub,padding:"6px 12px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>PDF</button>
