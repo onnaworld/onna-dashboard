@@ -33,6 +33,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const [secondCurrency, setSecondCurrency] = useState(() => (estData.currency2 || "USD"));
   const [showCurrency2, setShowCurrency2] = useState(() => estData.showCurrency2 !== false);
   const [showRateLine, setShowRateLine] = useState(() => estData.showRateLine !== false);
+  const [showAdvance, setShowAdvance] = useState(() => estData.showAdvance !== false);
+  const [showVat, setShowVat] = useState(() => estData.showVat !== false);
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
   const customRateKey = `${baseCurrency}_${secondCurrency}`;
   const xRate = (estData.customRates && estData.customRates[customRateKey] != null) ? estData.customRates[customRateKey] : (baseCurr.rates[secondCurrency] || exchangeRate);
@@ -359,7 +361,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}],
         rows: [
           { label: multiPhase ? "ESTIMATE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
-          { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
+          ...(showVat ? [{ label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) }] : []),
           { label: multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
         ],
       });
@@ -367,7 +369,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL ESTIMATES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL INC. VAT", value: r2v(combined.totalIncVat) }] });
     const pctMatch = (ts.payment || "").match(/(\d+)%/);
     const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-    if (advPct > 0) topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
+    if (showAdvance && advPct > 0) topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
     if (ts.notes) topSheetBlocks.push({ title: "NOTES", columns: [{key:"text",label:"Notes"}], rows: [{ isNote:true, text: ts.notes }] });
 
     // ── Estimate (full line items — same as before) ──
@@ -403,7 +405,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
         columns: [{ key: "label", label: "" }, { key: "value", label: "AMOUNT", align: "right" }],
         rows: [
           { label: multiPhase ? "ESTIMATE SUB TOTAL" : "SUB TOTAL", value: r2v(pt.grandTotal) },
-          { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
+          ...(showVat ? [{ label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) }] : []),
           { label: multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL", value: r2v(pt.totalIncVat) },
         ],
       });
@@ -546,6 +548,20 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           </div>
         </div>
         <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
+          <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>ADVANCE</span>
+          <div onClick={() => { const next = !showAdvance; setShowAdvance(next); onSet(d => ({...d, showAdvance: next})); }}
+            style={{ width:28, height:16, borderRadius:8, background:showAdvance?"#1a1a1a":"#ddd", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+            <div style={{ position:"absolute", top:2, left:showAdvance?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
+          </div>
+        </div>
+        <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
+          <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>VAT</span>
+          <div onClick={() => { const next = !showVat; setShowVat(next); onSet(d => ({...d, showVat: next})); }}
+            style={{ width:28, height:16, borderRadius:8, background:showVat?"#1a1a1a":"#ddd", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+            <div style={{ position:"absolute", top:2, left:showVat?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
+          </div>
+        </div>
+        <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
           <span onClick={addPhase} style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="#999";e.currentTarget.style.color="#333"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#666"}}>+ Add Estimate</span>
           <span onClick={()=>duplicatePhase(activePhase)} title="Duplicate the current estimate, including its sections/rows" style={{ fontFamily:EST_F, fontSize:9, fontWeight:700, letterSpacing:EST_LS, color:"#666", cursor:"pointer", textTransform:"uppercase", border:"1px dashed #ccc", borderRadius:4, padding:"3px 8px" }}
@@ -609,11 +625,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.grandTotal)}</div>
                   {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.grandTotal*xRate)}</div>}
                 </div>
-                <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
+                {showVat && <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
                   <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input data-noprint value={phase.vatPct} onChange={e=>{const v=parseFloat(e.target.value);setPhaseVat(pi,isNaN(v)?0:v);}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} />%)</div>
                   <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.vat)}</div>
                   {showCurrency2 && <div style={{width:_narrow?70:100}}></div>}
-                </div>
+                </div>}
                 <div style={{display:"flex",borderBottom:"2px solid #000"}}>
                   <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL"}</div>
                   <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat)}</div>
@@ -638,7 +654,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             const pctMatch = (ts.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
             const totalIncVat = combined.totalIncVat;
-            if (advPct <= 0) return null;
+            if (!showAdvance || advPct <= 0) return null;
             return (
               <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
                 <span style={{fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>ADVANCE PAYMENT ({advPct}%)</span>
@@ -780,8 +796,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 <div style={{width:420}}>
                   <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS}}>
                     <span>{multiPhase ? "ESTIMATE TOTAL" : "GRAND TOTAL"}</span><span>{baseCurrency} {estFmt(pt.grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.grandTotal*xRate)}</span>}</div>
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
-                    <span>VAT ({phase.vatPct}%)</span><span>{baseCurrency} {estFmt(pt.vat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.vat*xRate)}</span>}</div>
+                  {showVat && <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
+                    <span>VAT ({phase.vatPct}%)</span><span>{baseCurrency} {estFmt(pt.vat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.vat*xRate)}</span>}</div>}
                   <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"2px solid #000"}}>
                     <span>TOTAL INC. VAT</span><span>{baseCurrency} {estFmt(pt.totalIncVat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.totalIncVat*xRate)}</span>}</div>
                 </div>
