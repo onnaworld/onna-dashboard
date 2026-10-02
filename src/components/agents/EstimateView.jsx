@@ -266,11 +266,13 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
 
   const notesW = showCurrency2 ? 120 : 210;
   const hdr = { fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,textTransform:"uppercase",padding:"4px 6px",background:"#fff",borderBottom:"1px solid #ddd" };
-  const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"}];
+  const ETABS = [{id:"topsheet",label:"TOP SHEET"},{id:"estimates",label:"ESTIMATES"},{id:"services",label:"SERVICES AGREEMENT"},{id:"tcs",label:"T&Cs"},{id:"notes",label:"NOTES"}];
+  const notesText = estData.notesText || "";
+  const setNotesText = (v) => onSet(d => ({ ...d, notesText: v }));
 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [footerHovered, setFooterHovered] = useState(false);
-  const [exportPages, setExportPages] = useState(["topsheet","estimates","services","tcs"]);
+  const [exportPages, setExportPages] = useState(["topsheet","estimates","services","tcs","notes"]);
   const toggleExportPage = (id) => setExportPages(prev => prev.includes(id) ? prev.filter(p=>p!==id) : [...prev,id]);
   // Which individual estimates to include when the ESTIMATES page is exported —
   // null means "all of them" (the common case); only built into a concrete
@@ -426,6 +428,9 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
     // ── T&Cs (plain text, one row per line) ──
     const tcsBlocks = [{ title: "GENERAL TERMS & CONDITIONS", columns: [{key:"text",label:"Text"}], rows: tcsText.split("\n").filter(l=>l.trim()).map(l=>({text:l})) }];
 
+    // ── Notes (free text, one row per line) ──
+    const notesBlocks = [{ title: "NOTES", columns: [{key:"text",label:"Text"}], rows: notesText.split("\n").filter(l=>l.trim()).map(l=>({text:l})) }];
+
     // Filename is just the top-bar document title as typed, matching PDF export.
     const sanitizeForFilename = (s) => (s || "").trim().replace(/[\\/:*?"<>|]/g, "");
     const docLabel = sanitizeForFilename(ts.version) || "Production Estimate";
@@ -434,6 +439,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
       { name: "Estimate", blocks: estimateBlocks, title: docLabel },
       { name: "Services Agreement", blocks: servicesBlocks, title: docLabel },
       { name: "T&Cs", blocks: tcsBlocks, title: docLabel },
+      { name: "Notes", blocks: notesBlocks, title: docLabel },
     ], `${docLabel}.xlsx`)
       .catch(err => { console.error("Estimate Excel export failed:", err); window.alert("Could not export Excel — please try again."); });
     } catch (err) {
@@ -472,7 +478,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           {showExportMenu && <>
             <div onClick={()=>setShowExportMenu(false)} style={{position:"fixed",inset:0,zIndex:999}} />
             <div style={{position:"absolute",top:"100%",right:0,background:"#fff",border:"1px solid #ddd",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",zIndex:1000,minWidth:190,borderRadius:4,overflow:"hidden",marginTop:2}}>
-              {[{id:"topsheet",label:"Top Sheet"},{id:"estimates",label:"Estimates"},{id:"services",label:"Services Agreement"},{id:"tcs",label:"T&Cs"}].map(opt=>(
+              {[{id:"topsheet",label:"Top Sheet"},{id:"estimates",label:"Estimates"},{id:"services",label:"Services Agreement"},{id:"tcs",label:"T&Cs"},{id:"notes",label:"Notes"}].map(opt=>(
                 <React.Fragment key={opt.id}>
                   <div onClick={()=>toggleExportPage(opt.id)}
                     style={{fontFamily:EST_F,fontSize:9,letterSpacing:EST_LS,padding:"7px 12px",cursor:"pointer",borderBottom:"1px solid #f0f0f0",textTransform:"uppercase",color:"#333",display:"flex",alignItems:"center",gap:8}}
@@ -492,7 +498,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               ))}
               <div onClick={()=>{if(exportPages.length>0){setShowExportMenu(false);doPrint(exportPages);}}}
                 style={{fontFamily:EST_F,fontSize:9,fontWeight:700,letterSpacing:EST_LS,padding:"8px 12px",cursor:exportPages.length>0?"pointer":"default",textTransform:"uppercase",color:"#fff",background:exportPages.length>0?"#000":"#ccc",textAlign:"center"}}
-                onMouseEnter={e=>{if(exportPages.length>0)e.target.style.background="#333"}} onMouseLeave={e=>{if(exportPages.length>0)e.target.style.background="#000"}}>EXPORT {exportPages.length === 4 ? "ALL" : `(${exportPages.length})`}</div>
+                onMouseEnter={e=>{if(exportPages.length>0)e.target.style.background="#333"}} onMouseLeave={e=>{if(exportPages.length>0)e.target.style.background="#000"}}>EXPORT {exportPages.length === 5 ? "ALL" : `(${exportPages.length})`}</div>
             </div>
           </>}
         </div>
@@ -852,6 +858,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
               onFocus={e=>{e.target.style.borderColor="#E0D9A8";e.target.style.background="#FFFDE7"}}
               onBlur={e=>{e.target.style.borderColor="#eee";e.target.style.background="#fff"}} />
           </div>
+        </div>}
+
+        {(estTab === "notes" || showAll) && <div data-page="notes">
+          <div style={{textAlign:"center",fontFamily:EST_F,fontSize:12,fontWeight:700,letterSpacing:EST_LS_HDR,textTransform:"uppercase",marginBottom:12}}>NOTES</div>
+          <EstCell value={notesText} onChange={setNotesText} multiline style={{fontSize:10,letterSpacing:EST_LS,lineHeight:1.6,color:"#333",minHeight:200}} />
         </div>}
 
         {(() => {
