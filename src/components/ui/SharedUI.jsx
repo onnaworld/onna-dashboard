@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { T, api, debouncedGlobalSave } from "../../utils/helpers";
+import { T, api, debouncedGlobalSave, categoryGroupOf } from "../../utils/helpers";
 
 export const Badge = ({status}) => {
   const map = {"Not Contacted":["#fff3e0","#c0392b"],"New Lead":["#f0f0f5",T.sub],"Responded":["#e8f0ff","#1a56db"],"Meeting Arranged":["#fff8e8","#92680a"],"Converted to Client":["#edfaf3","#147d50"]};
@@ -36,22 +36,23 @@ export const SearchBar = ({value,onChange,placeholder}) => (
 // rather than being dropped. Country is normalized so near-duplicate spellings
 // (US/USA, UK/United Kingdom, UAE/United Arab Emirates) group together even
 // if the underlying data hasn't been cleaned up to match.
-const _COUNTRY_ALIASES = { "US":"USA","U.S.":"USA","United States":"USA","United States of America":"USA", "United Kingdom":"UK", "United Arab Emirates":"UAE" };
-const _splitLocation = (label) => {
+export const COUNTRY_ALIASES = { "US":"USA","U.S.":"USA","United States":"USA","United States of America":"USA", "United Kingdom":"UK", "United Arab Emirates":"UAE" };
+export const splitLocation = (label) => {
   const parts = label.split(",").map(s => s.trim()).filter(Boolean);
   if (parts.length < 2) return { city: label, country: "Other" };
   const rawCountry = parts[parts.length - 1];
-  return { city: parts.slice(0, -1).join(", "), country: _COUNTRY_ALIASES[rawCountry] || rawCountry };
+  return { city: parts.slice(0, -1).join(", "), country: COUNTRY_ALIASES[rawCountry] || rawCountry };
 };
+const _splitLocation = splitLocation;
 
-export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry}) => {
+export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry,groupByCategory}) => {
   const [open,setOpen] = useState(false);
   const [search,setSearch] = useState("");
   const ref = useRef(null);
   const searchRef = useRef(null);
   // For small lists or non-searchable, use native select (grouping needs the
   // custom dropdown below, so it always takes that path instead).
-  if (!searchable && !groupByCountry && options.length <= 12) {
+  if (!searchable && !groupByCountry && !groupByCategory && options.length <= 12) {
     return (
       <select value={value} onChange={e=>onChange(e.target.value)} style={{padding:"8px 30px 8px 12px",borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",appearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",minWidth:minWidth||140,boxShadow:"0 1px 2px rgba(0,0,0,0.04)"}}>
         {options.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
@@ -63,7 +64,10 @@ export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry})
   useEffect(()=>{if(open&&searchRef.current)searchRef.current.focus();},[open]);
   const allOpts = options.map(o=>({value:o.value!==undefined?o.value:o,label:o.label||o}));
   const filtered = search ? allOpts.filter(o=>o.label.toLowerCase().includes(search.toLowerCase())) : allOpts;
-  const selectedLabel = allOpts.find(o=>o.value===value)?.label || value || "Select…";
+  const selectedLabel = allOpts.find(o=>o.value===value)?.label
+    || (typeof value==="string" && value.startsWith("Country:") ? value.slice(8) + " (all)"
+    : typeof value==="string" && value.startsWith("Group:") ? value.slice(6) + " (all)"
+    : value) || "Select…";
   return (
     <div ref={ref} style={{position:"relative",display:"inline-block",minWidth:minWidth||140}}>
       <div onClick={()=>{setOpen(!open);if(open)setSearch("");}} style={{padding:"8px 30px 8px 12px",borderRadius:10,background:T.surface,border:`1px solid ${open?T.accent:T.border}`,color:T.text,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23aeaeb2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center",boxShadow:"0 1px 2px rgba(0,0,0,0.04)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:minWidth||140}}>
@@ -80,25 +84,38 @@ export const Sel = ({value,onChange,options,minWidth,searchable,groupByCountry})
                 {displayLabel ?? o.label}
               </div>
             );
-            if (!groupByCountry) return filtered.map(o=>row(o));
-            // Grouped-by-country rendering: "All" and "＋ Add location" stay
-            // ungrouped (pinned top/bottom), everything else buckets by the
-            // text after the last comma in its label ("City, Country") — with
-            // the country already shown as the group header, each row just
-            // shows the city.
+            // Clickable group/country header — picking it selects a synthetic
+            // "Group:X"/"Country:X" value meaning "everything under X", so you
+            // can zoom out to the wider bucket instead of just one leaf value.
+            const header = (headerValue, label) => (
+              <div key={headerValue} onClick={()=>{onChange(headerValue);setOpen(false);setSearch("");}} style={{padding:"6px 12px 2px",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:headerValue===value?T.accent:T.muted,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.color=T.accent} onMouseLeave={e=>e.currentTarget.style.color=headerValue===value?T.accent:T.muted}>
+                {label}
+              </div>
+            );
+            if (!groupByCountry && !groupByCategory) return filtered.map(o=>row(o));
+            // Grouped rendering: "All" and "＋ Add…" stay ungrouped (pinned
+            // top/bottom); everything else buckets under a clickable group
+            // header (country, or category group) — pick the header itself
+            // to widen the filter to everything in that bucket, or a specific
+            // row underneath for just that one value.
             const special = new Set(["All","＋ Add location","＋ Add category"]);
             const top = filtered.filter(o=>o.value==="All");
             const bottom = filtered.filter(o=>o.value!=="All"&&special.has(o.value));
             const normal = filtered.filter(o=>!special.has(o.value));
             const groups = {};
-            normal.forEach(o=>{ const {city,country}=_splitLocation(o.label); (groups[country]=groups[country]||[]).push({o,city}); });
-            const countryNames = Object.keys(groups).sort((a,b)=> a==="Other"?1 : b==="Other"?-1 : a.localeCompare(b));
+            if (groupByCountry) {
+              normal.forEach(o=>{ const {city,country}=_splitLocation(o.label); (groups[country]=groups[country]||[]).push({o,city}); });
+            } else {
+              normal.forEach(o=>{ const group=categoryGroupOf(o.label); (groups[group]=groups[group]||[]).push({o,city:o.label}); });
+            }
+            const groupNames = Object.keys(groups).sort((a,b)=> a==="Other"?1 : b==="Other"?-1 : a.localeCompare(b));
+            const prefix = groupByCountry ? "Country:" : "Group:";
             return (<>
               {top.map(o=>row(o))}
-              {countryNames.map(country=>(
-                <div key={country}>
-                  <div style={{padding:"6px 12px 2px",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:T.muted}}>{country}</div>
-                  {groups[country].map(({o,city})=>row(o,city))}
+              {groupNames.map(group=>(
+                <div key={group}>
+                  {header(prefix+group, group)}
+                  {groups[group].map(({o,city})=>row(o,city))}
                 </div>
               ))}
               {bottom.map(o=>row(o))}

@@ -712,6 +712,27 @@ export const waitForPendingSaves = (timeoutMs = 8000) => new Promise(resolve => 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 export const LEAD_CATEGORIES = ["All","Production Companies","Creative Agencies","Beauty & Fragrance","Jewellery & Watches","Fashion","Editorial","Sports","Hospitality","Market Research","Commercial"];
 export const VENDORS_CATEGORIES = ["Locations","Hair and Makeup","Stylists","Casting","Catering","Set Design","Equipment","Crew","Production"];
+// Maps each specific vendor category onto a broader group, so the category
+// filter can be browsed hierarchically (Group > Category) the same way
+// Location is browsed as Country > City — pick the specific category to see
+// just that, or the group header to see everything under it. Keys are
+// matched case-insensitively/trimmed via categoryGroupOf(); anything not
+// listed here falls into "Other" rather than being hidden.
+export const CATEGORY_GROUPS = {
+  "1st ac":"Crew","dop":"Crew","gaffer":"Crew","drone operator":"Crew","sound engineer":"Crew",
+  "sound design":"Crew","editor":"Crew","grade":"Crew","retouch":"Crew","v.o":"Crew","art director":"Crew",
+  "director | photographer":"Crew",
+  "production":"Production","pa":"Production","pas":"Production","ads":"Production","transport":"Production","film lab":"Production",
+  "photographer":"Photography","photographers":"Photography","photo assistant":"Photography",
+  "stylists":"Styling","hair and makeup":"Styling","hair stylists":"Styling","makeup artists":"Styling",
+  "prop stylists":"Styling","props":"Styling","set design":"Styling",
+  "locations":"Locations & Studios","studio":"Locations & Studios","studios":"Locations & Studios","location scout":"Locations & Studios",
+  "casting | model agency":"Casting & Talent","model agency":"Casting & Talent","management agency":"Casting & Talent",
+  "talent management":"Casting & Talent","creative agency":"Casting & Talent","casting":"Casting & Talent",
+  "catering":"Catering",
+  "equipment":"Equipment",
+};
+export const categoryGroupOf = (cat) => CATEGORY_GROUPS[(cat||"").trim().toLowerCase()] || "Other";
 export const DEFAULT_LOCATIONS = ["Dubai, UAE","London, UK","New York, USA","Los Angeles, USA"];
 // Normalize common location variants to canonical names
 export const LOCATION_ALIASES = {

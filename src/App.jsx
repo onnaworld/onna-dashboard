@@ -33,7 +33,7 @@ import { AgentProvider, useAgentStore } from "./context/AgentContext";
 import { UIProvider, useUI } from "./context/UIContext";
 import { TodoProvider, useTodo } from "./context/TodoContext";
 import { setSyncStatusCallback, pendingCount as syncPendingCount, flush as flushSyncQueue } from "./utils/syncQueue";
-import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, seedDocSaveSnapshot, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS, normalizeLocation, LOCATION_ALIASES, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater, getEstPhases, estCalcCombinedTotals } from "./utils/helpers";
+import { T, idbGet, idbSet, ensurePdfJs, loadPdfPages, _loadImg, _scanWhiteTop, processDocSignStamp, renderHtmlToDocPages, exportDocPreview, estFmt, estNum, estRowTotal, estSectionTotal, estCalcTotals, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, buildActualsFromEstimate, actualsRowExpenseTotal, actualsRowEffective, actualsSectionExpenseTotal, actualsSectionEffective, actualsSectionZohoTotal, actualsGrandExpenseTotal, actualsGrandEffective, actualsGrandZohoTotal, api, docApi, globalApi, configApi, GCAL_CLIENT_ID, getToken, debouncedDocSave, debouncedGlobalSave, debouncedConfigSave, flushAllSaves, setSaveStatusCallback, seedDocSaveSnapshot, LEAD_CATEGORIES, VENDORS_CATEGORIES, DEFAULT_LOCATIONS, normalizeLocation, LOCATION_ALIASES, OUTREACH_STATUSES, OUTREACH_STATUS_LABELS, MONTHS, GCAL_COLORS, PROJECT_SECTIONS, CONTRACT_TYPES, ACTUALS_STATUSES, TAB_SLUGS, SLUG_TO_TAB, SECTION_SLUGS, SLUG_TO_SECTION, buildPath, parseURL, parseICS, levenshtein, findSimilar, findAllSimilar, parseQuickEntry, detectFieldKey, findVendorOrLead, fuzzyMatchProject, exportToPDF, printCallSheetPDF, printRiskAssessmentPDF, downloadCSV, exportTablePDF, exportCastingPDF, buildDocHTML, buildContractHTML, _parseDate, formatDate, getMonthLabel, VAULT_SALT, VAULT_CHECK, vaultDeriveKey, vaultEncrypt, vaultDecrypt, defaultSections, getXContacts, setXContacts, makeDocUpdater, getEstPhases, estCalcCombinedTotals, categoryGroupOf } from "./utils/helpers";
 import { MobileMenu } from "./components/modals/MobileMenu";
 import { LeadModal } from "./components/modals/LeadModal";
 import { OutreachModal } from "./components/modals/OutreachModal";
@@ -74,7 +74,7 @@ import { SEED_LEADS, SEED_CLIENTS, SEED_PROJECTS, initVendors, initOutreach, sav
 import AgentCard from "./components/agents/AgentCard";
 import EstimateView from "./components/agents/EstimateView";
 // Shared UI components
-import { Badge, Pill, StatCard, TH, TD, SearchBar, Sel, OutreachBadge, THFilter, SectionBtn, UploadZone, BtnPrimary, BtnSecondary, BtnExport, renderSopMarkdown, AIDocPanel, DashNotes, ProjectTodoList, LocationPicker, CategoryPicker } from "./components/ui/SharedUI";
+import { Badge, Pill, StatCard, TH, TD, SearchBar, Sel, OutreachBadge, THFilter, SectionBtn, UploadZone, BtnPrimary, BtnSecondary, BtnExport, renderSopMarkdown, AIDocPanel, DashNotes, ProjectTodoList, LocationPicker, CategoryPicker, splitLocation } from "./components/ui/SharedUI";
 // Extracted handler modules
 import { doLogin as _doLogin, doResetRequest as _doResetRequest, doResetConfirm as _doResetConfirm, pushNav, changeTab as _changeTab, navigateToDoc as _navigateToDoc, addTodoFromInput as _addTodoFromInput, archiveItem as _archiveItem, restoreItem as _restoreItem, permanentlyDelete as _permanentlyDelete, processProjectAI as _processProjectAI, fetchGCalEvents as _fetchGCalEvents, fetchOutlookCal as _fetchOutlookCal, connectGCal as _connectGCal, doHydrateProject } from "./handlers/projectHandlers";
 import { processOutreach as _processOutreach, promoteToClient as _promoteToClient, addNewOption as _addNewOption, pruneCustom, deleteCat as _deleteCat, renameCat as _renameCat, deleteLoc as _deleteLoc, renameLoc as _renameLoc } from "./handlers/vendorHandlers";
@@ -1087,8 +1087,22 @@ function OnnaDashboardInner() {
   useEffect(()=>{setTodoActiveProjects(activeProjects);},[activeProjects]);
   // projects, projRev, projProfit, projMargin moved to Projects component
 
-  const _hasLoc = (loc,filter) => {if(!loc)return false;if(loc.includes("|"))return loc.split("|").some(l=>l.trim()===filter);return loc.trim()===filter;};
-  const filteredBB = vendors.filter(b=>{const s=getSearch("Vendors")?.toLowerCase();return (bbCat==="All"||b.category===bbCat)&&(bbLocation==="All"||_hasLoc(b.location,bbLocation))&&(!s||[b.name,b.company,b.category,b.location,b.email,b.phone,b.website,b.notes,b.rateCard].some(v=>v&&v.toLowerCase().includes(s)));});
+  // filter can be an exact value ("New York, USA"), or — picked via the
+  // grouped dropdown's header row — "Country:USA" to match any city in that
+  // country, widening the filter instead of pinning to one leaf location.
+  const _hasLoc = (loc,filter) => {
+    if(!loc)return false;
+    const segs = loc.includes("|") ? loc.split("|").map(l=>l.trim()) : [loc.trim()];
+    if (filter.startsWith("Country:")) { const want=filter.slice(8); return segs.some(s=>splitLocation(s).country===want); }
+    return segs.some(s=>s===filter);
+  };
+  // Same idea for category: "Group:Crew" matches any category that maps to
+  // the Crew group, instead of just one specific category.
+  const _hasCat = (cat,filter) => {
+    if (filter.startsWith("Group:")) return categoryGroupOf(cat)===filter.slice(6);
+    return cat===filter;
+  };
+  const filteredBB = vendors.filter(b=>{const s=getSearch("Vendors")?.toLowerCase();return (bbCat==="All"||_hasCat(b.category,bbCat))&&(bbLocation==="All"||_hasLoc(b.location,bbLocation))&&(!s||[b.name,b.company,b.category,b.location,b.email,b.phone,b.website,b.notes,b.rateCard].some(v=>v&&v.toLowerCase().includes(s)));});
 
   const getProjectCastingTables = id => _getProjectCastingTablesFn(id, projectCasting);
   const getProjectCasting = id => _getProjectCastingFn(id, projectCasting);
