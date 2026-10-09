@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { migrateContract } from "../components/agents/ContractCody";
+import { seedDocSaveSnapshot } from "../utils/helpers";
 
 const AgentContext = createContext(null);
 
@@ -167,6 +168,39 @@ export function AgentProvider({ debouncedDocSave, children }) {
   const [contractLoading,setContractLoading]             = useState(false);
 
   // ── Persistence useEffects ──
+  // Every store below is initialized straight from localStorage — a cache
+  // that can be behind the server (another tab/device saved more recently
+  // since this browser last synced). Without seeding the save-effects'
+  // change-tracking snapshot with that same initial value first, each save
+  // effect's first run on mount sees "no prior snapshot" and treats the
+  // (possibly stale) cached value as a brand-new edit, immediately
+  // re-uploading it and silently overwriting anything newer the server
+  // already had — e.g. a budget estimate version created on another device.
+  // This mount-only effect runs before all the save effects below (React
+  // runs effects in declaration order on the same commit), so the very
+  // first comparison each of them makes is against the value already on
+  // screen, not empty — a plain reload becomes a no-op for the server, and
+  // only genuine post-load edits get pushed.
+  useEffect(() => {
+    seedDocSaveSnapshot('callsheets', callSheetStore);
+    seedDocSaveSnapshot('riskassessments', riskAssessmentStore);
+    seedDocSaveSnapshot('contracts_doc', contractDocStore);
+    seedDocSaveSnapshot('cps', cpsStore);
+    seedDocSaveSnapshot('shotlists', shotListStore);
+    seedDocSaveSnapshot('storyboards', storyboardStore);
+    seedDocSaveSnapshot('recce_reports', recceReportStore);
+    seedDocSaveSnapshot('postprod', postProdStore);
+    seedDocSaveSnapshot('fittings', fittingStore);
+    seedDocSaveSnapshot('loc_decks', locDeckStore);
+    seedDocSaveSnapshot('casting_decks', castingDeckStore);
+    seedDocSaveSnapshot('casting_tables', castingTableStore);
+    seedDocSaveSnapshot('travel_itineraries', travelItineraryStore);
+    seedDocSaveSnapshot('dietaries', dietaryStore);
+    seedDocSaveSnapshot('estimates', projectEstimates);
+    seedDocSaveSnapshot('cashflows', cashFlowStore);
+    seedDocSaveSnapshot('prod_briefs', productionBriefStore);
+    seedDocSaveSnapshot('project_info', projectInfo);
+  }, []);
   useEffect(()=>{try{localStorage.setItem('onna_callsheets',JSON.stringify(callSheetStore))}catch{} debouncedDocSave('callsheets',callSheetStore);},[callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_riskassessments',JSON.stringify(riskAssessmentStore))}catch{} debouncedDocSave('riskassessments',riskAssessmentStore);},[riskAssessmentStore]);
   useEffect(()=>{try{localStorage.setItem('onna_cps',JSON.stringify(cpsStore))}catch{} debouncedDocSave('cps',cpsStore);},[cpsStore]);
