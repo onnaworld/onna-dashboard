@@ -215,6 +215,69 @@ export function AgentProvider({ debouncedDocSave, children }) {
   useEffect(()=>{try{localStorage.setItem('onna_contracts_doc',JSON.stringify(contractDocStore))}catch{} debouncedDocSave('contracts_doc',contractDocStore);},[contractDocStore]);
   useEffect(()=>{try{localStorage.setItem('onna_travel_itineraries',JSON.stringify(travelItineraryStore))}catch{} debouncedDocSave('travel_itineraries',travelItineraryStore);},[travelItineraryStore]);
   useEffect(()=>{try{localStorage.setItem('onna_dietaries',JSON.stringify(dietaryStore))}catch{} debouncedDocSave('dietaries',dietaryStore);},[dietaryStore]);
+  // ── Keep dietary lists' crew in real-time sync with their linked call sheet ──
+  // Used to require clicking "Sync from Call Sheet", and even then only ever
+  // pulled in crew that already had a name typed in — a role with no name
+  // yet never appeared at all. This effect runs on every call sheet edit
+  // (anywhere, not just while the Dietaries page happens to be open) and
+  // keeps every linked dietary list's crew list current automatically:
+  // every crew slot shows up (by its role/title as a placeholder) as soon
+  // as it exists on the call sheet, and once a real name is typed in, it
+  // replaces the placeholder on its own. Matching is by slot position
+  // (department index : crew index), not by name — specifically so a slot
+  // going from "no name yet" to "has a name" is recognized as the same
+  // person rather than creating a duplicate. A slotKey is how an entry
+  // opts into this: entries added by hand (no slotKey) or moved to "Not On
+  // Set" are never touched here. Reads dietaryStore via the functional
+  // updater (not as a dependency) so this can't loop on its own writes.
+  useEffect(() => {
+    setDietaryStore(prev => {
+      let changedAny = false;
+      const next = { ...prev };
+      Object.keys(prev).forEach(pid => {
+        const csForProject = callSheetStore[pid] || [];
+        const dietArr = prev[pid] || [];
+        let projectChanged = false;
+        const nextDietArr = dietArr.map(d => {
+          if (!d.callSheetId) return d;
+          const cs = csForProject.find(c => c.id === d.callSheetId);
+          if (!cs) return d;
+          const slots = [];
+          (cs.departments || []).forEach((dept, di) => {
+            (dept.crew || []).forEach((cr, ci) => {
+              const hasName = !!(cr.name && cr.name.trim());
+              const role = cr.role || "";
+              if (!hasName && !role) return; // nothing to show yet
+              slots.push({ slotKey: `${di}:${ci}`, displayName: hasName ? cr.name.trim() : role, role, department: dept.name || "" });
+            });
+          });
+          if (slots.length === 0) return d;
+          const people = d.people || [];
+          const notOnSetSlots = new Set((d.notOnSet || []).filter(pr => pr.slotKey).map(pr => pr.slotKey));
+          const knownSlots = new Set(people.filter(pr => pr.slotKey).map(pr => pr.slotKey));
+          let changed = false;
+          const updatedPeople = people.map(pr => {
+            if (!pr.slotKey) return pr;
+            const slot = slots.find(s => s.slotKey === pr.slotKey);
+            if (!slot) return pr; // that slot no longer exists on the call sheet — leave it
+            if (pr.name !== slot.displayName || pr.role !== slot.role || pr.department !== slot.department) {
+              changed = true;
+              return { ...pr, name: slot.displayName, role: slot.role, department: slot.department };
+            }
+            return pr;
+          });
+          const newSlots = slots.filter(s => !knownSlots.has(s.slotKey) && !notOnSetSlots.has(s.slotKey));
+          if (newSlots.length > 0) changed = true;
+          const addedPeople = newSlots.map(s => ({ id: Date.now() + Math.random(), name: s.displayName, role: s.role, department: s.department, dietary: ["TBC"], allergies: "", notes: "", slotKey: s.slotKey }));
+          if (!changed) return d;
+          projectChanged = true;
+          return { ...d, people: [...updatedPeople, ...addedPeople] };
+        });
+        if (projectChanged) { changedAny = true; next[pid] = nextDietArr; }
+      });
+      return changedAny ? next : prev;
+    });
+  }, [callSheetStore]);
   useEffect(()=>{try{localStorage.setItem('onna_estimates',JSON.stringify(projectEstimates))}catch{} debouncedDocSave('estimates',projectEstimates);},[projectEstimates]);
   useEffect(()=>{try{localStorage.setItem('onna_cashflows',JSON.stringify(cashFlowStore))}catch{} debouncedDocSave('cashflows',cashFlowStore);},[cashFlowStore]);
   useEffect(()=>{try{localStorage.setItem('onna_prod_briefs',JSON.stringify(productionBriefStore))}catch{} debouncedDocSave('prod_briefs',productionBriefStore);},[productionBriefStore]);

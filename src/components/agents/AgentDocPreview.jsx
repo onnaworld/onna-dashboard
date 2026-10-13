@@ -28,12 +28,21 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
       const csVersions = (callSheetStore||{})[projectId] || [];
       if (csVersions.length > 0) {
         const latestCS = csVersions[csVersions.length - 1];
+        newDiet.callSheetId = latestCS.id;
         if(latestCS.shootName)newDiet.project.name=latestCS.shootName;
         if(latestCS.date)newDiet.project.date=latestCS.date;
         const csParts=(latestCS.shootName||"").split(" | ");
         if(csParts.length>=2)newDiet.project.client=csParts[0].trim();
+        // Pull every crew slot (not just named ones — shown by role until a
+        // name exists) and tag it with a slotKey so it stays in sync
+        // automatically from here on (see the effect in AgentContext.jsx).
         const pulled = [];
-        (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:"None",allergies:"",notes:""});});});
+        (latestCS.departments||[]).forEach((dept,di)=>{(dept.crew||[]).forEach((cr,ci)=>{
+          const hasName=!!(cr.name&&cr.name.trim());
+          const role=cr.role||"";
+          if(!hasName&&!role)return;
+          pulled.push({id:Date.now()+Math.random(),name:hasName?cr.name.trim():role,role,department:dept.name||"",dietary:"None",allergies:"",notes:"",slotKey:`${di}:${ci}`});
+        });});
         if(pulled.length>0)newDiet.people=pulled;
       }
       setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));if(!store[projectId])store[projectId]=[];store[projectId].push(newDiet);return store;});
@@ -66,7 +75,11 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
       const dietUpdatePerson=(i,key,val)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.map((pr,j)=>j===i?{...pr,[key]:val}:pr);arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietAddPerson=()=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people.push({id:Date.now(),name:"",role:"",department:"",dietary:"None",allergies:"",notes:""});arr[dietIdx]=d;store[projectId]=arr;return store;});};
       const dietDeletePerson=(i)=>{setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];d.people=d.people.filter((_,j)=>j!==i);arr[dietIdx]=d;store[projectId]=arr;return store;});};
-      const dietSyncFromCS=async()=>{const csVersions=(callSheetStore||{})[projectId]||[];if(csVersions.length===0){showAlert("No call sheets found for this project. Create a call sheet first via the Call Sheets tab.");return;}let csIdx=csVersions.length-1;if(csVersions.length>1){const labels=csVersions.map((v,i)=>`${i+1}. ${v.label||"Day "+(i+1)}`).join("\n");const pick=await showPrompt("Which call sheet do you want to sync from?\n\n"+labels+"\n\nEnter number:");if(!pick)return;const n=parseInt(pick,10);if(isNaN(n)||n<1||n>csVersions.length){showAlert("Invalid selection.");return;}csIdx=n-1;}const latestCS=csVersions[csIdx];const pulled=[];(latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});if(pulled.length===0){showAlert("No crew found in call sheet.");return;}setDietaryStore(prev=>{const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[dietIdx];if(latestCS.shootName)d.project.name=latestCS.shootName;if(latestCS.date)d.project.date=latestCS.date;const csParts=(latestCS.shootName||"").split(" | ");if(csParts.length>=2)d.project.client=csParts[0].trim();d.people=pulled.map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""}));arr[dietIdx]=d;store[projectId]=arr;return store;});showAlert(`Synced ${pulled.length} crew member${pulled.length===1?"":"s"} from call sheet. Previous dietary details cleared.`);};
+      // Crew now syncs from the linked call sheet automatically and in real
+      // time (AgentContext.jsx) — no manual sync action, and nothing here
+      // ever wipes existing dietary/allergy details the way the old
+      // "Sync from Call Sheet" button used to.
+      const dietLinkedCS=(callSheetStore?.[projectId]||[]).find(cs=>cs.id===dietData.callSheetId);
       const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
@@ -86,7 +99,7 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
             {/* Dietary/Menu tabs */}
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
               <input value={dietData.label||""} onChange={e=>dietU("label",e.target.value)} style={{fontSize:15,fontWeight:700,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,flex:1}} placeholder="Dietary List Name"/>
-              {connieDietTab==="dietary"&&<button onClick={dietSyncFromCS} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:"1px solid #e5e5ea",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Sync from Call Sheet</button>}
+              {connieDietTab==="dietary"&&dietLinkedCS&&<span title={`Crew auto-syncs from "${dietLinkedCS.label||"Call Sheet"}" — no action needed`} style={{fontSize:11,color:"#999",fontWeight:500,flexShrink:0,display:"inline-flex",alignItems:"center",gap:5}}>↻ Synced with {dietLinkedCS.label||"Call Sheet"}</span>}
             </div>
             <div style={{display:"flex",gap:0,marginBottom:14,borderBottom:"1px solid #e5e5ea"}}>
               {[{id:"dietary",label:"Dietary"},{id:"menu",label:"Menu"}].map(tab=><button key={tab.id} onClick={()=>setConnieDietTab(tab.id)} style={{padding:"8px 18px",fontSize:12,fontWeight:connieDietTab===tab.id?700:500,color:connieDietTab===tab.id?"#1d1d1f":"#86868b",background:"none",border:"none",borderBottom:connieDietTab===tab.id?"2px solid #1d1d1f":"2px solid transparent",cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{tab.label}</button>)}

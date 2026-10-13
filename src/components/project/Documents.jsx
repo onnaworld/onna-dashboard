@@ -1215,8 +1215,17 @@ export default function Documents({
         if(cs.date)newDiet.project.date=cs.date;
         const csParts=(cs.shootName||"").split(" | ");
         if(csParts.length>=2)newDiet.project.client=csParts[0].trim();
+        // Pull every crew slot, not just ones with a name filled in yet —
+        // shown by role as a placeholder until a real name exists, then kept
+        // in step automatically (slotKey is how the auto-sync effect in
+        // AgentContext.jsx recognizes "same slot" across a name being added).
         const pulled = [];
-        (cs.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({id:Date.now()+Math.random(),name:cr.name.trim(),role:cr.role||"",department:dept.name||"",dietary:["TBC"],allergies:"",notes:""});});});
+        (cs.departments||[]).forEach((dept,di)=>{(dept.crew||[]).forEach((cr,ci)=>{
+          const hasName = !!(cr.name&&cr.name.trim());
+          const role = cr.role||"";
+          if(!hasName&&!role)return;
+          pulled.push({id:Date.now()+Math.random(),name:hasName?cr.name.trim():role,role,department:dept.name||"",dietary:["TBC"],allergies:"",notes:"",slotKey:`${di}:${ci}`});
+        });});
         if(pulled.length>0)newDiet.people=pulled;
         if(cs.clientLogo)newDiet.clientLogo=cs.clientLogo;
         if(cs.agencyLogo)newDiet.agencyLogo=cs.agencyLogo;
@@ -1350,39 +1359,12 @@ export default function Documents({
     // people (active or Not On Set) by name so their dietary/allergy/notes carry
     // over instead of being wiped; anyone no longer on the call sheet moves to
     // Not On Set rather than being deleted, and brand new crew are added fresh.
+    // Crew is now kept in sync with the linked call sheet automatically and
+    // in real time (see the effect in AgentContext.jsx) — every crew slot
+    // shows up here as soon as it exists on the call sheet (by role, until a
+    // real name is typed in, at which point it updates on its own), so no
+    // manual "Sync from Call Sheet" action is needed any more.
     const dietLinkedCS = csVersionsForDiet.find(cs=>cs.id===dietData.callSheetId);
-    const dietSyncFromCS = () => {
-      const csVersions = csVersionsForDiet;
-      if(csVersions.length===0){showAlert("No call sheets found for this project. Create a call sheet first.");return;}
-      // Sync from whichever call sheet this dietary list is linked to, not just
-      // the latest one — with 2+ call sheets (e.g. Recce + Shoot Day) they can
-      // have completely different crews. Falls back to the latest for dietary
-      // lists created before this linking existed.
-      const targetCS = dietLinkedCS || csVersions[csVersions.length-1];
-      const pulled = [];
-      (targetCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
-      if(pulled.length===0){showAlert(`No crew names found in "${targetCS.label||"that call sheet"}".`);return;}
-      let addedCount = 0;
-      setDietaryStore(prev=>{
-        const store=JSON.parse(JSON.stringify(prev));const arr=store[p.id]||[];const d=arr[dietIdx];
-        d.callSheetId=targetCS.id;
-        if(targetCS.shootName)d.project.name=targetCS.shootName;
-        if(targetCS.date)d.project.date=targetCS.date;
-        const csParts=(targetCS.shootName||"").split(" | ");
-        if(csParts.length>=2)d.project.client=csParts[0].trim();
-        // Purely additive: never touch existing people or notOnSet — if you've
-        // moved someone to Not On Set, syncing again must not pull them back
-        // just because they're still listed on the call sheet. Only crew
-        // genuinely new to this dietary list (not in either list yet) get added.
-        const known=new Set();
-        [...(d.people||[]),...(d.notOnSet||[])].forEach(pr=>{if(pr.name)known.add(pr.name.trim().toLowerCase());});
-        const newPeople=pulled.filter(pr=>!known.has(pr.name)).map(pr=>({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:["TBC"],allergies:"",notes:""}));
-        addedCount=newPeople.length;
-        d.people=[...(d.people||[]),...newPeople];
-        arr[dietIdx]=d;store[p.id]=arr;return store;
-      });
-      showAlert(addedCount>0?`Added ${addedCount} new crew member${addedCount===1?"":"s"} from call sheet.`:"No new crew to add — everyone from the call sheet is already tracked here.");
-    };
 
     // Summary counts
     const dietTagsOfPerson = (pr) => Array.isArray(pr.dietary) ? (pr.dietary.length?pr.dietary:["TBC"]) : (pr.dietary ? [pr.dietary] : ["TBC"]);
@@ -1437,7 +1419,7 @@ export default function Documents({
               {csVersionsForDiet.map(cs=><option key={cs.id} value={cs.id}>{cs.label||"Call Sheet"}</option>)}
             </select>
           )}
-          {dietaryTab==="dietary"&&<button onClick={dietSyncFromCS} title={dietLinkedCS?`Syncs from "${dietLinkedCS.label||"Call Sheet"}"`:undefined} style={{padding:"5px 13px",borderRadius:8,background:"#f5f5f5",color:"#666",border:`1px solid ${T.border}`,fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:5}}>Sync from Call Sheet</button>}
+          {dietaryTab==="dietary"&&dietLinkedCS&&<span title={`Crew auto-syncs from "${dietLinkedCS.label||"Call Sheet"}" — no action needed`} style={{fontSize:11,color:T.muted,fontWeight:500,display:"inline-flex",alignItems:"center",gap:5,padding:"5px 10px"}}>↻ Synced with {dietLinkedCS.label||"Call Sheet"}</span>}
           <BtnExport onClick={dietExportExcel}>Export Excel</BtnExport>
           <BtnExport onClick={()=>dietExportPDF(dietaryTab==="menu"?"onna-menu-print":"onna-diet-print",dietaryTab==="menu"?"portrait":"landscape")}>Export PDF</BtnExport>
         </div>
@@ -1517,7 +1499,7 @@ export default function Documents({
                   <div style={{flex:1.2}}><TICell value={person.notes} onChange={v=>dietUpdatePerson(i,"notes",v)} style={{color:"#999",fontStyle:person.notes?"italic":"normal"}}/></div>
                 </div>
               ))}
-              {(dietData.people||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No crew listed — click Sync from Call Sheet or + ADD ROW</div>}
+              {(dietData.people||[]).length===0&&<div style={{fontFamily:CS_FONT,fontSize:9,color:"#ccc",letterSpacing:0.5,padding:"12px 26px",fontStyle:"italic"}}>No crew yet — link a call sheet above to sync automatically, or + ADD ROW</div>}
             </div>
 
             {/* Not On Set — removed crew, kept aside with their dietary info instead of deleted */}
