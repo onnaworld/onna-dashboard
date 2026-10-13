@@ -282,9 +282,27 @@ export const doHydrateProject = (pid, setters) => {
       setProjectEstimates(prev => {
         const local = prev[pid] || [];
         const remote = d.estimates || [];
-        // Don't overwrite if local has more items (unsaved new estimate)
-        if (local.length > remote.length) return {...prev, [pid]: local};
-        return {...prev, [pid]: remote.length > 0 ? remote : local};
+        // Merge by id instead of "whichever array is longer wins". The old
+        // length-comparison heuristic was meant to protect a brand-new
+        // estimate this tab just created (not yet reflected on the server)
+        // from being wiped out by a hydrate that still only sees the old
+        // server array — but comparing lengths doesn't check identity: if
+        // local ever had MORE items than remote for any other reason (e.g.
+        // this tab's local array simply didn't yet contain a real,
+        // substantial estimate that only lives on the server), "local wins"
+        // discarded that real server estimate from state entirely. Worse,
+        // noteKnownArrayIds below still marked its id "known" regardless —
+        // so the very next save treated its absence as a deliberate
+        // deletion and erased it from the server too. This is exactly how a
+        // filled-in estimate was lost: hydrating into a tab that locally had
+        // two newly-created blank estimates (2 > 1) kept only those blanks,
+        // then the real estimate's id — already "known" — was wiped on the
+        // next autosave. Merging by id instead guarantees every remote item
+        // survives, AND any local-only item (new, unsaved) survives too.
+        const remoteIds = new Set(remote.filter(e => e && e.id != null).map(e => String(e.id)));
+        const localOnly = local.filter(e => e && e.id != null && !remoteIds.has(String(e.id)));
+        const merged = remote.length > 0 ? [...remote, ...localOnly] : local;
+        return {...prev, [pid]: merged};
       });
       noteKnownArrayIds('estimates', pid, d.estimates);
     }
