@@ -923,15 +923,26 @@ function OnnaDashboardInner() {
 
   // ── Hydrate project doc data from Turso when project opens ──────────────
   const globalHydratedRef = useRef(false);
-  const hydratedProjectsRef = useRef(new Set());
+  // pid -> timestamp of this tab's last hydrate for that project. A plain
+  // "hydrated once, never again" set meant reopening a project you'd left
+  // open in this tab a while ago (or switched to and back from) kept
+  // showing whatever this tab last saw, even if another tab/device had
+  // since added real content — exactly the "it's empty" scare. Re-hydrating
+  // when it's been a while since last check fixes the display without
+  // hydrating on every re-render. (Overwrite safety no longer depends on
+  // this being rare, either — debouncedDocSave now pre-checks the server
+  // before any array save, so a stale re-hydrate can't cause data loss.)
+  const hydratedProjectsRef = useRef(new Map());
+  const REHYDRATE_AFTER_MS = 60 * 1000;
   const hydrateProject = useCallback((pid) => {
     return doHydrateProject(pid, { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting, setProductionBriefStore });
   }, []); // eslint-disable-line
   useEffect(() => {
     if (!selectedProject || !authed) return;
     const pid = String(selectedProject.id);
-    if (hydratedProjectsRef.current.has(pid)) return;
-    hydratedProjectsRef.current.add(pid);
+    const lastHydratedAt = hydratedProjectsRef.current.get(pid);
+    if (lastHydratedAt && Date.now() - lastHydratedAt < REHYDRATE_AFTER_MS) return;
+    hydratedProjectsRef.current.set(pid, Date.now());
     hydrateProject(pid);
   }, [selectedProject, authed, hydrateProject]);
 

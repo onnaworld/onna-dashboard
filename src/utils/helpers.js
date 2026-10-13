@@ -632,26 +632,30 @@ export const debouncedDocSave = (table, storeObj, delay = 500) => {
         return send(arr);
       };
       if (Array.isArray(payload)) {
-        // Save immediately with what we have — a page refresh/close can interrupt
-        // an in-flight request at any moment, so the critical path must stay a
-        // single fast round-trip (a slower path here is exactly what silently
-        // loses freshly-created items on a quick refresh). The cross-tab
-        // recovery check runs after, as a non-blocking correction: if the
-        // server turns out to have an item we've never seen (another tab/device
-        // added it), we merge it back in with a quiet follow-up save instead of
-        // ever letting our own overwrite erase it.
-        finishArray(payload);
+        // Whole-array PUT means any item the server has that isn't in `payload`
+        // is gone the instant this request lands — so check FIRST, not after.
+        // A tab that hydrated before another tab/device added something (or
+        // whose local cache is simply behind) would otherwise overwrite that
+        // item with no way back: a later "recovery" read only sees the
+        // already-overwritten server state, too late to help. `known` is
+        // every id this tab has ever actually seen (from hydration or its own
+        // saves) — anything on the server that's neither in our payload nor
+        // in `known` was never knowingly removed by this tab, so it's merged
+        // back in before we save rather than silently dropped. A genuine
+        // deletion (an id this tab HAS seen before but no longer has locally)
+        // still goes through untouched.
         docApi.get(table, pid).then(serverArr => {
-          if (!Array.isArray(serverArr)) return;
+          if (!Array.isArray(serverArr)) return finishArray(payload);
           const known = _knownArrayIds[key] || new Set();
           const localIds = _idsOf(payload);
-          const recovered = serverArr.filter(x => x && x.id != null && !localIds.has(String(x.id)) && !known.has(String(x.id)));
-          if (recovered.length) {
-            console.warn(`ONNA: recovered ${recovered.length} item(s) in ${table} for project ${pid} that this tab didn't know about — merging instead of leaving them overwritten.`);
+          const missing = serverArr.filter(x => x && x.id != null && !localIds.has(String(x.id)) && !known.has(String(x.id)));
+          if (missing.length) {
+            console.warn(`ONNA: ${table} save for project ${pid} would have overwritten ${missing.length} item(s) this tab never knew about — merging them in first.`);
             noteKnownArrayIds(table, pid, serverArr);
-            return finishArray([...payload, ...recovered]);
+            return finishArray([...payload, ...missing]);
           }
-        }).catch(() => {});
+          return finishArray(payload);
+        }).catch(() => finishArray(payload));
       } else {
         send(payload);
       }
