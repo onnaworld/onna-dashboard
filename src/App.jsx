@@ -934,8 +934,18 @@ function OnnaDashboardInner() {
   // before any array save, so a stale re-hydrate can't cause data loss.)
   const hydratedProjectsRef = useRef(new Map());
   const REHYDRATE_AFTER_MS = 60 * 1000;
+  // Tracks which project ids have completed at least one real hydrate fetch
+  // THIS SESSION. Before that, any document list rendered from cache alone
+  // (e.g. Budget > Estimates) can legitimately be missing something another
+  // tab/device added — that's not data loss, just the local cache not being
+  // caught up yet, but it LOOKS exactly like data loss on screen ("I
+  // refreshed and V2 is gone"). Consumers use this to show an explicit
+  // "still syncing" state during that window instead of confidently
+  // rendering a possibly-incomplete list as if it were final.
+  const [hydratedPids, setHydratedPids] = useState(() => new Set());
   const hydrateProject = useCallback((pid) => {
-    return doHydrateProject(pid, { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting, setProductionBriefStore });
+    return doHydrateProject(pid, { setCallSheetStore, setRiskAssessmentStore, setContractDocStore, setProjectEstimates, setDietaryStore, setTravelItineraryStore, setShotListStore, setStoryboardStore, setFittingStore, setLocDeckStore, setCpsStore, setPostProdStore, setCastingTableStore, setCastingDeckStore, setRecceReportStore, setCashFlowStore, setProjectInfo, setProjectCreativeLinks, setProjectActuals, setProjectCasting, setProductionBriefStore })
+      .finally(() => setHydratedPids(prev => prev.has(pid) ? prev : new Set(prev).add(pid)));
   }, []); // eslint-disable-line
   useEffect(() => {
     if (!selectedProject || !authed) return;
@@ -1174,6 +1184,7 @@ function OnnaDashboardInner() {
 
   // ─── PROJECT SECTION RENDERER ──────────────────────────────────────────────
   const renderProjectSection = p => <ProjectSection p={p} T={T} isMobile={isMobile} api={api}
+    projectHydrated={hydratedPids.has(String(p.id))}
     projectEntries={projectEntries} projectFileStore={projectFileStore} setProjectFileStore={setProjectFileStore} projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates}
     projectInfo={projectInfo} setProjectInfo={setProjectInfo} projectInfoRef={projectInfoRef} syncProjectInfoToDocs={syncProjectInfoToDocs}
     projectTodos={projectTodos} setProjectTodos={setProjectTodos} archivedTodos={archivedTodos} setArchivedTodos={setArchivedTodos}

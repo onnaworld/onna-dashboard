@@ -4,7 +4,7 @@ import { EST_F, EST_LS, EST_LS_HDR, EST_SA_FIELDS, ESTIMATE_INIT, EST_YELLOW } f
 import { downloadStyledXlsx } from "../../utils/templateExport";
 
 export default function Budget({
-  T, isMobile, p,
+  T, isMobile, p, projectHydrated,
   budgetSubSection, setBudgetSubSection,
   projectEstimates, setProjectEstimates, editingEstimate, setEditingEstimate,
   projectActuals, setProjectActuals, actualsTrackerTab, setActualsTrackerTab,
@@ -1147,7 +1147,18 @@ export default function Budget({
           );
         })()}
       </div>
-      {estimates.length===0?(projectEstimates[p.id]===undefined?<div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>Loading estimates…</div></div>:<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>):(
+      {!projectHydrated?(
+        // Don't render the cached list with any confidence until this
+        // project has synced with the server at least once this session —
+        // a cache that's behind (another tab/device added an estimate since
+        // this browser last saved) would otherwise render a confidently
+        // "complete" but actually-short list, which then silently grows a
+        // moment later. That looked exactly like data loss ("I refreshed
+        // and V2 is gone"), even though nothing was ever lost. Showing an
+        // explicit syncing state instead makes the wait visible rather than
+        // letting a possibly-incomplete list stand in for the real thing.
+        <div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><span style={{width:6,height:6,borderRadius:"50%",background:"#92680a",display:"inline-block",animation:"pulse 1.2s ease-in-out infinite"}}/>Syncing latest estimates…</div></div>
+      ):estimates.length===0?(<div style={{borderRadius:14,background:"#fafafa",border:`1.5px dashed ${T.border}`,padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>No estimates yet. Click "+ New Estimate" to get started, or ask Billie to build one for you.</div></div>):(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {estimates.map((est,estIdx)=>{
             const { grandTotal: gt } = estCalcCombinedTotals(getEstPhases(est));

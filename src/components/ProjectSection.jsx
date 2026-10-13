@@ -12,7 +12,7 @@ import ProductionBrief from "./project/ProductionBrief";
 import { uploadFromLink as _uploadFromLink } from "../handlers/documentHandlers";
 
 export default function ProjectSection({
-  p, T, isMobile, api,
+  p, T, isMobile, api, projectHydrated,
   // project data
   projectEntries, projectFileStore, setProjectFileStore, projectEstimates,
   projectInfo, setProjectInfo, projectInfoRef, syncProjectInfoToDocs,
@@ -292,7 +292,7 @@ export default function ProjectSection({
 
   // Budget section
   if (projectSection==="Budget") {
-    return <Budget T={T} isMobile={isMobile} p={p}
+    return <Budget T={T} isMobile={isMobile} p={p} projectHydrated={projectHydrated}
       budgetSubSection={budgetSubSection} setBudgetSubSection={setBudgetSubSection}
       projectEstimates={projectEstimates} setProjectEstimates={setProjectEstimates} editingEstimate={editingEstimate} setEditingEstimate={setEditingEstimate}
       projectActuals={projectActuals} setProjectActuals={setProjectActuals} actualsTrackerTab={actualsTrackerTab} setActualsTrackerTab={setActualsTrackerTab}
