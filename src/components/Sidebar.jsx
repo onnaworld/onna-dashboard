@@ -27,10 +27,13 @@ export function AppSidebar({T,isMobile,activeTab,TABS,changeTab,buildPath,setAct
   );
 }
 
-export function Topbar({T,isMobile,P,currentTab,selectedProject,projectSection,creativeSubSection,budgetSubSection,apiLoading,apiError,changeTab,mobileMenuOpen,setMobileMenuOpen,notifications,setNotifications,NotificationBell:NotifBellComp}){
+export function Topbar({T,isMobile,P,currentTab,selectedProject,projectSection,creativeSubSection,budgetSubSection,apiLoading,apiError,changeTab,mobileMenuOpen,setMobileMenuOpen,notifications,setNotifications,NotificationBell:NotifBellComp,sidebarHidden,setSidebarHidden}){
   return (
     <div style={{padding:`0 ${P}px`,height:isMobile?50:58,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:`1px solid ${T.border}`,flexShrink:0,background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
+        {!isMobile && setSidebarHidden && <button onClick={()=>setSidebarHidden(v=>!v)} title={sidebarHidden?"Show sidebar":"Hide sidebar"} style={{background:"none",border:"none",cursor:"pointer",padding:4,marginRight:2,display:"flex",alignItems:"center",justifyContent:"center",color:T.muted,flexShrink:0,borderRadius:6}} onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.05)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" strokeWidth="1.3"/><line x1="5.5" y1="2.5" x2="5.5" y2="13.5" stroke="currentColor" strokeWidth="1.3"/></svg>
+        </button>}
         <span style={{fontSize:isMobile?14:18,fontWeight:700,letterSpacing:"-0.02em",color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{currentTab.label}</span>
         {selectedProject&&<><span style={{color:T.muted,fontSize:16,fontWeight:300,flexShrink:0}}>›</span><span style={{fontSize:isMobile?12:14,color:T.sub,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedProject.name}</span>{!isMobile&&projectSection!=="Home"&&<><span style={{color:T.muted,fontSize:16}}>›</span><span style={{fontSize:13,color:T.muted}}>{projectSection}{creativeSubSection?` › ${creativeSubSection==="moodboard"?"Moodboard":"Brief"}`:""}{budgetSubSection?` › ${budgetSubSection==="tracker"?"Budget Tracker":budgetSubSection==="estimates"?"Estimates":"Quotations"}`:""}</span></>}</>}
       </div>

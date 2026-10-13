@@ -1338,16 +1338,18 @@ function OnnaDashboardInner() {
   const currentTab = TABS.find(t=>t.id===activeTab)||(activeTab==="Settings"?{id:"Settings",label:"Settings"}:TABS[0]);
 
   const P = isMobile ? 16 : 28; // main padding
+  const [sidebarHidden, setSidebarHidden] = useState(() => { try { return localStorage.getItem('onna_sidebar_hidden') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('onna_sidebar_hidden', sidebarHidden ? '1' : '0'); } catch {} }, [sidebarHidden]);
 
   return (
     <div style={{minHeight:"100vh",background:T.bg,fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif",color:T.text,display:"flex"}}>
       <style>{`.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50;display:flex;align-items:${isMobile?"flex-end":"center"};justify-content:center;}`}</style>
 
-      <AppSidebar T={T} isMobile={isMobile} activeTab={activeTab} TABS={TABS} changeTab={changeTab} buildPath={buildPath} setActiveTab={setActiveTab} setSelectedProject={setSelectedProject} pushNav={pushNav} StarIcon={StarIcon}/>
+      {!sidebarHidden && <AppSidebar T={T} isMobile={isMobile} activeTab={activeTab} TABS={TABS} changeTab={changeTab} buildPath={buildPath} setActiveTab={setActiveTab} setSelectedProject={setSelectedProject} pushNav={pushNav} StarIcon={StarIcon}/>}
 
       {/* ── MAIN ── */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <Topbar T={T} isMobile={isMobile} P={P} currentTab={currentTab} selectedProject={selectedProject} projectSection={projectSection} creativeSubSection={creativeSubSection} budgetSubSection={budgetSubSection} apiLoading={apiLoading} apiError={apiError} changeTab={changeTab} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} notifications={notifications} setNotifications={setNotifications} NotificationBell={NotificationBell}/>
+        <Topbar T={T} isMobile={isMobile} P={P} currentTab={currentTab} selectedProject={selectedProject} projectSection={projectSection} creativeSubSection={creativeSubSection} budgetSubSection={budgetSubSection} apiLoading={apiLoading} apiError={apiError} changeTab={changeTab} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} notifications={notifications} setNotifications={setNotifications} NotificationBell={NotificationBell} sidebarHidden={sidebarHidden} setSidebarHidden={setSidebarHidden}/>
 
         {isOffline && (
           <div style={{background:"#fff3cd",color:"#856404",padding:"8px 16px",fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid #ffc107"}}>
