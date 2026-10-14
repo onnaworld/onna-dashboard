@@ -256,7 +256,7 @@ export default function Documents({
               {csData.venueRows.map((row,i) => { const subnotes=row.subnotes||[]; const setSubnotes=(next)=>csU(`venueRows.${i}.subnotes`,next); return (
                 <Fragment key={i}>
                 <div onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("venueRow:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.venueRows];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,venueRows:a};});}}} style={{display:"flex",alignItems:"flex-start",marginBottom:subnotes.length?0:5,gap:8,background:CS_HL_BG[row.hl||""],borderRadius:3,padding:"2px 4px",breakInside:"avoid"}}>
-                  <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);}} style={{color:"#ccc",fontSize:10,padding:"2px 0",cursor:"grab",userSelect:"none"}}>☰</span>
+                  <span data-noprint="1" draggable title="Drag to reorder" onDragStart={e=>{e.dataTransfer.setData("text/plain","venueRow:"+i);}} style={{color:"#999",fontSize:13,padding:"2px 2px",cursor:"grab",userSelect:"none",transition:"color 0.1s"}} onMouseEnter={e=>e.currentTarget.style.color="#555"} onMouseLeave={e=>e.currentTarget.style.color="#999"}>⠿</span>
                   <CSHighlightDot value={row.hl} onClick={()=>csU(`venueRows.${i}.hl`,cycleHighlight(row.hl))}/>
                   <div style={{width:100,flexShrink:0}}>
                     <CSEditField value={row.label} onChange={v=>csU(`venueRows.${i}.label`,v)} bold style={{fontSize:9,fontWeight:700,color:"#888",letterSpacing:CS_LS,textTransform:"uppercase"}} placeholder="LABEL"/>
@@ -298,7 +298,7 @@ export default function Documents({
                 <tbody>
                   {csData.schedule.map((row,i) => (
                     <tr key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("sched:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.schedule];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,schedule:a};});}}} style={{borderBottom:"1px solid #f0f0f0",background:CS_HL_BG[row.hl||""]||"#fff",breakInside:"avoid"}}>
-                      <td data-noprint="1" style={{padding:"4px 2px",color:"#ccc",fontSize:10}}><span draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);}} style={{userSelect:"none",cursor:"grab"}}>☰</span></td>
+                      <td data-noprint="1" style={{padding:"4px 2px"}}><span draggable title="Drag to reorder" onDragStart={e=>{e.dataTransfer.setData("text/plain","sched:"+i);}} style={{color:"#999",fontSize:13,userSelect:"none",cursor:"grab",transition:"color 0.1s"}} onMouseEnter={e=>e.currentTarget.style.color="#555"} onMouseLeave={e=>e.currentTarget.style.color="#999"}>⠿</span></td>
                       <td style={{padding:"4px 4px 4px 0",fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                         <CSEditField value={row.time} onChange={v=>csU(`schedule.${i}.time`,v)} isPlaceholder autoFit placeholder="00:00" style={{fontSize:11,fontWeight:600}}/>
                       </td>
