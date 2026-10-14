@@ -686,7 +686,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 {showVat && <div style={{display:"flex",borderBottom:"1px solid #eee",alignItems:"center"}}>
                   <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:2}}>VAT (<input value={phase.vatPct} onChange={e=>{const v=parseFloat(e.target.value);setPhaseVat(pi,isNaN(v)?0:v);}} style={{width:28,fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,letterSpacing:EST_LS,border:"none",borderBottom:"1px solid #ccc",textAlign:"center",padding:0,outline:"none",background:"transparent"}} />%)</div>
                   <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.vat)}</div>
-                  {showCurrency2 && <div style={{width:_narrow?70:100}}></div>}
+                  {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.vat*xRate)}</div>}
                 </div>}
                 <div style={{display:"flex",borderTop:showVat?"none":"2px solid #000",borderBottom:"2px solid #000"}}>
                   <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "ESTIMATE TOTAL" : "TOTAL"}</div>
