@@ -1,6 +1,7 @@
 import React, { Fragment, useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { renderHtmlToDocPages, exportDocPreview, PRINT_CLEANUP_CSS, PRINT_CLEANUP_SCRIPT, makeDocUpdater } from "../../utils/helpers";
+import { downloadStyledXlsx } from "../../utils/templateExport";
 import { showAlert, showPrompt } from "../../utils/modal";
 import { CALLSHEET_INIT, DIETARY_INIT, ESTIMATE_INIT,
   CS_FONT, CS_LS, CSLogoSlot, CSAddBtn, CSEditField, CSEditTextarea, CSResizableImage, CSXbtn,
@@ -83,6 +84,25 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
       const dietCounts={};(dietData.people||[]).forEach(pr=>{const d=pr.dietary||"None";dietCounts[d]=(dietCounts[d]||0)+1;});
       const dietTotalWithDietary=(dietData.people||[]).filter(pr=>pr.dietary&&pr.dietary!=="None").length;
       const dietTotalWithAllergy=(dietData.people||[]).filter(pr=>pr.allergies&&pr.allergies.trim()).length;
+      const dietExportExcel = () => {
+        const peopleCols = [{key:"name",label:"Name"},{key:"role",label:"Role"},{key:"department",label:"Department"},{key:"dietary",label:"Dietary"},{key:"allergies",label:"Allergies / Intolerances"},{key:"notes",label:"Notes"}];
+        const peopleRows = (dietData.people||[]).map(pr=>({name:pr.name,role:pr.role,department:pr.department,dietary:pr.dietary||"None",allergies:pr.allergies,notes:pr.notes}));
+        const headerRows = [
+          {label:"Project",value:dietData.project?.name||""},
+          {label:"Client",value:dietData.project?.client||""},
+          {label:"Date",value:dietData.project?.date||""},
+        ];
+        const blocks = [
+          { title:"DIETARY LIST", columns:[{key:"label",label:"Field"},{key:"value",label:"Value"}], rows:headerRows },
+          { title:"CREW DIETARY NOTES", columns:peopleCols, rows:peopleRows },
+        ];
+        if ((dietData.menu||[]).length) {
+          (dietData.menu||[]).forEach(m=>{
+            blocks.push({ title:(m.category||"MENU").toUpperCase(), columns:[{key:"items",label:"Items"}], rows:[{items:m.items||""}] });
+          });
+        }
+        downloadStyledXlsx(blocks, `${dietData.label||"Dietary List"}.xlsx`, { title:`${dietData.label||"Dietary List"} — ${dietData.project?.name||""}`, sheetName:"Dietary" });
+      };
       return(
         <div style={{overflowY:"auto",background:"#fff",height:"100%",display:"flex",flexDirection:"column"}}>
           {/* Tab bar */}
@@ -100,6 +120,7 @@ export default function AgentDocPreview({agentId, projectId, callSheetStore, set
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
               <input value={dietData.label||""} onChange={e=>dietU("label",e.target.value)} style={{fontSize:15,fontWeight:700,background:"transparent",border:"none",outline:"none",fontFamily:"inherit",padding:0,flex:1}} placeholder="Dietary List Name"/>
               {connieDietTab==="dietary"&&dietLinkedCS&&<span title={`Crew auto-syncs from "${dietLinkedCS.label||"Call Sheet"}" — no action needed`} style={{fontSize:11,color:"#999",fontWeight:500,flexShrink:0,display:"inline-flex",alignItems:"center",gap:5}}>↻ Synced with {dietLinkedCS.label||"Call Sheet"}</span>}
+              {connieDietTab==="dietary"&&<button onClick={dietExportExcel} style={{padding:"5px 13px",borderRadius:8,background:"#147d50",color:"#fff",border:"none",fontSize:11.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Export Excel</button>}
             </div>
             <div style={{display:"flex",gap:0,marginBottom:14,borderBottom:"1px solid #e5e5ea"}}>
               {[{id:"dietary",label:"Dietary"},{id:"menu",label:"Menu"}].map(tab=><button key={tab.id} onClick={()=>setConnieDietTab(tab.id)} style={{padding:"8px 18px",fontSize:12,fontWeight:connieDietTab===tab.id?700:500,color:connieDietTab===tab.id?"#1d1d1f":"#86868b",background:"none",border:"none",borderBottom:connieDietTab===tab.id?"2px solid #1d1d1f":"2px solid transparent",cursor:"pointer",fontFamily:"inherit",marginBottom:-1}}>{tab.label}</button>)}

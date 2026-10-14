@@ -589,43 +589,20 @@ export async function handleConnieIntent({
         }
       }
 
-      // Check 1: "Sync dietary with call sheet"
+      // Check 1: "Sync dietary with call sheet" — dietary lists now auto-sync
+      // from their linked call sheet in real time (see the effect in
+      // AgentContext.jsx), so this used to rebuild `people` from scratch:
+      // it always acted on the LAST dietary list regardless of which call
+      // sheet it was actually linked to, and silently dropped any existing
+      // entry whose name happened to start with "[". Just confirm instead.
       if(/sync\s+(dietary|dietaries|diet)/i.test(input)||(/sync/i.test(input)&&/(call\s*sheet|cs)/i.test(input)&&/(dietary|diet)/i.test(input))){
         const dietArr=dietaryStore?.[projectId]||[];
         if(dietArr.length===0){
           setMsgs([...history,{role:"assistant",content:"No dietary lists found for this project. Create one first in the Documents tab, or ask me to add a dietary for someone and I'll create one automatically."}]);
-          setLoading(false);setMood("idle");return true;
+        } else {
+          setMsgs([...history,{role:"assistant",content:"Dietary lists sync automatically with their linked call sheet now — no need to ask me to sync them. Every crew slot shows up on its own as soon as it's on the call sheet, and updates the moment a name is added."}]);
         }
-        const csVersions_ds=callSheetStore?.[projectId]||[];
-        if(csVersions_ds.length===0){
-          setMsgs([...history,{role:"assistant",content:"No call sheets found for this project. Create a call sheet first."}]);
-          setLoading(false);setMood("idle");return true;
-        }
-        const latestCS=csVersions_ds[csVersions_ds.length-1];
-        const pulled=[];
-        (latestCS.departments||[]).forEach(dept=>{(dept.crew||[]).forEach(cr=>{if(cr.name&&cr.name.trim())pulled.push({name:cr.name.trim().toLowerCase(),role:cr.role||"",department:dept.name||"",origName:cr.name.trim()});});});
-        setDietaryStore(prev=>{
-          const store=JSON.parse(JSON.stringify(prev));const arr=store[projectId]||[];const d=arr[arr.length-1];
-          if(latestCS.shootName)d.project.name=latestCS.shootName;
-          if(latestCS.date)d.project.date=latestCS.date;
-          const csParts=(latestCS.shootName||"").split(" | ");
-          if(csParts.length>=2)d.project.client=csParts[0].trim();
-          const csNames=new Set(pulled.map(pr=>pr.name));
-          const existingMap={};
-          d.people.forEach(pr=>{if(pr.name&&pr.name.trim())existingMap[pr.name.trim().toLowerCase()]=pr;});
-          const newPeople=[];let addedCount=0;
-          pulled.forEach(pr=>{
-            const existing=existingMap[pr.name];
-            if(existing){newPeople.push({...existing,role:pr.role||existing.role,department:pr.department||existing.department});}
-            else{newPeople.push({id:Date.now()+Math.random(),name:pr.origName,role:pr.role,department:pr.department,dietary:"None",allergies:"",notes:""});addedCount++;}
-          });
-          d.people.forEach(pr=>{if(pr.name&&pr.name.trim()&&!pr.name.startsWith("[")&&!csNames.has(pr.name.trim().toLowerCase())){newPeople.push(pr);}});
-          d.people=newPeople;
-          arr[arr.length-1]=d;store[projectId]=arr;return store;
-        });
-        const addedCount=pulled.filter(pr=>{const dietPeople=(dietaryStore?.[projectId]||[])[(dietaryStore?.[projectId]||[]).length-1]?.people||[];return !dietPeople.some(dp=>dp.name&&dp.name.trim().toLowerCase()===pr.name);}).length;
-        setMsgs([...history,{role:"assistant",content:`Synced dietary list with call sheet! Added ${addedCount} new crew member${addedCount!==1?"s":""}, updated project info.`}]);
-        setLoading(false);setMood("excited");setTimeout(()=>setMood("idle"),2500);return true;
+        setLoading(false);setMood("idle");return true;
       }
 
       // Check 2: "Add dietary for [name] as [type]" / "set [name] dietary to [type]" / "[name] is [type]" / "mark [name] as [type]"

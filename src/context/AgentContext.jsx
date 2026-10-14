@@ -223,13 +223,22 @@ export function AgentProvider({ debouncedDocSave, children }) {
   // keeps every linked dietary list's crew list current automatically:
   // every crew slot shows up (by its role/title as a placeholder) as soon
   // as it exists on the call sheet, and once a real name is typed in, it
-  // replaces the placeholder on its own. Matching is by slot position
-  // (department index : crew index), not by name — specifically so a slot
-  // going from "no name yet" to "has a name" is recognized as the same
-  // person rather than creating a duplicate. A slotKey is how an entry
-  // opts into this: entries added by hand (no slotKey) or moved to "Not On
-  // Set" are never touched here. Reads dietaryStore via the functional
-  // updater (not as a dependency) so this can't loop on its own writes.
+  // replaces the placeholder on its own.
+  //
+  // Matching is primarily by slot position (department:crew index) via a
+  // `slotKey`, so a slot going from "no name yet" to "has a name" is
+  // recognized as the same person. But every dietary list that predates
+  // this feature has crew entries with NO slotKey at all — matching only
+  // by slotKey treated all of them as brand new on the very first run,
+  // duplicating the entire crew list (a real incident: 55 people became
+  // ~75, each original now sitting next to a fresh "TBC" copy of itself).
+  // Fixed by falling back to a one-time NAME match for slotKey-less
+  // entries: if a call sheet slot's name matches an existing nameless-key
+  // entry, that entry is adopted (claimed) into the slot system — same
+  // row, same dietary/allergy/notes, just gets a slotKey from here on —
+  // instead of a new row being created alongside it. Each existing entry
+  // can only be claimed once per run even if multiple slots share a name.
+  // Entries added by hand or moved to "Not On Set" are never touched.
   useEffect(() => {
     setDietaryStore(prev => {
       let changedAny = false;
@@ -248,30 +257,60 @@ export function AgentProvider({ debouncedDocSave, children }) {
               const hasName = !!(cr.name && cr.name.trim());
               const role = cr.role || "";
               if (!hasName && !role) return; // nothing to show yet
-              slots.push({ slotKey: `${di}:${ci}`, displayName: hasName ? cr.name.trim() : role, role, department: dept.name || "" });
+              slots.push({ slotKey: `${di}:${ci}`, displayName: hasName ? cr.name.trim() : role, role, department: dept.name || "", hasName });
             });
           });
           if (slots.length === 0) return d;
           const people = d.people || [];
           const notOnSetSlots = new Set((d.notOnSet || []).filter(pr => pr.slotKey).map(pr => pr.slotKey));
-          const knownSlots = new Set(people.filter(pr => pr.slotKey).map(pr => pr.slotKey));
-          let changed = false;
-          const updatedPeople = people.map(pr => {
-            if (!pr.slotKey) return pr;
-            const slot = slots.find(s => s.slotKey === pr.slotKey);
-            if (!slot) return pr; // that slot no longer exists on the call sheet — leave it
-            if (pr.name !== slot.displayName || pr.role !== slot.role || pr.department !== slot.department) {
-              changed = true;
-              return { ...pr, name: slot.displayName, role: slot.role, department: slot.department };
-            }
-            return pr;
+          const bySlotKey = new Map(people.filter(pr => pr.slotKey).map(pr => [pr.slotKey, pr]));
+          // Unclaimed legacy entries (no slotKey yet), bucketed by lowercased
+          // name so a slot's real name can find and adopt its match.
+          const legacyBuckets = new Map();
+          people.forEach(pr => {
+            if (pr.slotKey || !pr.name || !pr.name.trim()) return;
+            const key = pr.name.trim().toLowerCase();
+            if (!legacyBuckets.has(key)) legacyBuckets.set(key, []);
+            legacyBuckets.get(key).push(pr);
           });
-          const newSlots = slots.filter(s => !knownSlots.has(s.slotKey) && !notOnSetSlots.has(s.slotKey));
-          if (newSlots.length > 0) changed = true;
-          const addedPeople = newSlots.map(s => ({ id: Date.now() + Math.random(), name: s.displayName, role: s.role, department: s.department, dietary: ["TBC"], allergies: "", notes: "", slotKey: s.slotKey }));
+          const claimedIds = new Set();
+          const handledIds = new Set();
+          let changed = false;
+          const resultPeople = [];
+          slots.forEach(slot => {
+            const bySlot = bySlotKey.get(slot.slotKey);
+            if (bySlot) {
+              handledIds.add(bySlot.id);
+              if (bySlot.name !== slot.displayName || bySlot.role !== slot.role || bySlot.department !== slot.department) {
+                changed = true;
+                resultPeople.push({ ...bySlot, name: slot.displayName, role: slot.role, department: slot.department });
+              } else {
+                resultPeople.push(bySlot);
+              }
+              return;
+            }
+            if (notOnSetSlots.has(slot.slotKey)) return; // manually removed — don't resurrect
+            if (slot.hasName) {
+              const bucket = legacyBuckets.get(slot.displayName.trim().toLowerCase());
+              const candidate = bucket && bucket.find(pr => !claimedIds.has(pr.id));
+              if (candidate) {
+                claimedIds.add(candidate.id);
+                handledIds.add(candidate.id);
+                changed = true; // claiming (assigning slotKey) counts as a change worth saving
+                resultPeople.push({ ...candidate, slotKey: slot.slotKey, role: candidate.role || slot.role, department: candidate.department || slot.department });
+                return;
+              }
+            }
+            // genuinely new slot — nothing existing to adopt
+            changed = true;
+            resultPeople.push({ id: Date.now() + Math.random(), name: slot.displayName, role: slot.role, department: slot.department, dietary: ["TBC"], allergies: "", notes: "", slotKey: slot.slotKey });
+          });
+          // Anything not matched to a slot this pass (manual additions, or a
+          // slot that no longer exists on the call sheet) is kept untouched.
+          people.forEach(pr => { if (!handledIds.has(pr.id)) resultPeople.push(pr); });
           if (!changed) return d;
           projectChanged = true;
-          return { ...d, people: [...updatedPeople, ...addedPeople] };
+          return { ...d, people: resultPeople };
         });
         if (projectChanged) { changedAny = true; next[pid] = nextDietArr; }
       });
