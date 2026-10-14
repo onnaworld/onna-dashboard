@@ -609,7 +609,7 @@ export default function Documents({
               </div>
               {(csData.productionContactsExtra||[]).map((rawLine,i) => { const line=_pcLine(rawLine); return (
                 <div key={i} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("pcontact:")){const from=+d.split(":")[1];if(from!==i)csSet(dd=>{const a=[...dd.productionContactsExtra];const[m]=a.splice(from,1);a.splice(i,0,m);return{...dd,productionContactsExtra:a};});}}} style={{display:"flex",alignItems:"center",gap:6,marginTop:3,background:CS_HL_BG[line.hl||""],borderRadius:3,padding:"1px 3px"}}>
-                  <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","pcontact:"+i);}} style={{color:"#ccc",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
+                  <span data-noprint="1" draggable title="Drag to reorder" onDragStart={e=>{e.dataTransfer.setData("text/plain","pcontact:"+i);}} style={{color:"#999",fontSize:13,cursor:"grab",userSelect:"none",transition:"color 0.1s"}} onMouseEnter={e=>e.currentTarget.style.color="#555"} onMouseLeave={e=>e.currentTarget.style.color="#999"}>⠿</span>
                   <CSHighlightDot value={line.hl} onClick={()=>csU(`productionContactsExtra.${i}`,{...line,hl:cycleHighlight(line.hl)})}/>
                   <span style={csLbl}>Production On Set: </span>
                   <CSEditField value={line.text} onChange={v=>csU(`productionContactsExtra.${i}`,{...line,text:v})} isPlaceholder style={{fontSize:11,letterSpacing:CS_LS,flex:1}} placeholder="Name + Number"/>
