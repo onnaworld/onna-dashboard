@@ -199,6 +199,19 @@ export default function Documents({
     };
     const csSetTempC = (cKey, fKey, val) => csSet(d => { const n = parseFloat(val); return { ...d, [cKey]: val, [fKey]: val === "" ? "" : (isNaN(n) ? d[fKey] : String(Math.round(n * 9 / 5 + 32))) }; });
     const csSetTempF = (cKey, fKey, val) => csSet(d => { const n = parseFloat(val); return { ...d, [fKey]: val, [cKey]: val === "" ? "" : (isNaN(n) ? d[cKey] : String(Math.round((n - 32) * 5 / 9))) }; });
+    // Weather's small time stats (Sunrise/Sunset/Blue Hour) used to be three
+    // fixed, un-renamable fields. Normalized into a free-form array so each
+    // one can be relabeled (e.g. "Blue Hour" -> "Golden Hour"), removed, or
+    // added to — call sheets saved before this change had no weatherStats
+    // array at all, so derive one from the legacy fields the first time.
+    const csWeatherStats = (cs) => Array.isArray(cs.weatherStats) ? cs.weatherStats : [
+      {id:1,label:"SUNRISE",value:cs.weatherSunrise||""},
+      {id:2,label:"SUNSET",value:cs.weatherSunset||""},
+      {id:3,label:"BLUE HOUR",value:cs.weatherBlueHour||""},
+    ];
+    const setWeatherStat = (i, patch) => csSet(d => ({...d, weatherStats: csWeatherStats(d).map((s,j)=>j===i?{...s,...patch}:s)}));
+    const addWeatherStat = () => csSet(d => ({...d, weatherStats: [...csWeatherStats(d), {id:Date.now()+Math.random(), label:"", value:""}]}));
+    const rmWeatherStat = (i) => csSet(d => ({...d, weatherStats: csWeatherStats(d).filter((_,j)=>j!==i)}));
     const addScheduleRow = () => csSet(d => ({...d, schedule:[...d.schedule,{time:"",activity:"",notes:""}]}));
     const rmScheduleRow = i => { if(!confirm("Remove this schedule row?"))return; csSet(d => ({...d, schedule:d.schedule.filter((_,j)=>j!==i)})); };
     const moveScheduleRow = (i,dir) => csSet(d => { const a=[...d.schedule]; const j=i+dir; if(j<0||j>=a.length)return d; [a[i],a[j]]=[a[j],a[i]]; return {...d, schedule:a}; });
@@ -559,11 +572,16 @@ export default function Documents({
                   <CSResizableImage label="Weather Forecast Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/>
                 </div>
               )}
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,fontSize:10,fontFamily:CS_FONT}}>
-                <div><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNRISE: </span><CSEditField value={csData.weatherSunrise||""} onChange={v=>csU("weatherSunrise",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
-                <div style={{textAlign:"center"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>SUNSET: </span><CSEditField value={csData.weatherSunset||""} onChange={v=>csU("weatherSunset",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
-                <div style={{textAlign:"right"}}><span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888"}}>BLUE HOUR: </span><CSEditField value={csData.weatherBlueHour||""} onChange={v=>csU("weatherBlueHour",v)} isPlaceholder style={{fontSize:10}} placeholder="00:00"/></div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"4px 14px",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
+                {csWeatherStats(csData).map((s,i)=>(
+                  <div key={s.id} style={{display:"flex",alignItems:"baseline",gap:3}}>
+                    <span style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",whiteSpace:"nowrap"}}><CSEditField value={s.label} onChange={v=>setWeatherStat(i,{label:v.toUpperCase()})} isPlaceholder style={{fontSize:9,fontWeight:700,letterSpacing:CS_LS,color:"#888"}} placeholder="LABEL"/>: </span>
+                    <CSEditField value={s.value} onChange={v=>setWeatherStat(i,{value:v})} isPlaceholder style={{fontSize:10}} placeholder="00:00"/>
+                    <CSXbtn data-noprint="1" onClick={()=>rmWeatherStat(i)} size={11}/>
+                  </div>
+                ))}
               </div>
+              <div data-noprint="1" style={{marginBottom:12}}><span onClick={addWeatherStat} style={{cursor:"pointer",fontSize:9,color:"#ccc",fontStyle:"italic"}} onMouseEnter={e=>e.target.style.color="#999"} onMouseLeave={e=>e.target.style.color="#ccc"}>+ add stat (e.g. Golden Hour)</span></div>
               </div>
     </>);
     const _sec_invoicing = (<>
@@ -714,9 +732,7 @@ export default function Documents({
           rows.push({label:"Real Feel High",value:[csData.weatherRealFeelHighC&&`${csData.weatherRealFeelHighC}°C`,csData.weatherRealFeelHighF&&`${csData.weatherRealFeelHighF}°F`].filter(Boolean).join(" / ")});
           rows.push({label:"Real Feel Low",value:[csData.weatherRealFeelLowC&&`${csData.weatherRealFeelLowC}°C`,csData.weatherRealFeelLowF&&`${csData.weatherRealFeelLowF}°F`].filter(Boolean).join(" / ")});
         }
-        rows.push({label:"Sunrise",value:csData.weatherSunrise||""});
-        rows.push({label:"Sunset",value:csData.weatherSunset||""});
-        rows.push({label:"Blue Hour",value:csData.weatherBlueHour||""});
+        csWeatherStats(csData).forEach(s => rows.push({label:s.label||"", value:s.value||""}));
         const blocks = [{ title:"WEATHER", columns:fv, rows }];
         if ((csData.weatherHourly||[]).length) {
           blocks.push({ title:"HOURLY FORECAST", columns:[{key:"time",label:"Time"},{key:"condition",label:"Condition"},{key:"tempC",label:"°C"},{key:"tempF",label:"°F"}], rows:csData.weatherHourly });
