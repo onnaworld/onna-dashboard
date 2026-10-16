@@ -6,7 +6,7 @@ import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_DOC_TYPES, CONTRACT_TYPE_LABELS, GENERAL_TERMS_DOC } from "../agents/ContractCody";
 
 export default function Documents({
-  T, isMobile, p,
+  T, isMobile, p, projectHydrated,
   documentsSubSection, setDocumentsSubSection,
   callSheetStore, setCallSheetStore, activeCSVersion, setActiveCSVersion,
   riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, setActiveRAVersion,
@@ -81,6 +81,19 @@ export default function Documents({
 
     // ── List view: no call sheet selected ──
     if (activeCSVersion === null || csVersions.length === 0) {
+      // Don't claim "no call sheets yet" with confidence until this project
+      // has actually synced with the server this session — the cache this
+      // renders from first can be behind (another tab/device added one
+      // since this browser last saved), and a confidently-empty list that
+      // then silently grows a moment later reads exactly like data loss.
+      if (!projectHydrated && csVersions.length === 0) {
+        return (
+          <div>
+            {docBack}
+            <div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>Syncing call sheets…</div></div>
+          </div>
+        );
+      }
       return (
         <div>
           {docBack}
@@ -119,6 +132,21 @@ export default function Documents({
                 </div>
               ); })}
           </div>
+        </div>
+      );
+    }
+
+    // Same reasoning as the list view above, but for the editor itself: a
+    // stale cached copy of THIS call sheet rendered — and made immediately
+    // editable — before the real sync lands is exactly how content "goes
+    // missing": any edit made against the wrong baseline starts from data
+    // that's about to be replaced. Wait for a confirmed sync before opening
+    // the editor at all, rather than letting the "weird lag" show briefly.
+    if (!projectHydrated) {
+      return (
+        <div>
+          {docBack}
+          <div style={{padding:44,textAlign:"center"}}><div style={{fontSize:13,color:T.muted}}>Syncing latest call sheet…</div></div>
         </div>
       );
     }

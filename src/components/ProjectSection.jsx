@@ -313,7 +313,7 @@ export default function ProjectSection({
 
   // Documents section
   if (projectSection==="Documents") {
-    return <Documents T={T} isMobile={isMobile} p={p}
+    return <Documents T={T} isMobile={isMobile} p={p} projectHydrated={projectHydrated}
       documentsSubSection={documentsSubSection} setDocumentsSubSection={setDocumentsSubSection}
       callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion} setActiveCSVersion={setActiveCSVersion}
       riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion} setActiveRAVersion={setActiveRAVersion}
