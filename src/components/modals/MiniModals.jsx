@@ -1,11 +1,5 @@
 import React from "react";
 
-export function TimeoutWarning({ setShowTimeoutWarning }) {
-  return (
-    <div style={{position:"fixed",top:0,left:0,right:0,background:"#E65100",color:"#fff",padding:"10px 20px",textAlign:"center",fontSize:13,fontWeight:600,fontFamily:"inherit",zIndex:100001,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>Session expires in 1 minute due to inactivity<button onClick={()=>{setShowTimeoutWarning(false);}} style={{background:"#fff",color:"#E65100",border:"none",borderRadius:6,padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>I'm still here</button></div>
-  );
-}
-
 export function GlobalAlertModal({ _modal, _closeModal, _modalInputRef }) {
   return (
     <div onClick={()=>_closeModal(_modal.type==="prompt"?null:undefined)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.45)",zIndex:100000,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Avenir','Avenir Next','Nunito Sans',sans-serif"}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,padding:"28px 32px",minWidth:340,maxWidth:480,boxShadow:"0 12px 40px rgba(0,0,0,0.18)",border:"1px solid #e5e5e5"}}>

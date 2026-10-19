@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 const UIContext = createContext(null);
 
@@ -27,11 +27,6 @@ export function UIProvider({ initialTab, initialLgStep, children }) {
   const [lgEmail,setLgEmail]       = useState("");
   const [lgNewPass,setLgNewPass]   = useState("");
   const [lgNewPass2,setLgNewPass2] = useState("");
-
-  // ── Timeout warning ──
-  const [showTimeoutWarning,setShowTimeoutWarning] = useState(false);
-  const timeoutRef = useRef(null);
-  const warningRef = useRef(null);
 
   // ── Sign page ──
   const [signData,setSignData]               = useState(null);
@@ -82,7 +77,6 @@ export function UIProvider({ initialTab, initialLgStep, children }) {
     lgLoading,setLgLoading,lgStep,setLgStep,lgEmail,setLgEmail,
     lgNewPass,setLgNewPass,lgNewPass2,setLgNewPass2,
     // Timeout
-    showTimeoutWarning,setShowTimeoutWarning,timeoutRef,warningRef,
     // Sign page
     signData,setSignData,signLoading,setSignLoading,
     signError,setSignError,signSubmitted,setSignSubmitted,

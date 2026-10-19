@@ -52,7 +52,7 @@ import { DuplicateCallSheetModal } from "./components/modals/DuplicateCallSheetM
 import { DuplicateRAModal } from "./components/modals/DuplicateRAModal";
 import { GenericDuplicateModal } from "./components/modals/GenericDuplicateModal";
 import { ArchiveModal } from "./components/modals/ArchiveModal";
-import { TimeoutWarning, GlobalAlertModal, UndoToast } from "./components/modals/MiniModals";
+import { GlobalAlertModal, UndoToast } from "./components/modals/MiniModals";
 import { SearchModal } from "./components/modals/SearchModal";
 import { logActivity } from "./utils/activityLog";
 import { checkDueReminders, createNotification, createReminder, sendPushNotification, requestPushPermission } from "./utils/reminders";
@@ -183,7 +183,6 @@ function OnnaDashboardInner() {
     lgUser,setLgUser,lgPass,setLgPass,lgErr,setLgErr,
     lgLoading,setLgLoading,lgStep,setLgStep,lgEmail,setLgEmail,
     lgNewPass,setLgNewPass,lgNewPass2,setLgNewPass2,
-    showTimeoutWarning,setShowTimeoutWarning,timeoutRef,warningRef,
     signData,setSignData,signLoading,setSignLoading,
     signError,setSignError,signSubmitted,setSignSubmitted,
     signVendorName,setSignVendorName,signVendorDate,setSignVendorDate,
@@ -250,23 +249,6 @@ function OnnaDashboardInner() {
   const doResetRequest = () => _doResetRequest(lgEmail, setLgLoading, setLgStep);
   const doResetConfirm = () => _doResetConfirm(lgNewPass, lgNewPass2, _urlReset, setLgLoading, setLgErr, setLgStep);
 
-  // Auto-logout after 30 min inactivity with 1-minute warning
-  useEffect(()=>{
-    if (!authed) return;
-    const TIMEOUT = 30*60*1000;
-    const WARNING = 60*1000;
-    const doLogout = ()=>{setShowTimeoutWarning(false);localStorage.removeItem("onna_token");window.location.reload();};
-    const schedule = ()=>{
-      clearTimeout(warningRef.current); clearTimeout(timeoutRef.current);
-      setShowTimeoutWarning(false);
-      warningRef.current = setTimeout(()=>setShowTimeoutWarning(true), TIMEOUT - WARNING);
-      timeoutRef.current = setTimeout(doLogout, TIMEOUT);
-    };
-    schedule();
-    const events = ["mousemove","mousedown","keydown","touchstart","scroll"];
-    events.forEach(e=>window.addEventListener(e, schedule, {passive:true}));
-    return ()=>{ clearTimeout(warningRef.current); clearTimeout(timeoutRef.current); events.forEach(e=>window.removeEventListener(e, schedule)); };
-  },[authed]);
 
   // ── CPS share page (bypasses login — redirects to API-served HTML) ──────────
   const _urlParams = new URLSearchParams(window.location.search);
@@ -1340,7 +1322,6 @@ function OnnaDashboardInner() {
     travelItineraryStore, setTravelItineraryStore,
     showArchive, setShowArchive, archive, setArchive, restoreItem, permanentlyDelete,
     billieRateCards, setBillieRateCards,
-    showTimeoutWarning, setShowTimeoutWarning,
     _modal, _closeModal, _modalInputRef,
     undoToastMsg, setUndoToastMsg, mobileMenuOpen, setMobileMenuOpen,
     doLogActivity, reminders, setReminders, notifications, setNotifications};
@@ -1511,7 +1492,6 @@ function OnnaDashboardInner() {
       {duplicateModal&&<GenericDuplicateModal {..._mp}/>}
 
       {showArchive&&<ArchiveModal {..._mp}/>}
-      {showTimeoutWarning&&<TimeoutWarning showTimeoutWarning={showTimeoutWarning} setShowTimeoutWarning={setShowTimeoutWarning}/>}
       {_modal.show&&<GlobalAlertModal _modal={_modal} _closeModal={_closeModal} _modalInputRef={_modalInputRef}/>}
       {undoToastMsg&&<UndoToast undoToastMsg={undoToastMsg}/>}
       {showSearch&&<SearchModal T={T} isMobile={isMobile} showSearch={showSearch} setShowSearch={setShowSearch} vendors={vendors} localLeads={localLeads} outreach={outreach} localClients={localClients} allProjectsMerged={allProjectsMerged} notes={notes} onNavigate={onSearchNavigate}/>}
