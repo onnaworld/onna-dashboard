@@ -1,4 +1,5 @@
-import React, { Fragment, useState, useRef, useEffect, useCallback } from "react";
+import React, { Fragment, useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 // ─── IMAGE UPLOAD VALIDATION ────────────────────────────────────────────────
 const MAX_IMG_SIZE = 15 * 1024 * 1024; // raw file size before compression
@@ -132,19 +133,32 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
 const CSNameField = ({ value, onChange, onPick, options = [], style = {}, placeholder = "" }) => {
   const [editing, setEditing] = useState(false);
   const [temp, setTemp] = useState(value);
+  const [menuPos, setMenuPos] = useState(null);
   const inputRef = useRef(null);
   const commit = () => { setEditing(false); onChange(temp); };
   const matches = temp && temp.trim()
     ? options.filter(o => o.name && o.name.toLowerCase().includes(temp.trim().toLowerCase()) && o.name.toLowerCase() !== temp.trim().toLowerCase()).slice(0, 8)
     : [];
+  // Dropdown is rendered via a portal into document.body, positioned with
+  // fixed coords from the input's own bounding rect — table cells in the
+  // call sheet use overflow:hidden for text-ellipsis truncation, which was
+  // silently clipping an absolutely-positioned dropdown nested inside them.
+  useLayoutEffect(() => {
+    if (editing && matches.length > 0 && inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect();
+      setMenuPos({ top: r.bottom, left: r.left, width: r.width });
+    } else if (menuPos) {
+      setMenuPos(null);
+    }
+  }, [editing, matches.length, temp]);
   if (editing) return (
     <span style={{ position: "relative", display: "inline-block", width: "100%" }}>
       <input ref={inputRef} autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit}
         onKeyDown={e=>{ if (e.key === "Enter") { e.preventDefault(); commit(); } }}
         style={{...style, fontFamily: CS_FONT, fontSize: style.fontSize||11, background:"#FFFDE7", border:"1px solid #E0D9A8", borderRadius:2, outline:"none", padding:"2px 5px", width:style.width||"100%", minWidth:style.minWidth||60, maxWidth:"100%", boxSizing:"border-box", color: style.color||"#1a1a1a" }}
         placeholder={placeholder}/>
-      {matches.length > 0 && (
-        <div data-noprint="1" style={{ position:"absolute", top:"100%", left:0, zIndex:1000, background:"#fff", border:"1px solid #ddd", borderRadius:4, boxShadow:"0 4px 12px rgba(0,0,0,0.12)", minWidth:180, maxHeight:180, overflowY:"auto" }}>
+      {matches.length > 0 && menuPos && createPortal(
+        <div data-noprint="1" style={{ position:"fixed", top:menuPos.top, left:menuPos.left, zIndex:10000, background:"#fff", border:"1px solid #ddd", borderRadius:4, boxShadow:"0 4px 12px rgba(0,0,0,0.12)", minWidth:Math.max(180,menuPos.width), maxHeight:180, overflowY:"auto" }}>
           {matches.map(m => (
             <div key={m.id ?? m.name} onMouseDown={e=>{ e.preventDefault(); setEditing(false); onPick(m); }}
               style={{ padding:"5px 9px", fontSize:11, fontFamily:CS_FONT, cursor:"pointer", borderBottom:"1px solid #f5f5f5" }}
@@ -153,7 +167,8 @@ const CSNameField = ({ value, onChange, onPick, options = [], style = {}, placeh
               {(m.phone||m.email) && <div style={{ fontSize:9, color:"#999" }}>{[m.phone,m.email].filter(Boolean).join(" · ")}</div>}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </span>
   );
