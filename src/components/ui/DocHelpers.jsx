@@ -593,6 +593,7 @@ const CALLSHEET_INIT = {
     {name:"BEAUTY TEAM",crew:[{role:"HAIR STYLIST",name:"",mobile:"",email:"",callTime:""},{role:"HAIR ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ARTIST",name:"",mobile:"",email:"",callTime:""},{role:"MAKEUP ASSISTANT",name:"",mobile:"",email:"",callTime:""}]},
     {name:"MODEL",crew:[{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"FEMALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"MALE MODEL",name:"",mobile:"",email:"",callTime:""},{role:"WAITER",name:"",mobile:"",email:"",callTime:""}]},
     {name:"PRODUCTION & LOCATION",crew:[{role:"LOCAL PRODUCER",name:"",mobile:"",email:"",callTime:""},{role:"ASSISTANT DIRECTOR",name:"",mobile:"",email:"",callTime:""},{role:"LOCATION MANAGER",name:"",mobile:"",email:"",callTime:""},{role:"LOCATION ASSISTANT",name:"",mobile:"",email:"",callTime:""},{role:"UNIT",name:"",mobile:"",email:"",callTime:""},{role:"UNIT",name:"",mobile:"",email:"",callTime:""},{role:"UNIT",name:"",mobile:"",email:"",callTime:""}]},
+    {name:"SUPPLIERS",crew:[{role:"SUPPLIER",name:"",mobile:"",email:"",callTime:""}]},
   ],
   emergencyNumbers:[{label:"TBC",number:"TBC"}],
   emergencyDialPrefix:"TBC",
