@@ -468,10 +468,10 @@ export default function Documents({
                           <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}><span draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);}} style={{cursor:"grab"}}>☰</span></td>
                           <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflowWrap:"break-word",whiteSpace:"normal",maxWidth:0}}>
                             <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal",whiteSpace:"pre-wrap"}} placeholder="Role"/>
+                            {/model/i.test(dept.name) && <div style={{marginTop:4}}><CSHeadshot image={cr.photo} onUpload={v=>csU(`departments.${di}.crew.${ci}.photo`,v)} onRemove={()=>csU(`departments.${di}.crew.${ci}.photo`,"")} width={46} height={62}/></div>}
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,fontWeight:dept.discrete?400:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSNameField value={cr.name} options={vendors} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} onPick={vendor=>{csSet(d=>{const cr2=d.departments[di].crew[ci];cr2.name=vendor.name||"";if(vendor.phone&&!cr2.mobile)cr2.mobile=vendor.phone;if(vendor.email&&!cr2.email)cr2.email=vendor.email;return d;});}} style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Name"/>
-                            {/model/i.test(dept.name) && <div style={{marginTop:4}}><CSHeadshot image={cr.photo} onUpload={v=>csU(`departments.${di}.crew.${ci}.photo`,v)} onRemove={()=>csU(`departments.${di}.crew.${ci}.photo`,"")} width={46} height={62}/></div>}
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.mobile} onChange={v=>{csU(`departments.${di}.crew.${ci}.mobile`,v);saveCrewToVendors({...cr,mobile:v});}} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Phone"/>
