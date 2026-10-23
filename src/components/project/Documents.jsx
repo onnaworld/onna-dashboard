@@ -474,10 +474,10 @@ export default function Documents({
                             <CSNameField value={cr.name} options={vendors} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} onPick={vendor=>{csSet(d=>{const cr2=d.departments[di].crew[ci];cr2.name=vendor.name||"";if(vendor.phone&&!cr2.mobile)cr2.mobile=vendor.phone;if(vendor.email&&!cr2.email)cr2.email=vendor.email;return d;});}} style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Name"/>
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                            <CSEditField value={cr.mobile} onChange={v=>{csU(`departments.${di}.crew.${ci}.mobile`,v);saveCrewToVendors({...cr,mobile:v});}} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Phone"/>
+                            <CSEditField value={cr.mobile} onChange={v=>{csU(`departments.${di}.crew.${ci}.mobile`,v);if(!/model/i.test(dept.name))saveCrewToVendors({...cr,mobile:v});}} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Phone"/>
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                            <CSEditField value={cr.email} onChange={v=>{csU(`departments.${di}.crew.${ci}.email`,v);saveCrewToVendors({...cr,email:v});}} isPlaceholder autoFit style={{fontSize:10,color:dept.discrete?"#777":"#1565C0",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Email"/>
+                            <CSEditField value={cr.email} onChange={v=>{csU(`departments.${di}.crew.${ci}.email`,v);if(!/model/i.test(dept.name))saveCrewToVendors({...cr,email:v});}} isPlaceholder autoFit style={{fontSize:10,color:dept.discrete?"#777":"#1565C0",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Email"/>
                           </td>
                           <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder autoFit style={{fontSize:10,fontWeight:600,fontStyle:dept.discrete?"italic":"normal"}} placeholder="Time"/>
@@ -494,10 +494,10 @@ export default function Documents({
                               <CSEditField value={ag.name} onChange={v=>setAgentField(di,ci,ai,"name",v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Name"/>
                             </td>
                             <td style={{padding:"3px 4px",fontSize:10,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                              <CSEditField value={ag.mobile} onChange={v=>setAgentField(di,ci,ai,"mobile",v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Phone"/>
+                              <CSEditField value={ag.mobile} onChange={v=>{setAgentField(di,ci,ai,"mobile",v);saveCrewToVendors({...ag,mobile:v});}} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Phone"/>
                             </td>
                             <td style={{padding:"3px 4px",fontSize:10,color:"#999",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                              <CSEditField value={ag.email} onChange={v=>setAgentField(di,ci,ai,"email",v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Email"/>
+                              <CSEditField value={ag.email} onChange={v=>{setAgentField(di,ci,ai,"email",v);saveCrewToVendors({...ag,email:v});}} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic"}} placeholder="Email"/>
                             </td>
                             <td style={{padding:"3px 8px 3px 4px",fontSize:10,color:"#999",fontStyle:"italic",fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                               <CSEditField value={ag.callTime} onChange={v=>setAgentField(di,ci,ai,"callTime",v)} isPlaceholder style={{fontSize:10,color:"#999",fontStyle:"italic",fontWeight:600}} placeholder="Time"/>
