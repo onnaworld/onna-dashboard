@@ -251,8 +251,11 @@ export default function Documents({
       const existing = (vendors||[]).find(v => v.name && v.name.trim().toLowerCase() === name.toLowerCase());
       if (existing) {
         const patch = {};
-        if (!existing.phone && cr.mobile) patch.phone = cr.mobile.trim();
-        if (!existing.email && cr.email) patch.email = cr.email.trim();
+        const newMobile = (cr.mobile||"").trim(), newEmail = (cr.email||"").trim();
+        if (!existing.phone && newMobile) patch.phone = newMobile;
+        else if (newMobile && existing.phone && existing.phone.trim() !== newMobile && confirm(`Update ${name}'s mobile on file from "${existing.phone}" to "${newMobile}"?`)) patch.phone = newMobile;
+        if (!existing.email && newEmail) patch.email = newEmail;
+        else if (newEmail && existing.email && existing.email.trim().toLowerCase() !== newEmail.toLowerCase() && confirm(`Update ${name}'s email on file from "${existing.email}" to "${newEmail}"?`)) patch.email = newEmail;
         if (Object.keys(patch).length) {
           setVendors(prev => prev.map(v => v.id===existing.id ? {...v, ...patch} : v));
           api.put(`/api/vendors/${existing.id}`, patch).catch(()=>{});
