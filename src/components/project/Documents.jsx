@@ -1,7 +1,7 @@
 import React, { Fragment } from "react";
 import { getToken, downloadCSV, rebalancePrintTableWidths, api } from "../../utils/helpers";
 import { downloadStyledXlsx } from "../../utils/templateExport";
-import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CS_HL_BG, cycleHighlight, CSHighlightDot, CSNameField } from "../ui/DocHelpers";
+import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CS_HL_BG, cycleHighlight, CSHighlightDot, CSNameField, CSHeadshot } from "../ui/DocHelpers";
 import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_DOC_TYPES, CONTRACT_TYPE_LABELS, GENERAL_TERMS_DOC } from "../agents/ContractCody";
 
@@ -438,17 +438,18 @@ export default function Documents({
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr>
                   <td data-noprint="1" style={{width:16}}></td>
-                  <td style={{...csTh,width:"16%"}}>ROLE</td>
-                  <td style={{...csTh,width:"14%"}}>NAME</td>
-                  <td style={{...csTh,width:"15%"}}>MOBILE</td>
-                  <td style={{...csTh,width:"27%"}}>EMAIL</td>
-                  <td style={{...csTh,width:"10%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
+                  <td data-noprint="1" style={{width:30}}></td>
+                  <td style={{...csTh,width:"15%"}}>ROLE</td>
+                  <td style={{...csTh,width:"13%"}}>NAME</td>
+                  <td style={{...csTh,width:"14%"}}>MOBILE</td>
+                  <td style={{...csTh,width:"26%"}}>EMAIL</td>
+                  <td style={{...csTh,width:"9%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
                   <td data-noprint="1" style={{...csTh,width:60}}></td>
                 </tr></thead>
                 <tbody>
                   {csData.departments.map((dept,di) => { const deptOpen = !dept.discrete || !dept.collapsed; return (
                     <Fragment key={di}>
-                      <tr onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("dept:")){const from=+d.split(":")[1];if(from!==di)csSet(dd=>{const a=[...dd.departments];const[m]=a.splice(from,1);a.splice(di,0,m);return{...dd,departments:a};});}}}><td colSpan={7} style={{padding:0}}>
+                      <tr onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("dept:")){const from=+d.split(":")[1];if(from!==di)csSet(dd=>{const a=[...dd.departments];const[m]=a.splice(from,1);a.splice(di,0,m);return{...dd,departments:a};});}}}><td colSpan={8} style={{padding:0}}>
                         <div style={{background:dept.discrete?"#f2f2f2":"#1a1a1a",padding:"3px 8px",display:"flex",justifyContent:"space-between",alignItems:"center",breakInside:"avoid"}}>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <span data-noprint="1" draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","dept:"+di);}} style={{color:dept.discrete?"#aaa":"#666",fontSize:10,cursor:"grab",userSelect:"none"}}>☰</span>
@@ -466,6 +467,9 @@ export default function Documents({
                       {deptOpen && dept.crew.map((cr,ci) => ([
                         <tr key={ci} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",breakInside:"avoid"}}>
                           <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}><span draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);}} style={{cursor:"grab"}}>☰</span></td>
+                          <td style={{padding:"3px 2px",textAlign:"center"}}>
+                            {/model/i.test(dept.name) && <CSHeadshot image={cr.photo} onUpload={v=>csU(`departments.${di}.crew.${ci}.photo`,v)} onRemove={()=>csU(`departments.${di}.crew.${ci}.photo`,"")}/>}
+                          </td>
                           <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflowWrap:"break-word",whiteSpace:"normal",maxWidth:0}}>
                             <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal",whiteSpace:"pre-wrap"}} placeholder="Role"/>
                           </td>
@@ -505,12 +509,12 @@ export default function Documents({
                           </tr>
                         )),
                         <tr key={ci+"-addagent"} style={{background:"#fff"}}>
-                          <td colSpan={7} style={{padding:"1px 4px 3px 22px"}}>
+                          <td colSpan={8} style={{padding:"1px 4px 3px 22px"}}>
                             <button data-noprint="1" onClick={()=>addAgentLine(di,ci)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:8,padding:0,fontFamily:"inherit",fontStyle:"italic"}} onMouseEnter={e=>e.currentTarget.style.color="#999"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>+ Agent / Producer</button>
                           </td>
                         </tr>
                       ]))}
-                      {deptOpen && <tr style={{background:"#fff"}}><td colSpan={7} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr>}
+                      {deptOpen && <tr style={{background:"#fff"}}><td colSpan={8} style={{padding:"2px 4px"}}><CSAddBtn onClick={()=>addCrew(di)} label="Add Crew"/></td></tr>}
                     </Fragment>
                   );})}
                 </tbody>

@@ -220,6 +220,23 @@ const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
   return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",minWidth:90}}>{image?<div style={{position:"relative"}} onDragOver={e=>{e.preventDefault();e.stopPropagation();}} onDrop={e=>{e.preventDefault();e.stopPropagation();readFile(e.dataTransfer.files[0]);}}><img src={image} alt={label} style={{maxHeight:30,maxWidth:120,objectFit:"contain",cursor:"pointer"}} onClick={()=>ref.current.click()} title="Click or drag to replace logo"/><button onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"14px",color:"#666"}}>x</button></div>:<div data-cs-placeholder="1" onClick={()=>ref.current.click()} onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} style={{width:120,height:30,border:"1.5px dashed #ccc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:"#aaa",letterSpacing:0.5,fontFamily:CS_FONT}}>+ {label}</div>}<input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/></div>;
 };
 
+// Small circular per-person photo — used on call sheet crew rows (e.g. Model)
+// where a headshot is genuinely useful for quickly identifying who's who,
+// without needing a full-width image slot like CSLogoSlot/CSResizableImage.
+const CSHeadshot = ({ image, onUpload, onRemove, size = 26 }) => {
+  const ref = useRef();
+  const readFile = f => { if(!validateImg(f))return; compressImageFile(f, 300, 0.85).then(dataUrl=>{ if(dataUrl) onUpload(dataUrl); }); };
+  return <div style={{position:"relative",width:size,height:size,flexShrink:0}}>
+    {image
+      ? <>
+          <img src={image} alt="" onClick={()=>ref.current.click()} title="Click to replace photo" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",cursor:"pointer",display:"block"}}/>
+          <button data-noprint="1" onClick={onRemove} style={{position:"absolute",top:-4,right:-4,background:"#eee",border:"none",borderRadius:"50%",width:13,height:13,fontSize:8,cursor:"pointer",lineHeight:"12px",color:"#666",padding:0}}>×</button>
+        </>
+      : <div data-noprint="1" data-cs-placeholder="1" onClick={()=>ref.current.click()} title="Add photo" style={{width:size,height:size,borderRadius:"50%",border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:11,color:"#ccc",fontFamily:CS_FONT}}>+</div>}
+    <input ref={ref} type="file" accept="image/*" onChange={e=>readFile(e.target.files[0])} style={{display:"none"}}/>
+  </div>;
+};
+
 const CS_IMG_MAX_W = 800; // approx available content width inside the 880px document
 const CSResizableImage = ({ label, image, onUpload, onRemove, defaultHeight = 180 }) => {
   const ref = useRef();
@@ -616,7 +633,7 @@ export const CSHighlightDot = ({ value, onClick, size = 8 }) => <span data-nopri
 
 // Re-export everything for convenience
 export { MAX_IMG_SIZE, validateImg, CS_FONT, CS_LS, CS_YELLOW, RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR };
-export { CSEditField, CSNameField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn };
+export { CSEditField, CSNameField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSHeadshot, CSXbtn, CSAddBtn };
 export { TIHl, TICell, TITableSection };
 export { DIETARY_TAGS, DIETARY_TAG_COLORS, DietaryTagSelect, DietaryMultiTagSelect, dietTagsOf, DIETARY_INIT };
 export { EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EstHl, EstCell, EstSignaturePad, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT };
