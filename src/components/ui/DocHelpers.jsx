@@ -223,16 +223,16 @@ const CSLogoSlot = ({ label, image, onUpload, onRemove }) => {
 // Small circular per-person photo — used on call sheet crew rows (e.g. Model)
 // where a headshot is genuinely useful for quickly identifying who's who,
 // without needing a full-width image slot like CSLogoSlot/CSResizableImage.
-const CSHeadshot = ({ image, onUpload, onRemove, size = 26 }) => {
+const CSHeadshot = ({ image, onUpload, onRemove, width = 54, height = 72 }) => {
   const ref = useRef();
-  const readFile = f => { if(!validateImg(f))return; compressImageFile(f, 300, 0.85).then(dataUrl=>{ if(dataUrl) onUpload(dataUrl); }); };
-  return <div style={{position:"relative",width:size,height:size,flexShrink:0}}>
+  const readFile = f => { if(!validateImg(f))return; compressImageFile(f, 600, 0.85).then(dataUrl=>{ if(dataUrl) onUpload(dataUrl); }); };
+  return <div style={{position:"relative",width,height,flexShrink:0}}>
     {image
       ? <>
-          <img src={image} alt="" onClick={()=>ref.current.click()} title="Click to replace photo" style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",cursor:"pointer",display:"block"}}/>
-          <button data-noprint="1" onClick={onRemove} style={{position:"absolute",top:-4,right:-4,background:"#eee",border:"none",borderRadius:"50%",width:13,height:13,fontSize:8,cursor:"pointer",lineHeight:"12px",color:"#666",padding:0}}>×</button>
+          <img src={image} alt="" onClick={()=>ref.current.click()} title="Click to replace photo" style={{width,height,borderRadius:4,objectFit:"cover",cursor:"pointer",display:"block"}}/>
+          <button data-noprint="1" onClick={onRemove} style={{position:"absolute",top:-6,right:-6,background:"#eee",border:"none",borderRadius:"50%",width:16,height:16,fontSize:10,cursor:"pointer",lineHeight:"15px",color:"#666",padding:0}}>×</button>
         </>
-      : <div data-noprint="1" data-cs-placeholder="1" onClick={()=>ref.current.click()} title="Add photo" style={{width:size,height:size,borderRadius:"50%",border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:11,color:"#ccc",fontFamily:CS_FONT}}>+</div>}
+      : <div data-noprint="1" data-cs-placeholder="1" onClick={()=>ref.current.click()} title="Add photo" style={{width,height,borderRadius:4,border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:14,color:"#ccc",fontFamily:CS_FONT}}>+</div>}
     <input ref={ref} type="file" accept="image/*" onChange={e=>readFile(e.target.files[0])} style={{display:"none"}}/>
   </div>;
 };

@@ -438,11 +438,11 @@ export default function Documents({
               <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
                 <thead><tr>
                   <td data-noprint="1" style={{width:16}}></td>
-                  <td data-noprint="1" style={{width:56}}></td>
-                  <td style={{...csTh,width:"14%"}}>ROLE</td>
-                  <td style={{...csTh,width:"12%"}}>NAME</td>
-                  <td style={{...csTh,width:"13%"}}>MOBILE</td>
-                  <td style={{...csTh,width:"24%"}}>EMAIL</td>
+                  <td data-noprint="1" style={{width:80}}></td>
+                  <td style={{...csTh,width:"13%"}}>ROLE</td>
+                  <td style={{...csTh,width:"11%"}}>NAME</td>
+                  <td style={{...csTh,width:"12%"}}>MOBILE</td>
+                  <td style={{...csTh,width:"23%"}}>EMAIL</td>
                   <td style={{...csTh,width:"9%",textAlign:"right",paddingRight:8}}>CALL TIME</td>
                   <td data-noprint="1" style={{...csTh,width:60}}></td>
                 </tr></thead>
@@ -468,7 +468,7 @@ export default function Documents({
                         <tr key={ci} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const d=e.dataTransfer.getData("text/plain");if(d.startsWith("crew:"+di+":")){const from=+d.split(":")[2];if(from!==ci)csSet(dd=>{const dept2={...dd.departments[di],crew:[...dd.departments[di].crew]};const[m]=dept2.crew.splice(from,1);dept2.crew.splice(ci,0,m);const depts=[...dd.departments];depts[di]=dept2;return{...dd,departments:depts};});}}} style={{background:CS_HL_BG[cr.hl||""]||"#fff",borderBottom:"1px solid #f5f5f5",breakInside:"avoid"}}>
                           <td data-noprint="1" style={{padding:"3px 2px",color:"#ddd",fontSize:10}}><span draggable onDragStart={e=>{e.dataTransfer.setData("text/plain","crew:"+di+":"+ci);}} style={{cursor:"grab"}}>☰</span></td>
                           <td style={{padding:"3px 2px",textAlign:"center"}}>
-                            {/model/i.test(dept.name) && <CSHeadshot image={cr.photo} onUpload={v=>csU(`departments.${di}.crew.${ci}.photo`,v)} onRemove={()=>csU(`departments.${di}.crew.${ci}.photo`,"")} size={48}/>}
+                            {/model/i.test(dept.name) && <CSHeadshot image={cr.photo} onUpload={v=>csU(`departments.${di}.crew.${ci}.photo`,v)} onRemove={()=>csU(`departments.${di}.crew.${ci}.photo`,"")}/>}
                           </td>
                           <td style={{padding:"3px 4px",fontSize:9,color:dept.discrete?"#999":"#666",overflowWrap:"break-word",whiteSpace:"normal",maxWidth:0}}>
                             <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal",whiteSpace:"pre-wrap"}} placeholder="Role"/>
