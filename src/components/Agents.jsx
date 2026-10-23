@@ -114,6 +114,7 @@ export default function Agents({
                 selectedProject={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie"||a.id==="tina"||a.id==="tabby"||a.id==="polly"||a.id==="lillie"||a.id==="perry")?selectedProject:undefined}
                 localProjects={(a.id==="compliance"||a.id==="researcher"||a.id==="contracts"||a.id==="billie"||a.id==="carrie"||a.id==="tina"||a.id==="tabby"||a.id==="polly"||a.id==="lillie"||a.id==="perry")?allProjectsMerged.filter(p=>p.client!=="TEMPLATE"):undefined}
                 vendors={(a.id==="compliance"||a.id==="carrie")?vendors:undefined}
+                setVendors={a.id==="compliance"?setVendors:undefined}
                 activeCSVersion={a.id==="compliance"?activeCSVersion:undefined}
                 dietaryStore={a.id==="compliance"?dietaryStore:undefined}
                 setDietaryStore={a.id==="compliance"?setDietaryStore:undefined}

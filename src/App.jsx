@@ -1185,6 +1185,7 @@ function OnnaDashboardInner() {
     travelSubSection={travelSubSection} setTravelSubSection={setTravelSubSection}
     scheduleSubSection={scheduleSubSection} setScheduleSubSection={setScheduleSubSection}
     permitsSubSection={permitsSubSection} setPermitsSubSection={setPermitsSubSection}
+    vendors={vendors} setVendors={setVendors}
     activeCSVersion={activeCSVersion} setActiveCSVersion={setActiveCSVersion}
     activeRAVersion={activeRAVersion} setActiveRAVersion={setActiveRAVersion}
     activeContractVersion={activeContractVersion} setActiveContractVersion={setActiveContractVersion}

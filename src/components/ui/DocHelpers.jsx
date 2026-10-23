@@ -125,6 +125,41 @@ const CSEditField = ({ value, onChange, style = {}, placeholder = "", bold = fal
   return <span ref={spanRef} data-yellow={showYellow?"1":undefined} onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,fontWeight:bold?700:style.fontWeight||400,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,maxWidth:autoFit?undefined:"100%",boxSizing:"border-box",background:showYellow?"#FFFDE7":"transparent",borderRadius:showYellow?2:0,padding:showYellow?"1px 4px":0,borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:autoFit?"nowrap":"pre-wrap",wordBreak:autoFit?"normal":"break-word",overflowWrap:autoFit?undefined:"anywhere"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value?renderCSLinks(value):<span data-noprint="1" style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
 };
 
+// Same click-to-edit interaction as CSEditField, plus a type-ahead dropdown
+// of matching vendor contacts while editing. Picking a suggestion calls
+// onPick(record) with the FULL matched record (so the caller can also fill
+// in mobile/email, not just the name) instead of just committing the text.
+const CSNameField = ({ value, onChange, onPick, options = [], style = {}, placeholder = "" }) => {
+  const [editing, setEditing] = useState(false);
+  const [temp, setTemp] = useState(value);
+  const inputRef = useRef(null);
+  const commit = () => { setEditing(false); onChange(temp); };
+  const matches = temp && temp.trim()
+    ? options.filter(o => o.name && o.name.toLowerCase().includes(temp.trim().toLowerCase()) && o.name.toLowerCase() !== temp.trim().toLowerCase()).slice(0, 8)
+    : [];
+  if (editing) return (
+    <span style={{ position: "relative", display: "inline-block", width: "100%" }}>
+      <input ref={inputRef} autoFocus value={temp} onChange={e=>setTemp(e.target.value)} onBlur={commit}
+        onKeyDown={e=>{ if (e.key === "Enter") { e.preventDefault(); commit(); } }}
+        style={{...style, fontFamily: CS_FONT, fontSize: style.fontSize||11, background:"#FFFDE7", border:"1px solid #E0D9A8", borderRadius:2, outline:"none", padding:"2px 5px", width:style.width||"100%", minWidth:style.minWidth||60, maxWidth:"100%", boxSizing:"border-box", color: style.color||"#1a1a1a" }}
+        placeholder={placeholder}/>
+      {matches.length > 0 && (
+        <div data-noprint="1" style={{ position:"absolute", top:"100%", left:0, zIndex:1000, background:"#fff", border:"1px solid #ddd", borderRadius:4, boxShadow:"0 4px 12px rgba(0,0,0,0.12)", minWidth:180, maxHeight:180, overflowY:"auto" }}>
+          {matches.map(m => (
+            <div key={m.id ?? m.name} onMouseDown={e=>{ e.preventDefault(); setEditing(false); onPick(m); }}
+              style={{ padding:"5px 9px", fontSize:11, fontFamily:CS_FONT, cursor:"pointer", borderBottom:"1px solid #f5f5f5" }}
+              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div style={{ fontWeight:600 }}>{m.name}</div>
+              {(m.phone||m.email) && <div style={{ fontSize:9, color:"#999" }}>{[m.phone,m.email].filter(Boolean).join(" · ")}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+  return <span onClick={()=>{setTemp(value);setEditing(true);}} style={{...style,fontFamily:CS_FONT,cursor:"text",display:"inline-block",minWidth:16,minHeight:14,maxWidth:"100%",boxSizing:"border-box",borderBottom:"1px dashed transparent",transition:"all 0.15s",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} onMouseEnter={e=>(e.target.style.borderBottom="1px dashed #ccc")} onMouseLeave={e=>(e.target.style.borderBottom="1px dashed transparent")}>{value || <span data-noprint="1" style={{color:"#999",fontSize:style.fontSize||10}}>{placeholder}</span>}</span>;
+};
+
 const SignaturePad = ({ value, onChange, height = 60 }) => {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
@@ -580,7 +615,7 @@ export const CSHighlightDot = ({ value, onClick, size = 8 }) => <span data-nopri
 
 // Re-export everything for convenience
 export { MAX_IMG_SIZE, validateImg, CS_FONT, CS_LS, CS_YELLOW, RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR };
-export { CSEditField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn };
+export { CSEditField, CSNameField, SignaturePad, CSEditTextarea, CSLogoSlot, CSResizableImage, CSXbtn, CSAddBtn };
 export { TIHl, TICell, TITableSection };
 export { DIETARY_TAGS, DIETARY_TAG_COLORS, DietaryTagSelect, DietaryMultiTagSelect, dietTagsOf, DIETARY_INIT };
 export { EST_F, EST_LS, EST_LS_HDR, EST_YELLOW, EstHl, EstCell, EstSignaturePad, EST_SA_FIELDS, DEFAULT_TCS, ESTIMATE_INIT };

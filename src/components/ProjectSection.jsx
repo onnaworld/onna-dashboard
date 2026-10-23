@@ -34,6 +34,7 @@ export default function ProjectSection({
   travelSubSection, setTravelSubSection,
   scheduleSubSection, setScheduleSubSection,
   permitsSubSection, setPermitsSubSection,
+  vendors, setVendors,
   // version states
   activeCSVersion, setActiveCSVersion,
   activeRAVersion, setActiveRAVersion,
@@ -316,6 +317,7 @@ export default function ProjectSection({
     return <Documents T={T} isMobile={isMobile} p={p} projectHydrated={projectHydrated}
       documentsSubSection={documentsSubSection} setDocumentsSubSection={setDocumentsSubSection}
       callSheetStore={callSheetStore} setCallSheetStore={setCallSheetStore} activeCSVersion={activeCSVersion} setActiveCSVersion={setActiveCSVersion}
+      vendors={vendors} setVendors={setVendors}
       riskAssessmentStore={riskAssessmentStore} setRiskAssessmentStore={setRiskAssessmentStore} activeRAVersion={activeRAVersion} setActiveRAVersion={setActiveRAVersion}
       contractDocStore={contractDocStore} setContractDocStore={setContractDocStore} activeContractVersion={activeContractVersion} setActiveContractVersion={setActiveContractVersion}
       dietaryStore={dietaryStore} setDietaryStore={setDietaryStore} activeDietaryVersion={activeDietaryVersion} setActiveDietaryVersion={setActiveDietaryVersion}

@@ -1,12 +1,13 @@
 import React, { Fragment } from "react";
-import { getToken, downloadCSV, rebalancePrintTableWidths } from "../../utils/helpers";
+import { getToken, downloadCSV, rebalancePrintTableWidths, api } from "../../utils/helpers";
 import { downloadStyledXlsx } from "../../utils/templateExport";
-import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CS_HL_BG, cycleHighlight, CSHighlightDot } from "../ui/DocHelpers";
+import { RA_FONT, RA_LS, RA_LS_HDR, RA_GREY, CT_FONT, CT_LS, CT_LS_HDR, CS_HL_BG, cycleHighlight, CSHighlightDot, CSNameField } from "../ui/DocHelpers";
 import { RISK_ASSESSMENT_INIT } from "../../data/riskAssessmentInit";
 import { CONTRACT_DOC_TYPES, CONTRACT_TYPE_LABELS, GENERAL_TERMS_DOC } from "../agents/ContractCody";
 
 export default function Documents({
   T, isMobile, p, projectHydrated,
+  vendors, setVendors,
   documentsSubSection, setDocumentsSubSection,
   callSheetStore, setCallSheetStore, activeCSVersion, setActiveCSVersion,
   riskAssessmentStore, setRiskAssessmentStore, activeRAVersion, setActiveRAVersion,
@@ -237,6 +238,30 @@ export default function Documents({
     const addVenueRow = () => csSet(d => ({...d, venueRows:[...d.venueRows,{label:"",value:""}]}));
     const rmVenueRow = i => { if(!confirm("Remove this row?"))return; csSet(d => ({...d, venueRows:d.venueRows.filter((_,j)=>j!==i)})); };
     const addCrew = di => csSet(d => {d.departments[di].crew.push({role:"",name:"",mobile:"",email:"",callTime:""}); return d;});
+    // Keeps a running contact book of everyone ever entered on a call sheet.
+    // Fires on blur (not every keystroke) once a crew row has a name plus a
+    // mobile or email: matches an existing vendor by name (case-insensitive)
+    // and only fills in whatever that vendor is missing — never overwrites a
+    // vendor's existing details — or creates a brand-new one, categorized by
+    // their call sheet role, so it's useful as a real vendor directory and
+    // immediately available for the autofill dropdown next time.
+    const saveCrewToVendors = (cr) => {
+      if (!setVendors || !cr.name || !cr.name.trim() || !((cr.mobile||"").trim() || (cr.email||"").trim())) return;
+      const name = cr.name.trim();
+      const existing = (vendors||[]).find(v => v.name && v.name.trim().toLowerCase() === name.toLowerCase());
+      if (existing) {
+        const patch = {};
+        if (!existing.phone && cr.mobile) patch.phone = cr.mobile.trim();
+        if (!existing.email && cr.email) patch.email = cr.email.trim();
+        if (Object.keys(patch).length) {
+          setVendors(prev => prev.map(v => v.id===existing.id ? {...v, ...patch} : v));
+          api.put(`/api/vendors/${existing.id}`, patch).catch(()=>{});
+        }
+        return;
+      }
+      const payload = { name, category: cr.role||"", email: (cr.email||"").trim(), phone: (cr.mobile||"").trim(), website:"", location:"", notes:"", rateCard:"" };
+      api.post("/api/vendors", payload).then(saved => { if (saved && saved.id) setVendors(prev => [saved, ...(prev||[])]); }).catch(()=>{});
+    };
     const rmCrew = (di,ci) => { if(!confirm("Remove this crew member?"))return; csSet(d => {d.departments[di].crew.splice(ci,1); return d;}); };
     const moveCrew = (di,ci,dir) => csSet(d => { const crew=[...d.departments[di].crew]; const j=ci+dir; if(j<0||j>=crew.length)return d; [crew[ci],crew[j]]=[crew[j],crew[ci]]; const depts=[...d.departments]; depts[di]={...depts[di],crew}; return {...d, departments:depts}; });
     const addDept = () => csSet(d => ({...d, departments:[...d.departments,{name:"NEW DEPARTMENT",crew:[{role:"",name:"",mobile:"",email:"",callTime:""}]}]}));
@@ -445,13 +470,13 @@ export default function Documents({
                             <CSEditField value={cr.role} onChange={v=>csU(`departments.${di}.crew.${ci}.role`,v)} style={{fontSize:9,color:dept.discrete?"#999":"#666",fontStyle:dept.discrete?"italic":"normal",whiteSpace:"pre-wrap"}} placeholder="Role"/>
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,fontWeight:dept.discrete?400:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                            <CSEditField value={cr.name} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Name"/>
+                            <CSNameField value={cr.name} options={vendors} onChange={v=>csU(`departments.${di}.crew.${ci}.name`,v)} onPick={vendor=>{csSet(d=>{const cr2=d.departments[di].crew[ci];cr2.name=vendor.name||"";if(vendor.phone&&!cr2.mobile)cr2.mobile=vendor.phone;if(vendor.email&&!cr2.email)cr2.email=vendor.email;return d;});}} style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Name"/>
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                            <CSEditField value={cr.mobile} onChange={v=>csU(`departments.${di}.crew.${ci}.mobile`,v)} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Phone"/>
+                            <CSEditField value={cr.mobile} onChange={v=>{csU(`departments.${di}.crew.${ci}.mobile`,v);saveCrewToVendors({...cr,mobile:v});}} isPlaceholder autoFit style={{fontSize:10,fontStyle:dept.discrete?"italic":"normal",color:dept.discrete?"#777":undefined}} placeholder="Phone"/>
                           </td>
                           <td style={{padding:"3px 4px",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
-                            <CSEditField value={cr.email} onChange={v=>csU(`departments.${di}.crew.${ci}.email`,v)} isPlaceholder autoFit style={{fontSize:10,color:dept.discrete?"#777":"#1565C0",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Email"/>
+                            <CSEditField value={cr.email} onChange={v=>{csU(`departments.${di}.crew.${ci}.email`,v);saveCrewToVendors({...cr,email:v});}} isPlaceholder autoFit style={{fontSize:10,color:dept.discrete?"#777":"#1565C0",fontStyle:dept.discrete?"italic":"normal"}} placeholder="Email"/>
                           </td>
                           <td style={{padding:"3px 8px 3px 4px",fontSize:10,fontWeight:600,textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:0}}>
                             <CSEditField value={cr.callTime} onChange={v=>csU(`departments.${di}.crew.${ci}.callTime`,v)} isPlaceholder autoFit style={{fontSize:10,fontWeight:600,fontStyle:dept.discrete?"italic":"normal"}} placeholder="Time"/>
