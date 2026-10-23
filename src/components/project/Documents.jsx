@@ -575,6 +575,12 @@ export default function Documents({
               ) : (
                 <button data-noprint="1" onClick={()=>csU("weatherShowRealFeel",true)} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,fontSize:9,color:"#999",cursor:"pointer",padding:"3px 10px",marginBottom:8,fontFamily:"inherit"}}>+ Add Real Feel</button>
               )}
+              {csData.weatherShowHourly === false ? (
+                <button data-noprint="1" onClick={()=>csU("weatherShowHourly",true)} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,fontSize:9,color:"#999",cursor:"pointer",padding:"3px 10px",marginBottom:8,fontFamily:"inherit"}}>+ Add Hourly Forecast</button>
+              ) : <>
+              <div data-noprint="1" style={{display:"flex",justifyContent:"flex-end",marginBottom:-4}}>
+                <button data-noprint="1" onClick={()=>csU("weatherShowHourly",false)} style={{background:"none",border:"1px solid #eee",borderRadius:4,fontSize:8,color:"#bbb",cursor:"pointer",padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.color="#d32f2f";e.currentTarget.style.borderColor="#f5c6cb";}} onMouseLeave={e=>{e.currentTarget.style.color="#bbb";e.currentTarget.style.borderColor="#eee";}}>Remove</button>
+              </div>
               {csData.weatherImage ? (
                 <div style={{marginBottom:10}}>
                   <div style={{fontWeight:700,letterSpacing:CS_LS,fontSize:9,color:"#888",marginBottom:4}}>HOURLY FORECAST</div>
@@ -601,6 +607,7 @@ export default function Documents({
                   <CSResizableImage label="Weather Forecast Screenshot (JPEG)" image={csData.weatherImage} onUpload={v=>csU("weatherImage",v)} onRemove={()=>csU("weatherImage",null)} defaultHeight={160}/>
                 </div>
               )}
+              </>}
               <div style={{display:"flex",flexWrap:"wrap",gap:"4px 14px",marginBottom:4,fontSize:10,fontFamily:CS_FONT}}>
                 {csWeatherStats(csData).map((s,i)=>(
                   <div key={s.id} style={{display:"flex",alignItems:"baseline",gap:3}}>
@@ -763,7 +770,7 @@ export default function Documents({
         }
         csWeatherStats(csData).forEach(s => rows.push({label:s.label||"", value:s.value||""}));
         const blocks = [{ title:"WEATHER", columns:fv, rows }];
-        if ((csData.weatherHourly||[]).length) {
+        if (csData.weatherShowHourly !== false && (csData.weatherHourly||[]).length) {
           blocks.push({ title:"HOURLY FORECAST", columns:[{key:"time",label:"Time"},{key:"condition",label:"Condition"},{key:"tempC",label:"°C"},{key:"tempF",label:"°F"}], rows:csData.weatherHourly });
         }
         return blocks;
