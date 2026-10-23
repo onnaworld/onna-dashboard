@@ -66,13 +66,13 @@ const renderCSLinks = (text, hlBg) => {
   if (lastIndex < text.length) segments.push({ type: "text", value: text.slice(lastIndex) });
   segments.forEach(seg => {
     if (seg.type === "link") {
-      parts.push(<a key={key++} href={seg.url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{seg.label}</a>);
+      parts.push(<a key={key++} href={seg.url} target="_blank" rel="noreferrer" title="Click to edit text, Cmd/Ctrl+Click to open link" onClick={e=>{if(e.metaKey||e.ctrlKey){e.stopPropagation();return;}e.preventDefault();}} style={{color:"#1565C0"}}>{seg.label}</a>);
       return;
     }
     let li = 0; let bm; CS_BARE_URL_RE.lastIndex = 0;
     while ((bm = CS_BARE_URL_RE.exec(seg.value))) {
       if (bm.index > li) parts.push(renderBrackets(seg.value.slice(li, bm.index), hlBg, key));
-      parts.push(<a key={key++} href={bm[1]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{shortenCSUrl(bm[1])}</a>);
+      parts.push(<a key={key++} href={bm[1]} target="_blank" rel="noreferrer" title="Click to edit text, Cmd/Ctrl+Click to open link" onClick={e=>{if(e.metaKey||e.ctrlKey){e.stopPropagation();return;}e.preventDefault();}} style={{color:"#1565C0"}}>{shortenCSUrl(bm[1])}</a>);
       li = bm.index + bm[1].length;
     }
     if (li < seg.value.length) parts.push(renderBrackets(seg.value.slice(li), hlBg, key));
