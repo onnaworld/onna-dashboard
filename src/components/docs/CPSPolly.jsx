@@ -18,7 +18,7 @@ const CpsHl = ({ text, style = {} }) => {
     : p);
   while ((m = CPS_MD_LINK_RE.exec(str))) {
     if (m.index > lastIndex) parts.push(...brackets(str.slice(lastIndex, m.index)));
-    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#1565C0"}}>{m[1]}</a>);
+    parts.push(<a key={key++} href={m[2]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} style={{color:"#44647D"}}>{m[1]}</a>);
     lastIndex = m.index + m[0].length;
   }
   if (lastIndex < str.length) parts.push(...brackets(str.slice(lastIndex)));
@@ -78,11 +78,11 @@ const CpsOnnaLogo = () => {
 const CPS_STATUSES = ["Not Started", "In Progress", "In Review", "Approved", "Complete", "Blocked"];
 const CPS_STATUS_COLORS = {
   "Not Started": { bg: "#f4f4f4", text: "#999" },
-  "In Progress": { bg: "#FFF3E0", text: "#E65100" },
-  "In Review": { bg: "#E3F2FD", text: "#1565C0" },
-  "Approved": { bg: "#E8F5E9", text: "#2E7D32" },
+  "In Progress": { bg: "#F4ECE0", text: "#A6783E" },
+  "In Review": { bg: "#E9EEF2", text: "#44647D" },
+  "Approved": { bg: "#EAF0EC", text: "#4F7A62" },
   "Complete": { bg: "#000", text: "#fff" },
-  "Blocked": { bg: "#FCE4EC", text: "#C62828" },
+  "Blocked": { bg: "#F3E7E5", text: "#9C4A43" },
 };
 
 const CpsStatusBadge = ({ value, onChange }) => {
@@ -104,12 +104,17 @@ const CpsStatusBadge = ({ value, onChange }) => {
 /* ======= PHASE COLOURS ======= */
 const CPS_PHASE_COLORS = {
   "BRIEFING & KICKOFF": "#1a1a1a",
-  "PRE-PRODUCTION": "#4A148C",
-  "PRODUCTION": "#B71C1C",
-  "POST-PRODUCTION": "#0D47A1",
-  "REVIEW & APPROVALS": "#E65100",
-  "DELIVERY & HANDOVER": "#1B5E20",
+  "PRE-PRODUCTION": "#6B5B7E",
+  "PRODUCTION": "#9C4A43",
+  "POST-PRODUCTION": "#44647D",
+  "REVIEW & APPROVALS": "#A6783E",
+  "DELIVERY & HANDOVER": "#4F7A62",
 };
+
+/* Colours assigned (in order) to sub-headers/groups created within a phase
+   — e.g. "Styling", "Casting" inside PRE-PRODUCTION — same muted family as
+   the phase colours above so the whole document stays visually consistent. */
+const CPS_GROUP_COLORS = ["#6B5B7E", "#9C4A43", "#44647D", "#A6783E", "#4F7A62", "#7A6A52", "#5E6B73", "#8A5A6B"];
 
 /* ======= DEFAULT SCHEDULE ======= */
 const cpsTaskInit = (id, task, owner, dur, opts = {}) => ({ id, task, owner, startDate: "", endDate: "", duration: dur, status: "Not Started", notes: opts.notes || "", milestone: opts.milestone || false, blockedBy: opts.blockedBy || "" });
@@ -221,6 +226,13 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
     });
   };
 
+  /* Optional elements (logo, footer, progress bars, client-action box, any
+     field) can each be individually hidden and brought back — all tracked
+     in one project.hiddenFields array so toggling is one shared mechanism. */
+  const isHidden = (key) => (project.hiddenFields || []).includes(key);
+  const hideField = (key) => setProject(p => ({ ...p, hiddenFields: [...(p.hiddenFields || []), key] }));
+  const showField = (key) => setProject(p => ({ ...p, hiddenFields: (p.hiddenFields || []).filter(k => k !== key) }));
+
   /* Cmd+Z / Ctrl+Z listener */
   useEffect(() => {
     const handler = (e) => {
@@ -236,9 +248,36 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   const updateTask = (pi, ti, key, val) => {
     setPhases(prev => prev.map((p, i) => i === pi ? { ...p, tasks: p.tasks.map((t, j) => j === ti ? { ...t, [key]: val } : t) } : p));
   };
-  const addTask = (pi) => {
-    setPhases(prev => prev.map((p, i) => i === pi ? { ...p, tasks: [...p.tasks, { id: Date.now(), task: "", owner: "", startDate: "", endDate: "", duration: "", status: "Not Started", notes: "", milestone: false, blockedBy: "" }] } : p));
+  const addTask = (pi, groupId) => {
+    setPhases(prev => prev.map((p, i) => i === pi ? { ...p, tasks: [...p.tasks, { id: Date.now(), task: "", owner: "", startDate: "", endDate: "", duration: "", status: "Not Started", notes: "", milestone: false, blockedBy: "", groupId: groupId || undefined }] } : p));
   };
+
+  /* Sub-headers within a phase (e.g. "Styling", "Casting" inside PRE-PRODUCTION)
+     — each gets its own muted colour, cycling through CPS_GROUP_COLORS so the
+     user doesn't have to pick one manually every time. */
+  const addGroup = async (pi) => {
+    const name = await showPrompt("New group name (e.g. Styling, Casting):", "");
+    if (!name || !name.trim()) return;
+    setPhases(prev => prev.map((p, i) => {
+      if (i !== pi) return p;
+      const groups = p.groups || [];
+      const color = CPS_GROUP_COLORS[groups.length % CPS_GROUP_COLORS.length];
+      return { ...p, groups: [...groups, { id: Date.now(), name: name.trim(), color }] };
+    }));
+  };
+  const renameGroup = (pi, gi, name) => {
+    setPhases(prev => prev.map((p, i) => i === pi ? { ...p, groups: (p.groups || []).map((g, j) => j === gi ? { ...g, name } : g) } : p));
+  };
+  const deleteGroup = (pi, gi) => {
+    if (!confirm("Remove this group? Tasks in it will move back to ungrouped.")) return;
+    setPhases(prev => prev.map((p, i) => {
+      if (i !== pi) return p;
+      const groups = p.groups || [];
+      const removed = groups[gi];
+      return { ...p, groups: groups.filter((_, j) => j !== gi), tasks: p.tasks.map(t => t.groupId === removed?.id ? { ...t, groupId: undefined } : t) };
+    }));
+  };
+  const setTaskGroup = (pi, ti, groupId) => updateTask(pi, ti, "groupId", groupId);
 
   const isClient = (owner) => {
     const o = (owner || "").toLowerCase();
@@ -413,7 +452,7 @@ ${PRINT_CLEANUP_CSS}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}>
             <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
             <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hideLogo: true }))} title="Remove logo" style={{ fontFamily: CPS_F, fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
-              onMouseEnter={e => e.currentTarget.style.color = "#d32f2f"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+              onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
           </div>
         )}
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
@@ -433,7 +472,7 @@ ${PRINT_CLEANUP_CSS}
               {["startDate", "deliveryDate", "producer"].includes(key) && (
                 <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hiddenFields: [...(p.hiddenFields || []), key] }))}
                   title="Remove field" style={{ fontFamily: CPS_F, fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#d32f2f"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+                  onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
               )}
             </div>
           ))}
@@ -452,55 +491,80 @@ ${PRINT_CLEANUP_CSS}
             <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", marginBottom: 2 }}>CURRENT PHASE</div>
             <div style={{ fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff" }}>{currentPhase ? currentPhase.name : "\u2014"}</div>
           </div>
-          <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#FFE082" : "#E8F5E9", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #FFD54F" : "1px solid #A5D6A7" }}>
-            <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#2E7D32", textTransform: "uppercase", marginBottom: 2 }}>
-              {nextClientAction ? "NEXT CLIENT ACTION" : "NO CLIENT ACTIONS PENDING"}
+          {!isHidden("clientAction") && (
+            <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#E8DCC0" : "#EAF0EC", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #D4C290" : "1px solid #B7CFC0", position: "relative" }}>
+              <span className="cps-noprint" onClick={() => hideField("clientAction")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
+                onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
+              <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#4F7A62", textTransform: "uppercase", marginBottom: 2 }}>
+                {nextClientAction ? "NEXT CLIENT ACTION" : "NO CLIENT ACTIONS PENDING"}
+              </div>
+              <div style={{ fontFamily: CPS_F, fontSize: 10, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#4F7A62" }}>
+                {nextClientAction ? nextClientAction.task : "All clear"}
+              </div>
+              {nextClientAction && nextClientAction.endDate && (
+                <div style={{ fontFamily: CPS_F, fontSize: 7, letterSpacing: CPS_LS, color: "#000", marginTop: 1 }}>Due: {nextClientAction.endDate}</div>
+              )}
             </div>
-            <div style={{ fontFamily: CPS_F, fontSize: 10, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#2E7D32" }}>
-              {nextClientAction ? nextClientAction.task : "All clear"}
+          )}
+          {!isHidden("progress") && (
+            <div style={{ background: "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 80, textAlign: "center", position: "relative" }}>
+              <span className="cps-noprint" onClick={() => hideField("progress")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
+                onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+              <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", textTransform: "uppercase", marginBottom: 2 }}>PROGRESS</div>
+              <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: "#000" }}>{pctComplete}%</div>
+              <div style={{ height: 3, background: "#ddd", borderRadius: 2, marginTop: 4 }}>
+                <div style={{ height: 3, background: "#000", borderRadius: 2, width: `${pctComplete}%` }} />
+              </div>
             </div>
-            {nextClientAction && nextClientAction.endDate && (
-              <div style={{ fontFamily: CPS_F, fontSize: 7, letterSpacing: CPS_LS, color: "#000", marginTop: 1 }}>Due: {nextClientAction.endDate}</div>
-            )}
-          </div>
-          <div style={{ background: "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 80, textAlign: "center" }}>
-            <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", textTransform: "uppercase", marginBottom: 2 }}>PROGRESS</div>
-            <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: "#000" }}>{pctComplete}%</div>
-            <div style={{ height: 3, background: "#ddd", borderRadius: 2, marginTop: 4 }}>
-              <div style={{ height: 3, background: "#000", borderRadius: 2, width: `${pctComplete}%` }} />
+          )}
+          {!isHidden("clientAction") && (
+            <div style={{ background: clientActions.length > 0 ? "#E8DCC0" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center" }}>
+              <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999", textTransform: "uppercase", marginBottom: 2 }}>CLIENT</div>
+              <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999" }}>{clientActions.length}</div>
             </div>
+          )}
+          <div style={{ background: blocked > 0 ? "#F3E7E5" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center" }}>
+            <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: blocked > 0 ? "#9C4A43" : "#999", textTransform: "uppercase", marginBottom: 2 }}>BLOCKED</div>
+            <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: blocked > 0 ? "#9C4A43" : "#999" }}>{blocked}</div>
           </div>
-          <div style={{ background: clientActions.length > 0 ? "#FFE082" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center" }}>
-            <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999", textTransform: "uppercase", marginBottom: 2 }}>CLIENT</div>
-            <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999" }}>{clientActions.length}</div>
-          </div>
-          <div style={{ background: blocked > 0 ? "#FCE4EC" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center" }}>
-            <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: blocked > 0 ? "#C62828" : "#999", textTransform: "uppercase", marginBottom: 2 }}>BLOCKED</div>
-            <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: blocked > 0 ? "#C62828" : "#999" }}>{blocked}</div>
-          </div>
+          {(isHidden("progress") || isHidden("clientAction")) && (
+            <div className="cps-noprint" style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "center" }}>
+              {isHidden("clientAction") && <span onClick={() => showField("clientAction")} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ CLIENT ACTION</span>}
+              {isHidden("progress") && <span onClick={() => showField("progress")} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ PROGRESS</span>}
+            </div>
+          )}
         </div>
 
         {/* \u2550\u2550\u2550 SCHEDULE TAB \u2550\u2550\u2550 */}
         {(tab === "schedule" || (printTabs && printTabs.has("schedule"))) && <>
         {/* Progress bar */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-            <span style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999" }}>OVERALL PROGRESS</span>
-            <span style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#000" }}>{pctComplete}% ({complete}/{totalTasks})</span>
+        {isHidden("progress") ? (
+          <div className="cps-noprint" onClick={() => showField("progress")} style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", display: "inline-block", marginBottom: 14 }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ ADD PROGRESS BAR</div>
+        ) : (
+          <div style={{ marginBottom: 14, position: "relative" }}>
+            <span className="cps-noprint" onClick={() => hideField("progress")} title="Remove" style={{ position: "absolute", top: -2, right: 0, fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
+              onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999" }}>OVERALL PROGRESS</span>
+              <span style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#000" }}>{pctComplete}% ({complete}/{totalTasks})</span>
+            </div>
+            <div style={{ height: 6, background: "#f0f0f0", borderRadius: 3 }}>
+              <div style={{ height: 6, background: "#000", borderRadius: 3, width: `${pctComplete}%`, transition: "width .3s" }} />
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+              {[
+                { label: "In Progress", count: inProgress, color: "#A6783E" },
+                { label: "Blocked", count: blocked, color: "#9C4A43" },
+                { label: "Complete", count: complete, color: "#000" },
+              ].map(s => (
+                <span key={s.label} style={{ fontFamily: CPS_F, fontSize: 7, letterSpacing: CPS_LS, color: s.color, fontWeight: 700 }}>{s.label.toUpperCase()}: {s.count}</span>
+              ))}
+            </div>
           </div>
-          <div style={{ height: 6, background: "#f0f0f0", borderRadius: 3 }}>
-            <div style={{ height: 6, background: "#000", borderRadius: 3, width: `${pctComplete}%`, transition: "width .3s" }} />
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-            {[
-              { label: "In Progress", count: inProgress, color: "#E65100" },
-              { label: "Blocked", count: blocked, color: "#C62828" },
-              { label: "Complete", count: complete, color: "#000" },
-            ].map(s => (
-              <span key={s.label} style={{ fontFamily: CPS_F, fontSize: 7, letterSpacing: CPS_LS, color: s.color, fontWeight: 700 }}>{s.label.toUpperCase()}: {s.count}</span>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Phases */}
         {phases.map((phase, pi) => {
@@ -517,7 +581,7 @@ ${PRINT_CLEANUP_CSS}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.6)", transform: phase.collapsed ? "rotate(0deg)" : "rotate(90deg)", transition: "transform .15s", display: "inline-block" }}>▶</span>
                   <span onClick={e => { e.stopPropagation(); editPhaseName(pi); }} style={{ fontFamily: CPS_F, fontSize: 10, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff", textTransform: "uppercase", cursor: "pointer" }}>{phase.name}</span>
-                  <span style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: CPS_LS }}>{phasePct}% ({phaseComplete}/{phaseTotal})</span>
+                  {!isHidden("progress") && <span style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: CPS_LS }}>{phasePct}% ({phaseComplete}/{phaseTotal})</span>}
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }} onClick={e => e.stopPropagation()}>
                   <span onClick={() => addTask(pi)} style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.55)", cursor: "pointer", letterSpacing: CPS_LS }}
@@ -525,50 +589,51 @@ ${PRINT_CLEANUP_CSS}
                     + ADD TASK
                   </span>
                   <span onClick={() => deletePhase(pi)} style={{ fontFamily: CPS_F, fontSize: 10, color: "rgba(255,255,255,0.3)", cursor: "pointer" }}
-                    onMouseEnter={e => e.target.style.color = "#e53935"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.3)"}>
+                    onMouseEnter={e => e.target.style.color = "#B8574E"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.3)"}>
                     ×
                   </span>
                 </div>
               </div>
 
               {/* Phase progress mini-bar */}
-              {!phase.collapsed && (
+              {!phase.collapsed && !isHidden("progress") && (
                 <div style={{ height: 2, background: "#f0f0f0" }}>
                   <div style={{ height: 2, background: phaseColor, width: `${phasePct}%`, transition: "width .3s", opacity: 0.6 }} />
                 </div>
               )}
 
               {/* Column headers */}
-              {!phase.collapsed && (
-                <div style={{ overflowX: "auto" }}>
-                  <div style={{ display: "flex", background: "#f4f4f4", borderBottom: "1px solid #ddd", minWidth: _fitMobile ? 700 : 0 }}>
-                    <div style={{ width: 24, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 4px", textAlign: "center" }}>#</div>
-                    <div style={{ width: 18 }} />
-                    <div style={{ flex: 2, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>TASK</div>
-                    <div style={{ flex: 0.8, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>OWNER</div>
-                    <div style={{ flex: 0.6, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>START</div>
-                    <div style={{ flex: 0.6, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>END</div>
-                    <div style={{ flex: 0.5, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>DURATION</div>
-                    <div style={{ flex: 0.6, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>STATUS</div>
-                    <div style={{ flex: 1, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>NOTES</div>
-                  </div>
+              {!phase.collapsed && (() => {
+                const groups = phase.groups || [];
+                const groupIds = new Set(groups.map(g => g.id));
+                const withIdx = phase.tasks.map((t, ti) => ({ t, ti }));
+                const ungrouped = withIdx.filter(({ t }) => !t.groupId || !groupIds.has(t.groupId));
 
-                  {/* Tasks */}
-                  {phase.tasks.map((task, ti) => {
-                    const clientTask = isClient(task.owner);
-                    const isComplete = task.status === "Complete";
-                    return (
-                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#FFD54F" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#FFE082" : "transparent" }}>
+                const renderTaskRow = ({ t: task, ti }) => {
+                  const clientTask = isClient(task.owner);
+                  const isComplete = task.status === "Complete";
+                  return (
+                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#D4C290" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#E8DCC0" : "transparent" }}>
                       <div style={{ width: 24, fontFamily: CPS_F, fontSize: 8, fontWeight: 700, color: "#ccc", padding: "3px 4px", textAlign: "center" }}>
                         {task.milestone ? <span style={{ color: phaseColor, fontSize: 9 }}>{"\u25C6"}</span> : (ti + 1)}
                       </div>
                       <div style={{ width: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span onClick={() => deleteTask(pi, ti)} style={{ cursor: "pointer", fontSize: 10, color: "#ddd" }}
-                          onMouseEnter={e => e.target.style.color = "#e53935"} onMouseLeave={e => e.target.style.color = "#ddd"}>{"\u00d7"}</span>
+                          onMouseEnter={e => e.target.style.color = "#B8574E"} onMouseLeave={e => e.target.style.color = "#ddd"}>{"\u00d7"}</span>
                       </div>
+                      {groups.length > 0 && (
+                        <div style={{ width: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <span onClick={() => {
+                            const curIdx = groups.findIndex(g => g.id === task.groupId);
+                            const next = curIdx === -1 ? groups[0] : groups[curIdx + 1];
+                            setTaskGroup(pi, ti, next ? next.id : undefined);
+                          }} title={groups.find(g => g.id === task.groupId)?.name || "No group \u2014 click to assign"}
+                            style={{ width: 7, height: 7, borderRadius: "50%", cursor: "pointer", display: "inline-block", background: groups.find(g => g.id === task.groupId)?.color || "#eee", border: task.groupId ? "none" : "1px solid #ddd" }} />
+                        </div>
+                      )}
                       <div style={{ flex: 2, display: "flex", alignItems: "center", gap: 4 }}>
                         <CpsCell value={task.task} onChange={v => updateTask(pi, ti, "task", v)} style={{ fontWeight: isComplete ? 400 : task.milestone ? 700 : 500, textDecoration: isComplete ? "line-through" : "none", color: isComplete ? "#999" : "#1a1a1a", flex: 1 }} placeholder="Task description" />
-                        {task.blockedBy && <span style={{ fontFamily: CPS_F, fontSize: 6, letterSpacing: CPS_LS, color: "#C62828", background: "#FCE4EC", padding: "1px 4px", borderRadius: 2, whiteSpace: "nowrap", flexShrink: 0 }}>{"\u26D4"} {task.blockedBy}</span>}
+                        {task.blockedBy && <span style={{ fontFamily: CPS_F, fontSize: 6, letterSpacing: CPS_LS, color: "#9C4A43", background: "#F3E7E5", padding: "1px 4px", borderRadius: 2, whiteSpace: "nowrap", flexShrink: 0 }}>{"\u26D4"} {task.blockedBy}</span>}
                       </div>
                       <div style={{ flex: 0.8 }}>
                         <CpsCell value={task.owner} onChange={v => updateTask(pi, ti, "owner", v)} style={{ color: clientTask ? "#000" : "#666", fontWeight: clientTask ? 700 : 400 }} placeholder="Owner" />
@@ -577,7 +642,7 @@ ${PRINT_CLEANUP_CSS}
                         <CpsCell value={task.startDate} onChange={v => updateTask(pi, ti, "startDate", v)} placeholder="DD/MM" />
                       </div>
                       <div style={{ flex: 0.6 }}>
-                        <CpsCell value={task.endDate} onChange={v => updateTask(pi, ti, "endDate", v)} placeholder="DD/MM" />
+                        <CpsCell value={task.endDate} onChange={v => updateTask(pi, ti, "endDate", v)} placeholder="Blank = 1 day" />
                       </div>
                       <div style={{ flex: 0.5 }}>
                         <CpsCell value={task.duration} onChange={v => updateTask(pi, ti, "duration", v)} style={{ color: "#999" }} placeholder="e.g. 3 days" />
@@ -589,15 +654,58 @@ ${PRINT_CLEANUP_CSS}
                         <CpsCell value={task.notes} onChange={v => updateTask(pi, ti, "notes", v)} style={{ color: "#999", fontStyle: task.notes ? "italic" : "normal" }} placeholder="Notes" />
                       </div>
                     </div>
-                    );
-                  })}
-                  {phase.tasks.length === 0 && (
-                    <div style={{ fontFamily: CPS_F, fontSize: 9, color: "#ccc", letterSpacing: CPS_LS, padding: "12px 42px", fontStyle: "italic" }}>
-                      No tasks — click + ADD TASK
+                  );
+                };
+
+                return (
+                  <div style={{ overflowX: "auto" }}>
+                    <div style={{ display: "flex", background: "#f4f4f4", borderBottom: "1px solid #ddd", minWidth: _fitMobile ? 700 : 0 }}>
+                      <div style={{ width: 24, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 4px", textAlign: "center" }}>#</div>
+                      <div style={{ width: 18 }} />
+                      {groups.length > 0 && <div style={{ width: 14 }} />}
+                      <div style={{ flex: 2, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>TASK</div>
+                      <div style={{ flex: 0.8, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>OWNER</div>
+                      <div style={{ flex: 0.6, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>START</div>
+                      <div style={{ flex: 0.6, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>END</div>
+                      <div style={{ flex: 0.5, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>DURATION</div>
+                      <div style={{ flex: 0.6, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>STATUS</div>
+                      <div style={{ flex: 1, fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", padding: "4px 6px" }}>NOTES</div>
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* Ungrouped tasks */}
+                    {ungrouped.map(renderTaskRow)}
+
+                    {/* Grouped tasks, each under its own colour-coded sub-header */}
+                    {groups.map((g, gi) => (
+                      <div key={g.id}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color + "14", borderLeft: `3px solid ${g.color}`, padding: "3px 8px 3px 5px", minWidth: _fitMobile ? 700 : 0 }}>
+                          <span onClick={() => { const name = window.prompt("Rename group:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
+                            style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: g.color, textTransform: "uppercase", cursor: "pointer" }}>{g.name}</span>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <span onClick={() => addTask(pi, g.id)} style={{ fontFamily: CPS_F, fontSize: 7, color: "#999", cursor: "pointer", letterSpacing: CPS_LS }}
+                              onMouseEnter={e => e.target.style.color = "#666"} onMouseLeave={e => e.target.style.color = "#999"}>+ ADD TASK</span>
+                            <span onClick={() => deleteGroup(pi, gi)} style={{ fontFamily: CPS_F, fontSize: 9, color: "#ccc", cursor: "pointer" }}
+                              onMouseEnter={e => e.target.style.color = "#B8574E"} onMouseLeave={e => e.target.style.color = "#ccc"}>{"\u00d7"}</span>
+                          </div>
+                        </div>
+                        {withIdx.filter(({ t }) => t.groupId === g.id).map(renderTaskRow)}
+                      </div>
+                    ))}
+
+                    {phase.tasks.length === 0 && (
+                      <div style={{ fontFamily: CPS_F, fontSize: 9, color: "#ccc", letterSpacing: CPS_LS, padding: "12px 42px", fontStyle: "italic" }}>
+                        No tasks \u2014 click + ADD TASK
+                      </div>
+                    )}
+
+                    {/* + ADD GROUP */}
+                    <div style={{ padding: "4px 8px" }}>
+                      <span className="cps-noprint" onClick={() => addGroup(pi)} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#bbb", cursor: "pointer" }}
+                        onMouseEnter={e => e.target.style.color = "#666"} onMouseLeave={e => e.target.style.color = "#bbb"}>+ ADD GROUP (e.g. Styling, Casting)</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
@@ -656,7 +764,7 @@ ${PRINT_CLEANUP_CSS}
           phases.forEach(phase => {
             phase.tasks.forEach(task => {
               const s = parseDate(task.startDate);
-              const e = parseDate(task.endDate);
+              const e = parseDate(task.endDate) || parseDate(task.startDate);
               if (s) { if (!minDate || s < minDate) minDate = s; if (!maxDate || s > maxDate) maxDate = s; }
               if (e) { if (!minDate || e < minDate) minDate = e; if (!maxDate || e > maxDate) maxDate = e; }
             });
@@ -711,8 +819,8 @@ ${PRINT_CLEANUP_CSS}
                   })}
                   {/* Today label */}
                   {todayX >= 0 && todayX <= 100 && (
-                    <div style={{ position: "absolute", left: `${todayX}%`, top: 0, height: "100%", width: 1.5, background: "#e53935", zIndex: 5, opacity: 0.7 }}>
-                      <span style={{ fontFamily: CPS_F, fontSize: 6, fontWeight: 700, color: "#e53935", position: "absolute", top: -10, left: 3, whiteSpace: "nowrap" }}>TODAY</span>
+                    <div style={{ position: "absolute", left: `${todayX}%`, top: 0, height: "100%", width: 1.5, background: "#B8574E", zIndex: 5, opacity: 0.7 }}>
+                      <span style={{ fontFamily: CPS_F, fontSize: 6, fontWeight: 700, color: "#B8574E", position: "absolute", top: -10, left: 3, whiteSpace: "nowrap" }}>TODAY</span>
                     </div>
                   )}
                 </div>
@@ -725,7 +833,7 @@ ${PRINT_CLEANUP_CSS}
                 /* Calculate phase span */
                 let phaseStart = null, phaseEnd = null;
                 phase.tasks.forEach(t => {
-                  const s = parseDate(t.startDate), e = parseDate(t.endDate);
+                  const s = parseDate(t.startDate), e = parseDate(t.endDate) || parseDate(t.startDate);
                   if (s) { if (!phaseStart || s < phaseStart) phaseStart = s; }
                   if (e) { if (!phaseEnd || e > phaseEnd) phaseEnd = e; }
                   if (s && !e) { if (!phaseEnd || s > phaseEnd) phaseEnd = s; }
@@ -739,7 +847,7 @@ ${PRINT_CLEANUP_CSS}
                         {phase.name}
                       </div>
                       <div style={{ flex: 1, position: "relative", height: 16 }}>
-                        {todayX >= 0 && todayX <= 100 && <div style={{ position: "absolute", left: `${todayX}%`, top: 0, height: "100%", width: 1.5, background: "#e53935", opacity: 0.3, zIndex: 2 }} />}
+                        {todayX >= 0 && todayX <= 100 && <div style={{ position: "absolute", left: `${todayX}%`, top: 0, height: "100%", width: 1.5, background: "#B8574E", opacity: 0.3, zIndex: 2 }} />}
                         {phaseStart && phaseEnd && (
                           <div style={{
                             position: "absolute",
@@ -755,14 +863,14 @@ ${PRINT_CLEANUP_CSS}
                     {/* Task bars */}
                     {phase.tasks.map((task, ti) => {
                       const s = parseDate(task.startDate);
-                      const e = parseDate(task.endDate);
+                      const e = parseDate(task.endDate) || parseDate(task.startDate);
                       const hasBar = s && e;
                       const isComplete = task.status === "Complete";
                       const isBlocked = task.status === "Blocked";
                       const clientTask = isClient(task.owner);
 
                       return (
-                        <div key={task.id} style={{ display: "flex", alignItems: "center", minHeight: 20, borderBottom: "1px solid #f5f5f5", background: clientTask && !isComplete ? "#FFE08240" : "transparent" }}>
+                        <div key={task.id} style={{ display: "flex", alignItems: "center", minHeight: 20, borderBottom: "1px solid #f5f5f5", background: clientTask && !isComplete ? "#E8DCC040" : "transparent" }}>
                           <div style={{ width: LABEL_W, flexShrink: 0, fontFamily: CPS_F, fontSize: 8, letterSpacing: CPS_LS, color: clientTask && !isComplete ? "#000" : isComplete ? "#ccc" : "#666", padding: "2px 8px 2px 16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: isComplete ? "line-through" : "none", display: "flex", alignItems: "center", gap: 4 }}>
                             {task.milestone && <span style={{ color: phaseColor, fontSize: 7, flexShrink: 0 }}>{"\u25C6"}</span>}
                             {clientTask && !isComplete && <span style={{ fontSize: 7, flexShrink: 0 }}>{"\u26A0"}</span>}
@@ -772,7 +880,7 @@ ${PRINT_CLEANUP_CSS}
                             {weeks.map((w, i) => (
                               <div key={i} style={{ position: "absolute", left: `${dayToX(w)}%`, top: 0, height: "100%", borderLeft: "1px solid #f5f5f5" }} />
                             ))}
-                            {todayX >= 0 && todayX <= 100 && <div style={{ position: "absolute", left: `${todayX}%`, top: 0, height: "100%", width: 1.5, background: "#e53935", opacity: 0.3, zIndex: 2 }} />}
+                            {todayX >= 0 && todayX <= 100 && <div style={{ position: "absolute", left: `${todayX}%`, top: 0, height: "100%", width: 1.5, background: "#B8574E", opacity: 0.3, zIndex: 2 }} />}
                             {hasBar && task.milestone && (
                               <div style={{ position: "absolute", left: `${dayToX(s)}%`, top: 1, fontSize: 12, color: phaseColor, transform: "translateX(-50%)", zIndex: 3 }}>{"\u25C6"}</div>
                             )}
@@ -782,10 +890,10 @@ ${PRINT_CLEANUP_CSS}
                                 left: `${dayToX(s)}%`,
                                 width: `${Math.max(dayToX(e) - dayToX(s), 0.3)}%`,
                                 height: 10, top: 3,
-                                background: clientTask && !isComplete ? "#FFD54F" : isBlocked ? "#e53935" : isComplete ? "#ccc" : phaseColor,
+                                background: clientTask && !isComplete ? "#D4C290" : isBlocked ? "#B8574E" : isComplete ? "#ccc" : phaseColor,
                                 borderRadius: 2,
                                 opacity: isComplete ? 0.4 : 0.85,
-                                border: clientTask && !isComplete ? "1px solid #F9A825" : "none",
+                                border: clientTask && !isComplete ? "1px solid #B8975A" : "none",
                               }} />
                             )}
                             {!hasBar && (
@@ -810,8 +918,8 @@ ${PRINT_CLEANUP_CSS}
                   </div>
                 ))}
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 10, height: 1.5, background: "#e53935", flexShrink: 0 }} />
-                  <span style={{ fontFamily: CPS_F, fontSize: 7, letterSpacing: CPS_LS, color: "#e53935" }}>TODAY</span>
+                  <span style={{ width: 10, height: 1.5, background: "#B8574E", flexShrink: 0 }} />
+                  <span style={{ fontFamily: CPS_F, fontSize: 7, letterSpacing: CPS_LS, color: "#B8574E" }}>TODAY</span>
                 </div>
               </div>
             </div>
@@ -833,7 +941,7 @@ ${PRINT_CLEANUP_CSS}
           let minDate = null, maxDate = null;
           phases.forEach(phase => {
             phase.tasks.forEach(task => {
-              const s = parseDate(task.startDate), e = parseDate(task.endDate);
+              const s = parseDate(task.startDate), e = parseDate(task.endDate) || parseDate(task.startDate);
               [s, e].forEach(d => { if (d) { if (!minDate || d < minDate) minDate = d; if (!maxDate || d > maxDate) maxDate = d; } });
             });
           });
@@ -860,7 +968,7 @@ ${PRINT_CLEANUP_CSS}
           phases.forEach(phase => {
             const phaseColor = CPS_PHASE_COLORS[phase.name] || "#1a1a1a";
             phase.tasks.forEach(task => {
-              const s = parseDate(task.startDate), e = parseDate(task.endDate);
+              const s = parseDate(task.startDate), e = parseDate(task.endDate) || parseDate(task.startDate);
               if (s && e) {
                 const d = new Date(s);
                 while (d <= e) {
@@ -918,14 +1026,14 @@ ${PRINT_CLEANUP_CSS}
                         return (
                           <div key={ci} style={{
                             minHeight: 60, background: isToday ? "#FFF8E1" : isWeekend ? "#fafafa" : "#fff",
-                            border: isToday ? "2px solid #E65100" : "1px solid #f0f0f0",
+                            border: isToday ? "2px solid #A6783E" : "1px solid #f0f0f0",
                             padding: "2px 3px", overflow: "hidden",
                           }}>
-                            <div style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: isToday ? 700 : 600, color: isToday ? "#E65100" : "#666", marginBottom: 2 }}>{day}</div>
+                            <div style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: isToday ? 700 : 600, color: isToday ? "#A6783E" : "#666", marginBottom: 2 }}>{day}</div>
                             {tasks.slice(0, 4).map((t, ti) => (
                               <div key={ti} style={{
                                 fontFamily: CPS_F, fontSize: 6, letterSpacing: 0.3,
-                                background: t.status === "Complete" ? "#eee" : t.status === "Blocked" ? "#FCE4EC" : `${t.color}18`,
+                                background: t.status === "Complete" ? "#eee" : t.status === "Blocked" ? "#F3E7E5" : `${t.color}18`,
                                 color: t.status === "Complete" ? "#999" : t.color,
                                 padding: "1px 3px", marginBottom: 1, borderRadius: 1,
                                 borderLeft: t.isStart ? `2px solid ${t.color}` : "none",
@@ -970,7 +1078,7 @@ ${PRINT_CLEANUP_CSS}
             <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 8 }}>
               <div><div style={{ fontWeight: 700 }}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
               <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hideFooter: true }))} title="Remove footer" style={{ fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
-                onMouseEnter={e => e.currentTarget.style.color = "#d32f2f"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+                onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
             </div>
           </div>
         )}
