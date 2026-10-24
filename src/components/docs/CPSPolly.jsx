@@ -114,10 +114,12 @@ const CPS_PHASE_COLORS = {
 /* Colours assigned (in order) to sub-headers/groups created within a phase
    — e.g. "Styling", "Casting" inside PRE-PRODUCTION — same muted family as
    the phase colours above so the whole document stays visually consistent. */
-const CPS_GROUP_COLORS = ["#A68963", "#44647D", "#5C5C5C", "#8C7A5E", "#3D5A73", "#787878", "#C2A878", "#6B8299"];
-
-/* Swatches offered when recolouring a phase header — same beige/blue/grey family. */
-const CPS_RECOLOR_SWATCHES = ["#5C5C5C", "#787878", "#A68963", "#C2A878", "#8C7A5E", "#44647D", "#3D5A73", "#6B8299", "#5E6B73", "#1a1a1a"];
+/* Both phase and sub-header accent colours cycle through this same 3-colour
+   set (beige / blue / grey) — mirrors the Estimate's click-to-cycle status
+   dot pattern (Pending/Confirmed/Paid), just with this doc's own palette.
+   The header bar itself always stays solid black, same as the Estimate's
+   section headers — colour never touches the bar, only the small dot. */
+const CPS_GROUP_COLORS = ["#A68963", "#44647D", "#5C5C5C"];
 
 /* Quick-pick sub-header suggestions offered under + ADD SUB-HEADER — common
    workstreams that get grouped within a phase (most often PRE-PRODUCTION). */
@@ -196,7 +198,6 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   });
   const [phases, setPhasesRaw] = useState(() => initialPhases || cpsDefaultPhases());
   const [showAddPhase, setShowAddPhase] = useState(false);
-  const [colorPickerFor, setColorPickerFor] = useState(null); // phase index with the recolour swatch popover open
   const [groupPickerFor, setGroupPickerFor] = useState(null); // phase index with the + ADD SUB-HEADER popover open
   const dragPhaseRef = useRef(null); // index of the phase currently being dragged to reorder
   const dragGroupRef = useRef(null); // index of the sub-header currently being dragged to reorder
@@ -296,8 +297,8 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
     if (i !== pi) return p;
     return { ...p, groups: (p.groups || []).map((g, j) => {
       if (j !== gi) return g;
-      const idx = CPS_RECOLOR_SWATCHES.indexOf(g.color);
-      return { ...g, color: CPS_RECOLOR_SWATCHES[(idx + 1) % CPS_RECOLOR_SWATCHES.length] };
+      const idx = CPS_GROUP_COLORS.indexOf(g.color);
+      return { ...g, color: CPS_GROUP_COLORS[(idx + 1) % CPS_GROUP_COLORS.length] };
     }) };
   }));
   const reorderGroup = (pi, fromIdx, toIdx) => setPhases(prev => prev.map((p, i) => {
@@ -383,7 +384,11 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
     const name = await showPrompt("Phase name:");
     if (name) addPhase(name.toUpperCase());
   };
-  const setPhaseColor = (pi, color) => setPhases(prev => prev.map((p, i) => i === pi ? { ...p, color } : p));
+  const cyclePhaseColor = (pi) => setPhases(prev => prev.map((p, i) => {
+    if (i !== pi) return p;
+    const idx = CPS_GROUP_COLORS.indexOf(p.color);
+    return { ...p, color: CPS_GROUP_COLORS[(idx + 1) % CPS_GROUP_COLORS.length] };
+  }));
   const movePhase = (pi, dir) => setPhases(prev => {
     const j = pi + dir;
     if (j < 0 || j >= prev.length) return prev;
@@ -408,11 +413,15 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   };
   /* Collect @font-face rules for SackersGothic etc */
   const collectFontRules = () => { let r=""; try{for(const s of document.styleSheets){try{for(const ru of s.cssRules){if(ru.cssText&&ru.cssText.startsWith("@font-face"))r+=ru.cssText+"\n";}}catch(e){}}}catch(e){} return r; };
+  /* Fixed export page size — matches the doc's own content width exactly
+     (instead of relying on the browser's default paper size + shrink-to-fit,
+     which was leaving a big unexplained margin around narrower content). */
+  const CPS_PAGE_W = 1400, CPS_PAGE_H = 820, CPS_PAGE_PAD = 36;
   /* Print via hidden iframe (immune to extensions) */
   const printViaIframe = (clone) => {
     const fontRules = collectFontRules();
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:0;left:0;width:1200px;height:100%;border:none;z-index:-9999;opacity:0;";
+    iframe.style.cssText = `position:fixed;top:0;left:0;width:${CPS_PAGE_W}px;height:100%;border:none;z-index:-9999;opacity:0;`;
     document.body.appendChild(iframe);
     const idoc = iframe.contentDocument;
     idoc.open();
@@ -420,13 +429,48 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;700&display=swap');
 ${fontRules}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:10mm 12mm;}
-.page-break{page-break-before:always}
-@media print{@page{size:landscape;margin:0}}
+body{background:#fff;font-family:'Avenir','Avenir Next','Nunito Sans',sans-serif;font-size:10px;color:#1a1a1a;padding:${CPS_PAGE_PAD}px;}
+.cps-page{overflow:hidden;position:relative;break-after:page;page-break-after:always}
+.cps-page:last-child{break-after:auto;page-break-after:auto}
+@media print{@page{size:${CPS_PAGE_W}px ${CPS_PAGE_H}px;margin:0}}
 ${PRINT_CLEANUP_CSS}
 </style></head><body></body></html>`);
     idoc.close();
     idoc.body.appendChild(idoc.adoptNode(clone));
+
+    // Split the cloned content into one block per section (SCHEDULE / TIMELINE /
+    // CALENDAR, using the existing .page-break markers as the split points),
+    // then scale each block down — never up — to fit within one physical page
+    // instead of letting a tall section spill across several blank-looking pages.
+    const root = idoc.body.firstElementChild;
+    if (root) {
+      const kids = Array.from(root.childNodes);
+      const pages = [[]];
+      kids.forEach(node => {
+        if (node.nodeType === 1 && node.classList && node.classList.contains("page-break")) pages.push([]);
+        pages[pages.length - 1].push(node);
+      });
+      const pageEls = pages.map(nodes => {
+        const wrap = idoc.createElement("div");
+        wrap.className = "cps-page";
+        nodes.forEach(n => wrap.appendChild(n));
+        return wrap;
+      });
+      pageEls.forEach(p => root.appendChild(p));
+      const usableH = CPS_PAGE_H - CPS_PAGE_PAD * 2;
+      const usableW = CPS_PAGE_W - CPS_PAGE_PAD * 2;
+      pageEls.forEach(p => {
+        const h = p.scrollHeight, w = p.scrollWidth;
+        const scale = Math.min(1, usableH / h, usableW / w);
+        if (scale < 1) {
+          p.style.transform = `scale(${scale})`;
+          p.style.transformOrigin = "top left";
+          p.style.width = `${100 / scale}%`;
+          p.style.height = `${h * scale}px`;
+        }
+      });
+    }
+
     const _imgs=[...idoc.querySelectorAll('img')];const _imgReady=_imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;}));
     Promise.all(_imgReady).then(()=>{setTimeout(() => { const _t=document.title;document.title=`Production Schedule | ${project?.name||""}`; iframe.contentWindow.focus(); iframe.contentWindow.print(); window.addEventListener("afterprint",function _r(){document.title=_t;window.removeEventListener("afterprint",_r);},{ once:true }); setTimeout(()=>{document.title=_t;},5000); }, 300);});
   };
@@ -490,7 +534,7 @@ ${PRINT_CLEANUP_CSS}
   const milestones = allTasks.filter(t => t.milestone);
 
   return (
-    <div style={{ width: _fitMobile ? "100%" : 1123, minWidth: _fitMobile ? 0 : 1123, margin: "0 auto", background: "#fff", fontFamily: CPS_F, color: "#1a1a1a" }}>
+    <div style={{ width: _fitMobile ? "100%" : 1400, minWidth: _fitMobile ? 0 : 1400, margin: "0 auto", background: "#fff", fontFamily: CPS_F, color: "#1a1a1a" }}>
       {/* Top bar */}
       <div style={{ display: "flex", borderBottom: "2px solid #000", overflowX: "auto" }}>
         {[{ id: "schedule", label: "SCHEDULE" }, { id: "timeline", label: "TIMELINE" }, { id: "calendar", label: "CALENDAR" }].map(t => (
@@ -569,7 +613,7 @@ ${PRINT_CLEANUP_CSS}
             <div style={{ fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff" }}>{currentPhase ? currentPhase.name : "\u2014"}</div>
           </div>
           {!isHidden("clientAction") && (
-            <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#D7E3EC" : "#ECECEC", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #9DB8CC" : "1px solid #D0D0D0", position: "relative" }}>
+            <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#CCE5FF" : "#ECECEC", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #3399FF" : "1px solid #D0D0D0", position: "relative" }}>
               <span className="cps-noprint" onClick={() => hideField("clientAction")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
               <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#6E6E6E", textTransform: "uppercase", marginBottom: 2 }}>
@@ -595,7 +639,7 @@ ${PRINT_CLEANUP_CSS}
             </div>
           )}
           {!isHidden("clientCount") && (
-            <div style={{ background: clientActions.length > 0 ? "#D7E3EC" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center", position: "relative" }}>
+            <div style={{ background: clientActions.length > 0 ? "#CCE5FF" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center", position: "relative" }}>
               <span className="cps-noprint" onClick={() => hideField("clientCount")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
               <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999", textTransform: "uppercase", marginBottom: 2 }}>{clientWord}</div>
@@ -655,7 +699,7 @@ ${PRINT_CLEANUP_CSS}
 
         {/* Phases */}
         {phases.map((phase, pi) => {
-          const phaseColor = phase.color || CPS_PHASE_COLORS[phase.name] || "#1a1a1a";
+          const phaseColor = phase.color || CPS_GROUP_COLORS[0];
           const phaseComplete = phase.tasks.filter(t => t.status === "Complete").length;
           const phaseTotal = phase.tasks.length;
           const phasePct = phaseTotal > 0 ? Math.round((phaseComplete / phaseTotal) * 100) : 0;
@@ -666,18 +710,19 @@ ${PRINT_CLEANUP_CSS}
               onDragStart={e => { dragPhaseRef.current = pi; e.dataTransfer.effectAllowed = "move"; }}
               onDragOver={e => e.preventDefault()}
               onDrop={e => { e.preventDefault(); if (dragPhaseRef.current !== null) { reorderPhase(dragPhaseRef.current, pi); dragPhaseRef.current = null; } }}>
-              {/* Phase header */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: phaseColor, padding: "5px 8px", cursor: "pointer", position: "relative" }}
+              {/* Phase header — always solid black, same as the Estimate's section
+                  headers; only the small dot carries colour, cycled on click. */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1a1a1a", padding: "5px 8px", cursor: "pointer", position: "relative" }}
                 onClick={() => toggleCollapse(pi)}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span className="cps-noprint" title="Drag to reorder" style={{ fontFamily: CPS_F, fontSize: 9, color: "rgba(255,255,255,0.4)", cursor: "grab" }} onClick={e => e.stopPropagation()}>☰</span>
                   <span style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.6)", transform: phase.collapsed ? "rotate(0deg)" : "rotate(90deg)", transition: "transform .15s", display: "inline-block" }}>▶</span>
+                  <span className="cps-noprint" onClick={e => { e.stopPropagation(); cyclePhaseColor(pi); }} title="Click to cycle colour"
+                    style={{ width: 9, height: 9, borderRadius: "50%", background: phaseColor, cursor: "pointer", flexShrink: 0 }} />
                   <span onClick={e => { e.stopPropagation(); editPhaseName(pi); }} style={{ fontFamily: CPS_F, fontSize: 10, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff", textTransform: "uppercase", cursor: "pointer" }}>{phase.name}</span>
                   {!isHidden("progress") && <span style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.5)", letterSpacing: CPS_LS }}>{phasePct}% ({phaseComplete}/{phaseTotal})</span>}
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }} onClick={e => e.stopPropagation()}>
-                  <span className="cps-noprint" onClick={() => setColorPickerFor(colorPickerFor === pi ? null : pi)} title="Recolour this header"
-                    style={{ width: 10, height: 10, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.6)", cursor: "pointer" }} />
                   <span onClick={() => addTask(pi)} style={{ fontFamily: CPS_F, fontSize: 8, color: "rgba(255,255,255,0.55)", cursor: "pointer", letterSpacing: CPS_LS }}
                     onMouseEnter={e => e.target.style.color = "#fff"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.55)"}>
                     + ADD TASK
@@ -687,18 +732,6 @@ ${PRINT_CLEANUP_CSS}
                     ×
                   </span>
                 </div>
-                {colorPickerFor === pi && (
-                  <div className="cps-noprint" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: 8, zIndex: 20, background: "#fff", border: "1px solid #ddd", borderRadius: 4, boxShadow: "0 4px 12px rgba(0,0,0,0.12)", padding: 8, display: "flex", gap: 6, flexWrap: "wrap", width: 120 }}>
-                    {CPS_RECOLOR_SWATCHES.map(c => (
-                      <span key={c} onClick={() => { setPhaseColor(pi, c); setColorPickerFor(null); }}
-                        style={{ width: 16, height: 16, borderRadius: "50%", background: c, cursor: "pointer", border: phaseColor === c ? "2px solid #999" : "1px solid #eee" }} />
-                    ))}
-                    {phase.color && (
-                      <span onClick={() => { setPhaseColor(pi, undefined); setColorPickerFor(null); }} title="Reset to default"
-                        style={{ fontFamily: CPS_F, fontSize: 8, color: "#999", cursor: "pointer", width: "100%", marginTop: 4 }}>Reset to default</span>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Phase progress mini-bar */}
@@ -719,7 +752,7 @@ ${PRINT_CLEANUP_CSS}
                   const clientTask = isClient(task.owner);
                   const isComplete = task.status === "Complete";
                   return (
-                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#9DB8CC" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#D7E3EC" : "transparent" }}>
+                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#3399FF" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#CCE5FF" : "transparent" }}>
                       <div style={{ width: 24, fontFamily: CPS_F, fontSize: 8, fontWeight: 700, color: "#ccc", padding: "3px 4px", textAlign: "center" }}>
                         {task.milestone ? <span style={{ color: phaseColor, fontSize: 9 }}>{"\u25C6"}</span> : (ti + 1)}
                       </div>
@@ -788,11 +821,11 @@ ${PRINT_CLEANUP_CSS}
                         onDragStart={e => { dragGroupRef.current = gi; e.dataTransfer.effectAllowed = "move"; }}
                         onDragOver={e => e.preventDefault()}
                         onDrop={e => { e.preventDefault(); if (dragGroupRef.current !== null) { reorderGroup(pi, dragGroupRef.current, gi); dragGroupRef.current = null; } }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color, padding: "4px 10px 4px 8px", minWidth: _fitMobile ? 700 : 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1a1a1a", padding: "4px 10px 4px 20px", minWidth: _fitMobile ? 700 : 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span className="cps-noprint" title="Drag to reorder" style={{ fontFamily: CPS_F, fontSize: 9, color: "rgba(255,255,255,0.45)", cursor: "grab" }}>{"\u2630"}</span>
                             <span className="cps-noprint" onClick={() => cycleGroupColor(pi, gi)} title="Click to cycle colour"
-                              style={{ width: 9, height: 9, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.6)", cursor: "pointer" }} />
+                              style={{ width: 9, height: 9, borderRadius: "50%", background: g.color, cursor: "pointer", flexShrink: 0 }} />
                             <span onClick={() => { const name = window.prompt("Rename sub-header:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
                               style={{ fontFamily: CPS_F, fontSize: 8.5, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff", textTransform: "uppercase", cursor: "pointer" }}>{g.name}</span>
                           </div>
@@ -1000,7 +1033,7 @@ ${PRINT_CLEANUP_CSS}
                       const clientTask = isClient(task.owner);
 
                       return (
-                        <div key={task.id} style={{ display: "flex", alignItems: "center", minHeight: 20, borderBottom: "1px solid #f5f5f5", background: clientTask && !isComplete ? "#D7E3EC55" : "transparent" }}>
+                        <div key={task.id} style={{ display: "flex", alignItems: "center", minHeight: 20, borderBottom: "1px solid #f5f5f5", background: clientTask && !isComplete ? "#CCE5FF66" : "transparent" }}>
                           <div style={{ width: LABEL_W, flexShrink: 0, fontFamily: CPS_F, fontSize: 8, letterSpacing: CPS_LS, color: clientTask && !isComplete ? "#000" : isComplete ? "#ccc" : "#666", padding: "2px 8px 2px 16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: isComplete ? "line-through" : "none", display: "flex", alignItems: "center", gap: 4 }}>
                             {task.milestone && <span style={{ color: phaseColor, fontSize: 7, flexShrink: 0 }}>{"\u25C6"}</span>}
                             {clientTask && !isComplete && <span style={{ fontSize: 7, flexShrink: 0 }}>{"\u26A0"}</span>}
@@ -1020,7 +1053,7 @@ ${PRINT_CLEANUP_CSS}
                                 left: `${dayToX(s)}%`,
                                 width: `${Math.max(dayToX(e) - dayToX(s), 0.3)}%`,
                                 height: 10, top: 3,
-                                background: clientTask && !isComplete ? "#9DB8CC" : isBlocked ? "#B8574E" : isComplete ? "#ccc" : phaseColor,
+                                background: clientTask && !isComplete ? "#3399FF" : isBlocked ? "#B8574E" : isComplete ? "#ccc" : phaseColor,
                                 borderRadius: 2,
                                 opacity: isComplete ? 0.4 : 0.85,
                                 border: clientTask && !isComplete ? "1px solid #B8975A" : "none",
