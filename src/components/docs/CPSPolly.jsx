@@ -310,7 +310,8 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
 
   const isClient = (owner) => {
     const o = (owner || "").toLowerCase();
-    return o.includes("client") || o.includes("agency") || o === "[client]" || o === "[client / legal]" || o === "[agency]" || o === "[agency / legal]";
+    const word = (project.clientLabel || "CLIENT").toLowerCase();
+    return o.includes(word) || o.includes("client") || o.includes("agency") || o === `[${word}]` || o === `[${word} / legal]`;
   };
 
   /* Swaps every occurrence of "Client"/"CLIENT"/"client" for "Agency"/"AGENCY"/
@@ -321,18 +322,18 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
     .split(from.toUpperCase()).join(to.toUpperCase())
     .split(from[0].toUpperCase() + from.slice(1)).join(to[0].toUpperCase() + to.slice(1))
     .split(from).join(to);
-  const toggleClientLabel = () => {
-    const toAgency = (project.clientLabel || "CLIENT") === "CLIENT";
-    const from = toAgency ? "client" : "agency";
-    const to = toAgency ? "agency" : "client";
-    setProject(p => ({ ...p, clientLabel: toAgency ? "AGENCY" : "CLIENT" }));
+  const relabelClientWord = (newWordRaw) => {
+    const newWord = (newWordRaw || "").trim();
+    const from = project.clientLabel || "CLIENT";
+    if (!newWord || newWord.toUpperCase() === from.toUpperCase()) return;
+    setProject(p => ({ ...p, clientLabel: newWord.toUpperCase() }));
     setPhases(prev => prev.map(ph => ({
       ...ph,
       tasks: ph.tasks.map(t => ({
         ...t,
-        owner: _swapWord(t.owner, from, to),
-        notes: _swapWord(t.notes, from, to),
-        blockedBy: _swapWord(t.blockedBy, from, to),
+        owner: _swapWord(t.owner, from, newWord),
+        notes: _swapWord(t.notes, from, newWord),
+        blockedBy: _swapWord(t.blockedBy, from, newWord),
       })),
     })));
   };
@@ -482,7 +483,7 @@ ${PRINT_CLEANUP_CSS}
   /* Client actions */
   const clientActions = allTasks.filter(t => isClient(t.owner) && t.status !== "Complete" && t.status !== "Approved");
   const nextClientAction = clientActions.find(t => t.status === "In Progress" || t.status === "In Review") || clientActions[0];
-  const clientWord = project.clientLabel === "AGENCY" ? "AGENCY" : "CLIENT";
+  const clientWord = project.clientLabel || "CLIENT";
 
   /* Current phase = first phase with incomplete tasks */
   const currentPhase = phases.find(p => p.tasks.some(t => t.status !== "Complete")) || phases[phases.length - 1];
@@ -532,13 +533,15 @@ ${PRINT_CLEANUP_CSS}
 
         {/* Project info */}
         <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {[["PROJECT:", project.name, "name"], [(project.clientLabel === "AGENCY" ? "AGENCY:" : "CLIENT:"), project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]]
+          {[["PROJECT:", project.name, "name"], [clientWord + ":", project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]]
             .filter(([, , key]) => !(project.hiddenFields || []).includes(key))
             .map(([lbl, val, key]) => (
             <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 16, position: "relative" }}>
               {key === "client" ? (
-                <span onClick={() => toggleClientLabel()} title={`Switch to ${project.clientLabel === "AGENCY" ? "Client" : "Agency"} wording everywhere in this doc`}
-                  className="cps-noprint" style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, cursor: "pointer", borderBottom: "1px dotted #999" }}>{lbl}</span>
+                <div title="Click to rename this label — relabels it everywhere in the document" style={{ display: "flex", alignItems: "baseline" }}>
+                  <CpsCell value={clientWord} onChange={v => relabelClientWord(v)} style={{ fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, textTransform: "uppercase" }} />
+                  <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>:</span>
+                </div>
               ) : (
                 <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>{lbl}</span>
               )}
