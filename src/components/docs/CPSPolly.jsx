@@ -406,7 +406,16 @@ ${PRINT_CLEANUP_CSS}
       </div>
 
       <div ref={printRef} style={{ padding: "20px 12px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}><img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} /></div>
+        {project.hideLogo ? (
+          <div className="cps-noprint" onClick={() => setProject(p => ({ ...p, hideLogo: false }))} style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", display: "inline-block", marginBottom: 4 }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ ADD LOGO</div>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, flexWrap: _fitMobile ? "wrap" : "nowrap", gap: _fitMobile ? 8 : 0 }}>
+            <img src="/onna-default-logo.png" alt="ONNA" style={{ maxHeight: 30, maxWidth: 120, objectFit: "contain" }} />
+            <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hideLogo: true }))} title="Remove logo" style={{ fontFamily: CPS_F, fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
+              onMouseEnter={e => e.currentTarget.style.color = "#d32f2f"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+          </div>
+        )}
         <div style={{ borderBottom: "2.5px solid #000", marginBottom: 16 }} />
 
         <div style={{ textAlign: "center", fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
@@ -952,10 +961,19 @@ ${PRINT_CLEANUP_CSS}
         })()}
 
         {/* Footer */}
-        <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between", fontFamily: CPS_F, fontSize: 9, letterSpacing: CPS_LS, color: "#000", borderTop: "2px solid #000", paddingTop: 12 }}>
-          <div><div style={{ fontWeight: 700 }}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
-          <div style={{ textAlign: "right" }}><div style={{ fontWeight: 700 }}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
-        </div>
+        {project.hideFooter ? (
+          <div className="cps-noprint" onClick={() => setProject(p => ({ ...p, hideFooter: false }))} style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", display: "inline-block", marginTop: 16 }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ ADD FOOTER</div>
+        ) : (
+          <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between", alignItems: "flex-end", fontFamily: CPS_F, fontSize: 9, letterSpacing: CPS_LS, color: "#000", borderTop: "2px solid #000", paddingTop: 12 }}>
+            <div><div style={{ fontWeight: 700 }}>@ONNAPRODUCTION</div><div>DUBAI | LONDON</div></div>
+            <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 8 }}>
+              <div><div style={{ fontWeight: 700 }}>WWW.ONNA.WORLD</div><div>HELLO@ONNAPRODUCTION.COM</div></div>
+              <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hideFooter: true }))} title="Remove footer" style={{ fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
+                onMouseEnter={e => e.currentTarget.style.color = "#d32f2f"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
