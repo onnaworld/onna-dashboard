@@ -88,7 +88,7 @@ const CPS_STATUS_COLORS = {
 const CpsStatusBadge = ({ value, onChange }) => {
   const cycle = () => {
     const i = CPS_STATUSES.indexOf(value);
-    onChange(CPS_STATUSES[(i + 1) % STATUSES.length]);
+    onChange(CPS_STATUSES[(i + 1) % CPS_STATUSES.length]);
   };
   const c = CPS_STATUS_COLORS[value] || CPS_STATUS_COLORS["Not Started"];
   return (
@@ -118,6 +118,10 @@ const CPS_GROUP_COLORS = ["#A68963", "#44647D", "#5C5C5C", "#8C7A5E", "#3D5A73",
 
 /* Swatches offered when recolouring a phase header — same beige/blue/grey family. */
 const CPS_RECOLOR_SWATCHES = ["#5C5C5C", "#787878", "#A68963", "#C2A878", "#8C7A5E", "#44647D", "#3D5A73", "#6B8299", "#5E6B73", "#1a1a1a"];
+
+/* Quick-pick sub-header suggestions offered under + ADD SUB-HEADER — common
+   workstreams that get grouped within a phase (most often PRE-PRODUCTION). */
+const CPS_GROUP_PRESETS = ["Styling", "Casting", "Locations", "Equipment", "Wardrobe", "Props", "Travel", "Permits", "Talent", "Hair & Makeup"];
 
 /* ======= DEFAULT SCHEDULE ======= */
 const cpsTaskInit = (id, task, owner, dur, opts = {}) => ({ id, task, owner, startDate: "", endDate: "", duration: dur, status: "Not Started", notes: opts.notes || "", milestone: opts.milestone || false, blockedBy: opts.blockedBy || "" });
@@ -193,6 +197,7 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   const [phases, setPhasesRaw] = useState(() => initialPhases || cpsDefaultPhases());
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [colorPickerFor, setColorPickerFor] = useState(null); // phase index with the recolour swatch popover open
+  const [groupPickerFor, setGroupPickerFor] = useState(null); // phase index with the + ADD SUB-HEADER popover open
   const dragPhaseRef = useRef(null); // index of the phase currently being dragged to reorder
   const [tab, setTab] = useState("timeline");
   const [printTabs, setPrintTabs] = useState(null); // null=normal, Set of tabs to force-render
@@ -260,8 +265,7 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   /* Sub-headers within a phase (e.g. "Styling", "Casting" inside PRE-PRODUCTION)
      — each gets its own muted colour, cycling through CPS_GROUP_COLORS so the
      user doesn't have to pick one manually every time. */
-  const addGroup = async (pi) => {
-    const name = await showPrompt("New group name (e.g. Styling, Casting):", "");
+  const addGroup = (pi, name) => {
     if (!name || !name.trim()) return;
     setPhases(prev => prev.map((p, i) => {
       if (i !== pi) return p;
@@ -269,6 +273,10 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
       const color = CPS_GROUP_COLORS[groups.length % CPS_GROUP_COLORS.length];
       return { ...p, groups: [...groups, { id: Date.now(), name: name.trim(), color }] };
     }));
+  };
+  const addCustomGroup = async (pi) => {
+    const name = await showPrompt("New sub-header name:", "");
+    addGroup(pi, name);
   };
   const renameGroup = (pi, gi, name) => {
     setPhases(prev => prev.map((p, i) => i === pi ? { ...p, groups: (p.groups || []).map((g, j) => j === gi ? { ...g, name } : g) } : p));
@@ -727,14 +735,14 @@ ${PRINT_CLEANUP_CSS}
                     {/* Grouped tasks, each under its own colour-coded sub-header */}
                     {groups.map((g, gi) => (
                       <div key={g.id}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color + "14", borderLeft: `3px solid ${g.color}`, padding: "3px 8px 3px 5px", minWidth: _fitMobile ? 700 : 0 }}>
-                          <span onClick={() => { const name = window.prompt("Rename group:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
-                            style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: g.color, textTransform: "uppercase", cursor: "pointer" }}>{g.name}</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color, padding: "4px 10px 4px 18px", minWidth: _fitMobile ? 700 : 0 }}>
+                          <span onClick={() => { const name = window.prompt("Rename sub-header:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
+                            style={{ fontFamily: CPS_F, fontSize: 8.5, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff", textTransform: "uppercase", cursor: "pointer" }}>{g.name}</span>
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <span onClick={() => addTask(pi, g.id)} style={{ fontFamily: CPS_F, fontSize: 7, color: "#999", cursor: "pointer", letterSpacing: CPS_LS }}
-                              onMouseEnter={e => e.target.style.color = "#666"} onMouseLeave={e => e.target.style.color = "#999"}>+ ADD TASK</span>
-                            <span onClick={() => deleteGroup(pi, gi)} style={{ fontFamily: CPS_F, fontSize: 9, color: "#ccc", cursor: "pointer" }}
-                              onMouseEnter={e => e.target.style.color = "#B8574E"} onMouseLeave={e => e.target.style.color = "#ccc"}>{"\u00d7"}</span>
+                            <span onClick={() => addTask(pi, g.id)} style={{ fontFamily: CPS_F, fontSize: 7, color: "rgba(255,255,255,0.7)", cursor: "pointer", letterSpacing: CPS_LS }}
+                              onMouseEnter={e => e.target.style.color = "#fff"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.7)"}>+ ADD TASK</span>
+                            <span onClick={() => deleteGroup(pi, gi)} style={{ fontFamily: CPS_F, fontSize: 9, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
+                              onMouseEnter={e => e.target.style.color = "#fff"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.5)"}>{"\u00d7"}</span>
                           </div>
                         </div>
                         {withIdx.filter(({ t }) => t.groupId === g.id).map(renderTaskRow)}
@@ -747,10 +755,25 @@ ${PRINT_CLEANUP_CSS}
                       </div>
                     )}
 
-                    {/* + ADD GROUP */}
-                    <div style={{ padding: "4px 8px" }}>
-                      <span className="cps-noprint" onClick={() => addGroup(pi)} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#bbb", cursor: "pointer" }}
-                        onMouseEnter={e => e.target.style.color = "#666"} onMouseLeave={e => e.target.style.color = "#bbb"}>+ ADD GROUP (e.g. Styling, Casting)</span>
+                    {/* + ADD SUB-HEADER */}
+                    <div className="cps-noprint" style={{ padding: "6px 8px", position: "relative" }}>
+                      <span onClick={() => setGroupPickerFor(groupPickerFor === pi ? null : pi)} style={{ fontFamily: CPS_F, fontSize: 7.5, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "4px 10px" }}
+                        onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ ADD SUB-HEADER</span>
+                      {groupPickerFor === pi && (
+                        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 8, zIndex: 20, background: "#fff", border: "1px solid #ddd", borderRadius: 4, boxShadow: "0 4px 12px rgba(0,0,0,0.12)", padding: 8, width: 180 }}>
+                          <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#bbb", marginBottom: 6 }}>QUICK ADD</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
+                            {CPS_GROUP_PRESETS.filter(name => !(groups).some(g => g.name.toLowerCase() === name.toLowerCase())).map(name => (
+                              <span key={name} onClick={() => { addGroup(pi, name); setGroupPickerFor(null); }}
+                                style={{ fontFamily: CPS_F, fontSize: 8, color: "#666", cursor: "pointer", border: "1px solid #eee", borderRadius: 10, padding: "3px 9px" }}
+                                onMouseEnter={e => { e.currentTarget.style.background = "#f5f5f5"; }} onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}>{name}</span>
+                            ))}
+                          </div>
+                          <span onClick={() => { addCustomGroup(pi); setGroupPickerFor(null); }}
+                            style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer" }}
+                            onMouseEnter={e => e.currentTarget.style.color = "#333"} onMouseLeave={e => e.currentTarget.style.color = "#999"}>+ CUSTOM NAME...</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
