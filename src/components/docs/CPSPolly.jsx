@@ -199,6 +199,7 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   const [colorPickerFor, setColorPickerFor] = useState(null); // phase index with the recolour swatch popover open
   const [groupPickerFor, setGroupPickerFor] = useState(null); // phase index with the + ADD SUB-HEADER popover open
   const dragPhaseRef = useRef(null); // index of the phase currently being dragged to reorder
+  const dragGroupRef = useRef(null); // index of the sub-header currently being dragged to reorder
   const [tab, setTab] = useState("timeline");
   const [printTabs, setPrintTabs] = useState(null); // null=normal, Set of tabs to force-render
   const printRef = useRef(null);
@@ -291,10 +292,49 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
     }));
   };
   const setTaskGroup = (pi, ti, groupId) => updateTask(pi, ti, "groupId", groupId);
+  const cycleGroupColor = (pi, gi) => setPhases(prev => prev.map((p, i) => {
+    if (i !== pi) return p;
+    return { ...p, groups: (p.groups || []).map((g, j) => {
+      if (j !== gi) return g;
+      const idx = CPS_RECOLOR_SWATCHES.indexOf(g.color);
+      return { ...g, color: CPS_RECOLOR_SWATCHES[(idx + 1) % CPS_RECOLOR_SWATCHES.length] };
+    }) };
+  }));
+  const reorderGroup = (pi, fromIdx, toIdx) => setPhases(prev => prev.map((p, i) => {
+    if (i !== pi || fromIdx === toIdx) return p;
+    const groups = [...(p.groups || [])];
+    const [moved] = groups.splice(fromIdx, 1);
+    groups.splice(toIdx, 0, moved);
+    return { ...p, groups };
+  }));
 
   const isClient = (owner) => {
     const o = (owner || "").toLowerCase();
-    return o.includes("client") || o === "[client]" || o === "[client / legal]";
+    return o.includes("client") || o.includes("agency") || o === "[client]" || o === "[client / legal]" || o === "[agency]" || o === "[agency / legal]";
+  };
+
+  /* Swaps every occurrence of "Client"/"CLIENT"/"client" for "Agency"/"AGENCY"/
+     "agency" (or back) across the project name fields AND every task's owner/
+     notes/blockedBy text — not just the on-screen labels — so flipping this
+     actually relabels the whole document rather than just one field. */
+  const _swapWord = (str, from, to) => (str || "")
+    .split(from.toUpperCase()).join(to.toUpperCase())
+    .split(from[0].toUpperCase() + from.slice(1)).join(to[0].toUpperCase() + to.slice(1))
+    .split(from).join(to);
+  const toggleClientLabel = () => {
+    const toAgency = (project.clientLabel || "CLIENT") === "CLIENT";
+    const from = toAgency ? "client" : "agency";
+    const to = toAgency ? "agency" : "client";
+    setProject(p => ({ ...p, clientLabel: toAgency ? "AGENCY" : "CLIENT" }));
+    setPhases(prev => prev.map(ph => ({
+      ...ph,
+      tasks: ph.tasks.map(t => ({
+        ...t,
+        owner: _swapWord(t.owner, from, to),
+        notes: _swapWord(t.notes, from, to),
+        blockedBy: _swapWord(t.blockedBy, from, to),
+      })),
+    })));
   };
 
   /* Auto-cascade: set project start and calculate all dates from durations */
@@ -442,6 +482,7 @@ ${PRINT_CLEANUP_CSS}
   /* Client actions */
   const clientActions = allTasks.filter(t => isClient(t.owner) && t.status !== "Complete" && t.status !== "Approved");
   const nextClientAction = clientActions.find(t => t.status === "In Progress" || t.status === "In Review") || clientActions[0];
+  const clientWord = project.clientLabel === "AGENCY" ? "AGENCY" : "CLIENT";
 
   /* Current phase = first phase with incomplete tasks */
   const currentPhase = phases.find(p => p.tasks.some(t => t.status !== "Complete")) || phases[phases.length - 1];
@@ -491,11 +532,16 @@ ${PRINT_CLEANUP_CSS}
 
         {/* Project info */}
         <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]]
+          {[["PROJECT:", project.name, "name"], [(project.clientLabel === "AGENCY" ? "AGENCY:" : "CLIENT:"), project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]]
             .filter(([, , key]) => !(project.hiddenFields || []).includes(key))
             .map(([lbl, val, key]) => (
             <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 16, position: "relative" }}>
-              <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>{lbl}</span>
+              {key === "client" ? (
+                <span onClick={() => toggleClientLabel()} title={`Switch to ${project.clientLabel === "AGENCY" ? "Client" : "Agency"} wording everywhere in this doc`}
+                  className="cps-noprint" style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS, cursor: "pointer", borderBottom: "1px dotted #999" }}>{lbl}</span>
+              ) : (
+                <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>{lbl}</span>
+              )}
               <CpsCell value={val} onChange={v => setProject(p => ({ ...p, [key]: v }))} />
               {["startDate", "deliveryDate", "producer"].includes(key) && (
                 <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hiddenFields: [...(p.hiddenFields || []), key] }))}
@@ -524,7 +570,7 @@ ${PRINT_CLEANUP_CSS}
               <span className="cps-noprint" onClick={() => hideField("clientAction")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
               <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#6E6E6E", textTransform: "uppercase", marginBottom: 2 }}>
-                {nextClientAction ? "NEXT CLIENT ACTION" : "NO CLIENT ACTIONS PENDING"}
+                {nextClientAction ? `NEXT ${clientWord} ACTION` : `NO ${clientWord} ACTIONS PENDING`}
               </div>
               <div style={{ fontFamily: CPS_F, fontSize: 10, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#6E6E6E" }}>
                 {nextClientAction ? nextClientAction.task : "All clear"}
@@ -549,7 +595,7 @@ ${PRINT_CLEANUP_CSS}
             <div style={{ background: clientActions.length > 0 ? "#E8DCC0" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center", position: "relative" }}>
               <span className="cps-noprint" onClick={() => hideField("clientCount")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
-              <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999", textTransform: "uppercase", marginBottom: 2 }}>CLIENT</div>
+              <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999", textTransform: "uppercase", marginBottom: 2 }}>{clientWord}</div>
               <div style={{ fontFamily: CPS_F, fontSize: 16, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999" }}>{clientActions.length}</div>
             </div>
           )}
@@ -564,11 +610,11 @@ ${PRINT_CLEANUP_CSS}
           {(isHidden("progress") || isHidden("clientAction") || isHidden("clientCount") || isHidden("blockedCount")) && (
             <div className="cps-noprint" style={{ display: "flex", flexDirection: "column", gap: 4, justifyContent: "center" }}>
               {isHidden("clientAction") && <span onClick={() => showField("clientAction")} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}
-                onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ CLIENT ACTION</span>}
+                onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ {clientWord} ACTION</span>}
               {isHidden("progress") && <span onClick={() => showField("progress")} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ PROGRESS</span>}
               {isHidden("clientCount") && <span onClick={() => showField("clientCount")} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}
-                onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ CLIENT</span>}
+                onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ {clientWord}</span>}
               {isHidden("blockedCount") && <span onClick={() => showField("blockedCount")} style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>+ BLOCKED</span>}
             </div>
@@ -734,10 +780,19 @@ ${PRINT_CLEANUP_CSS}
 
                     {/* Grouped tasks, each under its own colour-coded sub-header */}
                     {groups.map((g, gi) => (
-                      <div key={g.id}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color, padding: "4px 10px 4px 18px", minWidth: _fitMobile ? 700 : 0 }}>
-                          <span onClick={() => { const name = window.prompt("Rename sub-header:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
-                            style={{ fontFamily: CPS_F, fontSize: 8.5, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff", textTransform: "uppercase", cursor: "pointer" }}>{g.name}</span>
+                      <div key={g.id}
+                        draggable
+                        onDragStart={e => { dragGroupRef.current = gi; e.dataTransfer.effectAllowed = "move"; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={e => { e.preventDefault(); if (dragGroupRef.current !== null) { reorderGroup(pi, dragGroupRef.current, gi); dragGroupRef.current = null; } }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color, padding: "4px 10px 4px 8px", minWidth: _fitMobile ? 700 : 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="cps-noprint" title="Drag to reorder" style={{ fontFamily: CPS_F, fontSize: 9, color: "rgba(255,255,255,0.45)", cursor: "grab" }}>\u2630</span>
+                            <span className="cps-noprint" onClick={() => cycleGroupColor(pi, gi)} title="Click to cycle colour"
+                              style={{ width: 9, height: 9, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.6)", cursor: "pointer" }} />
+                            <span onClick={() => { const name = window.prompt("Rename sub-header:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
+                              style={{ fontFamily: CPS_F, fontSize: 8.5, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff", textTransform: "uppercase", cursor: "pointer" }}>{g.name}</span>
+                          </div>
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <span onClick={() => addTask(pi, g.id)} style={{ fontFamily: CPS_F, fontSize: 7, color: "rgba(255,255,255,0.7)", cursor: "pointer", letterSpacing: CPS_LS }}
                               onMouseEnter={e => e.target.style.color = "#fff"} onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.7)"}>+ ADD TASK</span>
