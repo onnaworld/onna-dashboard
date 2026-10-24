@@ -569,7 +569,7 @@ ${PRINT_CLEANUP_CSS}
             <div style={{ fontFamily: CPS_F, fontSize: 12, fontWeight: 700, letterSpacing: CPS_LS, color: "#fff" }}>{currentPhase ? currentPhase.name : "\u2014"}</div>
           </div>
           {!isHidden("clientAction") && (
-            <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#E8DCC0" : "#ECECEC", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #D4C290" : "1px solid #D0D0D0", position: "relative" }}>
+            <div style={{ flex: 1, minWidth: _fitMobile ? "45%" : "auto", background: nextClientAction ? "#D7E3EC" : "#ECECEC", padding: "8px 12px", borderRadius: 2, border: nextClientAction ? "1px solid #9DB8CC" : "1px solid #D0D0D0", position: "relative" }}>
               <span className="cps-noprint" onClick={() => hideField("clientAction")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
               <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: nextClientAction ? "#000" : "#6E6E6E", textTransform: "uppercase", marginBottom: 2 }}>
@@ -595,7 +595,7 @@ ${PRINT_CLEANUP_CSS}
             </div>
           )}
           {!isHidden("clientCount") && (
-            <div style={{ background: clientActions.length > 0 ? "#E8DCC0" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center", position: "relative" }}>
+            <div style={{ background: clientActions.length > 0 ? "#D7E3EC" : "#f4f4f4", padding: "8px 12px", borderRadius: 2, minWidth: 60, textAlign: "center", position: "relative" }}>
               <span className="cps-noprint" onClick={() => hideField("clientCount")} title="Remove" style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: "rgba(0,0,0,0.25)", cursor: "pointer", lineHeight: 1 }}
                 onMouseEnter={e => e.currentTarget.style.color = "#B8574E"} onMouseLeave={e => e.currentTarget.style.color = "rgba(0,0,0,0.25)"}>×</span>
               <div style={{ fontFamily: CPS_F, fontSize: 7, fontWeight: 700, letterSpacing: CPS_LS, color: clientActions.length > 0 ? "#000" : "#999", textTransform: "uppercase", marginBottom: 2 }}>{clientWord}</div>
@@ -719,7 +719,7 @@ ${PRINT_CLEANUP_CSS}
                   const clientTask = isClient(task.owner);
                   const isComplete = task.status === "Complete";
                   return (
-                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#D4C290" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#E8DCC0" : "transparent" }}>
+                    <div key={task.id} style={{ display: "flex", borderBottom: "1px solid #f0f0f0", alignItems: "center", minHeight: 28, minWidth: _fitMobile ? 700 : 0, borderLeft: `3px solid ${clientTask && !isComplete ? "#9DB8CC" : phaseColor + "20"}`, background: clientTask && !isComplete ? "#D7E3EC" : "transparent" }}>
                       <div style={{ width: 24, fontFamily: CPS_F, fontSize: 8, fontWeight: 700, color: "#ccc", padding: "3px 4px", textAlign: "center" }}>
                         {task.milestone ? <span style={{ color: phaseColor, fontSize: 9 }}>{"\u25C6"}</span> : (ti + 1)}
                       </div>
@@ -790,7 +790,7 @@ ${PRINT_CLEANUP_CSS}
                         onDrop={e => { e.preventDefault(); if (dragGroupRef.current !== null) { reorderGroup(pi, dragGroupRef.current, gi); dragGroupRef.current = null; } }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: g.color, padding: "4px 10px 4px 8px", minWidth: _fitMobile ? 700 : 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span className="cps-noprint" title="Drag to reorder" style={{ fontFamily: CPS_F, fontSize: 9, color: "rgba(255,255,255,0.45)", cursor: "grab" }}>\u2630</span>
+                            <span className="cps-noprint" title="Drag to reorder" style={{ fontFamily: CPS_F, fontSize: 9, color: "rgba(255,255,255,0.45)", cursor: "grab" }}>{"\u2630"}</span>
                             <span className="cps-noprint" onClick={() => cycleGroupColor(pi, gi)} title="Click to cycle colour"
                               style={{ width: 9, height: 9, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.6)", cursor: "pointer" }} />
                             <span onClick={() => { const name = window.prompt("Rename sub-header:", g.name); if (name && name.trim()) renameGroup(pi, gi, name.trim()); }}
@@ -1000,7 +1000,7 @@ ${PRINT_CLEANUP_CSS}
                       const clientTask = isClient(task.owner);
 
                       return (
-                        <div key={task.id} style={{ display: "flex", alignItems: "center", minHeight: 20, borderBottom: "1px solid #f5f5f5", background: clientTask && !isComplete ? "#E8DCC040" : "transparent" }}>
+                        <div key={task.id} style={{ display: "flex", alignItems: "center", minHeight: 20, borderBottom: "1px solid #f5f5f5", background: clientTask && !isComplete ? "#D7E3EC55" : "transparent" }}>
                           <div style={{ width: LABEL_W, flexShrink: 0, fontFamily: CPS_F, fontSize: 8, letterSpacing: CPS_LS, color: clientTask && !isComplete ? "#000" : isComplete ? "#ccc" : "#666", padding: "2px 8px 2px 16px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: isComplete ? "line-through" : "none", display: "flex", alignItems: "center", gap: 4 }}>
                             {task.milestone && <span style={{ color: phaseColor, fontSize: 7, flexShrink: 0 }}>{"\u25C6"}</span>}
                             {clientTask && !isComplete && <span style={{ fontSize: 7, flexShrink: 0 }}>{"\u26A0"}</span>}
@@ -1020,7 +1020,7 @@ ${PRINT_CLEANUP_CSS}
                                 left: `${dayToX(s)}%`,
                                 width: `${Math.max(dayToX(e) - dayToX(s), 0.3)}%`,
                                 height: 10, top: 3,
-                                background: clientTask && !isComplete ? "#D4C290" : isBlocked ? "#B8574E" : isComplete ? "#ccc" : phaseColor,
+                                background: clientTask && !isComplete ? "#9DB8CC" : isBlocked ? "#B8574E" : isComplete ? "#ccc" : phaseColor,
                                 borderRadius: 2,
                                 opacity: isComplete ? 0.4 : 0.85,
                                 border: clientTask && !isComplete ? "1px solid #B8975A" : "none",
