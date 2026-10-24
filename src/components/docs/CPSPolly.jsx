@@ -294,7 +294,7 @@ const CPSPolly = React.forwardRef(function CPSPollyInner({ initialProject, initi
   /* Clone + sanitise: strips extension junk from a DOM clone */
   const cleanClone = (el) => {
     const clone = el.cloneNode(true);
-    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"]').forEach(n=>n.remove());
+    clone.querySelectorAll('[class*="lusha"],[id*="lusha"],[class*="Lusha"],[id*="Lusha"],[data-lusha],[class*="chrome-extension"],[id*="chrome-extension"],[class*="grammarly"],[id*="grammarly"],[class*="lastpass"],[id*="lastpass"],[class*="honey"],[id*="honey"],[class*="extension"],.cps-noprint').forEach(n=>n.remove());
     clone.querySelectorAll('iframe,object,embed').forEach(n=>n.remove());
     return clone;
   };
@@ -414,12 +414,26 @@ ${PRINT_CLEANUP_CSS}
         </div>
 
         {/* Project info */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
-          {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]].map(([lbl, val, key]) => (
-            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 16 }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+          {[["PROJECT:", project.name, "name"], ["CLIENT:", project.client, "client"], ["START:", project.startDate, "startDate"], ["DELIVERY:", project.deliveryDate, "deliveryDate"], ["PRODUCER:", project.producer, "producer"]]
+            .filter(([, , key]) => !(project.hiddenFields || []).includes(key))
+            .map(([lbl, val, key]) => (
+            <div key={key} style={{ display: "flex", gap: 4, alignItems: "baseline", flex: 1, minWidth: _fitMobile ? "45%" : "auto", marginRight: 16, position: "relative" }}>
               <span style={{ fontFamily: CPS_F, fontSize: 9, fontWeight: 700, letterSpacing: CPS_LS }}>{lbl}</span>
               <CpsCell value={val} onChange={v => setProject(p => ({ ...p, [key]: v }))} />
+              {["startDate", "deliveryDate", "producer"].includes(key) && (
+                <span className="cps-noprint" onClick={() => setProject(p => ({ ...p, hiddenFields: [...(p.hiddenFields || []), key] }))}
+                  title="Remove field" style={{ fontFamily: CPS_F, fontSize: 10, color: "#ccc", cursor: "pointer", lineHeight: 1 }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#d32f2f"} onMouseLeave={e => e.currentTarget.style.color = "#ccc"}>×</span>
+              )}
             </div>
+          ))}
+          {["startDate", "deliveryDate", "producer"].filter(key => (project.hiddenFields || []).includes(key)).map(key => (
+            <span key={key} className="cps-noprint" onClick={() => setProject(p => ({ ...p, hiddenFields: (p.hiddenFields || []).filter(k => k !== key) }))}
+              style={{ fontFamily: CPS_F, fontSize: 8, fontWeight: 700, letterSpacing: CPS_LS, color: "#999", cursor: "pointer", border: "1px dashed #ddd", borderRadius: 4, padding: "3px 8px" }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#333"; e.currentTarget.style.borderColor = "#999"; }} onMouseLeave={e => { e.currentTarget.style.color = "#999"; e.currentTarget.style.borderColor = "#ddd"; }}>
+              + {key === "startDate" ? "START" : key === "deliveryDate" ? "DELIVERY" : "PRODUCER"}
+            </span>
           ))}
         </div>
 
