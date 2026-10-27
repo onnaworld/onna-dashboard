@@ -416,14 +416,14 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
           { label: multiPhase ? "ESTIMATE TOTAL" : "TOTAL", value: r2v(pt.totalIncVat) },
         ] : [
-          { label: multiPhase ? "ESTIMATE TOTAL" : "TOTAL", value: r2v(pt.totalIncVat) },
+          { label: multiPhase ? "ESTIMATE TOTAL" : "TOTAL", value: r2v(pt.grandTotal) },
         ],
       });
     });
-    if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL ESTIMATES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL", value: r2v(combined.totalIncVat) }] });
+    if (multiPhase) topSheetBlocks.push({ title: "COMBINED GRAND TOTAL (ALL ESTIMATES)", columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label:"TOTAL", value: r2v((showVat ? combined.totalIncVat : combined.grandTotal)) }] });
     const pctMatch = (ts.payment || "").match(/(\d+)%/);
     const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-    if (showAdvance && advPct > 0) topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v(combined.totalIncVat * (advPct/100)) }] });
+    if (showAdvance && advPct > 0) topSheetBlocks.push({ title: `ADVANCE PAYMENT (${advPct}%)`, columns: [{key:"label",label:""},{key:"value",label:"Amount",align:"right"}], rows: [{ label: baseCurrency, value: r2v((showVat ? combined.totalIncVat : combined.grandTotal) * (advPct/100)) }] });
     if (ts.notes) topSheetBlocks.push({ title: "NOTES", columns: [{key:"text",label:"Notes"}], rows: [{ isNote:true, text: ts.notes }] });
 
     // ── Estimate (full line items — same as before) ──
@@ -462,7 +462,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           { label: `VAT (${pt.vatPct}%)`, value: r2v(pt.vat) },
           { label: multiPhase ? "ESTIMATE TOTAL" : "TOTAL", value: r2v(pt.totalIncVat) },
         ] : [
-          { label: multiPhase ? "ESTIMATE TOTAL" : "TOTAL", value: r2v(pt.totalIncVat) },
+          { label: multiPhase ? "ESTIMATE TOTAL" : "TOTAL", value: r2v(pt.grandTotal) },
         ],
       });
     });
@@ -690,8 +690,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                 </div>}
                 <div style={{display:"flex",borderTop:showVat?"none":"2px solid #000",borderBottom:"2px solid #000"}}>
                   <div style={{flex:1,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{multiPhase ? "ESTIMATE TOTAL" : "TOTAL"}</div>
-                  <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat)}</div>
-                  {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(pt.totalIncVat*xRate)}</div>}
+                  <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(showVat ? pt.totalIncVat : pt.grandTotal)}</div>
+                  {showCurrency2 && <div style={{width:_narrow?70:100,padding:"4px 6px",fontFamily:EST_F,fontSize:_narrow?9:10,fontWeight:700,textAlign:"right",letterSpacing:EST_LS}}>{estFmt((showVat ? pt.totalIncVat : pt.grandTotal)*xRate)}</div>}
                 </div>
               </div>
             </div>
@@ -702,8 +702,8 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
             <div style={{borderTop:"3px double #000",marginTop:4}}>
               <div style={{display:"flex",borderBottom:"2px solid #000"}}>
                 <div style={{flex:1,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>COMBINED GRAND TOTAL (ALL ESTIMATES)</div>
-                <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(combined.totalIncVat)}</div>
-                {showCurrency2 && <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(combined.totalIncVat*xRate)}</div>}
+                <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt(showVat ? combined.totalIncVat : combined.grandTotal)}</div>
+                {showCurrency2 && <div style={{width:_narrow?70:100,padding:"5px 6px",fontFamily:EST_F,fontSize:_narrow?10:11,fontWeight:800,textAlign:"right",letterSpacing:EST_LS}}>{estFmt((showVat ? combined.totalIncVat : combined.grandTotal)*xRate)}</div>}
               </div>
             </div>
           )}
@@ -711,7 +711,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           {(() => {
             const pctMatch = (ts.payment || "").match(/(\d+)%/);
             const advPct = pctMatch ? parseInt(pctMatch[1]) : 75;
-            const totalIncVat = combined.totalIncVat;
+            const totalIncVat = showVat ? combined.totalIncVat : combined.grandTotal;
             if (!showAdvance || advPct <= 0) return null;
             return (
               <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:8}}>
@@ -857,7 +857,7 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
                   {showVat && <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:"1px solid #eee"}}>
                     <span>VAT ({phase.vatPct}%)</span><span>{baseCurrency} {estFmt(pt.vat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.vat*xRate)}</span>}</div>}
                   <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontFamily:EST_F,fontSize:10,fontWeight:700,letterSpacing:EST_LS,borderTop:showVat?"2px solid #000":"none"}}>
-                    <span>{multiPhase ? "ESTIMATE TOTAL" : "TOTAL"}</span><span>{baseCurrency} {estFmt(pt.totalIncVat)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt(pt.totalIncVat*xRate)}</span>}</div>
+                    <span>{multiPhase ? "ESTIMATE TOTAL" : "TOTAL"}</span><span>{baseCurrency} {estFmt(showVat ? pt.totalIncVat : pt.grandTotal)}</span>{showCurrency2 && <span style={{width:110,textAlign:"right"}}>{secondCurrency} {estFmt((showVat ? pt.totalIncVat : pt.grandTotal)*xRate)}</span>}</div>
                 </div>
               </div>
               <div style={{marginTop:10}} data-noprint={phase.notes ? undefined : "1"}>
