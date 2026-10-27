@@ -34,7 +34,11 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
   const [showCurrency2, setShowCurrency2] = useState(() => estData.showCurrency2 !== false);
   const [showRateLine, setShowRateLine] = useState(() => estData.showRateLine !== false);
   const [showAdvance, setShowAdvance] = useState(() => estData.showAdvance !== false);
-  const [showVat, setShowVat] = useState(() => estData.showVat !== false);
+  // VAT can never be hidden — it was possible to toggle it off while the
+  // TOTAL figure kept silently including it anyway, charging VAT with no
+  // visible line explaining it. Always true now, regardless of any stored
+  // showVat value from before this was locked down.
+  const showVat = true;
   const baseCurr = EST_CURRENCIES.find(c => c.code === baseCurrency) || EST_CURRENCIES[0];
   const customRateKey = `${baseCurrency}_${secondCurrency}`;
   const xRate = (estData.customRates && estData.customRates[customRateKey] != null) ? estData.customRates[customRateKey] : (baseCurr.rates[secondCurrency] || exchangeRate);
@@ -610,13 +614,6 @@ function EstimateView({ estData, onSet: _rawOnSet, exchangeRate = 0.27, pendingR
           <div onClick={() => { const next = !showAdvance; setShowAdvance(next); onSet(d => ({...d, showAdvance: next})); }}
             style={{ width:28, height:16, borderRadius:8, background:showAdvance?"#1a1a1a":"#ddd", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
             <div style={{ position:"absolute", top:2, left:showAdvance?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
-          </div>
-        </div>
-        <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
-          <span style={{ fontFamily:EST_F, fontSize:8, fontWeight:700, letterSpacing:EST_LS, color:"#999", textTransform:"uppercase" }}>VAT</span>
-          <div onClick={() => { const next = !showVat; setShowVat(next); onSet(d => ({...d, showVat: next})); }}
-            style={{ width:28, height:16, borderRadius:8, background:showVat?"#1a1a1a":"#ddd", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
-            <div style={{ position:"absolute", top:2, left:showVat?12:2, width:12, height:12, borderRadius:6, background:"#fff", transition:"left 0.2s" }} />
           </div>
         </div>
         <div style={{ marginLeft:8, display:"flex", alignItems:"center", gap:6, borderLeft:"1px solid #eee", paddingLeft:12 }}>
