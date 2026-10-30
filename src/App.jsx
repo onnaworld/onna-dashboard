@@ -879,13 +879,13 @@ function OnnaDashboardInner() {
           if (gd.notes_list && Array.isArray(gd.notes_list)) hydrateDashNotes(gd.notes_list);
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
-          if (gd.user_config && gd.user_config.billie_rates) setBillieRateCards(gd.user_config.billie_rates);
-          if (gd.user_config && gd.user_config.invoice_documents) setInvoiceStore(gd.user_config.invoice_documents);
-          if (gd.user_config && gd.user_config.invoice_senders) setSenderProfiles(gd.user_config.invoice_senders);
-          if (gd.user_config && gd.user_config.activity_log) setActivityLog(gd.user_config.activity_log);
-          if (gd.user_config && Array.isArray(gd.user_config.template_files)) setTemplateFiles(gd.user_config.template_files);
-          if (gd.user_config && gd.user_config.reminders) setReminders(gd.user_config.reminders);
-          if (gd.user_config && gd.user_config.notifications) setNotifications(gd.user_config.notifications);
+          if (gd.user_config && gd.user_config.billie_rates && gd.user_config.billie_rates.length) setBillieRateCards(gd.user_config.billie_rates);
+          if (gd.user_config && gd.user_config.invoice_documents && gd.user_config.invoice_documents.length) setInvoiceStore(gd.user_config.invoice_documents);
+          if (gd.user_config && gd.user_config.invoice_senders && gd.user_config.invoice_senders.length) setSenderProfiles(gd.user_config.invoice_senders);
+          if (gd.user_config && gd.user_config.activity_log && gd.user_config.activity_log.length) setActivityLog(gd.user_config.activity_log);
+          if (gd.user_config && Array.isArray(gd.user_config.template_files) && gd.user_config.template_files.length) setTemplateFiles(gd.user_config.template_files);
+          if (gd.user_config && gd.user_config.reminders && gd.user_config.reminders.length) setReminders(gd.user_config.reminders);
+          if (gd.user_config && gd.user_config.notifications && gd.user_config.notifications.length) setNotifications(gd.user_config.notifications);
           if (gd.user_config) {
             if (gd.user_config.onna_lead_cats) setCustomLeadCats(gd.user_config.onna_lead_cats);
             if (gd.user_config.onna_custom_locations) setCustomLocations(gd.user_config.onna_custom_locations);
