@@ -30,6 +30,22 @@ const nextInvoiceNumber = (store) => {
   return `INV-${pad4(max + 1)}`;
 };
 
+// Derives the due date from the invoice date + payment terms (e.g. "NET 30
+// days" -> date+30, "Due on Receipt" -> same day). Returns "" when the terms
+// don't contain a recognisable number of days, leaving dueDate untouched so
+// a fully custom terms string never clobbers a manually-set due date.
+const computeDueDate = (dateStr, terms) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  const t = (terms || "").toLowerCase();
+  if (t.includes("receipt")) return dateStr;
+  const m = t.match(/(\d+)/);
+  if (!m) return "";
+  d.setDate(d.getDate() + parseInt(m[1], 10));
+  return d.toISOString().slice(0, 10);
+};
+
 // `sender` (a saved sender profile) is applied as the invoice's default "From" so the
 // user's company name, address, and bank details carry over instead of being re-entered
 // on every new invoice. Falls back to the hardcoded ONNA_FROM when no sender is saved yet.
@@ -38,7 +54,7 @@ const blankInvoice = (store, sender) => ({
   number: nextInvoiceNumber(store),
   status: "Draft",
   date: new Date().toISOString().slice(0, 10),
-  dueDate: "",
+  dueDate: computeDueDate(new Date().toISOString().slice(0, 10), "NET 30 days"),
   currency: "AED",
   project: "",
   logo: null,
@@ -162,6 +178,12 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
       o = o[keys[i]];
     }
     o[keys[keys.length - 1]] = val;
+    // Keep dueDate in sync with date/payment terms — e.g. switching to
+    // "NET 30 days" or changing the invoice date recalculates it automatically.
+    if (path === "date" || path === "paymentTerms") {
+      const due = computeDueDate(inv.date, inv.paymentTerms);
+      if (due) inv.dueDate = due;
+    }
     return inv;
   });
 
@@ -188,7 +210,7 @@ export default function InvoiceGenerator({ T, isMobile, invoiceStore, setInvoice
     dup.number = nextInvoiceNumber(store);
     dup.status = "Draft";
     dup.date = new Date().toISOString().slice(0, 10);
-    dup.dueDate = "";
+    dup.dueDate = computeDueDate(dup.date, dup.paymentTerms) || "";
     setInvoiceStore((prev) => [...(prev || []), dup]);
     setActiveId(dup.id);
   };
