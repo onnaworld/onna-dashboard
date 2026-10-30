@@ -9,7 +9,7 @@ const blankBank = () => ({ bankName: "", accountName: "", accountNumber: "", rou
 
 const ONNA_FROM = {
   name: "ONNA FILM, TV & RADIO PRODUCTION SERVICES LLC",
-  address: "OFFICE NO. F1-022,\nPROPERTY INVESTMENT OFFICE 4-F1\nDUBAI, UNITED ARAB EMIRATES",
+  address: "Iris Bay - 2205\nBusiness Bay\nDubai\nUnited Arab Emirates\nTRN: 105161036600003",
   email: "accounts@onnaproduction.com",
   phone: "",
   bank: blankBank(),
