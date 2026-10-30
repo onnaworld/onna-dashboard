@@ -456,7 +456,7 @@ function OnnaDashboardInner() {
 
   // ── Activity Log state ───────────────────────────────────────────────────
   const [activityLog,setActivityLog] = useState(()=>{try{const s=localStorage.getItem('onna_activity_log');return s?JSON.parse(s):[];}catch{return [];}});
-  useEffect(()=>{try{localStorage.setItem('onna_activity_log',JSON.stringify(activityLog));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('activity_log',activityLog);},[activityLog]);
+  useEffect(()=>{try{localStorage.setItem('onna_activity_log',JSON.stringify(activityLog));}catch{} if(globalHydratedRef.current) debouncedConfigSave('activity_log',activityLog);},[activityLog]);
   const doLogActivity = useCallback((action, entityType, entityId, entityName, details) => {
     logActivity(action, entityType, entityId, entityName, details, setActivityLog);
   }, []);
@@ -464,8 +464,8 @@ function OnnaDashboardInner() {
   // ── Reminders & Notifications state ─────────────────────────────────────
   const [reminders,setReminders] = useState(()=>{try{const s=localStorage.getItem('onna_reminders');return s?JSON.parse(s):[];}catch{return [];}});
   const [notifications,setNotifications] = useState(()=>{try{const s=localStorage.getItem('onna_notifications');return s?JSON.parse(s):[];}catch{return [];}});
-  useEffect(()=>{try{localStorage.setItem('onna_reminders',JSON.stringify(reminders));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('reminders',reminders);},[reminders]);
-  useEffect(()=>{try{localStorage.setItem('onna_notifications',JSON.stringify(notifications));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('notifications',notifications);},[notifications]);
+  useEffect(()=>{try{localStorage.setItem('onna_reminders',JSON.stringify(reminders));}catch{} if(globalHydratedRef.current) debouncedConfigSave('reminders',reminders);},[reminders]);
+  useEffect(()=>{try{localStorage.setItem('onna_notifications',JSON.stringify(notifications));}catch{} if(globalHydratedRef.current) debouncedConfigSave('notifications',notifications);},[notifications]);
   // Check due reminders every 5 minutes
   useEffect(()=>{
     if(!authed)return;
@@ -550,7 +550,7 @@ function OnnaDashboardInner() {
 
   // ── Template files (project folder) ──
   const [templateFiles,setTemplateFiles] = useState(()=>{try{return JSON.parse(localStorage.getItem('onna_template_files')||'[]');}catch{return [];}});
-  useEffect(()=>{try{localStorage.setItem('onna_template_files',JSON.stringify(templateFiles));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('template_files',templateFiles);},[templateFiles]);
+  useEffect(()=>{try{localStorage.setItem('onna_template_files',JSON.stringify(templateFiles));}catch{} if(globalHydratedRef.current) debouncedConfigSave('template_files',templateFiles);},[templateFiles]);
 
   const [archive,setArchive]                 = useState(()=>{try{const raw=JSON.parse(localStorage.getItem('onna_archive')||'[]');const cutoff=Date.now()-30*24*60*60*1000;const filtered=raw.filter(e=>new Date(e.deletedAt).getTime()>cutoff);if(filtered.length!==raw.length)try{localStorage.setItem('onna_archive',JSON.stringify(filtered));}catch{}return filtered;}catch{return []}});
   const [newProject,setNewProject]           = useState({client:"",name:"",revenue:"",cost:"",status:"Proposal",year:new Date().getFullYear(),month:new Date().getMonth()+1,startDate:"",endDate:""});
@@ -593,9 +593,9 @@ function OnnaDashboardInner() {
   }, [performUndo,activeTab]);
   const addTodoFromInput = (text) => _addTodoFromInput(text, todoTopFilter, todoFilter, pushUndo, setProjectTodos, setPendingProjectTask, setTodos);
   useEffect(()=>{try{localStorage.setItem('onna_archived_projects',JSON.stringify(archivedProjects))}catch{} if(globalHydratedRef.current) debouncedGlobalSave('archive',archivedProjects);},[archivedProjects]);
-  useEffect(()=>{try{localStorage.setItem('onna_billie_rates',JSON.stringify(billieRateCards));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('billie_rates',billieRateCards);},[billieRateCards]);
-  useEffect(()=>{try{localStorage.setItem('onna_invoices',JSON.stringify(invoiceStore));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoice_documents',invoiceStore);},[invoiceStore]);
-  useEffect(()=>{try{localStorage.setItem('onna_invoice_senders',JSON.stringify(senderProfiles));}catch{} if(globalHydratedRef.current) debouncedGlobalSave('invoice_senders',senderProfiles);},[senderProfiles]);
+  useEffect(()=>{try{localStorage.setItem('onna_billie_rates',JSON.stringify(billieRateCards));}catch{} if(globalHydratedRef.current) debouncedConfigSave('billie_rates',billieRateCards);},[billieRateCards]);
+  useEffect(()=>{try{localStorage.setItem('onna_invoices',JSON.stringify(invoiceStore));}catch{} if(globalHydratedRef.current) debouncedConfigSave('invoice_documents',invoiceStore);},[invoiceStore]);
+  useEffect(()=>{try{localStorage.setItem('onna_invoice_senders',JSON.stringify(senderProfiles));}catch{} if(globalHydratedRef.current) debouncedConfigSave('invoice_senders',senderProfiles);},[senderProfiles]);
   useEffect(()=>{try{localStorage.setItem('onna_cache_clients',JSON.stringify(localClients));}catch{}},[localClients]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d){seedDocSaveSnapshot('project_actuals',d);setProjectActuals(d);}setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
@@ -879,13 +879,13 @@ function OnnaDashboardInner() {
           if (gd.notes_list && Array.isArray(gd.notes_list)) hydrateDashNotes(gd.notes_list);
           if (gd.archive) setArchive(gd.archive);
           if (gd.sops) setSops(gd.sops);
-          if (gd.billie_rates) setBillieRateCards(gd.billie_rates);
-          if (gd.invoice_documents) setInvoiceStore(gd.invoice_documents);
-          if (gd.invoice_senders) setSenderProfiles(gd.invoice_senders);
-          if (gd.activity_log) setActivityLog(gd.activity_log);
-          if (gd.template_files && Array.isArray(gd.template_files)) setTemplateFiles(gd.template_files);
-          if (gd.reminders) setReminders(gd.reminders);
-          if (gd.notifications) setNotifications(gd.notifications);
+          if (gd.user_config && gd.user_config.billie_rates) setBillieRateCards(gd.user_config.billie_rates);
+          if (gd.user_config && gd.user_config.invoice_documents) setInvoiceStore(gd.user_config.invoice_documents);
+          if (gd.user_config && gd.user_config.invoice_senders) setSenderProfiles(gd.user_config.invoice_senders);
+          if (gd.user_config && gd.user_config.activity_log) setActivityLog(gd.user_config.activity_log);
+          if (gd.user_config && Array.isArray(gd.user_config.template_files)) setTemplateFiles(gd.user_config.template_files);
+          if (gd.user_config && gd.user_config.reminders) setReminders(gd.user_config.reminders);
+          if (gd.user_config && gd.user_config.notifications) setNotifications(gd.user_config.notifications);
           if (gd.user_config) {
             if (gd.user_config.onna_lead_cats) setCustomLeadCats(gd.user_config.onna_lead_cats);
             if (gd.user_config.onna_custom_locations) setCustomLocations(gd.user_config.onna_custom_locations);
