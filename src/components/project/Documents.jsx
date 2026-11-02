@@ -622,8 +622,16 @@ export default function Documents({
     </>);
     const _sec_invoicing = (<>
 {/* INVOICING */}
+            {csData.hideInvoicing ? (
+              <div style={{padding:"8px 32px"}}>
+                <button data-noprint="1" onClick={()=>csU("hideInvoicing",false)} style={{background:"none",border:"1px dashed #ddd",borderRadius:4,fontSize:9,color:"#999",cursor:"pointer",padding:"3px 10px",fontFamily:"inherit"}}>+ Add Billing / Invoicing</button>
+              </div>
+            ) : (
             <div style={{padding:"14px 32px"}}>
-              <div style={csSecTitle}>INVOICING</div>
+              <div style={{...csSecTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>INVOICING</span>
+                <button data-noprint="1" onClick={()=>csU("hideInvoicing",true)} style={{background:"none",border:"1px solid #eee",borderRadius:4,fontSize:8,color:"#bbb",cursor:"pointer",padding:"2px 6px",whiteSpace:"nowrap",fontFamily:"inherit",textTransform:"none",letterSpacing:0}} onMouseEnter={e=>{e.currentTarget.style.color="#d32f2f";e.currentTarget.style.borderColor="#f5c6cb";}} onMouseLeave={e=>{e.currentTarget.style.color="#bbb";e.currentTarget.style.borderColor="#eee";}}>Remove</button>
+              </div>
               <div style={{fontSize:11,marginBottom:8}}>
                 Please note that payment terms are <strong><CSEditField value={csData.invoicing.terms} onChange={v=>csU("invoicing.terms",v)} bold style={{fontSize:11}}/></strong> from the date of invoice.
               </div>
@@ -642,6 +650,7 @@ export default function Documents({
                 )}
               </div>
             </div>
+            )}
     </>);
     const _sec_protocol = (<>
 {/* PROTOCOL */}
@@ -776,6 +785,7 @@ export default function Documents({
         return blocks;
       }
       if (key === "invoicing") {
+        if (csData.hideInvoicing) return [];
         const rows = [
           {label:"Payment Terms",value:csData.invoicing?.terms||""},
           {label:csData.invoicing?.crewLabel||"For Crew",value:""},
