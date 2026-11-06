@@ -596,36 +596,6 @@ function OnnaDashboardInner() {
   useEffect(()=>{try{localStorage.setItem('onna_billie_rates',JSON.stringify(billieRateCards));}catch{} if(globalHydratedRef.current) debouncedConfigSave('billie_rates',billieRateCards);},[billieRateCards]);
   useEffect(()=>{try{localStorage.setItem('onna_invoices',JSON.stringify(invoiceStore));}catch{} if(globalHydratedRef.current) debouncedConfigSave('invoice_documents',invoiceStore);},[invoiceStore]);
   useEffect(()=>{try{localStorage.setItem('onna_invoice_senders',JSON.stringify(senderProfiles));}catch{} if(globalHydratedRef.current) debouncedConfigSave('invoice_senders',senderProfiles);},[senderProfiles]);
-  // One-time seed: add the "Onna Production LLC" (US entity) sender profile
-  // with its Bank of America wire details, if it isn't already saved.
-  const onnaProductionLlcSenderAddedRef = useRef(false);
-  useEffect(()=>{
-    if (onnaProductionLlcSenderAddedRef.current) return;
-    if (localStorage.getItem('onna_production_llc_sender_added_v1')) return;
-    onnaProductionLlcSenderAddedRef.current = true;
-    const exists = (senderProfiles || []).some(s => (s.name || '').trim().toLowerCase() === 'onna production llc');
-    if (exists) { localStorage.setItem('onna_production_llc_sender_added_v1', String(Date.now())); return; }
-    const profile = {
-      id: Date.now(),
-      nickname: 'Onna Production LLC (US)',
-      name: 'Onna Production LLC',
-      address: '',
-      email: 'hello@onnaproduction.com',
-      phone: '+1 (347) 242 7522',
-      bank: {
-        bankName: 'Bank of America, N.A.',
-        accountName: 'Onna Production LLC',
-        accountNumber: '483116867563',
-        routingNumber: 'Wire/ABA: 026009593  |  ACH/Paper: 021000322',
-        iban: '',
-        swift: 'USD wires — SWIFT/BIC: BOFAUS3N',
-        otherDetails: 'Bank address: 222 Broadway, New York, NY 10038, USA.\nForeign-currency wires — SWIFT/BIC: BOFAUS6S (Bank of America, N.A., 555 California St, San Francisco, CA 94104).',
-      },
-      isDefault: !(senderProfiles || []).length,
-    };
-    setSenderProfiles(prev => [...(prev || []), profile]);
-    localStorage.setItem('onna_production_llc_sender_added_v1', String(Date.now()));
-  },[senderProfiles]);
   useEffect(()=>{try{localStorage.setItem('onna_cache_clients',JSON.stringify(localClients));}catch{}},[localClients]);
   useEffect(()=>{idbGet("projectActuals").then(d=>{if(d){seedDocSaveSnapshot('project_actuals',d);setProjectActuals(d);}setActualsReady(true);}).catch(()=>setActualsReady(true));},[]);
   useEffect(()=>{if(actualsReady){idbSet("projectActuals",projectActuals).catch(()=>{}); debouncedDocSave('project_actuals',projectActuals);}},[projectActuals,actualsReady]);
@@ -911,7 +881,39 @@ function OnnaDashboardInner() {
           if (gd.sops) setSops(gd.sops);
           if (gd.user_config && gd.user_config.billie_rates && gd.user_config.billie_rates.length) setBillieRateCards(gd.user_config.billie_rates);
           if (gd.user_config && gd.user_config.invoice_documents && gd.user_config.invoice_documents.length) setInvoiceStore(gd.user_config.invoice_documents);
-          if (gd.user_config && gd.user_config.invoice_senders && gd.user_config.invoice_senders.length) setSenderProfiles(gd.user_config.invoice_senders);
+          {
+            // Hydrate senders from the server, then ensure the "Onna
+            // Production LLC" (US entity) sender exists. Done here, inside
+            // the hydration flow itself, rather than as a separate effect —
+            // a separate effect raced this hydration fetch, added the
+            // profile, then got overwritten by this exact line moments
+            // later when the server's (older) list landed.
+            const serverSenders = (gd.user_config && Array.isArray(gd.user_config.invoice_senders)) ? gd.user_config.invoice_senders : [];
+            const hasOnnaLlc = serverSenders.some(s => (s?.name || '').trim().toLowerCase() === 'onna production llc');
+            if (hasOnnaLlc) {
+              setSenderProfiles(serverSenders);
+            } else {
+              const onnaLlcProfile = {
+                id: Date.now(),
+                nickname: 'Onna Production LLC (US)',
+                name: 'Onna Production LLC',
+                address: '',
+                email: 'hello@onnaproduction.com',
+                phone: '+1 (347) 242 7522',
+                bank: {
+                  bankName: 'Bank of America, N.A.',
+                  accountName: 'Onna Production LLC',
+                  accountNumber: '483116867563',
+                  routingNumber: 'Wire/ABA: 026009593  |  ACH/Paper: 021000322',
+                  iban: '',
+                  swift: 'USD wires — SWIFT/BIC: BOFAUS3N',
+                  otherDetails: 'Bank address: 222 Broadway, New York, NY 10038, USA.\nForeign-currency wires — SWIFT/BIC: BOFAUS6S (Bank of America, N.A., 555 California St, San Francisco, CA 94104).',
+                },
+                isDefault: !serverSenders.length,
+              };
+              setSenderProfiles([...serverSenders, onnaLlcProfile]);
+            }
+          }
           if (gd.user_config && gd.user_config.activity_log && gd.user_config.activity_log.length) setActivityLog(gd.user_config.activity_log);
           if (gd.user_config && Array.isArray(gd.user_config.template_files) && gd.user_config.template_files.length) setTemplateFiles(gd.user_config.template_files);
           if (gd.user_config && gd.user_config.reminders && gd.user_config.reminders.length) setReminders(gd.user_config.reminders);
