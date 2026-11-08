@@ -22,7 +22,11 @@ export const idbSet=async(key,val)=>{const db=await idbOpen();return new Promise
 // ─── PDF PAGE LOADER (pdf.js from CDN) ──────────────────────────────────────
 let _pdfjs=null;
 export const ensurePdfJs=()=>{if(_pdfjs)return Promise.resolve(_pdfjs);return new Promise((res,rej)=>{if(window.pdfjsLib){_pdfjs=window.pdfjsLib;return res(_pdfjs);}const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";_pdfjs=window.pdfjsLib;res(_pdfjs);};s.onerror=()=>rej(new Error("Failed to load pdf.js"));document.head.appendChild(s);});};
-export const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=atob(dataUrl.split(",")[1]);const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);const doc=await pdfjs.getDocument({data:arr}).promise;const pages=[];for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i);const vp=pg.getViewport({scale:1.2});const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;pages.push(c.toDataURL("image/jpeg",0.6));}return pages;};
+// scale:2 (was 1.2) for sharp rasterization, PNG/lossless (was JPEG at 0.6
+// quality) since these are text-heavy documents (contracts) re-exported
+// after a signature/stamp is composited on top — JPEG compression at low
+// quality was the main source of visible blur on signed/stamped exports.
+export const loadPdfPages=async(dataUrl)=>{const pdfjs=await ensurePdfJs();const raw=atob(dataUrl.split(",")[1]);const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);const doc=await pdfjs.getDocument({data:arr}).promise;const pages=[];for(let i=1;i<=doc.numPages;i++){const pg=await doc.getPage(i);const vp=pg.getViewport({scale:2});const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;pages.push(c.toDataURL("image/png"));}return pages;};
 
 // ─── DOCX PAGE LOADER (mammoth.js from CDN) ─────────────────────────────────
 let _mammoth=null;
@@ -197,13 +201,27 @@ export const renderHtmlToDocPages = async (htmlContent, docName) => {
 };
 
 // ─── Export doc preview pages to print/PDF ──────────────────────────────────
+// Browsers default the "Save as PDF" filename to document.title — set it to
+// the original uploaded document's name (extension stripped, browser adds
+// .pdf) prefixed with "SIGNED_", so the exported file is clearly identifiable
+// and keeps the source name rather than a generic page title.
+const _docExportFilename=(originalDoc)=>{
+  const raw=(originalDoc&&originalDoc.name)||"Document";
+  const noExt=raw.replace(/\.[^./\\]+$/,"");
+  const safe=noExt.trim().replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g,"_");
+  return `SIGNED_${safe||"Document"}`;
+};
 export const exportDocPreview=(preview,originalDoc,pageIndex)=>{
   const pages=pageIndex!=null?[preview.pages[pageIndex]]:preview.pages;
+  const docTitle=_docExportFilename(originalDoc);
   const doExport=(orient)=>{
     const iframe=document.createElement("iframe");iframe.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:-9999;opacity:0;";document.body.appendChild(iframe);
     const idoc=iframe.contentDocument||iframe.contentWindow.document;
     const pw=orient==="landscape"?"297mm":"210mm",ph=orient==="landscape"?"210mm":"297mm";
-    idoc.open();idoc.write(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}@page{margin:0;size:${pw} ${ph};}html,body{width:100%;height:100%;}div{width:100%;height:100%;padding:10mm 12mm;display:flex;align-items:flex-start;justify-content:center;page-break-after:always;page-break-inside:avoid;overflow:hidden;}div:last-child{page-break-after:auto;}img{max-width:100%;max-height:100%;object-fit:contain;display:block;}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+    idoc.open();idoc.write(`<!DOCTYPE html><html><head><title>${docTitle}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}@page{margin:0;size:${pw} ${ph};}html,body{width:100%;height:100%;}div{width:100%;height:100%;padding:10mm 12mm;display:flex;align-items:flex-start;justify-content:center;page-break-after:always;page-break-inside:avoid;overflow:hidden;}div:last-child{page-break-after:auto;}img{max-width:100%;max-height:100%;object-fit:contain;display:block;}</style></head><body>${pages.map(p=>`<div><img src="${p}"/></div>`).join("")}</body></html>`);idoc.close();
+    const prevTitle=document.title;document.title=docTitle;
+    const restoreTitle=()=>{document.title=prevTitle;window.removeEventListener("afterprint",restoreTitle);};
+    window.addEventListener("afterprint",restoreTitle);
     setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();setTimeout(()=>document.body.removeChild(iframe),1000);},400);
   };
   const srcPage=(originalDoc&&originalDoc.pages&&originalDoc.pages[pageIndex||0])||pages[0];
